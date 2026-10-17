@@ -141,6 +141,14 @@ pub struct BulkAdmission {
     /// Upper bound on the limit — what the operator asked for. `0` means the
     /// gate is off entirely (probes and one-shot clients).
     ceiling: usize,
+    /// How long `acquire` will wait for a slot before failing the bulk.
+    ///
+    /// A leaked permit (the holder never returned) used to park every later
+    /// bulk on `Condvar::wait` with no timeout. The field report's 56% stall
+    /// was a client with no open connections and a frozen progress line. The
+    /// budget matches the bulk HTTP timeout: a slot is only supposed to be
+    /// held for one request.
+    wait_budget: Duration,
     congestion_events: AtomicU64,
     /// Whether limit changes are announced on stderr. Off for `--quiet` and
     /// for clients that are not a user-visible run.
@@ -230,9 +238,17 @@ impl BulkAdmission {
             }),
             space: Condvar::new(),
             ceiling,
+            wait_budget: Duration::from_secs(300),
             congestion_events: AtomicU64::new(0),
             announce,
         }
+    }
+
+    /// Tests use a short budget. Production sets this from the bulk HTTP
+    /// timeout in `Es::with_bulk_concurrency`.
+    fn with_wait_budget(mut self, budget: Duration) -> Self {
+        self.wait_budget = budget;
+        self
     }
 
     fn enabled(&self) -> bool {
@@ -259,18 +275,65 @@ impl BulkAdmission {
     }
 
     /// Block until a bulk slot is free. Cheap and non-blocking when off.
-    fn acquire(&self) -> BulkPermit<'_> {
+    ///
+    /// The wait is sliced so a missed wakeup rechecks the condition, and it
+    /// fails once `wait_budget` elapses. A heartbeat goes to stderr while
+    /// the run is still waiting, on the same cadence the progress bar uses
+    /// for a person watching a pipe.
+    fn acquire(&self) -> Result<BulkPermit<'_>> {
         if !self.enabled() {
-            return BulkPermit { admission: None };
+            return Ok(BulkPermit { admission: None });
         }
+        const SLICE: Duration = Duration::from_secs(5);
+        const HEARTBEAT: Duration = Duration::from_secs(15);
+        let started = Instant::now();
+        let mut next_heartbeat = HEARTBEAT;
         let mut state = self.inner.lock().unwrap();
         while state.in_flight >= state.limit {
-            state = self.space.wait(state).unwrap();
+            let left = self.wait_budget.saturating_sub(started.elapsed());
+            if left.is_zero() {
+                anyhow::bail!(
+                    "autoindex: waited {}s for a bulk slot (in_flight={} limit={}). \
+                     A previous bulk did not return its slot, so this run stops \
+                     instead of hanging. Re-run the same command to resume.",
+                    started.elapsed().as_secs(),
+                    state.in_flight,
+                    state.limit
+                );
+            }
+            let (guard, _) = self
+                .space
+                .wait_timeout(state, SLICE.min(left))
+                .expect("bulk admission lock poisoned");
+            state = guard;
+            if state.in_flight < state.limit {
+                break;
+            }
+            let waited = started.elapsed();
+            if waited >= self.wait_budget {
+                anyhow::bail!(
+                    "autoindex: waited {}s for a bulk slot (in_flight={} limit={}). \
+                     A previous bulk did not return its slot, so this run stops \
+                     instead of hanging. Re-run the same command to resume.",
+                    waited.as_secs(),
+                    state.in_flight,
+                    state.limit
+                );
+            }
+            if self.announce && waited >= next_heartbeat {
+                eprintln!(
+                    "autoindex: still waiting for a bulk slot (in_flight={} limit={}) after {}s",
+                    state.in_flight,
+                    state.limit,
+                    waited.as_secs()
+                );
+                next_heartbeat += HEARTBEAT;
+            }
         }
         state.in_flight += 1;
-        BulkPermit {
+        Ok(BulkPermit {
             admission: Some(self),
-        }
+        })
     }
 
     /// The server said 429. Halve the offered load, once per event.
@@ -970,7 +1033,9 @@ impl Es {
     }
 
     pub fn with_bulk_concurrency(mut self, workers: usize, announce: bool) -> Self {
-        self.admission = Arc::new(BulkAdmission::new(workers.max(1), announce));
+        self.admission = Arc::new(
+            BulkAdmission::new(workers.max(1), announce).with_wait_budget(self.bulk_timeout),
+        );
         self
     }
 
@@ -1661,7 +1726,10 @@ impl Es {
             // Acquire the admission permit per HTTP attempt rather than across
             // the whole backoff loop (#1250), so throttled workers drop their
             // slot before sleeping and immediately obey a halved window limit.
-            let _permit = self.admission.acquire();
+            let _permit = match self.admission.acquire() {
+                Ok(permit) => permit,
+                Err(e) => return Attempt::Failed(e),
+            };
             let resp = match self.send_bulk(body.clone()) {
                 Ok(resp) => resp,
                 Err(e) => return Attempt::Failed(e),
@@ -3069,14 +3137,14 @@ mod tests {
     #[test]
     fn a_full_window_blocks_the_next_bulk_until_a_slot_frees() {
         let admission = Arc::new(super::BulkAdmission::new(2, false));
-        let first = admission.acquire();
-        let _second = admission.acquire();
+        let first = admission.acquire().unwrap();
+        let _second = admission.acquire().unwrap();
 
         let (tx, rx) = mpsc::channel();
         let waiter = {
             let admission = Arc::clone(&admission);
             std::thread::spawn(move || {
-                let _permit = admission.acquire();
+                let _permit = admission.acquire().unwrap();
                 tx.send(()).unwrap();
             })
         };
@@ -3087,6 +3155,43 @@ mod tests {
         drop(first);
         rx.recv_timeout(Duration::from_secs(5))
             .expect("freeing a slot must admit the waiting bulk");
+        waiter.join().unwrap();
+    }
+
+    /// A permit that is never returned used to park the next bulk forever
+    /// (`Condvar::wait` with no timeout). The 56% autoindex stall was a
+    /// client with no open connections and a frozen bar. The wait now fails
+    /// and names the resume.
+    #[test]
+    fn a_leaked_bulk_slot_fails_the_next_acquire_instead_of_hanging() {
+        let admission = Arc::new(
+            super::BulkAdmission::new(1, false).with_wait_budget(Duration::from_millis(80)),
+        );
+        let held = admission.acquire().unwrap();
+        // Drop must not run: that is the leak.
+        std::mem::forget(held);
+
+        let (tx, rx) = mpsc::channel();
+        let waiter = {
+            let admission = Arc::clone(&admission);
+            std::thread::spawn(move || {
+                let message = match admission.acquire() {
+                    Err(err) => format!("{err:#}"),
+                    Ok(_) => "acquired a slot that was leaked".to_string(),
+                };
+                tx.send(message).unwrap();
+            })
+        };
+        let message = rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("a leaked slot must fail the waiter within the budget, not hang");
+        assert!(message.contains("bulk slot"), "{message}");
+        assert!(message.contains("in_flight=1"), "{message}");
+        assert!(message.contains("limit=1"), "{message}");
+        assert!(
+            message.contains("Re-run the same command to resume"),
+            "{message}"
+        );
         waiter.join().unwrap();
     }
 
@@ -3108,8 +3213,8 @@ mod tests {
     fn the_window_is_off_unless_a_run_asks_for_one() {
         let admission = super::BulkAdmission::off();
         assert_eq!(admission.limit(), 0);
-        let _a = admission.acquire();
-        let _b = admission.acquire();
+        let _a = admission.acquire().unwrap();
+        let _b = admission.acquire().unwrap();
         admission.on_congestion();
         assert_eq!(admission.congestion_events(), 0);
     }
