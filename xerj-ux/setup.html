@@ -169,7 +169,20 @@ let enrollmentSession = null;
     if (enrollmentSession.role) $rolePill.textContent = enrollmentSession.role;
     if (enrollmentSession.email) $email.value = enrollmentSession.email;
   } catch (e) {
-    showError('Could not redeem link: ' + e.message);
+    const msg = String((e && e.message) || e);
+    // A bootstrap link lasts 30 minutes and is single-use. The banner on
+    // boot says to restart the node for a fresh one, and that is only true
+    // while nobody has claimed the owner account. An existing owner signs
+    // in at the login page. Other redeem failures keep the raw reason.
+    if (/invalid or expired/i.test(msg)) {
+      showError(
+        'This link is invalid or expired. A bootstrap link lasts 30 minutes and works once. ' +
+        'If nobody has claimed the owner account, restart the node: a new link is printed on boot. ' +
+        'If an owner already exists, sign in at /_xerj-console/login.'
+      );
+    } else {
+      showError('Could not redeem link: ' + msg);
+    }
     $btnEnrol.disabled = true;
   }
 })();

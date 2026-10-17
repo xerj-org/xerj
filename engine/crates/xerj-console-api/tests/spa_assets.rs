@@ -57,6 +57,14 @@ async fn setup_html_is_bundled_and_served() {
         body.contains("token") && body.contains("redeemMagic"),
         "setup page must include the magic-link consumption logic"
     );
+    assert!(
+        body.contains("a new link is printed on boot"),
+        "an expired link must say that a restart prints a new one: {body}"
+    );
+    assert!(
+        body.contains("/_xerj-console/login"),
+        "an expired link must point an existing owner at login"
+    );
 }
 
 #[tokio::test]
