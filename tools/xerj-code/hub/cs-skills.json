@@ -1,0 +1,21 @@
+{
+  "corpus": "cs-skills",
+  "cloned_at": "2026-10-16T00:29:11Z",
+  "repos": [
+    {
+      "repo": "cs-skills",
+      "url": "https://github.com/ChenShuo2004/cs-skills",
+      "licence": "MIT",
+      "sha": "c2a8989a58d15d8335346b54246d00fe2d0d0e8f",
+      "files": 273,
+      "bytes": 45769696,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "Codex (on behalf of @ChenShuo2004; human review pending)",
+        "at": "2026-10-16",
+        "note": "Codex inspected the complete root LICENSE at this pin: MIT, Copyright (c) 2026 ChenShuo2004. Preserve the copyright and permission notice. This is an automated inspection, not a completed human licence review; maintainer confirmation requested. Third-party services, downloaded media and character/brand rights are not granted by this manifest."
+      }
+    }
+  ]
+}

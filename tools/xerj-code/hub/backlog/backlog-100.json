@@ -13250,6 +13250,28 @@
      "supply-chain"
     ]
    }
+  },
+  {
+   "cat": "AI",
+   "domain": "an agent building reusable content-production skills queries this for skill installation and routing validation, audio-locked video story contracts, SRT generation, and code-rendered video QA",
+   "lane": "A",
+   "refresh": "pinned",
+   "slug": "cs-skills",
+   "sources": [
+    {
+     "licence_hint": "MIT; automated inspection in cs-skills.json, human review pending",
+     "url": "https://github.com/ChenShuo2004/cs-skills"
+    }
+   ],
+   "status": "live",
+   "tags": {
+    "region": "GLOBAL",
+    "topics": [
+     "agent-skills",
+     "content-production",
+     "video-pipelines"
+    ]
+   }
   }
  ],
  "lanes": [
