@@ -327,7 +327,9 @@ fn build_search_query(
 /// the zero-based line index (`PassageMatch` in xerj-query). On a semantic
 /// hit it is a chunk ordinal instead; `xerj search` and `xerj def` send
 /// lexical queries only, so every passage they render is lexical.
-pub(crate) fn passage_line(hit: &Value) -> Option<u64> {
+/// Zero-based line index of a content `_passage`, or `None` for a synthetic
+/// metadata field (`defs`, `title`, `name`) and for a hit with no passage.
+fn content_passage_ordinal(hit: &Value) -> Option<u64> {
     let first = hit.pointer("/fields/_passage/0")?.as_object()?;
     if matches!(
         first.get("field").and_then(Value::as_str),
@@ -335,10 +337,22 @@ pub(crate) fn passage_line(hit: &Value) -> Option<u64> {
     ) {
         return None;
     }
-    first.get("ordinal").and_then(Value::as_u64).map(|o| o + 1)
+    first.get("ordinal").and_then(Value::as_u64)
+}
+
+pub(crate) fn passage_line(hit: &Value) -> Option<u64> {
+    content_passage_ordinal(hit).map(|o| o + 1)
 }
 
 /// Format the `path[:line]` header token for a search or definition hit.
+///
+/// A symbol doc's `line` is the declaration and wins. A prose section's
+/// `start_line` is the file line of the stored field's first line, and
+/// `_passage.ordinal` is the 0-based line of the snippet inside that field
+/// (measured: changelog `start_line` 45 + ordinal 2 is file line 47,
+/// `taskdump: restore deferred leaf wakes`). Citing `start_line` alone prints
+/// the section start while the text on screen starts later — the markdown
+/// `:1` citation for a passage that begins at line 41.
 pub(crate) fn hit_location(hit: &Value) -> String {
     let src = hit.get("_source").unwrap_or(&Value::Null);
     let path = src
@@ -346,11 +360,14 @@ pub(crate) fn hit_location(hit: &Value) -> String {
         .or_else(|| src.get("path"))
         .and_then(Value::as_str)
         .unwrap_or("?");
-    let line = src
-        .get("line")
-        .or_else(|| src.get("start_line"))
-        .and_then(Value::as_u64)
-        .or_else(|| passage_line(hit));
+    let symbol_line = src.get("line").and_then(Value::as_u64);
+    let line = if let Some(n) = symbol_line {
+        Some(n)
+    } else if let Some(start) = src.get("start_line").and_then(Value::as_u64) {
+        Some(start.saturating_add(content_passage_ordinal(hit).unwrap_or(0)))
+    } else {
+        passage_line(hit)
+    };
     match line {
         Some(n) => format!("{path}:{n}"),
         None => path.to_string(),
@@ -810,6 +827,55 @@ mod tests {
             hit_location(&synthetic_defs_hit),
             "crates/fjall/src/batch.rs"
         );
+    }
+
+    /// A section stores `start_line` as the file line of its first line.
+    /// `_passage.ordinal` is the 0-based line of the snippet inside that
+    /// field, so the citation is `start_line + ordinal`. Ordinal 0 stays on
+    /// the section start. A symbol `line` still wins over both.
+    #[test]
+    fn section_citation_adds_the_passage_ordinal_to_start_line() {
+        let changelog = json!({
+            "_source": {
+                "ax_path": "tokio/CHANGELOG.md",
+                "start_line": 45,
+                "end_line": 101
+            },
+            "fields": {
+                "_passage": [{
+                    "field": "text",
+                    "ordinal": 2,
+                    "text": "- taskdump: restore deferred leaf wakes during capture ([#8445])"
+                }]
+            }
+        });
+        assert_eq!(hit_location(&changelog), "tokio/CHANGELOG.md:47");
+
+        let mid_readme = json!({
+            "_source": { "ax_path": "README.md", "start_line": 1 },
+            "fields": { "_passage": [{ "field": "body", "ordinal": 40, "text": "later" }] }
+        });
+        assert_eq!(hit_location(&mid_readme), "README.md:41");
+
+        let section_head = json!({
+            "_source": { "ax_path": "docs/contributing/pull-requests.md", "start_line": 205 },
+            "fields": { "_passage": [{ "field": "body", "ordinal": 0, "text": "available to use" }] }
+        });
+        assert_eq!(
+            hit_location(&section_head),
+            "docs/contributing/pull-requests.md:205"
+        );
+
+        let symbol = json!({
+            "_source": {
+                "ax_path": "tokio/src/task/local.rs",
+                "line": 672,
+                "start_line": 669,
+                "kind": "function"
+            },
+            "fields": { "_passage": [{ "field": "code", "ordinal": 3, "text": "pub fn block_on" }] }
+        });
+        assert_eq!(hit_location(&symbol), "tokio/src/task/local.rs:672");
     }
 
     fn index_mapping(fields: &[&str]) -> Value {
