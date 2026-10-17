@@ -106,7 +106,7 @@ pub fn next_hint(
     let Some(key) = api_key else {
         return format!(
             "\nnext: `xerj autoindex map --url {url}` for the data map; \
-             search via `curl '{url}/{prefix}-*/_search'`"
+             search via `xerj search --url {url} --prefix {prefix} \"<what you need>\"`"
         );
     };
     // A shell *expression* in every arm, so all renderings quote identically.
@@ -120,27 +120,25 @@ pub fn next_hint(
     };
     format!(
         "\nnext: `xerj autoindex map --url {url} --api-key \"{key_expr}\"` for the data map;\n\
-         \x20     search via `curl -H \"Authorization: ApiKey {key_expr}\" \
-         '{url}/{prefix}-*/_search'`"
+         \x20     search via `xerj search --url {url} --prefix {prefix} --api-key \"{key_expr}\" \
+         \"<what you need>\"`"
     )
 }
 
 /// The code-aware search hint that follows `next_hint` whenever source code
 /// was indexed. One copy, shared by BOTH success printers — the interactive
 /// run summary and the generated-run (`--no-graph`/brain) summary — because
-/// #1103 was exactly this text existing in one printer and not the other:
-/// a `--no-graph` run taught the user nothing while a graph run taught the
-/// `_passage` projection. The blind-usability rationale is in the comment
-/// at the interactive call site.
+/// #1103 was exactly this text existing in one printer and not the other.
+/// It names `xerj search` and `xerj def`: those commands already request
+/// `_passage`. A raw `_search` curl is what a blind run copied, and that
+/// path returns a whole file unless the caller knows the projection.
 pub(crate) fn code_search_hint(prefix: &str) -> String {
     format!(
-        "      code was indexed — for a function/class instead of a whole file:\n\
-         \x20       curl -s $URL/{prefix}-*/_search -H 'Content-Type: application/json' \\\n\
-         \x20         -d '{{\"query\":{{\"bool\":{{\"should\":[{{\"multi_match\":{{\"query\":\"<symbol or phrase>\",\
-         \"fields\":[\"body\",\"defs\"],\"type\":\"most_fields\"}}}},{{\"match_phrase\":{{\"defs\":{{\"query\":\"<symbol or phrase>\",\"boost\":4}}}}}}]}}}},\
-         \"_source\":[\"ax_path\",\"title\"],\"fields\":[\"_passage\"]}}'\n\
-         \x20       (the `match_phrase` clause ranks the file that DEFINES a symbol above files that merely call it; `_passage` returns \
-         the enclosing block, not the file)",
+        "      code was indexed — `xerj search` and `xerj def` ask for the matching\n\
+         \x20       passage, so the header is a path and a line when the index has one:\n\
+         \x20       xerj search --prefix {prefix} \"<what you need>\"\n\
+         \x20       xerj def --prefix {prefix} <symbol>\n\
+         \x20       (add the same --url and --api-key the map line above used)"
     )
 }
 
@@ -9347,14 +9345,10 @@ fn run_index_report_inner(
                 cfg.api_key_file.as_deref(),
             )
         );
-        // This line is where an agent learns how to search, so it is where the
-        // code-aware form belongs. A blind usability run showed the cost of
-        // omitting it: the agent followed exactly this guidance, got whole
-        // files back, and reinvented client-side slicing rather than
-        // discovering `_passage` — which it never saw mentioned anywhere.
-        // Only printed when source code was actually indexed; for a PDF or log
-        // corpus it would be noise. The text itself is shared with the
-        // generated-run printer via `code_search_hint` (#1103).
+        // This line is where an agent learns how to search. Only printed when
+        // source code was actually indexed; for a PDF or log corpus it would
+        // be noise. The text itself is shared with the generated-run printer
+        // via `code_search_hint` (#1103).
         let indexed_code = plan.files.values().any(|fa| fa.family == "code");
         if indexed_code {
             println!("{}", code_search_hint(&cfg.prefix));
@@ -11202,12 +11196,10 @@ mod generation_contract_identity_tests {
             "map hint must carry the key, got: {hint}"
         );
         assert!(
-            hint.contains("Authorization: ApiKey s3cret"),
-            "search hint must carry the key, got: {hint}"
-        );
-        assert!(
-            hint.contains("http://localhost:9510/ax-*/_search"),
-            "search hint must target the run's url and prefix, got: {hint}"
+            hint.contains(
+                "xerj search --url http://localhost:9510 --prefix ax --api-key \"s3cret\""
+            ),
+            "search hint must carry the url, prefix, and key, got: {hint}"
         );
         // Nothing is left as an un-runnable `GET /…` sketch.
         assert!(
@@ -11230,7 +11222,7 @@ mod generation_contract_identity_tests {
         );
         assert!(
             hint.contains("--api-key \"$XERJ_API_KEY\"")
-                && hint.contains("Authorization: ApiKey $XERJ_API_KEY"),
+                && hint.contains("xerj search --url http://localhost:9200 --prefix ax --api-key \"$XERJ_API_KEY\""),
             "must reference the exported variable, got: {hint}"
         );
 
@@ -11254,6 +11246,20 @@ mod generation_contract_identity_tests {
             "an auth-free server must get auth-free hints, got: {hint}"
         );
         assert!(hint.contains("xerj autoindex map --url http://localhost:9200"));
+        assert!(
+            hint.contains("xerj search --url http://localhost:9200 --prefix ax"),
+            "an auth-free search hint is still the CLI, got: {hint}"
+        );
+        let code = code_search_hint("smoke-anyhow");
+        assert!(
+            code.contains("xerj search --prefix smoke-anyhow")
+                && code.contains("xerj def --prefix smoke-anyhow"),
+            "{code}"
+        );
+        assert!(
+            !code.contains("curl"),
+            "the code hint must not send the reader to a raw search, got: {code}"
+        );
     }
 
     /// A blind onboarding run found `autoindex` discovering `./data/admin.key`
