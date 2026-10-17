@@ -290,7 +290,7 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20xerj corpus add|index|list          the corpus lifecycle behind `xerj code`\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(see xerj corpus --help)\n\
          {ask_lines}\
-         xerj index [OPTIONS]                direct NDJSON → engine ingest (see xerj\n\
+         \x20\x20\x20\x20xerj index [OPTIONS]                direct NDJSON → engine ingest (see xerj\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20index --help)\n\
          \x20\x20\x20\x20xerj brain <folder>                 index + browse in one command (see xerj\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20brain --help)\n\
@@ -475,15 +475,19 @@ fn help_text(feedback: bool) -> String {
 /// pack, so there the line says the command is unavailable instead of
 /// promising a pull that will only ever exit 5.
 fn ask_help_lines(hub: bool) -> &'static str {
+    // A trailing `\` eats the next line's source indent. The four spaces on
+    // the command, and the wrap under the description, are `\x20` so they
+    // survive. Descriptions in this block start at column 40, same as the
+    // other USAGE lines.
     if hub {
-        "xerj ask \"<question>\"              answer a question from a hub corpus: the\n\
-         pre-indexed pack is pulled the first time\n\
-         (see xerj ask --help); `xerj \"<question>\"`\n\
-         is the same\n"
+        "\x20\x20\x20\x20xerj ask \"<question>\"               answer a question from a hub corpus: the\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20pre-indexed pack is pulled the first time\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(see xerj ask --help); `xerj \"<question>\"`\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20is the same\n"
     } else {
-        "xerj ask \"<question>\"              Corpus Hub answers: not available in this\n\
-         build (no hub signing key; exits 5) - use\n\
-         xerj corpus + xerj code instead\n"
+        "\x20\x20\x20\x20xerj ask \"<question>\"               Corpus Hub answers: not available in this\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20build (no hub signing key; exits 5) - use\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20xerj corpus + xerj code instead\n"
     }
 }
 
@@ -2268,6 +2272,43 @@ mod help_text_tests {
             index_lines[fb + 1].starts_with(' '),
             "index help wrap lost its indent: {:?}",
             index_lines[fb + 1]
+        );
+    }
+
+    /// `xerj ask` and the `xerj index` line after it used to start at column 0.
+    /// A trailing `\` in the help string eats the next line's source indent,
+    /// and those two lines were the ones that still relied on it.
+    #[test]
+    fn usage_command_lines_keep_their_indent() {
+        for hub in [false, true] {
+            for line in super::ask_help_lines(hub).lines().filter(|l| !l.is_empty()) {
+                assert!(
+                    line.starts_with("    "),
+                    "ask usage line lost its indent (hub={hub}): {line:?}"
+                );
+            }
+        }
+        let help = help_text(false);
+        let usage = help
+            .split_once("USAGE:")
+            .expect("USAGE")
+            .1
+            .split_once("\nOPTIONS ")
+            .expect("OPTIONS")
+            .0;
+        for line in usage.lines().filter(|l| l.contains("xerj ")) {
+            assert!(
+                line.starts_with("    "),
+                "a USAGE line lost its indent: {line:?}"
+            );
+        }
+        assert!(
+            usage.contains("\n    xerj index "),
+            "xerj index lost the indent the other commands have:\n{usage}"
+        );
+        assert!(
+            usage.contains("\n    xerj ask "),
+            "xerj ask lost the indent the other commands have:\n{usage}"
         );
     }
 }
