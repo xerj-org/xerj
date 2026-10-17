@@ -641,9 +641,12 @@ pub fn render_map_page(
         }
         s.push('\n');
     }
-    s.push_str("## Datasets\n\n");
-    s.push_str("| index | records | files | formats | time field | time range |\n");
-    s.push_str("|---|---|---|---|---|---|\n");
+    s.push_str(&format!("## Datasets ({})\n\n", datasets.len()));
+    // `slug` is the argument to `--dataset`. The index name is
+    // `{prefix}-{slug}`, and a hyphenated prefix makes the slug impossible
+    // to recover from the index column alone.
+    s.push_str("| slug | index | records | files | formats | time field | time range |\n");
+    s.push_str("|---|---|---|---|---|---|---|\n");
     for d in datasets {
         let g = |k: &str| d.get(k).map(pretty_val).unwrap_or_default();
         let range = match (d.get("time_min"), d.get("time_max")) {
@@ -652,8 +655,14 @@ pub fn render_map_page(
             }
             _ => "—".into(),
         };
+        let slug = g("slug");
         s.push_str(&format!(
-            "| `{}` | {} | {} | {} | {} | {} |\n",
+            "| {} | `{}` | {} | {} | {} | {} | {} |\n",
+            if slug.is_empty() {
+                "—".into()
+            } else {
+                format!("`{slug}`")
+            },
             g("index_name"),
             g("record_count"),
             g("file_count"),
@@ -941,6 +950,18 @@ mod duplicate_tests {
             "summary table lists every dataset"
         );
         assert!(rendered.contains("`ax-d19`"));
+        assert!(
+            rendered.contains("## Datasets (20)"),
+            "the heading names how many datasets the table holds: {rendered}"
+        );
+        assert!(
+            rendered.contains("| slug |"),
+            "the summary names the slug `--dataset` takes"
+        );
+        assert!(
+            rendered.contains("`d00`") && rendered.contains("`d19`"),
+            "every row carries its slug, not only its index name: {rendered}"
+        );
         assert_eq!(
             rendered.matches("### `").count(),
             super::MAP_DETAIL_PAGE,
