@@ -5682,24 +5682,39 @@ fn truncation_note_message(rels: &[String]) -> Option<String> {
     // name only the first — so a mailbox holding one 2.3 GB message was told it
     // had "hit the per-file record cap (4096)" with 205 records, and to "raise
     // the cap", which is advice for a cap it never reached (review finding on
-    // PR #949). The flag does not say which cap fired, so the note names all
-    // three and what each one kept.
-    //
-    // "The file's tail" is right only for the first cause. A mailbox with one
-    // oversized message loses THAT message's tail; every message after it is
-    // indexed (review of PR #949: 201 of 201 messages after a 2.3 GB one were
-    // found), so the note says what was dropped per cause.
+    // PR #949). The flag does not say which cap fired. A path that looks like
+    // mail keeps all three causes. A plain document does not: telling the
+    // reader of an 8 MB `.txt` that a later mail message might still be
+    // indexed is false, and it is the note they actually saw.
+    let cause = if names.iter().any(|rel| rel_looks_like_mail(rel)) {
+        format!(
+            "one of: a single document over the per-document record cap ({} sections; its later \
+             sections were dropped), a mail message over the {} MB per-message cap (only that \
+             message's head was parsed; the messages after it are indexed), or a message with more \
+             MIME parts than the attachment cap (its later parts were dropped). Split the document \
+             or the message if the dropped part matters (#381)",
+            extract::MAX_RECORDS_PER_FILE,
+            extract::eml::MAX_EML >> 20,
+        )
+    } else {
+        format!(
+            "the per-document record cap is {} sections; later sections were dropped. Split the \
+             document if the dropped part matters (#381)",
+            extract::MAX_RECORDS_PER_FILE,
+        )
+    };
     Some(format!(
-        "{} file(s) had content cut short that was NOT indexed: {listed}{tail} — one of: a \
-         single document over the per-document record cap ({} sections; its later sections \
-         were dropped), a mail message over the {} MB per-message cap (only that message's \
-         head was parsed; the messages after it are indexed), or a message with more MIME \
-         parts than the attachment cap (its later parts were dropped). Split the document or \
-         the message if the dropped part matters (#381)",
+        "{} file(s) had content cut short that was NOT indexed: {listed}{tail} — {cause}",
         names.len(),
-        extract::MAX_RECORDS_PER_FILE,
-        extract::eml::MAX_EML >> 20,
     ))
+}
+
+/// The mail caps only apply to a mailbox. The last path component is enough:
+/// `inbox.eml`, `lists.mbox`, `note.msg`.
+fn rel_looks_like_mail(rel: &str) -> bool {
+    let name = rel.rsplit(['/', '\\']).next().unwrap_or(rel);
+    let lower = name.to_ascii_lowercase();
+    lower.ends_with(".eml") || lower.ends_with(".mbox") || lower.ends_with(".msg")
 }
 
 fn note_truncated_files(pr: &Progress, rels: &[String]) {
@@ -5728,15 +5743,35 @@ mod truncation_note_tests {
         );
         assert!(msg.contains("4096") && msg.contains("#381"), "{msg}");
         assert!(!msg.contains("and 0 more"), "{msg}");
-        // Every cap that can set the flag is named — an oversized mail message
-        // is not a "record cap" and must not be reported as one.
+        assert!(msg.contains("later sections were dropped"), "{msg}");
+        assert!(!msg.contains("raise the cap"), "{msg}");
+        // Neither file is mail. The mail caps must not be offered as a reason
+        // the tail might still be indexed.
+        assert!(!msg.contains("per-message cap"), "{msg}");
+        assert!(!msg.contains("MIME parts"), "{msg}");
+        assert!(!msg.contains("the messages after it are indexed"), "{msg}");
+    }
+
+    #[test]
+    fn a_mailbox_keeps_the_three_causes() {
+        let msg = truncation_note_message(&["mail/inbox.mbox".into(), "big.txt".into()]).unwrap();
+        assert!(
+            msg.contains("mail/inbox.mbox") && msg.contains("big.txt"),
+            "{msg}"
+        );
+        // The flag does not say which file hit which cap, so a list that
+        // contains any mailbox still names all three.
         assert!(msg.contains("64 MB per-message cap"), "{msg}");
         assert!(msg.contains("MIME parts"), "{msg}");
-        assert!(!msg.contains("raise the cap"), "{msg}");
-        // An oversized message costs that message's tail, not the mailbox's:
-        // the note must not tell a mailbox owner the rest of the file is gone.
+        assert!(msg.contains("4096"), "{msg}");
         assert!(!msg.contains("their tail"), "{msg}");
         assert!(msg.contains("the messages after it are indexed"), "{msg}");
+        assert!(truncation_note_message(&["Notes.EML".into()])
+            .unwrap()
+            .contains("MIME parts"));
+        assert!(!truncation_note_message(&["notes.eml.txt".into()])
+            .unwrap()
+            .contains("MIME parts"));
     }
 
     #[test]
