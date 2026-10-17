@@ -38,6 +38,7 @@
 //! - [`hub`]     — Corpus Hub v2 shared types: the catalogue, pack manifest,
 //!   definition record, and the [`hub::Answer`] every surface renders (#1374)
 
+pub mod argv;
 pub mod calibration;
 pub mod code_query;
 pub mod config;

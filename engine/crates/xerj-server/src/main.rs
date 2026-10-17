@@ -121,6 +121,30 @@ struct CliArgs {
     decide_model_dir: Option<String>,
 }
 
+/// Subcommands dispatched before the server-flag parser. A flag written
+/// before one of these is moved behind it (`xerj --url URL corpus …`).
+fn is_top_level_command(arg: &str) -> bool {
+    matches!(
+        arg,
+        "index"
+            | "search"
+            | "def"
+            | "init"
+            | "gain"
+            | "autoindex"
+            | "brain"
+            | "share"
+            | "feedback"
+            | "code"
+            | "corpus"
+            | "hub"
+            | "ask"
+            | "mcp"
+            | "__extract-pdf"
+            | xerj_autoindex::extract::xls::WORKER_ARG
+    )
+}
+
 fn parse_args() -> CliArgs {
     parse_args_from(std::env::args().skip(1)).unwrap_or_else(|e| {
         eprintln!("error: {e}. Use --help for usage.");
@@ -253,6 +277,9 @@ fn help_text(feedback: bool) -> String {
          \n\
          {}\
          USAGE:\n\
+         \x20\x20\x20\x20A flag may precede the subcommand: xerj --url URL corpus index <name>\n\
+         \x20\x20\x20\x20is read as xerj corpus index <name> --url URL.\n\
+         \n\
          \x20\x20\x20\x20xerj [OPTIONS]                      start the server (options below)\n\
          \x20\x20\x20\x20xerj autoindex <folder> [OPTIONS]   zero-config discovery + indexing — the\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20flagship path for most agents (see xerj\n\
@@ -1443,7 +1470,7 @@ fn parse_count(flag: &str, next: Option<String>) -> Result<usize, String> {
 
 fn parse_index_args() -> IndexCmdArgs {
     // Skip argv[0] (binary) + argv[1] ("index").
-    let mut args = std::env::args().skip(2);
+    let mut args = xerj_common::argv::args_after_subcommand().into_iter();
     let mut index = None;
     let mut file = None;
     let mut batch = 5000usize;
@@ -2019,8 +2046,19 @@ fn main() -> Result<()> {
     #[cfg(unix)]
     raise_nofile_limit();
 
+    // `xerj --url URL corpus index name` used to die here as an unknown
+    // server flag. Move those flags behind the subcommand before any
+    // dispatch reads argv.
+    xerj_common::argv::install_hoist(xerj_common::argv::reorder_flags_before_command(
+        &std::env::args().skip(1).collect::<Vec<_>>(),
+        is_top_level_command,
+    ));
+
     // Dispatch before creating Tokio's pool so each PDF worker stays small.
-    if matches!(std::env::args().nth(1).as_deref(), Some("__extract-pdf")) {
+    if matches!(
+        xerj_common::argv::subcommand().as_deref(),
+        Some("__extract-pdf")
+    ) {
         std::process::exit(xerj_autoindex::extract::pdf::run_worker_cli());
     }
 
@@ -2031,7 +2069,7 @@ fn main() -> Result<()> {
     // Dispatched before the Tokio pool for the same smallness reason as the PDF
     // worker above.
     if matches!(
-        std::env::args().nth(1).as_deref(),
+        xerj_common::argv::subcommand().as_deref(),
         Some(xerj_autoindex::extract::xls::WORKER_ARG)
     ) {
         std::process::exit(xerj_autoindex::extract::xls::run_worker_cli());
@@ -2055,8 +2093,8 @@ fn main() -> Result<()> {
     // This is what makes the MCP server obtainable: before it, `xerj-mcp` was
     // a workspace crate that CI built and no release shipped, so the only way
     // to get it was to clone the repo and compile. Now `curl … | sh` is enough.
-    if matches!(std::env::args().nth(1).as_deref(), Some("mcp")) {
-        let args: Vec<String> = std::env::args().skip(2).collect();
+    if matches!(xerj_common::argv::subcommand().as_deref(), Some("mcp")) {
+        let args: Vec<String> = xerj_common::argv::args_after_subcommand();
         let rt = build_runtime(2)?;
         return rt.block_on(xerj_mcp::run(&args));
     }
@@ -2529,7 +2567,7 @@ mod runtime_tests {
 
 async fn async_main() -> Result<()> {
     // Subcommand dispatch — check argv[1] before any other parsing.
-    let argv1 = std::env::args().nth(1);
+    let argv1 = xerj_common::argv::subcommand();
     if matches!(argv1.as_deref(), Some("index")) {
         let cmd = parse_index_args();
         return run_cli_index(cmd).await;
@@ -2603,7 +2641,7 @@ async fn async_main() -> Result<()> {
         // runtime like `def`. Routed through the hub CLI so `--def <SYMBOL>`
         // answers from the `-defs` index; every other invocation delegates
         // unchanged to `xc::run_code_cli` (Corpus Hub v2, §3).
-        let args: Vec<String> = std::env::args().skip(2).collect();
+        let args: Vec<String> = xerj_common::argv::args_after_subcommand();
         let code = tokio::task::spawn_blocking(move || xerj_hub::cli::run_code(&args))
             .await
             .unwrap_or(1);
@@ -2613,7 +2651,7 @@ async fn async_main() -> Result<()> {
         // Reference-coding corpus lifecycle (issue #977, previously
         // xc-corpus.sh/xc-index.sh): git + autoindex + ES-compat client, all
         // synchronous — off the runtime like `autoindex`.
-        let args: Vec<String> = std::env::args().skip(2).collect();
+        let args: Vec<String> = xerj_common::argv::args_after_subcommand();
         let code = tokio::task::spawn_blocking(move || xerj_autoindex::xc::run_corpus_cli(&args))
             .await
             .unwrap_or(1);
@@ -2623,7 +2661,7 @@ async fn async_main() -> Result<()> {
         // Corpus Hub v2 (discussion #1374): pull pre-indexed, signed packs and
         // build them (CI). Synchronous (git + blocking HTTP) — off the runtime
         // like `corpus`.
-        let args: Vec<String> = std::env::args().skip(2).collect();
+        let args: Vec<String> = xerj_common::argv::args_after_subcommand();
         let code = tokio::task::spawn_blocking(move || xerj_hub::cli::run_hub_cli(&args))
             .await
             .unwrap_or(1);
@@ -2633,7 +2671,7 @@ async fn async_main() -> Result<()> {
         // Corpus Hub v2 answer flow (plan §5): route the question to a hub
         // corpus, answer from its pack (pulling it the first time). Blocking
         // HTTP + process spawn — off the runtime like `hub`.
-        let args: Vec<String> = std::env::args().skip(2).collect();
+        let args: Vec<String> = xerj_common::argv::args_after_subcommand();
         let code = tokio::task::spawn_blocking(move || xerj_hub::cli::run_ask(&args))
             .await
             .unwrap_or(1);

@@ -264,7 +264,7 @@ pub fn run_def_cli() -> i32 {
     let mut query: Option<String> = None;
 
     // Skip argv[0] (binary) + argv[1] ("def").
-    let mut it = std::env::args().skip(2);
+    let mut it = xerj_common::argv::args_after_subcommand().into_iter();
     while let Some(a) = it.next() {
         match a.as_str() {
             "-h" | "--help" => {

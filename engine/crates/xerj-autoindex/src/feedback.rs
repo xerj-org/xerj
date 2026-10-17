@@ -108,7 +108,7 @@ pub struct Draft {
 /// Entry point for the `xerj feedback` subcommand (blocking; the server binary
 /// calls this via `spawn_blocking`). Returns the process exit code.
 pub fn run_cli() -> i32 {
-    let args: Vec<String> = std::env::args().skip(2).collect();
+    let args: Vec<String> = xerj_common::argv::args_after_subcommand();
     match parse(args) {
         Ok(None) => {
             print_help();

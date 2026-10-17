@@ -234,6 +234,7 @@ const CORPUS_USAGE: &str =
        xerj corpus index <name> [--fresh] [--url URL]
        xerj corpus list [--url URL]
 
+a flag may precede the verb (xerj corpus --url URL index <name>);
 clone the repos, detect licences, write corpora/<name>/corpus.json;
 --from takes the corpus name from the manifest's 'corpus' field (or the
 pack's 'pack' field) unless <name> or --as overrides it; a harvested pack
@@ -1995,7 +1996,17 @@ fn run_corpus_list(args: &[String]) -> i32 {
 // ── dispatch ────────────────────────────────────────────────────────────────
 
 /// `xerj corpus <add|build|index|list> …` — returns the process exit code.
+fn corpus_verb(arg: &str) -> bool {
+    matches!(
+        arg,
+        "add" | "build" | "sign" | "keygen" | "index" | "list" | "help" | "-h" | "--help"
+    )
+}
+
 pub fn run_corpus_cli(args: &[String]) -> i32 {
+    // `xerj corpus --url URL index <name>`: the verb is not the first token.
+    let promoted = xerj_common::argv::reorder_flags_before_command(args, corpus_verb);
+    let args: &[String] = promoted.as_deref().unwrap_or(args);
     let Some(sub) = args.first() else {
         eprintln!("{CORPUS_USAGE}");
         return 2;
@@ -2026,6 +2037,14 @@ pub fn licence_map_for(root: &Path, corpus: &str) -> HashMap<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_flag_before_the_corpus_verb_is_not_an_unknown_subcommand() {
+        // Before the hoist, `--url` was the verb and this returned 2
+        // ("unknown subcommand"). `--help` is the verb; it must run.
+        let code = run_corpus_cli(&["--url".into(), "http://127.0.0.1:9".into(), "--help".into()]);
+        assert_eq!(code, 0);
+    }
 
     #[test]
     fn corpus_names_are_gated_before_any_path_is_built() {

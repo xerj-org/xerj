@@ -63,7 +63,7 @@ const TUNNEL_URL_TIMEOUT: Duration = Duration::from_secs(45);
 const TUNNEL_CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 
 pub fn run_cli() -> i32 {
-    let args: Vec<String> = std::env::args().skip(2).collect();
+    let args: Vec<String> = xerj_common::argv::args_after_subcommand();
     let cfg = match parse(args, std::env::var("XERJ_API_KEY").ok()) {
         Ok(Some(cfg)) => cfg,
         Ok(None) => {

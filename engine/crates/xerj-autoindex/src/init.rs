@@ -461,7 +461,7 @@ pub fn run_init_cli() -> i32 {
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| DEFAULT_URL.to_string());
     let mut dry = false;
-    let mut it = std::env::args().skip(2);
+    let mut it = xerj_common::argv::args_after_subcommand().into_iter();
     while let Some(a) = it.next() {
         match a.as_str() {
             "-h" | "--help" => {

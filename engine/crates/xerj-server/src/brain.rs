@@ -36,7 +36,7 @@ const BOOT_TIMEOUT: Duration = Duration::from_secs(120);
 const BOOT_POLL: Duration = Duration::from_millis(150);
 
 pub fn run_cli() -> i32 {
-    let args: Vec<String> = std::env::args().skip(2).collect();
+    let args: Vec<String> = xerj_common::argv::args_after_subcommand();
     let cfg = match parse(args) {
         Ok(Some(cfg)) => cfg,
         Ok(None) => {

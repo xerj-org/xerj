@@ -74,7 +74,25 @@ Packs are pulled on demand and never cloned or indexed on the user's machine
 (docs/CORPUS_HUB_V2_IMPLEMENTATION.md).";
 
 /// `xerj hub <command> …`.
+fn hub_verb(arg: &str) -> bool {
+    matches!(
+        arg,
+        "build-pack"
+            | "build-catalogue"
+            | "sync"
+            | "pull"
+            | "status"
+            | "stop"
+            | "config"
+            | "help"
+            | "-h"
+            | "--help"
+    )
+}
+
 pub fn run_hub_cli(args: &[String]) -> i32 {
+    let promoted = xerj_common::argv::reorder_flags_before_command(args, hub_verb);
+    let args: &[String] = promoted.as_deref().unwrap_or(args);
     let Some(sub) = args.first() else {
         eprintln!("{HUB_USAGE}");
         return 2;

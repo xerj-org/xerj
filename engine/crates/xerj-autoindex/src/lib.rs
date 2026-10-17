@@ -1649,7 +1649,7 @@ fn route_cli_error(error: &anyhow::Error, json_output: bool) -> CliErrorRoute {
 /// Entry point for the `xerj autoindex` subcommand (blocking; the server
 /// binary calls this via spawn_blocking). Returns the process exit code.
 pub fn run_cli() -> i32 {
-    let args: Vec<String> = std::env::args().skip(2).collect();
+    let args: Vec<String> = xerj_common::argv::args_after_subcommand();
     let cmd = match cli::parse(args) {
         Ok(c) => c,
         Err(e) => {

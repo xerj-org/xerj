@@ -198,7 +198,7 @@ pub fn run_gain_cli() -> i32 {
         .unwrap_or_else(|| "http://localhost:9200".to_string());
     let mut api_key = std::env::var("XERJ_API_KEY").ok().filter(|s| !s.is_empty());
     let mut as_json = false;
-    let mut it = std::env::args().skip(2);
+    let mut it = xerj_common::argv::args_after_subcommand().into_iter();
     while let Some(a) = it.next() {
         match a.as_str() {
             "-h" | "--help" => {
