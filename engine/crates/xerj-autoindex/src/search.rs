@@ -74,6 +74,25 @@ pub(crate) fn is_identifier(q: &str) -> bool {
         && q.chars().all(|c| c.is_alphanumeric() || c == '_')
 }
 
+/// Whether a zero-hit `xerj search` should point at `xerj def`.
+///
+/// [`is_identifier`] stays the narrower predicate `xerj def` uses to shape
+/// its query. This one also accepts a qualified name (`Tree::flush`): a
+/// search that misses still reads as "try def", without changing how def
+/// ranks that name. A phrase and a `path/file.rs` do not.
+pub(crate) fn suggests_def(q: &str) -> bool {
+    if is_identifier(q) {
+        return true;
+    }
+    !q.is_empty()
+        && !q.contains(char::is_whitespace)
+        && !q.contains('/')
+        && q.chars().any(|c| c.is_alphabetic())
+        && q.contains(':')
+        && q.chars()
+            .all(|c| c.is_alphanumeric() || c == '_' || c == ':')
+}
+
 /// `name` / `code` / `defs` are the code-shaped legs (#916). A corpus that
 /// maps none of them — markdown, logs, anything autoindex accepted that is
 /// not source — must not be queried with those legs: autoindex indices are
@@ -618,7 +637,7 @@ pub fn run_search_cli() -> i32 {
     if hits.is_empty() {
         let snap = corpus_snapshot(&es, &prefix);
         let (lines, exit) =
-            empty_lookup_report("search", &prefix, &query, is_identifier(&query), &snap);
+            empty_lookup_report("search", &prefix, &query, suggests_def(&query), &snap);
         for line in lines {
             println!("{line}");
         }
@@ -948,6 +967,34 @@ mod tests {
         let text = lines.join("\n");
         assert!(text.contains("xerj autoindex <folder>"), "{text}");
         assert!(text.contains("xerj def Db"), "{text}");
+        assert!(suggests_def("Tree::flush"));
+        assert!(suggests_def("Db"));
+        assert!(!suggests_def("flush the tree"));
+        assert!(!suggests_def("src/lib.rs"));
+        assert!(
+            !is_identifier("Tree::flush"),
+            "def's query shape stays the narrower predicate"
+        );
+        let (qualified, _) = empty_lookup_report(
+            "search",
+            "eng",
+            "Tree::flush",
+            suggests_def("Tree::flush"),
+            &snap(
+                Some(vec!["eng-docs"]),
+                Some(vec!["eng-docs"]),
+                Some(vec!["eng"]),
+            ),
+        );
+        let qualified = qualified.join("\n");
+        assert!(
+            qualified.contains("no match in eng-* for: Tree::flush"),
+            "{qualified}"
+        );
+        assert!(
+            qualified.contains("xerj def Tree::flush"),
+            "a qualified name with zero hits must name def: {qualified}"
+        );
         assert!(!text.contains("prefixes on this node"), "{text}");
 
         let (missing_catalog, exit) = empty_lookup_report(
