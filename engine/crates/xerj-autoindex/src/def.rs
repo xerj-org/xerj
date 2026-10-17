@@ -214,7 +214,7 @@ fn build_def_query(
     json!({
         "size": k,
         "query": query,
-        "_source": ["ax_path", "path", "line", "start_line", "kind", "language", "name", "code"],
+        "_source": ["ax_path", "path", "line", "start_line", "kind", "language", "name", "code", "page", "cell"],
         "fields": ["_passage"]
     })
 }
@@ -468,6 +468,17 @@ mod tests {
             let filters = b["filter"].as_array().unwrap().len();
             assert_eq!(filters, kind.is_some() as usize + lang.is_some() as usize);
         }
+    }
+
+    /// `xerj def` prints with the same `hit_location` as search, so a PDF or
+    /// notebook definition can cite `page` / `cell` only when the projection
+    /// asks for them.
+    #[test]
+    fn def_source_projection_includes_page_and_cell() {
+        let body = def_query("open_path", None, None, 5, None, None);
+        let fields = body["_source"].as_array().unwrap();
+        assert!(fields.iter().any(|f| f == "page"), "{body}");
+        assert!(fields.iter().any(|f| f == "cell"), "{body}");
     }
 
     fn names_of(fields: &[&str]) -> BTreeSet<String> {

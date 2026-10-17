@@ -314,7 +314,7 @@ fn build_search_query(
         "query": { "bool": { "should": should }},
         // No `body` here: whole-file bodies are the token flood (measured ~9x
         // the size of the matching passage). `_passage` carries the snippet.
-        "_source": ["ax_path", "line", "start_line", "language", "kind", "code", "title"],
+        "_source": ["ax_path", "line", "start_line", "language", "kind", "code", "title", "page", "cell"],
         "fields": ["_passage"]
     })
 }
@@ -338,7 +338,12 @@ pub(crate) fn passage_line(hit: &Value) -> Option<u64> {
     first.get("ordinal").and_then(Value::as_u64).map(|o| o + 1)
 }
 
-/// Format the `path[:line]` header token for a search or definition hit.
+/// Format the header token for a search or definition hit.
+///
+/// A source line wins (`path:line`). A PDF page or a notebook cell is cited
+/// as `path page N` / `path cell N` — never as `:1` from a passage ordinal of
+/// 0, which is a chunk or a section start, not a line. A body passage with no
+/// page and no cell still uses the 1-based lexical ordinal.
 pub(crate) fn hit_location(hit: &Value) -> String {
     let src = hit.get("_source").unwrap_or(&Value::Null);
     let path = src
@@ -346,12 +351,25 @@ pub(crate) fn hit_location(hit: &Value) -> String {
         .or_else(|| src.get("path"))
         .and_then(Value::as_str)
         .unwrap_or("?");
-    let line = src
+    if let Some(n) = src
         .get("line")
         .or_else(|| src.get("start_line"))
         .and_then(Value::as_u64)
-        .or_else(|| passage_line(hit));
-    match line {
+    {
+        return format!("{path}:{n}");
+    }
+    let page = hit
+        .pointer("/fields/_passage/0/page")
+        .and_then(Value::as_u64)
+        .filter(|n| *n > 0)
+        .or_else(|| src.get("page").and_then(Value::as_u64).filter(|n| *n > 0));
+    if let Some(n) = page {
+        return format!("{path} page {n}");
+    }
+    if let Some(n) = src.get("cell").and_then(Value::as_u64).filter(|n| *n > 0) {
+        return format!("{path} cell {n}");
+    }
+    match passage_line(hit) {
         Some(n) => format!("{path}:{n}"),
         None => path.to_string(),
     }
@@ -810,6 +828,57 @@ mod tests {
             hit_location(&synthetic_defs_hit),
             "crates/fjall/src/batch.rs"
         );
+    }
+
+    /// A PDF passage with ordinal 0 is page 4, not line 1. A notebook section
+    /// heading is cell 19, not line 1. A symbol line still wins over a page.
+    #[test]
+    fn pdf_page_and_notebook_cell_are_not_cited_as_line_one() {
+        let pdf = json!({
+            "_source": { "ax_path": "nonfree/naacl06-shinyama.pdf" },
+            "fields": { "_passage": [{
+                "field": "body",
+                "ordinal": 0,
+                "page": 4,
+                "text": "extractable text"
+            }] }
+        });
+        let loc = hit_location(&pdf);
+        assert_eq!(loc, "nonfree/naacl06-shinyama.pdf page 4");
+        assert!(!loc.ends_with(":1"), "{loc}");
+
+        let from_source = json!({
+            "_source": { "ax_path": "samples/rc4-40.pdf", "page": 2 }
+        });
+        assert_eq!(hit_location(&from_source), "samples/rc4-40.pdf page 2");
+
+        let notebook = json!({
+            "_source": {
+                "ax_path": "11-List-Comprehensions.ipynb",
+                "cell": 19,
+                "title": "Conditionals on the Value"
+            },
+            "fields": { "_passage": [{
+                "field": "body",
+                "ordinal": 0,
+                "text": "a list comprehension filters"
+            }] }
+        });
+        assert_eq!(
+            hit_location(&notebook),
+            "11-List-Comprehensions.ipynb cell 19"
+        );
+
+        let symbol_on_a_page = json!({
+            "_source": { "ax_path": "notes.pdf", "line": 12, "page": 3 },
+            "fields": { "_passage": [{ "field": "code", "ordinal": 0, "page": 3 }] }
+        });
+        assert_eq!(hit_location(&symbol_on_a_page), "notes.pdf:12");
+
+        let source = search_query_body("list comprehension", 5);
+        let fields = source["_source"].as_array().unwrap();
+        assert!(fields.iter().any(|f| f == "page"), "{source}");
+        assert!(fields.iter().any(|f| f == "cell"), "{source}");
     }
 
     fn index_mapping(fields: &[&str]) -> Value {
