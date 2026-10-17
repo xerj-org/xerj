@@ -67,6 +67,10 @@ pub struct IndexCfg {
     pub bulk_timeout_secs: u64,
     pub snapshot_max_bytes: u64,
     pub prefix: String,
+    /// `--replace-prefix`: this folder may take over a prefix whose catalog
+    /// runs were indexed from a different root. Off by default; without it
+    /// that run is refused before anything is written.
+    pub replace_prefix: bool,
     pub state_dir: Option<PathBuf>,
     pub fresh: bool,
     pub follow_symlinks: bool,
@@ -274,7 +278,21 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20--bulk-timeout-secs <N>\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20bulk HTTP request timeout in seconds (default 300;\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20valid range 1..=3600)\n\
-         \x20\x20\x20\x20--prefix <P>         index prefix (default ax)\n\
+         \x20\x20\x20\x20--prefix <P>         index prefix (default ax). One prefix is one\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20source folder. The same prefix on a different\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20folder is refused: datasets are keyed\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20ds:<prefix>:<slug> and indices are <prefix>-*,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20so finalize overwrites the earlier datasets.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Several repositories under one prefix also\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20collapse: each repo indexed on its own has an\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20empty scope and becomes the single dataset\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<prefix>-docs. Use one --prefix per folder,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20or index the parent folder once\n\
+         \x20\x20\x20\x20--replace-prefix     retire datasets already stored under --prefix\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20that were indexed from a different folder.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Prints those folders and continues. Without\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20this flag that run is refused and nothing\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20is written. --dry-run does not bypass it\n\
          \x20\x20\x20\x20--state-dir <PATH>   resume journal location (default ~/.xerj/autoindex/<hash>/);\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20for an s3:// source this is also where the local\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20object mirror lives, so point it at a disk with room\n\
@@ -723,6 +741,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut snapshot_max_bytes = 64u64 << 30;
     let mut bulk_timeout_explicit = false;
     let mut prefix = "ax".to_string();
+    let mut replace_prefix = false;
     let mut prefix_explicit = false;
     let mut state_dir: Option<PathBuf> = None;
     let mut endpoint_url: Option<String> = None;
@@ -858,6 +877,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 prefix = it.next().ok_or("--prefix needs a value")?;
                 prefix_explicit = true;
             }
+            "--replace-prefix" => replace_prefix = true,
             "--state-dir" => state_dir = it.next().map(PathBuf::from),
             "--endpoint-url" => {
                 let value = it.next().ok_or(
@@ -1635,6 +1655,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 bulk_timeout_secs,
                 snapshot_max_bytes,
                 prefix,
+                replace_prefix,
                 state_dir,
                 fresh,
                 follow_symlinks,
@@ -2669,6 +2690,22 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn replace_prefix_is_off_unless_asked_and_help_names_the_refusal() {
+        assert!(!index(&["data", "--prefix", "ref"]).replace_prefix);
+        assert!(index(&["data", "--prefix", "ref", "--replace-prefix"]).replace_prefix);
+        let help = super::help_text();
+        assert!(help.contains("--replace-prefix"), "{help}");
+        assert!(
+            help.contains("ds:<prefix>:<slug>"),
+            "help must say how catalog ids collide: {help}"
+        );
+        assert!(
+            help.contains("<prefix>-docs"),
+            "help must say a shared prefix collapses per-repo provenance: {help}"
+        );
     }
 
     /// #1586: a second positional folder used to fall through to

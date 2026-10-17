@@ -23,6 +23,14 @@ xerj autoindex status   [--url U] [--state-dir P]
 Exit codes: `0` complete · `3` completed-with-junk (junk recorded, never
 fatal) · `2` usage · `1` endpoint unreachable / journal-config mismatch.
 
+`--prefix` names one source folder. Re-running it on a different folder is
+refused (exit 1) before anything is written: catalog datasets are
+`ds:<prefix>:<slug>` and indices are `<prefix>-*`, so finalize would retire
+the earlier datasets. Several repositories indexed as separate runs under
+one prefix also collapse into a single `<prefix>-docs` dataset. Use one
+`--prefix` per folder, index the parent folder once, or pass
+`--replace-prefix` to retire the earlier datasets on purpose.
+
 ## The one-binary, zero-config promise
 
 - **One binary.** `autoindex` ships inside `xerj` itself. It is a pure

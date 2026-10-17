@@ -3064,6 +3064,7 @@ mod phase_a_grouping_tests {
             bulk_timeout_secs: 10,
             snapshot_max_bytes: 64 << 30,
             prefix: "t".into(),
+            replace_prefix: false,
             state_dir: None,
             fresh: true,
             follow_symlinks: false,
@@ -5865,6 +5866,35 @@ fn legacy_rebuild_argv(cfg: &IndexCfg, state_dir: &Path, prefix: &str) -> Vec<St
     argv
 }
 
+/// Run documents in the shared catalog whose `prefix` term-matches.
+///
+/// A missing catalog is an empty list: the first index of a node has nothing
+/// to collide with. Any other search failure is returned — skipping the
+/// check on a 401 or a 500 would let the overwrite this guard exists to stop
+/// proceed. The caller re-checks the prefix exactly; a legacy analyzed
+/// `prefix` field can over-return sibling corpora.
+fn catalog_runs_for_prefix(es: &Es, prefix: &str) -> Result<Vec<Value>> {
+    let body = json!({
+        "size": 500,
+        "query": {"bool": {"filter": [
+            {"term": {"doc_kind": "run"}},
+            {"term": {"prefix": prefix}}
+        ]}}
+    });
+    let Some(page) = es.search_present(catalog::CATALOG_INDEX, &body)? else {
+        return Ok(Vec::new());
+    };
+    Ok(page
+        .pointer("/hits/hits")
+        .and_then(Value::as_array)
+        .map(|hits| {
+            hits.iter()
+                .filter_map(|hit| hit.get("_source").cloned())
+                .collect()
+        })
+        .unwrap_or_default())
+}
+
 fn run_index_report_inner(
     mut cfg: IndexCfg,
     tally: &ScanTally,
@@ -6009,6 +6039,44 @@ fn run_index_report_inner(
         .state_dir
         .clone()
         .unwrap_or_else(|| state::default_state_dir(&root_str, &cfg.url, &cfg.prefix));
+    // Same --prefix on a different folder overwrites catalog ids
+    // `ds:{prefix}:{slug}` and writes into `{prefix}-*` at finalize. The
+    // journals do not share a state dir (the default key includes the root),
+    // so nothing local notices a *new* folder. Refuse before preflight
+    // creates state, and before --dry-run walks the tree. --replace-prefix
+    // is the explicit opt-in; it prints the same facts and continues.
+    //
+    // A journal that already binds this state dir to this root, url, and
+    // prefix is a resume or an incremental re-run of the same folder,
+    // including one the local plan / `--fresh` gates are about to refuse.
+    // Those refusals promise the only remote call is the readiness GET, so
+    // this guard must not search the catalog on that path. A different
+    // folder has no such journal and still hits the check.
+    if !state::journal_continues_folder(&state_dir, &root_str, &cfg.url, &cfg.prefix) {
+        let foreign_roots = catalog::foreign_prefix_roots(
+            &catalog_runs_for_prefix(&es, &cfg.prefix)?,
+            &cfg.prefix,
+            &root_str,
+        );
+        if !foreign_roots.is_empty() {
+            let message = catalog::prefix_reuse_message(
+                &cfg.prefix,
+                &root_str,
+                &foreign_roots,
+                cfg.replace_prefix,
+            );
+            if cfg.replace_prefix {
+                // `warn` replaces newlines (they are not a safe display char), so
+                // each sentence is its own line. The refusal below keeps the
+                // newlines: it is an error, not a progress record.
+                for line in message.lines() {
+                    pr.warn(line);
+                }
+            } else {
+                anyhow::bail!("{message}");
+            }
+        }
+    }
     // Acquire state authority before discovery as well as hashing. A waiter
     // must never classify a path snapshot taken while another owner was
     // publishing or replacing the durable plan.

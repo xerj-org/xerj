@@ -449,7 +449,15 @@ Useful knobs (all optional): `--url` for a non-default endpoint, `--workers N`
 (the *default* is every core, reduced when the memory safe zone cannot pay for
 that many in-flight bulk buffers; a value you pass is honoured as typed and the
 disagreement is printed, not applied; bounds both the scan and the indexing
-phase), `--prefix` to namespace the indices (default `ax`),
+phase), `--prefix` to namespace the indices (default `ax`; one prefix is one
+source folder — the same prefix on a different folder is refused, because
+catalog datasets are keyed `ds:<prefix>:<slug>` and indices are `<prefix>-*`,
+so finalize would overwrite the earlier datasets. Indexing several
+repositories as separate runs under one prefix also collapses them: each
+repo indexed on its own has an empty scope and becomes the single dataset
+`<prefix>-docs`. Index the parent folder once, use one `--prefix` per
+folder, or pass `--replace-prefix` to retire the earlier datasets on
+purpose. `--dry-run` does not bypass the refusal),
 `--no-semantic` for pure BM25+keyword without vector fields, `--dry-run` to
 print the inferred plan without indexing anything, `--follow-symlinks`
 (loop-safe — and a followed link is judged by what it resolves to: a target

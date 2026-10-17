@@ -545,6 +545,98 @@ pub fn file_matches_prefix(doc: &Value, prefix: &str) -> bool {
         == Some(prefix)
 }
 
+/// Label used when a catalog run under `prefix` has no `root`.
+///
+/// An empty root cannot be proved to be this folder, so it counts as a
+/// different source. The string is stable so the refusal can name it.
+pub const UNRECORDED_PREFIX_ROOT: &str = "(root not recorded on the catalog run)";
+
+/// Source roots of the *latest* catalog run under `prefix` that are not `root`.
+///
+/// Only `doc_kind: run` documents whose prefix matches exactly are considered.
+/// A sibling prefix (`ax-2` when this run is `ax`) is not a collision: the
+/// server filter can over-match a legacy analyzed `prefix` field. Older run
+/// documents are history: after `--replace-prefix` the new folder's run is
+/// the latest, and re-running that folder must not keep demanding the flag.
+/// `started` is an ISO-8601 timestamp, so the greatest string is the latest.
+/// Runs that share that timestamp are one cohort. Duplicate roots collapse
+/// to one line.
+pub fn foreign_prefix_roots(runs: &[Value], prefix: &str, root: &str) -> Vec<String> {
+    let matching: Vec<&Value> = runs
+        .iter()
+        .filter(|run| run.get("doc_kind").and_then(Value::as_str) == Some("run"))
+        .filter(|run| {
+            run.get("prefix")
+                .or_else(|| run.get(CORPUS_SCOPE_FIELD))
+                .and_then(Value::as_str)
+                == Some(prefix)
+        })
+        .collect();
+    let latest = matching
+        .iter()
+        .filter_map(|run| run.get("started").and_then(Value::as_str))
+        .max()
+        .map(str::to_owned);
+    let mut foreign = std::collections::BTreeSet::new();
+    for run in matching {
+        if let Some(started) = &latest {
+            if run.get("started").and_then(Value::as_str) != Some(started.as_str()) {
+                continue;
+            }
+        }
+        let recorded_root = run.get("root").and_then(Value::as_str).unwrap_or("");
+        if recorded_root == root {
+            continue;
+        }
+        if recorded_root.is_empty() {
+            foreign.insert(UNRECORDED_PREFIX_ROOT.to_string());
+        } else {
+            foreign.insert(recorded_root.to_string());
+        }
+    }
+    foreign.into_iter().collect()
+}
+
+/// What a reused prefix will do, for both the refusal and the
+/// `--replace-prefix` warning. `replacing` is true only when the operator
+/// passed the flag and the run is going to continue.
+pub fn prefix_reuse_message(
+    prefix: &str,
+    root: &str,
+    others: &[String],
+    replacing: bool,
+) -> String {
+    let listed = others
+        .iter()
+        .map(|other| format!("  {other}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let ending = if replacing {
+        format!(
+            "--replace-prefix is set, so this run continues. Finalize will overwrite catalog \
+             documents keyed ds:{prefix}:<slug> and write into {prefix}-* indices, retiring the \
+             earlier datasets."
+        )
+    } else {
+        "Nothing was written. Pass --replace-prefix to retire those datasets on purpose, or use \
+         one --prefix per source folder. --dry-run does not bypass this check."
+            .to_string()
+    };
+    format!(
+        "autoindex: --prefix {prefix} already indexes a different folder.\n\
+         this run: {root}\n\
+         already indexed from:\n\
+         {listed}\n\
+         Catalog datasets are keyed ds:{prefix}:<slug> and indices are named {prefix}-*. \
+         Finalizing this run overwrites those catalog documents and retires the earlier datasets.\n\
+         A shared prefix also drops per-repo provenance. Each repository indexed as its own \
+         folder has an empty scope, so every one of them becomes the single dataset \
+         {prefix}-docs (catalog id ds:{prefix}:docs). Index the parent folder that contains \
+         the repositories, or pass a distinct --prefix per repository.\n\
+         {ending}"
+    )
+}
+
 /// How many dataset detail sections the default map prints before it asks
 /// for a page. The summary table always lists every dataset; the per-dataset
 /// field tables and sample queries are what blow the map up to hundreds of
@@ -1188,5 +1280,83 @@ mod sample_query_tests {
         assert_eq!(super::file_id("ax-a", "k"), super::file_id("ax-a", "k"));
         // The prefix is actually in the id (not just concatenated key).
         assert!(super::file_id("ax-a", "k").starts_with("file:ax-a:"));
+    }
+}
+
+#[cfg(test)]
+mod prefix_reuse_tests {
+    use super::*;
+
+    fn run(prefix: &str, root: &str) -> Value {
+        json!({"doc_kind": "run", "prefix": prefix, "root": root})
+    }
+
+    /// Same prefix, different folder: the earlier root is named, and the
+    /// message says finalize retires `ds:<prefix>:<slug>` and that separately
+    /// indexed repos collapse into `<prefix>-docs`.
+    #[test]
+    fn a_different_folder_under_the_same_prefix_is_named() {
+        let runs = vec![
+            run("ref", "/data/stockfish"),
+            run("ref", "/data/stockfish"),
+            run("ref-other", "/data/elsewhere"),
+            json!({"doc_kind": "dataset", "prefix": "ref", "root": "/data/not-a-run"}),
+        ];
+        let foreign = foreign_prefix_roots(&runs, "ref", "/data/lucaschess");
+        assert_eq!(foreign, vec!["/data/stockfish".to_string()]);
+        let message = prefix_reuse_message("ref", "/data/lucaschess", &foreign, false);
+        assert!(message.contains("this run: /data/lucaschess"), "{message}");
+        assert!(message.contains("/data/stockfish"), "{message}");
+        assert!(message.contains("ds:ref:<slug>"), "{message}");
+        assert!(message.contains("ref-*"), "{message}");
+        assert!(message.contains("ref-docs"), "{message}");
+        assert!(message.contains("ds:ref:docs"), "{message}");
+        assert!(message.contains("Nothing was written"), "{message}");
+        assert!(message.contains("--replace-prefix"), "{message}");
+        assert!(
+            !message.contains("/data/elsewhere"),
+            "a sibling prefix is not this corpus: {message}"
+        );
+    }
+
+    /// Re-running the same folder is not a collision, even when older run
+    /// documents for that root are still in the catalog.
+    #[test]
+    fn the_same_folder_is_not_a_collision() {
+        let runs = vec![run("ref", "/data/stockfish"), run("ref", "/data/stockfish")];
+        assert!(foreign_prefix_roots(&runs, "ref", "/data/stockfish").is_empty());
+    }
+
+    /// After `--replace-prefix`, the new folder's run is the latest. Re-running
+    /// that folder must not keep seeing the folder it replaced.
+    #[test]
+    fn the_latest_run_owns_the_prefix() {
+        let runs = vec![
+            json!({"doc_kind":"run","prefix":"ref","root":"/data/old","started":"2026-10-01T00:00:00Z"}),
+            json!({"doc_kind":"run","prefix":"ref","root":"/data/new","started":"2026-10-02T00:00:00Z"}),
+        ];
+        assert!(foreign_prefix_roots(&runs, "ref", "/data/new").is_empty());
+        assert_eq!(
+            foreign_prefix_roots(&runs, "ref", "/data/old"),
+            vec!["/data/new".to_string()]
+        );
+    }
+
+    /// A run that never recorded its root cannot be proved to be this folder.
+    #[test]
+    fn a_run_with_no_root_is_a_collision() {
+        let runs = vec![json!({"doc_kind": "run", "prefix": "ref"})];
+        assert_eq!(
+            foreign_prefix_roots(&runs, "ref", "/data/stockfish"),
+            vec![UNRECORDED_PREFIX_ROOT.to_string()]
+        );
+    }
+
+    #[test]
+    fn replace_prefix_says_the_run_continues() {
+        let message = prefix_reuse_message("ref", "/data/new", &["/data/old".into()], true);
+        assert!(message.contains("--replace-prefix is set"), "{message}");
+        assert!(message.contains("this run continues"), "{message}");
+        assert!(!message.contains("Nothing was written"), "{message}");
     }
 }

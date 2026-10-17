@@ -96,7 +96,10 @@ pub struct PlanDataset {
 
 #[cfg(test)]
 mod tests {
-    use super::{acquire_watch_ownership, run_id_in_second, Journal, StateLock, WATCH_OWNER_LOCK};
+    use super::{
+        acquire_watch_ownership, journal_continues_folder, run_id_in_second, Journal, StateLock,
+        WATCH_OWNER_LOCK,
+    };
 
     /// `flock` ownership follows the open file description, so an inherited
     /// descriptor can unlock the acquiring parent's lock. Model that post-fork
@@ -427,6 +430,39 @@ mod tests {
             Journal::open(dir.path(), "root", "url", "prefix", 300, false)
                 .unwrap_or_else(|e| panic!("{label}: the rebuilt journal must resume: {e:#}"));
         }
+    }
+
+    /// The prefix guard skips its catalog read only when the journal already
+    /// belongs to this folder. A different root, a different prefix, and a
+    /// missing journal all stay on the catalog-check path.
+    #[test]
+    fn journal_continues_folder_matches_only_the_recorded_run() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(!journal_continues_folder(
+            dir.path(),
+            "root",
+            "url",
+            "prefix"
+        ));
+        drop(Journal::open(dir.path(), "root", "url", "prefix", 300, true).unwrap());
+        assert!(journal_continues_folder(
+            dir.path(),
+            "root",
+            "url",
+            "prefix"
+        ));
+        assert!(!journal_continues_folder(
+            dir.path(),
+            "other-root",
+            "url",
+            "prefix"
+        ));
+        assert!(!journal_continues_folder(
+            dir.path(),
+            "root",
+            "url",
+            "other-prefix"
+        ));
     }
 
     /// A readable journal must not be reported as unreadable just because the
@@ -771,6 +807,47 @@ pub fn default_state_dir(root: &str, url: &str, prefix: &str) -> PathBuf {
         .join(".xerj")
         .join("autoindex")
         .join(crate::ids::state_key(root, url, prefix))
+}
+
+/// Whether `state_dir` already holds a journal run for this exact root, url,
+/// and prefix.
+///
+/// A same-folder resume, an incremental re-run, and a locally refused
+/// `--fresh` all re-enter through that journal. The prefix-collision guard
+/// must not query the catalog on that path: those refusals are local, and
+/// the HTTP fixtures require that a refused attempt perform only the
+/// readiness GET. A different folder does not satisfy this — the default
+/// state directory includes the root, and an explicit state directory
+/// recorded for another root or prefix compares unequal — so the catalog
+/// check still runs for it.
+///
+/// An absent, unreadable, or corrupt journal is not a continuation, and
+/// neither is a journal whose `run` record names something else. This reads
+/// the file and does not create the directory or take the state lock.
+pub fn journal_continues_folder(state_dir: &Path, root: &str, url: &str, prefix: &str) -> bool {
+    let Ok(text) = std::fs::read_to_string(state_dir.join("journal.ndjson")) else {
+        return false;
+    };
+    let mut saw_match = false;
+    for line in text.lines() {
+        if line.is_empty() {
+            continue;
+        }
+        let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+            return false;
+        };
+        if value.get("kind").and_then(|kind| kind.as_str()) != Some("run") {
+            continue;
+        }
+        let recorded_root = value.get("root").and_then(|v| v.as_str()).unwrap_or("");
+        let recorded_url = value.get("url").and_then(|v| v.as_str()).unwrap_or("");
+        let recorded_prefix = value.get("prefix").and_then(|v| v.as_str()).unwrap_or("");
+        if recorded_root != root || recorded_url != url || recorded_prefix != prefix {
+            return false;
+        }
+        saw_match = true;
+    }
+    saw_match
 }
 
 fn apply_legacy_plan(

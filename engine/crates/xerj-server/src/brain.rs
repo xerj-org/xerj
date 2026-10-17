@@ -617,6 +617,7 @@ fn index_cfg(cfg: &BrainCfg, brain: &str, api_key: Option<String>) -> IndexCfg {
         bulk_timeout_secs: 300,
         snapshot_max_bytes: 64u64 << 30,
         prefix: "ax".into(),
+        replace_prefix: false,
         state_dir: None,
         fresh: cfg.fresh,
         follow_symlinks: false,
