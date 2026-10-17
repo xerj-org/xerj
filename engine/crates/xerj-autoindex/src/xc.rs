@@ -994,7 +994,7 @@ fn record(
     // The detector is text-matching heuristics and has been wrong before.
     // When a manifest disagrees with the checkout, say so rather than
     // overwrite quietly.
-    if !declared.is_empty() && declared != lic {
+    if !declared.is_empty() && !xccode::licence::licence_readings_agree(declared, &lic) {
         eprintln!("          ! manifest says licence={declared}, checkout reads {lic} — verify before copying");
     }
     let review = carry(repo_name, &sha);

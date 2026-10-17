@@ -119,12 +119,23 @@ fn classify_one(text: &str) -> &'static str {
         .take(2)
         .collect::<Vec<_>>()
         .join(" ");
-    let out = classify_text(&title);
-    if out == "UNKNOWN" {
-        classify_text(text.chars().take(4000).collect::<String>().as_str())
-    } else {
-        out
+    let from_title = classify_text(&title);
+    // A generic "BSD" hit is the redistribution sentence, which 2-clause,
+    // 3-clause and 0BSD files all share. Keep reading the body so the
+    // clause title or the endorsement sentence can name the variant.
+    // Anything more specific (Apache, MIT, MPL, GPL, BSD-3-Clause, …)
+    // wins from the title and the body is not consulted.
+    if from_title != "UNKNOWN" && from_title != "BSD" {
+        return from_title;
     }
+    let from_body = classify_text(text.chars().take(4000).collect::<String>().as_str());
+    if from_title == "BSD" && (from_body == "UNKNOWN" || from_body == "BSD") {
+        return "BSD";
+    }
+    if from_title == "UNKNOWN" {
+        return from_body;
+    }
+    from_body
 }
 
 /// Classify licence text. Order matters: check the most RESTRICTIVE phrases
@@ -164,11 +175,60 @@ fn classify_text(text: &str) -> &'static str {
         || body.contains("permission is hereby granted, free of charge")
     {
         "MIT"
+    } else if body.contains("bsd 3-clause")
+        || body.contains("bsd-3-clause")
+        || body.contains("3-clause bsd")
+        || body.contains("may be used to endorse or promote products derived from this software")
+    {
+        "BSD-3-Clause"
+    } else if body.contains("bsd 2-clause")
+        || body.contains("bsd-2-clause")
+        || body.contains("simplified bsd")
+    {
+        "BSD-2-Clause"
+    } else if body.contains("0bsd")
+        || body.contains("zero-clause bsd")
+        || body.contains("zero clause bsd")
+    {
+        "0BSD"
     } else if body.contains("redistribution and use in source and binary forms") {
         "BSD"
     } else {
         "UNKNOWN"
     }
+}
+
+/// Whether a manifest's declared licence and a checkout's detected licence
+/// are the same reading. A coarse `BSD` agrees with `BSD-2-Clause`,
+/// `BSD-3-Clause` and `0BSD` — the detector's generic redistribution hit is
+/// not a disagreement with a clause the manifest already named. Two
+/// different clauses (`BSD-2-Clause` vs `BSD-3-Clause`) do not agree.
+/// Slash-joined dual licences are compared token by token after sorting.
+pub fn licence_readings_agree(declared: &str, detected: &str) -> bool {
+    fn tokens(s: &str) -> Vec<&str> {
+        s.split('/')
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+            .collect()
+    }
+    fn one(a: &str, b: &str) -> bool {
+        if a == b {
+            return true;
+        }
+        let bsd_family = |s: &str| s == "BSD" || s.starts_with("BSD-") || s == "0BSD";
+        (a == "BSD" && bsd_family(b)) || (b == "BSD" && bsd_family(a))
+    }
+    let mut declared_tokens = tokens(declared);
+    let mut detected_tokens = tokens(detected);
+    if declared_tokens.len() != detected_tokens.len() {
+        return false;
+    }
+    declared_tokens.sort_unstable();
+    detected_tokens.sort_unstable();
+    declared_tokens
+        .iter()
+        .zip(detected_tokens.iter())
+        .all(|(a, b)| one(a, b))
 }
 
 #[cfg(test)]
@@ -282,6 +342,41 @@ mod tests {
             ),
             "BSD"
         );
+        assert_eq!(
+            classify_one(
+                "BSD 3-Clause License\n\n\
+                 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:\n\n\
+                 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission."
+            ),
+            "BSD-3-Clause"
+        );
+        // No title, just the redistribution sentence plus the endorsement
+        // clause. The first lines classify as coarse BSD; the body names it.
+        assert_eq!(
+            classify_one(
+                "Redistribution and use in source and binary forms,\n\
+                 with or without modification.\n\n\
+                 Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission."
+            ),
+            "BSD-3-Clause"
+        );
+        assert_eq!(
+            classify_one(
+                "BSD 2-Clause License\n\nRedistribution and use in source and binary forms."
+            ),
+            "BSD-2-Clause"
+        );
+        assert_eq!(
+            classify_one("Zero-Clause BSD\n\nPermission to use, copy, modify."),
+            "0BSD"
+        );
+        assert!(licence_readings_agree("BSD-3-Clause", "BSD"));
+        assert!(licence_readings_agree("BSD", "BSD-3-Clause"));
+        assert!(licence_readings_agree("BSD-3-Clause", "BSD-3-Clause"));
+        assert!(licence_readings_agree("MIT/Apache-2.0", "Apache-2.0/MIT"));
+        assert!(!licence_readings_agree("MIT", "BSD"));
+        assert!(licence_readings_agree("BSD-2-Clause", "BSD"));
+        assert!(!licence_readings_agree("BSD-2-Clause", "BSD-3-Clause"));
         assert_eq!(
             classify_one("Random README text with no licence phrases"),
             "UNKNOWN"
