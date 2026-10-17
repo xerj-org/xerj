@@ -232,6 +232,7 @@ const CORPUS_USAGE: &str =
        xerj corpus sign <pack-dir> --key <seed-file>
        xerj corpus keygen --out <prefix>
        xerj corpus index <name> [--fresh] [--url URL]
+         (can outlive an agent tool timeout; stopping is safe, re-run to resume)
        xerj corpus list [--url URL]
 
 a flag may precede the verb (xerj corpus --url URL index <name>);
@@ -1315,6 +1316,15 @@ fn report(name: &str, rc: i32, docs: &str) {
     }
 }
 
+/// Printed before the long part of `corpus index`. An agent tool timeout
+/// kills the process and looks like a silent failure; the run itself resumes.
+pub(crate) fn corpus_index_duration_note() -> &'static str {
+    "xerj corpus index: this often runs longer than an agent tool timeout \
+     (minutes, longer with a neural embedder). Stopping is safe: re-run the \
+     same command to resume. To keep it off the tool clock, start it in the \
+     background and wait for the xerj-done line."
+}
+
 fn run_corpus_index(args: &[String]) -> i32 {
     let mut name: Option<String> = None;
     let mut fresh = false;
@@ -1366,6 +1376,7 @@ fn run_corpus_index(args: &[String]) -> i32 {
         );
         return 2;
     }
+    eprintln!("{}", corpus_index_duration_note());
     let url = resolve_url(url.as_deref());
     let es = match build_es(&url, None) {
         Ok(es) => es,
@@ -2044,6 +2055,18 @@ mod tests {
         // ("unknown subcommand"). `--help` is the verb; it must run.
         let code = run_corpus_cli(&["--url".into(), "http://127.0.0.1:9".into(), "--help".into()]);
         assert_eq!(code, 0);
+    }
+
+    #[test]
+    fn corpus_index_says_a_tool_timeout_is_not_a_failed_index() {
+        let note = corpus_index_duration_note();
+        assert!(note.contains("tool timeout"), "{note}");
+        assert!(note.contains("re-run"), "{note}");
+        assert!(note.contains("xerj-done"), "{note}");
+        assert!(
+            CORPUS_USAGE.contains("tool timeout"),
+            "the usage line must point at the same warning"
+        );
     }
 
     #[test]
