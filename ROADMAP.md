@@ -2,8 +2,24 @@
 
 This roadmap tracks capabilities that are **planned but not yet fully implemented**, so the project's public claims stay honest about what ships today versus what is coming. Status is verified against the actual code and by real API requests to the release binary, not aspirational.
 
-Last reviewed: 2026-10-15 (against `v1.0.0-rc.96` and `main`). Statuses trace to issues, merged PRs, the CHANGELOG, and the conformance suite; items carried forward from the 2026-07-12 review without fresh live verification are marked as such. This review line is machine-checked: `docs_capability_lists` fails the build if a release is cut without re-reviewing this file (issue #298 — closed as abandoned 2026-09-29; the machine check, not the issue, enforces the cadence now). This pass is the rc.96 release-cut roll:
+Last reviewed: 2026-10-17 (against `v1.0.0-rc.97` and `main`). Statuses trace to issues, merged PRs, the CHANGELOG, and the conformance suite; items carried forward from the 2026-07-12 review without fresh live verification are marked as such. This review line is machine-checked: `docs_capability_lists` fails the build if a release is cut without re-reviewing this file (issue #298 — closed as abandoned 2026-09-29; the machine check, not the issue, enforces the cadence now). This pass is the rc.97 release-cut roll:
 the open-defects shortlist was re-verified against the live tracker at
+cut time — **five open**: #1110, #1122, #1170, #1267, #1635. #1094 closed
+inside the window (low-confidence history votes escalate to the local
+decide tier and the write-back keeps one cached answer per text, PR
+[#1503](https://github.com/xerj-org/xerj/pull/1503); the Banking77 replay
+gate was not re-measured). #1635 is new: autoindex at the default worker
+count stalled a 13,765-file repo and the node stopped answering searches
+(field report PR [#1636](https://github.com/xerj-org/xerj/pull/1636)). The
+window since rc.96 is about 125 merged PRs: Corpus Hub v2 switched on (the
+hub public key compiled in, PR
+[#1505](https://github.com/xerj-org/xerj/pull/1505), and the §12 release
+gate tooling), `xerj search` / `xerj def` / `xerj code` on non-code and
+mixed-type corpora, autoindex dataset folding and finalize robustness,
+deadline-bounded search during a merge publication, ES cluster-settings
+merge semantics, three more #1122 spawn sites, and an ES-YAML runner that
+enforces `catch:`; the CHANGELOG lists every PR.
+The rc.96 cut's record stands as written: the open-defects shortlist was re-verified against the live tracker at
 cut time — **five open**: #1094, #1110, #1122, #1170, #1267. Four
 closed inside the window: #1250 (multi-index ingest against the breaker:
 the live-tunable watermark, PR
@@ -318,7 +334,12 @@ and the console review's), the
 bar itself — *The road to v1.0.0 GA* below.
 
 **Open defects.** Five, all live on the tracker — the
-shortlist the release-notes gate checks. From the rc.92 window:
+shortlist the release-notes gate checks. From the rc.97 window:
+[#1635](https://github.com/xerj-org/xerj/issues/1635) (autoindex at the
+default worker count stalled at 70.9% on a 13,765-file / 1,153 MB repo,
+with `_bulk` timeouts, HTTP 500s and a node that stopped answering
+searches; the server logs point at admission control, not yet
+instrumented). From the rc.92 window:
 [#1267](https://github.com/xerj-org/xerj/issues/1267) (the finalize
 slow-query residual after #1260: the catalog_generation read-back walk
 brute-pages `term run_id` + `_id` sort at ~5.2 s per 1,000-doc page —
@@ -327,9 +348,7 @@ rewrote everything — and doc-shaped verify windows with `size > 0`
 still brute-scan the data indexes at 7–81 s per window, one exceeding
 the client's 300 s budget mid-crawl; PR
 [#1270](https://github.com/xerj-org/xerj/pull/1270) bounded the fast-agg
-verify window, the walk and doc-lane residual stay open). From the rc.80
-gate runs: [#1094](https://github.com/xerj-org/xerj/issues/1094) (decision
-flywheel write-back freezes once the history index has BM25 support).
+verify window, the walk and doc-lane residual stay open).
 From the rc.81/82 windows:
 [#1122](https://github.com/xerj-org/xerj/issues/1122) (reopened
 2026-10-05 when the reference node died at its memory ceiling with no
@@ -338,6 +357,12 @@ panic line). From the cluster-mode testing:
 never connected to the engine). Filed from the corpus-program work:
 [#1110](https://github.com/xerj-org/xerj/issues/1110) (the
 generalization proof: second-domain pack + fresh-machine replay).
+**Closed inside the rc.97 window and recorded in the CHANGELOG, not
+carried here:** #1094 (decision flywheel write-back froze once the history
+index had BM25 support: with the local decide tier armed, a split history
+vote now escalates and the write-back keeps one cached answer per text, PR
+[#1503](https://github.com/xerj-org/xerj/pull/1503); nodes without the
+local tier are unchanged).
 **Closed inside the rc.96 window and recorded in the CHANGELOG, not
 carried here:** #1250 (multi-index ingest oscillating on the parent
 RSS breaker: the watermark is live-tunable, PR
