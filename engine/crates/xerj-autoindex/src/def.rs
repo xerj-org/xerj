@@ -15,8 +15,9 @@ use std::collections::BTreeSet;
 
 use crate::esclient::Es;
 use crate::search::{
-    corpus_snapshot, empty_lookup_report, field_lookup_ok, hit_location, is_identifier,
-    mapped_property_names, numeric_property_names, passage_text, weighted_query_fields,
+    attach_passage_field, corpus_snapshot, empty_lookup_report, field_lookup_ok, hit_location,
+    is_identifier, mapped_property_names, numeric_property_names, passage_text,
+    weighted_query_fields,
 };
 use serde_json::{json, Value};
 
@@ -33,7 +34,8 @@ OPTIONS:
     -k <N>          number of definitions to return (default 5)
     --kind <KIND>   filter by symbol kind (function, class, method, ...)
     --lang <LANG>   filter by language (python, rust, typescript, ...)
-    --json          print the raw response instead of formatted definitions
+    --json          print JSON; each hit has a \"passage\" string when the
+                    engine returned one (same text the formatted output shows)
 
 EXAMPLE:
     xerj def IOSIntfLine                       # exact identifier -> its declaration
@@ -374,7 +376,7 @@ pub fn run_def_cli() -> i32 {
         mapped.as_ref(),
         numeric.as_ref(),
     );
-    let resp = match es.search(&pattern, &body) {
+    let mut resp = match es.search(&pattern, &body) {
         Ok(v) => v,
         Err(e) => {
             eprintln!(
@@ -386,6 +388,7 @@ pub fn run_def_cli() -> i32 {
         }
     };
 
+    attach_passage_field(&mut resp);
     if as_json {
         println!(
             "{}",

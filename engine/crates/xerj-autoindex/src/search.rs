@@ -25,7 +25,8 @@ OPTIONS:
     --api-key <K>   Authorization (or $XERJ_API_KEY; --insecure nodes need none)
     -k <N>          number of passages to return (default 5)
     --full <CHARS>  max characters of each passage to print (default 600)
-    --json          print the raw response instead of formatted passages
+    --json          print JSON; each hit has a \"passage\" string (the same text
+                    the formatted output shows)
 
 EXAMPLE:
     xerj --insecure -d ./.xerj-data &                 # a node, running
@@ -62,6 +63,28 @@ pub(crate) fn passage_text(hit: &Value) -> Option<String> {
                 .map(str::to_string)
         }
         _ => None,
+    }
+}
+
+/// Copy the passage the text printer would show onto each hit as `passage`.
+///
+/// `--json` used to dump the engine body. The snippet lives under
+/// `fields._passage[0].text` (or a bare string), which is not the field an
+/// agent reads. Field report 2026-10-13 (hermes kanban): the JSON carried no
+/// passage bytes; the text was only in the human output. A hit whose passage
+/// is a bare identifier (`passage_text` returns `None`) is left unchanged so
+/// the caller still falls back to `_source.code`.
+pub(crate) fn attach_passage_field(resp: &mut Value) {
+    let Some(hits) = resp.pointer_mut("/hits/hits").and_then(Value::as_array_mut) else {
+        return;
+    };
+    for hit in hits {
+        let Some(text) = passage_text(hit) else {
+            continue;
+        };
+        if let Some(obj) = hit.as_object_mut() {
+            obj.insert("passage".to_string(), Value::String(text));
+        }
     }
 }
 
@@ -590,7 +613,7 @@ pub fn run_search_cli() -> i32 {
         .as_ref()
         .and(raw_mapping.as_ref().map(numeric_property_names));
     let body = search_query_body_for_mapping(&query, k, mapped.as_ref(), numeric.as_ref());
-    let resp = match es.search(&pattern, &body) {
+    let mut resp = match es.search(&pattern, &body) {
         Ok(v) => v,
         Err(e) => {
             eprintln!(
@@ -602,6 +625,7 @@ pub fn run_search_cli() -> i32 {
         }
     };
 
+    attach_passage_field(&mut resp);
     if as_json {
         println!(
             "{}",
@@ -749,6 +773,39 @@ mod tests {
             }
         });
         assert_eq!(passage_text(&hit), None);
+        let mut resp = json!({ "hits": { "hits": [hit] } });
+        attach_passage_field(&mut resp);
+        assert!(
+            resp["hits"]["hits"][0].get("passage").is_none(),
+            "a bare identifier is not a passage: {resp}"
+        );
+    }
+
+    /// Field report 2026-10-13: `--json` printed the engine body and the
+    /// passage text existed only in the human printer. The string the printer
+    /// shows has to be a field on the hit.
+    #[test]
+    fn json_hits_carry_the_passage_string_the_printer_shows() {
+        let mut resp = json!({
+            "hits": { "hits": [{
+                "_id": "1",
+                "_source": { "ax_path": "src/lock.rs", "line": 40 },
+                "fields": { "_passage": [{
+                    "field": "body",
+                    "ordinal": 39,
+                    "text": "fn commit(&mut self) {\n    self.wal.sync()\n}"
+                }]}
+            }]}
+        });
+        attach_passage_field(&mut resp);
+        assert_eq!(
+            resp["hits"]["hits"][0]["passage"],
+            "fn commit(&mut self) {\n    self.wal.sync()\n}"
+        );
+        assert!(
+            USAGE.contains("\"passage\""),
+            "search --help must name the field: {USAGE}"
+        );
     }
 
     /// #1365: whole-file hits (`ax-code-*`, `ax-docs-md-*`, `ax-text-*`) carry
