@@ -161,7 +161,13 @@ fn build_def_query(
     if field_lookup_ok(mapped, numeric, "defs") {
         should.push(json!({ "match_phrase": { "defs": { "query": query, "boost": 8 } } }));
     }
-    let mut fields = weighted_query_fields(DEF_MM_FIELDS, DEF_PROSE_EXTRA_FIELDS, mapped, numeric);
+    let mut fields = weighted_query_fields(
+        DEF_MM_FIELDS,
+        DEF_PROSE_EXTRA_FIELDS,
+        mapped,
+        numeric,
+        false,
+    );
     // A phrase ("flush the tree to disk") lives in the symbol body (`impl`),
     // not in the declaration. Only when the read mapping actually has `impl`
     // and no index maps it as numeric: the historical code query

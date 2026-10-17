@@ -220,28 +220,38 @@ pub(crate) fn code_symbol_fields_absent(mapped: Option<&BTreeSet<String>>) -> bo
     }
 }
 
-/// `preferred` entries whose base field is mapped, then `extras` (bare names)
-/// when the corpus maps no code-symbol field.
+/// `preferred` entries whose base field is mapped, then `extras` (bare names).
+///
+/// `prose_beside_code`: also name `text` and `message` when a code field is
+/// mapped. A folded `docs` index stores changelog and config lines in `text`
+/// next to `name`/`code`/`defs`. Leaving `text` off made `xerj search` miss
+/// `tokio/CHANGELOG.md` (122 sections) while a direct `match_phrase` on
+/// `text` hit them. `impl` stays off in that case so a code corpus does not
+/// grow a second body leg (#916). A corpus with no code field still gets
+/// every extra it maps, including `impl`.
 pub(crate) fn weighted_query_fields(
     preferred: &[(&str, &str)],
     extras: &[&str],
     mapped: Option<&BTreeSet<String>>,
     numeric: Option<&BTreeSet<String>>,
+    prose_beside_code: bool,
 ) -> Vec<String> {
     let mut out: Vec<String> = preferred
         .iter()
         .filter(|(name, _)| field_lookup_ok(mapped, numeric, name))
         .map(|(_, weighted)| (*weighted).to_string())
         .collect();
-    if code_symbol_fields_absent(mapped) {
-        if let Some(set) = mapped {
-            for name in extras {
-                if set.contains(*name)
-                    && !numeric.is_some_and(|nums| nums.contains(*name))
-                    && !out.iter().any(|f| f.split('^').next() == Some(*name))
-                {
-                    out.push((*name).to_string());
-                }
+    let code_present = !code_symbol_fields_absent(mapped);
+    if let Some(set) = mapped.filter(|set| !set.is_empty()) {
+        for name in extras {
+            if code_present && (*name == "impl" || !prose_beside_code) {
+                continue;
+            }
+            if set.contains(*name)
+                && !numeric.is_some_and(|nums| nums.contains(*name))
+                && !out.iter().any(|f| f.split('^').next() == Some(*name))
+            {
+                out.push((*name).to_string());
             }
         }
     }
@@ -295,7 +305,7 @@ fn build_search_query(
 ) -> Value {
     let shaped = xerj_common::code_query::normalize_code_search_query(query);
     let mut should = Vec::new();
-    let fields = weighted_query_fields(SEARCH_MM_FIELDS, PROSE_EXTRA_FIELDS, mapped, numeric);
+    let fields = weighted_query_fields(SEARCH_MM_FIELDS, PROSE_EXTRA_FIELDS, mapped, numeric, true);
     if !fields.is_empty() {
         should.push(json!({ "multi_match": {
             "query": shaped,
@@ -872,11 +882,30 @@ mod tests {
             historical
         );
         assert!(mapped_property_names(&json!({"error": "no such index"})).is_none());
-        let code = names_of(&["name", "code", "body", "defs", "title", "text", "impl"]);
+        let code_only = names_of(&["name", "code", "body", "defs", "title"]);
         assert_eq!(
-            search_query_body_for_mapping(query, 5, Some(&code), Some(&BTreeSet::new())),
-            historical
+            search_query_body_for_mapping(query, 5, Some(&code_only), Some(&BTreeSet::new())),
+            historical,
+            "a code corpus with no prose field keeps the #916 field list"
         );
+        // A folded docs index maps `text` (changelogs, line-oriented files)
+        // beside the code fields. Search it. `impl` stays off so the code
+        // legs do not grow a second body.
+        let mixed = names_of(&[
+            "name", "code", "body", "defs", "title", "text", "impl", "message",
+        ]);
+        let body = search_query_body_for_mapping(query, 5, Some(&mixed), Some(&BTreeSet::new()));
+        let fields = body["query"]["bool"]["should"][0]["multi_match"]["fields"]
+            .as_array()
+            .unwrap();
+        let bare: Vec<&str> = fields
+            .iter()
+            .map(|f| f.as_str().unwrap().split('^').next().unwrap())
+            .collect();
+        assert!(bare.contains(&"text"), "{bare:?}");
+        assert!(bare.contains(&"message"), "{bare:?}");
+        assert!(!bare.contains(&"impl"), "{bare:?}");
+        assert!(bare.contains(&"body") && bare.contains(&"defs"), "{bare:?}");
         // One index in the union mapping `defs` is enough to keep the leg:
         // strict mode refuses a field no resolved index maps, not a field
         // some index does not map.
