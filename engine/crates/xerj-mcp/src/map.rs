@@ -88,14 +88,17 @@ pub(crate) fn parse_args(args: &Value) -> Result<MapArgs, String> {
     Ok(MapArgs { index, max_bytes })
 }
 
-/// The `_search` body for the catalog read. A pattern without a `*` becomes
-/// an engine-side `term` on `index_name` (exact); a glob filters client-side
-/// — one less engine query behaviour for this proxy to assume, and index
-/// counts are small.
+/// The `_search` body for the catalog read. Filter exact names with `term`
+/// and globs with `wildcard` before the 100-result cap. Filtering a glob only
+/// after the fetch could hide a matching dataset behind 100 larger ones.
 pub(crate) fn catalog_body(args: &MapArgs) -> Value {
     let mut must = vec![json!({ "term": { "doc_kind": "dataset" } })];
-    if let Some(name) = args.index.as_deref().filter(|p| !p.contains('*')) {
-        must.push(json!({ "term": { "index_name": name } }));
+    if let Some(name) = args.index.as_deref() {
+        if name.contains('*') {
+            must.push(json!({ "wildcard": { "index_name": name } }));
+        } else {
+            must.push(json!({ "term": { "index_name": name } }));
+        }
     }
     json!({
         "query": { "bool": { "must": must } },
@@ -318,7 +321,8 @@ pub(crate) fn render_response(resp: &Value, args: &MapArgs) -> String {
         .and_then(Value::as_u64)
         .unwrap_or(hits.len() as u64);
 
-    // Pattern filtering (glob only; exact names were filtered engine-side).
+    // Keep the local glob check so only the tool's documented `*` syntax
+    // reaches the response even if the engine supports more wildcard syntax.
     let docs: Vec<Value> = hits
         .iter()
         .filter_map(|h| h.get("_source").cloned())
@@ -716,7 +720,7 @@ mod tests {
     }
 
     #[test]
-    fn exact_names_filter_engine_side_and_globs_client_side() {
+    fn exact_names_and_globs_filter_engine_side() {
         let f = r#"[{"name":"a","es_type":"keyword","cardinality_est":1,"coverage":1.0,"examples":["a"]}]"#;
         let hits = vec![
             dataset_doc("ax-logs", 10, f),
@@ -729,9 +733,13 @@ mod tests {
         let body = catalog_body(&args(Some("ax-logs")));
         assert_eq!(body["query"]["bool"]["must"].as_array().unwrap().len(), 2);
 
-        // Glob: no engine-side term; the client filter keeps only matches.
+        // A glob must filter before the 100-result cap: otherwise a matching
+        // low-record dataset can be omitted by unrelated larger datasets.
         let body = catalog_body(&args(Some("ax-*")));
-        assert_eq!(body["query"]["bool"]["must"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            body["query"]["bool"]["must"][1],
+            json!({ "wildcard": { "index_name": "ax-*" } })
+        );
         let out: Value =
             serde_json::from_str(&render_response(&resp, &args(Some("ax-*")))).unwrap();
         assert_eq!(out["matched"], 2);

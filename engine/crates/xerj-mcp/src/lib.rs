@@ -996,7 +996,7 @@ pub fn tool_specs() -> Value {
                         "type": "string",
                         "description": "Index name or `*`-glob (e.g. `ax-logs`, `ax-*`). Default: every \
                          catalogued index. An exact name filters engine-side; a glob filters \
-                         client-side over the catalog's index names."
+                         against the catalog before the 100-index limit."
                     },
                     "max_bytes": {
                         "type": "integer",

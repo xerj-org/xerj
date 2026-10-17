@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `xerj_map` applies index-name globs before its 100-dataset response cap, so
+  unrelated larger datasets cannot hide a matching catalog entry.
+
 ## [1.0.0-rc.96] - 2026-10-15
 
 Window since v1.0.0-rc.95: a fix-and-honesty sweep across search tie order,
