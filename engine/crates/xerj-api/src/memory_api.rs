@@ -15,6 +15,11 @@
 //! DELETE /_memory/{namespace}            drop    — drop the whole namespace
 //! ```
 //!
+//! `POST /_memory/{namespace}/_doc` and `PUT /_memory/{namespace}/_doc/{id}`
+//! are the Elasticsearch document routes, not this API. They answer `405`
+//! with a JSON body that names the store and recall calls, instead of an
+//! empty method-not-allowed.
+//!
 //! ## Pagination (item 12)
 //!
 //! `GET /_memory/{namespace}` pages the namespace with `from` (offset, default
@@ -55,7 +60,7 @@
 
 use axum::{
     extract::{Path, State},
-    http::StatusCode,
+    http::{header, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
     Json,
 };
@@ -1345,6 +1350,42 @@ pub async fn list(
 // Forget
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// JSON `405` for a memory path that is not a write or a read.
+///
+/// The Elasticsearch document routes (`POST /{index}/_doc`,
+/// `PUT /{index}/_doc/{id}`, `POST /{index}/_search`) land here when an agent
+/// copies them onto `/_memory`. An empty `405` costs a round trip; the body
+/// names the four calls this API actually has.
+fn memory_method_not_allowed(namespace: &str) -> Response {
+    let reason = format!(
+        "/_memory/{namespace} is the agent-memory API, not the document API. \
+         Store with POST /_memory/{namespace} and a JSON body {{\"text\":\"...\"}}. \
+         Recall with POST /_memory/{namespace}/_recall and {{\"query\":\"...\"}}. \
+         List with GET /_memory/{namespace}. \
+         Forget one entry with DELETE /_memory/{namespace}/{{id}}."
+    );
+    (
+        StatusCode::METHOD_NOT_ALLOWED,
+        [(header::ALLOW, HeaderValue::from_static("DELETE"))],
+        Json(json!({
+            "error": { "type": "memory_error", "reason": reason },
+            "status": 405,
+        })),
+    )
+        .into_response()
+}
+
+/// `GET`/`POST`/`PUT /_memory/{namespace}/{id}` — that path only forgets.
+pub async fn unsupported_memory_verb(Path((namespace, _id)): Path<(String, String)>) -> Response {
+    memory_method_not_allowed(&namespace)
+}
+
+/// `PUT`/`POST`/`GET`/`DELETE /_memory/{namespace}/_doc/{id}` — the document
+/// route with an id. No memory id lives at this path.
+pub async fn unsupported_memory_doc_id(Path((namespace, _id)): Path<(String, String)>) -> Response {
+    memory_method_not_allowed(&namespace)
+}
+
 /// `DELETE /_memory/{namespace}/{id}` — forget a single memory entry.
 pub async fn forget_one(
     State(state): State<AppState>,
@@ -2302,5 +2343,86 @@ mod tests {
             hits[0]["id"], "new",
             "recency_weight=0.9 must surface the most recent memory first"
         );
+    }
+
+    /// Copying the Elasticsearch document routes onto `/_memory` used to
+    /// return an empty 405/404. The body has to name the real calls.
+    #[tokio::test]
+    async fn document_routes_on_memory_name_the_real_calls() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.keep();
+        let mut config = Config::default();
+        config.server.data_dir = path.to_str().unwrap().to_string();
+        config.auth.enabled = false;
+        let metrics = Metrics::new().expect("metrics");
+        let engine = Engine::new(config.clone()).expect("engine");
+        let app = crate::router::build_es_compat_router(AppState::new(config, engine, metrics));
+
+        for (method, uri) in [
+            ("POST", "/_memory/notes/_doc"),
+            ("GET", "/_memory/notes/_search"),
+            ("PUT", "/_memory/notes/_doc/abc"),
+            ("POST", "/_memory/notes/some-id"),
+        ] {
+            let req = axum::http::Request::builder()
+                .method(method)
+                .uri(uri)
+                .header("content-type", "application/json")
+                .body(axum::body::Body::from(
+                    r#"{"text":"via the document route"}"#,
+                ))
+                .unwrap();
+            let resp = tower::ServiceExt::oneshot(app.clone(), req).await.unwrap();
+            assert_eq!(
+                resp.status(),
+                StatusCode::METHOD_NOT_ALLOWED,
+                "{method} {uri}"
+            );
+            assert_eq!(
+                resp.headers()
+                    .get(header::ALLOW)
+                    .and_then(|v| v.to_str().ok()),
+                Some("DELETE")
+            );
+            let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+                .await
+                .unwrap();
+            let body: Value = serde_json::from_slice(&bytes).unwrap();
+            let reason = body["error"]["reason"].as_str().unwrap_or("");
+            assert!(
+                reason.contains("POST /_memory/notes") && reason.contains("\"text\""),
+                "{method} {uri} reason must name the store call: {reason}"
+            );
+            assert!(
+                reason.contains("POST /_memory/notes/_recall"),
+                "{method} {uri} reason must name recall: {reason}"
+            );
+            assert!(!bytes.is_empty(), "{method} {uri} body was empty");
+        }
+
+        // The real store route is unchanged.
+        let req = axum::http::Request::builder()
+            .method("POST")
+            .uri("/_memory/notes")
+            .header("content-type", "application/json")
+            .body(axum::body::Body::from(r#"{"text":"kept"}"#))
+            .unwrap();
+        let resp = tower::ServiceExt::oneshot(app.clone(), req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::CREATED);
+
+        // DELETE of one id is still forget, including an id spelled `_doc`.
+        let req = axum::http::Request::builder()
+            .method("DELETE")
+            .uri("/_memory/notes/_doc")
+            .body(axum::body::Body::empty())
+            .unwrap();
+        let resp = tower::ServiceExt::oneshot(app, req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let body: Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(body["forgotten"], false);
+        assert_eq!(body["id"], "_doc");
     }
 }

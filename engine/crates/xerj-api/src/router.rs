@@ -933,7 +933,24 @@ pub fn build_es_compat_router_with_hub(
                 .delete(memory_api::forget_namespace),
         )
         .route("/_memory/:namespace/_recall", post(memory_api::recall))
-        .route("/_memory/:namespace/:id", delete(memory_api::forget_one))
+        // The document-API spellings an agent copies from `POST /{index}/_doc`.
+        // More specific than `/:id`, so they explain themselves instead of
+        // falling through to an empty 404. DELETE of a memory whose id is the
+        // literal `_doc` stays on the `/:id` route below.
+        .route(
+            "/_memory/:namespace/_doc/:doc_id",
+            get(memory_api::unsupported_memory_doc_id)
+                .post(memory_api::unsupported_memory_doc_id)
+                .put(memory_api::unsupported_memory_doc_id)
+                .delete(memory_api::unsupported_memory_doc_id),
+        )
+        .route(
+            "/_memory/:namespace/:id",
+            delete(memory_api::forget_one)
+                .get(memory_api::unsupported_memory_verb)
+                .post(memory_api::unsupported_memory_verb)
+                .put(memory_api::unsupported_memory_verb),
+        )
         // ── Corpus Hub hosted endpoints ───────────────────────────────────────
         // Four read-only GET routes that answer from the packs restored on this
         // node (`hub_api.rs`; plan §6). Always mounted and keyed like every
