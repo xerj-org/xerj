@@ -620,6 +620,8 @@ pub fn run_code_query(
             rrf_scores,
             age_days,
             strict_licence: params.strict_licence,
+            lexical_lines: params.mode == Mode::Bm25
+                || note.as_deref().is_some_and(|n| n.starts_with("BM25 only")),
         },
         note.as_deref(),
     );
@@ -825,7 +827,14 @@ pub(crate) fn bm25_body(query: &str, k: usize, lang: &Option<String>, fields: &[
     if let Some(lg) = lang {
         must.push(serde_json::json!({ "match": { "language": lg } }));
     }
-    serde_json::json!({ "size": k, "query": { "bool": { "must": must } } })
+    serde_json::json!({
+        "size": k,
+        "query": { "bool": { "must": must } },
+        // Response-only. `_passage.ordinal` is the 0-based line of a lexical
+        // window (#174). It is not a highlight block, which changes ranking
+        // (#177). The scored fast path does not serve text `multi_match`.
+        "fields": ["_passage"]
+    })
 }
 
 /// #1237: second BM25 leg over symbol-record `impl` fields. Excludes `impl`
@@ -1341,7 +1350,8 @@ mod tests {
                 "query": { "bool": { "must": [
                     { "multi_match": { "query": "addReplyNull",
                         "fields": ["body", "defs", "title"] } }
-                ]}}
+                ]}},
+                "fields": ["_passage"]
             }),
             "mapping-resolved fields (defs_expanded dropped); no highlight, no _source \
              projection; size is the #1137 diversity fetch (10x k=5), cut back to k after"

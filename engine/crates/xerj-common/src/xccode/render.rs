@@ -7,9 +7,7 @@ use std::collections::HashMap;
 use serde_json::Value;
 
 use super::licence;
-use super::passage::{
-    best_window, commaus, locator_repo, provenance, py_len, symbol_passage, take_chars,
-};
+use super::passage::{best_window, commaus, locator_repo, py_len, symbol_passage, take_chars};
 
 /// How to render the hit list.
 pub struct RenderOpts<'a> {
@@ -29,6 +27,11 @@ pub struct RenderOpts<'a> {
     /// MCP `licence_policy:"strict"`: restricted hits keep locator + licence
     /// + warning but lose the passage text. The CLI passes false (warn).
     pub strict_licence: bool,
+    /// BM25 passages store a 0-based line index in `_passage.ordinal`.
+    /// A semantic passage stores a chunk index in the same field. Only a
+    /// caller that knows the hit came from a lexical query may turn the
+    /// ordinal into a file line.
+    pub lexical_lines: bool,
 }
 
 /// The longest non-empty string field of a source object (excluding `ax_*`
@@ -116,9 +119,48 @@ fn note_line(note: &str, meatl: bool) -> String {
     }
 }
 
+/// `file:line` when the record or a lexical `_passage` carries one.
+/// Otherwise `file (line unknown)` — a bare path reads as a finished
+/// citation, and a semantic chunk ordinal is not a line.
+fn citation(hit: &Value, lexical_lines: bool) -> String {
+    let src = hit.get("_source").unwrap_or(&Value::Null);
+    let path = ["ax_path", "ax_file", "path", "file"]
+        .iter()
+        .find_map(|k| src.get(*k).and_then(Value::as_str))
+        .unwrap_or("?");
+    let line = ["line", "start_line", "lineno"]
+        .iter()
+        .find_map(|k| src.get(*k).and_then(Value::as_u64))
+        .filter(|n| *n != 0)
+        .or_else(|| lexical_passage_line(hit, lexical_lines));
+    match line {
+        Some(n) => format!("{path}:{n}"),
+        None => format!("{path} (line unknown)"),
+    }
+}
+
+/// 1-based file line from a lexical passage. `ordinal` is a chunk index
+/// on a semantic hit, so this stays `None` unless the caller set
+/// `lexical_lines`. `defs` / `title` / `name` ordinals are not file lines,
+/// and a passage without `start_offset` has no window to cite.
+fn lexical_passage_line(hit: &Value, lexical_lines: bool) -> Option<u64> {
+    if !lexical_lines {
+        return None;
+    }
+    let first = hit.pointer("/fields/_passage/0")?.as_object()?;
+    if matches!(
+        first.get("field").and_then(Value::as_str),
+        Some("defs" | "title" | "name")
+    ) {
+        return None;
+    }
+    first.get("start_offset")?;
+    first.get("ordinal").and_then(Value::as_u64).map(|o| o + 1)
+}
+
 fn render_hit(h: &Value, licences: &HashMap<String, String>, opts: &RenderOpts) -> String {
     let src = h.get("_source").cloned().unwrap_or(Value::Null);
-    let loc = provenance(&src);
+    let loc = citation(h, opts.lexical_lines);
     let score = h.get("_score").and_then(Value::as_f64).unwrap_or(0.0);
     let lic = licences
         .get(locator_repo(&loc))
@@ -286,6 +328,7 @@ mod tests {
                 rrf_scores: false,
                 age_days: Some(3),
                 strict_licence: false,
+                lexical_lines: false,
             },
             None,
         );
@@ -317,6 +360,7 @@ mod tests {
                 rrf_scores: false,
                 age_days: None,
                 strict_licence: false,
+                lexical_lines: false,
             },
             None,
         );
@@ -356,6 +400,7 @@ mod tests {
                 rrf_scores: false,
                 age_days: None,
                 strict_licence: false,
+                lexical_lines: false,
             },
             None,
         );
@@ -389,6 +434,7 @@ mod tests {
                 rrf_scores: false,
                 age_days: None,
                 strict_licence: false,
+                lexical_lines: false,
             },
             None,
         );
@@ -428,6 +474,7 @@ mod tests {
                 rrf_scores: false,
                 age_days: None,
                 strict_licence: false,
+                lexical_lines: false,
             },
             None,
         );
@@ -466,6 +513,7 @@ mod tests {
                 rrf_scores: false,
                 age_days: None,
                 strict_licence: false,
+                lexical_lines: false,
             },
             None,
         );
@@ -506,6 +554,7 @@ mod tests {
                 rrf_scores: false,
                 age_days: None,
                 strict_licence: false,
+                lexical_lines: false,
             },
             None,
         );
@@ -530,6 +579,7 @@ mod tests {
                 rrf_scores: false,
                 age_days: None,
                 strict_licence: true,
+                lexical_lines: false,
             },
             None,
         );
@@ -555,6 +605,7 @@ mod tests {
                 rrf_scores: false,
                 age_days: None,
                 strict_licence: true,
+                lexical_lines: false,
             },
             None,
         );
@@ -575,6 +626,7 @@ mod tests {
                 rrf_scores: false,
                 age_days: None,
                 strict_licence: false,
+                lexical_lines: false,
             },
             None,
         );
@@ -603,6 +655,7 @@ mod tests {
                 rrf_scores: false,
                 age_days: Some(2),
                 strict_licence: false,
+                lexical_lines: false,
             },
             Some("hybrid RRF(k=60) — BM25 over 9 index(es), vector over 3 of 9"),
         );
@@ -640,6 +693,7 @@ mod tests {
                 rrf_scores: true,
                 age_days: None,
                 strict_licence: false,
+                lexical_lines: false,
             },
             None,
         );
@@ -659,5 +713,70 @@ mod tests {
             no_match_text("kv", "xyzzy", true),
             "@no q=\"xyzzy\" why=no-match-in-corpus\n"
         );
+    }
+
+    #[test]
+    fn a_bm25_body_hit_cites_the_passage_line_and_a_bare_path_says_unknown() {
+        let whole_file = json!({
+            "_score": 4.2,
+            "_source": { "ax_path": "pr-agent/pr_agent/algo/inline_comment_dedup.py", "body": "def dedupe():\n    pass\n" },
+            "fields": { "_passage": [{
+                "field": "body",
+                "ordinal": 41,
+                "start_offset": 1200,
+                "end_offset": 1300,
+                "text": "def dedupe():\n    pass"
+            }]}
+        });
+        assert_eq!(
+            citation(&whole_file, true),
+            "pr-agent/pr_agent/algo/inline_comment_dedup.py:42"
+        );
+        let text = render(
+            &[whole_file],
+            &HashMap::new(),
+            &RenderOpts {
+                corpus: "qabot-review",
+                query: "dedupe",
+                full: 0,
+                no_symbol: true,
+                meatl: false,
+                rrf_scores: false,
+                age_days: None,
+                strict_licence: false,
+                lexical_lines: true,
+            },
+            None,
+        );
+        assert!(
+            text.contains("─── pr-agent/pr_agent/algo/inline_comment_dedup.py:42"),
+            "{text}"
+        );
+
+        let bare = json!({ "_source": { "ax_path": "readme.md", "body": "hello" } });
+        assert_eq!(citation(&bare, true), "readme.md (line unknown)");
+
+        // A semantic chunk ordinal is not a file line, even with start_offset.
+        let semantic = json!({
+            "_source": { "ax_path": "readme.md" },
+            "fields": { "_passage": [{
+                "field": "body",
+                "ordinal": 3,
+                "start_offset": 10,
+                "text": "chunk"
+            }]}
+        });
+        assert_eq!(citation(&semantic, false), "readme.md (line unknown)");
+
+        let defs = json!({
+            "_source": { "ax_path": "a.rs" },
+            "fields": { "_passage": [{
+                "field": "defs",
+                "ordinal": 0,
+                "start_offset": 0,
+                "text": "fn commit"
+            }]}
+        });
+        assert_eq!(citation(&defs, true), "a.rs (line unknown)");
     }
 }
