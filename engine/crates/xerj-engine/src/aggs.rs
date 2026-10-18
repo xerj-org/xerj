@@ -7000,7 +7000,25 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
                             other => Some(value_to_string(other)),
                         };
                         if let Some(exp) = expected_str {
-                            if !actual_values.iter().any(|v| v == &exp) {
+                            // Whole-value first (keyword). Multi-word strings also
+                            // check analyzed tokens so text-field term agrees with
+                            // `_count` / the query path (#1745).
+                            let matched = actual_values.iter().any(|v| {
+                                if v == &exp {
+                                    return true;
+                                }
+                                if !v.contains(char::is_whitespace) {
+                                    return false;
+                                }
+                                let exp_toks = crate::index::phrase_tokens(&exp);
+                                if exp_toks.len() != 1 {
+                                    return false;
+                                }
+                                crate::index::phrase_tokens(v)
+                                    .iter()
+                                    .any(|t| t == &exp_toks[0])
+                            });
+                            if !matched {
                                 return false;
                             }
                         }
@@ -7021,25 +7039,68 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
                     }
                 }
             }
-            "match" | "match_phrase" => {
+            "match" => {
                 if let Some(field_map) = query_body.as_object() {
                     for (field, expected) in field_map {
                         let actual_values = extract_field_values(doc, field);
-                        let expected_str = match expected {
+                        let (expected_str, operator_and) = match expected {
                             Value::Object(o) => {
-                                o.get("query").map(value_to_string).unwrap_or_default()
+                                let q = o.get("query").map(value_to_string).unwrap_or_default();
+                                let and = o
+                                    .get("operator")
+                                    .and_then(Value::as_str)
+                                    .is_some_and(|op| op.eq_ignore_ascii_case("and"));
+                                (q, and)
                             }
-                            other => value_to_string(other),
+                            other => (value_to_string(other), false),
                         };
-                        let exp_lower = expected_str.to_lowercase();
-                        let exp_tokens: Vec<&str> = exp_lower.split_whitespace().collect();
+                        let exp_tokens = crate::index::phrase_tokens(&expected_str);
+                        if exp_tokens.is_empty() {
+                            return false;
+                        }
+                        // Token equality via the standard analyzer — not
+                        // substring — and OR by default (#1745).
                         let matched = actual_values.iter().any(|v| {
-                            let v_lower = v.to_lowercase();
-                            if exp_tokens.len() <= 1 {
-                                v_lower.contains(&exp_lower) || v == &expected_str
+                            let field_tokens = crate::index::phrase_tokens(v);
+                            if operator_and {
+                                exp_tokens
+                                    .iter()
+                                    .all(|qt| field_tokens.iter().any(|ft| ft == qt))
                             } else {
-                                exp_tokens.iter().all(|t| v_lower.contains(t))
+                                exp_tokens
+                                    .iter()
+                                    .any(|qt| field_tokens.iter().any(|ft| ft == qt))
                             }
+                        });
+                        if !matched {
+                            return false;
+                        }
+                    }
+                }
+            }
+            "match_phrase" => {
+                if let Some(field_map) = query_body.as_object() {
+                    for (field, expected) in field_map {
+                        let actual_values = extract_field_values(doc, field);
+                        let (expected_str, slop) = match expected {
+                            Value::Object(o) => {
+                                let q = o.get("query").map(value_to_string).unwrap_or_default();
+                                let slop =
+                                    o.get("slop").and_then(Value::as_u64).unwrap_or(0) as u32;
+                                (q, slop)
+                            }
+                            other => (value_to_string(other), 0),
+                        };
+                        let query_tokens = crate::index::phrase_tokens(&expected_str);
+                        if query_tokens.is_empty() {
+                            return false;
+                        }
+                        let matched = actual_values.iter().any(|v| {
+                            crate::index::phrase_positions_in_tokens(
+                                &crate::index::phrase_tokens(v),
+                                &query_tokens,
+                                slop,
+                            )
                         });
                         if !matched {
                             return false;
@@ -15633,6 +15694,103 @@ mod wildcard_regexp_filter_tests {
             filters_out.get("error").is_some(),
             "run_filters must return an error object, got {filters_out}"
         );
+    }
+}
+
+/// #1745: filter / filters aggs must use the same analyzer token rules as
+/// `_count` for match / term / match_phrase on text-like values.
+#[cfg(test)]
+mod match_term_phrase_filter_tests {
+    use super::{doc_matches_filter, run_filter, run_filters};
+    use serde_json::json;
+
+    fn books() -> Vec<serde_json::Value> {
+        vec![
+            json!({"title": "lazy dog sleeps"}),
+            json!({"title": "Quick dogs run"}),
+            json!({"title": "the fox and the dog"}),
+        ]
+    }
+
+    #[test]
+    fn match_dog_is_token_or_not_substring() {
+        let f = json!({"match": {"title": "dog"}});
+        let docs = books();
+        assert!(doc_matches_filter(&docs[0], &f));
+        assert!(!doc_matches_filter(&docs[1], &f), "dogs must not match dog");
+        assert!(doc_matches_filter(&docs[2], &f));
+    }
+
+    #[test]
+    fn term_dog_hits_analyzed_tokens_on_multiword_text() {
+        let f = json!({"term": {"title": "dog"}});
+        let docs = books();
+        assert!(doc_matches_filter(&docs[0], &f));
+        assert!(!doc_matches_filter(&docs[1], &f));
+        assert!(doc_matches_filter(&docs[2], &f));
+    }
+
+    #[test]
+    fn match_multi_term_defaults_to_or() {
+        let f = json!({"match": {"title": "quick fox"}});
+        let docs = books();
+        assert!(!doc_matches_filter(&docs[0], &f));
+        assert!(doc_matches_filter(&docs[1], &f));
+        assert!(doc_matches_filter(&docs[2], &f));
+    }
+
+    #[test]
+    fn match_phrase_requires_adjacency() {
+        let f = json!({"match_phrase": {"title": "fox dog"}});
+        let docs = books();
+        assert!(!doc_matches_filter(&docs[0], &f));
+        assert!(!doc_matches_filter(&docs[1], &f));
+        assert!(
+            !doc_matches_filter(&docs[2], &f),
+            "fox … and … dog is not adjacent"
+        );
+    }
+
+    #[test]
+    fn filter_and_filters_aggs_match_issue_1745_counts() {
+        let docs = books();
+        assert_eq!(
+            run_filter(&json!({"match": {"title": "dog"}}), None, &docs, &docs)["doc_count"]
+                .as_u64(),
+            Some(2)
+        );
+        assert_eq!(
+            run_filter(&json!({"term": {"title": "dog"}}), None, &docs, &docs)["doc_count"]
+                .as_u64(),
+            Some(2)
+        );
+        assert_eq!(
+            run_filter(
+                &json!({"match": {"title": "quick fox"}}),
+                None,
+                &docs,
+                &docs
+            )["doc_count"]
+                .as_u64(),
+            Some(2)
+        );
+        assert_eq!(
+            run_filter(
+                &json!({"match_phrase": {"title": "fox dog"}}),
+                None,
+                &docs,
+                &docs
+            )["doc_count"]
+                .as_u64(),
+            Some(0)
+        );
+        let out = run_filters(
+            &json!({"filters": {"dog": {"match": {"title": "dog"}}}}),
+            None,
+            &docs,
+            &docs,
+        );
+        assert_eq!(out["buckets"]["dog"]["doc_count"].as_u64(), Some(2));
     }
 }
 

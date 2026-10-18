@@ -45658,7 +45658,7 @@ fn geo_coord(v: &Value) -> Option<f64> {
 /// `match` (both sides) and `match_phrase` (query side) tokenize with it too
 /// (#1280), so they pass raw text; some callers pass text that upstream has
 /// already lowercased, which the idempotent lowercase filter makes harmless.
-fn phrase_tokens(text: &str) -> Vec<String> {
+pub(crate) fn phrase_tokens(text: &str) -> Vec<String> {
     static STANDARD: std::sync::OnceLock<std::sync::Arc<xerj_fts::analyzer::AnalyzerPipeline>> =
         std::sync::OnceLock::new();
     STANDARD
@@ -45675,7 +45675,11 @@ fn phrase_tokens(text: &str) -> Vec<String> {
 /// single-position term moves (transpositions cost 2 — `"a b"~2` matches a
 /// doc reading `b a`; see `phrase_positions_match`, which closed #830's
 /// in-order-only divergence for both arms at once).
-fn phrase_positions_in_tokens(field_tokens: &[String], query_tokens: &[String], slop: u32) -> bool {
+pub(crate) fn phrase_positions_in_tokens(
+    field_tokens: &[String],
+    query_tokens: &[String],
+    slop: u32,
+) -> bool {
     phrase_walk(field_tokens, query_tokens, slop, false)
 }
 
