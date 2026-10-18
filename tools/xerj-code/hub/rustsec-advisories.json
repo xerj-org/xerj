@@ -1,21 +1,6 @@
 {
  "corpus": "rustsec-advisories",
+ "withdrawn": "the source repository https://github.com/xerj-org/corpus-rust-vulns-txt returns HTTP 404 (anonymous and with the owner's token, 2026-10-17 hub-backfill pre-flight), so this pin is not cloneable. The 1,963 records were flattened from RustSec advisory-db and the crates.io OSV export; the rust-vulns pack covers RustSec.",
  "cloned_at": "2026-10-05T02:00:00Z",
- "repos": [
-  {
-   "repo": "corpus-rust-vulns-txt",
-   "url": "https://github.com/xerj-org/corpus-rust-vulns-txt",
-   "licence": "CC0-1.0",
-   "sha": "4bd96f2e2154e83ad257be4841526072a2fddd45",
-   "files": 1963,
-   "bytes": 3943444,
-   "review": {
-    "spdx": "CC0-1.0",
-    "use": "adapt-with-attribution",
-    "by": "xerj-org",
-    "at": "2026-10-05",
-    "note": "1963 per-advisory text records: RustSec advisory-db @3461c0d8 (1228, CC0-1.0) + crates.io OSV export (735 GHSA-sourced, CC0-1.0) - verified ZERO alias overlap, genuinely disjoint. 271 records carry affected_functions symbol lists. G7 r1 5/5 (hard query: memoffset offset_of SIGILL). Supersedes the typed-JSON harvest that had no text field (#1158 class)"
-   }
-  }
- ]
+ "repos": []
 }

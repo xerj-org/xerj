@@ -133,6 +133,12 @@ landing/resources/xerj-sales-kit.zip
 # documented everywhere and shipped nowhere).
 !tools/**/*.md
 
+# Re-include the Corpus Hub backfill report (spec §12.1). hub-packs.yml's
+# `backfill report` job runs `git add benchmarks/hub-backfill/REPORT.md` under
+# `set -e`; with REPORT.md ignored that add exits 1 and the report is never
+# committed. PREFLIGHT.md (the pre-run prediction) lives beside it.
+!benchmarks/hub-backfill/*.md
+
 # Re-include the public .github community files. The blanket *.md rule above
 # silently swallowed these: no pull-request template has ever existed in this
 # repo's history because `git add` refused it without anyone noticing, while

@@ -1,21 +1,6 @@
 {
  "corpus": "ietf-rfc-abstracts",
+ "withdrawn": "the source repository https://github.com/xerj-org/corpus-ietf-rfc-abstracts returns HTTP 404 (anonymous and with the owner's token, 2026-10-17 hub-backfill pre-flight), so this pin is not cloneable. The 9,015 per-RFC abstract records parsed from the ietf-rfc mirror; no other repository serves pin 36298d4d.",
  "cloned_at": "2026-10-05T02:00:00Z",
- "repos": [
-  {
-   "repo": "corpus-ietf-rfc-abstracts",
-   "url": "https://github.com/xerj-org/corpus-ietf-rfc-abstracts",
-   "licence": "IETF-TLP-5.0",
-   "sha": "36298d4d0178eca9782e51c551a538f73f316c62",
-   "files": 9015,
-   "bytes": 10882746,
-   "review": {
-    "spdx": "IETF-TLP-5.0",
-    "use": "adapt-with-attribution",
-    "by": "xerj-org",
-    "at": "2026-10-05",
-    "note": "Per-RFC abstract layer (9,015 records: RFC number, title, category, obsoletes/updates, date, abstract) parsed from the byte-verbatim ietf-rfc mirror @36298d4d; TLP-5.0 excerpts with attribution, full text stays in ietf-rfc. G7 round-2 3/5 relevant 2026-10-05, dupcheck 9016 docs CLEAN."
-   }
-  }
- ]
+ "repos": []
 }

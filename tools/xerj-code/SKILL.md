@@ -133,18 +133,18 @@ which. Pick by the project's domain, not by size:
 | secrets / config serving | `openbao` | KV store with seal/unseal, lease machinery |
 | API design review | `rust-api-guidelines`, `msft-api-guidelines`, `zalando-restful-api-guidelines`, `google-eng-practices` | naming, error shape, versioning; Zalando's is the most clause-complete REST policy set, google-eng-practices owns code-review doctrine |
 | protocol/spec conformance | `openapi-spec`, `graphql-spec`, `json-schema-spec`, `w3c-css`, `whatwg-specs`, `ecma262`, `nats-protocol`, `kafka-protocol` | the normative text an implementation is judged against — HTML/DOM/URL living standards, ECMAScript grammar, wire-protocol framing |
-| locating the right RFC before reading it | `ietf-rfc-abstracts` | one record per RFC (9,015): number, title, date, abstract — "which RFC actually covers X" without pulling full texts (TLP-5.0) |
+| locating the right RFC before reading it | withdrawn: do not `corpus add` `ietf-rfc-abstracts` | the pin pointed at xerj-org/corpus-ietf-rfc-abstracts, which returns HTTP 404 (2026-10-17) |
 | production ops / SRE | `gitlab-runbooks`, `school-of-sre`, `tldr-pages`, `mozilla-ssl-configs`, `twelve-factor` | real incident playbooks, a full SRE course curriculum, command syntax by tool, deployed TLS configs, deployment doctrine |
 | administering Unix systems | `freebsd-handbook`, `openbsd-faq` | rc/ZFS/jail/networking procedures, OpenBSD's canonical FAQ positions |
 | documenting against a hosted API | `github-api-description` | the OpenAPI description of github.rest — field semantics, enum values, preview headers |
 | datastore operations docs | `valkey-docs`, `etcd-docs` | command semantics, config knobs, tuning guidance — the operational reference for each |
 | telemetry / observability wiring | the semconv half of `otel-proto` (candidate — G7 2/5, parked to the semantic lane) | OpenTelemetry semantic conventions for attribute names; lexical rounds could not bridge paraphrase-to-normative-prose |
 | internationalisation | `unicode-cldr` | CLDR locale data structure, calendar/number/date skeletons |
-| security review of Rust dependencies | `rustsec-advisories`, the `rust-vulns` pack (`xerj corpus add --from` the hub recipe) | one text record per advisory (1,963: RustSec + crates.io OSV, zero alias overlap): affected versions, fixed releases, affected-function symbol lists on 271; the pack stays the vehicle for patched-pair mining (#1111's defect-class study) |
+| security review of Rust dependencies | the `rust-vulns` pack (`xerj corpus add --from` the hub recipe) | RustSec advisories as records, and the vehicle for patched-pair mining (#1111's defect-class study). `rustsec-advisories` (1,963 text records) is withdrawn: its repository xerj-org/corpus-rust-vulns-txt returns HTTP 404 (2026-10-17) |
 | security review of Python dependencies | `pysec` | PYSEC advisory records with affected and fixed versions, CVE/GHSA aliases |
 | cross-ecosystem dependency audit | `ghsa-db` | GitHub-reviewed advisories (36,263 text records): CVSS vectors, patched ranges, affected packages across npm/PyPI/Go/Rust/maven and the rest |
 | security review of Go modules | `go-vulndb` | Go-team-curated advisories (4,577): affected packages and symbols, fixed versions, GO ids with CVE aliases |
-| regex denial-of-service precedent | `redos-precedent` | 634 regex-specific ReDoS advisories (CWE-1337/185 class, not bare CWE-400): the pathological input, the affected function, the bounded rewrite |
+| regex denial-of-service precedent | withdrawn: do not `corpus add` `redos-precedent` | the pin pointed at xerj-org/corpus-redos-precedent, which returns HTTP 404 (2026-10-17). Those 634 records were a regex-class slice of the advisory mirrors; use `ghsa-db` and `pysec` |
 | crypto misuse precedent | withdrawn: do not `corpus add` `crypto-misuse-precedent` | the pin pointed at xerj-org/corpus-crypto-misuse-precedent, which returns HTTP 404. Those 721 records were a flatten of `ghsa-db`, osv, and `pysec`; use those |
 | vulnerability / weakness taxonomy | `mitre-cwe`, `mitre-capec` | CWE weakness definitions and CAPEC attack patterns, id-level |
 | adversary techniques / detection engineering | `mitre-attck` | ATT&CK v19.2 per-technique records: technique ids, tactics, detection data sources, procedure examples (enterprise/mobile/ics; software and group objects out of scope) |
@@ -167,15 +167,13 @@ which. Pick by the project's domain, not by size:
 
 **Inside the security block, pick twice — ecosystem first, defect class
 second.** Advisories about the same CVE exist in several databases; start
-with the corpus whose ecosystem matches the project (`rustsec-advisories`
+with the corpus whose ecosystem matches the project (the `rust-vulns` pack
 for Rust crates, `pysec` for PyPI, `go-vulndb` for Go modules,
 `ghsa-db` when the tree is mixed or the ecosystem is unclear — it is the
-superset, GitHub-reviewed). Then, when the review is about a regex fed user input rather than a
-package, switch to `redos-precedent`: smaller, selected for exactly that
-defect class, so the mechanism (the pathological input, the bounded
-rewrite that fixed it) ranks instead of thousands of generic advisories.
-`crypto-misuse-precedent` is withdrawn (its repository returns HTTP 404);
-a cipher or key-management question stays on `ghsa-db`.
+superset, GitHub-reviewed). The defect-class slices `redos-precedent` and `crypto-misuse-precedent`
+are withdrawn (their repositories return HTTP 404), and so is
+`rustsec-advisories`; a regex, cipher or key-management question stays
+on `ghsa-db`.
 
 Three rules that keep the choice honest:
 

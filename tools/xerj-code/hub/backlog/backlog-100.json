@@ -124,6 +124,7 @@
     "verdict": "PASS"
    },
    "lane": "A",
+   "note": "Withdrawn 2026-10-17: the pinned repository https://github.com/xerj-org/corpus-rust-vulns-txt returns HTTP 404, so the hub-packs backfill cannot build it (benchmarks/hub-backfill/PREFLIGHT.md). Rebuild the mirror and re-pin to restore it.",
    "refresh": "weekly",
    "slug": "rustsec-advisories",
    "sources": [
@@ -136,7 +137,7 @@
      "url": "https://github.com/rust-lang/crates.io/ (OSV export via osv.dev)"
     }
    ],
-   "status": "live",
+   "status": "withdrawn",
    "tags": {
     "region": "GLOBAL",
     "topics": [
@@ -644,6 +645,7 @@
     "verdict": "PASS"
    },
    "lane": "A",
+   "note": "Withdrawn 2026-10-17: the pinned repository https://github.com/xerj-org/corpus-ietf-rfc-abstracts returns HTTP 404, so the hub-packs backfill cannot build it (benchmarks/hub-backfill/PREFLIGHT.md). Rebuild the mirror and re-pin to restore it.",
    "refresh": "pinned",
    "slug": "ietf-rfc-abstracts",
    "sources": [
@@ -652,7 +654,7 @@
      "url": "https://www.rfc-editor.org/rfc/rfc-txt.tar.gz"
     }
    ],
-   "status": "live",
+   "status": "withdrawn",
    "superseded_by": "ietf-rfc-abstracts",
    "tags": {
     "region": "GLOBAL",
@@ -1433,6 +1435,7 @@
     "verdict": "PASS"
    },
    "lane": "A",
+   "note": "Withdrawn 2026-10-17: the pinned repository https://github.com/xerj-org/corpus-redos-precedent returns HTTP 404, so the hub-packs backfill cannot build it (benchmarks/hub-backfill/PREFLIGHT.md). Rebuild the mirror and re-pin to restore it.",
    "refresh": "weekly",
    "slug": "redos-precedent",
    "sources": [
@@ -1441,7 +1444,7 @@
      "url": "curated from GHSA/RUSTSEC/PYSEC ReDoS-class advisories"
     }
    ],
-   "status": "live",
+   "status": "withdrawn",
    "tags": {
     "region": "GLOBAL",
     "topics": [
