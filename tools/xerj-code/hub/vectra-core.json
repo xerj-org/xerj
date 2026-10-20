@@ -1,0 +1,21 @@
+{
+  "corpus": "vectra-core",
+  "cloned_at": "2026-10-20T18:31:50Z",
+  "repos": [
+    {
+      "repo": "Vectra-Core",
+      "url": "https://github.com/ronitgupta138/Vectra-Core.git",
+      "licence": "MIT",
+      "sha": "af64231db17eb1a37f76a2a37009cbb7e8783753",
+      "files": 48,
+      "bytes": 107002,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@ronitgupta138",
+        "at": "2026-10-20",
+        "note": "detector said MIT; confirmed against LICENSE file (MIT, (c) 2026 Ronit Gupta)."
+      }
+    }
+  ]
+}

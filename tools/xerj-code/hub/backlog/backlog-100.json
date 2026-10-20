@@ -13321,6 +13321,28 @@
      "video-pipelines"
     ]
    }
+  },
+  {
+   "cat": "AI",
+   "domain": "an agent working on vector search and HNSW graph indexing queries this for how Vectra-Core implements Java 21 Loom virtual threads, cosine/euclidean distance metrics, and 8-bit scalar quantization (SQ8)",
+   "lane": "A",
+   "refresh": "pinned",
+   "slug": "vectra-core",
+   "sources": [
+    {
+     "licence_hint": "MIT \u2014 per-repo review block in the manifest",
+     "url": "see hub/vectra-core.json"
+    }
+   ],
+   "status": "live",
+   "tags": {
+    "region": "GLOBAL",
+    "topics": [
+     "vector-search",
+     "hnsw",
+     "java"
+    ]
+   }
   }
  ],
  "lanes": [
