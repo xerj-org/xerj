@@ -1,0 +1,22 @@
+{
+ "corpus": "jinpeng900--kynxa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how jinpeng900/KYNXA implements it: A local-first personal agent runtime for Windows, focused on durable tasks, model-independent state, governed capabilities, and adaptive exe (selected work: apps/model-gateway)",
+ "repos": [
+  {
+   "repo": "KYNXA",
+   "url": "https://github.com/jinpeng900/KYNXA",
+   "sha": "c9e83efb8b90168161b73294d739cb1bb198aa7f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit c9e83efb8b90: \"Preserve unfinished tasks through bounded completion review\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

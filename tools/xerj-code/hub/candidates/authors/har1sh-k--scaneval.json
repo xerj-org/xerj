@@ -1,0 +1,22 @@
+{
+ "corpus": "har1sh-k--scaneval",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Python queries this for how Har1sh-k/scaneval implements it: Benchmark for evaluating SAST tools on agentic codebases; measures detection, precision, and intent-awareness (selected work: src/scaneval, tests, corpus)",
+ "repos": [
+  {
+   "repo": "scaneval",
+   "url": "https://github.com/Har1sh-k/scaneval",
+   "sha": "8031a44c3a399ef297c7c926988f125e22e8da56",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 8031a44c3a39: \"Record partial harness scans and native pi evidence\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

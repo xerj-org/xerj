@@ -1,0 +1,22 @@
+{
+ "corpus": "1dao--xnet2lua",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on actor-model, c, cross-platform queries this for how 1dao/xnet2lua implements it: Lightweight C networking runtime with embedded Lua: cross-platform event loop (epoll/kqueue/WSAPoll, optional io_uring), one isolated Lua st (selected work: xlua, tests, the project root)",
+ "repos": [
+  {
+   "repo": "xnet2lua",
+   "url": "https://github.com/1dao/xnet2lua",
+   "sha": "2d8803f860e88ec337cb85922a713b50bc55ee59",
+   "licence": "hint only: BSD-2-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-2-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 2d8803f860e8: \"feat(xwatch): add recursive directory change notification\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

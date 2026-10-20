@@ -1,0 +1,22 @@
+{
+ "corpus": "hung-phan--pmtui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, ai-agents, automation queries this for how hung-phan/pmtui implements it: A tmux-backed supervisor and dashboard for persistent AI coding sessions. Keeps one claude/codex agent per project moving toward its goal, a (selected work: src/tmux, tests, src/bin)",
+ "repos": [
+  {
+   "repo": "pmtui",
+   "url": "https://github.com/hung-phan/pmtui",
+   "sha": "4157ff8a4c0b2b784e7b492d46a614ccdb05862f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 4157ff8a4c0b: \"Fix dashboard Message send gate for Claude (#9)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

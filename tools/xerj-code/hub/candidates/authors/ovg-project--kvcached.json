@@ -1,0 +1,22 @@
+{
+ "corpus": "ovg-project--kvcached",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on gpu-sharing, kvcache, llm queries this for how ovg-project/kvcached implements it: Virtualized Elastic KV Cache for Dynamic GPU Sharing and Beyond (selected work: tests, kvcached, tools)",
+ "repos": [
+  {
+   "repo": "kvcached",
+   "url": "https://github.com/ovg-project/kvcached",
+   "sha": "dc0d860e6016755cc39df88d4a6b5e415a12cf92",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit dc0d860e6016: \"fix: release the prefix cache when the KV memory limit is lowered (#552)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

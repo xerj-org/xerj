@@ -1,0 +1,22 @@
+{
+ "corpus": "metalsharp--metalsharp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on game-porting-toolkit, macos, steam-games queries this for how metalsharp/MetalSharp implements it: Run Windows games and Windows applications on MacOS Silicon with MetalSharp. https://www.metalsharpmac.com/ (selected work: app/src-c, tools, configs)",
+ "repos": [
+  {
+   "repo": "MetalSharp",
+   "url": "https://github.com/metalsharp/MetalSharp",
+   "sha": "7b11d0ed4e53305fb5581e2f5ef948dc7758d949",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 7b11d0ed4e53: \"Run GTA V Enhanced on D3DMetal and VKD3D through the Rockstar launcher\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

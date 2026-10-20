@@ -1,0 +1,22 @@
+{
+ "corpus": "pyonky--claunch-plugins",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how pyonky/CLaunch-Plugins implements it: CLaunch Plugin Development Kit (selected work: ja, PluginTemplate)",
+ "repos": [
+  {
+   "repo": "CLaunch-Plugins",
+   "url": "https://github.com/pyonky/CLaunch-Plugins",
+   "sha": "cd95c180241e8939fa1576512979e86d2e123fce",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit cd95c180241e: \"v1.12\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

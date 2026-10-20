@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--nuttx-apps",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on nuttx, rtos, embedded queries this for how apache/nuttx-apps implements it: Apache NuttX Apps is a collection of tools, shells, network utilities, libraries, interpreters and can be used with the NuttX RTOS (selected work: examples)",
+ "repos": [
+  {
+   "repo": "nuttx-apps",
+   "url": "https://github.com/apache/nuttx-apps",
+   "sha": "b66303e26aa537dd74d6abaeeeded81c151a7e35",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit b66303e26aa5: \"examples/tinygl: add TinyGL gears demo\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

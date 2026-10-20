@@ -5,12 +5,18 @@ on:
     # Publishing releases is tag-gated (see the `release` job's `if:`).
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+*'
-    # ALSO build the full cross-target matrix on every push to main —
-    # artifacts only, no GitHub Release. This catches cross-compilation
-    # breakage (musl, aarch64, Windows OpenSSL, macOS) that the CI
-    # workflow's single linux-gnu build cannot, so a real tag never
-    # discovers a broken target for the first time at release time.
-    branches: [main]
+  # ALSO build the full cross-target matrix on main once a night —
+  # artifacts only, no GitHub Release. This catches cross-compilation
+  # breakage (musl, aarch64, Windows OpenSSL, macOS) that the CI
+  # workflow's single linux-gnu build cannot, so a real tag never
+  # discovers a broken target for the first time at release time.
+  # It used to run on every push to main; with dozens of merges a day each
+  # push started 8 runner-heavy jobs (2 on macOS) and starved PR CI, while
+  # cancel-in-progress threw most of them away. Nightly keeps the guarantee
+  # (a broken target is found within a day, before any tag) at 1/N the cost;
+  # dispatch against main for an on-demand check before cutting a tag.
+  schedule:
+    - cron: "23 3 * * *"
   # Manual runs take no inputs: the version and the publish decision are both
   # derived from the ref you dispatch against (GITHUB_REF_NAME / `refs/tags/v*`).
   # Dispatch against the TAG ref to rebuild and republish a release; dispatch

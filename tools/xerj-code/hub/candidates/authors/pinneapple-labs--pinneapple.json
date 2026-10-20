@@ -1,0 +1,22 @@
+{
+ "corpus": "pinneapple-labs--pinneapple",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cfd, hacktoberfest, physics-informed-neural-networks queries this for how PINNeAPPle-Labs/PINNeAPPle implements it: Pinneaple is an open-source Physics AI toolkit for Physics-Informed Neural Networks (PINNs), scientific ML, geometry processing, solvers, an (selected work: pinneapple_core, tests, pinneapple)",
+ "repos": [
+  {
+   "repo": "PINNeAPPle",
+   "url": "https://github.com/PINNeAPPle-Labs/PINNeAPPle",
+   "sha": "ebecc5e9ece385d708e2c57a9de358311d4e647d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit ebecc5e9ece3: \"feat(core): pp.transforms with composition, inverses and provenance (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

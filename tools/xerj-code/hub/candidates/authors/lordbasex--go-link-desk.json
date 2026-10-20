@@ -1,0 +1,22 @@
+{
+ "corpus": "lordbasex--go-link-desk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Go queries this for how lordbasex/go-link-desk implements it: Remote desktop from the browser: a portable host app streams the screen over WebRTC; the viewer only needs a browser (selected work: backend-device, mobile, frontend)",
+ "repos": [
+  {
+   "repo": "go-link-desk",
+   "url": "https://github.com/lordbasex/go-link-desk",
+   "sha": "ed63d5351065b18aa1934e74a84c18c60b3c2878",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ed63d5351065: \"Authenticate unattended links with ECDSA keys, not a shared token (F6\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

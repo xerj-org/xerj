@@ -1,0 +1,22 @@
+{
+ "corpus": "soyukke--satin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on macos, neovim, rust queries this for how soyukke/satin implements it: A native macOS terminal with tabs, splits, animated cursor movement, and smooth scrolling (selected work: spikes, scripts)",
+ "repos": [
+  {
+   "repo": "satin",
+   "url": "https://github.com/soyukke/satin",
+   "sha": "6fa86d2f454cae0a7db063103de6423cd5213422",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 6fa86d2f454c: \"Deal agents that need you as a hand of cards (#143)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

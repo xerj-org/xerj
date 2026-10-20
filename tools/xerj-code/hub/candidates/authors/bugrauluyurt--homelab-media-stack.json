@@ -1,0 +1,22 @@
+{
+ "corpus": "bugrauluyurt--homelab-media-stack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on arch-linux, claude-code, docker-compose queries this for how bugrauluyurt/homelab-media-stack implements it: Movies, TV, music and games on a server you own: the arr apps, Jellyfin and Seerr in Docker Compose, torrents sealed in a WireGuard VPN, acc (selected work: tests, the project root, scripts)",
+ "repos": [
+  {
+   "repo": "homelab-media-stack",
+   "url": "https://github.com/bugrauluyurt/homelab-media-stack",
+   "sha": "7314e98f883804b524026b188327a07964a27bf3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 7314e98f8838: \"feat(books): add isolated ebook search and library profile (#44)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "ximeng-y--touhoulittlemaid-self-talk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Java queries this for how ximeng-y/TouhouLittleMaid-Self-Talk implements it: \u4e3a Touhou Little Maid\uff08\u8f66\u4e07\u5973\u4ec6\uff09\u5973\u4ec6 AI \u6dfb\u52a0 \u81ea\u8a00\u81ea\u8bed / \u6b22\u8fce\u8bed \u80fd\u529b\u7684 NeoForge \u9644\u5c5e Mod (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "TouhouLittleMaid-Self-Talk",
+   "url": "https://github.com/ximeng-y/TouhouLittleMaid-Self-Talk",
+   "sha": "5d046835930028abd285b37e63e2eda01e4b4290",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 5d0468359300: \"\u4fee\u590d\u62c6\u5206\u5728\u9014\u671f\u95f4\u4ecd\u6d3e\u53d1\u81ea\u52a8\u804a\u5929\u53ca\u505c\u670d\u72b6\u6001\u6b8b\u7559\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

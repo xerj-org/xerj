@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--opennlp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on opennlp, apache, compling queries this for how apache/opennlp implements it: Apache OpenNLP (selected work: opennlp-core, opennlp-api, opennlp-eval-tests)",
+ "repos": [
+  {
+   "repo": "opennlp",
+   "url": "https://github.com/apache/opennlp",
+   "sha": "deb80bae8a07262cf79b5ae540fdeca6494a8533",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit deb80bae8a07: \"OPENNLP-547: Add a transition-based dependency parser component (#1236)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

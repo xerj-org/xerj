@@ -1,0 +1,22 @@
+{
+ "corpus": "abseil--abseil-cpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how abseil/abseil-cpp implements it: Abseil Common Libraries (C++) (selected work: absl)",
+ "repos": [
+  {
+   "repo": "abseil-cpp",
+   "url": "https://github.com/abseil/abseil-cpp",
+   "sha": "298a04d69cc2d8e30a78068454563fe492bbdfde",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 298a04d69cc2: \"Improve absl::Cord::Find and absl::Cord::Contains scaling via Boyer-M\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

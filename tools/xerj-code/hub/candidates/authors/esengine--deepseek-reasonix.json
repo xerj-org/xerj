@@ -1,0 +1,22 @@
+{
+ "corpus": "esengine--deepseek-reasonix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agent-framework, deepseek queries this for how esengine/DeepSeek-Reasonix implements it: A reliable coding agent for complex software engineering tasks (selected work: internal/ext, internal/frontend)",
+ "repos": [
+  {
+   "repo": "DeepSeek-Reasonix",
+   "url": "https://github.com/esengine/DeepSeek-Reasonix",
+   "sha": "a078f8e30fa4a8986300f0f0b0f72c90cceac6d4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit a078f8e30fa4: \"fix(studio): unify MCP launcher name inference\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

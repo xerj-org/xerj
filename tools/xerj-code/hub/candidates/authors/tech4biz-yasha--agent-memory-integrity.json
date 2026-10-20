@@ -1,0 +1,22 @@
+{
+ "corpus": "tech4biz-yasha--agent-memory-integrity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-memory, ai-agents, integrity queries this for how tech4biz-yasha/agent-memory-integrity implements it: Agent Memory Integrity: a conformance test suite that measures whether AI agent memory and checkpoint stores notice tampering. Measured on L (selected work: agmi, tests, the project root)",
+ "repos": [
+  {
+   "repo": "agent-memory-integrity",
+   "url": "https://github.com/tech4biz-yasha/agent-memory-integrity",
+   "sha": "6e766aefc7059cfe8ac56ae9ee547f30dc29044e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 6e766aefc705: \"Bedrock AgentCore events row: measured through the data-plane API, pi\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

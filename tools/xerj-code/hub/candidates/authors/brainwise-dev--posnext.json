@@ -1,0 +1,22 @@
+{
+ "corpus": "brainwise-dev--posnext",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on erpnext, frappe-framework, point-of-sale queries this for how BrainWise-DEV/POSNext implements it: A modern, high-performance Point of Sale system for ERPNext with offline capabilities, real-time updates, and intuitive UI (selected work: POS, pos_next)",
+ "repos": [
+  {
+   "repo": "POSNext",
+   "url": "https://github.com/BrainWise-DEV/POSNext",
+   "sha": "575fe9b61b315c4d2f6a892ff5043462140f69da",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 575fe9b61b31: \"feat(coupons): limit POS coupons to specific items, item groups or br\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

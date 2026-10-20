@@ -1,0 +1,22 @@
+{
+ "corpus": "maziac--dezog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Assembly queries this for how maziac/DeZog implements it: Visual Studio Code Debugger for Z80/ZX Spectrum (selected work: src/remotes, tests)",
+ "repos": [
+  {
+   "repo": "DeZog",
+   "url": "https://github.com/maziac/DeZog",
+   "sha": "753b66e00f8c92c656a5ed634336e42098987b3f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 753b66e00f8c: \"CMD_READ_MEM can read several memory blocks; used for the call stack.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

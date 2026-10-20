@@ -1,0 +1,22 @@
+{
+ "corpus": "sellmerfud--fitl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Scala queries this for how sellmerfud/fitl implements it: A Scala implementation of the Tru'ng Bots for the GMT game: Fire In The Lake (selected work: src/main, the project root)",
+ "repos": [
+  {
+   "repo": "fitl",
+   "url": "https://github.com/sellmerfud/fitl",
+   "sha": "c4d0debf6b6248b904fd5d3a2bdee32b9be5f8d7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit c4d0debf6b62: \"refactor: Clean up Json object\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

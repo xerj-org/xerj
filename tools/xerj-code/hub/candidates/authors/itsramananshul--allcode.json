@@ -1,0 +1,22 @@
+{
+ "corpus": "itsramananshul--allcode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, claude-code, cli queries this for how itsramananshul/allcode implements it: One terminal workspace for Claude Code, OpenCode, and Codex (selected work: src)",
+ "repos": [
+  {
+   "repo": "allcode",
+   "url": "https://github.com/itsramananshul/allcode",
+   "sha": "57dcf38885cd1fafa5cca56b81bfd0dc7e7cdd5e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 57dcf38885cd: \"Show live agent activity and enable transcript scrolling\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

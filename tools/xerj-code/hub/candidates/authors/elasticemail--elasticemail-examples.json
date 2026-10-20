@@ -1,0 +1,22 @@
+{
+ "corpus": "elasticemail--elasticemail-examples",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on elasticemail, email-api, go queries this for how ElasticEmail/elasticemail-examples implements it: Real-world Elastic Email examples for transactional email, SMTP, webhooks, inbound email, contacts, serverless platforms and AI coding agent (selected work: nodejs-elasticemail-examples, smtp-elasticemail-examples, the project root)",
+ "repos": [
+  {
+   "repo": "elasticemail-examples",
+   "url": "https://github.com/ElasticEmail/elasticemail-examples",
+   "sha": "8386830504baa841066f8d8e5a66d1b44f63b67c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 8386830504ba: \"fix: nodejs examples\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

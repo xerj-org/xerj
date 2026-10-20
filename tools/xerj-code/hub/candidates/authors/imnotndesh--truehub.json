@@ -1,0 +1,22 @@
+{
+ "corpus": "imnotndesh--truehub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android-application, kotlin, material-ui queries this for how Imnotndesh/TrueHub implements it: An android application that aims to make truenas management simpler (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "TrueHub",
+   "url": "https://github.com/Imnotndesh/TrueHub",
+   "sha": "f5c5121fc60f494761df2cbeccffee5c99b856e7",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit f5c5121fc60f: \"fix(ui): cloud sync wizard, device-add polish, insets\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

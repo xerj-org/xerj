@@ -1,0 +1,22 @@
+{
+ "corpus": "philbert440--rivetos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how philbert440/rivetOS implements it: Agent memory and delegation tooling (selected work: integrations)",
+ "repos": [
+  {
+   "repo": "rivetOS",
+   "url": "https://github.com/philbert440/rivetOS",
+   "sha": "a397a231edd3ed0847ac9627b34f5c8deb144e47",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit a397a231edd3: \"feat(grokbot-capture): optional ingest-pages --revision tag (#1102)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

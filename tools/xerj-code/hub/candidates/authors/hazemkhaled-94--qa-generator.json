@@ -1,0 +1,22 @@
+{
+ "corpus": "hazemkhaled-94--qa-generator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, faq, qa queries this for how hazemkhaled-94/qa_generator implements it: Automated generation of questions and answers from documents (selected work: backend, tests)",
+ "repos": [
+  {
+   "repo": "qa_generator",
+   "url": "https://github.com/hazemkhaled-94/qa_generator",
+   "sha": "2318afaa570ada9b511993375513961c6572e795",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 2318afaa570a: \"A word a table cell wrapped or a page broke at a hyphen is mended onc\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

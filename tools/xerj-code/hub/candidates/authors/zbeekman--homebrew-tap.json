@@ -1,0 +1,22 @@
+{
+ "corpus": "zbeekman--homebrew-tap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Ruby queries this for how zbeekman/homebrew-tap implements it: Personal mac Homebrew tap (macOS package repository) (selected work: spec, lib/timed)",
+ "repos": [
+  {
+   "repo": "homebrew-tap",
+   "url": "https://github.com/zbeekman/homebrew-tap",
+   "sha": "36e98d7c5c86275a54862b3f86e4c44519ae78ce",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 36e98d7c5c86: \"Ask claude-sonnet-5-5 at low effort by default\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

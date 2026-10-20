@@ -1,0 +1,22 @@
+{
+ "corpus": "cereja-project--govbr-auth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on authentication, django, fastapi queries this for how cereja-project/govbr_auth implements it: Biblioteca Python open source para autentica\u00e7\u00e3o gov.br, com core OAuth 2.0/OpenID Connect independente de framework e adapters para FastAPI, (selected work: tests, govbr_auth, the project root)",
+ "repos": [
+  {
+   "repo": "govbr_auth",
+   "url": "https://github.com/cereja-project/govbr_auth",
+   "sha": "1995f8ffa0b93aa3461207575fc686478d074c3c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 1995f8ffa0b9: \"v1.0.1 \u2014 Refor\u00e7o de seguran\u00e7a no fluxo OAuth e corre\u00e7\u00f5es de ciclo de \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "observal--observal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cli-tool, large-language-models, open-source queries this for how Observal/Observal implements it: Observal is self-hosted registry for your coding agent extensions with a built in insight engine. Setup Observal, define the scope and share (selected work: observal-server, tests)",
+ "repos": [
+  {
+   "repo": "Observal",
+   "url": "https://github.com/Observal/Observal",
+   "sha": "8f8d1a2926c2e6814ed1285b1a2e5b8e1a13da88",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 8f8d1a2926c2: \"perf(registry): batch provenance and add captures\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

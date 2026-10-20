@@ -1,0 +1,22 @@
+{
+ "corpus": "star4droid--star2d",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Java queries this for how star4droid/Star2D implements it: Game engine for android (selected work: app/src, app, the project root)",
+ "repos": [
+  {
+   "repo": "Star2D",
+   "url": "https://github.com/star4droid/Star2D",
+   "sha": "4a58fa1ef2bc7f4e86d8e16889953a3825d4c4e8",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 4a58fa1ef2bc: \"refactor: rewrite gradle scripts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

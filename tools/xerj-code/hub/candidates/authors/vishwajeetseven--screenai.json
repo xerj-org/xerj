@@ -1,0 +1,22 @@
+{
+ "corpus": "vishwajeetseven--screenai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how vishwajeetseven/ScreenAI implements it: A \"Bring-Your-Own-Key\" AI assistant for Chrome. Get Gemini vision analysis, screen OCR, and text help\u2014all using your own API keys. No subscr (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "ScreenAI",
+   "url": "https://github.com/vishwajeetseven/ScreenAI",
+   "sha": "8f8c70cfa9144ead3a900e2393fb9d19d2a37cf2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 8f8c70cfa914: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

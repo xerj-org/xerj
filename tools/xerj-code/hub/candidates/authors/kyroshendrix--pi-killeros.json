@@ -1,0 +1,22 @@
+{
+ "corpus": "kyroshendrix--pi-killeros",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how KyrosHendrix/pi-KillerOS implements it: TUI, goals, and workflow automation for the Pi coding agent (selected work: test, killeros, the project root)",
+ "repos": [
+  {
+   "repo": "pi-KillerOS",
+   "url": "https://github.com/KyrosHendrix/pi-KillerOS",
+   "sha": "fab0bf2667b903396e874c1d5147b9c1f7ce44ea",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit fab0bf2667b9: \"Adopt Pi 1.3.0 and finish Windows-only support\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "bifrost0x--webssh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on docker, homelab, self-hosted queries this for how bifrost0x/webssh implements it: Security-focused, self-hosted SSH and SFTP workspace for homelabs and teams - multi-user, passkeys, OIDC, encrypted keys, backups, and offli (selected work: static, tests, templates)",
+ "repos": [
+  {
+   "repo": "webssh",
+   "url": "https://github.com/bifrost0x/webssh",
+   "sha": "155b4e31b2d261ffc2cb15fb136d3db8eca18e39",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 155b4e31b2d2: \"Redesign the complete frontend workspace (#271)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

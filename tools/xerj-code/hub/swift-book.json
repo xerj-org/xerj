@@ -1,0 +1,21 @@
+{
+ "corpus": "swift-book",
+ "cloned_at": "2026-10-19T22:32:25Z",
+ "repos": [
+  {
+   "repo": "swift-book",
+   "url": "https://github.com/swiftlang/swift-book",
+   "licence": "Apache-2.0",
+   "sha": "1c0598430507e6c2b9a0f068b6dd7c618392fea6",
+   "files": 251,
+   "bytes": 9070695,
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "xerj-org",
+    "at": "2026-10-19",
+    "note": "LICENSE.txt at pin read by hand: Apache License 2.0 with the Swift Runtime Library Exception (exception only widens use of compiled runtime code). Prose and code samples adapt with attribution."
+   }
+  }
+ ]
+}

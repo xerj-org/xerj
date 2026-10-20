@@ -1,0 +1,22 @@
+{
+ "corpus": "noctillio-ai--nightflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Noctillio-Ai/NightFlow implements it: Noctillio-Ai/NightFlow (JavaScript) (selected work: src-tauri, src/state, src/components)",
+ "repos": [
+  {
+   "repo": "NightFlow",
+   "url": "https://github.com/Noctillio-Ai/NightFlow",
+   "sha": "563850ce4e9be792ee9b90cdd8d6c2ddaecd8001",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 563850ce4e9b: \"refactor: Dataset viewer\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

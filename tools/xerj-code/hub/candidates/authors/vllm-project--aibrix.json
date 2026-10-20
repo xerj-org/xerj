@@ -1,0 +1,22 @@
+{
+ "corpus": "vllm-project--aibrix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how vllm-project/aibrix implements it: Cost-efficient and pluggable Infrastructure components for GenAI inference (selected work: apps/console)",
+ "repos": [
+  {
+   "repo": "aibrix",
+   "url": "https://github.com/vllm-project/aibrix",
+   "sha": "7885f0266f751abbbe5c52475f80842bea67a1cb",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 7885f0266f75: \"[Feat] Preview existing batch dataset details in Console (#3101)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "oliver225--thingsboard-ui-vue3",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on thingsboard queries this for how oliver225/thingsboard-ui-vue3 implements it: This project is a Vue 3-based frontend for ThingsBoard. The source code for Ant Design Vue, dashboards, video surveillance, and rule chains  (selected work: apps/web-ui)",
+ "repos": [
+  {
+   "repo": "thingsboard-ui-vue3",
+   "url": "https://github.com/oliver225/thingsboard-ui-vue3",
+   "sha": "f831b8b2561916787bded8b12b14ad5fe312cc3e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit f831b8b25619: \"feat(thingsboard-ui): \u6dfb\u52a0\u8bbe\u5907\u534f\u8bae API \u9875\u7b7e\u5e76\u6574\u7406\u5c55\u793a\u903b\u8f91\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

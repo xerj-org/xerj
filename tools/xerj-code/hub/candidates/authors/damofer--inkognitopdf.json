@@ -1,0 +1,22 @@
+{
+ "corpus": "damofer--inkognitopdf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how damofer/inkognitopdf implements it: damofer/inkognitopdf (TypeScript) (selected work: src/editor, e2e, src/writer)",
+ "repos": [
+  {
+   "repo": "inkognitopdf",
+   "url": "https://github.com/damofer/inkognitopdf",
+   "sha": "d7e23d44e9eb6f010dc7e8470442048c7d8dfe2a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit d7e23d44e9eb: \"Build the PDF in a Web Worker so the page stays responsive while saving\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

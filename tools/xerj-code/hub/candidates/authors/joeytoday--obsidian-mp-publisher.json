@@ -1,0 +1,22 @@
+{
+ "corpus": "joeytoday--obsidian-mp-publisher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how joeytoday/obsidian-mp-publisher implements it: \u81ea\u5b9a\u4e49\u4e3b\u9898\u9884\u89c8\uff0c\u5e76\u53d1\u5e03\u5230\u516c\u4f17\u53f7\u8349\u7a3f\u7bb1\u3002 (selected work: src/utils, src, the project root)",
+ "repos": [
+  {
+   "repo": "obsidian-mp-publisher",
+   "url": "https://github.com/joeytoday/obsidian-mp-publisher",
+   "sha": "265194f34b11446e759dcbcb6c4ec2f3618194b3",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 265194f34b11: \"fix: \u4fee\u590d\u94fe\u63a5\u811a\u6ce8\u548c\u4ee3\u7801\u5757\u7a7a\u884c\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

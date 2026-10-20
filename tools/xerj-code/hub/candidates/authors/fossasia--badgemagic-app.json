@@ -1,0 +1,22 @@
+{
+ "corpus": "fossasia--badgemagic-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Dart queries this for how fossasia/badgemagic-app implements it: Badge Magic with LEDs - mobile and desktop app, iOS, Mac, Android (selected work: lib/l10n, lib/view)",
+ "repos": [
+  {
+   "repo": "badgemagic-app",
+   "url": "https://github.com/fossasia/badgemagic-app",
+   "sha": "d1b52f1f796d66968b29a6071012df4745e9c8e9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit d1b52f1f796d: \"fix: Clean duplicate keys in localization ARB files (#1984)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

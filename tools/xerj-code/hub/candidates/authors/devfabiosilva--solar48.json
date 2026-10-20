@@ -1,0 +1,22 @@
+{
+ "corpus": "devfabiosilva--solar48",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on bare-metal, cprogramming, embedded-systems queries this for how devfabiosilva/solar48 implements it: Solar48 is a tiny Solar offgrid monitor for MPPT and Coverter with 48V grid (selected work: firmware)",
+ "repos": [
+  {
+   "repo": "solar48",
+   "url": "https://github.com/devfabiosilva/solar48",
+   "sha": "e661242cb561dd7cd5844f29d397ad060b8f20fd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit e661242cb561: \"Add command error list\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

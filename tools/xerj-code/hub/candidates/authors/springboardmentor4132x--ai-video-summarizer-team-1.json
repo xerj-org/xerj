@@ -1,0 +1,22 @@
+{
+ "corpus": "springboardmentor4132x--ai-video-summarizer-team-1",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how springboardmentor4132x/AI-Video-summarizer-team-1- implements it: springboardmentor4132x/AI-Video-summarizer-team-1- (Python) (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "AI-Video-summarizer-team-1-",
+   "url": "https://github.com/springboardmentor4132x/AI-Video-summarizer-team-1-",
+   "sha": "e336f93866803455860a6cc45be19ced894970d3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e336f9386680: \"Finalize summary generation, MCQ logic, and Admin UI routes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

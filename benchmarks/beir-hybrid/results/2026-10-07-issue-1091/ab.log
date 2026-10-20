@@ -1,0 +1,18 @@
+== baseline e4c6c027
+xerj v1.0.0-rc.87
+{'count': 57638, '_shards': {'total': 1, 'successful': 1, 'skipped': 0, 'failed': 0}}
+semantic  n=50 first=7164ms p50=3865ms p95=6398ms max=6987ms (p50/p95/max exclude the first)
+hybrid    n=50 first=10708ms p50=5772ms p95=7368ms max=9355ms (p50/p95/max exclude the first)
+watermark crossings: 25
+== fix
+xerj v1.0.0-rc.87
+{'count': 57638, '_shards': {'total': 1, 'successful': 1, 'skipped': 0, 'failed': 0}}
+semantic  n=50 first=8511ms p50=261ms p95=293ms max=305ms (p50/p95/max exclude the first)
+hybrid    n=50 first=377ms p50=289ms p95=330ms max=344ms (p50/p95/max exclude the first)
+watermark crossings: 0
+semantic  identical ranked ids: 50/50
+hybrid    identical ranked ids: 50/50
+0
+AB_DONE
+
+[exited with code 0]

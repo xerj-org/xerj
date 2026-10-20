@@ -1,0 +1,22 @@
+{
+ "corpus": "jigonzalez930209--sci-form",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cheminformatics, chemistry, conformer-generation queries this for how jigonzalez930209/sci-form implements it: High-performance 3D molecular conformer generation inspired by RDKit's ETKDG algorithm. Built with Rust for maximum speed, providing scienti (selected work: src/forcefield, scripts, tests)",
+ "repos": [
+  {
+   "repo": "sci-form",
+   "url": "https://github.com/jigonzalez930209/sci-form",
+   "sha": "f50f5f24208ac087a4ac21ad7b00c32bda2fcc94",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f50f5f24208a: \"feat: Validate ReaxFF vs LAMMPS and add the ffield pair table.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

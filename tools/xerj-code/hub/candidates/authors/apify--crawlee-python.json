@@ -1,0 +1,22 @@
+{
+ "corpus": "apify--crawlee-python",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on apify, automation, beautifulsoup queries this for how apify/crawlee-python implements it: Crawlee\u2014A web scraping and browser automation library for Python to build reliable crawlers. Extract data for AI, LLMs, RAG, or GPTs. Downlo (selected work: tests, src/crawlee, scripts)",
+ "repos": [
+  {
+   "repo": "crawlee-python",
+   "url": "https://github.com/apify/crawlee-python",
+   "sha": "a14f745880205f654bf4c30ad999173a07b830ea",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit a14f74588020: \"perf: Replace `tldextract` with a built-in Public Suffix List lookup \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

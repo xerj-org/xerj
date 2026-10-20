@@ -1,0 +1,22 @@
+{
+ "corpus": "brave--brave-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C++ queries this for how brave/brave-core implements it: Core engine for the Brave browser for mobile and desktop. For issues https://github.com/brave/brave-browser/issues (selected work: components, browser)",
+ "repos": [
+  {
+   "repo": "brave-core",
+   "url": "https://github.com/brave/brave-core",
+   "sha": "5754bc4e79b4b63909c45859f6f3d1d980697b65",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit 5754bc4e79b4: \"Account: add a compact row for embedders that only link to the accoun\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

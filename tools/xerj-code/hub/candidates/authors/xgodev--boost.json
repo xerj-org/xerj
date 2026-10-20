@@ -1,0 +1,22 @@
+{
+ "corpus": "xgodev--boost",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how xgodev/boost implements it: xgodev/boost (Go) (selected work: builder)",
+ "repos": [
+  {
+   "repo": "boost",
+   "url": "https://github.com/xgodev/boost",
+   "sha": "2b387a5d5695308f2bbe3f0dde18590f2ae841db",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 2b387a5d5695: \"feat(builder): @MCP door registers a handler as an MCP tool (#79)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "mammaddrik--zharf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on django, python, workspace queries this for how mammaddrik/Zharf implements it: An open-source digital workspace for organizing ideas, projects, notes, tools, and everything in between (selected work: static, templates, apps/todos)",
+ "repos": [
+  {
+   "repo": "Zharf",
+   "url": "https://github.com/mammaddrik/Zharf",
+   "sha": "967f0d0c93978d803ba2dc0e61923898580ebc6f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 967f0d0c9397: \"feat(todo): improve todo management and live search\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

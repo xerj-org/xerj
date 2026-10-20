@@ -1,0 +1,22 @@
+{
+ "corpus": "mcdandy--more-math",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how mcDandy/more_math implements it: custom nodes for doing math on more types then just numbers for comfyui (selected work: more_math, tests)",
+ "repos": [
+  {
+   "repo": "more_math",
+   "url": "https://github.com/mcDandy/more_math",
+   "sha": "32e7557facaaaddab71d29da9ad6beed047bfe6e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 32e7557facaa: \"AI: audit 2\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

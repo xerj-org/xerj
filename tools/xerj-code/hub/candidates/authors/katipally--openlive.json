@@ -1,0 +1,22 @@
+{
+ "corpus": "katipally--openlive",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on openai-realtime, voice-ai, voice-assistant queries this for how katipally/openlive implements it: Opensource, on-device voice + vision layer for AI agents. Bring any model or coding agent; the whole speech loop (VAD, STT, TTS, barge-in) r (selected work: apps/web)",
+ "repos": [
+  {
+   "repo": "openlive",
+   "url": "https://github.com/katipally/openlive",
+   "sha": "9776159ef2a58b18810dee0e00d3a820971d62ea",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 9776159ef2a5: \"feat(web): Flow and Dictate show their keys as three steps, Dictate's\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

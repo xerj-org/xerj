@@ -1,0 +1,22 @@
+{
+ "corpus": "invergent-ai--surogates",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agent-framework, agent-memory queries this for how invergent-ai/surogates implements it: Open platform for running Managed Agents at scale (selected work: surogates, tests)",
+ "repos": [
+  {
+   "repo": "surogates",
+   "url": "https://github.com/invergent-ai/surogates",
+   "sha": "b4f1b9dd63e3d2ee5ff69ba188dbd0d7df5ac856",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit b4f1b9dd63e3: \"refactor(followup): one escalation key helper, open escalations read \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

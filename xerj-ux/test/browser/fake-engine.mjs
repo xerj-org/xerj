@@ -109,6 +109,9 @@ export async function startFakeEngine() {
     attachmentRecords: 0,
     /** claim this many search results exist (0 = the truth) */
     searchTotal: 0,
+    /** delay (ms) on the corpus home's catalog/index reads — a slow #/corpus
+     *  render still in flight when the route changes (issue #1425) */
+    slowCorpus: 0,
   };
 
   const server = createServer(async (req, res) => {
@@ -122,6 +125,7 @@ export async function startFakeEngine() {
     let body = null;
     try { body = raw ? JSON.parse(raw) : null; } catch { body = null; }
     entry.body = body;
+    if (state.slowCorpus && /catalog|_cat|knowledge/.test(path)) await new Promise((r) => setTimeout(r, state.slowCorpus));
 
     const send = (status, payload, headers = {}) => {
       const text = typeof payload === 'string' ? payload : JSON.stringify(payload);

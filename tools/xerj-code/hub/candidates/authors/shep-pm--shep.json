@@ -1,0 +1,22 @@
+{
+ "corpus": "shep-pm--shep",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cli, cron, daemon queries this for how shep-pm/shep implements it: A process manager written in Rust, and a pm2 alternative: one supervisor daemon keeps a flock of long-running processes alive on Linux, macO (selected work: crates/shep-core, crates/shep-cli)",
+ "repos": [
+  {
+   "repo": "shep",
+   "url": "https://github.com/shep-pm/shep",
+   "sha": "5f2ec3f1f591bdce2289f6bf4f626dbf76b7dc48",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 5f2ec3f1f591: \"perf(barks): answer tail requests from a window of the ring's end\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

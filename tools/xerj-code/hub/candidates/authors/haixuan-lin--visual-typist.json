@@ -1,0 +1,22 @@
+{
+ "corpus": "haixuan-lin--visual-typist",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on JavaScript queries this for how HaiXuan-Lin/Visual-Typist implements it: A keyboard-first visual LaTeX equation editor (selected work: Sources, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "Visual-Typist",
+   "url": "https://github.com/HaiXuan-Lin/Visual-Typist",
+   "sha": "b0e72cbcef326f41d530323c0425ad44db5b25a6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit b0e72cbcef32: \"Website and browser edition; one owner for drag selections; new README\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "fyildirim-debug--m3ueditor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on epg, express, iptv queries this for how fyildirim-debug/M3uEditor implements it: Self-hosted IPTV playlist manager \u2014 edit, categorize and share M3U playlists with native Xtream Codes integration, EPG support and drag-and- (selected work: src/services, tests, frontend)",
+ "repos": [
+  {
+   "repo": "M3uEditor",
+   "url": "https://github.com/fyildirim-debug/M3uEditor",
+   "sha": "00174e8c4c7f7a41b89090f65ac0c2631060ec9a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 00174e8c4c7f: \"fix: harden sharing, backups, sessions and scheduled tasks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

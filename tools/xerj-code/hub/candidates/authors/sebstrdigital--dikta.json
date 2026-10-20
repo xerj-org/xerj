@@ -1,0 +1,22 @@
+{
+ "corpus": "sebstrdigital--dikta",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Swift queries this for how Sebstrdigital/dikta implements it: Minimal, fully offline dictation app for macOS \u2014 transcribe speech to clipboard with a global hotkey using Whisper. Runs as a menu bar app w (selected work: dikta-macos)",
+ "repos": [
+  {
+   "repo": "dikta",
+   "url": "https://github.com/Sebstrdigital/dikta",
+   "sha": "6b8674ea91b38c8f2ca23951ce6d9f9da9cb93ce",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 6b8674ea91b3: \"fix(macos): make progressive Read Aloud and selection timing reliable\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

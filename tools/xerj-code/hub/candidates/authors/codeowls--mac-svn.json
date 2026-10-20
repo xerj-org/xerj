@@ -1,0 +1,22 @@
+{
+ "corpus": "codeowls--mac-svn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Swift queries this for how codeowls/mac-svn implements it: Native macOS SVN client built with SwiftUI \u2014 private development preview (selected work: Sources, Tests)",
+ "repos": [
+  {
+   "repo": "mac-svn",
+   "url": "https://github.com/codeowls/mac-svn",
+   "sha": "f88e21b5e8b4b46b584bf63af3a152b04338d794",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f88e21b5e8b4: \"Add manual release checks with version comparison and notes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

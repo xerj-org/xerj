@@ -1,0 +1,22 @@
+{
+ "corpus": "arittra-bag--opsgraph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, incident-response, langgraph queries this for how Arittra-Bag/opsgraph implements it: Self-hosted PostgreSQL investigations with read-only AI queries, saved evidence and readable incident reports (selected work: tests, src/opsgraph, web)",
+ "repos": [
+  {
+   "repo": "opsgraph",
+   "url": "https://github.com/Arittra-Bag/opsgraph",
+   "sha": "f617f3e1f1fc4834f453ae2db6fadec452b897db",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit f617f3e1f1fc: \"Fix model verification lifecycle and setup diagnostics\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

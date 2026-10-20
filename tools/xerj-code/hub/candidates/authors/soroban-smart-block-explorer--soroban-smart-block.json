@@ -1,0 +1,22 @@
+{
+ "corpus": "soroban-smart-block-explorer--soroban-smart-block",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Soroban-Smart-Block-Explorer/Soroban-Smart-Block implements it: Soroban-Smart-Block-Explorer/Soroban-Smart-Block (JavaScript) (selected work: monitoring, indexer, the project root)",
+ "repos": [
+  {
+   "repo": "Soroban-Smart-Block",
+   "url": "https://github.com/Soroban-Smart-Block-Explorer/Soroban-Smart-Block",
+   "sha": "5207ee69785ebd211d7a88e8788a33d8059867c2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 5207ee69785e: \"feat: CI speedups, changesets releases, SLO burn-rate alerts, continu\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

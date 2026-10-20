@@ -1,0 +1,22 @@
+{
+ "corpus": "rebsonm--meuartigoskill",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how rebsonm/MeuArtigoSkill implements it: rebsonm/MeuArtigoSkill (Python) (selected work: tests, scripts)",
+ "repos": [
+  {
+   "repo": "MeuArtigoSkill",
+   "url": "https://github.com/rebsonm/MeuArtigoSkill",
+   "sha": "65de4e7d3172ececebeb4b26e70eb8ea92d16a64",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 65de4e7d3172: \"security(skill): protect bibliographic credentials and private metada\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "neuromechanist--biosigio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how neuromechanist/biosigio implements it: A unified interface to convert biosginal data data from various systems to EDF/Zarr/Parquet (selected work: biosigio)",
+ "repos": [
+  {
+   "repo": "biosigio",
+   "url": "https://github.com/neuromechanist/biosigio",
+   "sha": "f39ae4295d037325deefd27c77b8df0ab30e8666",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit f39ae4295d03: \"Harden exclude_subject_info removal\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

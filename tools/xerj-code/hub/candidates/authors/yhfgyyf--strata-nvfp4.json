@@ -1,0 +1,22 @@
+{
+ "corpus": "yhfgyyf--strata-nvfp4",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how yhfgyyf/strata-nvfp4 implements it: NVIDIA Qwen3.8-Flash-Next-NVFP4 on one RTX 4090 48GB PC (i7-13700KF, 64GB RAM), powered by Strata. W4A16 R256, 256K context, prefill up to 4 (selected work: bench, tests, tools)",
+ "repos": [
+  {
+   "repo": "strata-nvfp4",
+   "url": "https://github.com/yhfgyyf/strata-nvfp4",
+   "sha": "a39b3523ba3fce1c91b3cb1ecb129a3635ea006a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit a39b3523ba3f: \"Enable PLE upload and row-cache defaults after production verification\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -70,7 +70,11 @@ fn names(tools: &Value) -> Vec<String> {
 /// The headline check: same tools, same order.
 #[test]
 fn published_tool_names_match_the_server() {
-    let served = names(&xerj_mcp::tool_specs());
+    // The published file is the with-key tool list. A process with
+    // `XERJ_HUB_PUBKEY=none` omits the three hub tools from `tool_specs()`;
+    // that omission is covered in the library tests, and must not look like
+    // the committed schema drifted.
+    let served = names(&xerj_mcp::tool_specs_with(true));
     let doc = names(&published()["tools"]);
     assert_eq!(
         doc, served,
@@ -87,7 +91,7 @@ fn published_tool_names_match_the_server() {
 /// the brain tools' honesty sentences live there.
 #[test]
 fn published_schemas_match_the_server_exactly() {
-    let served = xerj_mcp::tool_specs();
+    let served = xerj_mcp::tool_specs_with(true);
     let doc = published()["tools"].clone();
 
     let served_by_name: std::collections::BTreeMap<String, &Value> = served

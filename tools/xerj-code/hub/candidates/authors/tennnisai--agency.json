@@ -1,0 +1,22 @@
+{
+ "corpus": "tennnisai--agency",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, coding-agents, git-worktree queries this for how TennnisAI/Agency implements it: A desktop app for running coding agents in parallel, each isolated in its own git worktree (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "Agency",
+   "url": "https://github.com/TennnisAI/Agency",
+   "sha": "364bec70e19a0ccd0c23597028cea72eef43b5aa",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 364bec70e19a: \"add a rig that records the site's screenshots and videos from the rea\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

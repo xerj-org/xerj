@@ -1,0 +1,22 @@
+{
+ "corpus": "hosseinkarami-dev--focus-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, ios, ios-development queries this for how hosseinkarami-dev/focus-ai implements it: FocusAI is a Kotlin Multiplatform productivity app that uses AI to turn notes into actionable tasks, simplify planning, and help users stay  (selected work: shared)",
+ "repos": [
+  {
+   "repo": "focus-ai",
+   "url": "https://github.com/hosseinkarami-dev/focus-ai",
+   "sha": "ab734dd578f549d936ee01e104faa714eba2363c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ab734dd578f5: \"Polish screen headers and include Room schemas\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

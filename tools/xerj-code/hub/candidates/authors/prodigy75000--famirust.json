@@ -1,0 +1,22 @@
+{
+ "corpus": "prodigy75000--famirust",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how Prodigy75000/FamiRust implements it: Emulator core for NES/Famicom written in Rust, focused on cross-engine determinism (selected work: firmware, crates/nes-core, scripts)",
+ "repos": [
+  {
+   "repo": "FamiRust",
+   "url": "https://github.com/Prodigy75000/FamiRust",
+   "sha": "3c87da64f07be87451125e9f832f14af41c0f83d",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 3c87da64f07b: \"FDS: $EC22, the metasprite blitter\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

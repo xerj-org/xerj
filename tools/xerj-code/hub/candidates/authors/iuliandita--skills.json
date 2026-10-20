@@ -1,0 +1,22 @@
+{
+ "corpus": "iuliandita--skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on ai-coding, ansible, claude-code queries this for how iuliandita/skills implements it: Agent skills for infrastructure, security, software engineering, and agent workflows, with portable installs, quality checks, and evidence-b (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "skills",
+   "url": "https://github.com/iuliandita/skills",
+   "sha": "235eecc510108bac80df8716472b3c6d65ea6222",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 235eecc51010: \"feat(scripts): require docs for skill removals and installer changes \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

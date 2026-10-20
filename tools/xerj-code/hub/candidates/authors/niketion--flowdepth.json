@@ -1,0 +1,22 @@
+{
+ "corpus": "niketion--flowdepth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on crypto-trading, cryptocurrency, flowsurface queries this for how Niketion/flowdepth implements it: A native desktop charting platform for crypto markets (selected work: src/chart, src/screen, data)",
+ "repos": [
+  {
+   "repo": "flowdepth",
+   "url": "https://github.com/Niketion/flowdepth",
+   "sha": "c5fb698d2848e2430a32739535211f148e1b65e5",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit c5fb698d2848: \"fix(ui): restore GEX chart and preload news price responses\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

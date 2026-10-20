@@ -1,0 +1,22 @@
+{
+ "corpus": "alergeek-ventures--firmowid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on elixir, invoicing, ksef queries this for how Alergeek-Ventures/firmowid implements it: Open-source system for Polish businesses: KSeF e-invoicing, automatic bank transaction matching, and time tracking (selected work: lib/firmowid)",
+ "repos": [
+  {
+   "repo": "firmowid",
+   "url": "https://github.com/Alergeek-Ventures/firmowid",
+   "sha": "b5ebf6d688e88dc3b53941f3fdeab26a744f0bd4",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit b5ebf6d688e8: \"feat(timetracker): reject sessions crossing a month boundary or excee\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

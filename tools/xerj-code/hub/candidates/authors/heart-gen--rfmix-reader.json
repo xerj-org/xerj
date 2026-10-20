@@ -1,0 +1,22 @@
+{
+ "corpus": "heart-gen--rfmix-reader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on software, local-ancestry-inference, gpu-acceleration queries this for how heart-gen/rfmix_reader implements it: heart-gen/rfmix_reader (Python) (selected work: rfmix_reader, tests, the project root)",
+ "repos": [
+  {
+   "repo": "rfmix_reader",
+   "url": "https://github.com/heart-gen/rfmix_reader",
+   "sha": "ebe104182226da3ecc15f24b03a2e14903961007",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit ebe104182226: \"logical: an exporter for LoGicAl's ancestry-specific allele frequencies\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "clorth0--quietroom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how clorth0/quietroom implements it: Receive-only HackRF TSCM bug-sweep tool: finds hidden transmitters by hunting unexplained RF emitters (selected work: quietroom, tests)",
+ "repos": [
+  {
+   "repo": "quietroom",
+   "url": "https://github.com/clorth0/quietroom",
+   "sha": "c3462c96d5ac17381220aff5a69220c7c61e23cc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit c3462c96d5ac: \"feat: require emitters to persist across live sweeps (fewer one-sweep\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

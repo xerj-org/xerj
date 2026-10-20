@@ -1,0 +1,22 @@
+{
+ "corpus": "farion1231--cc-switch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-tools, claude-code, desktop-app queries this for how farion1231/cc-switch implements it: A cross-platform desktop All-in-One assistant for Claude Code, Codex, OpenCode, OpenClaw, Grok Build & Hermes Agent. Only official website:  (selected work: tests, src-tauri, src/hooks)",
+ "repos": [
+  {
+   "repo": "cc-switch",
+   "url": "https://github.com/farion1231/cc-switch",
+   "sha": "c21106ff20e351d40f412cb51d1f24da177b113d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit c21106ff20e3: \"feat(i18n): add Turkish interface and tray localization (#8208)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

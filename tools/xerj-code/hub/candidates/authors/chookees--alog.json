@@ -1,0 +1,22 @@
+{
+ "corpus": "chookees--alog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on async, cross-platform, developer-tools queries this for how Chookees/ALog implements it: ALog is a powerful and extensible logging framework built for .NET 10 (selected work: ALog.Tests, ALog, eng)",
+ "repos": [
+  {
+   "repo": "ALog",
+   "url": "https://github.com/Chookees/ALog",
+   "sha": "2341241c63ed72083a0cb4fe645b2f9878edb8cf",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 2341241c63ed: \"Z1-Mini: synchronous writes no longer deadlock on a SynchronizationCo\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

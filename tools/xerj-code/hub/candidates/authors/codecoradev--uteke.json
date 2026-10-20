@@ -1,0 +1,22 @@
+{
+ "corpus": "codecoradev--uteke",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, cli, embeddings queries this for how codecoradev/uteke implements it: \ud83e\udde0 The Brain for Your AI \u2014 Local-first memory engine for AI agents. Store, recall, and search memories with semantic embeddings. Single Rust  (selected work: crates/uteke-mcp, crates/uteke-server)",
+ "repos": [
+  {
+   "repo": "uteke",
+   "url": "https://github.com/codecoradev/uteke",
+   "sha": "7af227c1fdd07c66ec5b69d9d4e8479f664bf30d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 7af227c1fdd0: \"security(mcp): per-tool read-only gate for MCP over HTTP (#1441)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

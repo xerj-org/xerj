@@ -1,0 +1,22 @@
+{
+ "corpus": "samvallad33--vestige",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on rust, local-first, security queries this for how samvallad33/vestige implements it: Think before doing, prove before saving. Vestige is a local, deterministic safety kernel for AI agents. Every memory write and agent action  (selected work: crates/vestige-mcp)",
+ "repos": [
+  {
+   "repo": "vestige",
+   "url": "https://github.com/samvallad33/vestige",
+   "sha": "94aad0734beb63a7d1884d214b82ce239adb8c8d",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 94aad0734beb: \"feat(mcp): vestige_stops read-only view of Operator receipts and permits\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

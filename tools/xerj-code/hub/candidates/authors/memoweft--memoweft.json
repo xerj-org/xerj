@@ -1,0 +1,22 @@
+{
+ "corpus": "memoweft--memoweft",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-memory, ai-memory, llm-memory queries this for how memoweft/memoweft implements it: Long-term memory for AI apps that keeps evidence, inference, and conflicts distinct (selected work: py)",
+ "repos": [
+  {
+   "repo": "memoweft",
+   "url": "https://github.com/memoweft/memoweft",
+   "sha": "cb10a16a7cfe112f5bee2b0e19ad49586b161b79",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit cb10a16a7cfe: \"MF-1: make accepted recent evidence available during formation (#95)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

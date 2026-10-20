@@ -1,0 +1,22 @@
+{
+ "corpus": "cerebral-work--lnr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how cerebral-work/lnr implements it: Headless CLI for frequently ad-hocced Linear workflows \u2014 digest, file, triage, milestone \u2014 built on @linear/sdk (selected work: scripts, test, sprints)",
+ "repos": [
+  {
+   "repo": "linearctl",
+   "url": "https://github.com/cerebral-work/linearctl",
+   "sha": "75ce026c160367638acbb394762f0c06feaf828f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 75ce026c1603: \"feat(cpm): implement estate CPM and agent sprint wave runner\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "amyjeanes--openbackupmanager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how AmyJeanes/OpenBackupManager implements it: Open-source, cross-platform backup and two-way sync, built on rclone (selected work: tests, src/OpenBackupManager.Engine, src/OpenBackupManager.Core)",
+ "repos": [
+  {
+   "repo": "OpenBackupManager",
+   "url": "https://github.com/AmyJeanes/OpenBackupManager",
+   "sha": "365e5666291a53b240b57176e7e14d2c51dc7b4d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 365e5666291a: \"Report engine crashes, and show them in the tray app\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

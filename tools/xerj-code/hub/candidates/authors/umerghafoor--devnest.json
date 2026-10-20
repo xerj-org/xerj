@@ -1,0 +1,22 @@
+{
+ "corpus": "umerghafoor--devnest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on developer-tools, homelab, open-source queries this for how umerghafoor/DevNest implements it: A unified desktop control panel for developers and self-hosters. Manage Docker containers, Tailscale nodes, SSH connections, system services (selected work: src/components, src-tauri, src/panels)",
+ "repos": [
+  {
+   "repo": "DevNest",
+   "url": "https://github.com/umerghafoor/DevNest",
+   "sha": "901ee2f552a9cc2f0d0ceb4357b7554dbdff96e9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 901ee2f552a9: \"feat(files): remote disk usage treemap visualizer and drag-and-drop f\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

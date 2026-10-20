@@ -1,0 +1,22 @@
+{
+ "corpus": "syxscott--academic-paper-polish",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how syxscott/academic-paper-polish implements it: \u8bba\u6587\u521d\u7a3f\u5168\u6d41\u7a0b\u6da6\u8272\u6307\u4ee4\u5408\u96c6 \u00b7 8 \u6a21\u5757\u5b66\u672f prompt \u6a21\u677f + Agent Skill (selected work: scripts, evals, the project root)",
+ "repos": [
+  {
+   "repo": "academic-paper-polish",
+   "url": "https://github.com/syxscott/academic-paper-polish",
+   "sha": "85abe22b39eb78ff937a7e6e1f0b971cb0743923",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 85abe22b39eb: \"refactor: nest skill package, add spec validators/CI, fix install ins\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

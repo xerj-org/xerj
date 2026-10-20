@@ -1,0 +1,79 @@
+{
+  "$schema": "https://fundingjson.org/schema/v1.1.0.json",
+  "version": "v1.1.0",
+  "entity": {
+    "type": "individual",
+    "role": "owner",
+    "name": "Ivan Novikov",
+    "email": "Ivan@xerj.ai",
+    "phone": "",
+    "description": "Ivan Novikov is the founder and full-time lead maintainer of Xerj, based in Austin, Texas, USA. Xerj is self-funded: there is no company, foundation or outside investor behind the open-source project today, and no legal entity exists yet. Ivan reviews and merges community pull requests, cuts releases and sets the public roadmap (ROADMAP.md). Core contributors: Vincenzo Lombardo (@Vinz2168), Leonid Bugaev (@buger), Tom Villani Ph.D. (@thomas-villani) and Christian Todie (@todie).",
+    "webpageUrl": {
+      "url": "https://github.com/xerj-org/xerj"
+    }
+  },
+  "projects": [
+    {
+      "guid": "xerj",
+      "name": "Xerj",
+      "description": "Xerj is an Apache-2.0, single-binary Rust search engine that speaks the Elasticsearch REST API (1,366 of 1,369 ES-YAML conformance cases pass; 50 query types and 62 aggregation types) with no JVM. It indexes any folder automatically (autoindex, 36 tree-sitter languages), adds BM25 + vector hybrid search (rrf|linear), and exposes it to coding agents over MCP. In a controlled reference-coding study (16 runs per arm), an agent using Xerj needed 2.7x fewer output tokens than a grep-driven agent at the same 16/16 solve rate (https://xerj.org/case-studies/reference-coding.html).\n\nThe project was created on June 30, 2026. As of October 16, 2026 it has about 7,000 GitHub stars, 356 forks, 35 human contributors besides the maintainer accounts, and 122 releases (latest v1.0.0-rc.96). On October 16, 2026 it was #1 on GitHub's daily trending list for Rust.",
+      "webpageUrl": {
+        "url": "https://github.com/xerj-org/xerj"
+      },
+      "repositoryUrl": {
+        "url": "https://github.com/xerj-org/xerj"
+      },
+      "licenses": [
+        "spdx:Apache-2.0"
+      ],
+      "tags": [
+        "search-engine",
+        "database",
+        "developer-tools",
+        "artificial-intelligence",
+        "information-retrieval",
+        "vector-search",
+        "elasticsearch-compatible",
+        "rust",
+        "mcp",
+        "information-management"
+      ]
+    }
+  ],
+  "funding": {
+    "channels": [
+      {
+        "guid": "bank-transfer",
+        "type": "bank",
+        "address": "",
+        "description": "Direct bank transfer to Ivan Novikov's US bank account. Email Ivan@xerj.ai for details."
+      }
+    ],
+    "plans": [
+      {
+        "guid": "maintainer-sustainability",
+        "status": "active",
+        "name": "Maintainer sustainability (1 year)",
+        "description": "Pays for one year of the lead maintainer's time on maintenance work that no other grant funds: reviewing and merging community pull requests (74 open on October 16, 2026), triaging issues and field reports (e.g. #1504), release engineering for the v1.0.0 release-candidate train, documentation, and user-facing defects outside the v1.0 security and engine-resilience gates (e.g. #1267, #1573, #1580, #1586). Security hardening, replication and ML-model work are funded separately and excluded.",
+        "amount": 50000,
+        "currency": "USD",
+        "frequency": "yearly",
+        "channels": [
+          "bank-transfer"
+        ]
+      },
+      {
+        "guid": "goodwill",
+        "status": "active",
+        "name": "Goodwill support",
+        "description": "Any amount, to support Xerj's maintenance.",
+        "amount": 0,
+        "currency": "USD",
+        "frequency": "one-time",
+        "channels": [
+          "bank-transfer"
+        ]
+      }
+    ]
+  }
+}

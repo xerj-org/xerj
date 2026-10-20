@@ -1,0 +1,22 @@
+{
+ "corpus": "slugylink--slugy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on better-auth, neon, nextjs queries this for how slugylink/slugy implements it: Transform long URLs into beautiful, trackable short links with Slugy \u2728 (selected work: extension, src/app, the project root)",
+ "repos": [
+  {
+   "repo": "slugy",
+   "url": "https://github.com/slugylink/slugy",
+   "sha": "89e2a36413dadce29ea3d56b3be3442c3bfa9694",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 89e2a36413da: \"feat: update extension permissions and improve workspace handling\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

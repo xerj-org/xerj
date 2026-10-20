@@ -1,0 +1,22 @@
+{
+ "corpus": "germondai--trawl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on bun, byparr, flaresolverr queries this for how germondai/trawl implements it: Self-hosted scraping engine \u2014 bypasses any JS challenge & captcha: Cloudflare, Turnstile, reCAPTCHA, hCaptcha, GeeTest. FlareSolverr & Bypar (selected work: packages/tiers, packages/types, apps/api)",
+ "repos": [
+  {
+   "repo": "trawl",
+   "url": "https://github.com/germondai/trawl",
+   "sha": "7a86a7dd9d71af792bbdb9e4f2be2baa73d5cad3",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 7a86a7dd9d71: \"feat(tiers): follow opt-in meta refresh redirects across scraping tiers\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

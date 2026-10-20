@@ -1,0 +1,22 @@
+{
+ "corpus": "victornagibator--pg-checksums",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on integrity-checker, postgresql, checksum queries this for how VictorNagibator/pg_checksums implements it: Extension that provides comprehensive checksum functionality at six granularity levels (selected work: expected, sql, the project root)",
+ "repos": [
+  {
+   "repo": "pg_checksums",
+   "url": "https://github.com/VictorNagibator/pg_checksums",
+   "sha": "913f8236e6dd9581e5b9578aa927082167c8cb0d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 913f8236e6dd: \"Add support for partitioned tables\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

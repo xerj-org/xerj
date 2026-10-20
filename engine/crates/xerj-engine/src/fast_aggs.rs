@@ -33,8 +33,18 @@
 //! * Index must have ≥ `FAST_AGG_MIN_DOCS` docs — small indices are fast on
 //!   the brute path anyway, and this keeps the (tiny-corpus) ES-YAML
 //!   conformance suite pinned to the reference implementation.
-//! * No deletes/updates present (`.dv` columns are physical → delete-blind;
-//!   same `deletes_present` signal as the F1 shortcut-count gate).
+//! * Deletes: either none present, or (since #1260) every non-empty snapshot
+//!   segment's ghost-position bitmap is empty — per-segment admission via
+//!   `ghost_positions_for`, with the memtable views liveness-gated, the
+//!   delete-blind memtable columnar summaries switched off, and the
+//!   version-map epoch re-checked before the result is returned.  A MERGED
+//!   index (ghosts compacted away) re-qualifies instead of staying disabled
+//!   forever on the monotonic `ghost_events` counter.  Since #1267 a segment
+//!   with resident ghosts is admitted for ONE provably row-exact plan — a
+//!   top-level filter plus a single plain `terms` agg — where every number
+//!   comes from the fused row pass (ghosted rows skipped) and the
+//!   live-filtered memtable walks, never from a delete-blind O(1) stat;
+//!   every other plan still bails on the first dirty bitmap.
 //! * Every non-empty segment must have a decodable `.dv` sidecar.
 //!
 //! Known accepted divergences vs brute (documented, benign for the fast-path
@@ -172,6 +182,23 @@ struct SegEntry {
     id: String,
     cols: super::Resident<super::DocValueMap>,
     docs: u32,
+    /// [#1267] This segment's ghost-position bitmap, carried only when it
+    /// is NON-empty and the admission gate let the segment through anyway
+    /// (the row-exact plan — see `try_fast_aggs`).  Bit set ⇔ the row at
+    /// that position is deleted or superseded; every row-fold in the
+    /// row-exact plan must skip set bits.  `None` = provably ghost-free,
+    /// the shape every executor was originally built under.
+    ghosts: Option<std::sync::Arc<Vec<u64>>>,
+}
+
+/// Bit `row` of a ghost-position bitmap (bit pos set ⇔ row is deleted or
+/// superseded).  Out-of-range rows are live: the bitmap is sized for the
+/// segment's row space, and a short one simply has no ghosts past its end.
+#[inline]
+fn ghost_bit(ghosts: &[u64], row: u32) -> bool {
+    ghosts
+        .get((row >> 6) as usize)
+        .is_some_and(|w| (w >> (row & 63)) & 1 != 0)
 }
 
 /// Look up a doc-value column for `field`, falling back to the `.keyword`
@@ -460,6 +487,15 @@ pub(super) struct FastCtx<'a> {
     /// memtable's own "columnar path applicable?" answer (`None` == a bailout,
     /// fall back to full `mem()`).
     mem_filtered: std::sync::OnceLock<Option<Vec<(String, std::sync::Arc<Value>)>>>,
+    /// [#1260] `Some(segment-ids-of-the-snapshot)` iff the request was
+    /// admitted under the delete-aware gate (every snapshot segment's ghost
+    /// bitmap empty — live == physical).  The memtable views (`mem`,
+    /// `filtered_mem`) then drop buffered docs whose live copy already sits
+    /// in one of those segments (`mem_doc_live`), and the delete-blind
+    /// memtable columnar summaries are switched off in favour of the exact
+    /// per-doc walks.  `None` == the classic no-deletes path, byte-for-byte
+    /// as before.
+    mem_live_gate: Option<std::collections::HashSet<String>>,
 }
 
 impl<'a> FastCtx<'a> {
@@ -472,11 +508,13 @@ impl<'a> FastCtx<'a> {
                 return MemDocs::Owned(Vec::new());
             }
             if self.needs_owned_mem {
+                let gate = self.mem_live_gate.as_ref();
                 MemDocs::Owned(
                     self.idx
                         .memtable
                         .all_docs_with_sources()
                         .into_iter()
+                        .filter(|(id, _)| gate.is_none_or(|s| self.mem_doc_live(id, s)))
                         .map(|(id, mut v)| {
                             if let Some(o) = v.as_object_mut() {
                                 o.entry("_id".to_string())
@@ -492,7 +530,10 @@ impl<'a> FastCtx<'a> {
                         .collect(),
                 )
             } else {
-                let pairs = self.idx.memtable.all_docs_with_sources_arc();
+                let mut pairs = self.idx.memtable.all_docs_with_sources_arc();
+                if let Some(snap_ids) = &self.mem_live_gate {
+                    pairs.retain(|(id, _)| self.mem_doc_live(id, snap_ids));
+                }
                 let mut ids = Vec::with_capacity(pairs.len());
                 let mut srcs = Vec::with_capacity(pairs.len());
                 for (id, src) in pairs {
@@ -502,6 +543,24 @@ impl<'a> FastCtx<'a> {
                 MemDocs::Shared { ids, srcs }
             }
         })
+    }
+
+    /// [#1260] Liveness of a buffered memtable doc under the admission gate —
+    /// the fast path's counterpart of `fold_match_sources`'s memtable check,
+    /// adjusted for the OPPOSITE capture order (snapshot first, memtable
+    /// lazily after).  A doc is live when nothing in the version map
+    /// supersedes it: not deleted, and either still in-memory or repointed
+    /// into a segment OUTSIDE this snapshot (that copy is invisible to this
+    /// request, so the buffered one remains its only sight).
+    fn mem_doc_live(&self, id: &str, snap_ids: &std::collections::HashSet<String>) -> bool {
+        match self.idx.store.version_map.get(id) {
+            None => true,
+            Some(ver) => {
+                !ver.deleted
+                    && (ver.segment_id.as_ref() == xerj_storage::version_map::IN_MEMORY_SEGMENT_ID
+                        || !snap_ids.contains(ver.segment_id.as_ref()))
+            }
+        }
     }
 
     /// Columnar-filtered memtable docs for the top-level filter, or `None` when
@@ -523,7 +582,15 @@ impl<'a> FastCtx<'a> {
         }
         let preds = self.top_filter_mem_preds.as_ref()?;
         self.mem_filtered
-            .get_or_init(|| self.idx.memtable.filtered_docs_arc(preds))
+            .get_or_init(|| {
+                let mut docs = self.idx.memtable.filtered_docs_arc(preds)?;
+                // [#1260] Same liveness fold as `mem` — the columnar
+                // candidate set may still hold stale pre-drain copies.
+                if let Some(snap_ids) = &self.mem_live_gate {
+                    docs.retain(|(id, _)| self.mem_doc_live(id, snap_ids));
+                }
+                Some(docs)
+            })
             .as_deref()
     }
 }
@@ -662,6 +729,24 @@ fn params_only(params: &Value, allowed: &[&str]) -> bool {
     }
 }
 
+/// [#1267] The one plan shape admitted with DIRTY ghost bitmaps: the aggs
+/// tree is EXACTLY one plain `terms` aggregation — a single named entry
+/// whose body is `{"terms": {...}}` and nothing else.  No sub-aggs (no
+/// `aggs` key), no metrics, no `meta`, no siblings: anything beyond the
+/// single terms body makes the shape's cost depend on an executor that may
+/// read a delete-blind whole-segment stat, so it keeps today's bail.  The
+/// caller additionally requires a top-level filter (checked before calling)
+/// so `exec_terms` routes through the fused row pass.
+fn single_plain_terms_agg(aggs_obj: &serde_json::Map<String, Value>) -> bool {
+    if aggs_obj.len() != 1 {
+        return false;
+    }
+    let Some(body) = aggs_obj.values().next().and_then(|v| v.as_object()) else {
+        return false;
+    };
+    body.len() == 1 && body.contains_key("terms")
+}
+
 impl Index {
     /// Entry point — see module docs.  Returns `Some(agg_result)` (shaped
     /// exactly like `run_aggs_with_all`'s return) or `None` to fall back.
@@ -709,11 +794,78 @@ impl Index {
         // `VersionMap::ghost_events` (the old live-vs-physical arithmetic
         // false-positived on physical-count drift and disabled this fast
         // path under append-only write load).
-        let deletes_present = snap.segments.iter().any(|m| m.has_tombstones)
-            || self.store.version_map.ghost_events() > 0;
-        if deletes_present {
-            return None;
-        }
+        let admission_epoch = self.store.version_map.ghost_events();
+        let deletes_present = snap.segments.iter().any(|m| m.has_tombstones) || admission_epoch > 0;
+        // [#1260] Deletes no longer disable the fast path outright.  Every
+        // O(1) stat the executors use (per_ord_count, live_count,
+        // range_count, the sorted run) is DELETE-BLIND — it counts physical
+        // rows — which is why one superseded row anywhere used to bail the
+        // whole request.  But `ghost_events` is MONOTONIC: after a merge
+        // compacts the ghosts away the index is clean again, while the gate
+        // stayed tripped forever (measured live: the 402,814-doc
+        // autoindex-catalog, rewritten by every finalize-catalog, served a
+        // filtered terms agg from the brute path until it hit 429 "query
+        // allocation would exceed limits.max_query_memory_mb" — its
+        // overwrite history had the gate tripped for its whole life).
+        //
+        // Admission instead, per non-empty segment: fetch the exact
+        // ghost-position bitmap (`ghost_positions_for` — bit pos set ⇔ the
+        // stored doc at that row is deleted or superseded; the merge
+        // survivor filter guarantees at most one live copy per id, so the
+        // id-level predicate is exact and its row space IS the `.dv`
+        // column row space).  A segment with an EMPTY bitmap is provably
+        // ghost-free — live == physical — which is exactly the invariant
+        // every executor was built under, so the row-level arithmetic runs
+        // unchanged.  Steady state after merges is clean bitmaps, so the
+        // fast path comes BACK.  `None` (stored section unreadable) keeps
+        // today's bail.
+        //
+        // [#1267] A segment with a NON-EMPTY bitmap no longer bails every
+        // request: that was the 803,735 ms verify window.  A resumed crawl
+        // shard carries tombstones from the resume's overwrites, so EVERY
+        // one of its ~800 finalize-verify windows fell to the brute agg
+        // corpus, which materialises the whole index per window — measured
+        // live on the 53,153-doc `cves-28` shard (issue #1267).  Dirty
+        // bitmaps are now admitted for exactly one plan shape that is
+        // provably row-exact under ghosts: a top-level filter present (so
+        // `exec_terms` takes the fused row pass, never the whole-segment
+        // `per_ord_count` shortcut) plus a single plain `terms` agg — no
+        // sub-aggs, no metrics, no siblings.  Every number that shape
+        // produces comes from per-row accounting (`fused_seg_pass` skips
+        // ghosted rows; the filtered total row-scans dirty segments) and
+        // the live-filtered memtable walks.  Any other plan still bails on
+        // the first dirty bitmap, as before — the O(1) stats it would read
+        // (`per_ord_count`, `live_count`, `range_count`) count physical
+        // rows and would double-count ghosts.
+        let row_exact = top_filter.is_some() && single_plain_terms_agg(aggs_obj);
+        let mut dirty_ghosts: std::collections::HashMap<String, std::sync::Arc<Vec<u64>>> =
+            std::collections::HashMap::new();
+        let mem_live_gate: Option<std::collections::HashSet<String>> = if deletes_present {
+            for meta in &snap.segments {
+                if meta.doc_count == 0 {
+                    continue;
+                }
+                let ghosts = self.ghost_positions_for(&meta.id, meta.doc_count)?;
+                if ghosts.iter().any(|w| *w != 0) {
+                    if !row_exact {
+                        return None;
+                    }
+                    dirty_ghosts.insert(meta.id.clone(), ghosts);
+                }
+            }
+            // The memtable leg of the same gate: a buffered doc whose live
+            // copy already sits in a snapshot segment is a stale pre-drain
+            // duplicate (the liveness check `fold_match_sources` applies).
+            // The SNAP-MEMBERSHIP form — not the fold's plain
+            // `!= IN_MEMORY_SEGMENT_ID` — is required because this path
+            // reads the snapshot FIRST and the memtable lazily AFTER (the
+            // fold reads mem first): a fold-style check would also drop
+            // docs drained into a segment this snapshot does not contain,
+            // undercounting exactly the docs the request must still see.
+            Some(snap.segments.iter().map(|m| m.id.clone()).collect())
+        } else {
+            None
+        };
 
         // Warm the per-segment column cache in parallel first: a cold
         // many-segment index would otherwise decode every `.dv` sidecar
@@ -742,6 +894,7 @@ impl Index {
                 id: meta.id.clone(),
                 cols,
                 docs: meta.doc_count as u32,
+                ghosts: dirty_ghosts.get(&meta.id).cloned(),
             });
         }
 
@@ -770,22 +923,31 @@ impl Index {
             top_filter_query,
             top_filter_mem_preds,
             mem_filtered: std::sync::OnceLock::new(),
+            mem_live_gate,
         };
 
         // Filtered `hits.total`: the number of live docs matching the query.
         // For match_all the caller derives it from segment + memtable counts
         // (and later overwrites with the delete-aware live count), so we only
-        // compute a total when a filter narrowed the corpus.  No deletes are
-        // present on the fast path (gated above), so physical row counts are
-        // exact, and each memtable doc is one hit (weights affect agg
-        // `doc_count`, not `hits.total`).
+        // compute a total when a filter narrowed the corpus.  Clean segments
+        // have live == physical (gated above), so the O(1) stats are exact;
+        // [#1267] a dirty-but-admitted segment instead counts live matching
+        // rows directly — `seg_pred_count`'s whole-segment arms
+        // (`per_ord_count`, `range_count`, `live_count`) are delete-blind
+        // and would count ghosted rows.  Each memtable doc is one hit
+        // (weights affect agg `doc_count`, not `hits.total`).
         let filtered_total: Option<u64> = match &ctx.top_filter {
             None => None,
             Some(pred) => {
                 let mut total: u64 = 0;
                 for seg in &ctx.segs {
                     let sp = resolve_pred(&seg.cols, pred, &ctx.segs, ctx.mapped_fields)?;
-                    total += seg_pred_count(&sp, seg.docs);
+                    total += match seg.ghosts.as_deref() {
+                        None => seg_pred_count(&sp, seg.docs),
+                        Some(g) => (0..seg.docs)
+                            .filter(|&row| !ghost_bit(g, row) && seg_pred_matches(&sp, row))
+                            .count() as u64,
+                    };
                 }
                 if let Some(q) = &ctx.top_filter_query {
                     // O(matching) columnar fold when the filter columnarises;
@@ -812,10 +974,32 @@ impl Index {
         // What the top level of an aggs tree publishes as its document count:
         // the filtered total when a top-level query narrowed the corpus, else
         // the whole live corpus. Physical rows either way — the same number
-        // `docs.len()` gives `aggs::run_aggs_with_all` on the brute path (the
-        // fast path is gated on there being no deletes, so live == physical).
-        let top_doc_count = filtered_total.unwrap_or(total_physical);
+        // `docs.len()` gives `aggs::run_aggs_with_all` on the brute path
+        // (live == physical: by the no-deletes gate, or by the [#1260]
+        // admission bitmaps — with the memtable leg taken from the
+        // live-filtered `mem()` view, whose length drops the stale pre-drain
+        // copies `total_physical` still counts).
+        let top_doc_count = filtered_total.unwrap_or_else(|| {
+            if ctx.mem_live_gate.is_some() {
+                ctx.segs.iter().map(|s| s.docs as u64).sum::<u64>() + ctx.mem().len() as u64
+            } else {
+                total_physical
+            }
+        });
         let result = ctx.eval_aggs_object(aggs_obj, top_doc_count)?;
+        // Capture-scope re-check (#1217's discipline, applied to the
+        // admission): an overwrite or delete that landed while the executors
+        // ran invalidates the per-segment bitmaps and the memtable liveness
+        // fold above.  `ghost_events` only bumps on overwrite/delete — never
+        // on a pure flush repoint — so an unchanged epoch proves the
+        // admission still holds for everything this request read.  On bump,
+        // bail: the caller reruns the whole aggregation on the brute path.
+        // (A pure drain straddling the request is NOT caught by the epoch —
+        // the same pre-existing window as the lazily built `mem()` view,
+        // unchanged by the gate.)
+        if self.store.version_map.ghost_events() != admission_epoch {
+            return None;
+        }
         // Served columnarly — record it. The two executors are INTENDED to
         // return the same bytes, so a caller cannot tell them apart from the
         // response and a test needs this signal (see
@@ -1239,11 +1423,16 @@ impl<'a> FastCtx<'a> {
             top_filter_query: None,
             top_filter_mem_preds: None,
             mem_filtered: std::sync::OnceLock::new(),
+            // [#1260] carry the admission gate: the child walks the same
+            // (possibly ghost-admitted) segment set, so its `mem()` view
+            // must apply the same liveness fold.
+            mem_live_gate: self.mem_live_gate.clone(),
         };
         let mut bucket = Map::new();
-        // Whole-corpus doc_count (no deletes on the fast path; segment rows are
-        // weight-1, memtable docs honour `_doc_count`, matching every other
-        // fast-path executor).
+        // Whole-corpus doc_count (live == physical: no deletes, or the
+        // [#1260] admission gate + the live-filtered `mem()` view; segment
+        // rows are weight-1, memtable docs honour `_doc_count`, matching
+        // every other fast-path executor).
         let mut doc_count: u64 = 0;
         for seg in &child.segs {
             doc_count += seg.docs as u64;
@@ -2291,7 +2480,19 @@ impl<'a> FastCtx<'a> {
             .collect();
         let th_dense = th_col.is_some_and(|n| n.null_bitmap.is_empty());
 
+        // [#1267] Ghosted rows (deleted/superseded but still resident) are
+        // skipped before ANY accounting — present only on dirty-but-admitted
+        // segments (the row-exact plan), where counting them would
+        // double-count docs the brute path no longer sees.  Hoisted beside
+        // the null probes: clean segments pay one `Option` check.
+        let seg_ghosts = seg.ghosts.as_deref();
+
         for row in 0..seg.docs {
+            if let Some(g) = seg_ghosts {
+                if ghost_bit(g, row) {
+                    continue;
+                }
+            }
             if let Some(sp) = &top_sp {
                 if !seg_pred_matches(sp, row) {
                     continue;
@@ -2654,7 +2855,10 @@ impl<'a> FastCtx<'a> {
             // extraction walk below was the cardinality read-under-write tail
             // at a drain-lagged memtable.
             let mem_columnar: Option<(std::collections::HashMap<String, u64>, u64)> =
-                if !field.contains('.') {
+                if self.mem_live_gate.is_none() && !field.contains('.') {
+                    // [#1260] the memtable columnar summary is delete-blind;
+                    // under the admission gate the exact per-doc walk below
+                    // (over the live-only `mem()` view) serves instead.
                     self.idx.memtable.terms_counts_columnar(field)
                 } else {
                     None
@@ -2943,7 +3147,9 @@ impl<'a> FastCtx<'a> {
         // memtable under a sustained bulk writer — the terms-agg
         // read-under-write p95/p99 tail.
         let mem_columnar: Option<(std::collections::HashMap<String, u64>, u64)> =
-            if !has_row_work && !field.contains('.') {
+            if self.mem_live_gate.is_none() && !has_row_work && !field.contains('.') {
+                // [#1260] delete-blind summary — under the admission gate the
+                // exact walks below (live-only views) serve instead.
                 self.idx.memtable.terms_counts_columnar(field)
             } else {
                 None
@@ -3156,7 +3362,15 @@ impl<'a> FastCtx<'a> {
                 _ => return None, // non-keyword column for a keyword field → bail
             }
         }
-        match self.idx.memtable.terms_counts_columnar(field) {
+        // [#1260] delete-blind summary — under the admission gate this
+        // executor has no exact memtable arm, so it bails whole (same as its
+        // array-valued-field bailout immediately below).
+        let mem_summary = if self.mem_live_gate.is_some() {
+            None
+        } else {
+            self.idx.memtable.terms_counts_columnar(field)
+        };
+        match mem_summary {
             Some((mem_counts, _missing)) => {
                 for (term, cnt) in mem_counts {
                     if cnt > 0 && !term.is_empty() {
@@ -3236,11 +3450,18 @@ impl<'a> FastCtx<'a> {
             return None;
         }
         // Whole-corpus live doc count = brute's `result_docs.len()` ==
-        // `all_docs.len()` (no deletes on the fast path; `run_significant_terms`
-        // counts docs, unweighted). Foreground == background ⇒ every term scores
-        // 0.0 ⇒ empty buckets.
+        // `all_docs.len()` (live == physical by the no-deletes gate or the
+        // [#1260] admission bitmaps; `run_significant_terms` counts docs,
+        // unweighted). Foreground == background ⇒ every term scores 0.0 ⇒
+        // empty buckets.  Under the gate the memtable leg must come from the
+        // live-filtered `mem()` view — the raw `doc_count()` still counts
+        // stale pre-drain copies.
         let total: u64 = self.segs.iter().map(|s| s.docs as u64).sum::<u64>()
-            + self.idx.memtable.doc_count() as u64;
+            + if self.mem_live_gate.is_some() {
+                self.mem().len() as u64
+            } else {
+                self.idx.memtable.doc_count() as u64
+            };
         Some(json!({
             "doc_count": total,
             "bg_count": total,
@@ -3876,6 +4097,11 @@ impl<'a> FastCtx<'a> {
             // shape a `date` field takes; see `Pred::RangeKw`).
             Pred::RangeKw { field, .. } => match self.seg_field_kind(field) {
                 Ok(Some(ColKind::Keyword)) | Ok(None) => Some(()),
+                _ => None,
+            },
+            // Either column kind can answer "row is non-null".
+            Pred::Exists { field } => match self.seg_field_kind(field) {
+                Ok(Some(ColKind::Keyword)) | Ok(Some(ColKind::Numeric)) | Ok(None) => Some(()),
                 _ => None,
             },
             Pred::And(subs) => {
@@ -5086,6 +5312,27 @@ enum Pred {
         hi: Option<String>,
         hi_incl: bool,
     },
+    /// `exists: {field}` — the row's column entry is non-null.  Brute
+    /// parity, both legs:
+    /// * segments — `doc_matches_query_typed`'s Exists arm resolves the
+    ///   `_source` field and applies `value_present` (Null → false, arrays →
+    ///   any-present, everything else — including objects and `""` — →
+    ///   true).  The column builder pushes nothing for null values, so a
+    ///   non-null column row ⇔ a present `_source` value for every scalar
+    ///   shape; object/array/multi-valued shapes never get a column and are
+    ///   caught by `miss_is_genuinely_empty`/`field_needs_brute_fallback`.
+    /// * memtable — `doc_matches_filter`'s exists arm; its one divergence
+    ///   from `value_present` (a directly-object-valued field:
+    ///   `flatten(Object)=[]` vs `value_present(Object)=true`) is closed in
+    ///   `aggs.rs` alongside this variant.
+    ///
+    /// Meta fields (`_id`, `_index`, …) are answered from bookkeeping on the
+    /// brute query path (always true) but have no column and no consistent
+    /// memtable answer (owned views inject `_id`, shared views don't) →
+    /// bail at compile.
+    Exists {
+        field: String,
+    },
     /// Conjunction of leaf predicates — a `bool` with only `must`/`filter`
     /// clauses (produced by `compile_top_pred` for the top-level query filter;
     /// `compile_pred` never yields this, so the filter/filters/adjacency
@@ -5280,6 +5527,22 @@ fn compile_pred(filter: &Value) -> Option<Pred> {
                 hi_incl,
             })
         }
+        "exists" => {
+            if !params_only(body, &["field"]) {
+                return None;
+            }
+            let field = body.get("field").and_then(Value::as_str)?;
+            if field.is_empty() || field.starts_with('_') {
+                // Meta fields: brute's Exists arm answers them from
+                // bookkeeping (`_id`/`_index`/`_seq_no` always true,
+                // `_routing` from source), not from a column — there is no
+                // columnar equivalent to stay in sync with.
+                return None;
+            }
+            Some(Pred::Exists {
+                field: field.to_owned(),
+            })
+        }
         _ => None,
     }
 }
@@ -5322,6 +5585,9 @@ enum SegPred<'a> {
     /// lexicographically-sorted dictionary.  Last bool = column has no nulls.
     KwRange(&'a KeywordColumn, u32, u32, bool),
     Num(&'a NumericColumn, f64, bool, f64, bool, bool),
+    /// `exists` — the row carries a non-null keyword / numeric value.
+    KwExists(&'a KeywordColumn),
+    NumExists(&'a NumericColumn),
     /// Conjunction — every sub-predicate must match the row.
     And(Vec<SegPred<'a>>),
 }
@@ -5440,6 +5706,11 @@ fn resolve_pred<'a>(
             Some(Column::Keyword(_)) => return None,
             None => miss_is_genuinely_empty(field, segs, mapped_fields)?,
         },
+        Pred::Exists { field } => match dv_col(cols, field) {
+            Some(Column::Keyword(k)) => SegPred::KwExists(k),
+            Some(Column::Numeric(n)) => SegPred::NumExists(n),
+            None => miss_is_genuinely_empty(field, segs, mapped_fields)?,
+        },
         Pred::And(subs) => {
             let mut resolved: Vec<SegPred<'a>> = Vec::with_capacity(subs.len());
             for s in subs {
@@ -5497,6 +5768,8 @@ fn seg_pred_matches(sp: &SegPred<'_>, row: u32) -> bool {
             let hi_ok = if *hi_incl { v <= *hi } else { v < *hi };
             lo_ok && hi_ok
         }
+        SegPred::KwExists(k) => k.ord_for(row).is_some(),
+        SegPred::NumExists(n) => !n.null_bitmap.contains(row),
         SegPred::And(subs) => subs.iter().all(|s| seg_pred_matches(s, row)),
     }
 }
@@ -5517,6 +5790,12 @@ fn seg_pred_count(sp: &SegPred<'_>, docs: u32) -> u64 {
             .map(|s| s.iter().map(|c| *c as u64).sum())
             .unwrap_or(0),
         SegPred::Num(n, lo, lo_incl, hi, hi_incl, _) => n.range_count(*lo, *hi, *lo_incl, *hi_incl),
+        // Non-null rows: with multi-valued fields column-suppressed, each row
+        // carries at most one ord, so the per-ordinal histogram sums to the
+        // non-null row count (same form as `KwIn` above).  `live_count` is
+        // the numeric column's own precomputed non-null count.
+        SegPred::KwExists(k) => k.per_ord_count.iter().map(|c| *c as u64).sum(),
+        SegPred::NumExists(n) => n.live_count,
         // Conjunction has no O(1) form — count matching rows directly.  Only
         // reached from the top-level filter count (compile_pred, used by the
         // filter/filters executors, never yields `And`).
@@ -5795,6 +6074,7 @@ mod range_kw_tests {
             id: "seg1".to_string(),
             cols: crate::segment_cache_budget::CacheResident::uncached(m),
             docs: 2,
+            ghosts: None,
         };
         assert!(
             seg.col("extension").is_some(),
@@ -5972,6 +6252,7 @@ mod range_kw_tests {
             id: "seg1".to_string(),
             cols: crate::segment_cache_budget::CacheResident::uncached(cols),
             docs: 1,
+            ghosts: None,
         }
     }
 

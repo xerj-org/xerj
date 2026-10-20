@@ -1,0 +1,22 @@
+{
+ "corpus": "uraniumm--prisonflex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on debugging, flex, flexloader queries this for how Uraniumm/PrisonFLEX implements it: A lightweight FLEX loader for iOS apps, built for jailed tweak injection and LiveContainer-style environments, with support for rootless jai (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "PrisonFLEX",
+   "url": "https://github.com/Uraniumm/PrisonFLEX",
+   "sha": "931b669bc8d2f6a0f6e3d6c5ccba8704300478f0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 931b669bc8d2: \"update build workflows and scripts, include new targets\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

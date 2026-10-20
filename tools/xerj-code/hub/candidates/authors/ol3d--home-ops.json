@@ -1,0 +1,22 @@
+{
+ "corpus": "ol3d--home-ops",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on kubernetes, ansible, terraform queries this for how ol3d/home-ops implements it: Automated Homelab setup and configuration, following GitOps and Infrastructure as Code (IaC) best practices where possible. Built on Proxmox (selected work: lab, config, the project root)",
+ "repos": [
+  {
+   "repo": "home-ops",
+   "url": "https://github.com/ol3d/home-ops",
+   "sha": "c5a3b2ec6516680358c369137d3bd6021c998d42",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit c5a3b2ec6516: \"AWS SES Implementation and Mailgun Removal\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

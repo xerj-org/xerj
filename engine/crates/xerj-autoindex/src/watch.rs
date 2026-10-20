@@ -767,6 +767,16 @@ pub fn run(cfg: IndexCfg) -> Result<i32> {
         root.display()
     );
 
+    // #1232: a session-long ownership lock. The per-pass StateLock on
+    // `.autoindex.lock` is released between passes, so without this a second
+    // `xerj autoindex --watch` for the same journal/destination could complete
+    // its own first pass and park beside this one — two live owners with
+    // duplicate filesystem subscriptions. Held for the whole session; the
+    // kernel frees it on process death and the guard frees it on graceful drop,
+    // touching no persistent data. Acquired before the watcher is set up so a
+    // refusal costs nothing.
+    let _ownership = crate::state::acquire_watch_ownership(&state_dir)?;
+
     let (tx, rx): (Sender<notify::Result<notify::Event>>, _) = channel();
     let mut watcher = notify::recommended_watcher(tx).map_err(|error| {
         anyhow::anyhow!(

@@ -1,0 +1,22 @@
+{
+ "corpus": "hawkosm--blackbox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on arch-linux, gtk4, linux queries this for how HawkOsm/BlackBox implements it: Flight recorder for a Linux desktop: crashes, logs, package upgrades and load in one SQLite file, with a GTK4 viewer (selected work: src, src/database, the project root)",
+ "repos": [
+  {
+   "repo": "BlackBox",
+   "url": "https://github.com/HawkOsm/BlackBox",
+   "sha": "fb03291a5562b2f99a11a18eaf543638d4646816",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit fb03291a5562: \"Implement database schema for event logging and retention\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

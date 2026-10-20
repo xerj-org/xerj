@@ -1,0 +1,22 @@
+{
+ "corpus": "jgarza9788--drives",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on hyprland, omarchy, omarchy-plugin queries this for how jgarza9788/drives implements it: Drives: one bar icon per drive for Omarchy \u2014 thumb, external, SD, network & cloud; hover for usage, activity & specs; mount/eject with a bus (selected work: bin, tests, the project root)",
+ "repos": [
+  {
+   "repo": "drives",
+   "url": "https://github.com/jgarza9788/drives",
+   "sha": "7b444cf71c76e6e085552374c1b72da9a88747d9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 7b444cf71c76: \"20260930 - fixed fringe issues\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

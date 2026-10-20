@@ -1,0 +1,22 @@
+{
+ "corpus": "fstubner--netscli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on cli, mcp-server, network-scanner queries this for how fstubner/netscli implements it: Network scanner written in Rust, with a CLI, terminal UI, desktop app and MCP server (selected work: apps/netscli-gui, scripts)",
+ "repos": [
+  {
+   "repo": "netscli",
+   "url": "https://github.com/fstubner/netscli",
+   "sha": "604b05e745908547dafb02b8918a12205b67f467",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 604b05e74590: \"Add a privacy page and the Microsoft Store listing assets (#510)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

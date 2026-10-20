@@ -1,0 +1,22 @@
+{
+ "corpus": "azhzx--qbe-mbt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on backend, codegen, compiler queries this for how azhzx/qbe.mbt implements it: A MoonBit-native compiler backend: byte-faithful QBE reimplementation with amd64/arm64/rv64/LoongArch64/WASM backends, programmatic IR build (selected work: qpcc)",
+ "repos": [
+  {
+   "repo": "qbe.mbt",
+   "url": "https://github.com/azhzx/qbe.mbt",
+   "sha": "a2b0142852c1aa8ba9bad343ed1d412d9f5bfdf5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit a2b0142852c1: \"feat(qpcc): finish _Tagged_union, and fix the comparison result class\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

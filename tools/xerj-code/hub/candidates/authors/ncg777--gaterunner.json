@@ -1,0 +1,22 @@
+{
+ "corpus": "ncg777--gaterunner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on algorithmic-music, github-pages, pwa queries this for how ncg777/gaterunner implements it: An experimental sequencer webapp based on the binary representation of sequences of integers with a synth, a drum machine and effects. It ca (selected work: cli, the project root)",
+ "repos": [
+  {
+   "repo": "gaterunner",
+   "url": "https://github.com/ncg777/gaterunner",
+   "sha": "6aec98e207a8f93ae252c5d6e1774e3b2e9c0e3d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 6aec98e207a8: \"mcp server\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "frocen-hg--chatphantasm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Frocen-Hg/ChatPhantasm implements it: ChatPhantasm\uff0c\u865a\u5047\u5012\u5f71\u804a\u5929\u9879\u76ee\u3002 (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "ChatPhantasm",
+   "url": "https://github.com/Frocen-Hg/ChatPhantasm",
+   "sha": "55758ec9dd613453a040e9f15e5fab57d8aa1223",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 55758ec9dd61: \"P2c\uff1a\u77e5\u8bc6\u5e93\u9875\u63a5\u5165\u771f\u5b9e API\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

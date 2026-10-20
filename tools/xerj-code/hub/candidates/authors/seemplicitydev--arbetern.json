@@ -1,0 +1,22 @@
+{
+ "corpus": "seemplicitydev--arbetern",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how SeemplicityDev/arbetern implements it: Enterprise AI orchestration platform and Slack runtime deploying specialized, domain-expert agents. By decoupling agent definitions from the (selected work: llm, the project root, config)",
+ "repos": [
+  {
+   "repo": "arbetern",
+   "url": "https://github.com/SeemplicityDev/arbetern",
+   "sha": "4eaae74404a7ad460f2bfe26b468e29fdec12547",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 4eaae74404a7: \"feat(anthropic): add anthropic platform support and enum model mapping\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

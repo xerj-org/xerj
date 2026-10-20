@@ -1,0 +1,22 @@
+{
+ "corpus": "eibiflo--cf-cookiemanager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how eibiflo/cf_cookiemanager implements it: Simple Typo3 Cookie Manager (selected work: Tests, Classes, Resources)",
+ "repos": [
+  {
+   "repo": "cf_cookiemanager",
+   "url": "https://github.com/eibiflo/cf_cookiemanager",
+   "sha": "60051a40000f4e04f154dd403f7f156dc94bea75",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 60051a40000f: \"[TASK] Preparing Release 2.2.0 Platform connection, setup wizard and \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

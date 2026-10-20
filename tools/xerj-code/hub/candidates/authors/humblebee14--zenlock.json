@@ -1,0 +1,22 @@
+{
+ "corpus": "humblebee14--zenlock",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Java queries this for how HumbleBee14/ZenLock implements it: Focus Lock: An Android and iOS app that locks your screen for a set time, helping you stay focused on what matters most (selected work: ZenLock-Android, ZenLock-iOS)",
+ "repos": [
+  {
+   "repo": "ZenLock",
+   "url": "https://github.com/HumbleBee14/ZenLock",
+   "sha": "32aa83f555590457a916fc431340b46fdcc72e39",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 32aa83f55559: \"feat(android): add optional Prevent uninstall via Device Admin (#29)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

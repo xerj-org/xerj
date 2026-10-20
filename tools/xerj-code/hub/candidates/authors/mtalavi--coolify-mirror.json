@@ -1,0 +1,22 @@
+{
+ "corpus": "mtalavi--coolify-mirror",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on backup, coolify, docker queries this for how mtalavi/coolify-mirror implements it: Coolify Mirror: super fast to get started, super easy to use. Move Coolify apps and data to another server with one restore command. Encrypt (selected work: internal/ui, internal/coolify, cmd/coolify-mirror)",
+ "repos": [
+  {
+   "repo": "coolify-mirror",
+   "url": "https://github.com/mtalavi/coolify-mirror",
+   "sha": "824efdb137fa62afdc124870a0e9b3e5681abfd4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 824efdb137fa: \"1.8.0: pick projects, review before every backup, fixed yes/No prompt\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

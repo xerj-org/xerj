@@ -1,0 +1,22 @@
+{
+ "corpus": "interpoll1--decentralised",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Interpoll1/decentralised implements it: Interpoll1/decentralised (TypeScript) (selected work: src/services, unit_tests, shared-validation)",
+ "repos": [
+  {
+   "repo": "decentralised",
+   "url": "https://github.com/Interpoll1/decentralised",
+   "sha": "2cfde5efc3d10b56c73e74723d3f328b77f2fc1f",
+   "licence": "hint only: Unlicense (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Unlicense",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 2cfde5efc3d1: \"feat(security): sign public engagement actions and preserve retry evi\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

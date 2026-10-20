@@ -1,0 +1,22 @@
+{
+ "corpus": "hassaanmk--autonomous-slam-based-interactive-robot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Hassaanmk/Autonomous-SLAM-Based-Interactive-robot implements it: Hassaanmk/Autonomous-SLAM-Based-Interactive-robot (Python) (selected work: Software Stack)",
+ "repos": [
+  {
+   "repo": "Autonomous-SLAM-Based-Interactive-robot",
+   "url": "https://github.com/Hassaanmk/Autonomous-SLAM-Based-Interactive-robot",
+   "sha": "4b7c1d25bf57689eda3b61b419a1be67890c0afd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4b7c1d25bf57: \"Add qt_gui_ros2 (RViz-in-Qt GUI) by @bandasaikrishna\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

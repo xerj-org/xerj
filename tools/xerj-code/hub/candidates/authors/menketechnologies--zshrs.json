@@ -1,0 +1,22 @@
+{
+ "corpus": "menketechnologies--zshrs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how MenkeTechnologies/zshrs implements it: zshrs => zsh Superset (selected work: src/ported)",
+ "repos": [
+  {
+   "repo": "zshrs",
+   "url": "https://github.com/MenkeTechnologies/zshrs",
+   "sha": "6ab47eb8eccc583591a14ec4372c879a2a197ca8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 6ab47eb8eccc: \"ported: finish deferred bodies in jobs, exec, builtin, params, prompt\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

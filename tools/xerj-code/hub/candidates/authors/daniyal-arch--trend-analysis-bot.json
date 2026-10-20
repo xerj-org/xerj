@@ -1,0 +1,22 @@
+{
+ "corpus": "daniyal-arch--trend-analysis-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Daniyal-arch/trend_analysis_bot implements it: Daniyal-arch/trend_analysis_bot (Python) (selected work: research, the project root, legacy)",
+ "repos": [
+  {
+   "repo": "trend_analysis_bot",
+   "url": "https://github.com/Daniyal-arch/trend_analysis_bot",
+   "sha": "f2ef37a03536bbc26afe8449d24567ba1264efe4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f2ef37a03536: \"Build cross-industry app and freelance research with PDF email digests\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

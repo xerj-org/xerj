@@ -1,0 +1,22 @@
+{
+ "corpus": "can-inal--nane",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cmake, computational-science, cpp queries this for how Can-Inal/Nane implements it: Nane is a modern C++23 scientific computing library (selected work: include)",
+ "repos": [
+  {
+   "repo": "Nane",
+   "url": "https://github.com/Can-Inal/Nane",
+   "sha": "4852bd5ab368380ee1c18006f112dbed5e3e4f10",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 4852bd5ab368: \"calculus start\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

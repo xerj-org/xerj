@@ -131,12 +131,25 @@ pub(crate) struct SegmentVectorColumn {
     data: Vec<f32>,
     entries: Vec<VectorEntry>,
     docs: Vec<DocVectors>,
+    /// Each position's `_id` and `_seq_no`, when it was pushed as a stored
+    /// segment document (#1091). These are the only two fields the exact scan
+    /// reads from a document before ranking it, so a column that carries them
+    /// lets an unfiltered scan choose its candidates without the segment's
+    /// parsed stored documents — which, on a passage-chunked corpus, are tens
+    /// of kilobytes each and do not fit the hydration budget.
+    identities: Vec<Option<DocIdentity>>,
+}
+
+/// A stored document's `_id` and `_seq_no`, as the scan reads them.
+#[derive(Debug)]
+struct DocIdentity {
+    id: Box<str>,
+    seq_no: Option<u64>,
 }
 
 impl SegmentVectorColumn {
     /// Number of document positions covered. A column abandoned part-way (the
     /// request's deadline passed) covers a prefix of its segment.
-    #[cfg(test)]
     pub(crate) fn len(&self) -> usize {
         self.docs.len()
     }
@@ -163,11 +176,30 @@ impl SegmentVectorColumn {
         }
     }
 
+    /// The `_id` and `_seq_no` of the stored document at `position`. `None`
+    /// past the end, for a document pushed by source alone (the memtable
+    /// scratch), and for a stored document with no string `_id` — the scan
+    /// never makes a candidate of that one.
+    pub(crate) fn identity(&self, position: usize) -> Option<(&str, Option<u64>)> {
+        self.identities
+            .get(position)?
+            .as_ref()
+            .map(|identity| (&*identity.id, identity.seq_no))
+    }
+
     /// Bytes this column keeps alive, for the segment hydration budget.
     pub(crate) fn retained_bytes(&self) -> u64 {
+        let id_bytes: usize = self
+            .identities
+            .iter()
+            .flatten()
+            .map(|identity| identity.id.len())
+            .sum();
         let bytes = self.data.capacity() * std::mem::size_of::<f32>()
             + self.entries.capacity() * std::mem::size_of::<VectorEntry>()
             + self.docs.capacity() * std::mem::size_of::<DocVectors>()
+            + self.identities.capacity() * std::mem::size_of::<Option<DocIdentity>>()
+            + id_bytes
             + std::mem::size_of::<Self>();
         u64::try_from(bytes).unwrap_or(u64::MAX)
     }
@@ -197,6 +229,7 @@ impl ColumnBuilder {
         self.column.data.clear();
         self.column.entries.clear();
         self.column.docs.clear();
+        self.column.identities.clear();
     }
 
     /// The column built so far.
@@ -208,17 +241,31 @@ impl ColumnBuilder {
         self.column.data.shrink_to_fit();
         self.column.entries.shrink_to_fit();
         self.column.docs.shrink_to_fit();
+        self.column.identities.shrink_to_fit();
         self.column
     }
 
     /// Append a segment's stored document: `{"_id", "_seq_no", "_source"}`,
     /// or a legacy pre-`_source` document whose fields sit at the top level.
     pub(crate) fn push_stored_doc(&mut self, stored: &Value) {
-        self.push_source(stored_source_view(stored));
+        self.push_vectors(stored_source_view(stored));
+        let identity = stored
+            .get("_id")
+            .and_then(Value::as_str)
+            .map(|id| DocIdentity {
+                id: id.into(),
+                seq_no: stored.get("_seq_no").and_then(Value::as_u64),
+            });
+        self.column.identities.push(identity);
     }
 
     /// Append a document given its source object.
     pub(crate) fn push_source(&mut self, source: &Value) {
+        self.push_vectors(source);
+        self.column.identities.push(None);
+    }
+
+    fn push_vectors(&mut self, source: &Value) {
         let doc = match self.mode {
             ColumnMode::PooledOnly => self.push_pooled(source),
             ColumnMode::BestPassage => match field_value_cow(source, &self.chunk_field) {
@@ -230,6 +277,66 @@ impl ColumnBuilder {
             },
         };
         self.column.docs.push(doc);
+    }
+
+    /// Append one row of a segment's typed kNN projection (#1091): the same
+    /// document [`Self::push_stored_doc`] would have read, decoded straight to
+    /// `f32` by the storage layer instead of through `serde_json::Value`.
+    ///
+    /// The storage decoder converts each element with the same `as_f64()` then
+    /// `as f32` this builder uses, and refuses a column outright — the caller
+    /// falls back to the stored documents — whenever a cell holds anything the
+    /// `Value` path would have had to drop or skip (a non-number element, a
+    /// non-finite value, a passage that is not an array). So every row it does
+    /// hand over yields the entries `push_stored_doc` would have pushed:
+    /// `chunks` present wins in [`ColumnMode::BestPassage`], a passage keeps
+    /// its array index as its ordinal, and `None` is an absent or null cell.
+    pub(crate) fn push_projected(
+        &mut self,
+        id: Option<&str>,
+        seq_no: Option<u64>,
+        pooled: Option<&[f32]>,
+        chunks: Option<&[Vec<f32>]>,
+    ) {
+        let chunks = match self.mode {
+            ColumnMode::BestPassage => chunks,
+            ColumnMode::PooledOnly => None,
+        };
+        let doc = match (chunks, pooled) {
+            (Some(chunks), _) => {
+                let first = self.column.entries.len();
+                for (position, chunk) in chunks.iter().enumerate() {
+                    let Ok(ordinal) = u32::try_from(position) else {
+                        continue;
+                    };
+                    self.push_f32_vector(chunk, ordinal);
+                }
+                DocVectors::Chunks {
+                    first,
+                    count: self.column.entries.len() - first,
+                }
+            }
+            (None, Some(pooled)) => DocVectors::Pooled(self.push_f32_vector(pooled, 0)),
+            (None, None) => DocVectors::Absent,
+        };
+        self.column.docs.push(doc);
+        self.column.identities.push(id.map(|id| DocIdentity {
+            id: id.into(),
+            seq_no,
+        }));
+    }
+
+    fn push_f32_vector(&mut self, values: &[f32], ordinal: u32) -> usize {
+        let start = self.column.data.len();
+        self.column.data.extend_from_slice(values);
+        let norm = norm_f64(&self.column.data[start..]);
+        self.column.entries.push(VectorEntry {
+            start,
+            len: values.len(),
+            ordinal,
+            norm,
+        });
+        self.column.entries.len() - 1
     }
 
     fn push_chunks(&mut self, chunks: &[Value]) -> DocVectors {
@@ -413,6 +520,30 @@ mod tests {
         b.push_stored_doc(&json!({"_id": "legacy", "v": [1.0, 2.0]}));
         let column = b.finish();
         assert_eq!(views(&column, 0), vec![(0, vec![1.0, 2.0])]);
+    }
+
+    #[test]
+    fn stored_documents_carry_their_identity_and_sources_do_not() {
+        let mut b = ColumnBuilder::new("v", ColumnMode::BestPassage);
+        b.push_stored_doc(&json!({"_id": "a", "_seq_no": 7, "_source": {"v": [1.0]}}));
+        b.push_stored_doc(&json!({"_id": "legacy", "v": [2.0]}));
+        b.push_stored_doc(&json!({"_id": 3, "_source": {"v": [3.0]}}));
+        b.push_source(&json!({"v": [4.0]}));
+        let column = b.finish();
+        assert_eq!(column.identity(0), Some(("a", Some(7))));
+        assert_eq!(column.identity(1), Some(("legacy", None)));
+        assert_eq!(column.identity(2), None, "a non-string _id is no candidate");
+        assert_eq!(column.identity(3), None, "a bare source has no identity");
+        assert_eq!(column.identity(99), None);
+        let mut scratch = ColumnBuilder::new("v", ColumnMode::BestPassage);
+        scratch.push_stored_doc(&json!({"_id": "a", "_source": {"v": [1.0]}}));
+        scratch.clear();
+        scratch.push_source(&json!({"v": [1.0]}));
+        assert_eq!(
+            scratch.column().identity(0),
+            None,
+            "clear forgets identities"
+        );
     }
 
     #[test]

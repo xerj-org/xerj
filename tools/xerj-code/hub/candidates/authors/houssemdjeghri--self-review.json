@@ -1,0 +1,22 @@
+{
+ "corpus": "houssemdjeghri--self-review",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, claude-ai, claude-api queries this for how HoussemDjeghri/self-review implements it: A Stop hook that won't let the turn end until fresh-context reviewers have read the diff, their findings are verified, and the loop converge (selected work: scripts, hooks, config)",
+ "repos": [
+  {
+   "repo": "self-review",
+   "url": "https://github.com/HoussemDjeghri/self-review",
+   "sha": "922eb6e577a789acd51b80076bd6f5e9d06e3e88",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 922eb6e577a7: \"self-review v0.8.6\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

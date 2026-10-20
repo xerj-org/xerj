@@ -1,0 +1,22 @@
+{
+ "corpus": "redchicagotypewriter--shotai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how ReDChicagOTypewriteR/ShotAI implements it: \u9762\u5411\u53ef\u4fe1\u5c40\u57df\u7f51\u7684\u672c\u5730 AI \u5de5\u4f5c\u53f0\uff1a\u57fa\u4e8e Ollama \u63d0\u4f9b\u5bf9\u8bdd\u3001\u89c6\u89c9\u7406\u89e3\u3001\u6587\u6863\u95ee\u7b54\u3001\u77e5\u8bc6\u5e93\u68c0\u7d22\u548c Windows \u56fe\u7247\u521b\u4f5c\u3002 (selected work: src, scripts, src/components)",
+ "repos": [
+  {
+   "repo": "ShotAI",
+   "url": "https://github.com/ReDChicagOTypewriteR/ShotAI",
+   "sha": "c51604a0d5ebb3155c355c1252b000312fa78a01",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit c51604a0d5eb: \"feat: add Chinese and English UI with system locale fallback\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

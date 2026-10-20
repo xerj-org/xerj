@@ -1,0 +1,22 @@
+{
+ "corpus": "jeffthenerddev96--a-u-r-a-eve-tool",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how JeffTheNerdDev96/A.U.R.A-eve-tool implements it: Your all one in all Eve Online tool (selected work: A.U.R.A. Source)",
+ "repos": [
+  {
+   "repo": "A.U.R.A-eve-tool",
+   "url": "https://github.com/JeffTheNerdDev96/A.U.R.A-eve-tool",
+   "sha": "c796583df2c929b4d788a2161d614fc5b7690c69",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit c796583df2c9: \"v0.5.1-alpha.1\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

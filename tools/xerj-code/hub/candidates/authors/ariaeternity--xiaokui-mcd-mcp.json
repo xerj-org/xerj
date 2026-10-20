@@ -1,0 +1,22 @@
+{
+ "corpus": "ariaeternity--xiaokui-mcd-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how AriaEternity/xiaokui-mcd-mcp implements it: ChatGPT \u00d7 \u9ea6\u5f53\u52b3\u4e2d\u56fd MCP\uff1a\u5355\u4e3b\u4eba\u81ea\u6258\u7ba1\u3001OAuth\u3001\u672c\u4eba\u9010\u7b14\u6279\u51c6\u4e0e UNKNOWN \u9632\u91cd\u3002\u771f\u5b9e\u67e5\u8be2\u548c\u8ba1\u4ef7\u5df2\u9a8c\u8bc1\uff1b\u539f\u5bbf\u4e3b\u72b6\u6001/\u53d6\u9910\u4fee\u590d\u5df2\u4e0a\u7ebf\u5e76\u901a\u8fc7\u5df2\u6709\u8ba2\u5355\u53ea\u8bfb\u9a8c\u6536\u3002\u72ec\u7acb\u652f\u4ed8\u8bc1\u636e\u4e0d\u53ef\u7528\uff0c\u516c\u5f00\u72ec\u7acb\u6a21\u5f0f\u4ea4\u6613\u95ed\u73af\u672a\u9a8c\u6536\u3002 (selected work: src, test, scripts)",
+ "repos": [
+  {
+   "repo": "xiaokui-mcd-mcp",
+   "url": "https://github.com/AriaEternity/xiaokui-mcd-mcp",
+   "sha": "222a46cabec2738c9e2488a7f7d7db26adc1b0e7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 222a46cabec2: \"\u65b0\u589e\u5b89\u5168\u5355\u4e3b\u4eba\u72ec\u7acb\u8fd0\u884c\u4e0e\u9ea6\u5f53\u52b3\u96f6\u57fa\u7840\u90e8\u7f72\u5f15\u5bfc\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

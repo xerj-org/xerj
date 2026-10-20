@@ -1,0 +1,22 @@
+{
+ "corpus": "v-chat-sdk--v-video-compressor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on thumbnail, video-compressor, flutter-video-compress queries this for how v-chat-sdk/v_video_compressor implements it: Full video compressor flutter native Kotlin swift package and video thumbnail generate and crop! (selected work: example, ios, lib/src)",
+ "repos": [
+  {
+   "repo": "v_video_compressor",
+   "url": "https://github.com/v-chat-sdk/v_video_compressor",
+   "sha": "b8aff1fbc4996c21135e98bc4b87e8622562e877",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b8aff1fbc499: \"fix: honor iOS frame rate without crop and release 2.2.3\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

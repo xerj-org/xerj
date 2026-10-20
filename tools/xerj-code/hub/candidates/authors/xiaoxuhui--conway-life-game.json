@@ -1,0 +1,22 @@
+{
+ "corpus": "xiaoxuhui--conway-life-game",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how xiaoxuhui/conway-life-game implements it: \u4e00\u4e2a\u53ef\u79bb\u7ebf\u8fd0\u884c\u3001\u53ef\u7ed8\u5236\u4e0e\u89c2\u5bdf\u6f14\u5316\u7684\u5eb7\u5a01\u751f\u547d\u6e38\u620f (selected work: e2e, scripts, tests)",
+ "repos": [
+  {
+   "repo": "conway-life-game",
+   "url": "https://github.com/xiaoxuhui/conway-life-game",
+   "sha": "8c667b9cc4cb1547ad508f85dc82f9e408d938e3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 8c667b9cc4cb: \"fix(ui): verify bulk backups before deleting records\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "zamorofthat--elida",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-gateway, ai-security, llm-proxy queries this for how zamorofthat/elida implements it: Session-aware reverse proxy for AI agents: OWASP LLM Top 10 security policies for SOC and SRE teams (selected work: internal/decision, test)",
+ "repos": [
+  {
+   "repo": "elida",
+   "url": "https://github.com/zamorofthat/elida",
+   "sha": "e232117db0452c1a7c4753833eeca148860ca325",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit e232117db045: \"feat(preprocess): decode base64 and hex runs that pass printable-text\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

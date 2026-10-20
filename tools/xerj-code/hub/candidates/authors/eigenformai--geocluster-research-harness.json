@@ -1,0 +1,22 @@
+{
+ "corpus": "eigenformai--geocluster-research-harness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on coding-agent, docker, geology queries this for how EigenformAI/geocluster-research-harness implements it: A browser IDE with a geology research agent built in: a Cline fork plus a 50-tool geological MCP server and a multi-layer specialist agent,  (selected work: docker, the project root)",
+ "repos": [
+  {
+   "repo": "geocluster-research-harness",
+   "url": "https://github.com/EigenformAI/geocluster-research-harness",
+   "sha": "3dd12e79781629b657315d94db84cbb7db63cefc",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 3dd12e797816: \"feat: update to use bind mounts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

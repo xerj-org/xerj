@@ -1,0 +1,22 @@
+{
+ "corpus": "marikbrest--pika-personal-whatsapp-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on fastapi, gemini, gmail queries this for how marikbrest/pika-personal-whatsapp-bot implements it: Self-hosted WhatsApp assistant powered by Gemini: reminders (incl. nag-until-done for kids), Google Calendar/Gmail/Drive with approval, web  (selected work: tests, src, src/integrations)",
+ "repos": [
+  {
+   "repo": "pika-personal-whatsapp-bot",
+   "url": "https://github.com/marikbrest/pika-personal-whatsapp-bot",
+   "sha": "c2311d315b675219d1bbbdb14ecab87658bb371a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit c2311d315b67: \"feat: add read-only recording transcripts and summaries (#23)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

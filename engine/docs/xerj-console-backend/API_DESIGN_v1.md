@@ -158,7 +158,7 @@ When `xerj` starts and detects `.xerj_users` is empty (no `active` users exist),
 4. The magic-link doc is marked `used_at` so the same token cannot be reused.
 5. From this point forward bootstrap mode is off; the next restart skips the printout.
 
-If the user closes the browser before finishing enrollment, the link is still valid until expiry — they can re-open it. If it expires, an admin can mint a fresh one with `xerj admin magic-link --role admin` (CLI calls `POST /_xerj-console/api/v1/auth/magic/issue` against the local socket using the binary's own root credential, see §3.7).
+If the user closes the browser before finishing enrollment, the link is still valid until expiry — they can re-open it. If it expires before anyone enrolls, restart the node: while no active user exists, every boot re-mints and reprints a fresh link. The banner says `Need a fresh link?  Restart this node: a new one is printed on boot.` The binary has no `admin` subcommand, so there is no CLI that calls `POST /_xerj-console/api/v1/auth/magic/issue` for this.
 
 ### 3.3 Login flow (returning user)
 

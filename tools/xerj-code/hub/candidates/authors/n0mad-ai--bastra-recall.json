@@ -1,0 +1,22 @@
+{
+ "corpus": "n0mad-ai--bastra-recall",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai, anthropic queries this for how n0mad-ai/bastra-recall implements it: Local-first memory for AI assistants. Keep preferences, decisions and lessons across sessions and connected tools in readable Markdown files (selected work: packages/statusline, tools)",
+ "repos": [
+  {
+   "repo": "bastra-recall",
+   "url": "https://github.com/n0mad-ai/bastra-recall",
+   "sha": "6ce2573e0001447484eae8c865b4d85882a5a5a5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 6ce2573e0001: \"feat(statusline): add Claude and Codex live cockpit panels\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

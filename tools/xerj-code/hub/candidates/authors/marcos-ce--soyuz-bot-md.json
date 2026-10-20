@@ -1,0 +1,22 @@
+{
+ "corpus": "marcos-ce--soyuz-bot-md",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on baileys, baileys-md, bot-whatsapp queries this for how marcos-ce/SOYUZ-BOT.MD implements it: \ud83e\udd16 Multi-Device & Multi-Language WhatsApp Bot (PT-BR, ES, EN, ID, AR) em Node.js com Baileys \u2014 Conex\u00e3o WhatsApp via C\u00f3digo de pareamento ou Q (selected work: the project root, plugins, lib)",
+ "repos": [
+  {
+   "repo": "SOYUZ-BOT.MD",
+   "url": "https://github.com/marcos-ce/SOYUZ-BOT.MD",
+   "sha": "8a9cc798000bd4c64715e27dd61941ca33945a9f",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8a9cc798000b: \"fix: restore core Baileys initialization, add Pairing Code support, f\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

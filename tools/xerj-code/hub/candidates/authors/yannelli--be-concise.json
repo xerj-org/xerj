@@ -1,0 +1,22 @@
+{
+ "corpus": "yannelli--be-concise",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-hooks, claude-code, claude-code-plugin queries this for how yannelli/be-concise implements it: Be concise catches the agent's own verbosity and makes it corrects in real-time (selected work: plugins, test)",
+ "repos": [
+  {
+   "repo": "be-concise",
+   "url": "https://github.com/yannelli/be-concise",
+   "sha": "5660095b14e10b6815e255ef9af5868a31603d91",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 5660095b14e1: \"feat(concise): add settings tools, writing tuner, and dictionary\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

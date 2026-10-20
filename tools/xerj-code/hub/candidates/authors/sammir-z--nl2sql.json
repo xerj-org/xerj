@@ -1,0 +1,22 @@
+{
+ "corpus": "sammir-z--nl2sql",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Python queries this for how Sammir-z/NL2SQL implements it: \u5b89\u5168\u589e\u5f3a\u578b\u7535\u5546 NL2SQL Agent\uff1a\u6df7\u5408\u5143\u6570\u636e\u68c0\u7d22\u3001LangGraph \u7f16\u6392\u3001JWT \u8ba4\u8bc1\u3001\u79df\u6237\u9694\u79bb\u3001AST SQL \u767d\u540d\u5355\u4e0e\u7ed3\u679c\u8131\u654f\u3002 (selected work: evaluation, tests, the project root)",
+ "repos": [
+  {
+   "repo": "NL2SQL",
+   "url": "https://github.com/Sammir-z/NL2SQL",
+   "sha": "c0bf428e179fb04cca98dcb2892cada7b2d68247",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c0bf428e179f: \"feat(rag-test): add 80-case RAG evaluation benchmark, dual-granularit\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

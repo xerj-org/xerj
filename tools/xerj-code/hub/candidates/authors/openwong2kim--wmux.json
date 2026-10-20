@@ -1,0 +1,22 @@
+{
+ "corpus": "openwong2kim--wmux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, browser-automation, claude-code queries this for how openwong2kim/wmux implements it: The ADE for AI agents. Automate everything else. Do your true work (selected work: src/daemon)",
+ "repos": [
+  {
+   "repo": "wmux",
+   "url": "https://github.com/openwong2kim/wmux",
+   "sha": "8b4f6a485cfbdaa1067d0f5ae223878a6e451464",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 8b4f6a485cfb: \"fix(daemon): retry an over-budget attach snapshot on the ring's newes\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

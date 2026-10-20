@@ -1,0 +1,22 @@
+{
+ "corpus": "chrissotraidis--bluewake",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on padmint queries this for how chrissotraidis/bluewake implements it: The Legend of Zelda: The Wind Waker Recompiled. Native for MacOS, iOS, Windows, Linux, and Android (selected work: scripts, tests)",
+ "repos": [
+  {
+   "repo": "bluewake",
+   "url": "https://github.com/chrissotraidis/bluewake",
+   "sha": "d9e175969656064875f041839c4c75eaaec60c12",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit d9e175969656: \"linux: share reproducible CI build container\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "jupyterlab--eslint-plugin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on jupyter, jupyterlab-extensions, jupyterlab queries this for how jupyterlab/eslint-plugin implements it: ESLint plugin for Jupyter core and extensions with early error catching and best practices enforcement (selected work: tests, src/rules, src/utils)",
+ "repos": [
+  {
+   "repo": "eslint-plugin",
+   "url": "https://github.com/jupyterlab/eslint-plugin",
+   "sha": "293230c62a01325a471a446ef0e99c40c4a7a63b",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 293230c62a01: \"Add `reportReExports` option to `prefer-lazy-imports` rule\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

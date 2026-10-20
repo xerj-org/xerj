@@ -1,0 +1,22 @@
+{
+ "corpus": "pearjelly--deep-blend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on 3d-animation, agent, blender queries this for how pearjelly/deep-blend implements it: Create and refine Blender product scenes in DSH: editable recipes, model imports, real previews, saved revisions and PNG/MP4 delivery (selected work: deepblend, packages/deepblend)",
+ "repos": [
+  {
+   "repo": "deep-blend",
+   "url": "https://github.com/pearjelly/deep-blend",
+   "sha": "d97bea7285019e010c1cf2995c073a018e1f2704",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit d97bea728501: \"Add source-bound local native surface sampling and real bai acceptance\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

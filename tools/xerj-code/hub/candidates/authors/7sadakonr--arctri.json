@@ -1,0 +1,22 @@
+{
+ "corpus": "7sadakonr--arctri",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how 7sadakonr/Arctri implements it: 7sadakonr/Arctri (TypeScript) (selected work: src/main, src/renderer, tests)",
+ "repos": [
+  {
+   "repo": "Arctri",
+   "url": "https://github.com/7sadakonr/Arctri",
+   "sha": "f320fe0ad558d4dc8b0a3e0ce71840226e3e46d8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f320fe0ad558: \"Agent bar: show the model in use, drop the Codex notifications chip a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "stephane-76--skeepto",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on excel, mcp, react queries this for how Stephane-76/Skeepto implements it: Professional spreadsheet: C++20 engine compiled to WebAssembly, React UI, same binary in the browser and Node.js. Self-hosted (selected work: src/spreadsheet, electron, the project root)",
+ "repos": [
+  {
+   "repo": "Skeepto",
+   "url": "https://github.com/Stephane-76/Skeepto",
+   "sha": "d28441b103558b52850d1f5d72480316dc0f6e4b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d28441b10355: \"Fix the Linux AppImage for the AppImage catalog.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

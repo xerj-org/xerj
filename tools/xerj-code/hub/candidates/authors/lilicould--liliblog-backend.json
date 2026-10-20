@@ -1,0 +1,22 @@
+{
+ "corpus": "lilicould--liliblog-backend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on Java queries this for how LiliCould/liliblog-backend implements it: \u4e2a\u4eba\u535a\u5ba2\u540e\u7aef\u90e8\u5206 (selected work: liliblog-service)",
+ "repos": [
+  {
+   "repo": "liliblog-backend",
+   "url": "https://github.com/LiliCould/liliblog-backend",
+   "sha": "a3ec542007ba5d191518cd8c2998461326815808",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a3ec542007ba: \"perf: \u6d88\u9664\u6587\u7ae0\u4e0e\u8bc4\u8bba\u5217\u8868\u7684 N+1 \u67e5\u8be2\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

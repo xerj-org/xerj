@@ -1,0 +1,22 @@
+{
+ "corpus": "gosuda--bitcoin-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on bitcoin, btc, cryptocurrency queries this for how gosuda/bitcoin-rs implements it: Independent bitcoin full node in Rust (selected work: crates/utxo, fuzz)",
+ "repos": [
+  {
+   "repo": "bitcoin-rs",
+   "url": "https://github.com/gosuda/bitcoin-rs",
+   "sha": "ea3e7b8f43e79964aec23c18b2ca42e12794f7ba",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit ea3e7b8f43e7: \"Authenticate staged snapshot records before hash-table insertion\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

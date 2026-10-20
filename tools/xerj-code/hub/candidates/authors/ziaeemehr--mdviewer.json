@@ -1,0 +1,22 @@
+{
+ "corpus": "ziaeemehr--mdviewer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how Ziaeemehr/MDviewer implements it: Ziaeemehr/MDviewer (HTML) (selected work: src-tauri, the project root)",
+ "repos": [
+  {
+   "repo": "MDviewer",
+   "url": "https://github.com/Ziaeemehr/MDviewer",
+   "sha": "c33298bd8e52bc2a7858dd48991cabeda6647dd4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit c33298bd8e52: \"Add Android build\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

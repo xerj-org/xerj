@@ -1,0 +1,22 @@
+{
+ "corpus": "arinamgk--unisym",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on implementation, interfaces, library queries this for how ArinaMgk/unisym implements it: Uniformed (Universal) Symbols (selected work: lib/cpp, inc)",
+ "repos": [
+  {
+   "repo": "unisym",
+   "url": "https://github.com/ArinaMgk/unisym",
+   "sha": "8d13d7427a02584663afc50f67905f39063877e2",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 8d13d7427a02: \"20261010 update USB\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "bayar17--openwave",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on C++ queries this for how bayar17/OpenWave implements it: Open-source Linux-based Phone Operating system, built with Qt and Qt Quick (selected work: scripts, the project root, patches)",
+ "repos": [
+  {
+   "repo": "OpenWave",
+   "url": "https://github.com/bayar17/OpenWave",
+   "sha": "aae9fc81b79d82ab4d5bbef45e655af37d54687a",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit aae9fc81b79d: \"Build LLVM and OpenWave dependencies through an all command\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

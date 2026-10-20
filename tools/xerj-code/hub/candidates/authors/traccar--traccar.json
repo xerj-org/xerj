@@ -1,0 +1,22 @@
+{
+ "corpus": "traccar--traccar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on gps, java, traccar queries this for how traccar/traccar implements it: Open source GPS tracking platform - self-hosted or managed, 200+ device protocols (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "traccar",
+   "url": "https://github.com/traccar/traccar",
+   "sha": "77b4b1354d64dece8a425f8c2a8923a20393b642",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit 77b4b1354d64: \"Fix imports ordering\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

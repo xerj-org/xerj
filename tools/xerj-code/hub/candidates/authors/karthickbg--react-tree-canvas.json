@@ -1,0 +1,22 @@
+{
+ "corpus": "karthickbg--react-tree-canvas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on javascript, react, react-component-library queries this for how Karthickbg/react-tree-canvas implements it: Canvas based hierarchical tree graph with virtualization for high performance - React (selected work: src/rendering, src/components, src)",
+ "repos": [
+  {
+   "repo": "react-tree-canvas",
+   "url": "https://github.com/Karthickbg/react-tree-canvas",
+   "sha": "b8f3b05ef4ebf55c52c949de4f9b7e279b727421",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit b8f3b05ef4eb: \"feat(node): animation duration prop added\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

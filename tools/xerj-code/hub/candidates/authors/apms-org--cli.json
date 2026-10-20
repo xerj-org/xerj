@@ -1,0 +1,22 @@
+{
+ "corpus": "apms-org--cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, password-manager, privacy queries this for how apms-org/cli implements it: A local password manager for everyone (selected work: internal/tty, the project root, tests)",
+ "repos": [
+  {
+   "repo": "cli",
+   "url": "https://github.com/apms-org/cli",
+   "sha": "3dd97d0c1262b4ee857fb96c367a8d92b1e8d18e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 3dd97d0c1262: \"make every keybinding work the same in every terminal and OS\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

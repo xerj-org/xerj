@@ -1,0 +1,22 @@
+{
+ "corpus": "mhsanaei--3x-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on trojan, vless, vmess queries this for how MHSanaei/3x-ui implements it: Supporting multi-protocol multi-user(Vmess, Vless, Trojan, ShadowSocks, Wireguard, Hysteria, Tunnel, Mixed, HTTP, Tun, MTProto\u060c AmneziaWG) (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "3x-ui",
+   "url": "https://github.com/MHSanaei/3x-ui",
+   "sha": "5e15120cecad3250ee6ff5103fb10e23acf74a8f",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 5e15120cecad: \"feat(happ): add routing editor, optional ad blocking, and LAN bypass \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

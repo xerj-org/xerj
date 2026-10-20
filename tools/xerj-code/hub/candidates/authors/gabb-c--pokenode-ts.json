@@ -1,0 +1,22 @@
+{
+ "corpus": "gabb-c--pokenode-ts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on pokeapi, pokemon-api, pokemon queries this for how Gabb-c/pokenode-ts implements it: A typed Pok\u00e9API client with zero runtime dependencies (selected work: src/models, tests, src/utils)",
+ "repos": [
+  {
+   "repo": "pokenode-ts",
+   "url": "https://github.com/Gabb-c/pokenode-ts",
+   "sha": "40545d20dca061992ea48fda3cc37d0cbcad8d7f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 40545d20dca0: \"fix(models)!: sync evolution and sprite models with Pok\u00e9API (#1412)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

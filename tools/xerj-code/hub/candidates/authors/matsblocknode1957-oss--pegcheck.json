@@ -1,0 +1,22 @@
+{
+ "corpus": "matsblocknode1957-oss--pegcheck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on TypeScript queries this for how matsblocknode1957-oss/pegcheck implements it: Real-time stablecoin monitoring dashboard with live peg data and alerts (selected work: replay, lib/agent, the project root)",
+ "repos": [
+  {
+   "repo": "pegcheck",
+   "url": "https://github.com/matsblocknode1957-oss/pegcheck",
+   "sha": "95200e99fb83cb72c42c259df22296b6e4bc442d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 95200e99fb83: \"replay-lab: offline replay of live agent rules over saved price history\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

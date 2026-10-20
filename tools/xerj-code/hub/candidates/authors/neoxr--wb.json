@@ -1,0 +1,22 @@
+{
+ "corpus": "neoxr--wb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how neoxr/wb implements it: WhatsApp Bot Classes (selected work: lib/utils, lib/listener, lib/core)",
+ "repos": [
+  {
+   "repo": "wb",
+   "url": "https://github.com/neoxr/wb",
+   "sha": "99ac74481f80c9ee6c675b92b98b12422b1a7ff4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 99ac74481f80: \"perf: optimation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

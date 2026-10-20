@@ -1,0 +1,22 @@
+{
+ "corpus": "saworbit--hammerforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on godot, godot-plugin, godot4 queries this for how saworbit/hammerforge implements it: Brush-based 3D level editor plugin for Godot 4.7+. Hammer and TrenchBroom style workflows inside the Godot editor: two-click CSG drawing, pe (selected work: addons, tests)",
+ "repos": [
+  {
+   "repo": "hammerforge",
+   "url": "https://github.com/saworbit/hammerforge",
+   "sha": "62598a351f17976f0dc86b5989b886ac046fe306",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 62598a351f17: \"Bake profiles: Editing and Shipping in one step, and profiles of your\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

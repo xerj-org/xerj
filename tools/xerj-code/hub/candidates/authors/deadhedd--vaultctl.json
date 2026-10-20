@@ -1,0 +1,22 @@
+{
+ "corpus": "deadhedd--vaultctl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on automation, cli, cross-platform queries this for how deadhedd/vaultctl implements it: Explicit, conservative synchronization for Git-backed Obsidian vaults across client and server repository layouts (selected work: internal/vaultctl, the project root)",
+ "repos": [
+  {
+   "repo": "vaultctl",
+   "url": "https://github.com/deadhedd/vaultctl",
+   "sha": "3fc372b281c6b5e9ac403fdd39c98f45f12bbc94",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 3fc372b281c6: \"feat: add external documentation projection\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

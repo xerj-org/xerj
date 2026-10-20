@@ -1,0 +1,22 @@
+{
+ "corpus": "tlbx-ai--tlbx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestration, ai-agents, claude-code queries this for how tlbx-ai/tlbx implements it: Self-hosted terminal browser multiplexer for persistent shells and coding agents on Windows, macOS, and Linux (selected work: src/Ai.Tlbx.MidTerm)",
+ "repos": [
+  {
+   "repo": "tlbx",
+   "url": "https://github.com/tlbx-ai/tlbx",
+   "sha": "ec11a919d91d8a36bac984d565520fdfdc416696",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit ec11a919d91d: \"Add opt-in Codex terminal typing preview\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

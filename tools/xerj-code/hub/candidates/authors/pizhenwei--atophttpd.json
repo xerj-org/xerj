@@ -1,0 +1,22 @@
+{
+ "corpus": "pizhenwei--atophttpd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C queries this for how pizhenwei/atophttpd implements it: A web style atop(https://www.atoptool.nl/) (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "atophttpd",
+   "url": "https://github.com/pizhenwei/atophttpd",
+   "sha": "f9bc761c9ef4e5060d55dcbc6cc85e3dd177db47",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit f9bc761c9ef4: \"feat: serve requests concurrently with a worker pool + cache rwlock\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

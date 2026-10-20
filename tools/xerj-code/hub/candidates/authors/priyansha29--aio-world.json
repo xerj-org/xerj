@@ -1,0 +1,22 @@
+{
+ "corpus": "priyansha29--aio-world",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how Priyansha29/AiO-World implements it: A browser-first platform bringing learning, career tools, useful utilities, and fun interactive experiences together in one place (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "AiO-World",
+   "url": "https://github.com/Priyansha29/AiO-World",
+   "sha": "cfbcb765e65bf828d2589f1898dfdecd4d4c9fa5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit cfbcb765e65b: \"feat: add an origami boredom machine to the hero\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

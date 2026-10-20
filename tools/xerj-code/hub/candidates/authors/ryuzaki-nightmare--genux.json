@@ -1,0 +1,22 @@
+{
+ "corpus": "ryuzaki-nightmare--genux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Ryuzaki-Nightmare/Genux implements it: A functional operating system I built in my spare time, no \"vibecoding\" involved (selected work: arch, kernel)",
+ "repos": [
+  {
+   "repo": "Tapix",
+   "url": "https://github.com/Ryuzaki-Nightmare/Tapix",
+   "sha": "1b2d53e49128515e2cbfea85d8425e5e927e9b20",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 1b2d53e49128: \"UPD shell.c, kernel.c and keyboard.c\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

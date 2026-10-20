@@ -1,0 +1,22 @@
+{
+ "corpus": "lnc0831--human-use",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how LNC0831/human-use implements it: Local-first human-in-the-loop work orders for AI agents, with evidence, versioned review, and verifiable archives (selected work: the project root, test, tools)",
+ "repos": [
+  {
+   "repo": "human-use",
+   "url": "https://github.com/LNC0831/human-use",
+   "sha": "61444a32c3444f3705678d95b981be71fb131805",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 61444a32c344: \"feat: add local events, MCP, Skill API and session hooks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

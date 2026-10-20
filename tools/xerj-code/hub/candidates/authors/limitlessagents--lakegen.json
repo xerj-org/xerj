@@ -1,0 +1,22 @@
+{
+ "corpus": "limitlessagents--lakegen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how LimitlessAgents/lakegen implements it: AI Agent For Managing Lakehouses (selected work: apps/web, tests, lakegen)",
+ "repos": [
+  {
+   "repo": "lakegen",
+   "url": "https://github.com/LimitlessAgents/lakegen",
+   "sha": "68d660805df24864e24ec344597bccd3ca49a2d1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 68d660805df2: \"fix\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

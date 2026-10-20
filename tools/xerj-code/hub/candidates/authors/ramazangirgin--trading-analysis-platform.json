@@ -1,0 +1,22 @@
+{
+ "corpus": "ramazangirgin--trading-analysis-platform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how ramazangirgin/trading-analysis-platform implements it: Trading Analysis Platform (selected work: artifact, gradle)",
+ "repos": [
+  {
+   "repo": "trading-analysis-platform",
+   "url": "https://github.com/ramazangirgin/trading-analysis-platform",
+   "sha": "ef468c653bcb300e4d85840996e75e86a00b65a5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ef468c653bcb: \"Address R3-1: Move endpoint permissions to delegate methods\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

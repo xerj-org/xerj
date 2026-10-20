@@ -1,0 +1,22 @@
+{
+ "corpus": "netcracker--qubership-git-system-follower",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on qubership-devops queries this for how Netcracker/qubership-git-system-follower implements it: The package manager for Git providers (selected work: tests, git_system_follower, the project root)",
+ "repos": [
+  {
+   "repo": "qubership-git-system-follower",
+   "url": "https://github.com/Netcracker/qubership-git-system-follower",
+   "sha": "7776954d27b6b8805069df60d25783facca416ef",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 7776954d27b6: \"feat: template cli, static files (#99)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

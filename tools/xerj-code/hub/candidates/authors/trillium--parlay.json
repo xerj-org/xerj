@@ -1,0 +1,22 @@
+{
+ "corpus": "trillium--parlay",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, bun, cli queries this for how trillium/parlay implements it: Talk to your background coding agents from your phone - every long-running AI agent gets its own chat channel, with voice-first control and  (selected work: packages/go-server, tools, examples)",
+ "repos": [
+  {
+   "repo": "parlay",
+   "url": "https://github.com/trillium/parlay",
+   "sha": "6f960e40b4cf9ac10077b819fe0cca6d4928a798",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 6f960e40b4cf: \"Allow tailnet/LAN origins to reach the events stream and eval via COR\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

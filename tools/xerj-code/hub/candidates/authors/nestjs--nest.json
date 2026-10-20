@@ -1,0 +1,22 @@
+{
+ "corpus": "nestjs--nest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on nest, javascript, typescript queries this for how nestjs/nest implements it: A progressive Node.js framework for building efficient, scalable, and enterprise-grade server-side applications with TypeScript/JavaScript \ud83d\ude80 (selected work: integration, packages/platform-express, packages/platform-fastify)",
+ "repos": [
+  {
+   "repo": "nest",
+   "url": "https://github.com/nestjs/nest",
+   "sha": "c8923bd7c9a0768593ecf623432ce2eca271c2b2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit c8923bd7c9a0: \"fix(express,fastify): parse quoted media type version parameters (#18\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

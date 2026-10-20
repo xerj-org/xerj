@@ -1,0 +1,22 @@
+{
+ "corpus": "nairain233--huawei-health-customization",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on Kotlin queries this for how nairain233/huawei-health-customization implements it: \u5bf9\u534e\u4e3a\u8fd0\u52a8\u5065\u5eb7\u81ea\u5b9a\u4e49\u5e03\u5c40\u7684\u6a21\u5757 (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "huawei-health-customization",
+   "url": "https://github.com/nairain233/huawei-health-customization",
+   "sha": "3b63eb38143fc071916ba28e5445ecc42408c0e4",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 3b63eb38143f: \"feat: \u65b0\u589e\u201c\u6211\u7684\u201d\u9875\u5bab\u683c\u4e0e\u5361\u5361\u89d2\u6807\u7684\u626b\u63cf\u53ca\u9690\u85cf\u652f\u6301\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

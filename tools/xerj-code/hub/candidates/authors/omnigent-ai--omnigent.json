@@ -1,0 +1,22 @@
+{
+ "corpus": "omnigent-ai--omnigent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, ai, ai-agents queries this for how omnigent-ai/omnigent implements it: Omnigent is an open-source AI agent framework and meta-harness: orchestrate Claude Code, Codex, Cursor, Pi, and custom agents \u2014 swap harness (selected work: web, tests)",
+ "repos": [
+  {
+   "repo": "omnigent",
+   "url": "https://github.com/omnigent-ai/omnigent",
+   "sha": "d24856cb01aa5f0d29081c4a4700b4808cae3d21",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit d24856cb01aa: \"Polish mobile chat and settings UX (part 1) (#9191)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

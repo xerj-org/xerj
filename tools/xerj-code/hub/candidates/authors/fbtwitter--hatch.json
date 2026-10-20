@@ -1,0 +1,22 @@
+{
+ "corpus": "fbtwitter--hatch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on windows, windows-11, todo queries this for how fbtwitter/hatch implements it: A friendly always-on-top mascot lives on your desktop \u2014 capture a task in under 4 seconds, from anywhere. Built with WinUI 3 for a native Wi (selected work: windows)",
+ "repos": [
+  {
+   "repo": "hatch",
+   "url": "https://github.com/fbtwitter/hatch",
+   "sha": "63ed88000410855bc0b3e7ec3d129967808faa03",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 63ed88000410: \"feat: reorganize settings and configure mascot interaction key\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

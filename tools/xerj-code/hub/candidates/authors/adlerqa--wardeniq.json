@@ -1,0 +1,22 @@
+{
+ "corpus": "adlerqa--wardeniq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on gap-analysis, manual-testing, rag queries this for how adlerqa/wardeniq implements it: WardenIQ is an open-source AI test intelligence platform that turns requirements, docs, and code changes into test cases, test plans, covera (selected work: tests, app/store, app/workers)",
+ "repos": [
+  {
+   "repo": "wardeniq",
+   "url": "https://github.com/adlerqa/wardeniq",
+   "sha": "3e5d91aef7a407a455368a2b90f23ae6f566b334",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 3e5d91aef7a4: \"fix: look past a dominant feature for a real runner-up in semantic PR\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

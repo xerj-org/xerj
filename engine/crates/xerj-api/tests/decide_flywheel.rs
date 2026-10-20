@@ -352,6 +352,15 @@ mod write_back {
     /// The same armed node as `systemone_local_decide.rs`: a tiny untrained
     /// fixture model, `[decisions] index` set to `index`.
     async fn local_node(index: &str, min_confidence: f64) -> LocalNode {
+        local_node_escalating(index, min_confidence, 0.8).await
+    }
+
+    /// [`local_node`] with `[decisions] escalate_below` set (#1094).
+    async fn local_node_escalating(
+        index: &str,
+        min_confidence: f64,
+        escalate_below: f64,
+    ) -> LocalNode {
         let dir = tempfile::tempdir().expect("tempdir");
         let model_dir = tempfile::tempdir().expect("model tempdir");
         xerj_ai::decide::testing::write_fixture(model_dir.path())
@@ -362,6 +371,7 @@ mod write_back {
         config.storage.wal_sync = xerj_common::config::WalSync::Async;
         config.decisions.index = index.to_string();
         config.decisions.min_confidence = min_confidence;
+        config.decisions.escalate_below = escalate_below;
         let metrics = xerj_common::metrics::Metrics::new().expect("metrics");
         let engine = xerj_engine::Engine::new(config.clone()).expect("engine");
         let mut state = AppState::new(config, engine, metrics);
@@ -520,5 +530,155 @@ mod write_back {
             )
             .await;
         assert_eq!(st, StatusCode::NOT_FOUND, "no index was created: {st} {r}");
+    }
+
+    /// Issue #1094: once the history index has BM25 support for common stop
+    /// words, split votes whose winning share is below `escalate_below` (default
+    /// 0.8) MUST escalate to `local` on both `/_decide` and `/v1/systemone` and
+    /// write the local judgement back into `[decisions] index` — unfreezing the
+    /// flywheel instead of locking the cache at 12 documents.
+    #[tokio::test]
+    async fn split_history_below_escalate_below_escalates_to_local_and_writes_back() {
+        let ln = local_node("history", 0.0).await;
+        let node = &ln.node;
+        node.create_index("history").await;
+        // Two seeded neighbours sharing the token `refund` with opposite labels:
+        // rank 0 gets weight 1.0, rank 1 gets weight 0.5 → winning share 2/3 ≈ 0.6667 < 0.8.
+        node.put_doc(
+            "history",
+            "h_true",
+            json!({"text": "refund money back request", "label": "true"}),
+        )
+        .await;
+        node.put_doc(
+            "history",
+            "h_false",
+            json!({"text": "refund inquiry status", "label": "not true"}),
+        )
+        .await;
+        node.refresh("history").await;
+        assert_eq!(node.docs("history").await.len(), 2);
+
+        // 1. `/_decide` escalates the split 2/3 vote (< 0.8) to `local` and caches the judgement.
+        let (st, r) = node
+            .decide(json!({"index": "history", "question": "refund money back check"}))
+            .await;
+        assert!(st.is_success(), "{st} {r}");
+        assert_eq!(
+            r["tier"], "local",
+            "split history vote (2/3 < 0.8) must escalate to local: {r}"
+        );
+        assert_eq!(r["source"], "local", "{r}");
+        let docs = node.wait_for_docs("history", 3).await;
+        assert_eq!(
+            docs.len(),
+            3,
+            "local escalation wrote back to history: {docs:?}"
+        );
+
+        // 2. `/v1/systemone` on another split index also escalates and writes back.
+        let ln2 = local_node("history_s1", 0.0).await;
+        let node2 = &ln2.node;
+        node2.create_index("history_s1").await;
+        node2
+            .put_doc(
+                "history_s1",
+                "s_true",
+                json!({"text": "invoice payment dispute", "label": "true"}),
+            )
+            .await;
+        node2
+            .put_doc(
+                "history_s1",
+                "s_false",
+                json!({"text": "invoice summary receipt", "label": "not true"}),
+            )
+            .await;
+        node2.refresh("history_s1").await;
+
+        let (st, r2) = node2
+            .systemone(json!({
+                "state": {"documents": {"doc_0": "invoice payment question"}},
+                "questions": {"d0": {"type": "noul", "instructions": "Is `documents.doc_0` a dispute?"}}
+            }))
+            .await;
+        assert!(st.is_success(), "{st} {r2}");
+        assert_eq!(
+            r2["decisions"]["evidence"]["d0"]["tier"], "local",
+            "split history vote on /v1/systemone escalates to local: {r2}"
+        );
+        assert_eq!(r2["decisions"]["evidence"]["d0"]["source"], "local", "{r2}");
+        let docs2 = node2.wait_for_docs("history_s1", 3).await;
+        assert_eq!(
+            docs2.len(),
+            3,
+            "/v1/systemone escalation wrote back to history_s1: {docs2:?}"
+        );
+    }
+
+    /// #1094 follow-up: a question that keeps escalating (its own cached
+    /// answer is one neighbour among split ones) must not append a fresh
+    /// cached document every time — repetition alone would then let the
+    /// local head out-vote the history. Re-deciding the same text overwrites
+    /// its one cached answer. `escalate_below = 1.0` makes every split vote
+    /// escalate, so the second request is guaranteed to reach the local head.
+    #[tokio::test]
+    async fn re_escalating_the_same_question_keeps_one_cached_answer() {
+        let ln = local_node_escalating("history", 0.0, 1.0).await;
+        let node = &ln.node;
+        node.create_index("history").await;
+        node.put_doc(
+            "history",
+            "h_true",
+            json!({"text": "refund money back request", "label": "true"}),
+        )
+        .await;
+        node.put_doc(
+            "history",
+            "h_false",
+            json!({"text": "refund inquiry status", "label": "not true"}),
+        )
+        .await;
+        node.refresh("history").await;
+
+        let question = json!({"index": "history", "question": "refund money back check"});
+        let (st, r) = node.decide(question.clone()).await;
+        assert!(st.is_success(), "{st} {r}");
+        assert_eq!(r["tier"], "local", "{r}");
+        let docs = node.wait_for_docs("history", 3).await;
+        let cached_ts = |docs: &[Value]| -> Vec<String> {
+            docs.iter()
+                .filter(|d| d["source"] == "local")
+                .map(|d| d["ts"].as_str().unwrap_or_default().to_string())
+                .collect()
+        };
+        let first = cached_ts(&docs);
+        assert_eq!(first.len(), 1, "one cached answer: {docs:?}");
+
+        // Same question again: still a split vote, so it escalates again.
+        tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+        let (st, r) = node.decide(question).await;
+        assert!(st.is_success(), "{st} {r}");
+        assert_eq!(r["tier"], "local", "the re-asked split vote escalates: {r}");
+        // Wait for the second write-back to land (its ts differs), then the
+        // index must still hold exactly one cached answer for that text.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        loop {
+            let docs = node.docs("history").await;
+            let ts = cached_ts(&docs);
+            assert!(
+                ts.len() <= 1,
+                "a repeat escalation appended a duplicate: {docs:?}"
+            );
+            if ts.len() == 1 && ts[0] != first[0] {
+                assert_eq!(docs.len(), 3, "{docs:?}");
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the second write-back never landed: {docs:?}"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+        }
     }
 }

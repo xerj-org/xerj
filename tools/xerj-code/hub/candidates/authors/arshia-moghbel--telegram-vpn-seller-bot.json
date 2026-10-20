@@ -1,0 +1,22 @@
+{
+ "corpus": "arshia-moghbel--telegram-vpn-seller-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Python queries this for how Arshia-Moghbel/Telegram-VPN-Seller-Bot implements it: Arshia-Moghbel/Telegram-VPN-Seller-Bot (Python) (selected work: handlers, services, keyboards)",
+ "repos": [
+  {
+   "repo": "Telegram-VPN-Seller-Bot",
+   "url": "https://github.com/Arshia-Moghbel/Telegram-VPN-Seller-Bot",
+   "sha": "bed1625710808b96ee5777fbdc82573b99efe91f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit bed162571080: \"bug fix Added feature, v.3.5\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

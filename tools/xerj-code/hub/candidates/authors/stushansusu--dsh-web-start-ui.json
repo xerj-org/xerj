@@ -1,0 +1,22 @@
+{
+ "corpus": "stushansusu--dsh-web-start-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on deepseek-harness, dsh, dsh-plugin queries this for how stushansusu/dsh-web-start-ui implements it: dsh web start ui - \u542f\u52a8\u52a8\u753b / launch-video plugin for the DSH Web GUI and desktop client: built-in and custom launch skins, a settings page, and (selected work: lib/types, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-web-start-ui",
+   "url": "https://github.com/stushansusu/dsh-web-start-ui",
+   "sha": "08fef570f75c22004a966a4e22932a273139c3ed",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 08fef570f75c: \"fix(install): drop the prepare script so a git install needs no build\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

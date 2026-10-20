@@ -1,0 +1,22 @@
+{
+ "corpus": "mrwersa--agentmandate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-security, ai-agents, authorization queries this for how mrwersa/agentmandate implements it: What is your AI agent actually allowed to do? Finds limits an agent can slip past by combining individually permitted actions, and flags rel (selected work: tests, agentmandate, examples)",
+ "repos": [
+  {
+   "repo": "agentmandate",
+   "url": "https://github.com/mrwersa/agentmandate",
+   "sha": "5c453072f6a5ffee2c96cbc5be303e09da967ebd",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 5c453072f6a5: \"feat: index local agent fleets with integrity and review checks (#249)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

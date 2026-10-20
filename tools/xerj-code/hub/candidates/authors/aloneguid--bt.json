@@ -1,0 +1,22 @@
+{
+ "corpus": "aloneguid--bt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on brave, browser-chooser, firefox queries this for how aloneguid/bt implements it: Browser Tamer - browser proxy for Windows and Linux with autodetection, rules, scripting. 100% local, no tracking, no registration. Made wit (selected work: app/pipeline, tests)",
+ "repos": [
+  {
+   "repo": "bt",
+   "url": "https://github.com/aloneguid/bt",
+   "sha": "5c7e44d1b8e8b522234b1cf84d61288b69634248",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 5c7e44d1b8e8: \"Improve URL pipeline handling and resilience\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

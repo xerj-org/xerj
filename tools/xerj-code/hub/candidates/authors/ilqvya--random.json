@@ -1,0 +1,22 @@
+{
+ "corpus": "ilqvya--random",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on random, cpp11, header-only queries this for how ilqvya/random implements it: Random for modern C++ with convenient API (selected work: include, test, src)",
+ "repos": [
+  {
+   "repo": "random",
+   "url": "https://github.com/ilqvya/random",
+   "sha": "5a7ce0d0dca91f65cb541d509bc40bef6a07aca2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 5a7ce0d0dca9: \"Add C++20 std::span support, in-place fill, multi-roll get_array, Ber\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

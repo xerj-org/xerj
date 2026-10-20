@@ -44,7 +44,7 @@ cargo test -p xerj-engine --test integration
 
 ### ES-YAML conformance suite (required)
 
-XERJ's compatibility contract is the Elasticsearch REST API YAML test suite (1,329 cases extracted from ES 8.13). **100% pass is the target — there is no "known failures" list.** If a test expects one response and XERJ returns another, XERJ is wrong; fix the engine, not the test.
+XERJ's compatibility contract is the Elasticsearch REST API YAML test suite based on ES 8.13. **CI requires 0 failed cases — there is no "known failures" list.** The runner reports passed, failed, and skipped cases separately; skipped cases do not fail the gate, and the total changes as cases are added. If a test expects one response and XERJ returns another, XERJ is wrong; fix the engine, not the test.
 
 ```bash
 cd engine

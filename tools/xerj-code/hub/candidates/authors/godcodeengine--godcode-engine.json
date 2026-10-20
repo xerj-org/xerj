@@ -1,0 +1,22 @@
+{
+ "corpus": "godcodeengine--godcode-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on botswana, hacktoberfest, interpreter queries this for how godcodeengine/Godcode-engine implements it: God Code is a programming language that reads like scripture. Write real software in words of faith, in your own language, and watch it run. (selected work: godcode, tests)",
+ "repos": [
+  {
+   "repo": "Godcode-engine",
+   "url": "https://github.com/godcodeengine/Godcode-engine",
+   "sha": "8ce6d1ea7880d43d63eb806c8dfeea7cac70e764",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 8ce6d1ea7880: \"Permission manifests: scrolls declare what they may touch, the engine\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

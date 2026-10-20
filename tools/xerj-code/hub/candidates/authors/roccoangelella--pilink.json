@@ -1,0 +1,22 @@
+{
+ "corpus": "roccoangelella--pilink",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on chatgpt, coding-agent, mcp-server queries this for how roccoangelella/PiLink implements it: MCP server to orchestrate GPT web chat into a local coding agent using Pi agent's harness (selected work: test, src, scripts)",
+ "repos": [
+  {
+   "repo": "PiLink",
+   "url": "https://github.com/roccoangelella/PiLink",
+   "sha": "a10abe01bd1f9364af63798a77fdfeb8d8bf9408",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit a10abe01bd1f: \"test: exercise Windows wake launcher and recovery paths\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

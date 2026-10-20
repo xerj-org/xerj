@@ -1,0 +1,22 @@
+{
+ "corpus": "stank2386322761--dyknow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how stank2386322761/dyknow implements it: stank2386322761/dyknow (Python) (selected work: tests, dyknow)",
+ "repos": [
+  {
+   "repo": "dyknow",
+   "url": "https://github.com/stank2386322761/dyknow",
+   "sha": "ada69118a1222d8d59fffb80781afc66374080b5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ada69118a122: \"fix: \u652f\u6301\u6296\u97f3 /shipin/ \u4e13\u9898\u9875\u4e3b\u89c6\u9891\u8bc6\u522b\u4e0e\u4e0b\u8f7d\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

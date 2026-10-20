@@ -1,0 +1,22 @@
+{
+ "corpus": "anandb71--arbor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-tools, ast, code-analysis queries this for how Anandb71/arbor implements it: Graph-native code intelligence that replaces embedding-based RAG with deterministic program understanding (selected work: crates/arbor-core, crates/arbor-graph, crates/arbor-cli)",
+ "repos": [
+  {
+   "repo": "arbor",
+   "url": "https://github.com/Anandb71/arbor",
+   "sha": "c6d7b42559eac5cc9346fb76b7b445adc65e3969",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c6d7b42559ea: \"fix(graph): emit class inheritance edges and reach inherited methods \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "niedev--rtranslator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on translator, bluetooth-le, realtime-translator queries this for how niedev/RTranslator implements it: Open source real-time translation app for Android that runs locally (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "RTranslator",
+   "url": "https://github.com/niedev/RTranslator",
+   "sha": "808d8c77adea946ab42d5667bf233d6229655914",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 808d8c77adea: \"Implemented new architecture for message sending. Now the various cha\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

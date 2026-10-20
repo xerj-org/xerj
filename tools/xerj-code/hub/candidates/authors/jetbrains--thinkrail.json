@@ -1,0 +1,22 @@
+{
+ "corpus": "jetbrains--thinkrail",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agent-skills, agentic-ai queries this for how JetBrains/thinkrail implements it: Vibe code with pi in a lightweight, real IDE that customises itself around the way you work \u2014 The Vibe You Need (selected work: packages/server, apps/web, packages/contracts)",
+ "repos": [
+  {
+   "repo": "thinkrail",
+   "url": "https://github.com/JetBrains/thinkrail",
+   "sha": "3f7e0d495e6a969264b521c882f2c2ef01d73157",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 3f7e0d495e6a: \"Analytics logging for todo list feature (#539)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "wchwawa--better-portal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on macos, playstation-portal, ps5 queries this for how wchwawa/better-portal implements it: Raise the bitrate cap on your PS Portal (selected work: tests, the project root)",
+ "repos": [
+  {
+   "repo": "better-portal",
+   "url": "https://github.com/wchwawa/better-portal",
+   "sha": "67cd7aa6d11e898aa92656dd67684548fc90c467",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 67cd7aa6d11e: \"fix: select the Windows LAN adapter and expose setup failures\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

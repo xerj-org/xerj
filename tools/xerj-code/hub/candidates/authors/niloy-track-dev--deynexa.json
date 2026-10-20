@@ -1,0 +1,22 @@
+{
+ "corpus": "niloy-track-dev--deynexa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how Niloy-Track-Dev/Deynexa implements it: Daynexa \u2014 Build Better Days (selected work: android, the project root)",
+ "repos": [
+  {
+   "repo": "Deynexa",
+   "url": "https://github.com/Niloy-Track-Dev/Deynexa",
+   "sha": "7afd715596cc4f849417db4f7156c3e2b6ff832c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 7afd715596cc: \"feat: integrate Capacitor for Android support\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

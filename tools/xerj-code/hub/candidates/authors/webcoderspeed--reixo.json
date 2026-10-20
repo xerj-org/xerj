@@ -1,0 +1,22 @@
+{
+ "corpus": "webcoderspeed--reixo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how webcoderspeed/reixo implements it: A powerful, type-safe HTTP client with built-in retry, queueing, and resilience features (selected work: tests, src/utils, src/core)",
+ "repos": [
+  {
+   "repo": "reixo",
+   "url": "https://github.com/webcoderspeed/reixo",
+   "sha": "f3f6e49110845d0d917344e9570bf9beadcfce6f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); pinned to the default-branch head; suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

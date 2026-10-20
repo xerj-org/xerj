@@ -1,0 +1,22 @@
+{
+ "corpus": "qklemoine--form-tracker-rep-counter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how QKLemoine/Form-Tracker-Rep-Counter implements it: QKLemoine/Form-Tracker-Rep-Counter (TypeScript) (selected work: web, scripts)",
+ "repos": [
+  {
+   "repo": "Form-Tracker-Rep-Counter",
+   "url": "https://github.com/QKLemoine/Form-Tracker-Rep-Counter",
+   "sha": "de917433769291e5568eb42e17078fea148a9ff8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit de9174337692: \"Make web rep tracking robust to noisy, biased and hidden landmarks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

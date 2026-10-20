@@ -1,0 +1,22 @@
+{
+ "corpus": "baekenough--second-brain",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how baekenough/second-brain implements it: LLM \ud050\ub808\uc774\uc158 \ud504\ub77c\uc774\ube57 \uac80\uc0c9 \uc5d4\uc9c4. Slack/GitHub/GDrive/\ud30c\uc77c\uc2dc\uc2a4\ud15c \ud558\uc774\ube0c\ub9ac\ub4dc \uac80\uc0c9 + AI \ud050\ub808\uc774\uc158 API (selected work: mobile, internal/api, internal/store)",
+ "repos": [
+  {
+   "repo": "second-brain",
+   "url": "https://github.com/baekenough/second-brain",
+   "sha": "2602bddfebe555235dc29f0d00a4c2499c631759",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 2602bddfebe5: \"feat: import KakaoTalk conversations with storage limits and RAG isol\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

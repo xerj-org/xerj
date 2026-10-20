@@ -1,0 +1,22 @@
+{
+ "corpus": "h3xept--herdr-gc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on git-worktree, herdr, herdr-plugin queries this for how H3xept/herdr-gc implements it: Run your own steps when a git worktree is created, opened, closed or removed in herdr: install, suggest cleanup, classify (selected work: lib, tests, bin)",
+ "repos": [
+  {
+   "repo": "herdr-gc",
+   "url": "https://github.com/H3xept/herdr-gc",
+   "sha": "0ad3d3b31e66bb9347b00d17ee099e7e3982b89d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 0ad3d3b31e66: \"Run any step from the HUD, closing the workspace first\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

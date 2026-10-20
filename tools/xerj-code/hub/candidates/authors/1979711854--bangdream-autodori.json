@@ -1,0 +1,22 @@
+{
+ "corpus": "1979711854--bangdream-autodori",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how 1979711854/bangdream-autodori implements it: BanG Dream! \u90a6\u90a6\u81ea\u52a8\u6253\u6b4c/\u81ea\u52a8\u6316\u77ff\u811a\u672c + GUI \u542f\u52a8\u5668 (autodori fork, MuMu\u6a21\u62df\u5668, \u81ea\u52a8\u6e05\u706b/\u81ea\u52a8\u9009\u6b4c/\u518d\u6f14\u8fde\u6253) (selected work: the project root, assets, src)",
+ "repos": [
+  {
+   "repo": "bangdream-autodori",
+   "url": "https://github.com/1979711854/bangdream-autodori",
+   "sha": "be90de554f157594845f3994b58d39c0b4330f0f",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit be90de554f15: \"fix(daily): \u4fee\u300c\u6bcf\u65e5\u514d\u8d39\u4e09\u62bd\u300d\u8d70\u4e0d\u5b8c\u7684\u4e00\u4e32\u4e2d\u65ad,\u5e76\u7406\u987a\u65e5\u5e38\u9875\u547d\u540d\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

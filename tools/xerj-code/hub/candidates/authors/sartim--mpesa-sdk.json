@@ -1,0 +1,22 @@
+{
+ "corpus": "sartim--mpesa-sdk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on payment, payment-gateway, payment-integration queries this for how sartim/mpesa-sdk implements it: MPESA REST API SDK helper for Python developers (selected work: mpesa_sdk, tests, the project root)",
+ "repos": [
+  {
+   "repo": "mpesa-sdk",
+   "url": "https://github.com/sartim/mpesa-sdk",
+   "sha": "8f25c2508456aff5dcfd7b1547c776f0b1dce04f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8f25c2508456: \"feat(daraja): modernize client naming and safety\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

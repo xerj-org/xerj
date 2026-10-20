@@ -1,0 +1,22 @@
+{
+ "corpus": "shaktsin--umcode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how shaktsin/umcode implements it: UMCode is a local-first AI coding agent with project-scoped work, isolated compute, autonomous verification, and live visual QA in a native  (selected work: internal/memory, internal/work, internal/engine)",
+ "repos": [
+  {
+   "repo": "umcode",
+   "url": "https://github.com/shaktsin/umcode",
+   "sha": "18829ae4e3d199f6ae4ffc39d9cdfdc2efca7821",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 18829ae4e3d1: \"fix(memory): bind reachable observed sources to canonical guidance\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

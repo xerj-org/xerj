@@ -1,0 +1,22 @@
+{
+ "corpus": "despical--greenlauncher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on electron, fabric, forge queries this for how Despical/GreenLauncher implements it: Open-source Minecraft Java Edition launcher for Windows. Profiles, modpacks, Microsoft accounts, worlds, servers and, verified updates (selected work: scripts, src/renderer, src/main)",
+ "repos": [
+  {
+   "repo": "GreenLauncher",
+   "url": "https://github.com/Despical/GreenLauncher",
+   "sha": "4a9f5a37f927c90d7ac0ea9a9f57cbf334cefa3f",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 4a9f5a37f927: \"Anchor analytics tooltips and add screenshot renaming\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

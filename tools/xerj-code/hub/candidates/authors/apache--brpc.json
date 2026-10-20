@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--brpc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on rpc queries this for how apache/brpc implements it: brpc is an Industrial-grade RPC framework using C++ Language, which is often used in high performance system such as Search, Storage, Machin (selected work: test, src/brpc)",
+ "repos": [
+  {
+   "repo": "brpc",
+   "url": "https://github.com/apache/brpc",
+   "sha": "df611712424c3b7a96251ebd66fb55c85de6455a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit df611712424c: \"Validate RPC response sockets (#3580)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

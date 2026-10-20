@@ -1,0 +1,22 @@
+{
+ "corpus": "lixenwraith--logwisp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how lixenwraith/logwisp implements it: real-time log observation, transport, process, and stream service (selected work: internal/config, deploy, internal/compose)",
+ "repos": [
+  {
+   "repo": "logwisp",
+   "url": "https://github.com/lixenwraith/logwisp",
+   "sha": "2c898288c53e72220ae9b8823990c56eb4087517",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 2c898288c53e: \"v0.35.2 lwconf, doc and deploy update\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

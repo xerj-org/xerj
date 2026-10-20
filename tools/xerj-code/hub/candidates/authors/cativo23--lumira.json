@@ -1,0 +1,22 @@
+{
+ "corpus": "cativo23--lumira",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, claude-code, cli queries this for how cativo23/lumira implements it: Real-time statusline HUD for Claude Code and Qwen Code. Includes session analytics CLI, API latency overhead widget, 7d quota projection, au (selected work: tests, src/render, src)",
+ "repos": [
+  {
+   "repo": "lumira",
+   "url": "https://github.com/cativo23/lumira",
+   "sha": "73a05aedcf3e602d212ab550b3ec5753c6e3ee1e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 73a05aedcf3e: \"feat(prompt-cache): badge for cache expiry, cold state and misses (#204)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

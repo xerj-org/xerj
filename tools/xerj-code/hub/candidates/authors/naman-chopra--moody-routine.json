@@ -1,0 +1,22 @@
+{
+ "corpus": "naman-chopra--moody-routine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how naman-chopra/moody-routine implements it: MoodyRoutine - Samsung OneUI Modes & Routines clone for any Android device (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "moody-routine",
+   "url": "https://github.com/naman-chopra/moody-routine",
+   "sha": "52aa2ea43b420cace44a477412f0567d12c8c0d1",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 52aa2ea43b42: \"feat: add foss and gms product flavors with AOSP LocationManager for \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

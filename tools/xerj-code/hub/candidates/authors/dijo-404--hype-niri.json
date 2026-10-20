@@ -1,0 +1,22 @@
+{
+ "corpus": "dijo-404--hype-niri",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how Dijo-404/hype_niri implements it: A clean, professional, highly functional Wayland setup based on the Niri scrollable-tiling compositor and a minimalist Monochrome theme (selected work: tests, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "Hype_Niri",
+   "url": "https://github.com/Dijo-404/Hype_Niri",
+   "sha": "fff03f8ff281e3971ee8c80a20694bceb1acbcf7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit fff03f8ff281: \"[ feat ] : make copilot key useful\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

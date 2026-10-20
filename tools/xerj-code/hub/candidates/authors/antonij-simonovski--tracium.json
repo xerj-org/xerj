@@ -1,0 +1,22 @@
+{
+ "corpus": "antonij-simonovski--tracium",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on clickhouse, genai, llm queries this for how antonij-simonovski/tracium implements it: Open-source, self-hosted LLM observability built on OpenTelemetry (selected work: dashboard)",
+ "repos": [
+  {
+   "repo": "tracium",
+   "url": "https://github.com/antonij-simonovski/tracium",
+   "sha": "38a205c417198b5ad71109dcb1ff598c9d202b81",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 38a205c41719: \"Light mode with a sidebar theme toggle and collapsible sidebar (#105)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

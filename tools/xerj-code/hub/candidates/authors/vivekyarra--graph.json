@@ -1,0 +1,22 @@
+{
+ "corpus": "vivekyarra--graph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, cypher, falkordb queries this for how vivekyarra/Graph implements it: MAELIN: graph-native incident response on FalkorDB. Agents find every attack path, prove the minimal cut (algo.maxFlow), replay it on a grap (selected work: maelin, tests, static)",
+ "repos": [
+  {
+   "repo": "Graph",
+   "url": "https://github.com/vivekyarra/Graph",
+   "sha": "81bcdb9d248610d1e02702160e589d5ba283eb6d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 81bcdb9d2486: \"feat: upgrade Maelin with multi-agent reasoning synthesis, associativ\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

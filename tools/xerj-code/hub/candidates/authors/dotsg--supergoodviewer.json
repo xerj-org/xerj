@@ -1,0 +1,22 @@
+{
+ "corpus": "dotsg--supergoodviewer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on markdown, pdf, typst queries this for how dotsg/SuperGoodViewer implements it: \u7b80\u7ea6\u3001\u6781\u81f4\u7684\u539f\u751fmarkdown\u9605\u8bfb\u5668 (selected work: core/src, ui, the project root)",
+ "repos": [
+  {
+   "repo": "SuperGoodViewer",
+   "url": "https://github.com/dotsg/SuperGoodViewer",
+   "sha": "86aef03c2b7d0a3682558098e2c42e460f99136b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 86aef03c2b7d: \"refactor(core,ui): upstream generic cache/font infrastructure and pla\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

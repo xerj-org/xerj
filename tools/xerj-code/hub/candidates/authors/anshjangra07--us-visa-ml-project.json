@@ -1,0 +1,22 @@
+{
+ "corpus": "anshjangra07--us-visa-ml-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Jupyter Notebook queries this for how AnshJangra07/US-Visa-ML-Project implements it: AnshJangra07/US-Visa-ML-Project (Jupyter Notebook) (selected work: template, static, us_visa)",
+ "repos": [
+  {
+   "repo": "US-Visa-ML-Project",
+   "url": "https://github.com/AnshJangra07/US-Visa-ML-Project",
+   "sha": "7d8c6d947b1566d73fd2900e7131b591b3bae7b4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 7d8c6d947b15: \"Prediction App Added\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

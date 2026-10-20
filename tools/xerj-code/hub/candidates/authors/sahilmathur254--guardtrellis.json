@@ -1,0 +1,22 @@
+{
+ "corpus": "sahilmathur254--guardtrellis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how sahilmathur254/guardtrellis implements it: A lightweight Python SDK for local checks around LLM inputs, outputs, retrieval, and tool calls (selected work: tests, examples, scripts)",
+ "repos": [
+  {
+   "repo": "guardtrellis",
+   "url": "https://github.com/sahilmathur254/guardtrellis",
+   "sha": "d722ec2c044f5f84c8033c00b6f60bdd45515340",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit d722ec2c044f: \"Add optional Gemini callback with bounded free-tier smoke\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

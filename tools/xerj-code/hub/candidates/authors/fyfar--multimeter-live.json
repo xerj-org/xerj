@@ -1,0 +1,22 @@
+{
+ "corpus": "fyfar--multimeter-live",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on chartjs, dashboard, multimeter queries this for how Fyfar/multimeter-live implements it: Real-time browser dashboard for the ZOYI ZT703s multimeter over the Web Serial API \u2014 live readings, trend chart, session stats, and CSV expo (selected work: lib, app, scripts)",
+ "repos": [
+  {
+   "repo": "multimeter-live",
+   "url": "https://github.com/Fyfar/multimeter-live",
+   "sha": "0869a0e345105bf6ddcb001aa6358de289f2342c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 0869a0e34510: \"Refactor/extract capture engine (#10)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

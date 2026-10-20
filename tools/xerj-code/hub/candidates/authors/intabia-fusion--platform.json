@@ -1,0 +1,22 @@
+{
+ "corpus": "intabia-fusion--platform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-assistants, chat-application, issue-management queries this for how intabia-fusion/platform implements it: All-in-one open-source team platform: issue tracking, chat, documents, virtual office and AI. SAAS/Self-hosted (selected work: tests, scripts, dev)",
+ "repos": [
+  {
+   "repo": "platform",
+   "url": "https://github.com/intabia-fusion/platform",
+   "sha": "ccc79e91b1434c7a24b188187bce687baafe9ca1",
+   "licence": "hint only: EPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "EPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit ccc79e91b143: \"Persona testing\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

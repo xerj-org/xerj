@@ -1,0 +1,22 @@
+{
+ "corpus": "wbx-github--uclibc-ng",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how wbx-github/uclibc-ng implements it: Embedded C Library (mirror) (selected work: libm)",
+ "repos": [
+  {
+   "repo": "uclibc-ng",
+   "url": "https://github.com/wbx-github/uclibc-ng",
+   "sha": "c9f21e9a04f364f02802d8b4d434cac03a2ac723",
+   "licence": "hint only: LGPL-2.1 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-2.1",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit c9f21e9a04f3: \"libm: a real tgamma\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

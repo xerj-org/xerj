@@ -1,0 +1,22 @@
+{
+ "corpus": "truefoundry--trueforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agentic-ai, agents queries this for how truefoundry/trueforge implements it: The open-source agent harness - the runtime layer that turns an LLM into a working agent (selected work: packages/trueforge-ui)",
+ "repos": [
+  {
+   "repo": "trueforge",
+   "url": "https://github.com/truefoundry/trueforge",
+   "sha": "c88d850cb926d1ed1f8ce98fa1aa282a569e25f2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit c88d850cb926: \"Preview sandbox files in the chat (#926)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

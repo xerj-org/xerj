@@ -296,6 +296,21 @@ fn registry() -> &'static [LangDef] {
                 tree_sitter_solidity::LANGUAGE.into(),
                 SOLIDITY_Q,
             ),
+            def(
+                "clojure",
+                &["clj", "cljs", "cljc"],
+                tree_sitter_clojure_orchard::LANGUAGE.into(),
+                CLOJURE_Q,
+            ),
+            // `.sls` (R6RS library) is deliberately NOT claimed: it is also a
+            // SaltStack state file, which is YAML, and a single-claimant
+            // extension is never content-probed.
+            def(
+                "scheme",
+                &["scm", "ss", "sld", "sps"],
+                tree_sitter_scheme::LANGUAGE.into(),
+                SCHEME_Q,
+            ),
         ]
     })
 }
@@ -402,7 +417,7 @@ const SIBLING_SCAN_BUDGET: usize = 256;
 const SLICE_MAX_BYTES: usize = DECL_CAP * 32;
 
 /// Does this node kind hold a declaration's IMPLEMENTATION rather than its
-/// signature? 34 grammars spell that node ~20 ways (`block`, `statement_block`,
+/// signature? 36 grammars spell that node ~20 ways (`block`, `statement_block`,
 /// `compound_statement`, `class_body`, `body_statement`, `function_body`,
 /// `declaration_list`, `field_declaration_list`, `do_block`, `suite`, …), so
 /// match the shape rather than enumerate them. A spelling this misses only
@@ -575,6 +590,129 @@ fn is_attribute_kind(kind: &str) -> bool {
         && (kind.contains("attribute") || kind.contains("annotation") || kind.contains("decorator"))
 }
 
+/// Clojure and Scheme spell every form as the same list node, so none of the
+/// shape rules above apply: there is no body kind, no container kind and no
+/// `body:` field, and the climb in `declaration_node` would run from a define
+/// inside an R6RS `(library …)` or a Clojure `(comment …)` up to the whole
+/// enclosing form. Both get the form-based rules below instead.
+fn is_lisp(lang: &str) -> bool {
+    matches!(lang, "clojure" | "scheme")
+}
+
+fn is_lisp_list(kind: &str) -> bool {
+    matches!(kind, "list_lit" | "list")
+}
+
+/// The first element of a list form. Clojure marks elements with the `value:`
+/// field (metadata and comments are children too); Scheme has no fields, so
+/// take the first named child that is not a comment.
+fn lisp_head(list: Node<'_>) -> Option<Node<'_>> {
+    list.child_by_field_name("value").or_else(|| {
+        let mut cur = list.walk();
+        let head = list
+            .named_children(&mut cur)
+            .find(|c| !c.kind().contains("comment"));
+        head
+    })
+}
+
+/// The head symbol's text without namespace or metadata: `defn` for both
+/// `(defn …)` and `(clojure.core/defn …)`.
+fn lisp_head_name<'a>(list: Node<'_>, text: &'a str) -> Option<&'a str> {
+    let head = lisp_head(list)?;
+    let name = head.child_by_field_name("name").unwrap_or(head);
+    text.get(name.byte_range())
+}
+
+/// The definition form a captured name belongs to: the nearest enclosing list
+/// whose head is not, and does not contain, the name. That is `(defn f …)` for
+/// `f`, and for Scheme's `(define (f a) …)` the outer form rather than the
+/// `(f a)` signature list.
+fn lisp_form<'t>(name: Node<'t>) -> Option<Node<'t>> {
+    let mut cur = name.parent();
+    while let Some(n) = cur {
+        if is_lisp_list(n.kind()) {
+            let head = lisp_head(n)?;
+            if head.end_byte() <= name.start_byte() || head.start_byte() >= name.end_byte() {
+                return Some(n);
+            }
+        }
+        cur = n.parent();
+    }
+    None
+}
+
+/// Where a Lisp definition's signature ends: after the element holding the
+/// name and, for Clojure, through a docstring, attribute map or `defmethod`
+/// dispatch value up to the parameter vector. A form on one line is its own
+/// declaration (`None`: the caller takes the whole form).
+fn lisp_head_end(decl: Node<'_>, after: usize) -> Option<usize> {
+    if decl.end_position().row == decl.start_position().row {
+        return None;
+    }
+    let mut end = None;
+    let mut cur = decl.walk();
+    for child in decl.named_children(&mut cur) {
+        let kind = child.kind();
+        if kind.contains("comment") || kind.ends_with("meta_lit") {
+            continue;
+        }
+        if end.is_none() {
+            if child.start_byte() < after && child.end_byte() >= after {
+                end = Some(child.end_byte());
+            }
+            continue;
+        }
+        match kind {
+            "str_lit" | "map_lit" | "kwd_lit" => {}
+            "vec_lit" => return Some(child.end_byte()),
+            _ => break,
+        }
+    }
+    end
+}
+
+/// Forms whose definitions are local: an internal define in a procedure body,
+/// a `defn` built inside a `let`, and anything quoted (a macro template is not
+/// a definition of this file).
+fn lisp_is_local(decl: Node<'_>, text: &str) -> bool {
+    let mut cur = decl.parent();
+    while let Some(n) = cur {
+        if matches!(
+            n.kind(),
+            "quoting_lit" | "syn_quoting_lit" | "quote" | "quasiquote" | "syntax" | "quasisyntax"
+        ) {
+            return true;
+        }
+        if is_lisp_list(n.kind())
+            && lisp_head_name(n, text).is_some_and(|h| {
+                matches!(
+                    h,
+                    "define"
+                        | "define-syntax"
+                        | "lambda"
+                        | "case-lambda"
+                        | "let"
+                        | "let*"
+                        | "letrec"
+                        | "letrec*"
+                        | "let-values"
+                        | "defn"
+                        | "defn-"
+                        | "defmacro"
+                        | "fn"
+                        | "letfn"
+                        | "loop"
+                )
+            })
+        {
+            return true;
+        }
+        cur = n.parent();
+    }
+    false
+}
+
 /// The declaration node a captured NAME belongs to: climb until the parent is a
 /// scope container (a body/block/list) or the tree root. Shape-based because
 /// the capture depth of the name differs per grammar — Rust captures the
@@ -582,6 +720,9 @@ fn is_attribute_kind(kind: &str) -> bool {
 /// `field_declaration > variable_declarator > identifier`, TypeScript
 /// `export_statement > lexical_declaration > variable_declarator > identifier`.
 fn declaration_node<'t>(lang: &str, name: Node<'t>) -> Node<'t> {
+    if is_lisp(lang) {
+        return lisp_form(name).unwrap_or(name);
+    }
     let mut decl = name;
     let mut budget = SIBLING_SCAN_BUDGET;
     for _ in 0..DECL_MAX_DEPTH {
@@ -647,6 +788,9 @@ fn gap_is_blank(text: &str, from: usize, to: usize) -> bool {
 /// order, so a lambda nested deeper in the body can never win over the body
 /// itself.
 fn body_start(lang: &str, decl: Node<'_>, after: usize) -> Option<usize> {
+    if is_lisp(lang) {
+        return lisp_head_end(decl, after);
+    }
     body_by_kind(lang, decl, after)
         .or_else(|| body_by_field(decl, after).map(|b| b.start_byte()))
         .or_else(|| end_delimited_head(decl))
@@ -946,6 +1090,132 @@ fn cpp_declarator_is_const_qualified(node: tree_sitter::Node, source: &[u8]) -> 
     false
 }
 
+/// The literal value of a constant / macro / field declaration, or `None` for
+/// anything else (a function, a type, a declaration with no initialiser).
+///
+/// Applied to a definition's declaration text (the `code` slice of a [`Symbol`],
+/// which is `DefRecord.text`). The per-language rules are fixed by
+/// `docs/CORPUS_HUB_V2_IMPLEMENTATION.md` step 3. The captured value is trimmed
+/// and loses a trailing `;` or `,`.
+pub fn extract_value(lang: &str, decl: &str) -> Option<String> {
+    fn clean(s: &str) -> Option<String> {
+        let v = s.trim().trim_end_matches([';', ',']).trim();
+        (!v.is_empty()).then(|| v.to_string())
+    }
+    // Quote-aware value end: when the matched value opens with `"`, take through
+    // its matching close quote so a `;` or `//` INSIDE the string is not read as
+    // a terminator. The lazy value regexes below otherwise stop at the first
+    // `;`/`//` and tear `"a;b"` down to `"a`, `"http://x"` down to `"http:`. The
+    // regex still locates where the value STARTS (`m.start()`); only its end is
+    // recomputed here. Every non-string value falls through to `clean`, byte for
+    // byte as before. NOTE: a backslash-escaped quote inside the string
+    // (`"a\"b"`) is a known limitation — the scan stops at the first `"`; such
+    // values are rare enough in a constant that handling escapes is not worth
+    // the extra code.
+    fn value_of(decl: &str, m: Option<regex::Match<'_>>) -> Option<String> {
+        let m = m?;
+        let rest = &decl[m.start()..];
+        if let Some(body) = rest.strip_prefix('"') {
+            if let Some(rel) = body.find('"') {
+                // opening quote + body + closing quote (quote is 1 ASCII byte)
+                return Some(rest[..rel + 2].to_string());
+            }
+        }
+        clean(m.as_str())
+    }
+    use std::sync::OnceLock;
+    static C_DEFINE: OnceLock<regex::Regex> = OnceLock::new();
+    static C_CONST: OnceLock<regex::Regex> = OnceLock::new();
+    static RUST: OnceLock<regex::Regex> = OnceLock::new();
+    static GO: OnceLock<regex::Regex> = OnceLock::new();
+    static UPPER: OnceLock<regex::Regex> = OnceLock::new();
+    match lang {
+        "c" | "cpp" | "objc" => {
+            let def = C_DEFINE.get_or_init(|| {
+                regex::Regex::new(r"(?m)^\s*#\s*define\s+(\w+)\s+(.+?)\s*(?:/[/*].*)?$").unwrap()
+            });
+            if let Some(c) = def.captures(decl) {
+                if let Some(v) = value_of(decl, c.get(2)) {
+                    return Some(v);
+                }
+            }
+            let cst = C_CONST.get_or_init(|| {
+                regex::Regex::new(r"\b(?:static\s+)?const\s+\w[\w\s\*]*\b(\w+)\s*=\s*(.+?)\s*;")
+                    .unwrap()
+            });
+            cst.captures(decl).and_then(|c| value_of(decl, c.get(2)))
+        }
+        "rust" => {
+            let re = RUST.get_or_init(|| {
+                regex::Regex::new(r"(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?(?:const|static)\s+(\w+)\s*:\s*[^=]+=\s*(.+?)\s*;")
+                    .unwrap()
+            });
+            re.captures(decl).and_then(|c| value_of(decl, c.get(2)))
+        }
+        "go" => {
+            let re = GO.get_or_init(|| {
+                regex::Regex::new(r"(?m)^\s*(?:const\s+)?(\w+)\s*(?:[\w.\[\]*]+\s+)?=\s*(.+?)\s*$")
+                    .unwrap()
+            });
+            re.captures(decl).and_then(|c| value_of(decl, c.get(2)))
+        }
+        "python" | "ruby" | "bash" | "sh" | "shell" => {
+            let re = UPPER.get_or_init(|| {
+                regex::Regex::new(r"(?m)^\s*([A-Z_][A-Z0-9_]*)\s*=\s*(.+?)\s*$").unwrap()
+            });
+            re.captures(decl).and_then(|c| value_of(decl, c.get(2)))
+        }
+        _ => None,
+    }
+}
+
+/// Every definition in one file, as [`DefRecord`]s for the hub pack's defs index.
+///
+/// `file_rel` is the path relative to the corpus root (forward slashes), `lang`
+/// is a registry language name (`registry()`), `text` is the file's decoded
+/// contents. Unknown languages yield no records. The declaration text is capped
+/// at 400 chars; constants and macros carry their value ([`extract_value`]).
+pub fn definitions(file_rel: &str, lang: &str, text: &str) -> Vec<xerj_common::hub::DefRecord> {
+    let Some(def) = registry().iter().find(|d| d.name == lang) else {
+        return Vec::new();
+    };
+    parse_symbols(def, text)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|s| {
+            let decl: String = if s.code.chars().count() > 400 {
+                s.code.chars().take(400).collect()
+            } else {
+                s.code
+            };
+            // Only a named constant (`const`) carries a literal value. The
+            // per-language `extract_value` is a regex with no notion of symbol
+            // kind, so run on EVERY symbol it reads a function prototype's
+            // default argument (`void f(const int x = 5)` -> "5)"), a Go type
+            // alias's RHS (`type Handler = http.HandlerFunc`) or a mutable
+            // binding's initialiser as if it were a constant value. Of the
+            // capture-name kinds the queries emit, only `const` is value-bearing:
+            // `#define` is emitted as `const`, whereas `static` is the MUTABLE
+            // module binding (Go `var`, Rust `static`, a C++ mutable global) and
+            // every other kind is structural. Gate the call on kind.
+            let value = if s.kind == "const" {
+                extract_value(lang, &decl)
+            } else {
+                None
+            };
+            xerj_common::hub::DefRecord {
+                symbol: s.name,
+                kind: s.kind,
+                lang: lang.to_string(),
+                file: file_rel.to_string(),
+                line: s.line as u32,
+                text: decl,
+                value,
+            }
+        })
+        .collect()
+}
+
 fn parse_symbols(def: &LangDef, text: &str) -> Option<Vec<Symbol>> {
     let mut parser = Parser::new();
     parser.set_language(&def.language).ok()?;
@@ -1003,6 +1273,9 @@ fn parse_symbols(def: &LangDef, text: &str) -> Option<Vec<Symbol>> {
             // wrong line entirely. Slice [declaration head .. body start), so
             // the unit is the complete signature rather than a fragment of it.
             let decl = declaration_node(def.name, node);
+            if is_lisp(def.name) && lisp_is_local(decl, text) {
+                continue;
+            }
             let head = declaration_head(decl, text);
             let from = snap_to_indent(text, head.start_byte());
             let to = body_start(def.name, decl, node.end_byte()).unwrap_or_else(|| decl.end_byte());
@@ -1122,6 +1395,8 @@ fn emit_code_doc(
     // So dedup by locator here, BEFORE counting/emitting — do not rely on the
     // downstream `_id` overwrite (which fixes the doc but not the count).
     let mut emitted_locators = std::collections::HashSet::new();
+    let lines: Vec<&str> = text.lines().collect();
+    const IMPL_CAP: usize = 16_384;
     for s in symbols {
         if s.code.is_empty() {
             continue;
@@ -1141,14 +1416,55 @@ fn emit_code_doc(
         sf.insert("name".into(), Value::String(name.clone()));
         sf.insert("kind".into(), Value::String(s.kind.clone()));
         sf.insert("line".into(), Value::Number((line as u64).into()));
+        sf.insert(
+            "end_line".into(),
+            Value::Number((s.end_line.max(line) as u64).into()),
+        );
         sf.insert("code".into(), Value::String(s.code.clone()));
-        // No field beyond the five #579 froze: a NEW scalar field on this
-        // document would make `reconcile_plan::ensure_compatible` (see
-        // reconcile_plan.rs, "field {name} is absent from frozen dataset")
-        // abort the next incremental run over an index an older binary froze.
-        // `end_line` therefore rides in the file document's `symbols` array,
-        // which that check exempts because an array carries no scalar
-        // observations (the #580/#581 rule).
+        // #1237: symbol records carry a bounded `impl` slice (`body[line..=end_line]`,
+        // capped at 16 KB on a UTF-8 char boundary) so `xerj code --fuse-symbols`
+        // can score a second BM25 leg over definition bodies without length-norm
+        // dilution from a 4,000-line file. For every kind except
+        // `function`/`method` (i.e. containers: `class`, `module`, `trait`,
+        // `interface`, `impl`, `struct`, `extension`, ...), bound `impl` to the
+        // lines preceding the first nested definition so member bodies are not
+        // duplicated inside the enclosing record. Functions keep their whole
+        // body: a nested closure/inner def is part of what the function does.
+        // `reconcile_plan::ensure_compatible` exempts `impl` and `end_line` on
+        // pre-#1237 frozen datasets so incremental runs over older state dirs
+        // never abort.
+        let impl_end_line = if !matches!(s.kind.as_str(), "function" | "method") {
+            symbols
+                .iter()
+                .filter(|child| child.line > line && child.line <= s.end_line)
+                .map(|child| child.line.saturating_sub(1).max(line))
+                .min()
+                .unwrap_or(s.end_line.max(line))
+        } else {
+            s.end_line.max(line)
+        };
+        if s.end_line > line
+            || matches!(
+                s.kind.as_str(),
+                "function" | "method" | "class" | "macro" | "struct" | "enum" | "trait" | "impl"
+            )
+        {
+            let lo = line.saturating_sub(1).min(lines.len());
+            let hi = impl_end_line.min(lines.len()).max(lo);
+            if hi > lo {
+                let mut impl_slice = lines[lo..hi].join("\n");
+                if impl_slice.len() > IMPL_CAP {
+                    let mut cut = IMPL_CAP;
+                    while cut > 0 && !impl_slice.is_char_boundary(cut) {
+                        cut -= 1;
+                    }
+                    impl_slice.truncate(cut);
+                }
+                if !impl_slice.is_empty() {
+                    sf.insert("impl".into(), Value::String(impl_slice));
+                }
+            }
+        }
         stats.records += 1;
         if !sink(RawRecord {
             fields: sf,
@@ -1874,6 +2190,40 @@ const SOLIDITY_Q: &str = r#"
 (modifier_definition name: (identifier) @function)
 "#;
 
+// No tags.scm in tree-sitter-clojure-orchard 0.2.8. A definition is a list
+// whose head symbol is a def form and whose next element names it; matching
+// the head's `name:` field accepts `clojure.core/defn` too, and the name's
+// sym_name leaves `^:private` metadata out. `lisp_is_local` drops quoted
+// templates and defs built inside a fn body.
+const CLOJURE_Q: &str = r#"
+(list_lit . value: (sym_lit name: (sym_name) @_kw) . value: (sym_lit name: (sym_name) @function)
+  (#any-of? @_kw "defn" "defn-" "defmulti"))
+(list_lit . value: (sym_lit name: (sym_name) @_kw) . value: (sym_lit name: (sym_name) @method)
+  (#eq? @_kw "defmethod"))
+(list_lit . value: (sym_lit name: (sym_name) @_kw) . value: (sym_lit name: (sym_name) @macro)
+  (#eq? @_kw "defmacro"))
+(list_lit . value: (sym_lit name: (sym_name) @_kw) . value: (sym_lit name: (sym_name) @const)
+  (#any-of? @_kw "def" "defonce"))
+(list_lit . value: (sym_lit name: (sym_name) @_kw) . value: (sym_lit name: (sym_name) @interface)
+  (#any-of? @_kw "defprotocol" "definterface"))
+(list_lit . value: (sym_lit name: (sym_name) @_kw) . value: (sym_lit name: (sym_name) @class)
+  (#any-of? @_kw "defrecord" "deftype" "defstruct"))
+(list_lit . value: (sym_lit name: (sym_name) @_kw) . value: (sym_lit name: (sym_name) @module)
+  (#eq? @_kw "ns"))
+"#;
+
+// tree-sitter-scheme 0.24.7 ships no tags.scm and every form is a `list`.
+// `(define (f a) …)` is a procedure, `(define x …)` a value. A library's name
+// is a list, `(my lib)`, captured whole.
+const SCHEME_Q: &str = r#"
+(list . (symbol) @_kw . (list . (symbol) @function) (#eq? @_kw "define"))
+(list . (symbol) @_kw . (symbol) @const (#eq? @_kw "define"))
+(list . (symbol) @_kw . (symbol) @macro (#any-of? @_kw "define-syntax" "define-macro"))
+(list . (symbol) @_kw . (symbol) @struct (#eq? @_kw "define-record-type"))
+(list . (symbol) @_kw . (list . (symbol) @struct) (#eq? @_kw "define-record-type"))
+(list . (symbol) @_kw . (list) @module (#any-of? @_kw "library" "define-library"))
+"#;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2545,15 +2895,15 @@ mod tests {
     /// been counted as its own language by these docs.
     #[test]
     fn documented_language_count() {
-        assert_eq!(registry().len(), 35, "registry row count changed");
+        assert_eq!(registry().len(), 37, "registry row count changed");
         let langs: std::collections::HashSet<&str> = registry()
             .iter()
             .map(|d| d.name.trim_end_matches("_interface"))
             .collect();
         assert_eq!(
             langs.len(),
-            34,
-            "docs say 34 languages; update ROADMAP.md and landing/index.html"
+            36,
+            "docs say 36 languages; update ROADMAP.md and landing/index.html"
         );
     }
 
@@ -2600,6 +2950,13 @@ mod tests {
             ("f95", "fortran"),
             ("f03", "fortran"),
             ("sol", "solidity"),
+            ("clj", "clojure"),
+            ("cljs", "clojure"),
+            ("cljc", "clojure"),
+            ("scm", "scheme"),
+            ("ss", "scheme"),
+            ("sld", "scheme"),
+            ("sps", "scheme"),
         ] {
             assert!(is_code_ext(ext), "{ext} must be recognised as code");
             let d = registry().iter().find(|d| d.exts.contains(&ext));
@@ -2611,9 +2968,10 @@ mod tests {
         }
         // Deliberately NOT claimed, each for a stated reason: fixed-form
         // Fortran would mis-parse under the free-form grammar; nim/crystal
-        // have no usable published grammar; sql routing is deferred; clojure
-        // waits on a crate release against core 0.26.
-        for ext in ["f", "nim", "cr", "sql", "clj"] {
+        // have no usable published grammar; sql routing is deferred; `.sls`
+        // is an R6RS library but also a SaltStack state file (YAML), and a
+        // single-claimant extension is never content-probed; `.edn` is data.
+        for ext in ["f", "nim", "cr", "sql", "sls", "edn"] {
             assert!(!is_code_ext(ext), "{ext} must stay unclaimed (see #295)");
         }
     }
@@ -3778,6 +4136,105 @@ mod tests {
         assert!(!has(&s, "local", "const"), "captured a local: {s:?}");
     }
 
+    fn sym<'a>(s: &'a [Symbol], name: &str) -> &'a Symbol {
+        s.iter()
+            .find(|x| x.name == name)
+            .unwrap_or_else(|| panic!("no {name} in {s:?}"))
+    }
+
+    #[test]
+    fn clojure() {
+        let s = syms(
+            "clojure",
+            "(ns my.app\n  (:require [clojure.string :as str]))\n\
+             \n\
+             (def ^:private limit 10)\n\
+             \n\
+             (defn greet\n  \"Says hello.\"\n  [name]\n  (str \"hi \" name))\n\
+             \n\
+             (defn- helper [x] (inc x))\n\
+             (defmacro unless [c & body]\n  `(if ~c nil (do ~@body)))\n\
+             (defprotocol Shape\n  (area [s]))\n\
+             (defrecord Circle [r]\n  Shape\n  (area [_] (* r r)))\n\
+             (defmulti render :type)\n\
+             (defmethod render :circle [s]\n  s)\n\
+             (comment\n  (defn scratch [] 1))\n\
+             (clojure.core/defn qualified [] 2)\n",
+        );
+        assert!(has(&s, "my.app", "module"), "got {s:?}");
+        assert!(has(&s, "limit", "const"), "got {s:?}");
+        assert!(has(&s, "greet", "function"), "got {s:?}");
+        assert!(has(&s, "helper", "function"), "got {s:?}");
+        assert!(has(&s, "unless", "macro"), "got {s:?}");
+        assert!(has(&s, "Shape", "interface"), "got {s:?}");
+        assert!(has(&s, "Circle", "class"), "got {s:?}");
+        assert!(has(&s, "render", "function"), "got {s:?}");
+        assert!(has(&s, "render", "method"), "got {s:?}");
+        assert!(has(&s, "qualified", "function"), "got {s:?}");
+        // Call sites and parameters are not definitions.
+        assert!(
+            !s.iter().any(|x| x.name == "str" || x.name == "x"),
+            "got {s:?}"
+        );
+
+        // The declaration runs through the parameter vector, docstring included,
+        // and stops before the body.
+        let g = sym(&s, "greet");
+        assert_eq!(g.line, 6, "{g:?}");
+        assert_eq!(g.end_line, 9, "{g:?}");
+        assert_eq!(g.code, "(defn greet\n  \"Says hello.\"\n  [name]", "{g:?}");
+        // A one-line form is its own declaration.
+        assert_eq!(sym(&s, "helper").code, "(defn- helper [x] (inc x))");
+        assert_eq!(sym(&s, "unless").code, "(defmacro unless [c & body]");
+        assert_eq!(sym(&s, "Circle").code, "(defrecord Circle [r]");
+        // A form nested in another (here `comment`) is sliced as itself, not
+        // as the enclosing form.
+        let n = sym(&s, "scratch");
+        assert_eq!(n.code, "(defn scratch [] 1)", "{n:?}");
+        assert_eq!((n.line, n.end_line), (23, 23), "{n:?}");
+    }
+
+    #[test]
+    fn scheme() {
+        let s = syms(
+            "scheme",
+            "(library (my lib)\n  (export add)\n  (import (rnrs))\n\
+             \x20 (define (add a b)\n    (+ a b))\n\
+             \x20 (define limit 10)\n\
+             \x20 (define-syntax swap!\n    (syntax-rules ()\n      ((_ a b) (let ((t a)) (set! a b) (set! b t)))))\n\
+             \x20 (define-record-type point (fields x y)))\n\
+             (define (top x)\n  (define (inner y) y)\n  (inner x))\n",
+        );
+        assert!(has(&s, "(my lib)", "module"), "got {s:?}");
+        assert!(has(&s, "add", "function"), "got {s:?}");
+        assert!(has(&s, "limit", "const"), "got {s:?}");
+        assert!(has(&s, "swap!", "macro"), "got {s:?}");
+        assert!(has(&s, "point", "struct"), "got {s:?}");
+        assert!(has(&s, "top", "function"), "got {s:?}");
+        assert!(
+            !s.iter().any(|x| x.name == "a" || x.name == "t"),
+            "got {s:?}"
+        );
+        // An internal define is a local of its procedure, like a
+        // function-local const elsewhere.
+        assert!(
+            !s.iter().any(|x| x.name == "inner"),
+            "captured a local: {s:?}"
+        );
+
+        // Inside an R6RS `library` form a define is sliced as itself, not as
+        // the whole library.
+        let a = sym(&s, "add");
+        assert_eq!(a.code, "(define (add a b)", "{a:?}");
+        assert_eq!((a.line, a.end_line), (4, 5), "{a:?}");
+        assert_eq!(sym(&s, "limit").code, "(define limit 10)");
+        assert_eq!(sym(&s, "swap!").code, "(define-syntax swap!");
+        assert_eq!(sym(&s, "(my lib)").code, "(library (my lib)");
+        let t = sym(&s, "top");
+        assert_eq!(t.code, "(define (top x)", "{t:?}");
+        assert_eq!((t.line, t.end_line), (11, 13), "{t:?}");
+    }
+
     #[test]
     fn objc() {
         let s = syms(
@@ -3915,5 +4372,197 @@ mod tests {
         assert!(has(&s, "mint", "function"), "got {s:?}");
         assert!(has(&s, "onlyOwner", "function"), "got {s:?}");
         assert!(has(&s, "min", "function"), "got {s:?}");
+    }
+
+    /// The five literal cases fixed by `docs/CORPUS_HUB_V2_IMPLEMENTATION.md`
+    /// step 3: each value regex returns exactly this string (trailing comment
+    /// and `;`/`,` removed), and a bare signature is not a value.
+    #[test]
+    fn extract_value_literals() {
+        // C `#define` with a trailing block comment: the token, comment dropped.
+        assert_eq!(
+            extract_value("c", "#define LZ4_VERSION_RELEASE  0    /* for tweaks */"),
+            Some("0".to_string())
+        );
+        // Rust `pub(crate) const` with a typed initialiser: the whole RHS.
+        assert_eq!(
+            extract_value(
+                "rust",
+                "pub(crate) const DEFAULT_IDLE_TIMEOUT: Duration = Duration::from_secs(30);"
+            ),
+            Some("Duration::from_secs(30)".to_string())
+        );
+        // C `#define` whose value is a parenthesised conditional expression.
+        assert_eq!(
+            extract_value("c", "#define MDB_MAXKEYSIZE ((MDB_DEVEL) ? 0 : 511)"),
+            Some("((MDB_DEVEL) ? 0 : 511)".to_string())
+        );
+        // Go const-block line: the shift expression, no trailing semicolon.
+        assert_eq!(
+            extract_value("go", "batchSize = 16 << 20"),
+            Some("16 << 20".to_string())
+        );
+        // A function signature carries no value.
+        assert_eq!(extract_value("rust", "fn main() {"), None);
+    }
+
+    /// `definitions` turns parsed symbols into `DefRecord`s: a `const` carries
+    /// its literal value and the 1-based line its name sits on; a function none.
+    #[test]
+    fn definitions_rust_const_and_fn() {
+        // `pub const LIMIT` on line 1, `fn helper` on line 2.
+        let src = "pub const LIMIT: u32 = 128;\nfn helper() {}\n";
+        let defs = definitions("src/lib.rs", "rust", src);
+        let Some(limit) = defs.iter().find(|d| d.symbol == "LIMIT") else {
+            panic!("no LIMIT def in {defs:?}");
+        };
+        assert_eq!(limit.value, Some("128".to_string()), "got {limit:?}");
+        assert_eq!(limit.line, 1, "got {limit:?}");
+        // The function declaration, if captured, has no value.
+        if let Some(helper) = defs.iter().find(|d| d.symbol == "helper") {
+            assert_eq!(helper.value, None, "got {helper:?}");
+        }
+    }
+
+    /// Fix A: `definitions` attaches a `value` only to a constant-kind symbol.
+    /// `extract_value` is a per-language regex with no notion of symbol kind, so
+    /// run on EVERY symbol it reads a prototype's default argument, a type
+    /// alias's RHS or a mutable `var`/`static` initialiser as a constant value.
+    /// The kind gate stops that; a real `const` still carries its value.
+    #[test]
+    fn definitions_only_values_constant_kinds() {
+        // C++ function prototype: `= 5` is a parameter default, never a value.
+        for d in definitions("x.cpp", "cpp", "void f(const int x = 5);") {
+            assert_eq!(d.value, None, "cpp prototype leaked a value: {d:?}");
+        }
+        // Go `type` alias: the RHS is a type, not a value.
+        for d in definitions("x.go", "go", "package p\ntype Handler = http.HandlerFunc\n") {
+            assert_ne!(d.kind, "const", "a Go type alias is not a constant: {d:?}");
+            assert_eq!(d.value, None, "go type alias leaked a value: {d:?}");
+        }
+        // Go package-level `var`: a mutable binding (kind `static`), not a value.
+        // It is still indexed as a symbol; it simply carries no `value`.
+        let gv = definitions("x.go", "go", "package p\nvar DefaultPort = 8080\n");
+        assert!(
+            gv.iter().any(|d| d.symbol == "DefaultPort"),
+            "the Go var should still be a symbol: {gv:?}"
+        );
+        for d in &gv {
+            assert_eq!(d.value, None, "go var leaked a value: {d:?}");
+        }
+        // The gate must NOT suppress a genuine constant's value.
+        let rc = definitions("x.rs", "rust", "pub const LIMIT: u32 = 128;\n");
+        let limit = rc
+            .iter()
+            .find(|d| d.symbol == "LIMIT")
+            .expect("const LIMIT captured");
+        assert_eq!(limit.kind, "const");
+        assert_eq!(limit.value.as_deref(), Some("128"));
+    }
+
+    /// Fix B: a quoted value is kept whole — a `;` or `//` inside the string is
+    /// not a terminator — while non-string values extract exactly as before.
+    #[test]
+    fn extract_value_keeps_quoted_strings_intact() {
+        // `//` inside a C string is not the start of a comment.
+        assert_eq!(
+            extract_value("c", r#"#define PATH "/usr//local/bin""#),
+            Some(r#""/usr//local/bin""#.to_string())
+        );
+        // A URL's `//` must not truncate the value down to `"http:`.
+        assert_eq!(
+            extract_value("c", r#"#define API_URL "http://x.com""#),
+            Some(r#""http://x.com""#.to_string())
+        );
+        // `;` inside a Rust string literal is not the statement terminator.
+        assert_eq!(
+            extract_value("rust", r#"const S: &str = "a;b";"#),
+            Some(r#""a;b""#.to_string())
+        );
+        // Non-string values are untouched: the trailing comment and `;` still go.
+        assert_eq!(
+            extract_value("c", "#define LZ4_VERSION_RELEASE  0    /* for tweaks */"),
+            Some("0".to_string())
+        );
+    }
+
+    /// The container bound is not specific to `class`: a Rust `mod` holding a
+    /// function must not copy that function's body into its own `impl`.
+    #[test]
+    fn emit_code_doc_bounds_every_container_kind_before_nested_defs() {
+        let mut records = Vec::new();
+        let mut stats = ExtractStats::default();
+        let src = "mod engine {\n    use std::fmt;\n    fn spin_up() {\n        let unique_marker = 1;\n    }\n}\n";
+        let s = syms("rust", src);
+        assert!(has(&s, "engine", "module"), "got {s:?}");
+        assert!(has(&s, "spin_up", "function"), "got {s:?}");
+        assert!(emit_code_doc(
+            Path::new("lib.rs"),
+            "rust",
+            src,
+            &s,
+            &mut stats,
+            &mut |rec| {
+                records.push(rec);
+                true
+            },
+        ));
+        let module_impl = records
+            .iter()
+            .find(|r| r.locator == "code:1:engine")
+            .and_then(|r| r.fields.get("impl"))
+            .and_then(Value::as_str)
+            .expect("module impl");
+        assert_eq!(module_impl, "mod engine {\n    use std::fmt;");
+        assert!(!module_impl.contains("unique_marker"));
+        let fn_impl = records
+            .iter()
+            .find(|r| r.locator == "code:3:spin_up")
+            .and_then(|r| r.fields.get("impl"))
+            .and_then(Value::as_str)
+            .expect("function impl");
+        assert!(fn_impl.contains("unique_marker"), "{fn_impl}");
+    }
+
+    #[test]
+    fn emit_code_doc_records_symbol_impl_and_bounds_class_before_methods() {
+        let mut records = Vec::new();
+        let mut stats = ExtractStats::default();
+        let src =
+            "class Widget:\n    kind = 'box'\n    def render(self):\n        return self.kind\n";
+        let s = syms("python", src);
+        let ok = emit_code_doc(
+            Path::new("widget.py"),
+            "python",
+            src,
+            &s,
+            &mut stats,
+            &mut |rec| {
+                records.push(rec);
+                true
+            },
+        );
+        assert!(ok);
+        let class_rec = records
+            .iter()
+            .find(|r| r.locator == "code:1:Widget")
+            .expect("Widget symbol record");
+        assert_eq!(
+            class_rec.fields.get("impl").and_then(Value::as_str),
+            Some("class Widget:\n    kind = 'box'"),
+            "class impl stops before nested method definition so method bodies are not duplicated"
+        );
+        let method_rec = records
+            .iter()
+            .find(|r| r.locator == "code:3:render")
+            .expect("render symbol record");
+        assert_eq!(
+            method_rec.fields.get("impl").and_then(Value::as_str),
+            Some("    def render(self):\n        return self.kind")
+        );
+        assert_eq!(
+            method_rec.fields.get("end_line").and_then(Value::as_u64),
+            Some(4)
+        );
     }
 }

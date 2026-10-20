@@ -1,0 +1,22 @@
+{
+ "corpus": "lagdo--ui-builder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on PHP queries this for how lagdo/ui-builder implements it: A customizable and extensible HTML UI builder (selected work: src/Builder, src, the project root)",
+ "repos": [
+  {
+   "repo": "ui-builder",
+   "url": "https://github.com/lagdo/ui-builder",
+   "sha": "05593c466a284deb02caa176f908e3b895851175",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 05593c466a28: \"New interfaces for helper and scope functions.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

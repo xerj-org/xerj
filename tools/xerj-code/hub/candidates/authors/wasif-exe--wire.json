@@ -1,0 +1,22 @@
+{
+ "corpus": "wasif-exe--wire",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on af-xdp, avx2, disruptor queries this for how wasif-exe/wire implements it: Wire v9: from-scratch ultra-low-latency HFT stack in Rust and C. 24 crates: TCP/IP, AF_XDP, VFIO PCIe DMA, LMAX Disruptor, AVX2/AVX-512 SIMD (selected work: wire-quic, wire-echo, wire-store)",
+ "repos": [
+  {
+   "repo": "wire",
+   "url": "https://github.com/wasif-exe/wire",
+   "sha": "ef3ba2678358d87fd335f0a28c74fc50f5fc77f7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit ef3ba2678358: \"feat(v6): Wire v6 \u2014 Asynchronous Smart-Node Infrastructure Appliance\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "kuan-lun--h2hdb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on h2hdb queries this for how Kuan-Lun/h2hdb implements it: H2HDB is a comprehensive database for organising and managing H@H comic collections (selected work: scripts, tests)",
+ "repos": [
+  {
+   "repo": "h2hdb",
+   "url": "https://github.com/Kuan-Lun/h2hdb",
+   "sha": "5b4b71b7b41493334b9361aaed28d741b2c94a99",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 5b4b71b7b414: \"refactor: adopt generated shared development tools\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

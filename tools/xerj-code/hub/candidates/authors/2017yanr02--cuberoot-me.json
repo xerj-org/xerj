@@ -1,0 +1,22 @@
+{
+ "corpus": "2017yanr02--cuberoot-me",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on react, rubiks-cube, speedcubing queries this for how 2017YANR02/cuberoot.me implements it: Modern speedcubing \u2014 Rubik's cube solvers, trainers, WCA stats. All in the browser (selected work: solver, core/packages)",
+ "repos": [
+  {
+   "repo": "cuberoot.me",
+   "url": "https://github.com/2017YANR02/cuberoot.me",
+   "sha": "b95e9e54f0ec68c2763f53ea8efaf8b3c51310c4",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit b95e9e54f0ec: \"Add optimal solver comparison and generalize Rust H48 tiers\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

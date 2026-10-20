@@ -1,0 +1,22 @@
+{
+ "corpus": "saintparish4--openscript",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-safety, guardrails queries this for how saintparish4/openscript implements it: Security gateway for LLM agents. A policy pipeline that blocks prompt injection, redacts PII and secrets, firewalls tool calls and holds ris (selected work: evals, tests, the project root)",
+ "repos": [
+  {
+   "repo": "openscript",
+   "url": "https://github.com/saintparish4/openscript",
+   "sha": "9a890559f2a04d7808db3e7ff0a923a5ee875373",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 9a890559f2a0: \"feat: AgentDojo can be run with a model, and the harness is checked a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

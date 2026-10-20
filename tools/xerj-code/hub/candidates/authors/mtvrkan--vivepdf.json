@@ -1,0 +1,22 @@
+{
+ "corpus": "mtvrkan--vivepdf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on offline, pdf, pdf-editor queries this for how mtvrkan/vivePDF implements it: Open-source, offline PDF studio for Windows and macOS: view, edit, convert, OCR, sign and present PDFs on your own computer. Nothing is uplo (selected work: apps/desktop)",
+ "repos": [
+  {
+   "repo": "vivePDF",
+   "url": "https://github.com/mtvrkan/vivePDF",
+   "sha": "53d41603cbcf8e86502399e59239add897043219",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 53d41603cbcf: \"Only let a picked file's folder take new files, and ask where to save\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

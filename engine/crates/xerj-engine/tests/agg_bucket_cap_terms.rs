@@ -40,7 +40,7 @@
 use serde_json::{json, Value};
 use tempfile::TempDir;
 use xerj_common::config::Config;
-use xerj_common::types::Schema;
+use xerj_common::types::{FieldConfig, FieldType, Schema};
 use xerj_engine::aggs::fast_path_aggs_served;
 use xerj_engine::bulk::process_bulk;
 use xerj_engine::Engine;
@@ -66,9 +66,16 @@ fn ndjson_batch(index: &str, nterms: usize, ids: std::ops::Range<usize>) -> Stri
         out.push_str(&format!(
             "{{\"index\":{{\"_index\":\"{index}\",\"_id\":\"{i}\"}}}}\n"
         ));
-        // `tag` is a plain string field → a keyword doc-values column stored
-        // under the unsuffixed name, which `terms: {field: "tag"}` reads on the
-        // fast path. `i % nterms` gives exactly `nterms` distinct keys.
+        // `tag` is a DECLARED keyword field (see `build_index`) → a keyword
+        // doc-values column stored under the unsuffixed name, which
+        // `terms: {field: "tag"}` reads on the fast path. It is declared rather
+        // than inferred because #1329 made a *dynamically* mapped string a
+        // `text` parent with NO doc-values (only its `.keyword` sub-field keeps
+        // them, matching ES), so an inferred `tag` would have no unsuffixed
+        // column for the fast path to read and every leg would bail to brute —
+        // which would silently defeat this test's whole point (that the cap
+        // binds the *fast* path). `i % nterms` gives exactly `nterms` distinct
+        // keys.
         let tag = i % nterms;
         out.push_str(&format!("{{\"tag\":\"t{tag}\"}}\n"));
     }
@@ -76,7 +83,16 @@ fn ndjson_batch(index: &str, nterms: usize, ids: std::ops::Range<usize>) -> Stri
 }
 
 async fn build_index(engine: &Engine, name: &str, docs: usize, nterms: usize) {
-    engine.create_index(name, Schema::empty()).unwrap();
+    // Declare `tag` as keyword so it owns a doc-values column under its own
+    // unsuffixed name — the column the columnar `exec_terms` fast path reads.
+    // A declared keyword keeps `doc_values = true` (unaffected by #1329, which
+    // only flipped the default for INFERRED `text` parents), so the fast path
+    // engages here exactly as issue #121 requires.
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("tag", FieldType::Keyword));
+    engine.create_index(name, schema).unwrap();
     for start in (0..docs).step_by(1_000) {
         let end = (start + 1_000).min(docs);
         let body = ndjson_batch(name, nterms, start..end);

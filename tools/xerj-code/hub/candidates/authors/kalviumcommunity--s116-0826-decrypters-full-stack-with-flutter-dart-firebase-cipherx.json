@@ -1,0 +1,22 @@
+{
+ "corpus": "kalviumcommunity--s116-0826-decrypters-full-stack-with-flutter-dart-firebase-cipherx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Dart queries this for how kalviumcommunity/S116-0826-Decrypters-Full-Stack-With-Flutter-Dart-Firebase-CipherX implements it: kalviumcommunity/S116-0826-Decrypters-Full-Stack-With-Flutter-Dart-Firebase-CipherX (Dart) (selected work: lib/features, lib/core)",
+ "repos": [
+  {
+   "repo": "S116-0826-Decrypters-Full-Stack-With-Flutter-Dart-Firebase-CipherX",
+   "url": "https://github.com/kalviumcommunity/S116-0826-Decrypters-Full-Stack-With-Flutter-Dart-Firebase-CipherX",
+   "sha": "994eaac1835a7b127f333e53044a782887e8c9a2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 994eaac1835a: \"feat(auth): redesign login screen with pearl surfaces, security capsu\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "ashaffah--edge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on edge-computing, gateway, iiot queries this for how ashaffah/edge implements it: Rust edge agent bridging industrial Modbus (TCP/RTU) PLCs and serial-ASCII weighing scales to MQTT - driven by a single JSON mapping, one to (selected work: src)",
+ "repos": [
+  {
+   "repo": "edge",
+   "url": "https://github.com/ashaffah/edge",
+   "sha": "cd4e51062c2db804f6682f1757a4572af747e0d5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit cd4e51062c2d: \"feat: publish readback state for set and control\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

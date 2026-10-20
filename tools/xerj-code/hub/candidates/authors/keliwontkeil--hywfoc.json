@@ -1,0 +1,22 @@
+{
+ "corpus": "keliwontkeil--hywfoc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bldc, bldc-driver, bldc-motor-controller queries this for how KeliWontKeil/HYWfoc implements it: HYW FOC|\u4f55\u6613\u4f4dFOC\uff1a\u7ed3\u6784\u5316\u3001\u6613\u79fb\u690d\u3001\u9ad8\u5ea6\u81ea\u5b9a\u4e49\u5316\u7684\u9ad8\u6027\u80fd(?)\u65e0\u5237\u7535\u673aFOC\u5e93 (selected work: foc_core, examples)",
+ "repos": [
+  {
+   "repo": "HYWfoc",
+   "url": "https://github.com/KeliWontKeil/HYWfoc",
+   "sha": "9b44b794d15c7bd0f0d9ee543077ec24122c112d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 9b44b794d15c: \"v2.5.1:\u9ad8\u9891\u6ce8\u5165\u4f18\u5316\uff0c\u4ee3\u7801\u7ed3\u6784\u6027\u4f18\u5316\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

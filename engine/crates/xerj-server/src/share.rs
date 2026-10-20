@@ -63,7 +63,7 @@ const TUNNEL_URL_TIMEOUT: Duration = Duration::from_secs(45);
 const TUNNEL_CONNECT_TIMEOUT: Duration = Duration::from_secs(20);
 
 pub fn run_cli() -> i32 {
-    let args: Vec<String> = std::env::args().skip(2).collect();
+    let args: Vec<String> = xerj_common::argv::args_after_subcommand();
     let cfg = match parse(args, std::env::var("XERJ_API_KEY").ok()) {
         Ok(Some(cfg)) => cfg,
         Ok(None) => {
@@ -655,15 +655,17 @@ fn find_cloudflared() -> Option<PathBuf> {
     let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")
         .map(|p| std::env::split_paths(&p).collect())
         .unwrap_or_default();
-    if let Some(home) = std::env::var_os("HOME") {
-        dirs.push(Path::new(&home).join(".local").join("bin"));
+    if let Some(home) = xerj_common::home::home_dir() {
+        dirs.push(home.join(".local").join("bin"));
     }
     dirs.into_iter().map(|d| d.join(exe)).find(|p| p.is_file())
 }
 
 fn default_data_dir() -> PathBuf {
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
-    Path::new(&home).join(".xerj").join("brain")
+    xerj_common::home::home_dir()
+        .unwrap_or_else(|| PathBuf::from("/tmp"))
+        .join(".xerj")
+        .join("brain")
 }
 
 /// `--api-key` / `XERJ_API_KEY` first, then `<data-dir>/admin.key` — the same
@@ -1436,31 +1438,45 @@ impl Tunnel {
 
         let (tx, rx) = mpsc::channel::<TunnelEvent>();
         let log = TunnelLog::default();
-        let mut readers = Vec::new();
         // cloudflared logs to stderr; read stdout too so neither pipe can fill
         // and stall it.
-        if let Some(err) = child.stderr.take() {
-            readers.push(spawn_reader(err, tx.clone(), log.clone()));
-        }
-        if let Some(out) = child.stdout.take() {
-            readers.push(spawn_reader(out, tx.clone(), log.clone()));
-        }
-        // When both pipes close, the process is gone.
-        std::thread::spawn(move || {
-            for r in readers {
-                let _ = r.join();
-            }
-            let _ = tx.send(TunnelEvent::Exited);
-        });
+        let stderr = child.stderr.take();
+        let stdout = child.stdout.take();
 
         // From here on `tunnel` owns the child: every early return below drops
-        // it, and `Drop` closes the tunnel.
+        // it, and `Drop` closes the tunnel — including a failed thread spawn
+        // just below, which must not leave cloudflared running unread.
         let mut tunnel = Tunnel {
             child,
             public_url: String::new(),
             events: rx,
             log,
         };
+        // #1122: `std::thread::spawn` panics when a thread cannot be created,
+        // and the release profile is panic=abort; a failed spawn here fails
+        // the open (falling back to the local link) instead.
+        let spawn_failed =
+            |e: std::io::Error| failed(format!("start a cloudflared log reader thread: {e}"));
+        let mut readers = Vec::new();
+        for pipe in [
+            stderr.map(|p| Box::new(p) as Box<dyn std::io::Read + Send>),
+            stdout.map(|p| Box::new(p) as Box<dyn std::io::Read + Send>),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            readers.push(spawn_reader(pipe, tx.clone(), tunnel.log.clone()).map_err(spawn_failed)?);
+        }
+        // When both pipes close, the process is gone.
+        std::thread::Builder::new()
+            .name("xerj-share-tunnel-wait".into())
+            .spawn(move || {
+                for r in readers {
+                    let _ = r.join();
+                }
+                let _ = tx.send(TunnelEvent::Exited);
+            })
+            .map_err(spawn_failed)?;
         let deadline = std::time::Instant::now() + TUNNEL_URL_TIMEOUT;
         loop {
             if let Some(why) = interrupts.fired() {
@@ -1561,24 +1577,26 @@ fn spawn_reader<R: std::io::Read + Send + 'static>(
     pipe: R,
     tx: mpsc::Sender<TunnelEvent>,
     log: TunnelLog,
-) -> std::thread::JoinHandle<()> {
-    std::thread::spawn(move || {
-        let mut sent_url = false;
-        for line in BufReader::new(pipe).lines() {
-            let Ok(line) = line else { break };
-            remember_tunnel_line(&log, &line);
-            if !sent_url {
-                if let Some(u) = parse_tunnel_url(&line) {
-                    sent_url = true;
-                    let _ = tx.send(TunnelEvent::Url(u));
-                    continue;
+) -> std::io::Result<std::thread::JoinHandle<()>> {
+    std::thread::Builder::new()
+        .name("xerj-share-tunnel-log".into())
+        .spawn(move || {
+            let mut sent_url = false;
+            for line in BufReader::new(pipe).lines() {
+                let Ok(line) = line else { break };
+                remember_tunnel_line(&log, &line);
+                if !sent_url {
+                    if let Some(u) = parse_tunnel_url(&line) {
+                        sent_url = true;
+                        let _ = tx.send(TunnelEvent::Url(u));
+                        continue;
+                    }
+                }
+                if tunnel_line_means_connected(&line) {
+                    let _ = tx.send(TunnelEvent::Connected);
                 }
             }
-            if tunnel_line_means_connected(&line) {
-                let _ = tx.send(TunnelEvent::Connected);
-            }
-        }
-    })
+        })
 }
 
 /// Keep `line` as one of the last [`TUNNEL_LOG_LINES`]; long lines are cut.

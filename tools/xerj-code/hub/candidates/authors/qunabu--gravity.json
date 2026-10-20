@@ -1,0 +1,22 @@
+{
+ "corpus": "qunabu--gravity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how qunabu/Gravity implements it: Gravity \u00b7 Solar System Simulator (selected work: src/scene, src, src/ui)",
+ "repos": [
+  {
+   "repo": "Gravity",
+   "url": "https://github.com/qunabu/Gravity",
+   "sha": "28e912b8f6808a4bf892fa0f1ffacf857b0faa3a",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 28e912b8f680: \"Redraw the Lagrange slide as the effective-potential map\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

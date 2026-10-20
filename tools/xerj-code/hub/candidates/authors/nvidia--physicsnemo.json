@@ -1,0 +1,22 @@
+{
+ "corpus": "nvidia--physicsnemo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on deep-learning, machine-learning, nvidia-gpu queries this for how NVIDIA/physicsnemo implements it: Open-source deep-learning framework for building, training, and fine-tuning deep learning models using state-of-the-art Physics-ML methods (selected work: test, physicsnemo)",
+ "repos": [
+  {
+   "repo": "physicsnemo",
+   "url": "https://github.com/NVIDIA/physicsnemo",
+   "sha": "e424d0eba29735c0393d55ef7ab7d94c81dcf521",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit e424d0eba297: \"Add experimental SMART operator (#2090)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,76 @@
+---
+# Mapping `_source.includes` / `_source.excludes`: the listed paths are left
+# out of the `_source` returned by every read, while the fields stay indexed
+# and searchable. XERJ-authored case (ES semantics: docs `mapping-source-field.html`).
+"mapping _source excludes are not returned but stay searchable":
+  - skip:
+      awaits_fix: "XERJ ignores mapping _source.includes/excludes (fix follows in fix/es-mapping-source-filter)"
+  - do:
+      indices.create:
+        index: test_source_excludes
+        body:
+          mappings:
+            _source:
+              excludes: ["secret", "meta.x"]
+            properties:
+              secret:
+                type: keyword
+
+  - do:
+      index:
+        index: test_source_excludes
+        id: "1"
+        refresh: true
+        body: { "secret": "pw", "a": 1, "meta": { "x": "y", "z": 2 } }
+
+  - do:
+      get:
+        index: test_source_excludes
+        id: "1"
+  - match: { _source.a: 1 }
+  - match: { _source.meta.z: 2 }
+  - is_false: _source.secret
+  - is_false: _source.meta.x
+
+  - do:
+      search:
+        index: test_source_excludes
+        body: { "query": { "term": { "secret": "pw" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._source.a: 1 }
+  - is_false: hits.hits.0._source.secret
+  - is_false: hits.hits.0._source.meta.x
+
+---
+"mapping _source includes keep only the listed paths":
+  - skip:
+      awaits_fix: "XERJ ignores mapping _source.includes/excludes (fix follows in fix/es-mapping-source-filter)"
+  - do:
+      indices.create:
+        index: test_source_includes
+        body:
+          mappings:
+            _source:
+              includes: ["keep*"]
+
+  - do:
+      index:
+        index: test_source_includes
+        id: "1"
+        refresh: true
+        body: { "keep_me": "a", "drop_me": "b" }
+
+  - do:
+      get:
+        index: test_source_includes
+        id: "1"
+  - match: { _source.keep_me: "a" }
+  - is_false: _source.drop_me
+
+  - do:
+      search:
+        index: test_source_includes
+        body: { "query": { "match": { "drop_me": "b" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._source.keep_me: "a" }
+  - is_false: hits.hits.0._source.drop_me

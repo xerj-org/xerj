@@ -1,0 +1,22 @@
+{
+ "corpus": "tahjibnil75--watchly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on alerting, devops, docker queries this for how TahjibNil75/watchly implements it: Self-hosted uptime monitoring for teams: HTTP, ping and DNS checks with alerts by email, Slack, Telegram, WhatsApp and webhook (selected work: app/monitoring, frontend, the project root)",
+ "repos": [
+  {
+   "repo": "watchly",
+   "url": "https://github.com/TahjibNil75/watchly",
+   "sha": "78a1d6a6d5e05bf7bffaf84e9e2793407f013cd2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 78a1d6a6d5e0: \"feat: added setup checklist\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

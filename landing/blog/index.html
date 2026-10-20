@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XERJ.ai — Blog: the engineering log</title>
-<meta name="description" content="Measured results with the losses left in: the rc.80 gates post, the Jev decisions study, the JEV rerank verdict, the storage formats that cut the index 28%, and the signed rust-vulns corpus pack.">
+<meta name="description" content="Measured results with the losses left in: the exploit hub tested on three fresh CVEs, guest eval scars from a production agent-memory system, the Corpus Hub launch, the rc.80 gates post, the Jev decisions study, the JEV rerank verdict, the storage formats that cut the index 28%, and the signed rust-vulns corpus pack.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -16,7 +16,7 @@
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="website">
 <meta property="og:title" content="XERJ.ai — Blog: the engineering log">
-<meta property="og:description" content="Measured results with the losses left in: the rc.80 gates post, the Jev decisions study, the JEV rerank verdict, the storage formats that cut the index 28%, and the signed rust-vulns corpus pack.">
+<meta property="og:description" content="Measured results with the losses left in: the exploit hub tested on three fresh CVEs, guest eval scars from a production agent-memory system, the Corpus Hub launch, the rc.80 gates post, the Jev decisions study, the JEV rerank verdict, the storage formats that cut the index 28%, and the signed rust-vulns corpus pack.">
 <meta property="og:url" content="https://xerj.org/blog/">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
 <meta property="og:image:width" content="1200">
@@ -25,7 +25,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="XERJ.ai — Blog: the engineering log">
-<meta name="twitter:description" content="Measured results with the losses left in: the rc.80 gates post, the Jev decisions study, the JEV rerank verdict, the storage formats that cut the index 28%, and the signed rust-vulns corpus pack.">
+<meta name="twitter:description" content="Measured results with the losses left in: the exploit hub tested on three fresh CVEs, guest eval scars from a production agent-memory system, the Corpus Hub launch, the rc.80 gates post, the Jev decisions study, the JEV rerank verdict, the storage formats that cut the index 28%, and the signed rust-vulns corpus pack.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
 {
@@ -59,7 +59,7 @@
   "@context": "https://schema.org",
   "@type": "CollectionPage",
   "name": "XERJ.ai — Blog: the engineering log",
-  "description": "Measured results with the losses left in: the rc.80 gates post, the Jev decisions study, the JEV rerank verdict, the storage formats that cut the index 28%, and the signed rust-vulns corpus pack.",
+  "description": "Measured results with the losses left in: the exploit hub tested on three fresh CVEs, guest eval scars from a production agent-memory system, the Corpus Hub launch, the rc.80 gates post, the Jev decisions study, the JEV rerank verdict, the storage formats that cut the index 28%, and the signed rust-vulns corpus pack.",
   "url": "https://xerj.org/blog/",
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
@@ -109,7 +109,10 @@
   <a href="/docs/">DOCS</a>
   <a href="/docs/recipes/">RECIPES</a>
   <a href="/playground">DASHBOARDS</a>
+  <a href="https://hub.xerj.org" rel="external">HUB</a>
   <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
+  <a href="https://x.com/xerj_org" rel="external" title="XERJ on X" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+  <a href="https://discord.com/invite/yetXFusXfs" rel="external" title="XERJ on Discord" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.79 19.79 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.74 19.74 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.1 13.1 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.3 12.3 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.84 19.84 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
   <span class="theme"><button type="button" data-theme="day" class="active">DAY</button><span class="dash">·</span><button type="button" data-theme="night">NIGHT</button></span>
 </nav>
 
@@ -126,6 +129,142 @@
   <!-- Reverse-chronological by hand while there is one post; new posts PREPEND.
        Move to a generator only past ~10 posts. -->
   <ol class="blog-list">
+    <li>
+      <a class="bl-card" href="/blog/the-exploit-hub">
+        <!-- A/B eval, sealed ground truth: every figure from the run log
+             (/root/eval-holdout/EVAL-REPORT.md). Bars share one
+             denominator per row; the adds-~0 case is counted, not
+             dropped. -->
+        <div class="bl-preview" aria-hidden="true">
+          <div class="blp-kicker">CYBER-EXPLOITS CORPUS · A/B EVAL · SEALED TRUTH · 3 FRESH CVES</div>
+          <div class="blp-row">
+            <div class="blp-ds">NEEDLE POCS</div>
+            <div class="blp-pair">
+              <span class="blp-num">16 <i>needle docs, top 27</i></span><span class="blp-bar a" style="width:59.3%"></span>
+              <span class="blp-num">0 <i>shipped client, same query</i></span><span class="blp-bar b" style="width:1%"></span>
+            </div>
+          </div>
+          <div class="blp-row">
+            <div class="blp-ds">COST</div>
+            <div class="blp-pair">
+              <span class="blp-num">23 s <i>1.09M docs, cited</i></span><span class="blp-bar a" style="width:100%"></span>
+              <span class="blp-num">2.1 s <i>clone+grep, repos known</i></span><span class="blp-bar b" style="width:9.1%"></span>
+            </div>
+          </div>
+          <div class="blp-row">
+            <div class="blp-ds">TALLY</div>
+            <div class="blp-pair">
+              <span class="blp-num">2 of 3 attribution <span class="blp-chip">1 of 3 patch</span></span><span class="blp-bar a" style="width:66.7%"></span>
+              <span class="blp-num">1 adds ~0 <i>counted</i></span><span class="blp-bar b" style="width:33.3%"></span>
+            </div>
+          </div>
+          <p class="blp-foot">group 37.6 GB · exploit-pocs 1,093,749 docs · eval caught client defect #1238</p>
+        </div>
+        <div class="bl-meta">
+          <p class="bl-date"><time datetime="2026-10-08">2026-10-08</time> · CYBER-EXPLOITS CORPUS · EVAL</p>
+          <h2 class="bl-title">The exploit hub, tested on three fresh CVEs</h2>
+          <p class="bl-excerpt">One query over 1.09 million PoC documents named the exact route and field for CVE-2026-23744; an in-corpus 2026 exploit named the exact denylist segments the vendor shipped for CVE-2026-105844; the third case proved the corpus adds nothing when its stratum is empty, and we count it. The vendor patch beat both arms on the needle, the eval caught a live client defect, and the losses are in the tables.</p>
+          <p class="bl-byline">AUTHOR · XERJ ENGINEERING · PUBLISHED · 2026-10-08</p>
+          <span class="bl-read">READ THE POST &rarr;</span>
+        </div>
+      </a>
+    </li>
+    <li>
+      <a class="bl-card" href="/blog/eval-scars-from-agent-memory">
+        <!-- Guest post: every figure is Chunxiao Wang's, from issues
+             #1118/#1138; the only XERJ-side number is the §05 registry
+             count (0 of 99 live + 0 of 132 backlog, validate_hub.py
+             2026-10-07). Bars share one denominator per row. -->
+        <div class="bl-preview" aria-hidden="true">
+          <div class="blp-kicker">GUEST · AGENT MEMORY · RETRIEVAL EVAL · ISSUES #1118 + #1138</div>
+          <div class="blp-row">
+            <div class="blp-ds">EMBEDDER BAKEOFF</div>
+            <div class="blp-pair">
+              <span class="blp-num">+0.46pt <i>MTEB pick, r@5</i></span><span class="blp-bar b" style="width:14.4%"></span>
+              <span class="blp-num">+2.75pt <i>incumbent, r@1 zh</i></span><span class="blp-bar a" style="width:85.7%"></span>
+            </div>
+          </div>
+          <div class="blp-row">
+            <div class="blp-ds">THE BASELINE</div>
+            <div class="blp-pair">
+              <span class="blp-num">0.87 <i>classifier</i></span><span class="blp-bar a" style="width:100%"></span>
+              <span class="blp-num">0.78 <i>always-yes, n=60</i></span><span class="blp-bar b" style="width:89.7%"></span>
+            </div>
+          </div>
+          <div class="blp-row">
+            <div class="blp-ds">UNPAIRED VS PAIRED</div>
+            <div class="blp-pair">
+              <span class="blp-num">4&times; <i>overstated</i></span><span class="blp-bar b" style="width:100%"></span>
+              <span class="blp-num">1&times; <i>McNemar</i></span><span class="blp-bar a" style="width:25%"></span>
+            </div>
+          </div>
+          <p class="blp-foot">0 of 99 live corpora are agent trajectories · the gap, checked and confirmed</p>
+        </div>
+        <div class="bl-meta">
+          <p class="bl-date"><time datetime="2026-10-07">2026-10-07</time> · GUEST · AGENT MEMORY · EVAL</p>
+          <h2 class="bl-title">Six eval scars from a production agent-memory system</h2>
+          <p class="bl-excerpt">We asked practitioners what agents still miss. Chunxiao Wang (Assay /
+          nautilus-compass) answered with six patterns that each cost a real failure: topic slicing that beat
+          token windows on <strong>recall@1 by double digits</strong> and reversed two embedders' MTEB ranking;
+          a <strong>0.87</strong> classifier a <strong>0.78 always-yes</strong> baseline nearly matched at n=60;
+          the masking bug that scores every query zero; and the paired-vs-unpaired read that overstated an
+          effect <strong>4&times;</strong>. Their price was an honest answer to where our corpus registry is
+          thin against their workload. We checked: <strong>zero</strong> of 99 live corpora are agent
+          trajectories, and our chunking is the wrong shape for topic-sliced session memory. The want now has
+          a named backlog slot.</p>
+          <p class="bl-byline">GUEST · CHUNXIAO WANG, ASSAY / NAUTILUS-COMPASS · PUBLISHED · 2026-10-07</p>
+          <span class="bl-read">READ THE POST &rarr;</span>
+        </div>
+      </a>
+    </li>
+    <li>
+      <a class="bl-card" href="/blog/the-corpus-hub">
+        <!-- Bars share one denominator per row (that row's max). Neutral bar =
+             the plain arm / native baseline, accent bar = the corpus arm.
+             Figures verbatim from the post and its sources: reference-coding
+             case study 26,477 vs 9,982 median output tokens / $3.27 vs $1.58;
+             A/B audit 13 vs 16 dynamically confirmed, 1 FP vs 0, and the row
+             that decided the verdict — 0 findings traceable to the corpus. -->
+        <div class="bl-preview" aria-hidden="true">
+          <div class="blp-kicker">CORPUS HUB · PINNED · LICENCED · SIGNED · OPEN PRS</div>
+          <div class="blp-row">
+            <div class="blp-ds">REFCODING OUT TOK</div>
+            <div class="blp-pair">
+              <span class="blp-num">26,477 <i>native</i></span><span class="blp-bar b" style="width:100%"></span>
+              <span class="blp-num">9,982 <i>retrieval</i> <span class="blp-chip">2.7&times;</span></span><span class="blp-bar a" style="width:37.7%"></span>
+            </div>
+          </div>
+          <div class="blp-row">
+            <div class="blp-ds">COST / 16 TASKS</div>
+            <div class="blp-pair">
+              <span class="blp-num">$3.27 <i>native</i></span><span class="blp-bar b" style="width:100%"></span>
+              <span class="blp-num">$1.58 <i>retrieval</i> <span class="blp-chip">2.1&times;</span></span><span class="blp-bar a" style="width:48.3%"></span>
+            </div>
+          </div>
+          <div class="blp-row">
+            <div class="blp-ds">SECURITY A/B</div>
+            <div class="blp-pair">
+              <span class="blp-num">13 + 1 FP <i>plain</i></span><span class="blp-bar b" style="width:81%"></span>
+              <span class="blp-num">16 + 0 FP <i>corpus</i></span><span class="blp-bar a" style="width:100%"></span>
+            </div>
+          </div>
+          <p class="blp-foot">4 reference corpora + 1 signed pack · 0 corpus-traceable findings · the tie, published</p>
+        </div>
+        <div class="bl-meta">
+          <p class="bl-date"><time datetime="2026-10-01">2026-10-01</time> · CORPUS HUB · AGENT CONTEXT</p>
+          <h2 class="bl-title">The Corpus Hub: pinned, licenced, signed, and contributed by pull request</h2>
+          <p class="bl-excerpt">Agent context is everyone's private plumbing: unknown vintage, unknown
+          licence, no checksum, no signature. The Corpus Hub makes it a registry — four reference
+          corpora and a signed daily pack, every source pinned to the SHA the build used and
+          licence-reviewed by a human. The measured use case: same <strong>16/16</strong> solve rate at
+          <strong>2.7&times; fewer output tokens</strong>. And the experiment we did not want: our own
+          security A/B <strong>tied</strong> — <strong>zero</strong> findings traceable to the corpus &mdash;
+          so the hub ships with that row in the table and a code-shaped pack as its roadmap.</p>
+          <p class="bl-byline">AUTHOR · XERJ ENGINEERING TEAM · PUBLISHED · 2026-10-01</p>
+          <span class="bl-read">READ THE POST &rarr;</span>
+        </div>
+      </a>
+    </li>
     <li>
       <a class="bl-card" href="/blog/the-rc80-gates">
         <!-- Bar widths are normalized WITHIN each row against that row's own
@@ -428,7 +567,7 @@
 </nav>
 <!-- seo:footer-end -->
 <footer class="footer">
-  <span>XERJ.AI · V1.0.0-RC.80 · 2026</span>
+  <span>XERJ.AI · V1.0.0-RC.96 · 2026</span>
   <span>SEARCH FOR THE AGENT ERA</span>
   <span><a href="/product">PRODUCT</a> · <a href="/docs/">DOCS</a> · <a href="/brand">BRAND</a> · <a href="/playground">DASHBOARDS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
 </footer>

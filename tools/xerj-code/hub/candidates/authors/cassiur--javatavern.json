@@ -1,0 +1,22 @@
+{
+ "corpus": "cassiur--javatavern",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on android, character-chat, java queries this for how Cassiur/JavaTavern implements it: Local-first Android character chat - SillyTavern card import, OpenAI-compatible models, private on-device storage (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "JavaTavern",
+   "url": "https://github.com/Cassiur/JavaTavern",
+   "sha": "7c095cfa4dec8dcb6c69e209296fa15ceea32bab",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 7c095cfa4dec: \"feat: \u5907\u7528\u5f00\u573a\u767d\u548c\u793a\u4f8b\u5bf9\u8bdd\u652f\u6301\uff08Phase 1.4 + 1.5\uff09\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

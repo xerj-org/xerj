@@ -1,0 +1,22 @@
+{
+ "corpus": "abhishek944--pi-herdr-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how abhishek944/pi-herdr-skills implements it: Reusable global Pi skills for Herdr-backed planning, implementation, and review (selected work: skills, the project root)",
+ "repos": [
+  {
+   "repo": "pi-herdr-skills",
+   "url": "https://github.com/abhishek944/pi-herdr-skills",
+   "sha": "8d387d3ccd9358a1de74243a7b29c81c51a1f31f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8d387d3ccd93: \"feat: add multi-select interviews and UI/UX testing skill\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "the-pr-agent--pr-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on openai, pull-request, code-review queries this for how The-PR-Agent/pr-agent implements it: \ud83d\ude80 PR Agent: The Original Open-Source PR Reviewer. This project is not the Qodo free tier (selected work: tests, pr_agent)",
+ "repos": [
+  {
+   "repo": "pr-agent",
+   "url": "https://github.com/The-PR-Agent/pr-agent",
+   "sha": "9cc928cd4729c5dde6b7aaea3aa5d445de2d9f28",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 9cc928cd4729: \"fix: redact CI artifact credentials before prompt injection (#3989)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

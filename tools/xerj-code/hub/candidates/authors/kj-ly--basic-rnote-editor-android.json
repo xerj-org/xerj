@@ -1,0 +1,22 @@
+{
+ "corpus": "kj-ly--basic-rnote-editor-android",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how KJ-Ly/Basic-Rnote-editor-Android implements it: KJ-Ly/Basic-Rnote-editor-Android (Kotlin) (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "Basic-Rnote-editor-Android",
+   "url": "https://github.com/KJ-Ly/Basic-Rnote-editor-Android",
+   "sha": "e2373c9a0aaacefb6ca4cd1ce4ad1d250fad9568",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e2373c9a0aaa: \"Recent notes; page overview with thumbnails\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

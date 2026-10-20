@@ -1,0 +1,22 @@
+{
+ "corpus": "bitmapasset--probbit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on constraint-satisfaction, decision-making, gibbs-sampling queries this for how BitmapAsset/probbit implements it: probbit \u2014 the p-bit processor your agents decide on: every rule kept by construction, exact odds for every part, and a refusal when it can't (selected work: probbit-cli, examples, probbit-ir)",
+ "repos": [
+  {
+   "repo": "probbit",
+   "url": "https://github.com/BitmapAsset/probbit",
+   "sha": "da7e3a95eb837f95443dbda2cfe8353f745a56c1",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit da7e3a95eb83: \"Harden CLI, agent contracts, processor bounds, and installers (#26)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

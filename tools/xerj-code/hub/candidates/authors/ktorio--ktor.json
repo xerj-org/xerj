@@ -1,0 +1,22 @@
+{
+ "corpus": "ktorio--ktor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on kotlin, web-framework, asynchronous queries this for how ktorio/ktor implements it: Framework for quickly creating connected applications in Kotlin with minimal effort (selected work: ktor-client, ktor-http)",
+ "repos": [
+  {
+   "repo": "ktor",
+   "url": "https://github.com/ktorio/ktor",
+   "sha": "4717dd5fe8270a40fc97ba0b03bb63f722717786",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 4717dd5fe827: \"KTOR-9805 use in cookies a custom expires parser  (#5878)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

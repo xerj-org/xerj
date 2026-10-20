@@ -1,0 +1,22 @@
+{
+ "corpus": "rishiiicreates--rawfy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how rishiiicreates/rawfy implements it: Universal web perception skill for AI agents \u2014 converts any URL into structured, agent-readable content with described images, transcribed v (selected work: python, crates/rawfy-core, crates/rawfy-cli)",
+ "repos": [
+  {
+   "repo": "rawfy",
+   "url": "https://github.com/rishiiicreates/rawfy",
+   "sha": "53bb1390a946533379def176a9636b6956c5ae5b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 53bb1390a946: \"feat: resolve word count inflation, github diff formatting, wikipedia\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

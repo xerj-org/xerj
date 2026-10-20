@@ -1,0 +1,22 @@
+{
+ "corpus": "ra1nm4ker--agent-relay",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, anthropic, claude-code queries this for how RA1NM4KER/agent-relay implements it: Keep Claude Code and Codex sessions moving when one account hits its usage limit \u2014 safe, transactional handoff across isolated profiles (selected work: crates/relay-provider-claude, crates/relay-cli)",
+ "repos": [
+  {
+   "repo": "agent-relay",
+   "url": "https://github.com/RA1NM4KER/agent-relay",
+   "sha": "d8f66ea44edd39a86982bde7dbd067d2bdcccb33",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit d8f66ea44edd: \"feat(claude): preserve opt-in profile status lines\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

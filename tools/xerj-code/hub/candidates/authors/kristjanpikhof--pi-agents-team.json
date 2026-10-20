@@ -1,0 +1,22 @@
+{
+ "corpus": "kristjanpikhof--pi-agents-team",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on addon, agent, agents queries this for how KristjanPikhof/Pi-Agents-Team implements it: Pi extension that turns one coding session into a multi-agent team with background RPC worker agents (selected work: src/ui, tests)",
+ "repos": [
+  {
+   "repo": "Pi-Agents-Team",
+   "url": "https://github.com/KristjanPikhof/Pi-Agents-Team",
+   "sha": "eb651973bc598a089ee543a164ca29f6cc702893",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit eb651973bc59: \"Improve dashboard navigation and layouts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

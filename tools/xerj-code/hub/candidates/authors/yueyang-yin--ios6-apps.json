@@ -1,0 +1,22 @@
+{
+ "corpus": "yueyang-yin--ios6-apps",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Swift queries this for how yueyang-yin/ios6-apps implements it: Classic iOS 6 apps, rebuilt with SwiftUI (selected work: apps/passbook, iOS6Apps.xcworkspace)",
+ "repos": [
+  {
+   "repo": "ios6-apps",
+   "url": "https://github.com/yueyang-yin/ios6-apps",
+   "sha": "bc089bb9fdc2d8f0cdaa6ec61afb0918d8a12283",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit bc089bb9fdc2: \"Add Passbook to the iOS 6 apps workspace\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "steventimes--fpstreams",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on functional-programming, python, data-processing queries this for how steventimes/fpstreams implements it: Lazy Python pipelines for iterables and records, with bounded async concurrency (selected work: tests, src/fpstreams, benchmarks)",
+ "repos": [
+  {
+   "repo": "fpstreams",
+   "url": "https://github.com/steventimes/fpstreams",
+   "sha": "d5d189faf202d6ee8e526c745794db1785c66df6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit d5d189faf202: \"functionality optimization\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "lucasdillmann--nginx-ignition",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on golang, nginx, nginx-proxy queries this for how lucasdillmann/nginx-ignition implements it: An user interface for the nginx web server, aimed at developers and enthusiasts that don't want to manage configuration files manually (selected work: internal/business, internal/api, internal/database)",
+ "repos": [
+  {
+   "repo": "nginx-ignition",
+   "url": "https://github.com/lucasdillmann/nginx-ignition",
+   "sha": "5599cfe7e04f7c615a9f67d1ae953436cbf6ac90",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 5599cfe7e04f: \"Improvements in how the JWT secret is retrieved and used (#154)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

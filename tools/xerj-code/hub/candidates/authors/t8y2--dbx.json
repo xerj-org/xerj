@@ -1,0 +1,22 @@
+{
+ "corpus": "t8y2--dbx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on clickhouse, database, database-client queries this for how t8y2/dbx implements it: 25 MB lightweight cross-platform database client for 100+ databases, including MySQL, PostgreSQL, SQLite, Redis, MongoDB, DuckDB, SQL Server (selected work: apps/desktop, crates/dbx-core, crates/dbx-sql-core)",
+ "repos": [
+  {
+   "repo": "dbx",
+   "url": "https://github.com/t8y2/dbx",
+   "sha": "36aa8425e6fc93f3bbcf9bb0747626a213eabe53",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 36aa8425e6fc: \"fix(safety): scan Oracle alternative-quoted strings in all safety sca\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

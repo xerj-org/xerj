@@ -1,0 +1,22 @@
+{
+ "corpus": "drive9-ai--drive9-pi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how drive9-ai/drive9-pi implements it: drive9-ai/drive9-pi (TypeScript) (selected work: src/storage, test, src)",
+ "repos": [
+  {
+   "repo": "drive9-pi",
+   "url": "https://github.com/drive9-ai/drive9-pi",
+   "sha": "10bf226964911c41f7b57d41bde37d7921d12d2d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 10bf22696491: \"feat(storage): add cooperative CAS lease preview (#28)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

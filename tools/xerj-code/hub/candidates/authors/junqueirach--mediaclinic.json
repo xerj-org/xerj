@@ -1,0 +1,22 @@
+{
+ "corpus": "junqueirach--mediaclinic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-assisted-development, claude, kodi queries this for how junqueirach/mediaclinic implements it: Library health tool for Plex, Kodi, Emby and Jellyfin users: scan an offline movie library, validate NFO/XML metadata and artwork, normalise (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "mediaclinic",
+   "url": "https://github.com/junqueirach/mediaclinic",
+   "sha": "c308d07c6b4fc442309dcabf85d7fd60ac5ea7c3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit c308d07c6b4f: \"MediaClinic v0.18.3: export, faster scans, Windows build, docs and im\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

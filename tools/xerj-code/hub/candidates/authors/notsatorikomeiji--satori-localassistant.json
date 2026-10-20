@@ -1,0 +1,22 @@
+{
+ "corpus": "notsatorikomeiji--satori-localassistant",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on automation, desktop-assistant, local-first queries this for how NotSatoriKomeiji/Satori_LocalAssistant implements it: (Cyber)Satori\uff08\u8d5b\u535a\u89c9\u5996\u602a\uff09\u662f\u4e00\u6b3e\u672c\u5730\u4f18\u5148\u7684 Windows \u684c\u9762\u52a9\u624b\uff0c\u652f\u6301\u4f7f\u7528\u4e60\u60ef\u5b66\u4e60\u3001\u5e38\u7528\u5e94\u7528\u63a8\u8350\u3001\u5feb\u901f\u8bcd\u8f93\u5165\u3001\u97f3\u91cf\u4e0e\u5916\u63a5\u663e\u793a\u5668\u4eae\u5ea6\u8c03\u8282\u3002\u57fa\u7840\u529f\u80fd\u65e0\u9700 API\uff1b\u53ef\u9009 AI \u63a5\u53e3\u7528\u4e8e\u8f85\u52a9\u5206\u6790\u964c\u751f\u60c5\u51b5\uff0c\u7ecf\u7528\u6237\u786e\u8ba4\u7684\u7ecf\u9a8c\u4fdd\u5b58\u5728\u672c\u5730\u5e76\u590d\u7528\u3002(\u6682\u65f6\u7ef4\u4fee\u4e2d\uff0c\u76ee\u524d\u53d1\u73b0\u4e86\u4e00\u4e2a\u957f\u671f (selected work: src-tauri, crates/habitos-core, tests)",
+ "repos": [
+  {
+   "repo": "Satori_LocalAssistant",
+   "url": "https://github.com/NotSatoriKomeiji/Satori_LocalAssistant",
+   "sha": "607044fd9c5032b40094849813af5e1a3159f68c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 607044fd9c50: \"\u4fee\u6b63\u4e86\u4e00\u4e9bbug\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

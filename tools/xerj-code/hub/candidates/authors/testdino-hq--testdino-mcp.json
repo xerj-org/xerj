@@ -1,0 +1,22 @@
+{
+ "corpus": "testdino-hq--testdino-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how testdino-hq/testdino-mcp implements it: A MCP server that bridges TestDino with AI agents such as Cursor and Claude. Navigate test results, analyze failures, and manage test cases  (selected work: src/tools, src, src/lib)",
+ "repos": [
+  {
+   "repo": "testdino-mcp",
+   "url": "https://github.com/testdino-hq/testdino-mcp",
+   "sha": "6a524f9a0d73768e31d5424e16603cb73e35dd4a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 6a524f9a0d73: \"feat: get_org_details, get_project_details, get_pull_requests \u2014 v2.2.\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

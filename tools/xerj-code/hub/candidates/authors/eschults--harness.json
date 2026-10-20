@@ -1,0 +1,22 @@
+{
+ "corpus": "eschults--harness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude queries this for how Eschults/harness implements it: Hand the heavy lifting of building to Claude. Your engineers set direction and review, the harness does the rest (selected work: bin)",
+ "repos": [
+  {
+   "repo": "harness",
+   "url": "https://github.com/Eschults/harness",
+   "sha": "2d727e94d659bae927993a24eb5acd87db2df89f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 2d727e94d659: \"Feat: run each repo's pinned CLI version (#80)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

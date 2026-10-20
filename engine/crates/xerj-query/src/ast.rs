@@ -471,6 +471,11 @@ pub enum QueryNode {
         lt: Option<serde_json::Value>,
         #[serde(skip_serializing_if = "Option::is_none")]
         boost: Option<f32>,
+        /// #1284: true only for a range lowered from a `query_string` that is
+        /// effectively lenient (see `Match::lenient`). The `range` DSL clause
+        /// has no `lenient` option in ES, so a parsed `range` is always strict.
+        #[serde(default, skip_serializing_if = "is_false")]
+        lenient: bool,
     },
 
     /// Prefix match on a keyword field.
@@ -538,6 +543,12 @@ pub enum QueryNode {
         boost: Option<f32>,
         #[serde(skip_serializing_if = "Option::is_none")]
         minimum_should_match: Option<MinShouldMatch>,
+        /// ES `lenient` (#1284): when true, a value this field's type cannot
+        /// parse (`"abc"` on a `long`) matches nothing instead of failing the
+        /// query. The parser sets the *effective* value: explicit `lenient`, or
+        /// `true` when the clause targeted every field (`*`), as ES defaults it.
+        #[serde(default, skip_serializing_if = "is_false")]
+        lenient: bool,
     },
 
     /// Ordered phrase match with optional slop. `slop` is Lucene
@@ -553,6 +564,12 @@ pub enum QueryNode {
         analyzer: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         boost: Option<f32>,
+        /// ES `lenient` (#1284): when true, a value this field's type cannot
+        /// parse (`"abc"` on a `long`) matches nothing instead of failing the
+        /// query. The parser sets the *effective* value: explicit `lenient`, or
+        /// `true` when the clause targeted every field (`*`), as ES defaults it.
+        #[serde(default, skip_serializing_if = "is_false")]
+        lenient: bool,
     },
 
     /// Full-text query across multiple fields simultaneously.
@@ -577,6 +594,12 @@ pub enum QueryNode {
         /// terms the trailing prefix may expand to (ES default 50).
         #[serde(default = "default_max_expansions")]
         max_expansions: u32,
+        /// ES `lenient` (#1284): when true, a value this field's type cannot
+        /// parse (`"abc"` on a `long`) matches nothing instead of failing the
+        /// query. The parser sets the *effective* value: explicit `lenient`, or
+        /// `true` when the clause targeted every field (`*`), as ES defaults it.
+        #[serde(default, skip_serializing_if = "is_false")]
+        lenient: bool,
     },
 
     /// Lucene query-string syntax (e.g. `"title:(foo AND bar) OR body:baz"`).
@@ -1383,6 +1406,12 @@ pub struct HighlightRequest {
     /// Number of fragments to return per field (default 5).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub number_of_fragments: Option<usize>,
+
+    /// ES `require_field_match` (default `true`): when a field PATTERN such
+    /// as `"*"` is expanded, keep only the fields the query actually targets.
+    /// `false` keeps every matching text/keyword field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub require_field_match: Option<bool>,
 }
 
 /// Per-field highlight options (can override the top-level defaults).

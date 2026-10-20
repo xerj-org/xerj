@@ -1,0 +1,22 @@
+{
+ "corpus": "ajambla--apiweaver-autonomous-multi-agent-api-integration-platform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on fastapi, langgraph, multi-agent queries this for how AJambla/APIWeaver-Autonomous-Multi-Agent-API-Integration-Platform implements it: Autonomous multi-agent platform powered by LangGraph that ingests OpenAPI, Postman, & documentation to generate production-ready SDKs, FastA (selected work: backend)",
+ "repos": [
+  {
+   "repo": "APIWeaver-Autonomous-Multi-Agent-API-Integration-Platform",
+   "url": "https://github.com/AJambla/APIWeaver-Autonomous-Multi-Agent-API-Integration-Platform",
+   "sha": "2a3dda0038982005db86b787dfcac7ff722a8a15",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 2a3dda003898: \"test(e2e): add end-to-end integration smoke test for FastMCP generati\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "mdsaifff--airquery",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how mdsaifff/airquery implements it: Explore 3D datasets with hand gestures and voice: MediaPipe hands, an LLM that fills a typed query spec, DuckDB-Wasm and three.js (selected work: web)",
+ "repos": [
+  {
+   "repo": "airquery",
+   "url": "https://github.com/mdsaifff/airquery",
+   "sha": "1c2dce254d9edb351e10efa8d6054eae951df837",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 1c2dce254d9e: \"feat(interaction): switch scenes by pointing at a name and pinching\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

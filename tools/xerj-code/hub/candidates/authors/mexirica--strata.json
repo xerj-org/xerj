@@ -1,0 +1,22 @@
+{
+ "corpus": "mexirica--strata",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how mexirica/strata implements it: A Content-Addressed Storage (CAS), evolving towards a hybrid distributed architecture (selected work: internal/cli, the project root, cmd/cli)",
+ "repos": [
+  {
+   "repo": "strata",
+   "url": "https://github.com/mexirica/strata",
+   "sha": "c42e18da98daf4a9b683ff3c4b9af6530d623e92",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit c42e18da98da: \"Add cli entry point, docs and pipeline\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

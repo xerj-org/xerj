@@ -137,7 +137,7 @@ usage, an unreachable node, or the 30-day staleness refusal.
 `rrf=<0.1234>`), `@no q="<query>" why=no-match-in-corpus` for a miss, and
 `@mode <arms-ran note>` for the hybrid/semantic note line.
 
-Agents without a shell get the same pipeline as the eleventh MCP tool,
+Agents without a shell get the same pipeline as an MCP tool,
 `xerj_code_search` (`xerj mcp`) — byte-identical text, with refusals mapped to
 `isError: true`, a no-match mapped to `isError: false`, and an optional
 `licence_policy: "strict"` that strips passage text from restricted-licence
@@ -150,7 +150,7 @@ The contracts live where the code lives, gated by scoped cargo tests (run from
 
 ```sh
 cargo test --profile ci-test -p xerj-common xccode    # staleness, licences, exit triangle, hybrid shape, passages, ledger
-cargo test --profile ci-test -p xerj-autoindex xc_    # corpus lifecycle, path gate, usage
+cargo test --profile ci-test -p xerj-autoindex xc::   # corpus lifecycle, path gate, usage
 cargo test --profile ci-test -p xerj-mcp              # tool schema presence + isError mapping
 cargo test --profile ci-test -p xerj-common xccode::manifest   # hub manifests pass the untrusted-input gate
 ```

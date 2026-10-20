@@ -1,0 +1,22 @@
+{
+ "corpus": "aboerzel--industrial-ai-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how aboerzel/industrial-ai-agent implements it: Industrial AI agent reference architecture with secure model routing, MCP/MHS tools, RLS, HITL, observability and root-cause analysis (selected work: tests, frontend, src/industrial_ai_agent)",
+ "repos": [
+  {
+   "repo": "industrial-ai-agent",
+   "url": "https://github.com/aboerzel/industrial-ai-agent",
+   "sha": "372041045c61f07f67efbe38fd754a5874f3d278",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 372041045c61: \"feat(ui): move demo identity controls into account header\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "zyuzka--hats",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Swift queries this for how zyuzka/hats implements it: Put on the account Claude Code uses (selected work: Tests, Sources)",
+ "repos": [
+  {
+   "repo": "hats",
+   "url": "https://github.com/zyuzka/hats",
+   "sha": "e568d7e3b2963bb9a48ab6799e6d0ae7940c6f1e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit e568d7e3b296: \"[KEYCHAIN SEAM] put the switch path's five outside systems behind clo\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

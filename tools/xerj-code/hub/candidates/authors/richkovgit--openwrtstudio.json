@@ -1,0 +1,22 @@
+{
+ "corpus": "richkovgit--openwrtstudio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on dotnet, forkop, luci queries this for how RichkovGit/OpenWrtStudio implements it: Modern desktop control center, diagnostics, ForkOP/VPN manager & live monitoring suite for OpenWrt routers (.NET 8 WPF) (selected work: Services, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "OpenWrtStudio",
+   "url": "https://github.com/RichkovGit/OpenWrtStudio",
+   "sha": "dbdc3f4cc4cfeb9ad2bc2421bd63e968314e5926",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit dbdc3f4cc4cf: \"feat: start minimized to system tray, comprehensive defensive shell s\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

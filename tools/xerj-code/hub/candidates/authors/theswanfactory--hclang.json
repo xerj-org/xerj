@@ -1,0 +1,22 @@
+{
+ "corpus": "theswanfactory--hclang",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on html, markup-language, maml queries this for how TheSwanFactory/hclang implements it: Homoiconic C - a universal data format for computation (selected work: experiments)",
+ "repos": [
+  {
+   "repo": "hclang",
+   "url": "https://github.com/TheSwanFactory/hclang",
+   "sha": "a8641b2c279999e0eae4a511bd48f6ed01e87991",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit a8641b2c2799: \"Run the classical Cayley\u2013Dickson lane in HC (017.11) (#394)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

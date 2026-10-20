@@ -1,0 +1,22 @@
+{
+ "corpus": "ossec--ossec-hids",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on hids, security, pci-dss queries this for how ossec/ossec-hids implements it: OSSEC is an Open Source Host-based Intrusion Detection System that performs log analysis, file integrity checking, policy monitoring, rootki (selected work: src/os_dbd)",
+ "repos": [
+  {
+   "repo": "ossec-hids",
+   "url": "https://github.com/ossec/ossec-hids",
+   "sha": "988d8938a49f365f77ef686bdc4c1e73e2d406b4",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 988d8938a49f: \"Address review findings for the ossec-dbd agent catalog.\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

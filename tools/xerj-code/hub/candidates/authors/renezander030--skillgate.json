@@ -1,0 +1,22 @@
+{
+ "corpus": "renezander030--skillgate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-guardrails, ai-agents, ci queries this for how renezander030/skillgate implements it: Deterministic finish-line gates for AI coding agents. A model-independent evaluator that blocks commit/publish until your definition-of-done (selected work: src, test, the project root)",
+ "repos": [
+  {
+   "repo": "skillgate",
+   "url": "https://github.com/renezander030/skillgate",
+   "sha": "43c4146fb5d7df48194cc4d5080c182d35d2c033",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 43c4146fb5d7: \"Fix Python groups and pnpm workspace lock validation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

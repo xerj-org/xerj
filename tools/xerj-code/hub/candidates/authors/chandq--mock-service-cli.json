@@ -1,0 +1,22 @@
+{
+ "corpus": "chandq--mock-service-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on mock, mock-server, webserver queries this for how chandq/mock-service-cli implements it: \u5185\u7f6e Http Server\u3001Mock Server\u3001SPA Server\u3001Http request proxy\u3001File Explorer\u3001API Client\u7b49\u5de5\u5177\u96c6\u3002\u6301\u4e45\u5316\u63a5\u53e3\u6570\u636e\u3001\u8bb0\u5f55\u65e5\u5fd7\uff0csocket\u901a\u4fe1 (selected work: src/lib, test, the project root)",
+ "repos": [
+  {
+   "repo": "mock-service-cli",
+   "url": "https://github.com/chandq/mock-service-cli",
+   "sha": "59619076ed43e2d7a5c228e03c725a0684ba8d53",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 59619076ed43: \"fix(api-client): compact request tabs and add title tooltips\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

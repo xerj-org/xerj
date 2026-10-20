@@ -1,0 +1,22 @@
+{
+ "corpus": "dibbayajyotiroy--ahtml",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, agentic-web, ai queries this for how DibbayajyotiRoy/AHTML implements it: Write your page once \u2014 AHTML emits MCP, OpenAPI, JSON-LD & llms.txt for AI agents from your existing Next.js, Vite or SvelteKit app. Zero mi (selected work: packages/schema, packages/cli, packages/agent)",
+ "repos": [
+  {
+   "repo": "AHTML",
+   "url": "https://github.com/DibbayajyotiRoy/AHTML",
+   "sha": "2f5eb1bf302324269bb4fcd09ba4ccee99532df4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 2f5eb1bf3023: \"feat: semantic diffing, A2A/MCP bridge, usage analytics, push-to-main\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

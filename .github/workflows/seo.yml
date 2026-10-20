@@ -62,6 +62,10 @@ jobs:
       - name: Article frontmatter schema unit tests
         run: python3 scripts/seo/test_article_schema.py
 
+      # #1476: shallow clones must not date pages from the boundary commit.
+      - name: Date-source unit tests (full, shallow, untracked, no repo)
+        run: python3 scripts/seo/test_urlmap.py
+
       - name: generated articles are current
         run: python3 scripts/seo/build_articles.py --check
 

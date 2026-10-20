@@ -1,0 +1,22 @@
+{
+ "corpus": "ryuprad--canquery",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how RyuPrad/canquery implements it: Query Canada's open data: a unified API and web UI over open.canada.ca (selected work: client)",
+ "repos": [
+  {
+   "repo": "canquery",
+   "url": "https://github.com/RyuPrad/canquery",
+   "sha": "280def23ab7f499214d3e9e66977aedc0feb897e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 280def23ab7f: \"Fix resource chart layout, labels and data windows\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

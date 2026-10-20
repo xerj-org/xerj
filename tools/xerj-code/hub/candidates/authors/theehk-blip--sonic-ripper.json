@@ -1,0 +1,22 @@
+{
+ "corpus": "theehk-blip--sonic-ripper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how TheeHk-blip/sonic-ripper implements it: A desktop application for extracting audio and video from Spotify and YouTube links. Built with Tauri + React, it lets you discover tracks f (selected work: src-tauri, src/components, embed-worker)",
+ "repos": [
+  {
+   "repo": "sonic-ripper",
+   "url": "https://github.com/TheeHk-blip/sonic-ripper",
+   "sha": "4a76f219b33bc5ba481a586e8d86e0d65020840a",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4a76f219b33b: \"Hardened video pipeline and cookie persistence\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

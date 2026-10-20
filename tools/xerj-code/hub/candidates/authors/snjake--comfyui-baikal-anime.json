@@ -1,0 +1,22 @@
+{
+ "corpus": "snjake--comfyui-baikal-anime",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how SnJake/ComfyUI-Baikal-Anime implements it: ComfyUI anime and illustration upscalers: Baikal LoopSR x2 (development) and SwinFIR v31 (selected work: workflows, training_code, tests)",
+ "repos": [
+  {
+   "repo": "ComfyUI-Baikal-Anime",
+   "url": "https://github.com/SnJake/ComfyUI-Baikal-Anime",
+   "sha": "81997818ad02322592f978a6708cc894434bf24d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 81997818ad02: \"Add Baikal LoopSR v2 x2 and refresh training examples\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

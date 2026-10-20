@@ -1,0 +1,22 @@
+{
+ "corpus": "avbel--obsidian-sync",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on TypeScript queries this for how avbel/obsidian-sync implements it: Self-hosted, end-to-end encrypted Obsidian vault sync: plugin plus server (selected work: packages/plugin)",
+ "repos": [
+  {
+   "repo": "obsidian-sync",
+   "url": "https://github.com/avbel/obsidian-sync",
+   "sha": "4c3e002d20e8138d4de8f52b468ad58dd6823f0b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 4c3e002d20e8: \"fix: push a mobile edit before iOS freezes the app\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

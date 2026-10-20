@@ -1,0 +1,22 @@
+{
+ "corpus": "quadsproject--quads",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on scheduler, systems, network queries this for how quadsproject/quads implements it: :calendar: The infrastructure deployment time machine (selected work: tests, src/quads)",
+ "repos": [
+  {
+   "repo": "quads",
+   "url": "https://github.com/quadsproject/quads",
+   "sha": "b29b6c7629b91dbd6caab375bed2b9c4cf5e6fce",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b29b6c7629b9: \"fix: deliver CC recipients on notification emails\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "aossie-org--rein",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how AOSSIE-Org/Rein implements it: Cross-platform remote desktop tool with a browser-based client. The desktop server runs on supported host platforms, while clients connect t (selected work: src/hooks, src/server, src/components)",
+ "repos": [
+  {
+   "repo": "Rein",
+   "url": "https://github.com/AOSSIE-Org/Rein",
+   "sha": "0bf54ad2a1a5f56b88cbd432cc25a504819436ee",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 0bf54ad2a1a5: \"[Abs Pointer Impl] Initial Change\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

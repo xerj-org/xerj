@@ -1,0 +1,22 @@
+{
+ "corpus": "sergmain--metaheuristic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how sergmain/metaheuristic implements it: sergmain/metaheuristic (Java) (selected work: apps/metaheuristic)",
+ "repos": [
+  {
+   "repo": "metaheuristic",
+   "url": "https://github.com/sergmain/metaheuristic",
+   "sha": "54386491e3f486c31fc59373b5c627e26720933e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 54386491e3f4: \"MCP: mh_wait_exec_context - long-poll an ExecContext (TERMINAL / ANY_\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

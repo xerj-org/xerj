@@ -1,0 +1,22 @@
+{
+ "corpus": "rhythm-kachhwaha--kiroku-note",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Rhythm-Kachhwaha/kiroku-note implements it: making Japanese immersion faster (selected work: kiroku_cloud_queue, extension, the project root)",
+ "repos": [
+  {
+   "repo": "kiroku-note",
+   "url": "https://github.com/Rhythm-Kachhwaha/kiroku-note",
+   "sha": "c02c3569edd09cb2b284b7c0523d770554e15c94",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit c02c3569edd0: \"feat: add cloud queue backend and worker system with postgresql and m\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

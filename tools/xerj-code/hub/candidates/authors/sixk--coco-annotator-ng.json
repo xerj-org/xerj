@@ -1,0 +1,22 @@
+{
+ "corpus": "sixk--coco-annotator-ng",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how SixK/coco-annotator-ng implements it: JsBroks COCO Annotator modernized (selected work: client)",
+ "repos": [
+  {
+   "repo": "coco-annotator-ng",
+   "url": "https://github.com/SixK/coco-annotator-ng",
+   "sha": "82075d057fb9e8738175d2bb707de31bdb8d02e6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 82075d057fb9: \"use defineProps in place of defineModels when variable is not 2 ways\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

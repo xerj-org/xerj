@@ -1,0 +1,22 @@
+{
+ "corpus": "polusai--sophios",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how PolusAI/sophios implements it: A domain specific language for creating scientific pipelines (selected work: src/sophios, tests)",
+ "repos": [
+  {
+   "repo": "sophios",
+   "url": "https://github.com/PolusAI/sophios",
+   "sha": "8618f966b0e469a7aa9683155acc29dae36f1d34",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit 8618f966b0e4: \"feat(post_compile): flatten_subworkflows dissolves each call that cha\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

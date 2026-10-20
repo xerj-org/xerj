@@ -1,0 +1,22 @@
+{
+ "corpus": "ngxsmk--ngxsmk-ui-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on angular, a11y, accessibility queries this for how NGXSMK/ngxsmk-ui-kit implements it: Enterprise grade Angular UI library with 200+ standalone components, Signals, SSR, hydration, zoneless support, accessibility, design tokens (selected work: apps/demo, packages/core, packages/theme)",
+ "repos": [
+  {
+   "repo": "ngxsmk-ui-kit",
+   "url": "https://github.com/NGXSMK/ngxsmk-ui-kit",
+   "sha": "83329c3bec5b38752019385ae2eee8e498656b6e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 83329c3bec5b: \"fix: dialog animation errors, template preview layouts, and formatting\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

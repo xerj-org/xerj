@@ -1,0 +1,22 @@
+{
+ "corpus": "static-web-server--static-web-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on rust-lang, http-server, docker-image queries this for how static-web-server/static-web-server implements it: A cross-platform, high-performance and asynchronous web server for static files-serving. \u26a1 (selected work: tests, src/settings, src)",
+ "repos": [
+  {
+   "repo": "static-web-server",
+   "url": "https://github.com/static-web-server/static-web-server",
+   "sha": "2dd0a8d92663a0ecfe3f11d9bcde12d081c3a84e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 2dd0a8d92663: \"feat(custom_headers): add optional status filter to custom headers (#\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

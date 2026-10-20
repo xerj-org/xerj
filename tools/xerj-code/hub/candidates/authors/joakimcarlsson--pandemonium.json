@@ -1,0 +1,22 @@
+{
+ "corpus": "joakimcarlsson--pandemonium",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-client-protocol, ai-agents, claude-code queries this for how JoakimCarlsson/pandemonium implements it: Yet another text editor you don't need. GPU-native, opinionated, and built for conducting coding agents in their own git worktrees (selected work: crates/pandemonium, crates/pm-acp, crates/pm-core)",
+ "repos": [
+  {
+   "repo": "pandemonium",
+   "url": "https://github.com/JoakimCarlsson/pandemonium",
+   "sha": "521161926c8045241ff8aaa6dbf8b379b2856238",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 521161926c80: \"Add native branching from Claude chat replies\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

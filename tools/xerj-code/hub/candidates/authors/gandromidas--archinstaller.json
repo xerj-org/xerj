@@ -1,0 +1,22 @@
+{
+ "corpus": "gandromidas--archinstaller",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on archlinux, bash, linux queries this for how GAndromidas/archinstaller implements it: Arch Linux Post-Installation Automation (selected work: scripts, tests, the project root)",
+ "repos": [
+  {
+   "repo": "archinstaller",
+   "url": "https://github.com/GAndromidas/archinstaller",
+   "sha": "bc4aec9a5fc194e8908e5e999d8223df1257be84",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit bc4aec9a5fc1: \"perf: cut redundant probes, serialize flatpak on low RAM, single-pass\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

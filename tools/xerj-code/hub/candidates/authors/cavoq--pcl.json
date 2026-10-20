@@ -1,0 +1,22 @@
+{
+ "corpus": "cavoq--pcl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on certificates, validation, x509 queries this for how cavoq/PCL implements it: Policy-driven PKI conformance engine for X.509 certificates, chains, CRLs, OCSP evidence, and versioned standards policies (selected work: internal/output, cmd/pcl, internal/linter)",
+ "repos": [
+  {
+   "repo": "PCL",
+   "url": "https://github.com/cavoq/PCL",
+   "sha": "a3043a03e1ec41f385183fe5900a79e044b02776",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit a3043a03e1ec: \"feat: make text verdict details optional\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

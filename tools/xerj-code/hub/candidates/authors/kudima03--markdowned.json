@@ -1,0 +1,22 @@
+{
+ "corpus": "kudima03--markdowned",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on JavaScript queries this for how kudima03/markdowned implements it: Render Markdown to a PDF that looks like github.com (selected work: src/Markdowned, src/Tests)",
+ "repos": [
+  {
+   "repo": "markdowned",
+   "url": "https://github.com/kudima03/markdowned",
+   "sha": "8650178f5a4c8c0f1e313f9c61f6fc0f6c6639fd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 8650178f5a4c: \"test: drop escaped-dollar case from math fixture\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

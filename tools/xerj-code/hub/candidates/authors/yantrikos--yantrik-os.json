@@ -1,0 +1,22 @@
+{
+ "corpus": "yantrikos--yantrik-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-platform, ai-agents, ai-companion queries this for how yantrikos/yantrik-os implements it: AI-native Linux desktop where your AI agents (Claude Code, Hermes, OpenClaw, Pi) drive every app, share one YantrikDB memory, and show proof (selected work: crates/yantrik-ml)",
+ "repos": [
+  {
+   "repo": "yantrik-os",
+   "url": "https://github.com/yantrikos/yantrik-os",
+   "sha": "1a589e4aace639bb5d05292de45a337b17256fb6",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 1a589e4aace6: \"Add explain_route observability to CognitiveRouter\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

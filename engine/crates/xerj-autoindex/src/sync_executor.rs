@@ -355,12 +355,16 @@ pub(crate) fn replay_windowed<T: Sync>(
         }
         return Ok(());
     }
+    /// One dispatched operation: on its own thread, or — when that thread
+    /// could not be started (#1122) — already applied inline.
+    enum Dispatched<'scope> {
+        Thread(std::thread::ScopedJoinHandle<'scope, Result<()>>),
+        Inline(Result<()>),
+    }
     let failure = std::thread::scope(|scope| -> Result<Option<anyhow::Error>> {
         let mut next = items.iter();
-        let mut in_flight: std::collections::VecDeque<(
-            &T,
-            std::thread::ScopedJoinHandle<'_, Result<()>>,
-        )> = std::collections::VecDeque::new();
+        let mut in_flight: std::collections::VecDeque<(&T, Dispatched<'_>)> =
+            std::collections::VecDeque::new();
         let mut failure: Option<anyhow::Error> = None;
         loop {
             while failure.is_none() && in_flight.len() < width {
@@ -370,17 +374,32 @@ pub(crate) fn replay_windowed<T: Sync>(
                 let Some(item) = next.next() else { break };
                 hooks.begin(item)?;
                 let dispatched = item;
-                in_flight.push_back((item, scope.spawn(move || apply(dispatched))));
+                // #1122: `Scope::spawn` panics when a thread cannot be
+                // created, and release builds are panic=abort. A failed spawn
+                // never ran the closure, so the operation is applied inline
+                // instead: the window narrows, the order and the callbacks do
+                // not change.
+                let slot = match std::thread::Builder::new()
+                    .name("xerj-sync-apply".into())
+                    .spawn_scoped(scope, move || apply(dispatched))
+                {
+                    Ok(handle) => Dispatched::Thread(handle),
+                    Err(_) => Dispatched::Inline(apply(item)),
+                };
+                in_flight.push_back((item, slot));
             }
-            let Some((item, handle)) = in_flight.pop_front() else {
+            let Some((item, slot)) = in_flight.pop_front() else {
                 break;
             };
-            let outcome = handle.join().unwrap_or_else(|panic| {
-                Err(anyhow::anyhow!(
-                    "replay apply panicked: {}",
-                    panic_message(panic)
-                ))
-            });
+            let outcome = match slot {
+                Dispatched::Thread(handle) => handle.join().unwrap_or_else(|panic| {
+                    Err(anyhow::anyhow!(
+                        "replay apply panicked: {}",
+                        panic_message(panic)
+                    ))
+                }),
+                Dispatched::Inline(outcome) => outcome,
+            };
             let reported = hooks.applied(item, outcome);
             if let (None, Err(error)) = (&failure, reported) {
                 // First failure stops dispatch; the drain still reports.
@@ -407,6 +426,117 @@ fn panic_message(panic: Box<dyn std::any::Any + Send>) -> String {
     }
 }
 
+/// Per-replay id→position caches for the manifests and snapshot a replay
+/// walks (#1224).
+///
+/// `apply_shared` resolves every operation's group in the base and desired
+/// manifests and its content in the snapshot, and the linear `iter().find()`
+/// each resolution used is quadratic over a corpus run — the 402,744-operation
+/// cve-records build paid milliseconds of scanning per file. Built once per
+/// [`EsSyncBackend::replay_operations`] call from that call's arguments, so
+/// inside a replay every hit is exact. A lookup outside a replay (or against
+/// differently-shaped data than the cache was built from — guarded by the
+/// recorded lengths) falls back to the scan the cache replaced, and every hit
+/// is verified against the slice it answers from, so a stale cache can never
+/// return a group the scan would not have.
+#[derive(Debug, Clone, Default)]
+struct ReplayLookup {
+    base_len: usize,
+    base: std::collections::HashMap<String, usize>,
+    desired_len: usize,
+    desired: std::collections::HashMap<String, usize>,
+    files_len: usize,
+    files: std::collections::HashMap<String, usize>,
+}
+
+impl ReplayLookup {
+    fn build(
+        base: &crate::sync::CommittedManifest,
+        desired: &crate::sync::GenerationManifest,
+        snapshot: &SourceSnapshot,
+    ) -> Self {
+        Self {
+            base_len: base.groups.len(),
+            base: base
+                .groups
+                .iter()
+                .enumerate()
+                .map(|(position, group)| (group.group_id.clone(), position))
+                .collect(),
+            desired_len: desired.groups.len(),
+            desired: desired
+                .groups
+                .iter()
+                .enumerate()
+                .map(|(position, group)| (group.group_id.clone(), position))
+                .collect(),
+            files_len: snapshot.files.len(),
+            files: snapshot
+                .files
+                .iter()
+                .enumerate()
+                .map(|(position, file)| (file.content_id.clone(), position))
+                .collect(),
+        }
+    }
+
+    /// `groups` by id through a cache side, falling back to the scan when the
+    /// cache does not describe this exact slice.
+    fn group<'m, G>(
+        side: &std::collections::HashMap<String, usize>,
+        cached_len: usize,
+        groups: &'m [G],
+        group_id: &str,
+        id_of: impl Fn(&G) -> &str,
+    ) -> Option<&'m G> {
+        if cached_len != groups.len() {
+            return groups.iter().find(|group| id_of(group) == group_id);
+        }
+        side.get(group_id)
+            .copied()
+            .and_then(|position| groups.get(position))
+            .filter(|group| id_of(group) == group_id)
+    }
+
+    fn base_group<'m>(
+        &self,
+        base: &'m crate::sync::CommittedManifest,
+        group_id: &str,
+    ) -> Option<&'m crate::sync::ManifestGroup> {
+        Self::group(&self.base, self.base_len, &base.groups, group_id, |group| {
+            &group.group_id
+        })
+    }
+
+    fn desired_group<'m>(
+        &self,
+        desired: &'m crate::sync::GenerationManifest,
+        group_id: &str,
+    ) -> Option<&'m crate::sync::ManifestGroup> {
+        Self::group(
+            &self.desired,
+            self.desired_len,
+            &desired.groups,
+            group_id,
+            |group| &group.group_id,
+        )
+    }
+
+    fn file<'m>(&self, snapshot: &'m SourceSnapshot, content_id: &str) -> Option<&'m SnapshotFile> {
+        if self.files_len != snapshot.files.len() {
+            return snapshot
+                .files
+                .iter()
+                .find(|file| file.content_id == content_id);
+        }
+        self.files
+            .get(content_id)
+            .copied()
+            .and_then(|position| snapshot.files.get(position))
+            .filter(|file| file.content_id == content_id)
+    }
+}
+
 /// Production ES-compatible operation backend for graph-disabled generations.
 ///
 /// Upserts stream sealed index actions after removing both replaced and
@@ -418,6 +548,10 @@ pub struct EsSyncBackend<'a> {
     es: &'a crate::esclient::Es,
     state_dir: &'a Path,
     bulk_bytes: usize,
+    /// #1224: per-replay lookup caches; empty outside
+    /// [`Self::replay_operations`], where every lookup falls back to the
+    /// linear scan this field exists to avoid. See [`ReplayLookup`].
+    lookup: ReplayLookup,
     /// #755: the run's progress surface, so a legacy-catalog mapping warning
     /// reaches the operator through the surface that owns stderr (#241) rather
     /// than a bare `eprintln!` that `--progress none` cannot silence and
@@ -451,6 +585,7 @@ impl<'a> EsSyncBackend<'a> {
             es,
             state_dir,
             bulk_bytes: bulk_bytes.max(64 * 1024),
+            lookup: ReplayLookup::default(),
             pr,
             installed_index_identity: None,
             in_flight: None,
@@ -475,6 +610,23 @@ impl<'a> EsSyncBackend<'a> {
 
     fn delete_group(&self, group: &ManifestGroup, plan: &Plan) -> Result<()> {
         for index in group_indices(group, plan)? {
+            // The delete only has work when the index already holds documents
+            // of this content identity. Every upsert used to fire it
+            // unconditionally, and a one-record-per-file corpus pays one
+            // upsert per FILE — cvelistV5 is 402,744 groups, each a defensive
+            // `?refresh=true` delete_by_query that matched nothing and still
+            // cost 5-16 s of server refresh under concurrent write load:
+            // ~1 op/s measured, days projected (#1224). A first-time group
+            // cannot hold partials, and a retried op replays the SAME
+            // prepared artifact over the same deterministic `_id`s, so an
+            // unrefreshed partial is overwritten by the replay itself. A
+            // size:0 term search answers "is anything visible" in <1 ms; a
+            // missing index (404) holds nothing by definition (#1173's
+            // rule). A probe the node did not answer is an error, never a
+            // skip — the delete path stays exactly as strict as before.
+            if !self.index_holds_content(&index, &group.content_id)? {
+                continue;
+            }
             self.es.delete_by_query(
                 &index,
                 &serde_json::json!({"term": {
@@ -483,6 +635,30 @@ impl<'a> EsSyncBackend<'a> {
             )?;
         }
         Ok(())
+    }
+
+    /// Does this index hold any visible document of this content identity?
+    /// The [#1224] gate in front of [`Self::delete_group`]'s
+    /// `delete_by_query`: `None` (index absent) and 0 hits both mean "the
+    /// delete would remove nothing", every other outcome propagates.
+    fn index_holds_content(&self, index: &str, content_id: &str) -> Result<bool> {
+        let Some(v) = self.es.search_present(
+            index,
+            &serde_json::json!({
+                "size": 0,
+                "track_total_hits": true,
+                "query": {"term": {"ax_file": content_id}},
+            }),
+        )?
+        else {
+            return Ok(false);
+        };
+        let total = v
+            .pointer("/hits/total/value")
+            .and_then(Value::as_u64)
+            .or_else(|| v.pointer("/hits/total").and_then(Value::as_u64))
+            .with_context(|| format!("no total in probe of {index} for {content_id}"))?;
+        Ok(total > 0)
     }
 
     /// The remote work of one operation, through a shared reference: the
@@ -504,14 +680,8 @@ impl<'a> EsSyncBackend<'a> {
                 .is_some_and(|execution| !execution.graph_enabled),
             "production incremental graph reconciliation is not enabled yet"
         );
-        let old = base
-            .groups
-            .iter()
-            .find(|group| group.group_id == operation.group_id);
-        let new = desired
-            .groups
-            .iter()
-            .find(|group| group.group_id == operation.group_id);
+        let old = self.lookup.base_group(base, &operation.group_id);
+        let new = self.lookup.desired_group(desired, &operation.group_id);
         match operation.kind {
             crate::sync::SyncOperationKind::Delete => self.delete_group(
                 old.context("delete operation has no committed group")?,
@@ -537,7 +707,15 @@ impl<'a> EsSyncBackend<'a> {
     }
 
     fn replay_prepared(&self, snapshot: &SourceSnapshot, content_id: &str) -> Result<()> {
-        let prepared = prepared_for(snapshot, content_id)?;
+        // Cache-first resolution of the sealed artifact (#1224): a linear
+        // scan of the snapshot's files per upsert is quadratic over a corpus
+        // run. Falls back to `prepared_for`'s scan when no replay cache
+        // describes this snapshot.
+        let prepared = self
+            .lookup
+            .file(snapshot, content_id)
+            .and_then(|file| file.prepared.as_ref())
+            .with_context(|| format!("content {content_id} has no sealed prepared artifact"))?;
         let snapshot_dir = self.state_dir.join("sync-snapshots").join(&snapshot.tx_id);
         let file = File::open(snapshot_dir.join(&prepared.relative_ndjson))?;
         stream_ndjson_pairs(BufReader::new(file), self.bulk_bytes, |body| {
@@ -551,10 +729,9 @@ impl<'a> EsSyncBackend<'a> {
         desired_group: &ManifestGroup,
     ) -> Result<()> {
         let base_snapshot = open_committed_snapshot(self.state_dir, base)?;
-        let old_group = base
-            .groups
-            .iter()
-            .find(|group| group.group_id == desired_group.group_id)
+        let old_group = self
+            .lookup
+            .base_group(base, &desired_group.group_id)
             .context("metadata operation has no committed group")?;
         let prepared = prepared_for(&base_snapshot, &old_group.content_id)?;
         let snapshot_dir = self
@@ -575,80 +752,305 @@ impl<'a> EsSyncBackend<'a> {
         )
     }
 
-    fn exact_group_count(&self, group: &ManifestGroup, plan: &Plan) -> Result<u64> {
-        let mut total = 0u64;
-        for index in group_indices(group, plan)? {
+    /// Digests carried per read-back window in the batched finalize-verify.
+    /// One window is one `terms` filter plus one `terms` aggregation, so a
+    /// corpus with 400k changed groups asks ~400 round trips instead of
+    /// ~1.2 M serial searches (#1183's count lane). Window size trades server
+    /// work per request against round-trip count; the aggregation must be
+    /// allowed as many buckets as the window can hold distinct values, which
+    /// `windowed_value_counts` always requests.
+    const VERIFY_WINDOW: usize = 1024;
+
+    /// Exact live-row count per value of a keyword content-digest field
+    /// (`ax_file` on data indices, `file_key` on the catalog), read windowed:
+    /// one `terms` filter + one `terms` aggregation per [`Self::VERIFY_WINDOW`]
+    /// values. The engine's terms `doc_count` is exact — no probabilistic
+    /// sketch sits in the metric path — so each bucket is the number a
+    /// per-value `term` search returned as `hits.total`. A value with no live
+    /// row appears in no bucket and keeps the 0 it was seeded with.
+    ///
+    /// Filter context, `terms` first: the engine's columnar filter executor
+    /// checks leaves in order, so the digest set narrows the walk before an
+    /// `exists` leaf parses any stored source. In scoring context (`must`)
+    /// this shape source-scanned every row — 9.6 s per call on a 91k-doc
+    /// segment in the serial era (#1183).
+    ///
+    /// `extra_filters` are appended verbatim to the window query's
+    /// `bool.filter`: the semantic leg's `exists`, the catalog leg's
+    /// `run_id` term.
+    fn windowed_value_counts(
+        &self,
+        index: &str,
+        field: &str,
+        values: &[String],
+        extra_filters: &[Value],
+    ) -> Result<HashMap<String, u64>> {
+        let mut counts: HashMap<String, u64> =
+            values.iter().map(|value| (value.clone(), 0u64)).collect();
+        for window in values.chunks(Self::VERIFY_WINDOW) {
+            let mut filter = Vec::with_capacity(1 + extra_filters.len());
+            filter.push(serde_json::json!({"terms": {field: window}}));
+            filter.extend(extra_filters.iter().cloned());
             let response = self.es.search(
-                &index,
+                index,
                 &serde_json::json!({
                     "size": 0,
-                    "track_total_hits": true,
-                    "query": {"term": {"ax_file": &group.content_id}}
+                    "query": {"bool": {"filter": filter}},
+                    // As many buckets as the window can hold distinct values,
+                    // so no digest's count is silently dropped by a bucket cap.
+                    "aggs": {"values": {"terms": {"field": field, "size": window.len()}}}
                 }),
             )?;
-            total = total
-                .checked_add(
-                    response
-                        .pointer("/hits/total/value")
-                        .and_then(Value::as_u64)
-                        .context("exact validation response has no total hit count")?,
-                )
-                .context("exact validation count overflow")?;
+            for bucket in response
+                .pointer("/aggregations/values/buckets")
+                .and_then(Value::as_array)
+                .context("batched validation response has no terms aggregation")?
+            {
+                let key = bucket
+                    .get("key")
+                    .and_then(Value::as_str)
+                    .context("batched validation bucket has no key")?;
+                let doc_count = bucket
+                    .get("doc_count")
+                    .and_then(Value::as_u64)
+                    .context("batched validation bucket has no doc_count")?;
+                counts.insert(key.to_owned(), doc_count);
+            }
         }
-        Ok(total)
+        Ok(counts)
     }
 
-    fn exact_semantic_count(&self, group: &ManifestGroup, plan: &Plan) -> Result<u64> {
-        let by_slug: HashMap<&str, &crate::state::PlanDataset> = plan
-            .datasets
-            .iter()
-            .map(|dataset| (dataset.slug.as_str(), dataset))
-            .collect();
-        let mut total = 0u64;
-        for slug in &group.dataset_slugs {
-            let dataset = by_slug
-                .get(slug.as_str())
-                .copied()
-                .with_context(|| format!("group references absent dataset {slug}"))?;
-            let Some(field) = &dataset.semantic_field else {
-                continue;
-            };
-            let response = self.es.search(
-                &dataset.index,
-                &serde_json::json!({
-                    "size": 0,
-                    "track_total_hits": true,
-                    "query": {"bool": {"must": [
-                        {"term": {"ax_file": &group.content_id}},
-                        {"exists": {"field": field}}
-                    ]}}
-                }),
-            )?;
-            total = total
-                .checked_add(
-                    response
-                        .pointer("/hits/total/value")
-                        .and_then(Value::as_u64)
-                        .context("semantic validation response has no total hit count")?,
-                )
-                .context("semantic validation count overflow")?;
+    /// The catalog leg of the batched finalize-verify: per-digest counts read
+    /// by FETCHING the matched documents, never by aggregation. The catalog
+    /// is one global index that holds every corpus's file documents (402,814
+    /// on the cve-records node) and has usually taken updates (dataset
+    /// documents are rewritten by every finalize-catalog), so its version map
+    /// carries delete events — and the engine's columnar agg fast path
+    /// refuses exactly that (#1260), falling back to the brute agg corpus that
+    /// deep-clones the whole index against `max_query_memory_mb` (measured
+    /// 786.7 MB vs the 512 MB default on that catalog → 429, the #1183
+    /// breaker shape). A `_source`-restricted fetch of the matched set has no
+    /// such gate: 31 ms cold / 14 ms warm for a 1,024-digest window against
+    /// that same catalog. Each digest expects `1 + aliases.len()` documents,
+    /// so a window's matched set is small; pages advance by `from` until the
+    /// exact `total` is collected, a total that moves mid-window fails loud,
+    /// and the per-window sum of the counts must equal the query's own total
+    /// — the same number the serial per-group count trusted.
+    fn windowed_catalog_counts(
+        &self,
+        values: &[String],
+        run_id: &str,
+    ) -> Result<HashMap<String, u64>> {
+        const PAGE: usize = 8192;
+        const MAX_PAGES: usize = 64;
+        let mut counts: HashMap<String, u64> =
+            values.iter().map(|value| (value.clone(), 0u64)).collect();
+        for window in values.chunks(Self::VERIFY_WINDOW) {
+            let mut from = 0usize;
+            let mut window_total: Option<u64> = None;
+            let mut pages = 0usize;
+            loop {
+                anyhow::ensure!(
+                    pages < MAX_PAGES,
+                    "catalog read-back window needed more than {MAX_PAGES} pages"
+                );
+                pages += 1;
+                let response = self.es.search(
+                    crate::catalog::CATALOG_INDEX,
+                    &serde_json::json!({
+                        "size": PAGE,
+                        "from": from,
+                        "track_total_hits": true,
+                        "_source": ["file_key"],
+                        "query": {"bool": {"filter": [
+                            {"terms": {"file_key": window}},
+                            {"term": {"run_id": run_id}}
+                        ]}}
+                    }),
+                )?;
+                let page_total = response
+                    .pointer("/hits/total/value")
+                    .and_then(Value::as_u64)
+                    .context("catalog read-back response has no total hit count")?;
+                if let Some(seen) = window_total {
+                    anyhow::ensure!(
+                        seen == page_total,
+                        "catalog read-back total moved from {seen} to {page_total} mid-window"
+                    );
+                }
+                window_total = Some(page_total);
+                let hits = response
+                    .pointer("/hits/hits")
+                    .and_then(Value::as_array)
+                    .context("catalog read-back response has no hits array")?;
+                if hits.is_empty() {
+                    break;
+                }
+                for hit in hits {
+                    if let Some(key) = hit.pointer("/_source/file_key").and_then(Value::as_str) {
+                        if let Some(count) = counts.get_mut(key) {
+                            *count += 1;
+                        }
+                    }
+                }
+                from += hits.len();
+                if from as u64 >= page_total {
+                    break;
+                }
+            }
+            let counted: u64 = window.iter().filter_map(|value| counts.get(value)).sum();
+            anyhow::ensure!(
+                counted == window_total.unwrap_or(0),
+                "catalog read-back counted {counted} of {} matched documents in a window",
+                window_total.unwrap_or(0)
+            );
         }
-        Ok(total)
+        Ok(counts)
     }
+
+    /// How many times [`Self::catalog_generation`] may be re-walked when the
+    /// observation falls short of the sealed projection. #1212's second live
+    /// shape: under load the engine can answer a short or empty page with
+    /// `timed_out` absent, so neither the deadline retry nor the flag can
+    /// detect it — only observed-count-versus-expected can. One intermittent
+    /// answer must not cost the whole finalize again.
+    const READBACK_WALK_ATTEMPTS: usize = 3;
+
+    /// The read-back barrier's walk, retried as a whole while it comes back
+    /// short of `expected`. A page-level retry cannot catch an unflagged
+    /// truncation (#1212), but a re-walk can: the answer is intermittent, and
+    /// a fresh walk after a refresh re-reads the full set. Returns the last
+    /// observation when every attempt falls short — the caller's
+    /// exact-equality check then produces the loud, precise mismatch error.
+    fn catalog_generation_complete(
+        &self,
+        run_id: &str,
+        expected: usize,
+    ) -> Result<BTreeMap<String, Value>> {
+        Self::rewalk_while_short(
+            self.pr,
+            expected,
+            || self.catalog_generation(run_id),
+            || self.es.refresh(crate::catalog::CATALOG_INDEX),
+        )
+    }
+
+    /// [`Self::catalog_generation_complete`]'s loop, isolated so its contract
+    /// is pinnable without a node: walk once, and while the observation is
+    /// short of `expected` and attempts remain, refresh and walk again.
+    fn rewalk_while_short(
+        pr: &crate::progress::Progress,
+        expected: usize,
+        mut walk: impl FnMut() -> Result<BTreeMap<String, Value>>,
+        mut refresh: impl FnMut() -> Result<()>,
+    ) -> Result<BTreeMap<String, Value>> {
+        let mut observation = walk()?;
+        for attempt in 2..=Self::READBACK_WALK_ATTEMPTS {
+            if observation.len() >= expected {
+                return Ok(observation);
+            }
+            pr.note(&format!(
+                "autoindex: catalog read-back walk {} of {} saw {} of {} expected documents — \
+                 the node answered a short page without timed_out (#1212); refreshing and \
+                 walking again",
+                attempt - 1,
+                Self::READBACK_WALK_ATTEMPTS,
+                observation.len(),
+                expected,
+            ));
+            refresh()?;
+            observation = walk()?;
+        }
+        Ok(observation)
+    }
+
+    /// Page size of the `run_id`-scoped read-back walk. The engine reports the
+    /// full match count on every page, so a page shorter than this is the walk
+    /// reaching the end of the generation's documents.
+    const CATALOG_WALK_PAGE: usize = 1000;
+
+    /// The phase [`Self::catalog_generation`] surfaces itself under. A resume
+    /// that rewrote the whole catalog gives this walk a `run_id` matching every
+    /// document in the index (402,814 on the cve-records node), so the
+    /// "O(changed) by construction" invariant degenerates to O(corpus): 403
+    /// sorted pages at ~5.2 s each ≈ 35 min, during which the surface used to
+    /// show the FINISHED `finalize-catalog` ticker (every dataset already
+    /// counted done) with a `since_progress_s` that only climbed — which reads
+    /// exactly like a hang, and cost an hour of "is it deadlocked?" diagnosis
+    /// on the #1267 resume. The walk is its own phase now, with the engine's
+    /// own match total as a real denominator, so the long read-back shows a
+    /// moving bar and an ETA from its first page.
+    const CATALOG_READBACK_PHASE: &'static str = "finalize-catalog-readback";
 
     fn catalog_generation(&self, run_id: &str) -> Result<BTreeMap<String, Value>> {
+        Self::walk_run_id_pages(
+            self.pr,
+            Self::CATALOG_READBACK_PHASE,
+            Self::CATALOG_WALK_PAGE,
+            |search_after| {
+                let mut body = serde_json::json!({
+                    "size": Self::CATALOG_WALK_PAGE,
+                    "sort": [{"_id": "asc"}],
+                    // #1267: without this the engine caps `hits.total.value` at
+                    // the ES 8.x default 10,000 (relation `gte`), so the walk's
+                    // progress denominator froze at 10k on the 402,814-doc
+                    // catalog — the exact "stuck ticker" this phase exists to
+                    // fix. Ask for the true match count so the bar and ETA are
+                    // real. The walk still terminates on a short page, not on
+                    // the total, so this only corrects the denominator.
+                    "track_total_hits": true,
+                    "query": {"term": {"run_id": run_id}}
+                });
+                if let Some(after) = search_after {
+                    body["search_after"] = after.clone();
+                }
+                // #1212: a `search_page`, not a `search` — the engine answers a
+                // missed 30 s default deadline with a partial 200 (`timed_out`),
+                // and this walk's short-page break read one partial page as the
+                // end of the catalog: 56,441 documents observed against 58,568
+                // that were all there, on a node whose sorted pages took 11-40 s
+                // while its breaker drained. The page variant retries a timed-out
+                // page at the same continuation key instead of returning it.
+                self.es.search_page(crate::catalog::CATALOG_INDEX, &body)
+            },
+        )
+    }
+
+    /// Drive a `run_id`-scoped, `_id asc` + `search_after` generation walk to
+    /// completion, collecting `_id -> _source` for every matched document and
+    /// surfacing the walk as its own progress phase (#1267). `fetch_page` is
+    /// handed the previous page's continuation sort key (`None` for the first
+    /// page) and returns the raw search response; isolating it this way lets
+    /// the paging contract — the duplicate-id guard, the short-page terminator,
+    /// the continuation-key check, and the per-page progress ticks — be pinned
+    /// without a node, the way [`Self::rewalk_while_short`] is. `page` is the
+    /// request `size`: a page shorter than it terminates the walk, so a test
+    /// drives real multi-page paging with a handful of documents.
+    ///
+    /// The phase opens on the first page using the engine's reported match
+    /// total as the item denominator, then ticks once per collected document,
+    /// so the surface moves and carries an ETA across a walk that can run for
+    /// over half an hour. A total the engine does not report leaves the phase
+    /// without a denominator (`pct=unknown`) rather than inventing one.
+    fn walk_run_id_pages(
+        pr: &crate::progress::Progress,
+        phase: &'static str,
+        page: usize,
+        mut fetch_page: impl FnMut(Option<&Value>) -> Result<Value>,
+    ) -> Result<BTreeMap<String, Value>> {
         let mut documents = BTreeMap::new();
         let mut search_after: Option<Value> = None;
+        let mut phase_opened = false;
         loop {
-            let mut body = serde_json::json!({
-                "size": 1000,
-                "sort": [{"_id": "asc"}],
-                "query": {"term": {"run_id": run_id}}
-            });
-            if let Some(after) = &search_after {
-                body["search_after"] = after.clone();
+            let response = fetch_page(search_after.as_ref())?;
+            if !phase_opened {
+                let total = response
+                    .pointer("/hits/total/value")
+                    .and_then(Value::as_u64)
+                    .unwrap_or(0);
+                pr.phase(phase, total, 0);
+                phase_opened = true;
             }
-            let response = self.es.search(crate::catalog::CATALOG_INDEX, &body)?;
             let hits = response
                 .pointer("/hits/hits")
                 .and_then(Value::as_array)
@@ -667,8 +1069,9 @@ impl<'a> EsSyncBackend<'a> {
                     documents.insert(id.clone(), source).is_none(),
                     "catalog generation query returned duplicate ID {id}"
                 );
+                pr.item_done(0);
             }
-            if hits.len() < 1000 {
+            if hits.len() < page {
                 break;
             }
             search_after = hits.last().and_then(|hit| hit.get("sort")).cloned();
@@ -678,6 +1081,90 @@ impl<'a> EsSyncBackend<'a> {
             );
         }
         Ok(documents)
+    }
+
+    /// A warm verify window slower than this means the server is answering
+    /// the window shape on its brute path. Measured on the #1267 resume: the
+    /// `term ax_file` + `exists` probe took 3.4 s warm on a server without the
+    /// #1260 exists arm and 2.7 ms on one with it — three orders of magnitude
+    /// either side of this line, so it separates the two generations without
+    /// being sensitive to node load.
+    const SERVER_PROBE_SLOW: std::time::Duration = std::time::Duration::from_secs(1);
+
+    /// The operational half of #1267: before `finalize-verify` issues its
+    /// windows, time ONE representative window and, if it is slow, say so.
+    ///
+    /// The resume protocol cannot otherwise tell that the server predates the
+    /// client's fast-agg fix generation (#1260/#1270). On the cve-records
+    /// resume that cost four hours of ~3.4 s probes before anyone looked —
+    /// the client was a #1259 binary, the server an older measure build, and
+    /// nothing in the handshake differs between them. `GET /` cannot help:
+    /// its `version.number` is the ES-compat version (`8.13.0` or the
+    /// `--compat-version` override), not XERJ's. `/v1/health` does carry the
+    /// XERJ version and is quoted in the warning when it differs from the
+    /// client's, but a branch or measure build reports the same string as
+    /// the release it forked from — exactly the #1267 shape — so latency is
+    /// the signal and the version only context.
+    ///
+    /// `window_query` runs the window and returns how long it took (the caller
+    /// times it, which keeps this pinnable without a node or a clock). A slow
+    /// first answer is re-asked once before warning: the first touch after a
+    /// server boot pages the index in cold (8.8 s on the FIXED binary in
+    /// #1267), and that must not read as an old server. A probe that fails is
+    /// not this function's business — the verify window that follows asks the
+    /// same thing and fails loud — so it returns `None` without a warning.
+    /// It never aborts the run: an old server is slow, not wrong.
+    fn probe_server_generation(
+        pr: &crate::progress::Progress,
+        windows: u64,
+        threshold: std::time::Duration,
+        mut window_query: impl FnMut() -> Result<std::time::Duration>,
+        server_version: impl FnOnce() -> Option<String>,
+    ) -> Option<std::time::Duration> {
+        let cold = window_query().ok()?;
+        if cold <= threshold {
+            return Some(cold);
+        }
+        let warm = window_query().ok()?;
+        if warm <= threshold {
+            return Some(warm);
+        }
+        let client = env!("CARGO_PKG_VERSION");
+        let version = match server_version() {
+            Some(server) if server != client => {
+                format!(" The server reports XERJ {server}; this client is {client}.")
+            }
+            Some(_) => format!(
+                " The server reports the same version as this client ({client}), so it is \
+                 likely a branch or development build cut before the fix."
+            ),
+            None => String::new(),
+        };
+        let projected_s = warm.as_secs_f64() * windows as f64;
+        pr.warn(&format!(
+            "autoindex: warning: one finalize-verify window took {:.1}s (twice; under {}ms is \
+             expected). The server is likely older than this client and lacks the columnar \
+             term+exists count lane (#1260/#1270), so every verify window brute-scans its \
+             index: {windows} windows at this rate is ~{:.1}h.{version} Continuing — the \
+             result will be correct, only slow. To avoid the wait, stop this run, upgrade the \
+             server to this client's version, and re-run the same command: the journal resumes \
+             where it stopped.",
+            warm.as_secs_f64(),
+            threshold.as_millis(),
+            projected_s / 3600.0,
+        ));
+        Some(warm)
+    }
+
+    /// The XERJ version the server reports on `/v1/health` (`data.version`),
+    /// or `None` when the endpoint is absent or unreadable.
+    fn server_xerj_version(&self) -> Option<String> {
+        self.es
+            .get_json("/v1/health")
+            .ok()?
+            .pointer("/data/version")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
     }
 
     fn exact_dataset_catalog_stats(
@@ -700,20 +1187,29 @@ impl<'a> EsSyncBackend<'a> {
             // were sealed under, and stays exact even if two datasets ever share
             // one index. `ax_dataset` is written at every sink site and is a
             // mapped `PROVENANCE_FIELDS` keyword.
-            let mut body = serde_json::json!({
+            //
+            // #1183: this read-back must never carry `aggs`. A `size:0 + aggs`
+            // query whose agg has no columnar fast path makes the server
+            // deep-clone every matching document into owned Values before the
+            // agg runs (the "aggregation corpus materialisation" charge in the
+            // engine's search path, ~2 KB a doc against
+            // `limits.max_query_memory_mb`). On the xerj-search rebuild one
+            // ~570 k-record dataset estimated 1.1 GB against the 512 MB
+            // default, the server answered 429 circuit_breaking_exception, the
+            // client retried for its full 600 s budget, and the run aborted —
+            // the "finalize-catalog deadlock". The count needs no corpus; the
+            // time bounds come from two size-1 searches sorted on the time
+            // field (`extreme_time` below), which sort from doc values and
+            // clone nothing.
+            let filter = serde_json::json!([
+                {"terms": {"ax_file": content_ids}},
+                {"term": {"ax_dataset": dataset.slug}}
+            ]);
+            let body = serde_json::json!({
                 "size": 0,
                 "track_total_hits": true,
-                "query": {"bool": {"filter": [
-                    {"terms": {"ax_file": content_ids}},
-                    {"term": {"ax_dataset": dataset.slug}}
-                ]}}
+                "query": {"bool": {"filter": filter}}
             });
-            if let Some(field) = &dataset.time_field {
-                body["aggs"] = serde_json::json!({
-                    "time_min": {"min": {"field": field}},
-                    "time_max": {"max": {"field": field}}
-                });
-            }
             let response = self.es.search(&dataset.index, &body)?;
             let record_count = response
                 .pointer("/hits/total/value")
@@ -791,11 +1287,11 @@ impl<'a> EsSyncBackend<'a> {
                     sum.checked_add(group.expected_junk_records)
                         .context("dataset junk-record count overflow")
                 })?;
-            let time = |name: &str| {
-                response
-                    .pointer(&format!("/aggregations/{name}/value_as_string"))
-                    .and_then(Value::as_str)
-                    .map(ToOwned::to_owned)
+            let time_bound = |order: &'static str| -> Result<Option<String>> {
+                match &dataset.time_field {
+                    Some(field) => self.extreme_time(&dataset.index, &filter, field, order),
+                    None => Ok(None),
+                }
             };
             out.insert(
                 dataset.slug.clone(),
@@ -804,8 +1300,8 @@ impl<'a> EsSyncBackend<'a> {
                     junk_records,
                     bytes,
                     formats,
-                    time_min: time("time_min"),
-                    time_max: time("time_max"),
+                    time_min: time_bound("asc")?,
+                    time_max: time_bound("desc")?,
                     sample_queries: crate::catalog::build_sample_queries(dataset, &[]),
                     notes: dataset
                         .group
@@ -822,6 +1318,43 @@ impl<'a> EsSyncBackend<'a> {
             self.pr.item_done(0);
         }
         Ok(out)
+    }
+
+    /// One end of a dataset's time range, via a size-1 search sorted on the
+    /// time field under the dataset's own filter (#1183). This replaced a
+    /// `min`/`max` aggregation on the same field: the agg made the server
+    /// materialise the aggregation corpus for the whole dataset and refuse at
+    /// the query-memory breaker on large ones, while a sort reads doc values
+    /// and clones nothing. Exact for the same reason the agg was: the filter
+    /// is the dataset's own identity, and the sort's first hit IS the extreme.
+    ///
+    /// The returned string matches the agg's `value_as_string`: the stored
+    /// `_source` value verbatim when the field holds strings (autoindex date
+    /// fields are ISO strings), and epoch-milliseconds rendered by the same
+    /// ISO helper the engine's `min`/`max` aggs use when it holds numbers —
+    /// so the catalog document does not change shape between corpus builds.
+    fn extreme_time(
+        &self,
+        index: &str,
+        filter: &Value,
+        field: &str,
+        order: &str,
+    ) -> Result<Option<String>> {
+        let body = serde_json::json!({
+            "size": 1,
+            "query": {"bool": {"filter": filter}},
+            "sort": [{field: {"order": order}}],
+            "_source": [field]
+        });
+        let response = self.es.search(index, &body)?;
+        Ok(response
+            .pointer("/hits/hits/0/_source")
+            .and_then(|src| src.get(field))
+            .and_then(|v| match v {
+                Value::String(s) => Some(s.clone()),
+                Value::Number(n) => n.as_i64().map(xerj_common::schema::epoch_ms_to_iso8601_utc),
+                _ => None,
+            }))
     }
 }
 
@@ -873,6 +1406,9 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         snapshot: &SourceSnapshot,
         journal: &mut Journal,
     ) -> Result<()> {
+        // #1224: resolve per-operation groups and prepared artifacts through
+        // id indexes built once here, not a linear scan per operation.
+        self.lookup = ReplayLookup::build(base, desired, snapshot);
         let width = self.replay_workers;
         if width <= 1 || items.len() <= 1 {
             return replay_serial(self, items, base, desired, snapshot, journal);
@@ -945,14 +1481,28 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         // path's phase so a reader of either route sees the same vocabulary.
         self.pr
             .phase("finalize-catalog", desired.plan.datasets.len() as u64, 0);
-        for index in desired
+        // #1183: the refreshes used to run one index per request, serially —
+        // 1,479 round-trips on the xerj-search corpus, each taking seconds
+        // against a node whose memory breaker was draining between them, so
+        // the phase read as `stalled` for the better part of an hour before
+        // the read-back behind it even started. The refresh path takes a
+        // comma-list (the server resolves it through the same selector as a
+        // wildcard), so one request per window of indexes, with one progress
+        // tick per index so the phase denominator keeps its meaning.
+        let indexes: Vec<&str> = desired
             .plan
             .datasets
             .iter()
             .map(|dataset| dataset.index.as_str())
             .collect::<std::collections::BTreeSet<_>>()
-        {
-            self.es.refresh(index)?;
+            .into_iter()
+            .collect();
+        const REFRESH_WINDOW: usize = 50;
+        for batch in indexes.chunks(REFRESH_WINDOW) {
+            self.es.refresh(&batch.join(","))?;
+            for _ in batch {
+                self.pr.item_done(0);
+            }
         }
         self.es.refresh(crate::catalog::CATALOG_INDEX)?;
         let prior_run_id =
@@ -999,7 +1549,12 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         // Exactly the documents this generation wrote carry its run_id (kept
         // documents keep the run_id of the generation that last touched them),
         // so the run_id-scoped read-back is O(changed) by construction.
-        projection.validate_observed(&self.catalog_generation(&snapshot.tx_id)?)?;
+        // Re-walked while short of the projection: an unflagged truncated page
+        // (#1212) is intermittent, and validate_observed's exact equality is
+        // what should judge a COMPLETE walk, not a starved one.
+        projection.validate_observed(
+            &self.catalog_generation_complete(&snapshot.tx_id, projection.documents.len())?,
+        )?;
         if let Some(prior_run_id) = prior_run_id {
             // #971 sweep. Documents still carrying the prior generation's
             // run_id are legitimate — they are the intentionally kept
@@ -1012,7 +1567,10 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
             // A kept document may legitimately be absent here (a same-prefix
             // journal on another state-dir may have overwritten it — the
             // documented cross-journal collision), so the check is a subset
-            // check, not equality.
+            // check, not equality. Deliberately NOT re-walked when short: this
+            // is a subset check, and an unflagged truncated page (#1212) can
+            // only UNDER-report strays — a false pass is impossible, and a
+            // re-walk here would only re-run the sweep's deletes.
             let remaining = self.catalog_generation(prior_run_id)?;
             let written: BTreeSet<String> = projection.documents.keys().cloned().collect();
             let kept: BTreeSet<&String> = projection.managed_ids.difference(&written).collect();
@@ -1055,11 +1613,26 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
             let _refreshing = self.pr.file(crate::catalog::CATALOG_INDEX, 0);
             self.es.refresh(crate::catalog::CATALOG_INDEX)?;
         }
-        // The generation-wide barrier reads changed groups back — three
-        // queries per file, serially — so on a large corpus it is minutes of
-        // work. It reports as its own phase with the changed-group count as
-        // its denominator instead of hiding behind whatever phase came before
-        // it.
+        // The generation-wide barrier reads changed groups back. Every
+        // question it asks has the same shape — "how many rows in this index
+        // carry one of these content digests" — so it is asked windowed
+        // instead of the three serial searches per file this barrier used to
+        // issue. That serial shape is #1183's count lane: measured 2.2
+        // groups/s on cve-records (402,695 changed groups, ~50 h projected)
+        // against an index phase that itself takes hours. Measured on the
+        // live crawl node (2026-10-08): the record windows answer in
+        // 6–63 ms per 1,024 digests while the index is append-only (the
+        // engine's columnar agg fast path), the semantic windows pay the
+        // brute path — the fast path does not yet columnarize `exists`
+        // (#1260) — at ~16 s per window on a 53k-doc index, and the catalog leg
+        // cannot aggregate at all: its version map carries delete events
+        // (dataset documents are rewritten by every finalize-catalog),
+        // which the fast path refuses, and the brute agg corpus trips the
+        // query-memory breaker (786.7 MB vs 512 MB → 429). The catalog
+        // therefore fetch-counts its small matched sets instead
+        // (`windowed_catalog_counts`, 14–31 ms a window). The phase counts
+        // read-back windows and ticks as each one resolves, so the line
+        // never sits at `0/N` for the length of the walk (#931's rule).
         //
         // #971: a group wholly equal to its committed self is skipped. That
         // equality is exactly the condition under which `plan_operations`
@@ -1077,66 +1650,199 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
             .iter()
             .filter(|group| base_group_by_id.get(group.group_id.as_str()).copied() != Some(*group))
             .collect();
-        self.pr
-            .phase("finalize-verify", changed_groups.len() as u64, 0);
-        for group in changed_groups {
-            let _verifying = self.pr.file(&group.canonical.rel, 0);
-            anyhow::ensure!(
-                self.exact_group_count(group, &desired.plan)? == group.expected_records,
-                "live record count disagrees with desired group {}",
-                group.group_id
-            );
-            let semantic = self.exact_semantic_count(group, &desired.plan)?;
-            anyhow::ensure!(
-                semantic == group.expected_passages && semantic == group.expected_vectors,
-                "live semantic count disagrees with desired group {}",
-                group.group_id
-            );
-            // Scoped to this generation's `run_id`, the same way the run-summary
-            // read-back is (`lib.rs`). `file_key` is derived from CONTENT alone
-            // (`content::full_digest`) and the catalog is one global index that no
-            // `--prefix` namespaces, so an unscoped count also sees the
-            // canonical and alias documents that ANOTHER corpus on this node
-            // published for byte-identical content — two Apache-2.0 checkouts
-            // sharing a LICENSE is enough. Those documents are that run's, not
-            // this one's: counting them aborted a generation whose own
-            // publication was exactly right (#360). What this barrier is for is
-            // "this generation published one canonical document and its aliases",
-            // and that is what it now asks. For the same #971 reason as the
-            // record counts above, only changed groups ask — a kept group's
-            // canonical/alias documents intentionally keep the run_id of the
-            // generation that last wrote them.
-            let catalog = self.es.search(
-                crate::catalog::CATALOG_INDEX,
-                &serde_json::json!({
-                    "size": 0,
-                    "track_total_hits": true,
-                    "query": {"bool": {"filter": [
-                        {"term": {"file_key": &group.content_id}},
-                        {"term": {"run_id": &snapshot.tx_id}}
-                    ]}}
-                }),
-            )?;
-            anyhow::ensure!(
-                catalog.pointer("/hits/total/value").and_then(Value::as_u64)
-                    == Some(1 + group.aliases.len() as u64),
-                "catalog canonical/alias count disagrees with desired group {}",
-                group.group_id
-            );
-        }
         let desired_ids: std::collections::HashSet<&str> = desired
             .groups
             .iter()
             .map(|group| group.content_id.as_str())
             .collect();
-        for old in &base.groups {
-            if !desired_ids.contains(old.content_id.as_str()) {
-                anyhow::ensure!(
-                    self.exact_group_count(old, &base.plan)? == 0,
-                    "replaced or deleted content {} remains live",
-                    old.content_id
-                );
+        let deleted_groups: Vec<&ManifestGroup> = base
+            .groups
+            .iter()
+            .filter(|old| !desired_ids.contains(old.content_id.as_str()))
+            .collect();
+
+        // What each leg needs, gathered before anything is asked so the phase
+        // opens with an honest denominator. Record counts are keyed by index:
+        // a changed group asks in every index its datasets touch, a deleted
+        // group asks for zero in every index the BASE plan touched — a renamed
+        // dataset yields two entries, exactly the two names that must be read.
+        // Duplicate digests inside one index's list are harmless: the count map
+        // is keyed by digest and each group sums its own lookups.
+        let mut record_wanted: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for group in &changed_groups {
+            for index in group_indices(group, &desired.plan)? {
+                record_wanted
+                    .entry(index)
+                    .or_default()
+                    .push(group.content_id.clone());
             }
+        }
+        for old in &deleted_groups {
+            for index in group_indices(old, &base.plan)? {
+                record_wanted
+                    .entry(index)
+                    .or_default()
+                    .push(old.content_id.clone());
+            }
+        }
+        // Semantic counts are keyed by (index, semantic field): a changed
+        // group asks once per dataset that carries one.
+        let by_slug: HashMap<&str, &crate::state::PlanDataset> = desired
+            .plan
+            .datasets
+            .iter()
+            .map(|dataset| (dataset.slug.as_str(), dataset))
+            .collect();
+        let mut semantic_wanted: BTreeMap<(String, String), Vec<String>> = BTreeMap::new();
+        for group in &changed_groups {
+            for slug in &group.dataset_slugs {
+                let dataset = by_slug
+                    .get(slug.as_str())
+                    .copied()
+                    .with_context(|| format!("group references absent dataset {slug}"))?;
+                if let Some(field) = &dataset.semantic_field {
+                    semantic_wanted
+                        .entry((dataset.index.clone(), field.clone()))
+                        .or_default()
+                        .push(group.content_id.clone());
+                }
+            }
+        }
+        let windows = |values: usize| values.div_ceil(Self::VERIFY_WINDOW) as u64;
+        let mut readbacks = 0u64;
+        for values in record_wanted.values() {
+            readbacks += windows(values.len());
+        }
+        for values in semantic_wanted.values() {
+            readbacks += windows(values.len());
+        }
+        let catalog_wanted: Vec<String> = changed_groups
+            .iter()
+            .map(|group| group.content_id.clone())
+            .collect();
+        if !catalog_wanted.is_empty() {
+            readbacks += windows(catalog_wanted.len());
+        }
+        self.pr.phase("finalize-verify", readbacks, 0);
+
+        // #1267 operational: one representative window, timed, before the
+        // walk. The semantic leg is preferred because its `term`+`exists`
+        // shape is exactly the one a server without the #1260 exists arm
+        // brute-scans; a generation with no semantic field probes a record
+        // window instead. One digest is enough — the brute path's cost is the
+        // index size, not the window width.
+        let probe = semantic_wanted
+            .iter()
+            .find_map(|((index, field), values)| {
+                let exists = serde_json::json!({"exists": {"field": field}});
+                values.first().map(|value| (index, value, vec![exists]))
+            })
+            .or_else(|| {
+                record_wanted
+                    .iter()
+                    .find_map(|(index, values)| values.first().map(|value| (index, value, vec![])))
+            });
+        if let Some((index, value, extra)) = probe {
+            let _probing = self.pr.file(index, 0);
+            Self::probe_server_generation(
+                self.pr,
+                readbacks,
+                Self::SERVER_PROBE_SLOW,
+                || {
+                    let started = std::time::Instant::now();
+                    self.windowed_value_counts(
+                        index,
+                        "ax_file",
+                        std::slice::from_ref(value),
+                        &extra,
+                    )?;
+                    Ok(started.elapsed())
+                },
+                || self.server_xerj_version(),
+            );
+        }
+
+        let mut record_counts: HashMap<String, HashMap<String, u64>> = HashMap::new();
+        for (index, values) in &record_wanted {
+            let _reading = self.pr.file(index, 0);
+            let counts = self.windowed_value_counts(index, "ax_file", values, &[])?;
+            record_counts.insert(index.clone(), counts);
+        }
+        let mut semantic_counts: HashMap<(String, String), HashMap<String, u64>> = HashMap::new();
+        for ((index, field), values) in &semantic_wanted {
+            let _reading = self.pr.file(index, 0);
+            let exists = serde_json::json!({"exists": {"field": field}});
+            let counts = self.windowed_value_counts(index, "ax_file", values, &[exists])?;
+            semantic_counts.insert((index.clone(), field.clone()), counts);
+        }
+        // Scoped to this generation's `run_id`, the same way the run-summary
+        // read-back is (`lib.rs`). `file_key` is derived from CONTENT alone
+        // (`content::full_digest`) and the catalog is one global index that no
+        // `--prefix` namespaces, so an unscoped count also sees the
+        // canonical and alias documents that ANOTHER corpus on this node
+        // published for byte-identical content — two Apache-2.0 checkouts
+        // sharing a LICENSE is enough. Those documents are that run's, not
+        // this one's: counting them aborted a generation whose own
+        // publication was exactly right (#360). What this barrier is for is
+        // "this generation published one canonical document and its aliases",
+        // and that is what it now asks. For the same #971 reason as the
+        // record counts above, only changed groups ask — a kept group's
+        // canonical/alias documents intentionally keep the run_id of the
+        // generation that last wrote them.
+        let catalog_counts = if catalog_wanted.is_empty() {
+            HashMap::new()
+        } else {
+            let _reading = self.pr.file(crate::catalog::CATALOG_INDEX, 0);
+            self.windowed_catalog_counts(&catalog_wanted, &snapshot.tx_id)?
+        };
+
+        // The checks are in-memory lookups in the same per-group order the
+        // serial walk used, so the first disagreement still names the same
+        // group it always did. A key missing from a map here is a bookkeeping
+        // bug in the gathering above, not a count of zero — the catalog check
+        // makes it fail loud either way.
+        for group in changed_groups {
+            let mut records = 0u64;
+            for index in group_indices(group, &desired.plan)? {
+                records += record_counts[&index][&group.content_id];
+            }
+            anyhow::ensure!(
+                records == group.expected_records,
+                "live record count disagrees with desired group {}",
+                group.group_id
+            );
+            let mut semantic = 0u64;
+            for slug in &group.dataset_slugs {
+                let dataset = by_slug
+                    .get(slug.as_str())
+                    .copied()
+                    .with_context(|| format!("group references absent dataset {slug}"))?;
+                if let Some(field) = &dataset.semantic_field {
+                    semantic +=
+                        semantic_counts[&(dataset.index.clone(), field.clone())][&group.content_id];
+                }
+            }
+            anyhow::ensure!(
+                semantic == group.expected_passages && semantic == group.expected_vectors,
+                "live semantic count disagrees with desired group {}",
+                group.group_id
+            );
+            anyhow::ensure!(
+                catalog_counts[&group.content_id] == 1 + group.aliases.len() as u64,
+                "catalog canonical/alias count disagrees with desired group {}",
+                group.group_id
+            );
+        }
+        for old in &deleted_groups {
+            let mut live = 0u64;
+            for index in group_indices(old, &base.plan)? {
+                live += record_counts[&index][&old.content_id];
+            }
+            anyhow::ensure!(
+                live == 0,
+                "replaced or deleted content {} remains live",
+                old.content_id
+            );
         }
         Ok(())
     }
@@ -1983,6 +2689,10 @@ fn create_snapshot_inner(
         used: 0,
         limit: hard_budget_bytes,
     };
+    // Built once per snapshot: per-file preparation used to rebuild the
+    // dataset/coercion maps, rescan every duplicate alias, and re-serialize
+    // each assigned dataset for every file — O(files × (aliases + datasets)).
+    let lookup = plan.map(PreparationLookup::new).transpose()?;
     // #971: the reuse index. Sealing is O(corpus) because every file is
     // re-copied, re-verified and re-extracted per generation — a one-file
     // change in a 10,000-file corpus sealed 10,000 blobs twice over (verify,
@@ -2032,10 +2742,10 @@ fn create_snapshot_inner(
         // mutable tree, and the inventory it is verified against lists the
         // file), but there is nothing to prepare for it: `prepared: None`.
         let assignment = plan.and_then(|plan| plan.files.get(content_id.as_str()));
-        let prepared_identity = match (plan, assignment) {
-            (Some(plan), Some(assignment)) => Some(prepared_artifact_identity(
+        let prepared_identity = match (lookup.as_ref(), assignment) {
+            (Some(lookup), Some(assignment)) => Some(prepared_artifact_identity(
                 chunker_identity,
-                plan,
+                lookup,
                 content_id.as_str(),
                 assignment,
             )?),
@@ -2095,14 +2805,15 @@ fn create_snapshot_inner(
                         })
                     }
                     _ => match assignment {
-                        Some(_) => Some(prepare_artifact(
+                        Some(assignment) => Some(prepare_artifact(
                             &staging,
                             ordinal,
                             tx_id,
                             source,
                             content_id,
                             &destination,
-                            plan.expect("assignment implies a plan"),
+                            assignment,
+                            lookup.as_ref().expect("assignment implies a plan"),
                             &mut budget,
                             labeler,
                         )?),
@@ -2125,14 +2836,15 @@ fn create_snapshot_inner(
                 #[cfg(test)]
                 apply_post_seal_source_replacement(&source.path)?;
                 let prepared = match assignment {
-                    Some(_) => Some(prepare_artifact(
+                    Some(assignment) => Some(prepare_artifact(
                         &staging,
                         ordinal,
                         tx_id,
                         source,
                         content_id,
                         &destination,
-                        plan.expect("assignment implies a plan"),
+                        assignment,
+                        lookup.as_ref().expect("assignment implies a plan"),
                         &mut budget,
                         labeler,
                     )?),
@@ -2263,6 +2975,50 @@ pub fn open_snapshot(state_dir: &Path, tx_id: &str) -> Result<SourceSnapshot> {
     Ok(snapshot)
 }
 
+/// Per-snapshot index over the plan, built once by `create_snapshot_inner`
+/// so preparing F files costs O(F + aliases + datasets) instead of
+/// O(F × (aliases + datasets)). Duplicate slugs resolve last-wins, exactly
+/// as the per-file `collect()`/`insert` loops it replaces did, so
+/// `prepared_artifact_identity` stays byte-identical (it is a persisted
+/// reuse key).
+struct PreparationLookup<'a> {
+    datasets: HashMap<&'a str, &'a crate::state::PlanDataset>,
+    dataset_values: HashMap<&'a str, Value>,
+    coercions: HashMap<&'a str, HashMap<String, crate::coerce::Coerce>>,
+    /// `file_key` -> sorted `(rel, path_id)` of its duplicate aliases.
+    aliases_by_key: HashMap<&'a str, Vec<(&'a str, &'a str)>>,
+}
+
+impl<'a> PreparationLookup<'a> {
+    fn new(plan: &'a Plan) -> Result<Self> {
+        let mut datasets = HashMap::with_capacity(plan.datasets.len());
+        let mut dataset_values = HashMap::with_capacity(plan.datasets.len());
+        let mut coercions = HashMap::with_capacity(plan.datasets.len());
+        for dataset in &plan.datasets {
+            let slug = dataset.slug.as_str();
+            datasets.insert(slug, dataset);
+            dataset_values.insert(slug, serde_json::to_value(dataset)?);
+            coercions.insert(slug, crate::coerce::plan_from_specs(&dataset.specs));
+        }
+        let mut aliases_by_key: HashMap<&'a str, Vec<(&'a str, &'a str)>> = HashMap::new();
+        for alias in &plan.duplicate_files {
+            aliases_by_key
+                .entry(alias.file_key.as_str())
+                .or_default()
+                .push((alias.rel.as_str(), alias.path_id.as_str()));
+        }
+        for aliases in aliases_by_key.values_mut() {
+            aliases.sort_unstable();
+        }
+        Ok(Self {
+            datasets,
+            dataset_values,
+            coercions,
+            aliases_by_key,
+        })
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn prepare_artifact(
     staging: &Path,
@@ -2271,7 +3027,8 @@ fn prepare_artifact(
     source: &crate::walk::FileEntry,
     content_id: &str,
     snapshot_blob: &Path,
-    plan: &Plan,
+    assignment: &crate::state::FileAssignment,
+    lookup: &PreparationLookup<'_>,
     budget: &mut PayloadBudget,
     // #1062: `--label` runs each record's payload through the node's
     // `/_decide` HERE, before the record is sealed, so the labels become part
@@ -2283,32 +3040,12 @@ fn prepare_artifact(
     // without `--label` — seals unlabelled exactly as before.
     labeler: Option<&crate::label::Labeler>,
 ) -> Result<PreparedArtifact> {
-    let assignment = plan
-        .files
-        .get(content_id)
-        .with_context(|| format!("plan has no assignment for {}", source.rel))?;
-    let datasets: HashMap<&str, &crate::state::PlanDataset> = plan
-        .datasets
-        .iter()
-        .map(|dataset| (dataset.slug.as_str(), dataset))
-        .collect();
-    let coercions: HashMap<&str, HashMap<String, crate::coerce::Coerce>> = plan
-        .datasets
-        .iter()
-        .map(|dataset| {
-            (
-                dataset.slug.as_str(),
-                crate::coerce::plan_from_specs(&dataset.specs),
-            )
-        })
-        .collect();
+    let datasets = &lookup.datasets;
+    let coercions = &lookup.coercions;
     let mut paths = vec![assignment.rel.clone()];
-    paths.extend(
-        plan.duplicate_files
-            .iter()
-            .filter(|alias| alias.file_key == content_id)
-            .map(|alias| alias.rel.clone()),
-    );
+    if let Some(aliases) = lookup.aliases_by_key.get(content_id) {
+        paths.extend(aliases.iter().map(|(rel, _)| (*rel).to_owned()));
+    }
     paths.sort();
     paths.dedup();
     let assignments: HashMap<Option<String>, &str> = assignment
@@ -2495,29 +3232,19 @@ fn prepare_artifact(
 /// behaviour change, which is what makes this safe across builds.
 fn prepared_artifact_identity(
     chunker_identity: &str,
-    plan: &Plan,
+    lookup: &PreparationLookup<'_>,
     content_id: &str,
     assignment: &crate::state::FileAssignment,
 ) -> Result<String> {
-    let mut aliases: Vec<(&str, &str)> = plan
-        .duplicate_files
-        .iter()
-        .filter(|alias| alias.file_key == content_id)
-        .map(|alias| (alias.rel.as_str(), alias.path_id.as_str()))
-        .collect();
-    aliases.sort_unstable();
-    let slugs: BTreeSet<&str> = assignment
-        .assignments
-        .iter()
-        .map(|(_, slug)| slug.as_str())
-        .collect();
-    let mut datasets: BTreeMap<&str, Value> = BTreeMap::new();
-    for dataset in plan
-        .datasets
-        .iter()
-        .filter(|dataset| slugs.contains(&dataset.slug.as_str()))
-    {
-        datasets.insert(dataset.slug.as_str(), serde_json::to_value(dataset)?);
+    let aliases: &[(&str, &str)] = lookup
+        .aliases_by_key
+        .get(content_id)
+        .map_or(&[], Vec::as_slice);
+    let mut datasets: BTreeMap<&str, &Value> = BTreeMap::new();
+    for (_, slug) in &assignment.assignments {
+        if let Some(value) = lookup.dataset_values.get(slug.as_str()) {
+            datasets.insert(slug.as_str(), value);
+        }
     }
     let encoded = serde_json::to_vec(&serde_json::json!({
         "chunker_identity": chunker_identity,
@@ -2740,6 +3467,7 @@ mod tests {
                 time_field: None,
                 semantic_field: None,
                 text_analyzer: None,
+                scope: None,
                 sampled_records: 1,
                 file_count: 1,
             }],
@@ -2758,6 +3486,112 @@ mod tests {
             )]),
             alias_paths_indexed: false,
             ..Plan::default()
+        }
+    }
+
+    /// `prepared_artifact_identity` is a persisted reuse key: the
+    /// once-per-snapshot `PreparationLookup` must hash exactly what the old
+    /// per-file plan scan hashed, including unordered aliases, aliases of other
+    /// files, a duplicate slug (last wins) and an assigned slug with no dataset.
+    #[test]
+    fn preparation_lookup_identity_matches_the_per_file_plan_scan() {
+        fn legacy_identity(
+            chunker_identity: &str,
+            plan: &Plan,
+            content_id: &str,
+            assignment: &FileAssignment,
+        ) -> String {
+            let mut aliases: Vec<(&str, &str)> = plan
+                .duplicate_files
+                .iter()
+                .filter(|alias| alias.file_key == content_id)
+                .map(|alias| (alias.rel.as_str(), alias.path_id.as_str()))
+                .collect();
+            aliases.sort_unstable();
+            let slugs: BTreeSet<&str> = assignment
+                .assignments
+                .iter()
+                .map(|(_, slug)| slug.as_str())
+                .collect();
+            let mut datasets: BTreeMap<&str, Value> = BTreeMap::new();
+            for dataset in plan
+                .datasets
+                .iter()
+                .filter(|dataset| slugs.contains(&dataset.slug.as_str()))
+            {
+                datasets.insert(
+                    dataset.slug.as_str(),
+                    serde_json::to_value(dataset).unwrap(),
+                );
+            }
+            let encoded = serde_json::to_vec(&serde_json::json!({
+                "chunker_identity": chunker_identity,
+                "document_ids": crate::DOCUMENT_IDS_IDENTITY,
+                "assignment": serde_json::to_value(assignment).unwrap(),
+                "aliases": aliases,
+                "datasets": datasets,
+            }))
+            .unwrap();
+            format!("axfi1-{:032x}", xxhash_rust::xxh3::xxh3_128(&encoded))
+        }
+        let dataset = |slug: &str, index: &str| PlanDataset {
+            slug: slug.into(),
+            index: index.into(),
+            family: "text".into(),
+            group: None,
+            specs: vec![],
+            time_field: None,
+            semantic_field: None,
+            text_analyzer: None,
+            scope: None,
+            sampled_records: 1,
+            file_count: 1,
+        };
+        let alias = |file_key: &str, rel: &str| crate::state::DuplicateFile {
+            file_key: file_key.into(),
+            rel: rel.into(),
+            path_id: format!("id-{rel}"),
+            is_symlink: Some(false),
+            duplicate_of: "canon".into(),
+            bytes: 1,
+        };
+        let assignment = FileAssignment {
+            rel: "canon".into(),
+            path_id: "id-canon".into(),
+            is_symlink: Some(false),
+            family: "text".into(),
+            gzip: false,
+            content_digest: None,
+            assignments: vec![
+                (None, "docs".into()),
+                (Some("g".into()), "logs".into()),
+                (Some("h".into()), "missing".into()),
+            ],
+            as_document: false,
+        };
+        let plan = Plan {
+            datasets: vec![
+                dataset("docs", "ax-docs"),
+                dataset("logs", "ax-logs-old"),
+                dataset("other", "ax-other"),
+                dataset("logs", "ax-logs"),
+            ],
+            files: HashMap::from([("k1".to_string(), assignment.clone())]),
+            duplicate_files: vec![
+                alias("k1", "z/copy"),
+                alias("k2", "elsewhere"),
+                alias("k1", "a/copy"),
+                alias("k1", "m/copy"),
+            ],
+            ..Plan::default()
+        };
+        let lookup = PreparationLookup::new(&plan).unwrap();
+        for content_id in ["k1", "k2", "k3"] {
+            assert_eq!(
+                prepared_artifact_identity("chunker-v1", &lookup, content_id, &assignment).unwrap(),
+                legacy_identity("chunker-v1", &plan, content_id, &assignment),
+                "identity drifted for {content_id}"
+            );
         }
     }
 
@@ -2794,6 +3628,7 @@ mod tests {
                 time_field: None,
                 semantic_field: None,
                 text_analyzer: None,
+                scope: None,
                 sampled_records: 1,
                 file_count: files.len(),
             }],
@@ -3149,6 +3984,7 @@ mod tests {
             time_field: None,
             semantic_field: None,
             text_analyzer: None,
+            scope: None,
             sampled_records: 2,
             file_count: 1,
         };
@@ -4519,6 +5355,402 @@ mod tests {
         assert_eq!(backend.validations, 0);
         assert_eq!(journal.committed_manifest.as_ref().unwrap().generation, 0);
         assert!(journal.pending_sync.is_some());
+    }
+
+    // ── #1212 shape 2: the read-back barrier re-walks an unflagged short page ──
+    //
+    // The live failure: finalize's run_id-scoped sorted walk read 9 full
+    // 1,000-hit pages, then an EMPTY page with `timed_out` absent — 9,000 of
+    // 58,568, no flag, so neither the transport retry nor #1213's page-level
+    // deadline check could see it. Only observed-count-versus-expected can,
+    // and the answer was intermittent: the same walk on an idle node read all
+    // 59 pages clean. These pin the re-walk loop's contract without a node.
+
+    fn doc_map(ids: &[&str]) -> BTreeMap<String, Value> {
+        ids.iter()
+            .map(|id| ((*id).to_string(), Value::String((*id).into())))
+            .collect()
+    }
+
+    #[test]
+    fn a_complete_first_read_back_walk_is_returned_without_refreshing() {
+        let pr = crate::progress::Progress::silent();
+        let walks = std::cell::Cell::new(0u32);
+        let refreshes = std::cell::Cell::new(0u32);
+        let observed = EsSyncBackend::rewalk_while_short(
+            &pr,
+            2,
+            || {
+                walks.set(walks.get() + 1);
+                Ok(doc_map(&["a", "b"]))
+            },
+            || {
+                refreshes.set(refreshes.get() + 1);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(observed.len(), 2);
+        assert_eq!(walks.get(), 1, "the happy path is exactly one walk");
+        assert_eq!(refreshes.get(), 0, "a complete walk never refreshes");
+    }
+
+    #[test]
+    fn a_short_walk_is_refreshed_and_rewalked_until_complete() {
+        let pr = crate::progress::Progress::silent();
+        let walks = std::cell::Cell::new(0u32);
+        let refreshes = std::cell::Cell::new(0u32);
+        let observed = EsSyncBackend::rewalk_while_short(
+            &pr,
+            2,
+            || {
+                walks.set(walks.get() + 1);
+                // walk 1 is the #1212 shape: an unflagged truncated answer;
+                // walk 2 sees the whole set, the way the idle-node probe did
+                Ok(if walks.get() == 1 {
+                    doc_map(&["a"])
+                } else {
+                    doc_map(&["a", "b"])
+                })
+            },
+            || {
+                refreshes.set(refreshes.get() + 1);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(observed.len(), 2, "the complete observation is returned");
+        assert_eq!(walks.get(), 2);
+        assert_eq!(refreshes.get(), 1, "one refresh between the two walks");
+    }
+
+    #[test]
+    fn a_walk_short_every_time_costs_all_attempts_and_returns_the_last_observation() {
+        let pr = crate::progress::Progress::silent();
+        let walks = std::cell::Cell::new(0u32);
+        let observed = EsSyncBackend::rewalk_while_short(
+            &pr,
+            58_568,
+            || {
+                walks.set(walks.get() + 1);
+                // every walk truncates differently short — never complete
+                let id = format!("only-{0}", walks.get());
+                Ok(BTreeMap::from([(id.clone(), Value::String(id))]))
+            },
+            || Ok(()),
+        )
+        .unwrap();
+        assert_eq!(
+            walks.get(),
+            EsSyncBackend::READBACK_WALK_ATTEMPTS as u32,
+            "bounded: no infinite re-walk over a persistently truncating node"
+        );
+        assert_eq!(observed.len(), 1);
+        assert_eq!(
+            observed.keys().next().map(String::as_str),
+            Some(format!("only-{0}", EsSyncBackend::READBACK_WALK_ATTEMPTS).as_str()),
+            "the LAST observation is what validate_observed judges — the error \
+             names the final walk's counts, not a stale one"
+        );
+    }
+
+    #[test]
+    fn a_transport_error_in_the_walk_propagates_without_a_retry() {
+        let pr = crate::progress::Progress::silent();
+        let refreshes = std::cell::Cell::new(0u32);
+        let verdict = EsSyncBackend::rewalk_while_short(
+            &pr,
+            2,
+            || Err(anyhow::anyhow!("connection reset")),
+            || {
+                refreshes.set(refreshes.get() + 1);
+                Ok(())
+            },
+        );
+        assert!(verdict.is_err(), "an error is not a short walk");
+        assert_eq!(refreshes.get(), 0, "no refresh over a dead transport");
+    }
+
+    // #1267: the `run_id`-scoped catalog read-back walk. On a resume that
+    // rewrote the whole catalog its `run_id` matches every document, so it
+    // runs for ~35 min — and used to do so invisibly, behind a finished
+    // `finalize-catalog` ticker that read as a hang. These pin the walk as its
+    // own phase with the engine's match total as the denominator, plus the
+    // paging contract, without a node.
+
+    /// One page of a `run_id` walk: every hit carries a `sort` key (the
+    /// continuation the next page is fetched from) and the engine reports the
+    /// full match `total` on every page, not just the first.
+    fn walk_page(total: u64, ids: &[&str]) -> Value {
+        let hits: Vec<Value> = ids
+            .iter()
+            .map(|id| serde_json::json!({"_id": id, "_source": {"run": id}, "sort": [id]}))
+            .collect();
+        serde_json::json!({"hits": {"total": {"value": total}, "hits": hits}})
+    }
+
+    #[test]
+    fn a_run_id_walk_collects_every_page_and_opens_an_honest_phase() {
+        let (pr, buffer) = crate::progress::Progress::capture(
+            crate::progress::Surface::Plain,
+            std::time::Duration::from_secs(3600),
+        );
+        // Page size 2: two full pages, then a short page ends the walk. The
+        // engine reports total=5 on every page.
+        let pages = std::cell::RefCell::new(vec![
+            walk_page(5, &["a", "b"]),
+            walk_page(5, &["c", "d"]),
+            walk_page(5, &["e"]),
+        ]);
+        let calls = std::cell::Cell::new(0usize);
+        let observed = EsSyncBackend::walk_run_id_pages(
+            &pr,
+            "finalize-catalog-readback",
+            2,
+            |_search_after| {
+                calls.set(calls.get() + 1);
+                Ok(pages.borrow_mut().remove(0))
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            calls.get(),
+            3,
+            "two full pages then one short page ends the walk"
+        );
+        assert_eq!(
+            observed.len(),
+            5,
+            "every document across every page is collected"
+        );
+        assert!(
+            observed.contains_key("e"),
+            "the short final page is not dropped"
+        );
+
+        let out = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+        assert!(
+            out.contains("phase=finalize-catalog-readback"),
+            "the walk is its own phase, not a frozen finalize-catalog ticker: {out}"
+        );
+        // The denominator is the engine's own match total from page one — not
+        // the page size, not the running count — so the bar is honest from the
+        // first page instead of after 35 min of silence (#1267).
+        assert!(
+            out.contains("items=0/5"),
+            "the phase opens with the full match total as its denominator: {out}"
+        );
+    }
+
+    #[test]
+    fn the_read_back_walk_advances_its_surface_per_document() {
+        // The whole point of #1267: the walk must TICK, so a long read-back is
+        // never a stalled line. A ticker on a short cadence proves the surface
+        // reaches `items=3/3` without any item needing to "complete" a file.
+        let (pr, buffer) = crate::progress::Progress::capture(
+            crate::progress::Surface::Plain,
+            std::time::Duration::from_millis(40),
+        );
+        let ticker = pr.spawn_ticker();
+        // One short page (size 1000 default; 3 < 1000 ends the walk).
+        let observed = EsSyncBackend::walk_run_id_pages(
+            &pr,
+            "finalize-catalog-readback",
+            1000,
+            |_search_after| Ok(walk_page(3, &["a", "b", "c"])),
+        )
+        .unwrap();
+        assert_eq!(observed.len(), 3);
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(20);
+        loop {
+            let out = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+            if out.contains("phase=finalize-catalog-readback") && out.contains("items=3/3") {
+                break;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "the ticker never showed the walk advance to items=3/3: {out}"
+            );
+            std::thread::yield_now();
+        }
+        drop(ticker);
+    }
+
+    // #1267 operational: the server-generation latency probe that runs before
+    // `finalize-verify`. Timings are injected, so these pin the decision
+    // without a node or a clock.
+
+    fn run_probe(
+        surface: crate::progress::Surface,
+        timings: &[std::time::Duration],
+        version: Option<&str>,
+    ) -> (Option<std::time::Duration>, usize, String) {
+        let (pr, buffer) =
+            crate::progress::Progress::capture(surface, std::time::Duration::from_secs(3600));
+        let queue = std::cell::RefCell::new(timings.to_vec());
+        let calls = std::cell::Cell::new(0usize);
+        let verdict = EsSyncBackend::probe_server_generation(
+            &pr,
+            400,
+            EsSyncBackend::SERVER_PROBE_SLOW,
+            || {
+                calls.set(calls.get() + 1);
+                let mut queue = queue.borrow_mut();
+                anyhow::ensure!(!queue.is_empty(), "transport down");
+                Ok(queue.remove(0))
+            },
+            || version.map(str::to_owned),
+        );
+        let out = String::from_utf8(buffer.lock().unwrap().clone()).unwrap();
+        (verdict, calls.get(), out)
+    }
+
+    #[test]
+    fn a_fast_verify_window_probes_once_and_stays_silent() {
+        let ms = std::time::Duration::from_millis;
+        let (verdict, calls, out) =
+            run_probe(crate::progress::Surface::Plain, &[ms(3)], Some("0.0.0-old"));
+        assert_eq!(verdict, Some(ms(3)));
+        assert_eq!(calls, 1, "a fast first answer is not re-asked");
+        assert!(
+            !out.contains("warning"),
+            "a fixed server is not warned about: {out}"
+        );
+    }
+
+    #[test]
+    fn a_cold_first_window_is_reasked_and_not_mistaken_for_an_old_server() {
+        // #1267's own numbers: 8.8 s cold page-in on the FIXED binary, then 2.7 ms.
+        let ms = std::time::Duration::from_millis;
+        let (verdict, calls, out) =
+            run_probe(crate::progress::Surface::Plain, &[ms(8800), ms(3)], None);
+        assert_eq!(verdict, Some(ms(3)));
+        assert_eq!(calls, 2);
+        assert!(
+            !out.contains("warning"),
+            "cold page-in is not an old server: {out}"
+        );
+    }
+
+    #[test]
+    fn a_slow_warm_window_warns_on_the_plain_surface_and_does_not_abort() {
+        let ms = std::time::Duration::from_millis;
+        let (verdict, calls, out) = run_probe(
+            crate::progress::Surface::Plain,
+            &[ms(8800), ms(3400)],
+            Some("1.0.0-rc.80"),
+        );
+        assert_eq!(
+            verdict,
+            Some(ms(3400)),
+            "the probe reports and the run continues"
+        );
+        assert_eq!(calls, 2);
+        for needle in [
+            "warning",
+            "3.4s",
+            "older than this client",
+            "#1260",
+            "400 windows",
+            "~0.4h",
+            "XERJ 1.0.0-rc.80",
+            env!("CARGO_PKG_VERSION"),
+            "upgrade the server",
+            "Continuing",
+        ] {
+            assert!(out.contains(needle), "warning lacks {needle:?}: {out}");
+        }
+    }
+
+    #[test]
+    fn a_slow_server_with_the_same_version_is_named_a_development_build() {
+        let ms = std::time::Duration::from_millis;
+        let (_, _, out) = run_probe(
+            crate::progress::Surface::Plain,
+            &[ms(3400), ms(3400)],
+            Some(env!("CARGO_PKG_VERSION")),
+        );
+        assert!(out.contains("same version as this client"), "{out}");
+        assert!(out.contains("development build"), "{out}");
+    }
+
+    #[test]
+    fn the_slow_server_warning_is_one_json_event_on_the_machine_surface() {
+        let ms = std::time::Duration::from_millis;
+        let (_, _, out) = run_probe(crate::progress::Surface::Json, &[ms(3400), ms(3400)], None);
+        let events: Vec<Value> = out
+            .lines()
+            .map(|line| serde_json::from_str(line).expect("one JSON object per line"))
+            .collect();
+        assert_eq!(events.len(), 1, "{out}");
+        assert_eq!(events[0]["event"], "warning");
+        assert!(events[0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("older than this client"));
+    }
+
+    #[test]
+    fn the_slow_server_warning_survives_the_silent_surface() {
+        // `--quiet` drops routine notes; a four-hour wait is not routine.
+        let ms = std::time::Duration::from_millis;
+        let (_, _, out) = run_probe(
+            crate::progress::Surface::Silent,
+            &[ms(3400), ms(3400)],
+            None,
+        );
+        assert!(out.contains("older than this client"), "{out}");
+    }
+
+    #[test]
+    fn a_failing_probe_neither_warns_nor_propagates() {
+        let (verdict, calls, out) = run_probe(crate::progress::Surface::Plain, &[], None);
+        assert_eq!(verdict, None);
+        assert_eq!(calls, 1);
+        assert!(out.is_empty(), "{out}");
+    }
+
+    #[test]
+    fn a_duplicate_id_across_pages_fails_the_walk_loudly() {
+        let pr = crate::progress::Progress::silent();
+        let pages =
+            std::cell::RefCell::new(vec![walk_page(4, &["a", "b"]), walk_page(4, &["b", "c"])]);
+        let verdict = EsSyncBackend::walk_run_id_pages(
+            &pr,
+            "finalize-catalog-readback",
+            2,
+            |_search_after| Ok(pages.borrow_mut().remove(0)),
+        );
+        let err = verdict.unwrap_err().to_string();
+        assert!(
+            err.contains("duplicate ID b"),
+            "a document seen twice is a loud failure, never a silent overwrite: {err}"
+        );
+    }
+
+    #[test]
+    fn a_full_page_without_a_continuation_key_cannot_advance() {
+        let pr = crate::progress::Progress::silent();
+        // A full page (size 2) whose hits carry no `sort`: the walk cannot form
+        // the next `search_after` and must refuse rather than loop or truncate.
+        let page = serde_json::json!({
+            "hits": {"total": {"value": 9}, "hits": [
+                {"_id": "a", "_source": {}},
+                {"_id": "b", "_source": {}}
+            ]}
+        });
+        let verdict = EsSyncBackend::walk_run_id_pages(
+            &pr,
+            "finalize-catalog-readback",
+            2,
+            |_search_after| Ok(page.clone()),
+        );
+        let err = verdict.unwrap_err().to_string();
+        assert!(
+            err.contains("continuation sort key"),
+            "a full page with no sort key is a loud failure: {err}"
+        );
     }
 }
 

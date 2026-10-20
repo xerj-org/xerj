@@ -1,0 +1,22 @@
+{
+ "corpus": "gtxprime--screen-x",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how gtxPrime/screen-x implements it: Just an open source screen recorder (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "screen-x",
+   "url": "https://github.com/gtxPrime/screen-x",
+   "sha": "9d19cbb23512e2589a019887b5d0052cd1f4927c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 9d19cbb23512: \"feat(updates): add GitHub releases update checker with native ScreenX\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

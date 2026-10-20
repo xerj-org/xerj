@@ -1,0 +1,22 @@
+{
+ "corpus": "malinoskj2--hindsight",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on av1, gaming, gaming-tools queries this for how malinoskj2/hindsight implements it: The lowest-overhead instant replay game capture for Windows: captured and encoded on the GPU, no overlay, no launcher, no bloat (selected work: src/service, src/sys, src)",
+ "repos": [
+  {
+   "repo": "hindsight",
+   "url": "https://github.com/malinoskj2/hindsight",
+   "sha": "4198ef92e6010e877925238007f82a32768bab45",
+   "licence": "hint only: BSD-2-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-2-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 4198ef92e601: \"Keep full-screen mode recording after an app it cannot capture\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "dalongzhuazi--manxia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PowerShell queries this for how DaLongZhuaZi/manxia implements it: \u6f2b\u5323\u662f\u4e00\u6b3e\u4e13\u4e3a HarmonyOS Next \u5e73\u53f0\u5f00\u53d1\u7684\u6f2b\u753b\u9605\u8bfb\u5e94\u7528 (selected work: entry)",
+ "repos": [
+  {
+   "repo": "manxia",
+   "url": "https://github.com/DaLongZhuaZi/manxia",
+   "sha": "3e9b5f804aed7e757c352e046bed81b09980f7d7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 3e9b5f804aed: \"fix(reader): \u4fee\u590d\u8fdc\u7aef\u56fe\u6e90\u9605\u8bfb\u94fe\u8def\uff0c\u8865\u9f50\u52a0\u8f7d\u9636\u6bb5\u663e\u793a\u4e0e\u5168\u5c40\u5b57\u4f53\u63a5\u5165\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

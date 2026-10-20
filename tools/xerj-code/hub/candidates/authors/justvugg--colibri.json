@@ -1,0 +1,22 @@
+{
+ "corpus": "justvugg--colibri",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how JustVugg/colibri implements it: Run frontier MoE models on hardware you already own \u2014 pure C, zero deps, experts streamed from disk. Tiny engine, immense model. \ud83d\udc26 (selected work: c)",
+ "repos": [
+  {
+   "repo": "colibri",
+   "url": "https://github.com/JustVugg/colibri",
+   "sha": "024bef576e3844210a07ec9a7d7be2030bd57aea",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 024bef576e38: \"fix(qwen38): reject pins whose attention rows were overwritten\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

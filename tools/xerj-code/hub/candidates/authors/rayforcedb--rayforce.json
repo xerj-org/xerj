@@ -1,0 +1,22 @@
+{
+ "corpus": "rayforcedb--rayforce",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on analytics, columnar, database queries this for how RayforceDB/rayforce implements it: SIMD-accelerated columnar database for analytics \u2014 pure C, zero dependencies (selected work: test, src/store, src/ops)",
+ "repos": [
+  {
+   "repo": "rayforce",
+   "url": "https://github.com/RayforceDB/rayforce",
+   "sha": "61cf45aaa2c296aa7982ee2ec633e808966b65aa",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 61cf45aaa2c2: \"fix(hnsw): preserve layer topology during build and load (#680)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

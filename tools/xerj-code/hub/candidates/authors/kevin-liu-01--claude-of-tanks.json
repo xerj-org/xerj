@@ -1,0 +1,22 @@
+{
+ "corpus": "kevin-liu-01--claude-of-tanks",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on 3d-game, browser-game, claude queries this for how Kevin-Liu-01/Claude-of-Tanks implements it: A World of Tanks-style armored combat simulator built directly with Three.js and Vite: 220 vehicles, 33 destructible battlefields, and 13 mo (selected work: src/ui, tools)",
+ "repos": [
+  {
+   "repo": "Claude-of-Tanks",
+   "url": "https://github.com/Kevin-Liu-01/Claude-of-Tanks",
+   "sha": "6979d489c85dba34ce7402c49c65c431c6e390ad",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 6979d489c85d: \"feat(ui): redesign spectator controls as compact hexagonal instruments\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

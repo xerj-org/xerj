@@ -13,6 +13,19 @@ use serde::{Deserialize, Serialize};
 use crate::error::XerjError;
 use crate::types::{FieldConfig, FieldType, Schema};
 
+/// Render epoch milliseconds as an ISO-8601 UTC string with millisecond
+/// precision (`2026-10-06T11:09:13.000Z`). One definition for every caller
+/// that has to render a date the way `min`/`max` aggregations render their
+/// `value_as_string`: the engine's agg layer (xerj-engine/src/aggs.rs, its
+/// former private copy) and the autoindex catalog read-back, which replaced
+/// those aggs with sorted size-1 reads (#1183) and must not diverge from the
+/// rendering the catalog already published.
+pub fn epoch_ms_to_iso8601_utc(ms: i64) -> String {
+    chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms)
+        .map(|dt| dt.to_rfc3339_opts(chrono::SecondsFormat::Millis, true))
+        .unwrap_or_default()
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Dynamic mapping mode
 // ═════════════════════════════════════════════════════════════════════════════
@@ -89,8 +102,9 @@ impl ManagedSchema {
     ///
     /// Fails if:
     /// - A field with the same name already exists.
-    /// - The field type is incompatible with an existing field (checked via
-    ///   [`is_compatible_with`]).
+    /// - The field config is invalid (checked by [`validate_field_config`]:
+    ///   empty, padded or `_`-prefixed name, missing or zero vector
+    ///   `dimensions`, non-positive boost, an indexed `binary` field).
     pub fn add_field(&mut self, field: FieldConfig) -> Result<(), XerjError> {
         validate_field_config(&field)?;
         self.schema.add_field(field)
@@ -165,9 +179,9 @@ impl ManagedSchema {
 
     /// Check whether `other` is compatible with `self` for a schema upgrade.
     ///
-    /// Compatible means: every field in `self` also exists in `other` with the
-    /// same type. `other` may have additional fields. Changing a field's type
-    /// is never compatible.
+    /// Compatible means: every field present in both `self` and `other` has
+    /// the same type. Either side may have fields the other lacks (schemas
+    /// grow additively). Changing a field's type is never compatible.
     pub fn is_compatible_with(&self, other: &ManagedSchema) -> Result<(), XerjError> {
         for field in &self.schema.fields {
             // A field missing from `other` is fine — schemas grow additively,

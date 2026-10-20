@@ -1,0 +1,22 @@
+{
+ "corpus": "shahidzbi4213--squishout",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how Shahidzbi4213/SquishOut implements it: \ud83c\udf53 A juicy, tactile evolution of directional unblocking puzzles (selected work: shared)",
+ "repos": [
+  {
+   "repo": "SquishOut",
+   "url": "https://github.com/Shahidzbi4213/SquishOut",
+   "sha": "58187e89c0d6c222fd69a4c5cc0e36a94184544a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 58187e89c0d6: \"feat(audio): implement looping cozy ambient background music, setting\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

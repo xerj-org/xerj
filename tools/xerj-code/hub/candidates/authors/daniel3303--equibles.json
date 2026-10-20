@@ -1,0 +1,22 @@
+{
+ "corpus": "daniel3303--equibles",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on financial-data, insider-trading, mcp queries this for how daniel3303/Equibles implements it: Self-hosted, open-source financial data MCP server for AI agents \u2014 SEC filings, XBRL financials, 13F holdings, insider & congressional trade (selected work: tests, src/Equibles.Sec.FinancialFacts.HostedService, the project root)",
+ "repos": [
+  {
+   "repo": "Equibles",
+   "url": "https://github.com/daniel3303/Equibles",
+   "sha": "6e1b70ac4e082016299a6810381446069f5ea305",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 6e1b70ac4e08: \"fix(sec): make financial fact persistence batches configurable (#4622)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

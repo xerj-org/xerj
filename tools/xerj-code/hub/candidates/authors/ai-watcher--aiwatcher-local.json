@@ -1,0 +1,22 @@
+{
+ "corpus": "ai-watcher--aiwatcher-local",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how ai-watcher/aiwatcher-local implements it: We plan to fill the gap of visibility, efficacy, cost reduction for individuals doing AI-heavy work (selected work: aiwatcher_cli, tests)",
+ "repos": [
+  {
+   "repo": "aiwatcher-local",
+   "url": "https://github.com/ai-watcher/aiwatcher-local",
+   "sha": "80bd8f0a29464f93642107345d223d843c41d7e7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 80bd8f0a2946: \"Reduce live transcript polling cost and bound resource caches (#189)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

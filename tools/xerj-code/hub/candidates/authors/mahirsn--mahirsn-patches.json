@@ -1,0 +1,22 @@
+{
+ "corpus": "mahirsn--mahirsn-patches",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how mahirsn/mahirsn-patches implements it: Morphe add-on patches: YouTube watch history on your own server (selected work: extensions, patches, stub)",
+ "repos": [
+  {
+   "repo": "mahirsn-patches",
+   "url": "https://github.com/mahirsn/mahirsn-patches",
+   "sha": "3224102858b089d59d538317f5634318ad93382c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 3224102858b0: \"feat: Continue prompt and button, a history screen, History in place \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "privateer-agent--privateer-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic, ai-agent, ai-sdk queries this for how privateer-agent/privateer-agent implements it: \u2693 Provider-agnostic terminal privacy first coding agent \u2014 bring your own model. Switch between OpenRouter Anthropic, OpenAI & local Ollama w (selected work: tests, src/engine, src/providers)",
+ "repos": [
+  {
+   "repo": "privateer-agent",
+   "url": "https://github.com/privateer-agent/privateer-agent",
+   "sha": "040a95675f70dc2d2e66373c699d3ad990b3e2e1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 040a95675f70: \"A reply cut off at the output limit no longer stops the agent\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

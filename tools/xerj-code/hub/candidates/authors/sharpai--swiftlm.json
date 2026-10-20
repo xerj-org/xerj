@@ -1,0 +1,22 @@
+{
+ "corpus": "sharpai--swiftlm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on inference, ios, llm queries this for how SharpAI/SwiftLM implements it: \u26a1 Native MLX Swift LLM inference server for Apple Silicon. OpenAI-compatible API, SSD streaming for 100B+ MoE models, TurboQuant KV cache co (selected work: tests, Sources)",
+ "repos": [
+  {
+   "repo": "SwiftLM",
+   "url": "https://github.com/SharpAI/SwiftLM",
+   "sha": "e71cdf31155b3c82a91e8dd17cc3a24c97f598d5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit e71cdf31155b: \"fix: stop DFlash at end-of-sequence, and cancel it when the stream en\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "seanbabalala--siftgate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how seanbabalala/SiftGate implements it: SiftGate (selected work: src/releases, test, frontend)",
+ "repos": [
+  {
+   "repo": "SiftGate",
+   "url": "https://github.com/seanbabalala/SiftGate",
+   "sha": "08d1fb3ce62931bc678502c98a164739219ea612",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 08d1fb3ce629: \"feat: add safe release-update notifications (#135)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

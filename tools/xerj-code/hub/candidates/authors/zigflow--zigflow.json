@@ -1,0 +1,22 @@
+{
+ "corpus": "zigflow--zigflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dsl, serverless-workflow, temporal queries this for how zigflow/zigflow implements it: Define durable workflows in YAML, powered by Temporal (selected work: pkg/zigflow, tests)",
+ "repos": [
+  {
+   "repo": "zigflow",
+   "url": "https://github.com/zigflow/zigflow",
+   "sha": "a18538ba585e580c466ad3f743874af642ccad68",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit a18538ba585e: \"fix: fix issue where cancellations didn't promulgate fully\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

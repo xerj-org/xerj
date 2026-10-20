@@ -1,0 +1,22 @@
+{
+ "corpus": "virtover--piano-transcription-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Virtover/piano-transcription-server implements it: Virtover/piano-transcription-server (Python) (selected work: tests, app/transcription, the project root)",
+ "repos": [
+  {
+   "repo": "piano-transcription-server",
+   "url": "https://github.com/Virtover/piano-transcription-server",
+   "sha": "21ffc3804eed9fe71ed2b9bcc9aa3df478b95adc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 21ffc3804eed: \"Refactor GPU memory management and enhance device selection logic\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

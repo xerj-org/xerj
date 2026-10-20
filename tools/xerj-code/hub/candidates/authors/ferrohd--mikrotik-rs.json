@@ -1,0 +1,22 @@
+{
+ "corpus": "ferrohd--mikrotik-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api, async, mikrotik queries this for how ferrohd/mikrotik-rs implements it: Asynchronous Rust library for interacting with MikroTik routers (selected work: the project root, crates/mikrotik-rs, crates/mikrotik-tokio)",
+ "repos": [
+  {
+   "repo": "mikrotik-rs",
+   "url": "https://github.com/ferrohd/mikrotik-rs",
+   "sha": "35a1727b532368b953bc18a4be0fcf362a84f91a",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 35a1727b5323: \"build: add the check suite behind just\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

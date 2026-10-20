@@ -1,0 +1,22 @@
+{
+ "corpus": "calven-ai--marketing-as-code",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, agents, b2b-marketing queries this for how calven-ai/marketing-as-code implements it: The starter repo for a marketing team that runs on code: strategy, content, decisions and 99 agent skills as plain text a coding agent reads (selected work: examples, brand, scripts)",
+ "repos": [
+  {
+   "repo": "marketing-as-code",
+   "url": "https://github.com/calven-ai/marketing-as-code",
+   "sha": "f1643fa66f7329c5167e0e8d4dbc9533070df087",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit f1643fa66f73: \"Beacon: a complete worked example, and a brand library for every team\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

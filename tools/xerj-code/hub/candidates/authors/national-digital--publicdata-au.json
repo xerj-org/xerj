@@ -1,0 +1,22 @@
+{
+ "corpus": "national-digital--publicdata-au",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on australia, government-data, mcp queries this for how National-Digital/publicdata.au implements it: Australian government open data as dated versions that never change, in the formats you and your AI need (selected work: pipeline, register)",
+ "repos": [
+  {
+   "repo": "publicdata.au",
+   "url": "https://github.com/National-Digital/publicdata.au",
+   "sha": "2717f3408454323aae9df190c3d72d3fd5481888",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit 2717f3408454: \"feat(register): add NT public housing and mineral production datasets\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "smkamranqadri--tartib",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, docker, fastapi queries this for how smkamranqadri/tartib implements it: A personal capture system: type anything into one box and a background AI call files it into your own spaces. Your text is never rewritten \u2014 (selected work: frontend, backend)",
+ "repos": [
+  {
+   "repo": "tartib",
+   "url": "https://github.com/smkamranqadri/tartib",
+   "sha": "a45e13bde97f693a49c2034adf857eab42532000",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit a45e13bde97f: \"feat(home,inbox): act on a waiting capture, and count them in the nav\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "crmne--spotifast",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on audio, cross-platform, desktop-app queries this for how crmne/spotifast implements it: Spotify, native and fast. One lightweight Rust app for your whole library, local playback, and Spotify Connect on Linux, macOS, and Windows (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "spotifast",
+   "url": "https://github.com/crmne/spotifast",
+   "sha": "6ddcceb7eaa8dd49636a8a5fc763cc53a08a7294",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 6ddcceb7eaa8: \"Check that a Cast device is genuine before signing it in (#883)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

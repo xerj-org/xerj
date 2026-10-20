@@ -1,0 +1,22 @@
+{
+ "corpus": "ml-explore--mlx-lm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on llms, mlx queries this for how ml-explore/mlx-lm implements it: Run LLMs with MLX (selected work: mlx_lm, tests)",
+ "repos": [
+  {
+   "repo": "mlx-lm",
+   "url": "https://github.com/ml-explore/mlx-lm",
+   "sha": "c39139d70f0798834fc721c28a1aa8e1374ea33c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit c39139d70f07: \"Support PLaMo3 instruction-tuned models with YaRN (#1931)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "mcp-gtw--demo-game",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on demo, example, game queries this for how mcp-gtw/demo-game implements it: Multiplayer, MCP-controlled action game built on mcp-gtw (selected work: client, src/app, tests)",
+ "repos": [
+  {
+   "repo": "demo-game",
+   "url": "https://github.com/mcp-gtw/demo-game",
+   "sha": "7042f431f6d1d81b096c28133f67eec9b66f5935",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 7042f431f6d1: \"Fix game session resumption\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "tangency-labs--solidcraft",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on 3d-modeling, brep, cad queries this for how tangency-labs/solidcraft implements it: SolidCraft: an open-source parametric 3D CAD application built in pure Rust. Desktop, web, and automation through MCP (selected work: crates/engine)",
+ "repos": [
+  {
+   "repo": "solidcraft",
+   "url": "https://github.com/tangency-labs/solidcraft",
+   "sha": "b7eac9220b3d85f9ddce2bd917a5cd522f0b1871",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit b7eac9220b3d: \"inspect.silhouette: the outline of bodies seen from a view, as a mask\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

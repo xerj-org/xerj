@@ -1,0 +1,22 @@
+{
+ "corpus": "rigour-labs--rigour",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-workflow, ai, ai-agents queries this for how rigour-labs/rigour implements it: The immune system for AI coding agents (selected work: packages/rigour-core, packages/rigour-cli, packages/rigour-mcp)",
+ "repos": [
+  {
+   "repo": "rigour",
+   "url": "https://github.com/rigour-labs/rigour",
+   "sha": "3c514cf1ca868fbfc551a70741824ad09c464db5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 3c514cf1ca86: \"fix: Rigour as the whole quality boundary \u2014 stop, push and review (#37)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

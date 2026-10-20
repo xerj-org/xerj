@@ -1,0 +1,22 @@
+{
+ "corpus": "activescaffold--active-scaffold-sortable",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Ruby queries this for how activescaffold/active_scaffold_sortable implements it: Fancy pants drag-drop sortable lists for ActiveScaffold (selected work: test, the project root, lib/active_scaffold)",
+ "repos": [
+  {
+   "repo": "active_scaffold_sortable",
+   "url": "https://github.com/activescaffold/active_scaffold_sortable",
+   "sha": "a0fc4fc8dab4da2147eed1588c1b16ce081e43df",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit a0fc4fc8dab4: \"update tests\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

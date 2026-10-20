@@ -1,0 +1,22 @@
+{
+ "corpus": "inforcqb--susfs4ksu-lkm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how inforcqb/susfs4ksu-lkm implements it: SUSFS ported to a loadable kernel module (LKM) for GKI/CFI devices, loaded via KernelSU ksud (selected work: tools, module)",
+ "repos": [
+  {
+   "repo": "susfs4ksu-lkm",
+   "url": "https://github.com/inforcqb/susfs4ksu-lkm",
+   "sha": "4bc30b841412063a43b71398b0eb7642528867ae",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 4bc30b841412: \"Add a flashable KernelSU module built from each release\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

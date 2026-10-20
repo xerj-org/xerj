@@ -1,0 +1,22 @@
+{
+ "corpus": "alexanderpro--smartsystemmenu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on systemmenu, menu, transparency queries this for how AlexanderPro/SmartSystemMenu implements it: SmartSystemMenu extends system menu of all windows in the system (selected work: SmartSystemMenu)",
+ "repos": [
+  {
+   "repo": "SmartSystemMenu",
+   "url": "https://github.com/AlexanderPro/SmartSystemMenu",
+   "sha": "a60b814c7500cd6fe1dea439b7f621e872579066",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit a60b814c7500: \"Issues #195 Title bar dark mode\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

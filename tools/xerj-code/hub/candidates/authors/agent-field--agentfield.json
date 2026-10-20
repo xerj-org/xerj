@@ -1,0 +1,22 @@
+{
+ "corpus": "agent-field--agentfield",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agentic-ai, ai queries this for how Agent-Field/agentfield implements it: Build, run and scale AI agents like API and microservices (selected work: sdk)",
+ "repos": [
+  {
+   "repo": "agentfield",
+   "url": "https://github.com/Agent-Field/agentfield",
+   "sha": "0e134b1cf694677b449d5f8de9136ef9f44b84f7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 0e134b1cf694: \"feat(sdk/go/ai): support IO Intelligence (io.net) provider (#1102)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

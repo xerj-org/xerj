@@ -1,0 +1,22 @@
+{
+ "corpus": "flobul--jeedom-blea2mqtt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on PHP queries this for how Flobul/jeedom-blea2mqtt implements it: Flobul/jeedom-blea2mqtt (PHP) (selected work: desktop, plugin_info, the project root)",
+ "repos": [
+  {
+   "repo": "jeedom-blea2mqtt",
+   "url": "https://github.com/Flobul/jeedom-blea2mqtt",
+   "sha": "56df46a60cb16d311f7f6024ea95efa3274e6400",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 56df46a60cb1: \"feat: add CI workflows for frontend, PHP, Jeedom, security, and trans\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

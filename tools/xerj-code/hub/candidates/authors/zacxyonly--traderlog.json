@@ -1,0 +1,22 @@
+{
+ "corpus": "zacxyonly--traderlog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, flutter, trading-journaling queries this for how zacxyonly/traderlog implements it: A sleek, offline-first Android trading journal & quantitative performance tracker built with Flutter & SQLite (selected work: lib/screens, lib/providers, lib/widgets)",
+ "repos": [
+  {
+   "repo": "traderlog",
+   "url": "https://github.com/zacxyonly/traderlog",
+   "sha": "2604087b2c0824ac405b56fc1dd73c4782510b3c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 2604087b2c08: \"feat(v1.0.0): official production release v1.0.0 - security hardening\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -19,6 +19,10 @@ static HTTP_E2E_LOCK: Mutex<()> = Mutex::new(());
 struct HttpState {
     docs: HashMap<(String, String), Value>,
     requests: Vec<(String, String)>,
+    /// Every `POST …/_search` body, in order (#1183): the dataset read-back's
+    /// agg-free shape and its sorted time-bound queries are asserted against
+    /// these.
+    search_bodies: Vec<Value>,
     data_bulk_requests: usize,
     fail_next_data_bulk: bool,
     /// Apply the first half of the next data bulk's items and *then* report
@@ -162,6 +166,21 @@ impl HttpEndpoint {
             .collect()
     }
 
+    /// Every `POST …/_search` body the endpoint has seen, in order (#1183).
+    fn search_bodies(&self) -> Vec<Value> {
+        self.state.lock().unwrap().search_bodies.clone()
+    }
+
+    /// One catalog document by id, from the fake's stored docs.
+    fn catalog_doc(&self, id: &str) -> Option<Value> {
+        self.state
+            .lock()
+            .unwrap()
+            .docs
+            .get(&(catalog::CATALOG_INDEX.to_string(), id.to_string()))
+            .cloned()
+    }
+
     fn data_bulk_requests(&self) -> usize {
         self.state.lock().unwrap().data_bulk_requests
     }
@@ -264,6 +283,9 @@ fn handle_http(mut stream: TcpStream, state: &Arc<Mutex<HttpState>>) {
         let deleted = delete_http(path, &body, state);
         (200, json!({"deleted": deleted, "failures": []}))
     } else if method == "POST" && path.ends_with("/_search") {
+        if let Ok(query) = serde_json::from_slice::<Value>(&body) {
+            state.lock().unwrap().search_bodies.push(query);
+        }
         (200, search_http(path, &body, state))
     } else if method == "GET" && path.ends_with("/_count") {
         let index = path.trim_start_matches('/').trim_end_matches("/_count");
@@ -779,6 +801,16 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
                                     values.iter().any(|value| doc.get(field) == Some(value))
                                 })
                             })
+                        // The batched finalize-verify (#1183's count lane)
+                        // scopes its semantic windows with an `exists` on the
+                        // semantic field inside this same `bool.filter`; the
+                        // engine evaluates it there, so the fake must too or
+                        // every window counts rows the real server excludes.
+                        && filter
+                            .get("exists")
+                            .and_then(|exists| exists.get("field"))
+                            .and_then(Value::as_str)
+                            .is_none_or(|field| doc.get(field).is_some())
                 })
                 && exists.map(|field| doc.get(field).is_some()).unwrap_or(true)
                 && must_not_exists
@@ -790,7 +822,39 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
     // catalog sweep pages, and a page has to be a page. A request that omits
     // them still gets everything, which is what every older fixture assumes.
     // Ordering is by `_id` so a page boundary is not `HashMap` iteration order.
-    matching.sort_by_key(|(key, _)| *key);
+    //
+    // #1183: honour `sort` when the request states it — the dataset read-back's
+    // time bounds are size-1 searches sorted on the time field, and the first
+    // hit must BE the extreme, the same invariant a doc-values sort gives the
+    // real server. A request without `sort` keeps the `_id` order.
+    let sort_spec: Option<(String, String)> = query
+        .get("sort")
+        .and_then(Value::as_array)
+        .and_then(|clauses| clauses.first())
+        .and_then(|clause| {
+            if let Some(field) = clause.as_str() {
+                return Some((field.to_owned(), "asc".to_owned()));
+            }
+            clause
+                .as_object()
+                .and_then(|object| object.iter().next())
+                .map(|(field, spec)| {
+                    (
+                        field.clone(),
+                        spec.get("order")
+                            .and_then(Value::as_str)
+                            .unwrap_or("asc")
+                            .to_owned(),
+                    )
+                })
+        });
+    match &sort_spec {
+        Some((field, order)) if order == "desc" => {
+            matching.sort_by(|(_, a), (_, b)| cmp_docs_by_field(b, a, field))
+        }
+        Some((field, _)) => matching.sort_by(|(_, a), (_, b)| cmp_docs_by_field(a, b, field)),
+        None => matching.sort_by_key(|(key, _)| *key),
+    }
     let total = matching.len();
     let from = query
         .get("from")
@@ -806,13 +870,64 @@ fn search_http(path: &str, body: &[u8], state: &Arc<Mutex<HttpState>>) -> Value 
         .take(size)
         .map(|((_, id), source)| json!({"_id": id, "_source": source}))
         .collect::<Vec<_>>();
+    // #1183's batched finalize-verify reads per-digest counts as a `terms`
+    // aggregation over the matched set — the engine's terms `doc_count` is
+    // exact — so the fake counts the same way instead of answering every
+    // request with an empty aggregations body. Only the `terms` sub-agg is
+    // evaluated: it is the only shape the read-back asks for.
+    let aggregations = query
+        .get("aggs")
+        .or_else(|| query.get("aggregations"))
+        .and_then(Value::as_object)
+        .map(|aggs| {
+            let mut body = serde_json::Map::new();
+            for (name, spec) in aggs {
+                let Some(field) = spec
+                    .get("terms")
+                    .and_then(|terms| terms.get("field"))
+                    .and_then(Value::as_str)
+                else {
+                    continue;
+                };
+                let mut counts: std::collections::BTreeMap<&str, u64> =
+                    std::collections::BTreeMap::new();
+                for (_, doc) in &matching {
+                    if let Some(key) = doc.get(field).and_then(Value::as_str) {
+                        *counts.entry(key).or_insert(0) += 1;
+                    }
+                }
+                body.insert(
+                    name.clone(),
+                    json!({"buckets": counts
+                        .into_iter()
+                        .map(|(key, doc_count)| json!({"key": key, "doc_count": doc_count}))
+                        .collect::<Vec<_>>()}),
+                );
+            }
+            Value::Object(body)
+        })
+        .unwrap_or_else(|| json!({}));
     json!({
         "hits": {
             "total": {"value": total, "relation": "eq"},
             "hits": hits
         },
-        "aggregations": {}
+        "aggregations": aggregations
     })
+}
+
+/// Compare two docs on one field for the fake's `sort` support: numbers
+/// numerically, strings lexically, a missing value sorting first (the null
+/// ordering the real server gives an unmapped/absent field).
+fn cmp_docs_by_field(a: &Value, b: &Value, field: &str) -> std::cmp::Ordering {
+    let rank = |doc: &Value| match doc.get(field) {
+        Some(Value::Number(n)) => (1u8, n.as_f64().unwrap_or(0.0), String::new()),
+        Some(Value::String(s)) => (2u8, 0.0, s.clone()),
+        _ => (0u8, 0.0, String::new()),
+    };
+    rank(a)
+        .partial_cmp(&rank(b))
+        .unwrap_or(std::cmp::Ordering::Equal)
 }
 
 fn cfg(root: &Path, state_dir: &Path, url: &str, semantic: bool) -> IndexCfg {
@@ -838,9 +953,10 @@ fn cfg(root: &Path, state_dir: &Path, url: &str, semantic: bool) -> IndexCfg {
         follow_symlinks: false,
         follow_symlinks_outside_root: false,
         ignore: crate::ignore_rules::IgnoreOptions::default(),
-        max_file_gb: 1,
+        max_file_bytes: 1 << 30,
         sample: 50,
         no_semantic: !semantic,
+        code_analyzer: Default::default(),
         brain: None,
         no_graph: true,
         // Gate off: these fixtures assert reconcile behaviour, not a
@@ -855,6 +971,7 @@ fn cfg(root: &Path, state_dir: &Path, url: &str, semantic: bool) -> IndexCfg {
         watch: false,
         label: None,
         debounce: std::time::Duration::from_millis(0),
+        exclude_rels: Vec::new(),
     }
 }
 
@@ -1246,6 +1363,111 @@ fn no_semantic_generation_does_not_require_embedding_identity_endpoint() {
     assert_eq!(journal_events(state_dir.path(), "finish"), 1);
     assert_eq!(final_snapshot_count(state_dir.path()), 1);
     assert_eq!(endpoint.data_docs().len(), 1);
+}
+
+/// #1183: the finalize read-back must not carry a corpus-materialising agg.
+/// A `min`/`max` agg on the dataset's time field has no columnar fast path
+/// under the sharded memtable, so a real server deep-clones every matching
+/// document into owned Values ("aggregation corpus materialisation", ~2KB a
+/// doc against `max_query_memory_mb`) — on the xerj-search rebuild one
+/// ~570k-record dataset estimated 1.1GB against the 512MB default, the
+/// server answered 429 circuit_breaking_exception, and the client retried
+/// for its full 600s budget before aborting: the multi-hour
+/// "finalize-catalog deadlock". The dataset read-back's count runs without
+/// aggs and its time bounds come from size-1 searches sorted on the time
+/// field, which sort from doc values and clone nothing. The batched
+/// generation-wide verify (`sync_executor::validate`) is the one agg the
+/// run issues — an exact `terms` count on a keyword digest field, and only
+/// behind its outer `terms`-on-digest window filter, which prunes the walk
+/// before any agg sees a document. What this guards against is the
+/// materialising family coming back in any read-back.
+#[test]
+fn dataset_read_back_bounds_time_by_sort_and_no_materialising_agg() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("a.csv"),
+        "id,cloned_at\n1,2026-10-01T00:00:00.000Z\n2,2026-10-02T00:00:00.000Z\n3,2026-10-03T00:00:00.000Z\n",
+    )
+    .unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let (code, _) = run_index_report(config).unwrap();
+    assert_eq!(code, 0);
+
+    // 1. No search this run issued carries a corpus-materialising
+    //    aggregation. The only agg allowed anywhere is the batched
+    //    finalize-verify's exact `terms` count — and that one only paired
+    //    with the outer `terms`-on-digest window filter that prunes the walk.
+    let bodies = endpoint.search_bodies();
+    assert!(!bodies.is_empty());
+    for body in &bodies {
+        let Some(aggs) = body
+            .get("aggs")
+            .or_else(|| body.get("aggregations"))
+            .and_then(Value::as_object)
+        else {
+            continue;
+        };
+        for (name, spec) in aggs {
+            assert!(
+                spec.get("terms").is_some(),
+                "#1183: a search carries the corpus-materialising agg {name}: {body}"
+            );
+        }
+        assert!(
+            body.pointer("/query/terms").is_some()
+                || body.pointer("/query/bool/filter/0/terms").is_some(),
+            "a terms agg rides a search with no digest-window filter: {body}"
+        );
+    }
+
+    // 2. The time bounds are the sorted size-1 searches: one ascending, one
+    //    descending, on the dataset's elected time field, under the dataset's
+    //    own ax_dataset filter.
+    let sorted: Vec<&Value> = bodies
+        .iter()
+        .filter(|body| body.pointer("/sort/0/cloned_at").is_some())
+        .collect();
+    assert_eq!(
+        sorted.len(),
+        2,
+        "one ascending and one descending bound query: {bodies:?}"
+    );
+    assert!(
+        sorted
+            .iter()
+            .any(|body| body.pointer("/sort/0/cloned_at/order") == Some(&json!("asc"))),
+        "ascending bound missing: {bodies:?}"
+    );
+    assert!(
+        sorted
+            .iter()
+            .any(|body| body.pointer("/sort/0/cloned_at/order") == Some(&json!("desc"))),
+        "descending bound missing: {bodies:?}"
+    );
+    for body in &sorted {
+        assert_eq!(body.get("size"), Some(&json!(1)), "size-1 query: {body}");
+        assert!(
+            body.pointer("/query/bool/filter").is_some(),
+            "bound query keeps the dataset filter: {body}"
+        );
+    }
+
+    // 3. The catalog document carries the corpus's TRUE bounds — the fake
+    //    honours `sort`, so the first hit is the extreme, exactly like the
+    //    doc-values sort on a real server.
+    let dataset = endpoint
+        .catalog_doc("ds:incremental-http:csv")
+        .expect("dataset catalog document must exist");
+    assert_eq!(dataset["time_field"], json!("cloned_at"));
+    assert_eq!(dataset["time_min"], json!("2026-10-01T00:00:00.000Z"));
+    assert_eq!(dataset["time_max"], json!("2026-10-03T00:00:00.000Z"));
 }
 
 #[test]
@@ -2934,6 +3156,7 @@ fn sweep_excluded_groups_deletes_only_the_excluded_files_documents() {
         time_field: None,
         semantic_field: None,
         text_analyzer: None,
+        scope: None,
         sampled_records: 1,
         file_count: 1,
     });
@@ -3018,6 +3241,7 @@ fn sweep_excluded_groups_invalidates_the_excluded_files_edges() {
         time_field: None,
         semantic_field: None,
         text_analyzer: None,
+        scope: None,
         sampled_records: 1,
         file_count: 1,
     });
@@ -3093,6 +3317,7 @@ fn sweep_excluded_groups_purges_the_excluded_files_alias_catalog_docs() {
         time_field: None,
         semantic_field: None,
         text_analyzer: None,
+        scope: None,
         sampled_records: 1,
         file_count: 1,
     });
@@ -3168,6 +3393,7 @@ fn sweep_excluded_groups_does_not_delete_a_sibling_corpus_catalog_doc() {
         time_field: None,
         semantic_field: None,
         text_analyzer: None,
+        scope: None,
         sampled_records: 1,
         file_count: 1,
     });
@@ -3257,6 +3483,7 @@ fn sweep_excluded_groups_scopes_on_the_keyword_corpus_scope_field() {
         time_field: None,
         semantic_field: None,
         text_analyzer: None,
+        scope: None,
         sampled_records: 1,
         file_count: 1,
     });
@@ -3367,6 +3594,7 @@ fn sweep_excluded_groups_cannot_reach_a_sibling_corpus_on_a_text_mapped_prefix()
         time_field: None,
         semantic_field: None,
         text_analyzer: None,
+        scope: None,
         sampled_records: 1,
         file_count: 1,
     });
@@ -3858,6 +4086,7 @@ fn sweep_excluded_groups_deletes_a_legacy_main_doc_by_id() {
         time_field: None,
         semantic_field: None,
         text_analyzer: None,
+        scope: None,
         sampled_records: 1,
         file_count: 1,
     });
@@ -3925,6 +4154,7 @@ fn sweep_excluded_groups_deletes_a_legacy_alias_doc_by_id() {
         time_field: None,
         semantic_field: None,
         text_analyzer: None,
+        scope: None,
         sampled_records: 1,
         file_count: 1,
     });
@@ -3998,6 +4228,7 @@ fn sweep_excluded_groups_invalidates_inbound_edges() {
         time_field: None,
         semantic_field: None,
         text_analyzer: None,
+        scope: None,
         sampled_records: 1,
         file_count: 1,
     });
@@ -4699,10 +4930,35 @@ fn the_generated_path_reports_indexing_as_indexing_not_as_a_stalled_scan() {
             "snapshot",
             "index",
             "finalize-catalog",
+            // #1267: the `run_id`-scoped catalog read-back is its own phase.
+            // On a full-rewrite resume it runs for ~35 min, and used to do so
+            // behind the finished `finalize-catalog` ticker — a line that only
+            // climbed `since_progress_s`, i.e. looked exactly like a hang.
+            "finalize-catalog-readback",
             "finalize-refresh",
             "finalize-verify"
         ],
         "each long step of the generated route is its own phase, in order:\n{stream}"
+    );
+
+    // #1267: that read-back phase opens with the engine's own match total as
+    // its denominator — a moving bar with an ETA from the first page, not a
+    // count with no total. The two-dataset generation writes at least its run
+    // document, so the denominator is non-zero.
+    let readback_opened = lines
+        .iter()
+        .find(|line| line["phase"] == "finalize-catalog-readback")
+        .expect("the catalog read-back walk opens a phase of its own");
+    assert_eq!(readback_opened["basis"], "items", "{readback_opened:?}");
+    let (done, total) = readback_opened["items"].split_once('/').unwrap();
+    assert_eq!(
+        done, "0",
+        "the read-back phase opens at zero: {readback_opened:?}"
+    );
+    assert!(
+        total.parse::<u64>().unwrap() > 0,
+        "the read-back phase opens with the engine's match total, not an unknown \
+         denominator: {readback_opened:?}"
     );
 
     // `scan` never reappears once the run has moved on — the exact symptom.
@@ -5796,4 +6052,296 @@ fn journal_events_of_state(state_dir: &Path, state: &str) -> usize {
                 && event.get("state").and_then(Value::as_str) == Some(state)
         })
         .count()
+}
+
+/// #1224 scaffolding: one upsert applied through the real executor against
+/// the stateful endpoint, with everything hand-built so the only moving part
+/// is what [`sync_executor::EsSyncBackend`] sends.
+mod delete_gate {
+    use super::*;
+    use crate::progress::Progress;
+    use crate::state::{Plan, PlanDataset};
+    use crate::sync::{
+        CommittedManifest, ExecutionIdentity, GenerationManifest, ManifestGroup, ManifestPath,
+        SourceExecutionPolicy, SyncOperation, SyncOperationKind,
+    };
+    use crate::sync_executor::{
+        EsSyncBackend, PreparedArtifact, SnapshotFile, SnapshotFootprint, SourceSnapshot,
+        SyncOperationBackend,
+    };
+    use std::collections::BTreeMap;
+
+    const DS_INDEX: &str = "delete-gate-ds";
+
+    struct Fixture {
+        endpoint: HttpEndpoint,
+        /// Keeps the prepared artifact alive; dropped with the fixture. The
+        /// backend holds only a leaked path string, never a borrow of this.
+        _state_dir: tempfile::TempDir,
+        backend: EsSyncBackend<'static>,
+        desired: GenerationManifest,
+        snapshot: SourceSnapshot,
+        operation: SyncOperation,
+    }
+
+    fn execution() -> ExecutionIdentity {
+        ExecutionIdentity {
+            version: 2,
+            root_identity: "/corpus".into(),
+            url: "http://ignored".into(),
+            prefix: "xc-gate".into(),
+            follow_symlinks: false,
+            chunker_identity: "chunker".into(),
+            embedding_identity_sha256: "a".repeat(64),
+            embedding_backend: "lexical".into(),
+            embedding_dimension: None,
+            embedding_semantic_contract: "none".into(),
+            embedding_resumable: true,
+            graph_enabled: false,
+            brain: "none".into(),
+            detector_identity: "detector".into(),
+            schema_identity: "schema".into(),
+            index_identity: "index".into(),
+            source_policy: SourceExecutionPolicy::DurableSnapshot {
+                reference: "ref".into(),
+                snapshot_digest: "digest".into(),
+            },
+        }
+    }
+
+    fn plan() -> Plan {
+        Plan {
+            datasets: vec![PlanDataset {
+                slug: "reports".into(),
+                index: DS_INDEX.into(),
+                family: "json".into(),
+                group: None,
+                specs: Vec::new(),
+                time_field: None,
+                semantic_field: None,
+                text_analyzer: None,
+                scope: None,
+                sampled_records: 1,
+                file_count: 1,
+            }],
+            ..Plan::default()
+        }
+    }
+
+    fn group(content_id: &str) -> ManifestGroup {
+        ManifestGroup {
+            group_id: "g1".into(),
+            content_id: content_id.into(),
+            content_digest: format!("digest-{content_id}"),
+            content_size: 10,
+            canonical: ManifestPath {
+                path_id: "unix:1".into(),
+                rel: "a.json".into(),
+                is_symlink: false,
+            },
+            aliases: Vec::new(),
+            dataset_slugs: vec!["reports".into()],
+            expected_records: 1,
+            expected_passages: 1,
+            expected_vectors: 1,
+            expected_junk_records: 0,
+            expected_records_by_dataset: BTreeMap::from([("reports".to_string(), 1)]),
+        }
+    }
+
+    /// One upsert whose prepared artifact holds one document.
+    fn fixture(content_id: &str, doc_body: &str) -> Fixture {
+        let endpoint = HttpEndpoint::start();
+        {
+            // The endpoint asserts a bulk never precedes mapping PUTs; this
+            // fixture tests the delete gate, not provisioning.
+            let mut st = endpoint.state.lock().unwrap();
+            st.saw_dataset_mapping_update = true;
+            st.saw_catalog_mapping_update = true;
+        }
+        let es = Es::with_bulk_timeout(&endpoint.url, None, 30).expect("es client");
+        let state_dir = tempfile::tempdir().unwrap();
+        let tx = "run-gate-0000-g1";
+        let ndjson = "prepared/0001.ndjson";
+        let prepared_dir = state_dir
+            .path()
+            .join("sync-snapshots")
+            .join(tx)
+            .join("prepared");
+        fs::create_dir_all(&prepared_dir).unwrap();
+        fs::write(
+            state_dir
+                .path()
+                .join("sync-snapshots")
+                .join(tx)
+                .join(ndjson),
+            format!("{{\"index\":{{\"_index\":\"{DS_INDEX}\",\"_id\":\"doc-1\"}}}}\n{doc_body}\n"),
+        )
+        .unwrap();
+
+        let content = group(content_id);
+        let plan = plan();
+        let desired = GenerationManifest {
+            generation: 1,
+            execution: Some(execution()),
+            plan: plan.clone(),
+            groups: vec![content.clone()],
+        };
+        let snapshot = SourceSnapshot {
+            version: 1,
+            tx_id: tx.into(),
+            started: "2026-10-07T00:00:00Z".into(),
+            preparation_contract_digest: "contract".into(),
+            footprint: SnapshotFootprint {
+                source_bytes: 10,
+                prepared_bytes: 10,
+                total_bytes: 20,
+                hard_budget_bytes: 1000,
+            },
+            files: vec![SnapshotFile {
+                content_id: content_id.into(),
+                content_digest: content.content_digest.clone(),
+                content_size: 10,
+                relative_blob: "blobs/0001".into(),
+                prepared: Some(PreparedArtifact {
+                    relative_ndjson: ndjson.to_string(),
+                    records: 1,
+                    passages: 1,
+                    vectors: 1,
+                    junk: 0,
+                    truncated: false,
+                    records_by_dataset: BTreeMap::from([("reports".to_string(), 1)]),
+                    bytes: 10,
+                    digest: "prepared".into(),
+                }),
+                prepared_identity: None,
+            }],
+            snapshot_digest: "snapshot".into(),
+        };
+        let operation = SyncOperation {
+            operation_id: "upsert:g1".into(),
+            kind: SyncOperationKind::Upsert,
+            group_id: "g1".into(),
+            desired_content_id: Some(content_id.into()),
+        };
+
+        // The backend borrows the ES client, the progress surface and the
+        // state-dir path for 'a. Leak all three for the test's lifetime; the
+        // TempDir itself stays owned by the fixture so the directory still
+        // exists while the leaked path points at it.
+        let es: &'static mut Es = Box::leak(Box::new(es));
+        let pr: &'static mut Arc<Progress> = Box::leak(Box::new(Progress::silent()));
+        let dir: &'static Path = Box::leak(state_dir.path().to_path_buf().into_boxed_path());
+        let backend = EsSyncBackend::new(&*es, dir, 64 * 1024, pr);
+        Fixture {
+            endpoint,
+            _state_dir: state_dir,
+            backend,
+            desired,
+            snapshot,
+            operation,
+        }
+    }
+
+    fn delete_requests(endpoint: &HttpEndpoint) -> Vec<String> {
+        endpoint
+            .state
+            .lock()
+            .unwrap()
+            .requests
+            .iter()
+            .filter(|(method, path)| method == "POST" && path.contains("/_delete_by_query"))
+            .map(|(_, path)| path.clone())
+            .collect()
+    }
+
+    /// #1224: an upsert whose target index holds NONE of the group's content
+    /// must not fire the `?refresh=true` delete_by_query at all. Every upsert
+    /// used to fire it unconditionally, and a one-record-per-file corpus pays
+    /// one upsert per FILE — cvelistV5 is 402,744 groups, each a defensive
+    /// delete that matched nothing and still cost 5-16 s of server refresh
+    /// under concurrent write load: ~1 op/s measured, ~74 h projected for a
+    /// corpus the node itself can bulk in minutes.
+    #[test]
+    fn upsert_skips_delete_by_query_when_the_index_holds_none_of_the_group() {
+        let mut f = fixture(
+            "content-fresh",
+            r#"{"ax_file":"content-fresh","text":"one"}"#,
+        );
+        f.backend
+            .apply(&f.operation, &base(), &f.desired, &f.snapshot)
+            .expect("apply");
+
+        let deletes = delete_requests(&f.endpoint);
+        // Copy out of the lock before asserting (#890's lesson: an assert
+        // under the endpoint lock poisons the mutex the server thread takes).
+        let (probed, landed) = {
+            let st = f.endpoint.state.lock().unwrap();
+            (
+                st.requests
+                    .iter()
+                    .any(|(m, p)| m == "POST" && *p == format!("/{DS_INDEX}/_search")),
+                st.docs
+                    .contains_key(&(DS_INDEX.to_string(), "doc-1".into())),
+            )
+        };
+        assert!(
+            deletes.is_empty(),
+            "#1224: a first-time group has no partials to clear; the delete_by_query is a \
+             no-op that still forces a refresh. Sent: {deletes:?}"
+        );
+        // The probe IS the contract: the gate asks the index instead of
+        // assuming, and the document still lands.
+        assert!(probed, "the gate must ask the index, not assume");
+        assert!(landed, "the upsert's own document still lands");
+    }
+
+    /// The gate must not swallow the delete when it has real work: an index
+    /// that already holds documents of this content identity (a retried
+    /// operation's partial, or a prior generation's record) still gets the
+    /// delete_by_query before the replay.
+    #[test]
+    fn upsert_still_deletes_when_the_index_holds_the_group_content() {
+        let mut f = fixture("content-live", r#"{"ax_file":"content-live","text":"two"}"#);
+        f.endpoint.state.lock().unwrap().docs.insert(
+            (DS_INDEX.to_string(), "stale-partial".into()),
+            json!({"ax_file": "content-live", "text": "stale"}),
+        );
+        f.backend
+            .apply(&f.operation, &base(), &f.desired, &f.snapshot)
+            .expect("apply");
+
+        let deletes = delete_requests(&f.endpoint);
+        // TWO requests is the delete loop's contract, not a bug: a pass that
+        // reports deletions runs again until a pass reports 0, so a delete
+        // with real work is always followed by its empty confirmation pass.
+        assert_eq!(
+            deletes,
+            vec![
+                format!("/{DS_INDEX}/_delete_by_query?refresh=true"),
+                format!("/{DS_INDEX}/_delete_by_query?refresh=true"),
+            ],
+            "#1224: the gate may skip no-op deletes, never real ones"
+        );
+        let st = f.endpoint.state.lock().unwrap();
+        let (stale_gone, landed) = (
+            !st.docs
+                .contains_key(&(DS_INDEX.to_string(), "stale-partial".into())),
+            st.docs
+                .contains_key(&(DS_INDEX.to_string(), "doc-1".into())),
+        );
+        drop(st);
+        assert!(stale_gone, "the stale partial is gone");
+        assert!(landed, "the replayed document landed");
+    }
+
+    fn base() -> CommittedManifest {
+        CommittedManifest {
+            generation: 0,
+            manifest_digest: "genesis".into(),
+            plan: plan(),
+            groups: Vec::new(),
+            execution: None,
+        }
+    }
 }

@@ -1,0 +1,22 @@
+{
+ "corpus": "hackclub--pixl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ysws queries this for how hackclub/pixl implements it: Ship real projects inside a 2D world, earn Pixels, unlock real prizes (selected work: apps/dashboard)",
+ "repos": [
+  {
+   "repo": "pixl",
+   "url": "https://github.com/hackclub/pixl",
+   "sha": "8aef3e7bcee2d232e96104ff037616650e118304",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 8aef3e7bcee2: \"Add confetti, sound and +pixels celebration after a review\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

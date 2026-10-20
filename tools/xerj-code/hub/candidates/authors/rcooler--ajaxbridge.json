@@ -1,0 +1,22 @@
+{
+ "corpus": "rcooler--ajaxbridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on ajax-security, home-assistant, prometheus queries this for how RCooLeR/AjaxBridge implements it: Receives Ajax security hub SIA DC-09 events, keeps the current alarm state in memory, and exposes Prometheus metrics on `/metrics` (selected work: bridge, deploy)",
+ "repos": [
+  {
+   "repo": "AjaxBridge",
+   "url": "https://github.com/RCooLeR/AjaxBridge",
+   "sha": "5f8452863136fef7ab808da2f78dcc48607b4061",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 5f8452863136: \"Fix Jeedom MySQL listener cleanup and HA MQTT recovery\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

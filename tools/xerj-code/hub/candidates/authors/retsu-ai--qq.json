@@ -1,0 +1,22 @@
+{
+ "corpus": "retsu-ai--qq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how retsu-AI/qq implements it: A composable harness for running and orchestrating AI agents (selected work: crates/qq-provider, crates/qq-core)",
+ "repos": [
+  {
+   "repo": "qq",
+   "url": "https://github.com/retsu-AI/qq",
+   "sha": "7885f2c57a1bea59553ae4c6914760cf0113b0e3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 7885f2c57a1b: \"fix(provider): fail a timed-out credential load at once instead of re\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

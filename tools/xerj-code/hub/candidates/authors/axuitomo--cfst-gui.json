@@ -1,0 +1,22 @@
+{
+ "corpus": "axuitomo--cfst-gui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how axuitomo/CFST-GUI implements it: cloudflare speedtest\u56fe\u5f62\u5316\u754c\u9762\uff0c\u8be5\u9879\u76ee\u5e76\u4e0d\u7a33\u5b9a (selected work: frontend, internal/httpclient, mobile)",
+ "repos": [
+  {
+   "repo": "CFST-GUI",
+   "url": "https://github.com/axuitomo/CFST-GUI",
+   "sha": "59cdfffe981e6e35af8444644a63141f012636a5",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 59cdfffe981e: \"fix: resolve pre-existing lint failures across go, css, markdown, and\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

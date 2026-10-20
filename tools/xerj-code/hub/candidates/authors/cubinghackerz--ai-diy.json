@@ -1,0 +1,22 @@
+{
+ "corpus": "cubinghackerz--ai-diy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, byok queries this for how Cubinghackerz/ai.diy implements it: Open-source, local-first AI workspace with 20+ providers, agents, MCP, browser Python, and an in-browser Linux environment. BYOK and self-ho (selected work: app/components, tests, app/lib)",
+ "repos": [
+  {
+   "repo": "ai.diy",
+   "url": "https://github.com/Cubinghackerz/ai.diy",
+   "sha": "74de37f9aaefba01ab40dd6f339c82cca993b33b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 74de37f9aaef: \"Ship the landing inspect pass with persistence recovery and the test \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "canyexuanfan--qinghu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on accessibility, ad-blocker, ad-skip queries this for how canyexuanfan/qinghu implements it: \u8f7b\u62a4 \u00b7 \u57fa\u4e8e Android \u65e0\u969c\u788d\u670d\u52a1\u7684\u5f00\u5c4f/\u4fe1\u606f\u6d41\u5e7f\u544a\u81ea\u52a8\u8df3\u8fc7\u5de5\u5177\uff08GPL-3.0\uff09 (selected work: app/src, core/src, the project root)",
+ "repos": [
+  {
+   "repo": "qinghu",
+   "url": "https://github.com/canyexuanfan/qinghu",
+   "sha": "4fcc79d0f84cade2bf6edd1eead37a7570115869",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 4fcc79d0f84c: \"\u540c\u6b65 v0.5.5(51)\uff1a\u4fee\u5f00\u5c4f\u5e7f\u544a\u8bc6\u522b\u76f2\u533a\u2014\u2014\u5feb\u7167\u622a\u65ad DFS\u2192BFS\uff1b\u65e0\u5019\u9009\u7a97\u53e3\u4e5f\u7559\u89c2\u5bdf\u75d5\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

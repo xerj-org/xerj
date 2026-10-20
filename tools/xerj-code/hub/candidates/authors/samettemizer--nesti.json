@@ -1,0 +1,22 @@
+{
+ "corpus": "samettemizer--nesti",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-orchestrator, conversation-history, langgraph queries this for how samettemizer/nesti implements it: autonomous web developer orchestration with python. now has hierarchical RAG using vector databases (selected work: the project root, graph)",
+ "repos": [
+  {
+   "repo": "nesti",
+   "url": "https://github.com/samettemizer/nesti",
+   "sha": "673327dd5a4ad718d2e286d535e6a06dbe4898ab",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 673327dd5a4a: \"commit m\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "muslimtify-org--muslimtify",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on c-language, daemon, linux queries this for how muslimtify-org/muslimtify implements it: A daily prayer notification & reminder for Muslims on Windows and Linux, supporting 21 global standard calculation methods, all madzhab, all (selected work: tests, src/platform, src/cli)",
+ "repos": [
+  {
+   "repo": "muslimtify",
+   "url": "https://github.com/muslimtify-org/muslimtify",
+   "sha": "5c26bf44364122ab47d1093a6afdd228617b95ef",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit 5c26bf443641: \"windows daemon management through the library (#100)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

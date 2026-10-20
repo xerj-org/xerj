@@ -1,0 +1,22 @@
+{
+ "corpus": "paxton0209--drivescene-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on automotive, hmi, 3d-backgrounds queries this for how Paxton0209/DriveScene-Studio implements it: Configurable 3D scene backgrounds for intelligent-driving SR visualization and automotive cockpit UI design. Explore driving and parking sce (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "DriveScene-Studio",
+   "url": "https://github.com/Paxton0209/DriveScene-Studio",
+   "sha": "da8b92dcba7027bca40bd014a5fdd1f05ef02fb5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit da8b92dcba70: \"Add camera and depth exports in a centered download dialog\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

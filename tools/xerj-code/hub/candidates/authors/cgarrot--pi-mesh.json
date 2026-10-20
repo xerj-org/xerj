@@ -1,0 +1,22 @@
+{
+ "corpus": "cgarrot--pi-mesh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on communication, mesh, multi-agent queries this for how cgarrot/pi-mesh implements it: Live agent-to-agent communication for Pi \u2014 local broker, mesh.v1 protocol, honest delivered/read/answered statuses, hash-only ledger. Zero r (selected work: test, src/shared, src/client)",
+ "repos": [
+  {
+   "repo": "pi-mesh",
+   "url": "https://github.com/cgarrot/pi-mesh",
+   "sha": "6f478fc1a5abc665e13cd494daa8f00d20b6008d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 6f478fc1a5ab: \"fix(core): MESH_BROKER_EXEC_PATH \u2014 spawn the broker under a pinned JS\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

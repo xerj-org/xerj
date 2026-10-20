@@ -1,0 +1,22 @@
+{
+ "corpus": "eacryo--oh-my-tab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on macos, rust, utility queries this for how eacryo/oh-my-tab implements it: A macOS window switcher \u2014 an alternative to the system Cmd+Tab (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "oh-my-tab",
+   "url": "https://github.com/eacryo/oh-my-tab",
+   "sha": "37844d751ea9e58bcdf2dbe98e19f3fe98d67f81",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 37844d751ea9: \"feat: sign dev channel releases with the Developer ID identity and ve\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

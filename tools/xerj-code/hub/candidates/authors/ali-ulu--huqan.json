@@ -1,0 +1,22 @@
+{
+ "corpus": "ali-ulu--huqan",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-workflow, ai-safety, mcp queries this for how ali-ulu/huqan implements it: Local-first verification layer for AI agents: evidence, provenance, policy gates, human approval, and auditable Trust Receipts before a clai (selected work: lib/a2a, test, scripts)",
+ "repos": [
+  {
+   "repo": "huqan",
+   "url": "https://github.com/ali-ulu/huqan",
+   "sha": "16b948cdd8ef90e6b9771ef4a5da5804409a642b",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 16b948cdd8ef: \"feat(a2a): durable pre-dispatch intervention seam (#3477) (#3530)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

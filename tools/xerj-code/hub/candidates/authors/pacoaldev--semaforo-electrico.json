@@ -1,0 +1,22 @@
+{
+ "corpus": "pacoaldev--semaforo-electrico",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Pacoaldev/semaforo_electrico implements it: Proyecto de scrapping sobre el precio diario de la luz. Se muestra gr\u00e1ficamente con la visi\u00f3n de los colores de un \ud83d\udea6 (selected work: templates, electricity_prices, static)",
+ "repos": [
+  {
+   "repo": "semaforo_electrico",
+   "url": "https://github.com/Pacoaldev/semaforo_electrico",
+   "sha": "92d5bded880c28a5c67e23509d90493ab35b603c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 92d5bded880c: \"Redise\u00f1a grafico de precios, arregla formularios y cache PWA\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "karthi-techdev--vscode-antigravity-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how karthi-techdev/vscode-antigravity-mcp implements it: karthi-techdev/vscode-antigravity-mcp (Python) (selected work: client, the project root, server)",
+ "repos": [
+  {
+   "repo": "vscode-antigravity-mcp",
+   "url": "https://github.com/karthi-techdev/vscode-antigravity-mcp",
+   "sha": "2d805bcf9d5e0cf97cc4c0bd85bf5e9da2ad2faa",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 2d805bcf9d5e: \"feat: keep Vercel alive with 1-min cron in vercel.json and 60s bridge\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

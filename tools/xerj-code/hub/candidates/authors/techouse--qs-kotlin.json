@@ -1,0 +1,22 @@
+{
+ "corpus": "techouse--qs-kotlin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on jvm, kotlin, qs queries this for how techouse/qs-kotlin implements it: A query string encoding and decoding library for Android and Kotlin/JVM. Ported from qs for JavaScript (selected work: qs-kotlin)",
+ "repos": [
+  {
+   "repo": "qs-kotlin",
+   "url": "https://github.com/techouse/qs-kotlin",
+   "sha": "49195b04553e2014540a972c9a6f569ed8c34c91",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 49195b04553e: \":recycle: optimizations using tail recusion (#162)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

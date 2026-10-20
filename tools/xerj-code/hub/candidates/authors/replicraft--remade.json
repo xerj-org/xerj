@@ -1,0 +1,22 @@
+{
+ "corpus": "replicraft--remade",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on clean-room, clean-room-reimplementation, community queries this for how replicraft/remade implements it: Discover open-source software reimplementations. A community-curated directory for exploring, requesting, and supporting independently recre (selected work: apps/frontend, apps/backend)",
+ "repos": [
+  {
+   "repo": "remade",
+   "url": "https://github.com/replicraft/remade",
+   "sha": "4362af71250e9e4e1351a74cfeb7b0d1b080733e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 4362af71250e: \"feat(requests): add voting and builder counters\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

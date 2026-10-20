@@ -1,0 +1,22 @@
+{
+ "corpus": "gaxolotl--sqtrackr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bittorent, bittorent-tracker, javascript queries this for how gaxolotl/sqtrackr implements it: sqtrackr is an open-source, self-hosted BitTorrent tracker platform for building private or public tracker communities (selected work: client, api, the project root)",
+ "repos": [
+  {
+   "repo": "sqtrackr",
+   "url": "https://github.com/gaxolotl/sqtrackr",
+   "sha": "69868ae3a89c1ee7f677ad4fdf165dd69ff74263",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 69868ae3a89c: \"feat(attachments): link-only file uploads with settings toggle\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

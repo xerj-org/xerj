@@ -1,0 +1,22 @@
+{
+ "corpus": "assert-lab--cocomut",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how assert-lab/CoCoMUT implements it: Static Java code-context extractor (selected work: analyzer-core, analyzer-tests, schemas)",
+ "repos": [
+  {
+   "repo": "CoCoMUT",
+   "url": "https://github.com/assert-lab/CoCoMUT",
+   "sha": "a4cb5ceb389c911fe292e2068bded42e90be86fa",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit a4cb5ceb389c: \"Export source-referenced callee declarations independently of RTA tar\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

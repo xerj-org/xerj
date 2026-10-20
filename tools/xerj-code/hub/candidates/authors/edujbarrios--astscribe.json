@@ -1,0 +1,22 @@
+{
+ "corpus": "edujbarrios--astscribe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how edujbarrios/astscribe implements it: Understand what a Jupyter Notebook does without leaving that notebook (selected work: src/astscribe, tests)",
+ "repos": [
+  {
+   "repo": "astscribe",
+   "url": "https://github.com/edujbarrios/astscribe",
+   "sha": "b38cad3bada921f01c41e1f3f707f1ced8c77dec",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit b38cad3bada9: \"Extend PyTorch neural-network semantics (#27)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

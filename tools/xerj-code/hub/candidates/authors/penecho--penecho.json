@@ -1,0 +1,22 @@
+{
+ "corpus": "penecho--penecho",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, canvas, claude queries this for how penecho/penecho implements it: Think with AI beyond the chat box. A shared canvas for handwriting, equations, diagrams, and spatial reasoning (selected work: desktop, scripts, test)",
+ "repos": [
+  {
+   "repo": "penecho",
+   "url": "https://github.com/penecho/penecho",
+   "sha": "f64a8be4d9d719cd21889ce939a076820b560dc3",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit f64a8be4d9d7: \"Improve desktop menus and update experience (#72)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

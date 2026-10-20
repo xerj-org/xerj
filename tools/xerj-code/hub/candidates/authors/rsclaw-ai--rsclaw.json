@@ -1,0 +1,22 @@
+{
+ "corpus": "rsclaw-ai--rsclaw",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how rsclaw-ai/rsclaw implements it: \ud83e\udd80 AI Agent Engine with Long-Term Memory and Self-Learning & One-Click OpenClaw Migration (selected work: crates/rsclaw-cli, crates/rsclaw-runtime, ui)",
+ "repos": [
+  {
+   "repo": "rsclaw",
+   "url": "https://github.com/rsclaw-ai/rsclaw",
+   "sha": "29b1f7e54aacbe092801ba1ad20bf13195522bac",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 29b1f7e54aac: \"feat(owner,docs): owner management in desktop UI and CLI; security docs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

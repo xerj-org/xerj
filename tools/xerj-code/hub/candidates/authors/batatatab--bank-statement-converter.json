@@ -1,0 +1,22 @@
+{
+ "corpus": "batatatab--bank-statement-converter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Batatatab/bank-statement-converter implements it: A desktop tool to convert Indian bank statement PDFs into standardized Excel sheets with transaction extraction and running balance verifica (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "bank-statement-converter",
+   "url": "https://github.com/Batatatab/bank-statement-converter",
+   "sha": "ea1f78c8a969e1e9a1137f315059bc72b78f629b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit ea1f78c8a969: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

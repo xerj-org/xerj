@@ -1,0 +1,22 @@
+{
+ "corpus": "hoansdz--autolang",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on ai-agents, bytecode-compiler, capability-security queries this for how hoansdz/Autolang implements it: A statically-typed scripting language and bytecode VM for sandboxed execution of AI-generated code, built in C++ with no GC or JIT (selected work: src/shared, src/frontend, tests)",
+ "repos": [
+  {
+   "repo": "Autolang",
+   "url": "https://github.com/hoansdz/Autolang",
+   "sha": "6a9f6a483d3a75ce93f325710b256d1b24d370b1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 6a9f6a483d3a: \"support Any in range\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

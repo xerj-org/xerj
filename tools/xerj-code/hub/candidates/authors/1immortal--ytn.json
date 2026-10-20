@@ -1,0 +1,22 @@
+{
+ "corpus": "1immortal--ytn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, jetpack-compose, kotlin queries this for how 1immortal/ytn implements it: YTN \u2014 Your TrueNAS companion. A free, ad-free Android app for managing TrueNAS SCALE (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "ytn",
+   "url": "https://github.com/1immortal/ytn",
+   "sha": "0e4a0c57df125fdd3bceee9ae7664feade8a49f2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 0e4a0c57df12: \"v1.11.0: config backup/restore, protection checkup, settings export, \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

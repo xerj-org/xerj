@@ -1,0 +1,22 @@
+{
+ "corpus": "fujahgabriel--piiguardai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-governance, ai-safety queries this for how fujahgabriel/PIIGuardAI implements it: A macOS menu bar app that blocks messages containing PII before they reach Claude, ChatGPT, Gemini, and other LLM providers -- from both bro (selected work: Sources, PIIGuardAI.xcodeproj, the project root)",
+ "repos": [
+  {
+   "repo": "PIIGuardAI",
+   "url": "https://github.com/fujahgabriel/PIIGuardAI",
+   "sha": "3298a3afa24d3db92fe0ecabe8b5c7bc8bc6d4a8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 3298a3afa24d: \"Add macOS activity widget\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

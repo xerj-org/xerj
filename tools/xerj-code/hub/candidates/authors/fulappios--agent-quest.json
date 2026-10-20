@@ -1,0 +1,22 @@
+{
+ "corpus": "fulappios--agent-quest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-gaming, agent-monitoring, agentic-ai queries this for how FulAppiOS/Agent-Quest implements it: Real-time gamified dashboard for monitoring Claude Code and Codex AI agents in a medieval fantasy village: context-window gauges, skill & pl (selected work: client, server)",
+ "repos": [
+  {
+   "repo": "Agent-Quest",
+   "url": "https://github.com/FulAppiOS/Agent-Quest",
+   "sha": "49ab182d458cb4e88ede0dc69364c57c9b9f2ba4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 49ab182d458c: \"feat: context budget, skill/plugin telemetry, subagent families, flee\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

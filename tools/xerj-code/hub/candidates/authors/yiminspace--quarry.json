@@ -1,0 +1,22 @@
+{
+ "corpus": "yiminspace--quarry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on agent, ai, cli queries this for how yiminspace/quarry implements it: The database workbench built for the AI era \u2014 one safety-railed query kernel, many faces: CLI / GUI / MCP / agent skill. Pure stdlib (selected work: tests, src/quarry, web)",
+ "repos": [
+  {
+   "repo": "quarry",
+   "url": "https://github.com/yiminspace/quarry",
+   "sha": "190492607e4c3b8068d618abe9ff380e3b67b6ae",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 190492607e4c: \"feat: \u652f\u6301 SQLite \u672c\u5730\u6587\u4ef6\u67e5\u8be2\u4e0e\u5de5\u4f5c\u53f0 (#147)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

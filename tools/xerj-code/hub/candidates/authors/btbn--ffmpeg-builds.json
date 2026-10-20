@@ -1,0 +1,22 @@
+{
+ "corpus": "btbn--ffmpeg-builds",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how BtbN/FFmpeg-Builds implements it: BtbN/FFmpeg-Builds (Shell) (selected work: images)",
+ "repos": [
+  {
+   "repo": "FFmpeg-Builds",
+   "url": "https://github.com/BtbN/FFmpeg-Builds",
+   "sha": "bd26828f0e965c2c657553584b09caf5d57eee52",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit bd26828f0e96: \"images: add base-linuxloongarch64 target\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

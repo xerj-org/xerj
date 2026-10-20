@@ -1,0 +1,22 @@
+{
+ "corpus": "owasp--owasp-java-encoder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on xss, java, css queries this for how OWASP/owasp-java-encoder implements it: Contextual output encoding for Java 8+: HTML, JavaScript, CSS, XML and URI components. Zero-dependency core with optional JSP and Jakarta ad (selected work: jakarta, jsp, core/src)",
+ "repos": [
+  {
+   "repo": "owasp-java-encoder",
+   "url": "https://github.com/OWASP/owasp-java-encoder",
+   "sha": "68536fb4e3f13cdf5ad052929a4328c5171d1f46",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 68536fb4e3f1: \"Clarify forJson HTML context documentation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

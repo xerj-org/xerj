@@ -1,0 +1,22 @@
+{
+ "corpus": "baditaflorin--serverclaw",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on ai-native, ansible, devops queries this for how baditaflorin/ServerClaw implements it: Forkable infrastructure-as-code: bare Debian 13 to 70+ self-hosted services. AI-native \u2014 built for Claude Code and AI coding assistants (selected work: tests, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "ServerClaw",
+   "url": "https://github.com/baditaflorin/ServerClaw",
+   "sha": "8b0293dca289cce5eb7cda9fa221ca1640b2ae85",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 8b0293dca289: \"fix(authentik): harden live security and E2E diagnostics (#65)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "vdavid--smb2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on cifs, file-transfer, nas queries this for how vdavid/smb2 implements it: Pure-Rust SMB2/3 client. Faster than native macOS SMB on all operations. No C dependencies (selected work: crates/smb2)",
+ "repos": [
+  {
+   "repo": "smb2",
+   "url": "https://github.com/vdavid/smb2",
+   "sha": "56b2fda89f041efef8eedf7c886b8a4d5666cb83",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit 56b2fda89f04: \"fix(client)!: a call through a DFS link leaves the caller's tree on i\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

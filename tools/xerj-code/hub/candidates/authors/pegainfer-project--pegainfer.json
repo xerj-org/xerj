@@ -1,0 +1,22 @@
+{
+ "corpus": "pegainfer-project--pegainfer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on inference, kimi, llm-serving queries this for how pegainfer-project/pegainfer implements it: Pure Rust + CUDA LLM inference engine \u2014 no PyTorch, OpenAI-compatible, serves Qwen3 to Kimi-K2 (selected work: pegainfer-qwen35, scripts)",
+ "repos": [
+  {
+   "repo": "pegainfer",
+   "url": "https://github.com/pegainfer-project/pegainfer",
+   "sha": "d386999f8492d0d11c6c02a7e227c2dbe0e1ef7d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit d386999f8492: \"fix(qwen35): honor request-scoped stop policy (#1134)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

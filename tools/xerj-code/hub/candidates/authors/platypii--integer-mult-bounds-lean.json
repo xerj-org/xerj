@@ -1,0 +1,22 @@
+{
+ "corpus": "platypii--integer-mult-bounds-lean",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Lean queries this for how platypii/integer-mult-bounds-lean implements it: Lean 4 formalization (work in progress) of O(n log n \u00b7 log^(-\u03b5) n) integer multiplication on a multitape Turing machine (selected work: IntegerMultBounds, the project root)",
+ "repos": [
+  {
+   "repo": "integer-mult-bounds-lean",
+   "url": "https://github.com/platypii/integer-mult-bounds-lean",
+   "sha": "3869b0d7cefa04b294a33c72f8248c00e1739232",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 3869b0d7cefa: \"dft paper and blockers\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

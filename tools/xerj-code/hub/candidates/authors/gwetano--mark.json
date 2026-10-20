@@ -1,0 +1,22 @@
+{
+ "corpus": "gwetano--mark",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on editor, local, mark queries this for how gwetano/mark implements it: markdown editor (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "mark",
+   "url": "https://github.com/gwetano/mark",
+   "sha": "d75dd8d3c28e1bf7625850c94e0ae43588532828",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit d75dd8d3c28e: \"feat: multi-tab, schermata iniziale, context menu explorer, callout e\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

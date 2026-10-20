@@ -1,6 +1,7 @@
 //! Plain text: prose files become one document record (title = first line,
-//! body split into ~32KB sections); line-oriented files become overlapping
-//! line-window chunks.
+//! or the first ATX heading / file stem when that line is markup; body split
+//! into ~2KB sections); line-oriented files become overlapping line-window
+//! chunks.
 //!
 //! ## Why line-oriented text is chunked, not emitted per line
 //!
@@ -22,7 +23,7 @@
 //! caller can jump straight to the source — the old per-line record only
 //! carried an opaque byte locator.
 
-use super::{emit_document, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_RECORDS_PER_FILE};
+use super::{emit_document_from, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_RECORDS_PER_FILE};
 use anyhow::Result;
 use serde_json::{Map, Value};
 use std::path::Path;
@@ -46,23 +47,11 @@ pub fn extract_prose(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats
         return Ok(stats);
     };
     let (text, _) = crate::sniff::decode_text(&bytes);
-    let title = text
-        .lines()
-        .find(|l| !l.trim().is_empty())
-        .map(|l| {
-            let t = l.trim();
-            let mut s: String = t.chars().take(200).collect();
-            if s.len() < t.len() {
-                s.push('…');
-            }
-            s
-        })
-        .unwrap_or_else(|| {
-            path.file_stem()
-                .map(|s| s.to_string_lossy().to_string())
-                .unwrap_or_else(|| "untitled".into())
-        });
-    emit_document(
+    let title = prose_title(&text, path);
+    let skipped = text.len() - text.trim_start().len();
+    let skipped_lines = text[..skipped].bytes().filter(|b| *b == b'\n').count() as u64;
+    emit_document_from(
+        skipped_lines,
         &title,
         &[],
         text.trim(),
@@ -71,6 +60,47 @@ pub fn extract_prose(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats
         &mut stats,
     );
     Ok(stats)
+}
+
+/// First non-empty line, clipped to 200 chars. A line that is markup (`<…`)
+/// is a useless title — an HTML fragment saved as text, a front-matter-less
+/// export — so the first ATX heading wins, then the file stem.
+fn prose_title(text: &str, path: &Path) -> String {
+    let stem = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "untitled".into());
+    let Some(first) = text.lines().find(|l| !l.trim().is_empty()).map(str::trim) else {
+        return stem;
+    };
+    if first.starts_with('<') {
+        return atx_heading(text).map(clip_title).unwrap_or(stem);
+    }
+    clip_title(first)
+}
+
+fn atx_heading(text: &str) -> Option<&str> {
+    text.lines().find_map(|line| {
+        let t = line.trim();
+        let hashes = t.bytes().take_while(|b| *b == b'#').count();
+        if !(1..=6).contains(&hashes) || t.as_bytes().get(hashes) != Some(&b' ') {
+            return None;
+        }
+        let title = t[hashes + 1..].trim();
+        if title.is_empty() {
+            None
+        } else {
+            Some(title)
+        }
+    })
+}
+
+fn clip_title(t: &str) -> String {
+    let mut s: String = t.chars().take(200).collect();
+    if s.len() < t.len() {
+        s.push('…');
+    }
+    s
 }
 
 pub fn extract_lines(
@@ -287,6 +317,57 @@ mod chunk_tests {
         assert_eq!(
             out[0].2, 5,
             "end_line must be the real file line of `gamma`"
+        );
+    }
+}
+
+#[cfg(test)]
+mod prose_tests {
+    use super::*;
+
+    fn prose(name: &str, body: &str) -> Vec<RawRecord> {
+        let dir = std::env::temp_dir().join(format!("xerj-prose-{name}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = dir.join(name);
+        std::fs::write(&p, body).unwrap();
+        let mut out = Vec::new();
+        extract_prose(&p, false, &mut |r| {
+            out.push(r);
+            true
+        })
+        .unwrap();
+        let _ = std::fs::remove_file(&p);
+        out
+    }
+
+    #[test]
+    fn a_markup_first_line_uses_an_atx_heading_or_the_file_stem() {
+        let recs = prose(
+            "notes.md",
+            "<div class=\"x\">\n\n# Actual Heading\n\nbody text\n",
+        );
+        assert_eq!(recs[0].fields["title"], serde_json::json!("Actual Heading"));
+
+        let recs = prose("page.md", "<html><body>no heading, just words that go on\n");
+        assert_eq!(recs[0].fields["title"], serde_json::json!("page"));
+    }
+
+    #[test]
+    fn an_ordinary_first_line_stays_the_title() {
+        let recs = prose("plain.md", "# Architecture\n\nThe design.\n");
+        assert_eq!(recs[0].fields["title"], serde_json::json!("# Architecture"));
+    }
+
+    /// `extract_prose` trims leading whitespace before sectioning. The lines
+    /// that trim removed still count, so a body that starts on line 4 is not
+    /// reported as line 1.
+    #[test]
+    fn leading_blank_lines_shift_start_line() {
+        let recs = prose("pad.md", "\n\n\nHello from line four.\n");
+        assert_eq!(recs[0].fields["start_line"], serde_json::json!(4));
+        assert_eq!(
+            recs[0].fields["body"],
+            serde_json::json!("Hello from line four.")
         );
     }
 }

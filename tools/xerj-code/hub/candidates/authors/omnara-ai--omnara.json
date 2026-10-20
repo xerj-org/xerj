@@ -1,0 +1,22 @@
+{
+ "corpus": "omnara-ai--omnara",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-infrastructure, managed-agents, durable-agents queries this for how omnara-ai/omnara implements it: The open-source managed agent platform. A self-hostable alternative to Claude Managed Agents and OpenAI's Agents API (selected work: internal/httpapi, internal/modelprovider, frontend)",
+ "repos": [
+  {
+   "repo": "omnara",
+   "url": "https://github.com/omnara-ai/omnara",
+   "sha": "404fb862c7a7805dc881451f10fa722e2865595e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 404fb862c7a7: \"fix: detect reasoning effort levels for models on custom providers (#\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

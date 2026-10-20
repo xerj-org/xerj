@@ -1,0 +1,22 @@
+{
+ "corpus": "pglejzer--timepicker-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on material-design, material, design queries this for how pglejzer/timepicker-ui implements it: timepicker-ui is an easy library with timepicker. Fully wrote with TypeScript. This library is based on Material Design from Google (selected work: docs-app, mcp-server, app)",
+ "repos": [
+  {
+   "repo": "timepicker-ui",
+   "url": "https://github.com/pglejzer/timepicker-ui",
+   "sha": "b4d0b82a21d29fa93153b5fbed316e1dbaa4a862",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b4d0b82a21d2: \"upgrade to 4.5.0 - docs site demo mcp\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

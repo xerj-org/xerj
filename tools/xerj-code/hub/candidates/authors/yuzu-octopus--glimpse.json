@@ -1,0 +1,22 @@
+{
+ "corpus": "yuzu-octopus--glimpse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how yuzu-octopus/glimpse implements it: A self-hosted, glance-inspired dashboard. YAML-configured widgets, all external data fetched server-side \u2014 API keys never reach the browser (selected work: src/client, src/server, src)",
+ "repos": [
+  {
+   "repo": "glimpse",
+   "url": "https://github.com/yuzu-octopus/glimpse",
+   "sha": "9abe8ecf38464c7701b1f01fd1b10fd363c5555f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 9abe8ecf3846: \"feat: fluid interactions, pull-to-refresh, and a native speedtest engine\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

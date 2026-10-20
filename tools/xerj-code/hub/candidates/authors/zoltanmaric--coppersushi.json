@@ -1,0 +1,22 @@
+{
+ "corpus": "zoltanmaric--coppersushi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how zoltanmaric/coppersushi implements it: Optimal power flow visualisation based on pypsa-eur (selected work: forecasts, the project root)",
+ "repos": [
+  {
+   "repo": "coppersushi",
+   "url": "https://github.com/zoltanmaric/coppersushi",
+   "sha": "40c70f8cb5d046777c463b84d2237e5fe9b846c3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 40c70f8cb5d0: \"Publish validated forecast input snapshots (#103)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "gianlucarenzi--vera-atari-pbi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how gianlucarenzi/VERA_ATARI_PBI implements it: VERA X16 PBI card driver, 6502 firmware and tools for Atari 8-bit computers (selected work: vera-tests, the project root)",
+ "repos": [
+  {
+   "repo": "VERA_ATARI_PBI",
+   "url": "https://github.com/gianlucarenzi/VERA_ATARI_PBI",
+   "sha": "a66448132b66e4e47d3bd0eea774fe1b9b9e59e9",
+   "licence": "hint only: BSD-2-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-2-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit a66448132b66: \"RMTPLAY: RMT player with a visualizer on the Atari screen (ANTIC)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

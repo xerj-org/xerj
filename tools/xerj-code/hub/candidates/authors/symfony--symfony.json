@@ -1,0 +1,22 @@
+{
+ "corpus": "symfony--symfony",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on framework, php, symfony queries this for how symfony/symfony implements it: The Symfony PHP framework (selected work: src/Symfony)",
+ "repos": [
+  {
+   "repo": "symfony",
+   "url": "https://github.com/symfony/symfony",
+   "sha": "b7e51516df7b1448df44e5437558c1d2b4a95fb2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b7e51516df7b: \"[TypeInfo][Serializer][JsonStreamer] Add `Type::map()`\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

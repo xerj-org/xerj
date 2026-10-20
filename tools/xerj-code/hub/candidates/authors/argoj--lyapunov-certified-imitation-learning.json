@@ -1,0 +1,22 @@
+{
+ "corpus": "argoj--lyapunov-certified-imitation-learning",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Python queries this for how ArgoJ/lyapunov-certified-imitation-learning implements it: Learn a lyapunove certificat for a neural network (selected work: src/lcil, tests, examples)",
+ "repos": [
+  {
+   "repo": "lyapunov-certified-imitation-learning",
+   "url": "https://github.com/ArgoJ/lyapunov-certified-imitation-learning",
+   "sha": "b908f68ad24ef4a922a499756d3165cccb16f6f8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit b908f68ad24e: \"added a quadratic pd term instead of linea\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

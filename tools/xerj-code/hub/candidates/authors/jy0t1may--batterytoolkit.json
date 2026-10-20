@@ -1,0 +1,22 @@
+{
+ "corpus": "jy0t1may--batterytoolkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how Jy0t1may/batterytoolkit implements it: BatteryToolkit is a native macOS menu bar application designed to maximize battery health on Apple Silicon MacBooks. It introduces Sailing M (selected work: src/UI, src/Helper, src/Core)",
+ "repos": [
+  {
+   "repo": "batterytoolkit",
+   "url": "https://github.com/Jy0t1may/batterytoolkit",
+   "sha": "443482a250c5465b00ab458e67351110cd751442",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 443482a250c5: \"Patch   v1.1.1\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "comfy-org--comfyui-frontend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on generative-ai, machine-learning queries this for how Comfy-Org/ComfyUI_frontend implements it: Official front-end implementation of ComfyUI (selected work: packages/ingest-types, apps/billing-web, packages/account-core)",
+ "repos": [
+  {
+   "repo": "ComfyUI_frontend",
+   "url": "https://github.com/Comfy-Org/ComfyUI_frontend",
+   "sha": "e1f1d0ee902a9ba6c23344244acd4c5df28ef4a4",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit e1f1d0ee902a: \"FE-3205 chore(types): update Ingest API types from cloud@0dc5adb and \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

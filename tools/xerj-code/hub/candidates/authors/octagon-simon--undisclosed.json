@@ -1,0 +1,22 @@
+{
+ "corpus": "octagon-simon--undisclosed",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on theia, ai-agent, byok queries this for how Octagon-simon/undisclosed implements it: Local-first AI coding editor on Eclipse Theia: an agent that lives inside the editor as a native panel, with your code, the editor, and the  (selected work: packages/undisclosed-agent, agent-ui, brain)",
+ "repos": [
+  {
+   "repo": "undisclosed",
+   "url": "https://github.com/Octagon-simon/undisclosed",
+   "sha": "55dfd3fb32c60098217c5f11521b1d09ae48fd77",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 55dfd3fb32c6: \"feat(editor): Send to Agent selection pill\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

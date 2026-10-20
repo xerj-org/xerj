@@ -1,0 +1,22 @@
+{
+ "corpus": "atharvamahamuni--toytools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how AtharvaMahamuni/toytools implements it: ToyTools \u2014 A data-driven platform for building and publishing fast, minimalist utility tools at scale (selected work: src/lib, tests, src/tools)",
+ "repos": [
+  {
+   "repo": "toytools",
+   "url": "https://github.com/AtharvaMahamuni/toytools",
+   "sha": "6942a9849c503dc29e6f36d38bd6dd6894a9c1f0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 6942a9849c50: \"Phase C fix PR 2: finance currency and storage, negative rates, healt\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

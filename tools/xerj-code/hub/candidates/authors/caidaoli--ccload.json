@@ -1,0 +1,22 @@
+{
+ "corpus": "caidaoli--ccload",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-gateway, anthropic queries this for how caidaoli/ccLoad implements it: Self-hosted AI API gateway for Claude Code, Codex and Gemini: pool API keys and subscription accounts behind one endpoint with failover, pro (selected work: web, internal/app, internal/storage)",
+ "repos": [
+  {
+   "repo": "ccLoad",
+   "url": "https://github.com/caidaoli/ccLoad",
+   "sha": "cfebf67cf81eccefe2b695bfbfa9301157c5223a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit cfebf67cf81e: \"feat(channels): add same-channel retries and fix channel page input lag\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "parthkomalwad--jevbrief",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, jev, llm queries this for how Parthkomalwad/jevbrief implements it: Clean, traceable state briefings for TypeSafe's Jev model (selected work: bench, tests, jevbrief)",
+ "repos": [
+  {
+   "repo": "jevbrief",
+   "url": "https://github.com/Parthkomalwad/jevbrief",
+   "sha": "562017f3203b061646080da0600ed0a2c3084f77",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 562017f3203b: \"vulns benchmark: VEX-Bench collector, 72 expert-labeled tasks; bench \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

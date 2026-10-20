@@ -1,0 +1,22 @@
+{
+ "corpus": "funput--funput",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ime, input-method, linux queries this for how Funput/Funput implements it: Vietnamese input method for macOS, Windows & Linux. Keyboard for iOS & Android. \u2022 B\u1ed9 g\u00f5 ti\u1ebfng Vi\u1ec7t \u0111a n\u1ec1n t\u1ea3ng cho macOS, Windows & Linux. B (selected work: platforms)",
+ "repos": [
+  {
+   "repo": "Funput",
+   "url": "https://github.com/Funput/Funput",
+   "sha": "6b3b5357f9f2d3d1cc916d8fda63e7dd7dfe98a6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 6b3b5357f9f2: \"fix(linux): keep the word when a modifier key goes down, so the flip \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

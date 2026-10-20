@@ -1,0 +1,22 @@
+{
+ "corpus": "abucnasty--clock-generator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how abucnasty/clock-generator implements it: get clocked (selected work: clock-generator, clock-generator-ui)",
+ "repos": [
+  {
+   "repo": "clock-generator",
+   "url": "https://github.com/abucnasty/clock-generator",
+   "sha": "f902d78f8671fb49ab82d5a9de0da4efb9c2642b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit f902d78f8671: \"The clock-or-unwired advice in true starts, and release 0.12.0 (#181)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

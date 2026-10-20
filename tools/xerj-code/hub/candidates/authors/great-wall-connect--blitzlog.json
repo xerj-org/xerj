@@ -1,0 +1,22 @@
+{
+ "corpus": "great-wall-connect--blitzlog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-coding-agent, autonomous-agent queries this for how great-wall-connect/blitzlog implements it: Pin, blitz, merge. Autonomous coding pipeline: GitHub issue \u2192 EC2 spot instance \u2192 OpenCode agent \u2192 pull request. From issue to PR. With a tr (selected work: tests, lambda, infra)",
+ "repos": [
+  {
+   "repo": "blitzlog",
+   "url": "https://github.com/great-wall-connect/blitzlog",
+   "sha": "8d7c5720d82fc84418d01c4c7afe35153038f34f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8d7c5720d82f: \"feat(auth): make gh/git installation-token lifetime configurable, def\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

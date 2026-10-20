@@ -1,0 +1,22 @@
+{
+ "corpus": "alpha-1-design--blackbox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on 2fa, aes256, android-application queries this for how alpha-1-design/BLACKBOX implements it: Offline security hub for developers and creators. AES-256 encrypted secrets manager, journal, 2FA authenticator, and privacy tools \u2014 100% on (selected work: www, ci, the project root)",
+ "repos": [
+  {
+   "repo": "BLACKBOX",
+   "url": "https://github.com/alpha-1-design/BLACKBOX",
+   "sha": "416e1329dae4c3d33e93deabc2f960dc7b618cd0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 416e1329dae4: \"v2.0.6: password generator + vault health, transcription cache/cancel\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

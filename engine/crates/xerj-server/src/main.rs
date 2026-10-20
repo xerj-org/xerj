@@ -86,7 +86,7 @@ use tokio::signal;
 use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
 
-use xerj_api::{build_es_compat_router, build_native_router, AppState};
+use xerj_api::{build_es_compat_router_with_hub, build_native_router, AppState};
 use xerj_cluster::{transport::TcpTransport, ClusterNode, ClusterRunner};
 use xerj_common::{config::Config, metrics::Metrics};
 use xerj_console_api::{state::ClusterMode, ConsoleState, RpConfig};
@@ -96,6 +96,7 @@ mod brain;
 #[cfg(all(target_os = "linux", feature = "debug-profiling"))]
 mod debug_profiling;
 mod grpc;
+mod grpc_hub;
 mod ingest_memory_trace;
 mod share;
 
@@ -109,6 +110,7 @@ struct CliArgs {
     data_dir: Option<String>,
     bind: Option<String>,
     port: Option<String>,
+    auto_port: Option<bool>,
     insecure: bool,
     embed_mode: Option<String>,
     onnx_model: Option<String>,
@@ -119,15 +121,63 @@ struct CliArgs {
     decide_model_dir: Option<String>,
 }
 
+/// Subcommands dispatched before the server-flag parser. A flag written
+/// before one of these is moved behind it (`xerj --url URL corpus …`).
+fn is_top_level_command(arg: &str) -> bool {
+    matches!(
+        arg,
+        "index"
+            | "search"
+            | "def"
+            | "init"
+            | "gain"
+            | "autoindex"
+            | "brain"
+            | "share"
+            | "feedback"
+            | "code"
+            | "corpus"
+            | "hub"
+            | "ask"
+            | "mcp"
+            | "__extract-pdf"
+            | xerj_autoindex::extract::xls::WORKER_ARG
+    )
+}
+
 fn parse_args() -> CliArgs {
-    parse_args_from(std::env::args().skip(1))
+    parse_args_from(std::env::args().skip(1)).unwrap_or_else(|e| {
+        eprintln!("error: {e}. Use --help for usage.");
+        std::process::exit(2);
+    })
+}
+
+/// The value that must follow `flag`. A flag given last on the line, or
+/// followed straight by another `--flag`, has no value: that is an error, not
+/// a silent "unset" — `xerj --insecure --data-dir` used to boot on the default
+/// data directory, and `xerj --data-dir --insecure` used a directory literally
+/// named `--insecure` and left auth on (#1435). The short forms are the same
+/// trap — `xerj --data-dir -k` must not name the directory `-k` and drop
+/// `--insecure` — so a single dash plus one letter counts as a flag too; any
+/// longer single-dash value (`-data`, `-1`, `::1`) is still a value.
+fn flag_value(flag: &str, next: Option<String>) -> Result<String, String> {
+    match next {
+        Some(v) if !looks_like_flag(&v) => Ok(v),
+        Some(v) => Err(format!("{flag} needs a value, got the flag {v}")),
+        None => Err(format!("{flag} needs a value")),
+    }
+}
+
+/// `--anything`, or a short flag such as `-k` / `-d`.
+fn looks_like_flag(v: &str) -> bool {
+    v.starts_with("--") || matches!(v.as_bytes(), [b'-', c] if c.is_ascii_alphabetic())
 }
 
 /// The body of [`parse_args`], over any iterator of arguments — the same
 /// testable-parse shape as `brain::parse` and `share::parse`, so the CLI
 /// grammar is unit-tested without touching process-wide `argv` (which every
 /// test in the same binary shares).
-fn parse_args_from<I>(args: I) -> CliArgs
+fn parse_args_from<I>(args: I) -> Result<CliArgs, String>
 where
     I: Iterator<Item = String>,
 {
@@ -136,6 +186,7 @@ where
     let mut data_dir = None;
     let mut bind = None;
     let mut port: Option<String> = None;
+    let mut auto_port = None;
     let mut insecure = false;
     let mut embed_mode = None;
     let mut onnx_model = None;
@@ -148,29 +199,35 @@ where
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--config" | "-c" => {
-                config = args.next().map(PathBuf::from);
+                config = Some(PathBuf::from(flag_value(&arg, args.next())?));
             }
             "--data-dir" | "-d" => {
-                data_dir = args.next();
+                data_dir = Some(flag_value(&arg, args.next())?);
             }
             "--bind" | "-b" => {
-                bind = args.next();
+                bind = Some(flag_value(&arg, args.next())?);
             }
             "--port" => {
-                port = args.next();
+                port = Some(flag_value(&arg, args.next())?);
+            }
+            "--auto-port" => {
+                auto_port = Some(true);
+            }
+            "--no-auto-port" => {
+                auto_port = Some(false);
             }
             "--insecure" | "-k" => {
                 insecure = true;
             }
             "--embed-mode" => {
-                embed_mode = args.next();
+                embed_mode = Some(flag_value(&arg, args.next())?);
             }
-            "--onnx-model" => onnx_model = args.next(),
-            "--onnx-tokenizer" => onnx_tokenizer = args.next(),
-            "--compat-distribution" => compat_distribution = args.next(),
-            "--compat-version" => compat_version = args.next(),
-            "--decide-mode" => decide_mode = args.next(),
-            "--decide-model-dir" => decide_model_dir = args.next(),
+            "--onnx-model" => onnx_model = Some(flag_value(&arg, args.next())?),
+            "--onnx-tokenizer" => onnx_tokenizer = Some(flag_value(&arg, args.next())?),
+            "--compat-distribution" => compat_distribution = Some(flag_value(&arg, args.next())?),
+            "--compat-version" => compat_version = Some(flag_value(&arg, args.next())?),
+            "--decide-mode" => decide_mode = Some(flag_value(&arg, args.next())?),
+            "--decide-model-dir" => decide_model_dir = Some(flag_value(&arg, args.next())?),
             // Read out of band by `xerj_common::feedback` (which scans the
             // whole argument list, so its position never matters); accepted
             // here only so it is not an "unknown argument".
@@ -190,11 +247,12 @@ where
         }
     }
 
-    CliArgs {
+    Ok(CliArgs {
         config,
         data_dir,
         bind,
         port,
+        auto_port,
         insecure,
         embed_mode,
         onnx_model,
@@ -203,7 +261,7 @@ where
         compat_version,
         decide_mode,
         decide_model_dir,
-    }
+    })
 }
 
 fn print_help() {
@@ -219,178 +277,220 @@ fn help_text(feedback: bool) -> String {
          \n\
          {}\
          USAGE:\n\
-             xerj [OPTIONS]                      start the server (options below)\n\
-             xerj autoindex <folder> [OPTIONS]   zero-config discovery + indexing — the\n\
-                                                  flagship path for most agents (see xerj\n\
-                                                  autoindex --help)\n\
-             xerj autoindex map                  print the discovered data map\n\
-             xerj code <corpus> \"<query>\"        reference-coding retrieval over a corpus\n\
-                                                  of peer projects (see xerj code --help)\n\
-             xerj corpus add|index|list          the corpus lifecycle behind `xerj code`\n\
-                                                  (see xerj corpus --help)\n\
-             xerj index [OPTIONS]                direct NDJSON → engine ingest (see xerj\n\
-                                                  index --help)\n\
-             xerj brain <folder>                 index + browse in one command (see xerj\n\
-                                                  brain --help)\n\
-             xerj share <index|folder>           give someone read-only search over one\n\
-                                                  index: link + passcode + expiry (see xerj\n\
-                                                  share --help)\n\
-             xerj feedback [OPTIONS]             draft the agent field report (and open its\n\
-                                                  PR) — see xerj feedback --help\n\
+         \x20\x20\x20\x20A flag may precede the subcommand: xerj --url URL corpus index <name>\n\
+         \x20\x20\x20\x20is read as xerj corpus index <name> --url URL.\n\
+         \n\
+         \x20\x20\x20\x20xerj [OPTIONS]                      start the server (options below)\n\
+         \x20\x20\x20\x20xerj autoindex <folder> [OPTIONS]   zero-config discovery + indexing — the\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20flagship path for most agents (see xerj\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20autoindex --help)\n\
+         \x20\x20\x20\x20xerj autoindex map                  print the discovered data map\n\
+         \x20\x20\x20\x20xerj code <corpus> \"<query>\"        reference-coding retrieval over a corpus\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20of peer projects (see xerj code --help)\n\
+         \x20\x20\x20\x20xerj corpus add|index|list          the corpus lifecycle behind `xerj code`\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(see xerj corpus --help)\n\
+         {ask_lines}\
+         xerj index [OPTIONS]                direct NDJSON → engine ingest (see xerj\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20index --help)\n\
+         \x20\x20\x20\x20xerj brain <folder>                 index + browse in one command (see xerj\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20brain --help)\n\
+         \x20\x20\x20\x20xerj share <index|folder>           give someone read-only search over one\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20index: link + passcode + expiry (see xerj\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20share --help)\n\
+         \x20\x20\x20\x20xerj feedback [OPTIONS]             draft the agent field report (and open its\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20PR) — see xerj feedback --help\n\
          \n\
          OPTIONS (for `xerj [OPTIONS]`, the bare server start):\n\
-             --config,   -c <PATH>  Path to TOML config file\n\
-             --data-dir, -d <PATH>  Override data directory\n\
-             --bind,     -b <ADDR>  Interface to bind every listener to. Default 127.0.0.1 —\n\
-                                      loopback only, reachable from this machine and nowhere\n\
-                                      else. Pass 0.0.0.0 (or a specific address) to expose the\n\
-                                      node; with TLS off that also needs\n\
-                                      server.allow_insecure_network_bind = true (or\n\
-                                      XERJ_ALLOW_INSECURE_NETWORK_BIND=true), because every\n\
-                                      request — API key included — would cross the network in\n\
-                                      cleartext. Env: XERJ_BIND_ADDRESS\n\
-             --insecure, -k         Disable TLS *and* API-key authentication — local dev only.\n\
-                                      Auth is ON by default, so without this flag every client\n\
-                                      (`xerj autoindex` and `xerj brain` included) must send the\n\
-                                      key this server writes to <data_dir>/admin.key on first\n\
-                                      start — export XERJ_API_KEY=$(cat ./data/admin.key)\n\
-             --embed-mode <MODE>    Embedding backend: lexical | neural | proxy | auto |\n\
-                                      onnx-experimental\n\
-                                      lexical  built-in feature-hash (default; offline, not neural)\n\
-                                      neural   built-in BERT (all-MiniLM-L6-v2) — real semantics,\n\
-                                               in-process; auto-downloads the model (~90 MB) on\n\
-                                               first use, then runs from cache. Just add the flag.\n\
-                                      proxy    external OpenAI-compatible /v1/embeddings endpoint\n\
-                                      auto     proxy if embedding.default_endpoint is set, else lexical\n\
-                                      onnx-experimental  local all-MiniLM-L6-v2-compatible FP32\n\
-                                               ONNX prototype; width 384, named BERT inputs and\n\
-                                               token output; requires matching tokenizer.json;\n\
-                                               no auto-download\n\
-             --onnx-model <PATH>    compatible FP32 MiniLM ONNX model\n\
-             --onnx-tokenizer <PATH> tokenizer.json from the same model/export\n\
-             --compat-distribution <DIST>  Force the wire-compat client identity: elasticsearch |\n\
-                                      opensearch. Default: unset — xerj auto-detects per request\n\
-                                      from the caller's User-Agent header instead (an\n\
-                                      opensearch-py/opensearch-js client — including OpenSearch\n\
-                                      Dashboards itself — and an elasticsearch-py/elasticsearch-js\n\
-                                      client hitting the SAME running instance each see GET / and\n\
-                                      GET /_nodes shaped for their own ecosystem). Setting this\n\
-                                      pins ALL clients to one identity regardless of User-Agent —\n\
-                                      useful if a client sends no recognizable User-Agent, or you\n\
-                                      just want deterministic behavior.\n\
-                                      Example: --compat-distribution opensearch\n\
-             --compat-version <VER> Force the reported version.number (e.g. 2.11.0). Default:\n\
-                                      unset — when auto-detected as OpenSearch, reports a fixed\n\
-                                      version verified to pass OpenSearch Dashboards' own\n\
-                                      compatibility check (not the calling client's own version —\n\
-                                      client library versions aren't a reliable stand-in for a\n\
-                                      compatible server version, confirmed against a real OSD\n\
-                                      container). Example: --compat-version 2.11.0\n\
-             --decide-mode <MODE>   System One decide ladder (/v1/systemone, /_decide):\n\
-                                      history | local (default history — the labelled-history\n\
-                                      vote, today's contract). `local` arms the tier-2 zero-shot\n\
-                                      decision head, which answers the questions the history\n\
-                                      vote cannot (no [decisions] index, no labelled neighbour)\n\
-                                      instead of 503/422. Needs --decide-model-dir (or\n\
-                                      XERJ_DECIDE_MODEL_DIR) naming a directory with\n\
-                                      config.json, tokenizer.json and model.safetensors, and a\n\
-                                      build with the decide-local feature\n\
-                                      (cargo build --release -p xerj-server --features\n\
-                                      decide-local). Env: XERJ_DECIDE_MODE\n\
-             --decide-model-dir <PATH>  Directory holding the tier-2 decide head's\n\
-                                      config.json, tokenizer.json and model.safetensors —\n\
-                                      local file only, no download path. Env:\n\
-                                      XERJ_DECIDE_MODEL_DIR\n\
-             --port      <PORT>     Port for the Elasticsearch-compatible API (default 9200).\n\
-                                      Also claims PORT+1 for the native REST API and PORT+2\n\
-                                      for gRPC, so a second instance needs only this one flag:\n\
-                                      xerj --insecure --port 9300 -d ./other-data\n\
-             --disable-feedback     Do not print the feedback invitation above. Honoured in any\n\
-                                      position, including after --help. Env:\n\
-                                      XERJ_DISABLE_FEEDBACK=true\n\
-             --help,     -h         Show this help\n\
-             --version,  -V         Print version and exit\n\
+         \x20\x20\x20\x20--config,   -c <PATH>  Path to TOML config file. CORS is off by default (no\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Access-Control-* headers); a browser app calling the node\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20directly needs [cors] allowed_origins =\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20[\"http://localhost:8080\"] there (allow_any_origin = true\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20is for local development only)\n\
+         \x20\x20\x20\x20--data-dir, -d <PATH>  Override data directory\n\
+         \x20\x20\x20\x20--bind,     -b <ADDR>  Interface to bind every listener to. Default 127.0.0.1 —\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20loopback only, reachable from this machine and nowhere\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20else. Pass 0.0.0.0 (or a specific address) to expose the\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20node; with TLS off that also needs\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20server.allow_insecure_network_bind = true (or\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20XERJ_ALLOW_INSECURE_NETWORK_BIND=true), because every\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20request — API key included — would cross the network in\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20cleartext. Env: XERJ_BIND_ADDRESS\n\
+         \x20\x20\x20\x20--insecure, -k         Disable TLS *and* API-key authentication — local dev only.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Auth is ON by default, so without this flag every client\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(`xerj autoindex` and `xerj brain` included) must send the\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20key this server writes to <data_dir>/admin.key on first\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20start — export XERJ_API_KEY=$(cat ./data/admin.key)\n\
+         \x20\x20\x20\x20--embed-mode <MODE>    Embedding backend: lexical | neural | proxy | auto |\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20onnx-experimental\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20lexical  built-in feature-hash (default; offline, not neural)\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20neural   built-in BERT (all-MiniLM-L6-v2) — real semantics,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20in-process; auto-downloads the model (~90 MB) on\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20first use, then runs from cache. Just add the flag.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20proxy    external OpenAI-compatible /v1/embeddings endpoint\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20auto     proxy if embedding.default_endpoint is set, else lexical\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20onnx-experimental  local all-MiniLM-L6-v2-compatible FP32\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20ONNX prototype; width 384, named BERT inputs and\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20token output; requires matching tokenizer.json;\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20no auto-download\n\
+         \x20\x20\x20\x20--onnx-model <PATH>    compatible FP32 MiniLM ONNX model\n\
+         \x20\x20\x20\x20--onnx-tokenizer <PATH> tokenizer.json from the same model/export\n\
+         \x20\x20\x20\x20--compat-distribution <DIST>  Force the wire-compat client identity: elasticsearch |\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20opensearch. Default: unset — xerj auto-detects per request\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20from the caller's User-Agent header instead (an\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20opensearch-py/opensearch-js client — including OpenSearch\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Dashboards itself — and an elasticsearch-py/elasticsearch-js\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20client hitting the SAME running instance each see GET / and\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20GET /_nodes shaped for their own ecosystem). Setting this\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20pins ALL clients to one identity regardless of User-Agent —\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20useful if a client sends no recognizable User-Agent, or you\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20just want deterministic behavior.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Example: --compat-distribution opensearch\n\
+         \x20\x20\x20\x20--compat-version <VER> Force the reported version.number (e.g. 2.11.0). Default:\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20unset — when auto-detected as OpenSearch, reports a fixed\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20version verified to pass OpenSearch Dashboards' own\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20compatibility check (not the calling client's own version —\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20client library versions aren't a reliable stand-in for a\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20compatible server version, confirmed against a real OSD\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20container). Example: --compat-version 2.11.0\n\
+         \x20\x20\x20\x20--decide-mode <MODE>   System One decide ladder (/v1/systemone, /_decide):\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20history | local (default history — the labelled-history\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20vote, today's contract). `local` arms the tier-2 zero-shot\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20decision head, which answers the questions the history\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20vote cannot (no [decisions] index, no labelled neighbour)\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20instead of 503/422. Needs --decide-model-dir (or\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20XERJ_DECIDE_MODEL_DIR) naming a directory with\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20config.json, tokenizer.json and model.safetensors, and a\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20build with the decide-local feature\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(cargo build --release -p xerj-server --features\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20decide-local). Env: XERJ_DECIDE_MODE\n\
+         \x20\x20\x20\x20--decide-model-dir <PATH>  Directory holding the tier-2 decide head's\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20config.json, tokenizer.json and model.safetensors —\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20local file only, no download path. Env:\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20XERJ_DECIDE_MODEL_DIR\n\
+         \x20\x20\x20\x20--port      <PORT>     Port for the Elasticsearch-compatible API (default 9200).\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20When given, also claims PORT+1 for the native REST API and\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20PORT+2 for gRPC, so a second instance needs only this one\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20flag: xerj --insecure --port 9300 -d ./other-data\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Without it the native REST API listens on 8080 and gRPC on\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x208081 ([server] rest_port / grpc_port in the TOML config).\n\
+         \x20\x20\x20\x20--auto-port            Opt in to multi-instance mode: if a port is taken, bind the\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20next free one; if the data dir is held by another live\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20process, use <data-dir>-2, -3, ... The banner prints the\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20ports actually bound. Off by default. Env: XERJ_AUTO_PORT\n\
+         \x20\x20\x20\x20--no-auto-port         Fail at startup if a port is taken (the default).\n\
+         \x20\x20\x20\x20--disable-feedback     Do not print the feedback invitation above. Honoured in any\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20position, including after --help. Env:\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20XERJ_DISABLE_FEEDBACK=true\n\
+         \x20\x20\x20\x20--help,     -h         Show this help\n\
+         \x20\x20\x20\x20--version,  -V         Print version and exit\n\
          \n\
          SUBCOMMANDS:\n\
-             xerj index      <opts>          direct NDJSON → engine ingest (see xerj index --help)\n\
-             xerj autoindex  <folder> [opts] zero-config folder discovery + indexing (see xerj autoindex --help)\n\
-             xerj autoindex  map             print the discovered data map\n\
-             xerj search     \"<text>\"         retrieve code/passages from a running node — the\n\
-                                             query client, no wrapper scripts (see xerj search --help)\n\
-             xerj def        \"<symbol>\"       go-to-definition: where is this symbol defined, and\n\
-                                             what is its signature (see xerj def --help)\n\
-             xerj code       <corpus> \"<q>\"  reference-coding retrieval: how did peer projects\n\
-                                             solve this (see xerj code --help)\n\
-             xerj corpus     add|index|list   clone + index + list the reference corpora that\n\
-                                             `xerj code` searches (see xerj corpus --help)\n\
-             xerj init                       wire XERJ into the coding agents in this project:\n\
-                                             MCP + skill files, one command (see xerj init --help)\n\
-             xerj gain                       what this node did for you, counted from the audit\n\
-                                             log — searches, hit rate, latency (xerj gain --help)\n\
-             xerj brain      <folder>        one command: index a folder into a running, browsable\n\
-                                             second brain in your browser (see xerj brain --help)\n\
-             xerj mcp        [opts]          Model Context Protocol stdio server: exposes 13 tools\n\
-                                             (search, semantic, vector, hybrid, memory, second-brain,\n\
-                                             code-search) to any MCP client. Proxies to a node you\n\
-                                             already started — set XERJ_URL or --url (see xerj mcp --help)\n\
-             xerj feedback   [opts]          draft the agent field report XERJ asks every agent to\n\
-                                             file, auto-filling version/OS/what-was-indexed; --open-pr\n\
-                                             files it, --dry-run just prints (see xerj feedback --help)\n\
+         \x20\x20\x20\x20xerj index      <opts>          direct NDJSON → engine ingest (see xerj index --help)\n\
+         \x20\x20\x20\x20xerj autoindex  <folder> [opts] zero-config folder discovery + indexing (see xerj autoindex --help)\n\
+         \x20\x20\x20\x20xerj autoindex  map             print the discovered data map\n\
+         \x20\x20\x20\x20xerj search     \"<text>\"         retrieve code/passages from a running node — the\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20query client, no wrapper scripts (see xerj search --help)\n\
+         \x20\x20\x20\x20xerj def        \"<symbol>\"       go-to-definition: where is this symbol defined, and\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20what is its signature (see xerj def --help)\n\
+         \x20\x20\x20\x20xerj code       <corpus> \"<q>\"  reference-coding retrieval: how did peer projects\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20solve this (see xerj code --help)\n\
+         \x20\x20\x20\x20xerj corpus     add|index|list   clone + index + list the reference corpora that\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20`xerj code` searches (see xerj corpus --help)\n\
+         \x20\x20\x20\x20xerj init                       wire XERJ into the coding agents in this project:\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20MCP + skill files, one command (see xerj init --help)\n\
+         \x20\x20\x20\x20xerj gain                       what this node did for you, counted from the audit\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20log — searches, hit rate, latency (xerj gain --help)\n\
+         \x20\x20\x20\x20xerj brain      <folder>        one command: index a folder into a running, browsable\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20second brain in your browser (see xerj brain --help)\n\
+         \x20\x20\x20\x20xerj mcp        [opts]          Model Context Protocol stdio server: exposes {mcp_tools} tools\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(search, semantic, vector, hybrid, memory, second-brain,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20map, plan, code-search, Corpus Hub) to any MCP client.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Proxies to a node you already started — set XERJ_URL or\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20--url (see xerj mcp --help)\n\
+         \x20\x20\x20\x20xerj feedback   [opts]          draft the agent field report XERJ asks every agent to\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20file, auto-filling version/OS/what-was-indexed; --open-pr\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20files it, --dry-run just prints (see xerj feedback --help)\n\
          \n\
          SEARCHING A CODEBASE:\n\
-             A search hit returns the whole indexed document, which for source code is the\n\
-             whole file. To get only the matching function or class, ask for the passage:\n\
+         \x20\x20\x20\x20A search hit returns the whole indexed document, which for source code is the\n\
+         \x20\x20\x20\x20whole file. To get only the matching function or class, ask for the passage:\n\
          \n\
-                 curl -s $URL/<index>/_search -H 'Content-Type: application/json' \\\n\
-                   -d '{{\"query\":{{\"bool\":{{\"should\":[{{\"multi_match\":{{\"query\":\"<symbol or phrase>\",\n\
-                        \"fields\":[\"body\",\"defs\"],\"type\":\"most_fields\"}}}},{{\"match_phrase\":{{\"defs\":{{\"query\":\"<symbol or phrase>\",\"boost\":4}}}}}}]}}}},\n\
-                        \"_source\":[\"ax_path\",\"title\"],\"fields\":[\"_passage\"]}}'\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20curl -s $URL/<index>/_search -H 'Content-Type: application/json' \\\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20-d '{{\"query\":{{\"bool\":{{\"should\":[{{\"multi_match\":{{\"query\":\"<symbol or phrase>\",\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\"fields\":[\"body\",\"defs\"],\"type\":\"most_fields\"}}}},{{\"match_phrase\":{{\"defs\":{{\"query\":\"<symbol or phrase>\",\"boost\":4}}}}}}]}}}},\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\"_source\":[\"ax_path\",\"title\"],\"fields\":[\"_passage\"]}}'\n\
          \n\
-             the `match_phrase` clause ranks the file that DEFINES a symbol above files that merely call it;\n\
-             `_passage` returns the enclosing block. Without them you get whole files.\n\
+         \x20\x20\x20\x20the `match_phrase` clause ranks the file that DEFINES a symbol above files that merely call it;\n\
+         \x20\x20\x20\x20`_passage` returns the enclosing block. Without them you get whole files.\n\
          \n\
          ENVIRONMENT:\n\
-             XERJ_LOG         Log level filter (default: info)\n\
-             XERJ_DISABLE_FEEDBACK  true/false — same as --disable-feedback, for callers that\n\
-                                      cannot change the command line (CI, containers, agents)\n\
-             XERJ_CONFIG      Config file path\n\
-             XERJ_EMBED_MODE  Embedding backend (lexical|neural|proxy|auto|onnx-experimental)\n\
-             XERJ_ONNX_MODEL  FP32 ONNX model path\n\
-             XERJ_ONNX_TOKENIZER matching tokenizer.json path\n\
-             XERJ_COMPAT_DISTRIBUTION  elasticsearch|opensearch — same as --compat-distribution\n\
-             XERJ_COMPAT_VERSION       same as --compat-version\n\
-             XERJ_DECIDE_MODE          decide ladder: history|local — same as --decide-mode\n\
-             XERJ_DECIDE_MODEL_DIR     tier-2 decide head's model directory — same as\n\
-                                      --decide-model-dir\n\
-             XERJ_INGEST_MEMORY_TRACE  off|summary (default: off); summary emits bounded\n\
-                                      periodic NDJSON diagnostics, never per-item events\n\
-             XERJ_INGEST_MEMORY_SAMPLE_MS  sampler period, clamped to 25..60000 ms\n\
-             XERJ_INGEST_MEMORY_OUTPUT tracing|<PATH> (default: tracing); append NDJSON to path\n\
-                                      Merge/cache fields are reserved/unavailable in v1.\n\
-                                      Active+drained may transiently overlap across sampling.\n\
+         \x20\x20\x20\x20XERJ_LOG         Log level filter (default: info)\n\
+         \x20\x20\x20\x20XERJ_DISABLE_FEEDBACK  true/false — same as --disable-feedback, for callers that\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20cannot change the command line (CI, containers, agents)\n\
+         \x20\x20\x20\x20XERJ_CONFIG      Config file path\n\
+         \x20\x20\x20\x20XERJ_EMBED_MODE  Embedding backend (lexical|neural|proxy|auto|onnx-experimental)\n\
+         \x20\x20\x20\x20XERJ_ONNX_MODEL  FP32 ONNX model path\n\
+         \x20\x20\x20\x20XERJ_ONNX_TOKENIZER matching tokenizer.json path\n\
+         \x20\x20\x20\x20XERJ_COMPAT_DISTRIBUTION  elasticsearch|opensearch — same as --compat-distribution\n\
+         \x20\x20\x20\x20XERJ_COMPAT_VERSION       same as --compat-version\n\
+         \x20\x20\x20\x20XERJ_DECIDE_MODE          decide ladder: history|local — same as --decide-mode\n\
+         \x20\x20\x20\x20XERJ_DECIDE_MODEL_DIR     tier-2 decide head's model directory — same as\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20--decide-model-dir\n\
+         \x20\x20\x20\x20XERJ_INGEST_MEMORY_TRACE  off|summary (default: off); summary emits bounded\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20periodic NDJSON diagnostics, never per-item events\n\
+         \x20\x20\x20\x20XERJ_INGEST_MEMORY_SAMPLE_MS  sampler period, clamped to 25..60000 ms\n\
+         \x20\x20\x20\x20XERJ_INGEST_MEMORY_OUTPUT tracing|<PATH> (default: tracing); append NDJSON to path\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Merge/cache fields are reserved/unavailable in v1.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Active+drained may transiently overlap across sampling.\n\
          \n\
          WIRE-COMPAT IDENTITY — three ways to run this, pick what fits:\n\
          \n\
-             1. Fully automatic (default, no flags):\n\
-                  xerj -d ./data\n\
-                Every client gets a response shaped for its own ecosystem, detected from its\n\
-                User-Agent on every request. One instance serves ES and OpenSearch clients at\n\
-                once.\n\
+         \x20\x20\x20\x201. Fully automatic (default, no flags):\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20xerj -d ./data\n\
+         \x20\x20\x20\x20\x20\x20\x20Every client gets a response shaped for its own ecosystem, detected from its\n\
+         \x20\x20\x20\x20\x20\x20\x20User-Agent on every request. One instance serves ES and OpenSearch clients at\n\
+         \x20\x20\x20\x20\x20\x20\x20once.\n\
          \n\
-             2. Force one identity for every client, every request:\n\
-                  xerj -d ./data --compat-distribution opensearch --compat-version 2.11.0\n\
-                Or via env (handy in docker-compose):\n\
-                  XERJ_COMPAT_DISTRIBUTION=opensearch XERJ_COMPAT_VERSION=2.11.0 xerj -d ./data\n\
-                Ignores User-Agent entirely — useful for a client that doesn't send one, or when\n\
-                you want fully deterministic behavior.\n\
+         \x20\x20\x20\x202. Force one identity for every client, every request:\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20xerj -d ./data --compat-distribution opensearch --compat-version 2.11.0\n\
+         \x20\x20\x20\x20\x20\x20\x20Or via env (handy in docker-compose):\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20XERJ_COMPAT_DISTRIBUTION=opensearch XERJ_COMPAT_VERSION=2.11.0 xerj -d ./data\n\
+         \x20\x20\x20\x20\x20\x20\x20Ignores User-Agent entirely — useful for a client that doesn't send one, or when\n\
+         \x20\x20\x20\x20\x20\x20\x20you want fully deterministic behavior.\n\
          \n\
-             3. Pin only the distribution, let the version auto-detect per client:\n\
-                  xerj -d ./data --compat-distribution opensearch\n\
-                (or set only XERJ_COMPAT_VERSION and leave distribution to auto-detect — the two\n\
-                settings are resolved independently, mix and match as needed.)\n",
+         \x20\x20\x20\x203. Pin only the distribution, let the version auto-detect per client:\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20xerj -d ./data --compat-distribution opensearch\n\
+         \x20\x20\x20\x20\x20\x20\x20(or set only XERJ_COMPAT_VERSION and leave distribution to auto-detect — the two\n\
+         \x20\x20\x20\x20\x20\x20\x20settings are resolved independently, mix and match as needed.)\n",
         env!("CARGO_PKG_VERSION"),
         xerj_common::feedback::block(feedback),
+        // Counted from the served `tools/list`, not typed: the literal "13"
+        // went stale the day the three Corpus Hub tools landed (#1443).
+        mcp_tools = mcp_tool_count(),
+        ask_lines = ask_help_lines(xerj_common::hub::hub_key_configured()),
     )
+}
+
+/// The `xerj ask` usage lines. A build with no hub signing key can verify no
+/// pack, so there the line says the command is unavailable instead of
+/// promising a pull that will only ever exit 5.
+fn ask_help_lines(hub: bool) -> &'static str {
+    if hub {
+        "xerj ask \"<question>\"              answer a question from a hub corpus: the\n\
+         pre-indexed pack is pulled the first time\n\
+         (see xerj ask --help); `xerj \"<question>\"`\n\
+         is the same\n"
+    } else {
+        "xerj ask \"<question>\"              Corpus Hub answers: not available in this\n\
+         build (no hub signing key; exits 5) - use\n\
+         xerj corpus + xerj code instead\n"
+    }
+}
+
+/// How many tools `xerj mcp` serves — the length of the same `tool_specs()`
+/// array its `tools/list` returns.
+fn mcp_tool_count() -> usize {
+    xerj_mcp::tool_specs().as_array().map_or(0, Vec::len)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -571,23 +671,6 @@ fn load_config(args: &CliArgs) -> Result<Config> {
         anyhow::bail!("config error: {reason}");
     }
 
-    // Merge settings this build accepts but does not act on. An operator who
-    // throttles merges to protect query latency was getting no throttle and no
-    // signal (#207); the signal is the minimum. See
-    // `MergeConfig::dormant_overrides` for why these are a warning rather than
-    // the hard startup error `storage.backend` gets.
-    for (key, effect) in cfg.merge.dormant_overrides() {
-        warn!("{key} is set but has no effect in this build: {effect}");
-    }
-
-    // Same treatment for `[compression]` (#318): `level` is wired into the
-    // merge re-encode, `enabled` and `block_size_docs` are not, and an
-    // operator who set all three to trade CPU for $/GB previously got three
-    // no-ops in silence.
-    for (key, effect) in cfg.compression.dormant_overrides() {
-        warn!("{key} is set but has no effect in this build: {effect}");
-    }
-
     // Bind address override: `--bind` flag or `XERJ_BIND_ADDRESS` env (flag
     // wins). Both exist because the default is loopback (#228): without a way
     // to say "expose me" that is not a TOML file, a container image or a
@@ -630,6 +713,31 @@ fn load_config(args: &CliArgs) -> Result<Config> {
         cfg.server.es_compat_port = base;
         cfg.server.rest_port = base + 1;
         cfg.server.grpc_port = base + 2;
+    }
+
+    // Multi-instance auto-port selection: when enabled, if the requested
+    // listener ports are already in use, the server scans for and binds the
+    // next free ports, and moves off a data dir another live process holds.
+    //
+    // OPT-IN ONLY (flag, env, or `[server] auto_port = true`). A taken port is
+    // a fatal startup error by default on purpose (issue #465): a client
+    // pointed at the requested port would otherwise talk to — and write into —
+    // whichever other instance owns it, while this one reports success on a
+    // port nobody is addressing. Precedence: CLI flag > env > config file.
+    if let Some(ap) = args.auto_port {
+        cfg.server.auto_port = ap;
+    } else if let Ok(raw) = std::env::var("XERJ_AUTO_PORT") {
+        // Parsed strictly, like XERJ_ALLOW_INSECURE_NETWORK_BIND: a typo must
+        // not silently pick a behaviour the operator did not ask for.
+        cfg.server.auto_port = match raw.trim().to_ascii_lowercase().as_str() {
+            "1" | "true" | "yes" | "on" => true,
+            "0" | "false" | "no" | "off" => false,
+            _ => anyhow::bail!("XERJ_AUTO_PORT={raw:?} is not a boolean; use true or false"),
+        };
+    }
+
+    if cfg.server.auto_port {
+        cfg.server.data_dir = resolve_available_data_dir(&cfg.server.data_dir);
     }
 
     // The #228 opt-out, also settable from the environment so a container can
@@ -734,6 +842,24 @@ fn load_config(args: &CliArgs) -> Result<Config> {
         }
     }
 
+    // #1189: an explicit mode=proxy is validated at boot, the same
+    // fail-closed contract as onnx-experimental above. The old warn-plus-
+    // lexical fallback started a "healthy" node whose embedding requests
+    // silently wrote lexical vectors. Auto keeps its documented fallback.
+    if cfg.embedding.mode.trim().eq_ignore_ascii_case("proxy") {
+        if cfg.embedding.default_endpoint.trim().is_empty() {
+            anyhow::bail!(
+                "embedding.mode=proxy requires embedding.default_endpoint to be set; \
+                 remove mode=proxy (use auto) if a lexical fallback is wanted"
+            );
+        }
+        if let Err(e) =
+            xerj_ai::embed::EmbeddingProxy::new(xerj_engine::index::proxy_config(&cfg.embedding))
+        {
+            anyhow::bail!("embedding.mode=proxy failed to initialize: {e}");
+        }
+    }
+
     // ES/OpenSearch wire-compatibility override: `--compat-distribution` /
     // `XERJ_COMPAT_DISTRIBUTION` (flag wins). Left unset, xerj auto-detects
     // per request from the caller's User-Agent instead — this is only for
@@ -834,26 +960,44 @@ fn ensure_admin_key(cfg: &mut Config) -> Result<()> {
     let raw: Vec<u8> = (0..32).map(|_| rand::random::<u8>()).collect();
     let key: String = raw.iter().map(|b| format!("{b:02x}")).collect();
 
-    println!();
-    println!("╔══════════════════════════════════════════════════╗");
-    println!("║  First-run: admin API key auto-generated         ║");
-    println!("║                                                  ║");
-    println!("║  {:<48} ║", key);
-    println!("║                                                  ║");
-    println!("║  Keep this secret. Written to:                   ║");
-    println!("║  {:<48} ║", format!("{}/admin.key", cfg.server.data_dir));
-    println!("╚══════════════════════════════════════════════════╝");
-    println!();
-
-    if std::fs::create_dir_all(data_dir).is_ok() {
+    // Persist before announcing. The notice names the path and never the
+    // secret: stdout is what agents capture, and a first-run banner that
+    // prints the key lands in those logs (field report 2026-10-17).
+    if let Err(e) = std::fs::create_dir_all(data_dir).and_then(|_| {
         // 0600 — this file IS the admin credential (RC4 W2 #21).
-        if let Err(e) = write_secret_file(&key_path, key.as_bytes()) {
-            warn!("could not persist admin.key: {e}");
-        }
+        write_secret_file(&key_path, key.as_bytes())
+    }) {
+        warn!(
+            "could not persist admin key to {}: {e}. The key was not printed. \
+             Fix the data directory and restart so a key can be written.",
+            key_path.display()
+        );
+    } else {
+        println!("{}", first_run_admin_key_notice(&key, &key_path));
     }
 
     cfg.auth.admin_api_key = key;
     Ok(())
+}
+
+/// Text printed once, when an admin key is minted.
+///
+/// `key` is accepted so a test can prove the rendered text does not contain
+/// it. The function refuses to return a notice that includes the secret.
+fn first_run_admin_key_notice(key: &str, key_path: &Path) -> String {
+    let path = key_path.display().to_string();
+    let notice = format!(
+        "\n\
+         First-run: admin API key auto-generated.\n\
+         The key is not printed here. Read it from (owner-only, mode 0600):\n\
+         {path}\n\
+         Keep that file secret. Clients send it as `Authorization: ApiKey $(cat {path})`.\n"
+    );
+    assert!(
+        !key.is_empty() && !notice.contains(key),
+        "first-run notice must not contain the admin key"
+    );
+    notice
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -979,6 +1123,23 @@ async fn build_tls_config(cfg: &Config) -> Result<Option<RustlsConfig>> {
 // ─────────────────────────────────────────────────────────────────────────────
 // Observability
 // ─────────────────────────────────────────────────────────────────────────────
+
+/// Settings this build accepts but does not act on. An operator who throttles
+/// merges to protect query latency was getting no throttle and no signal
+/// (#207); the signal is the minimum. See `MergeConfig::dormant_overrides` for
+/// why these are a warning rather than the hard startup error `storage.backend`
+/// gets. `[compression]` (#318) and the `[fts]` / `[vector]` / `[logs]` /
+/// `[indexing]` / `storage.local_cache_dir` keys that nothing reads get the
+/// same treatment — `Config::dormant_overrides` collects every section.
+///
+/// Call it after `init_tracing`. It used to run inside `load_config`, which
+/// runs before the subscriber exists, so every one of these warnings was
+/// dropped and an operator saw nothing.
+fn warn_dormant_overrides(cfg: &Config) {
+    for (key, effect) in cfg.dormant_overrides() {
+        warn!("{key} is set but has no effect in this build: {effect}");
+    }
+}
 
 fn init_tracing(logging: &xerj_common::config::LoggingConfig) {
     let mut filter = EnvFilter::try_from_env("XERJ_LOG")
@@ -1124,6 +1285,101 @@ fn bind_listener(addr: SocketAddr, name: &str) -> Result<std::net::TcpListener> 
     Ok(listener)
 }
 
+/// If `data_dir` is currently locked by another live process, find the first
+/// sibling directory (`<dir>-2`, `<dir>-3`, ...) that is not, so multiple
+/// opted-in (`--auto-port`) instances can run side by side.
+///
+/// Advisory only: the engine re-acquires `node.lock` itself at open and fails
+/// cleanly if a racing instance took the directory in between. After
+/// [`MAX_DATA_DIR_SIBLINGS`] held siblings it gives up and returns the
+/// requested dir, so that engine lock error is what the operator sees.
+fn resolve_available_data_dir(requested: &str) -> String {
+    // A trailing separator would turn `./data/` into `./data/-2` — a
+    // directory INSIDE the held data dir. Siblings are built from the
+    // trimmed spelling (`/` alone is left as is).
+    let base = requested.trim_end_matches(['/', std::path::MAIN_SEPARATOR]);
+    let base = if base.is_empty() { requested } else { base };
+    if !data_dir_held(Path::new(base)) {
+        return requested.to_string();
+    }
+    for i in 2..=MAX_DATA_DIR_SIBLINGS + 1 {
+        let candidate = format!("{base}-{i}");
+        if !data_dir_held(Path::new(&candidate)) {
+            warn!(
+                "data dir '{requested}' is held by another running xerj process; \
+                 --auto-port: using '{candidate}' for this instance"
+            );
+            return candidate;
+        }
+    }
+    requested.to_string()
+}
+
+/// How many `<dir>-N` siblings [`resolve_available_data_dir`] will try.
+const MAX_DATA_DIR_SIBLINGS: usize = 64;
+
+/// Is `dir/node.lock` currently locked by a live process? A missing or
+/// unopenable lock file is "not held" — the engine's own lock acquisition is
+/// the authority and reports anything stranger.
+fn data_dir_held(dir: &Path) -> bool {
+    std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(dir.join("node.lock"))
+        .is_ok_and(|f| matches!(f.try_lock(), Err(std::fs::TryLockError::WouldBlock)))
+}
+
+/// Bind one listener, attempting consecutive ports if `auto_port` is true and
+/// the starting port is already in use (`AddrInUse`).
+fn bind_listener_candidate(
+    ip: std::net::IpAddr,
+    port: u16,
+    name: &'static str,
+    auto_port: bool,
+    avoid_ports: &[u16],
+) -> Result<(std::net::TcpListener, u16)> {
+    // Port 0 asks the kernel for an ephemeral port, which can never be "in
+    // use": there is nothing to scan, and the port to report is the one the
+    // kernel handed back, not the 0 that was requested.
+    if !auto_port || port == 0 {
+        let addr = SocketAddr::new(ip, port);
+        let listener = bind_listener(addr, name)?;
+        let bound = listener
+            .local_addr()
+            .with_context(|| format!("{name}: read the bound address"))?
+            .port();
+        return Ok((listener, bound));
+    }
+
+    // Scan in u16 space without ever incrementing past 65535 (a `+= 1` there
+    // would panic in debug and wrap to the ephemeral port 0 in release).
+    let max_port = port.saturating_add(AUTO_PORT_SCAN);
+    for candidate in port..=max_port {
+        if avoid_ports.contains(&candidate) {
+            continue;
+        }
+        let addr = SocketAddr::new(ip, candidate);
+        match std::net::TcpListener::bind(addr) {
+            Ok(listener) => {
+                listener
+                    .set_nonblocking(true)
+                    .with_context(|| format!("{name}: set the listener on {addr} non-blocking"))?;
+                if candidate != port {
+                    warn!("{name}: port {port} is in use; --auto-port bound {candidate} instead");
+                }
+                return Ok((listener, candidate));
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {}
+            Err(e) => return Err(anyhow::anyhow!("{name}: bind {addr}: {e}")),
+        }
+    }
+
+    anyhow::bail!("{name}: could not find a free port between {port} and {max_port}");
+}
+
+/// How far past the requested port `--auto-port` scans.
+const AUTO_PORT_SCAN: u16 = 1000;
+
 async fn serve_on(
     router: Router,
     listener: std::net::TcpListener,
@@ -1207,9 +1463,32 @@ struct IndexCmdArgs {
     data_dir: Option<String>,
 }
 
+/// `xerj index`'s string flag value; exits 2 on a missing one (see [`flag_value`]).
+fn index_flag_value(flag: &str, next: Option<String>) -> String {
+    flag_value(flag, next).unwrap_or_else(|e| {
+        eprintln!("error: {e}. Use --help for usage.");
+        std::process::exit(2);
+    })
+}
+
+/// `xerj index`'s numeric flag value. `--batch abc` used to fall back to the
+/// default without a word, so a typo silently changed the run (#1435).
+fn index_flag_count(flag: &str, next: Option<String>) -> usize {
+    parse_count(flag, next).unwrap_or_else(|e| {
+        eprintln!("error: {e}. Use --help for usage.");
+        std::process::exit(2);
+    })
+}
+
+fn parse_count(flag: &str, next: Option<String>) -> Result<usize, String> {
+    let v = flag_value(flag, next)?;
+    v.parse()
+        .map_err(|_| format!("{flag} must be a non-negative whole number, got {v:?}"))
+}
+
 fn parse_index_args() -> IndexCmdArgs {
     // Skip argv[0] (binary) + argv[1] ("index").
-    let mut args = std::env::args().skip(2);
+    let mut args = xerj_common::argv::args_after_subcommand().into_iter();
     let mut index = None;
     let mut file = None;
     let mut batch = 5000usize;
@@ -1220,19 +1499,13 @@ fn parse_index_args() -> IndexCmdArgs {
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "--index" | "-i" => index = args.next(),
-            "--file" | "-f" => file = args.next().map(PathBuf::from),
-            "--batch" | "-b" => {
-                batch = args.next().and_then(|s| s.parse().ok()).unwrap_or(5000);
-            }
-            "--workers" | "-w" => {
-                workers = args.next().and_then(|s| s.parse().ok()).unwrap_or(0);
-            }
-            "--limit" | "-l" => {
-                limit = args.next().and_then(|s| s.parse().ok()).unwrap_or(0);
-            }
-            "--config" | "-c" => config = args.next().map(PathBuf::from),
-            "--data-dir" | "-d" => data_dir = args.next(),
+            "--index" | "-i" => index = Some(index_flag_value(&arg, args.next())),
+            "--file" | "-f" => file = Some(PathBuf::from(index_flag_value(&arg, args.next()))),
+            "--batch" | "-b" => batch = index_flag_count(&arg, args.next()),
+            "--workers" | "-w" => workers = index_flag_count(&arg, args.next()),
+            "--limit" | "-l" => limit = index_flag_count(&arg, args.next()),
+            "--config" | "-c" => config = Some(PathBuf::from(index_flag_value(&arg, args.next()))),
+            "--data-dir" | "-d" => data_dir = Some(index_flag_value(&arg, args.next())),
             xerj_common::feedback::DISABLE_FLAG => {}
             "--help" | "-h" => {
                 print_index_help();
@@ -1275,19 +1548,19 @@ fn index_help_text(feedback: bool) -> String {
          \n\
          {}\
          USAGE:\n\
-             xerj index --index <name> --file <ndjson> [OPTIONS]\n\
+         \x20\x20\x20\x20xerj index --index <name> --file <ndjson> [OPTIONS]\n\
          \n\
          OPTIONS:\n\
-             --index,    -i <NAME>  Target index name (required)\n\
-             --file,     -f <PATH>  Path to NDJSON file (required)\n\
-             --batch,    -b <N>     Docs per batch (default 5000)\n\
-             --workers,  -w <N>     Parallel ingest workers (default = num_cpus)\n\
-             --limit,    -l <N>     Ingest only the first N lines (default: all)\n\
-             --config,   -c <PATH>  Path to TOML config file\n\
-             --data-dir, -d <PATH>  Override data directory\n\
-             --disable-feedback     Do not print the feedback invitation above\n\
-                                      (env XERJ_DISABLE_FEEDBACK=true)\n\
-             --help,     -h         Show this help\n\
+         \x20\x20\x20\x20--index,    -i <NAME>  Target index name (required)\n\
+         \x20\x20\x20\x20--file,     -f <PATH>  Path to NDJSON file (required)\n\
+         \x20\x20\x20\x20--batch,    -b <N>     Docs per batch (default 5000)\n\
+         \x20\x20\x20\x20--workers,  -w <N>     Parallel ingest workers (default = num_cpus)\n\
+         \x20\x20\x20\x20--limit,    -l <N>     Ingest only the first N lines (default: all)\n\
+         \x20\x20\x20\x20--config,   -c <PATH>  Path to TOML config file\n\
+         \x20\x20\x20\x20--data-dir, -d <PATH>  Override data directory\n\
+         \x20\x20\x20\x20--disable-feedback     Do not print the feedback invitation above\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(env XERJ_DISABLE_FEEDBACK=true)\n\
+         \x20\x20\x20\x20--help,     -h         Show this help\n\
          \n\
          Bypasses HTTP/axum entirely. Bytes are pushed straight into\n\
          index_batch_turbo_raw via rayon workers. Use this for maximum\n\
@@ -1314,6 +1587,10 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
         config: cmd.config.clone(),
         // No listener is bound for in-process indexing, so no port applies.
         port: None,
+        // Never relocate the data dir here: indexing into `<dir>-2` because a
+        // server holds `<dir>` would report success into a directory nobody
+        // serves. The engine's node.lock error is the right answer.
+        auto_port: Some(false),
         data_dir: cmd.data_dir.clone(),
         // In-process CLI indexing binds no listener at all, so the bind
         // address is irrelevant here — take whatever the config says.
@@ -1332,6 +1609,7 @@ async fn run_cli_index(cmd: IndexCmdArgs) -> Result<()> {
     let mut cfg = load_config(&fake_cli)?;
     // Tracing after config so the [logging] format applies (RC4-W4 item 6).
     init_tracing(&cfg.logging);
+    warn_dormant_overrides(&cfg);
     cfg.tls.enabled = false;
     cfg.auth.enabled = false;
     cfg.cluster.enabled = false;
@@ -1786,9 +2064,33 @@ fn main() -> Result<()> {
     #[cfg(unix)]
     raise_nofile_limit();
 
+    // `xerj --url URL corpus index name` used to die here as an unknown
+    // server flag. Move those flags behind the subcommand before any
+    // dispatch reads argv.
+    xerj_common::argv::install_hoist(xerj_common::argv::reorder_flags_before_command(
+        &std::env::args().skip(1).collect::<Vec<_>>(),
+        is_top_level_command,
+    ));
+
     // Dispatch before creating Tokio's pool so each PDF worker stays small.
-    if matches!(std::env::args().nth(1).as_deref(), Some("__extract-pdf")) {
+    if matches!(
+        xerj_common::argv::subcommand().as_deref(),
+        Some("__extract-pdf")
+    ) {
         std::process::exit(xerj_autoindex::extract::pdf::run_worker_cli());
+    }
+
+    // The isolated legacy-`.xls` BIFF reader. calamine 0.26.1 panics on crafted
+    // records (short `Lbl`/`ExternSheet`) and the release profile is
+    // `panic = abort`, so the read runs here, in a short-lived rlimit-capped
+    // child, where a crash dies with the child instead of aborting the indexer.
+    // Dispatched before the Tokio pool for the same smallness reason as the PDF
+    // worker above.
+    if matches!(
+        xerj_common::argv::subcommand().as_deref(),
+        Some(xerj_autoindex::extract::xls::WORKER_ARG)
+    ) {
+        std::process::exit(xerj_autoindex::extract::xls::run_worker_cli());
     }
 
     // `xerj mcp` — MCP stdio server (newline-delimited JSON-RPC on
@@ -1809,8 +2111,8 @@ fn main() -> Result<()> {
     // This is what makes the MCP server obtainable: before it, `xerj-mcp` was
     // a workspace crate that CI built and no release shipped, so the only way
     // to get it was to clone the repo and compile. Now `curl … | sh` is enough.
-    if matches!(std::env::args().nth(1).as_deref(), Some("mcp")) {
-        let args: Vec<String> = std::env::args().skip(2).collect();
+    if matches!(xerj_common::argv::subcommand().as_deref(), Some("mcp")) {
+        let args: Vec<String> = xerj_common::argv::args_after_subcommand();
         let rt = build_runtime(2)?;
         return rt.block_on(xerj_mcp::run(&args));
     }
@@ -1936,6 +2238,38 @@ mod help_text_tests {
             "the help must name the env var that carries the key, got:\n{para}"
         );
     }
+
+    /// A trailing `\` in the help string must not eat the indent of the next
+    /// line. `--insecure`'s wrap lines up under its description, not column 0.
+    #[test]
+    fn help_keeps_the_indent_of_a_wrapped_flag_line() {
+        let help = help_text(false);
+        let lines: Vec<&str> = help.lines().collect();
+        let flag = lines
+            .iter()
+            .position(|l| l.contains("--insecure"))
+            .expect("--insecure must be documented");
+        let wrap = lines[flag + 1];
+        assert!(
+            wrap.starts_with(' '),
+            "the --insecure wrap lost its indent: {wrap:?}"
+        );
+        assert!(
+            wrap.contains("Auth is ON by default"),
+            "expected the --insecure description wrap, got {wrap:?}"
+        );
+        let index = super::index_help_text(false);
+        let index_lines: Vec<&str> = index.lines().collect();
+        let fb = index_lines
+            .iter()
+            .position(|l| l.contains("--disable-feedback"))
+            .expect("index help documents --disable-feedback");
+        assert!(
+            index_lines[fb + 1].starts_with(' '),
+            "index help wrap lost its indent: {:?}",
+            index_lines[fb + 1]
+        );
+    }
 }
 
 /// `--decide-mode` / `--decide-model-dir` (#1057 tier 2): the CLI grammar and
@@ -1964,7 +2298,8 @@ mod decide_flag_tests {
             "local",
             "--decide-model-dir",
             "/models/xerj-decide",
-        ]));
+        ]))
+        .unwrap();
         assert_eq!(args.decide_mode.as_deref(), Some("local"));
         assert_eq!(
             args.decide_model_dir.as_deref(),
@@ -1973,8 +2308,73 @@ mod decide_flag_tests {
     }
 
     #[test]
+    fn a_value_flag_without_its_value_is_an_error_not_unset() {
+        // #1435: given last, or followed by another flag, the value is
+        // missing — this used to boot on the default silently.
+        for line in [
+            &["--insecure", "--data-dir"][..],
+            &["--port"][..],
+            &["-c"][..],
+            &["--data-dir", "--insecure"][..],
+            &["--bind", "--port", "9300"][..],
+            &["--decide-model-dir"][..],
+            &["--data-dir", "-k"][..],
+            &["-d", "-c", "xerj.toml"][..],
+        ] {
+            let err = parse_args_from(argv(line)).err();
+            assert!(
+                err.as_deref().is_some_and(|e| e.contains("needs a value")),
+                "{line:?} must be refused, got {err:?}"
+            );
+        }
+        // A value that merely contains or starts with a single dash is fine.
+        let args = parse_args_from(argv(&["-d", "-data", "--bind", "::1"])).unwrap();
+        assert_eq!(args.data_dir.as_deref(), Some("-data"));
+        assert_eq!(args.bind.as_deref(), Some("::1"));
+        let args = parse_args_from(argv(&["--port", "-1"])).unwrap();
+        assert_eq!(args.port.as_deref(), Some("-1"), "left to the port check");
+    }
+
+    #[test]
+    fn index_counts_refuse_a_non_number_instead_of_defaulting() {
+        use super::parse_count;
+        assert_eq!(parse_count("--batch", Some("200".into())), Ok(200));
+        assert!(parse_count("--batch", Some("abc".into()))
+            .unwrap_err()
+            .contains("whole number"));
+        assert!(parse_count("--workers", Some("-1".into())).is_err());
+        assert!(parse_count("--limit", None)
+            .unwrap_err()
+            .contains("needs a value"));
+    }
+
+    #[test]
+    fn help_counts_the_mcp_tools_actually_served() {
+        // #1443: the help said "exposes 13 tools" while `tools/list` served 16.
+        let served = super::mcp_tool_count();
+        if xerj_common::hub::hub_key_configured() {
+            assert!(served >= 16, "tool_specs() shrank to {served}");
+        } else {
+            assert_eq!(
+                served, 13,
+                "a no-key process must not count the hub tools it does not serve"
+            );
+        }
+        let help = help_text(false);
+        assert!(
+            help.contains(&format!("exposes {served} tools")),
+            "help must state the served tool count {served}, got:\n{help}"
+        );
+        let mcp_help = xerj_mcp::help_text(false);
+        assert!(
+            mcp_help.contains(&format!("proxies {served} tools")),
+            "xerj mcp --help must state the same count {served}, got:\n{mcp_help}"
+        );
+    }
+
+    #[test]
     fn decide_flags_default_to_none() {
-        let args = parse_args_from(argv(&[]));
+        let args = parse_args_from(argv(&[])).unwrap();
         assert_eq!(args.decide_mode, None);
         assert_eq!(args.decide_model_dir, None);
     }
@@ -1995,7 +2395,8 @@ mod decide_flag_tests {
             "opensearch",
             "-d",
             "./data",
-        ]));
+        ]))
+        .unwrap();
         assert!(args.insecure);
         assert_eq!(args.embed_mode.as_deref(), Some("neural"));
         assert_eq!(args.compat_distribution.as_deref(), Some("opensearch"));
@@ -2184,7 +2585,7 @@ mod runtime_tests {
 
 async fn async_main() -> Result<()> {
     // Subcommand dispatch — check argv[1] before any other parsing.
-    let argv1 = std::env::args().nth(1);
+    let argv1 = xerj_common::argv::subcommand();
     if matches!(argv1.as_deref(), Some("index")) {
         let cmd = parse_index_args();
         return run_cli_index(cmd).await;
@@ -2255,9 +2656,11 @@ async fn async_main() -> Result<()> {
     if matches!(argv1.as_deref(), Some("code")) {
         // Reference-coding retrieval (issue #977, previously xc.py): blocking
         // ES-compat client + local state ledger, synchronous — off the
-        // runtime like `def`.
-        let args: Vec<String> = std::env::args().skip(2).collect();
-        let code = tokio::task::spawn_blocking(move || xerj_autoindex::xc::run_code_cli(&args))
+        // runtime like `def`. Routed through the hub CLI so `--def <SYMBOL>`
+        // answers from the `-defs` index; every other invocation delegates
+        // unchanged to `xc::run_code_cli` (Corpus Hub v2, §3).
+        let args: Vec<String> = xerj_common::argv::args_after_subcommand();
+        let code = tokio::task::spawn_blocking(move || xerj_hub::cli::run_code(&args))
             .await
             .unwrap_or(1);
         std::process::exit(code);
@@ -2266,8 +2669,37 @@ async fn async_main() -> Result<()> {
         // Reference-coding corpus lifecycle (issue #977, previously
         // xc-corpus.sh/xc-index.sh): git + autoindex + ES-compat client, all
         // synchronous — off the runtime like `autoindex`.
-        let args: Vec<String> = std::env::args().skip(2).collect();
+        let args: Vec<String> = xerj_common::argv::args_after_subcommand();
         let code = tokio::task::spawn_blocking(move || xerj_autoindex::xc::run_corpus_cli(&args))
+            .await
+            .unwrap_or(1);
+        std::process::exit(code);
+    }
+    if matches!(argv1.as_deref(), Some("hub")) {
+        // Corpus Hub v2 (discussion #1374): pull pre-indexed, signed packs and
+        // build them (CI). Synchronous (git + blocking HTTP) — off the runtime
+        // like `corpus`.
+        let args: Vec<String> = xerj_common::argv::args_after_subcommand();
+        let code = tokio::task::spawn_blocking(move || xerj_hub::cli::run_hub_cli(&args))
+            .await
+            .unwrap_or(1);
+        std::process::exit(code);
+    }
+    if matches!(argv1.as_deref(), Some("ask")) {
+        // Corpus Hub v2 answer flow (plan §5): route the question to a hub
+        // corpus, answer from its pack (pulling it the first time). Blocking
+        // HTTP + process spawn — off the runtime like `hub`.
+        let args: Vec<String> = xerj_common::argv::args_after_subcommand();
+        let code = tokio::task::spawn_blocking(move || xerj_hub::cli::run_ask(&args))
+            .await
+            .unwrap_or(1);
+        std::process::exit(code);
+    }
+    if xerj_hub::cli::is_bare_question(argv1.as_deref()) {
+        // `xerj "how does lz4 frame work"`: argv[1] is not a subcommand, does
+        // not start with `-`, and contains a space — the same as `xerj ask`.
+        let args: Vec<String> = std::env::args().skip(1).collect();
+        let code = tokio::task::spawn_blocking(move || xerj_hub::cli::run_ask(&args))
             .await
             .unwrap_or(1);
         std::process::exit(code);
@@ -2293,6 +2725,7 @@ async fn async_main() -> Result<()> {
     init_tracing(&cfg.logging);
 
     info!("xerj v{} starting", env!("CARGO_PKG_VERSION"));
+    warn_dormant_overrides(&cfg);
 
     // 3a. `server.bind_address` must be an IP literal — and must be rejected
     //     *here*, ahead of the two exposure checks that follow.
@@ -2404,6 +2837,23 @@ async fn async_main() -> Result<()> {
 
     // 5. Admin key (first-run)
     ensure_admin_key(&mut cfg)?;
+    // Point later loopback clients at this listener's key. The file stores
+    // the path, not a second copy of the secret. A failure here does not
+    // stop the node: discovery still has its path candidates.
+    if cfg.auth.enabled {
+        let key_path = Path::new(&cfg.server.data_dir).join("admin.key");
+        if key_path.is_file() {
+            if let Err(error) = xerj_common::localauth::publish_admin_key_for_port(
+                cfg.server.es_compat_port,
+                &key_path,
+            ) {
+                warn!(
+                    "could not publish the admin-key path for port {}: {error}",
+                    cfg.server.es_compat_port
+                );
+            }
+        }
+    }
 
     // 6. TLS certificate — fail closed (issue #200). The operator asked for
     //    TLS; if the certificate step cannot deliver it, refuse to start
@@ -2444,6 +2894,17 @@ async fn async_main() -> Result<()> {
     let cluster_listen_addr = cfg.socket_addr(cfg.cluster.port);
 
     // 8b. Cluster runner (if cluster mode is enabled)
+    //
+    // The boot outcome is recorded for the REST layer (#1171): a configured
+    // ring whose transport cannot bind degrades to single-node with one
+    // ERROR line and then nothing — health reports the degraded state
+    // instead of green silence. Starts as Degraded for every enabled path
+    // and is only upgraded to Running when the runner actually started.
+    let mut cluster_transport_outcome = if cfg.cluster.enabled {
+        xerj_api::state::ClusterTransportStatus::Degraded
+    } else {
+        xerj_api::state::ClusterTransportStatus::Disabled
+    };
     let _cluster_shutdown = if cfg.cluster.enabled && storage_available {
         // Fail closed (issue #75). The cluster port carries Raft control
         // messages; without a shared secret every frame on it is
@@ -2491,6 +2952,26 @@ async fn async_main() -> Result<()> {
         // (`SocketAddr::parse`, just above), not the unparseable `::1:9300`.
         let node_id = listen_addr.to_string();
 
+        // The documented `peers` convention lists the FULL membership on
+        // every node — "the current node's id is inferred from the entry
+        // whose address matches its own" (docs/clustering) — so this node's
+        // own entry is expected to be in the map. Self is not a peer: left
+        // in, the Raft node counted 4 members of a 3-node ring (majority 3 =
+        // unanimity, no fault tolerance) and every node sent its own
+        // RequestVote back to itself over loopback TCP, counting its own
+        // vote twice — the measured result was a ring that churned through
+        // a new election every few hundred ms forever after ANY node died
+        // (#1168). Removed here, once, so the transport peer map and the
+        // Raft peer list agree. The cluster crate also excludes self
+        // defensively on both layers.
+        if peers.remove(&node_id).is_some() {
+            info!(
+                node = %node_id,
+                "cluster.peers included this node's own address — excluded from the peer set \
+                 (self is not a peer)"
+            );
+        }
+
         let tick = std::time::Duration::from_millis(cfg.cluster.tick_ms);
 
         match TcpTransport::new(node_id.clone(), listen_addr, peers, cluster_secret).await {
@@ -2500,12 +2981,14 @@ async fn async_main() -> Result<()> {
                     .peers
                     .iter()
                     .filter_map(|p| p.split_once('=').map(|(id, _)| id.to_string()))
+                    .filter(|id| id != &node_id)
                     .collect();
 
                 let node = ClusterNode::new(node_id.clone(), peer_ids, Box::new(transport));
                 let mut runner = ClusterRunner::new(node, tick, shutdown_rx);
 
                 info!(node = %node_id, "Starting cluster runner (Raft mode)");
+                cluster_transport_outcome = xerj_api::state::ClusterTransportStatus::Running;
                 tokio::spawn(async move { runner.run().await });
             }
             Err(e) => {
@@ -2555,19 +3038,42 @@ async fn async_main() -> Result<()> {
     //     context is kept as a backstop so that if a future edit reorders or
     //     drops 3a, this still names the setting rather than surfacing a bare
     //     `Option` unwrap.
-    let rest_addr: SocketAddr = cfg
-        .socket_addr(cfg.server.rest_port)
-        .with_context(|| bad_bind_address(&cfg))?;
-    let es_addr: SocketAddr = cfg
-        .socket_addr(cfg.server.es_compat_port)
-        .with_context(|| bad_bind_address(&cfg))?;
-    let grpc_addr: SocketAddr = cfg
-        .socket_addr(cfg.server.grpc_port)
-        .with_context(|| bad_bind_address(&cfg))?;
+    let ip = cfg.bind_ip().with_context(|| bad_bind_address(&cfg))?;
 
-    let rest_listener = bind_listener(rest_addr, "native REST")?;
-    let es_listener = bind_listener(es_addr, "ES-compat")?;
-    let grpc_listener = bind_listener(grpc_addr, "gRPC")?;
+    let mut avoid: Vec<u16> = Vec::new();
+    if cfg.cluster.enabled {
+        avoid.push(cfg.cluster.port);
+    }
+
+    let (es_listener, bound_es_port) = bind_listener_candidate(
+        ip,
+        cfg.server.es_compat_port,
+        "ES-compat",
+        cfg.server.auto_port,
+        &avoid,
+    )?;
+    avoid.push(bound_es_port);
+
+    let (rest_listener, bound_rest_port) = bind_listener_candidate(
+        ip,
+        cfg.server.rest_port,
+        "native REST",
+        cfg.server.auto_port,
+        &avoid,
+    )?;
+    avoid.push(bound_rest_port);
+
+    let (grpc_listener, bound_grpc_port) = bind_listener_candidate(
+        ip,
+        cfg.server.grpc_port,
+        "gRPC",
+        cfg.server.auto_port,
+        &avoid,
+    )?;
+
+    cfg.server.es_compat_port = bound_es_port;
+    cfg.server.rest_port = bound_rest_port;
+    cfg.server.grpc_port = bound_grpc_port;
 
     let bound = BoundAddrs {
         rest: rest_listener
@@ -2680,6 +3186,15 @@ async fn async_main() -> Result<()> {
     // 9b. Application state
     let mut state = AppState::new(cfg.clone(), engine, metrics);
 
+    // 9b-i. The cluster-transport boot outcome (#1171): `AppState::new`
+    //   seeds the field from the config alone because it cannot see the
+    //   boot; overwrite it with what actually happened in step 8b before
+    //   any router exists to read it. A node whose configured ring failed
+    //   to bind (or whose cluster-state storage was unavailable) serves
+    //   single-node while the operator believes it is clustered — this is
+    //   what lets /_cluster/health say yellow instead of green forever.
+    state.cluster_transport = cluster_transport_outcome;
+
     // 9b-iia. Decide-ladder override (#1057): `--decide-mode` /
     //   `--decide-model-dir` flags or XERJ_DECIDE_MODE / XERJ_DECIDE_MODEL_DIR
     //   env (flags win; the flag can fill either half, so `--decide-mode local`
@@ -2763,7 +3278,10 @@ async fn async_main() -> Result<()> {
     //     merge would leave xerj-api compiling and serving on its own
     //     — a property worth preserving.
     let mut native_router = build_native_router(state.clone());
-    let mut es_router = build_es_compat_router(state.clone());
+    // One hub state for the ES-compat `/_hub/v1/*` routes AND the gRPC
+    // `XerjHub` service: one rate-limit budget per client across both.
+    let hub_shared = xerj_api::hub_api::HubShared::new(state.clone());
+    let mut es_router = build_es_compat_router_with_hub(state.clone(), hub_shared.clone());
     if let Some(console_state) = xerj_console_state {
         let xerj_console_router = xerj_console_api::xerj_console_router(console_state);
         native_router = native_router.merge(xerj_console_router.clone());
@@ -2853,7 +3371,9 @@ async fn async_main() -> Result<()> {
     // made no false claim: it did hold the port.
     let grpc_state = state.clone();
     let grpc = tokio::spawn(async move {
-        if let Err(e) = grpc::serve_grpc_on(grpc_listener, grpc_state, shutdown_signal()).await {
+        if let Err(e) =
+            grpc::serve_grpc_on(grpc_listener, grpc_state, hub_shared, shutdown_signal()).await
+        {
             error!("gRPC server: {e:#}");
         }
     });
@@ -3255,5 +3775,165 @@ mod server_correctness_tests {
         let mode = std::fs::metadata(&stale).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o600, "rewritten secret must be tightened to 0600");
         assert_eq!(std::fs::read(&stale).unwrap(), b"new");
+    }
+
+    /// The first-run banner used to print the 64-hex admin key on stdout.
+    /// Agents that capture server output then hold the credential. The notice
+    /// names the file and nothing else that is the key.
+    #[test]
+    fn first_run_notice_names_the_key_file_and_not_the_key() {
+        let key = "ab".repeat(32);
+        assert_eq!(key.len(), 64);
+        let path = Path::new("/var/lib/xerj/admin.key");
+        let notice = first_run_admin_key_notice(&key, path);
+        assert!(
+            !notice.contains(&key),
+            "notice leaked the admin key:\n{notice}"
+        );
+        assert!(notice.contains(path.to_str().unwrap()), "{notice}");
+        assert!(
+            notice.contains("not printed"),
+            "notice must say the key is withheld: {notice}"
+        );
+        assert!(
+            notice.split_whitespace().all(|word| {
+                let bare = word.trim_matches(|c: char| !c.is_ascii_hexdigit());
+                !(bare.len() >= 64 && bare.bytes().all(|b| b.is_ascii_hexdigit()))
+            }),
+            "notice contains a 64-hex token:\n{notice}"
+        );
+    }
+
+    /// A fresh data dir gets a 0600 admin.key, and a second call reuses it
+    /// instead of minting another. The in-memory key matches the file.
+    #[test]
+    fn ensure_admin_key_writes_the_file_and_reuses_it() {
+        let dir = TempDir::new().unwrap();
+        let mut cfg = Config::default();
+        cfg.auth.enabled = true;
+        cfg.auth.admin_api_key.clear();
+        cfg.server.data_dir = dir.path().to_str().unwrap().to_string();
+
+        ensure_admin_key(&mut cfg).unwrap();
+        let written = std::fs::read_to_string(dir.path().join("admin.key")).unwrap();
+        assert_eq!(written, cfg.auth.admin_api_key);
+        assert_eq!(written.len(), 64);
+        assert!(written.bytes().all(|b| b.is_ascii_hexdigit()));
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = std::fs::metadata(dir.path().join("admin.key"))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777;
+            assert_eq!(mode, 0o600, "admin.key must be 0600, got {mode:o}");
+        }
+
+        let first = cfg.auth.admin_api_key.clone();
+        cfg.auth.admin_api_key.clear();
+        ensure_admin_key(&mut cfg).unwrap();
+        assert_eq!(
+            cfg.auth.admin_api_key, first,
+            "a restart must reuse admin.key"
+        );
+    }
+}
+
+#[cfg(test)]
+mod auto_port_tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr, TcpListener};
+
+    const LO: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
+
+    fn held_port() -> (TcpListener, u16) {
+        let l = TcpListener::bind((LO, 0)).unwrap();
+        let p = l.local_addr().unwrap().port();
+        (l, p)
+    }
+
+    #[test]
+    fn auto_port_is_off_unless_asked_for() {
+        // No config file, no flag: a taken port must stay fatal (#465).
+        let args = parse_args_from(["--insecure".to_string()].into_iter()).unwrap();
+        if std::env::var_os("XERJ_AUTO_PORT").is_none() {
+            assert!(!load_config(&args).unwrap().server.auto_port);
+        }
+        let args = parse_args_from(["--auto-port".to_string()].into_iter()).unwrap();
+        assert!(load_config(&args).unwrap().server.auto_port);
+    }
+
+    #[test]
+    fn taken_port_is_fatal_without_auto_port() {
+        let (_held, p) = held_port();
+        assert!(bind_listener_candidate(LO, p, "t", false, &[]).is_err());
+    }
+
+    #[test]
+    fn taken_port_moves_with_auto_port() {
+        let (_held, p) = held_port();
+        let (l, got) = bind_listener_candidate(LO, p, "t", true, &[]).unwrap();
+        assert_ne!(got, p);
+        assert_eq!(l.local_addr().unwrap().port(), got);
+    }
+
+    #[test]
+    fn avoided_ports_are_skipped() {
+        let (held, p) = held_port();
+        drop(held); // p is free now, but listed as reserved for a sibling
+        let (_l, got) = bind_listener_candidate(LO, p, "t", true, &[p]).unwrap();
+        assert_ne!(got, p);
+    }
+
+    #[test]
+    fn ephemeral_port_reports_the_kernel_port() {
+        // Port 0 + auto_port used to report 0, push 0 onto the avoid list, and
+        // then scan the next listener from port 1.
+        let (_a, pa) = bind_listener_candidate(LO, 0, "a", true, &[]).unwrap();
+        let (_b, pb) = bind_listener_candidate(LO, 0, "b", true, &[pa]).unwrap();
+        assert_ne!(pa, 0);
+        assert_ne!(pb, 0);
+        assert_ne!(pa, pb);
+    }
+
+    fn hold(dir: &Path) -> std::fs::File {
+        std::fs::create_dir_all(dir).unwrap();
+        let f = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(dir.join("node.lock"))
+            .unwrap();
+        f.try_lock().unwrap();
+        f
+    }
+
+    #[test]
+    fn free_data_dir_is_kept() {
+        let t = tempfile::tempdir().unwrap();
+        let d = t.path().join("data");
+        let d = d.to_str().unwrap();
+        assert_eq!(resolve_available_data_dir(d), d);
+        // A stale lock file from a dead process is not "held".
+        std::fs::create_dir_all(d).unwrap();
+        std::fs::write(Path::new(d).join("node.lock"), "12345").unwrap();
+        assert_eq!(resolve_available_data_dir(d), d);
+    }
+
+    #[test]
+    fn held_data_dir_moves_to_a_sibling() {
+        let t = tempfile::tempdir().unwrap();
+        let d = t.path().join("data");
+        let _g1 = hold(&d);
+        let _g2 = hold(&t.path().join("data-2"));
+        let ds = d.to_str().unwrap();
+        assert_eq!(resolve_available_data_dir(ds), format!("{ds}-3"));
+        // Trailing separator: the sibling must not land INSIDE the held dir.
+        assert_eq!(
+            resolve_available_data_dir(&format!("{ds}/")),
+            format!("{ds}-3")
+        );
     }
 }

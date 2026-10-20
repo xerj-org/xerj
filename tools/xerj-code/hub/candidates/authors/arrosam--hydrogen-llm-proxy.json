@@ -1,0 +1,22 @@
+{
+ "corpus": "arrosam--hydrogen-llm-proxy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how Arrosam/Hydrogen-LLM-proxy implements it: A light-weighted personal LLM proxy (selected work: server)",
+ "repos": [
+  {
+   "repo": "Hydrogen-LLM-proxy",
+   "url": "https://github.com/Arrosam/Hydrogen-LLM-proxy",
+   "sha": "fcf5482510b1b2506c9d63b5e4cff34e61b4acdc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit fcf5482510b1: \"fix: isolate startup statistics and trace database stages\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

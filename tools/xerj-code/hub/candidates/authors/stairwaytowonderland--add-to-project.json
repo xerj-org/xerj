@@ -1,0 +1,22 @@
+{
+ "corpus": "stairwaytowonderland--add-to-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on continuous-integration, github-action, github-projects queries this for how stairwaytowonderland/add-to-project implements it: :shopping_cart: Marketplace Action | Adds the specified repo or owner issues or pull requests to a GitHub project (selected work: src, __tests__, __fixtures__)",
+ "repos": [
+  {
+   "repo": "add-to-project",
+   "url": "https://github.com/stairwaytowonderland/add-to-project",
+   "sha": "d8b51177f7294612fd16bb2a3eccb2d8ce6b210f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit d8b51177f729: \"feat: some code design changes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

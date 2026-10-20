@@ -1,0 +1,22 @@
+{
+ "corpus": "afanegas--berlin-pv-monitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on HTML queries this for how afanegas/berlin-pv-monitor implements it: afanegas/berlin-pv-monitor (HTML) (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "berlin-pv-monitor",
+   "url": "https://github.com/afanegas/berlin-pv-monitor",
+   "sha": "4b7ca73aa7bc24c50a8260cf23452ef7d39dfee4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 4b7ca73aa7bc: \"Add detail dashboard (additions vs. stock, balcony PV, plant attributes)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

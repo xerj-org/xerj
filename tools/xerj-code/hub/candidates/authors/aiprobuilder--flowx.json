@@ -1,0 +1,22 @@
+{
+ "corpus": "aiprobuilder--flowx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on a2a, agent-workflows, ai-agents queries this for how AIpRoBuilder/FlowX implements it: MCP server and Python SDK that generates, runs and refines AI agent workflows from natural language (Generative Workflow, A2A, FastAPI) (selected work: packages/core, packages/mcp)",
+ "repos": [
+  {
+   "repo": "FlowX",
+   "url": "https://github.com/AIpRoBuilder/FlowX",
+   "sha": "1445649f4e9e305f6bfb2c46d59e924e8e7fce00",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 1445649f4e9e: \"amend building of workflow engine based on new pydaograph\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

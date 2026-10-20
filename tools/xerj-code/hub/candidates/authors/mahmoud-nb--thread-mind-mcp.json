@@ -1,0 +1,22 @@
+{
+ "corpus": "mahmoud-nb--thread-mind-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how mahmoud-nb/thread-mind-mcp implements it: MCP server to organize AI conversations into thread trees, reducing token consumption (selected work: src/hooks, tests, plugin)",
+ "repos": [
+  {
+   "repo": "thread-mind-mcp",
+   "url": "https://github.com/mahmoud-nb/thread-mind-mcp",
+   "sha": "a4068fbbab1d89067e31d6ed8bcd65232b9169b2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a4068fbbab1d: \"feat: add HookGuard for session reminders, compaction tracking, and g\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

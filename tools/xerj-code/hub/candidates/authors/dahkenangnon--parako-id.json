@@ -1,0 +1,22 @@
+{
+ "corpus": "dahkenangnon--parako-id",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on oauth2-server, oidc, parako queries this for how Dahkenangnon/Parako.ID implements it: A production-grade identity provider you deploy once and forget about \u2014 SSO, MFA, passkeys, and OAuth2 out of the box, at any scale (selected work: test, installer, scripts)",
+ "repos": [
+  {
+   "repo": "Parako.ID",
+   "url": "https://github.com/Dahkenangnon/Parako.ID",
+   "sha": "3d8ea8810e1da05d9738893a7ff19a25dabb6614",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 3d8ea8810e1d: \"feat(cli): add scoped bootstrap recovery\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

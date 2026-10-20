@@ -1,0 +1,22 @@
+{
+ "corpus": "rolloutctrl--rolloutctrl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on access-control, feature-flags, feature-flags-management queries this for how rolloutctrl/rolloutctrl implements it: Open-source, self-hosted platform for feature flags, progressive delivery, and fine-grained access control (selected work: src/modules, frontend, prisma)",
+ "repos": [
+  {
+   "repo": "rolloutctrl",
+   "url": "https://github.com/rolloutctrl/rolloutctrl",
+   "sha": "cc22cb433c405f27a7fad3f7eb46483549fcfa11",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit cc22cb433c40: \"feat: add sse notifications and swagger\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

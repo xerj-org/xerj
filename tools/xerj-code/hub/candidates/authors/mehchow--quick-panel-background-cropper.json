@@ -1,0 +1,22 @@
+{
+ "corpus": "mehchow--quick-panel-background-cropper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, customization, one-ui queries this for how MehChow/Quick-Panel-Background-Cropper implements it: Expo 57, Uniwind, AniUi, Codex (selected work: src/components, the project root, src/features)",
+ "repos": [
+  {
+   "repo": "Quick-Panel-Background-Cropper",
+   "url": "https://github.com/MehChow/Quick-Panel-Background-Cropper",
+   "sha": "761716b7694804742c32afa5661fd2c6c548562d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 761716b76948: \"done\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

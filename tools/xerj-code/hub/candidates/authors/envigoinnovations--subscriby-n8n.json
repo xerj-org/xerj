@@ -1,0 +1,22 @@
+{
+ "corpus": "envigoinnovations--subscriby-n8n",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on n8n, n8n-community-node, n8n-nodes queries this for how envigoinnovations/subscriby-n8n implements it: The n8n community node package for Subscriby workflow automations (selected work: nodes, scripts)",
+ "repos": [
+  {
+   "repo": "subscriby-n8n",
+   "url": "https://github.com/envigoinnovations/subscriby-n8n",
+   "sha": "96025744a57416c4a468699be01ba6dfa6e0ea15",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 96025744a574: \"feat(smart-links): the Smart Link resource and its three trigger even\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

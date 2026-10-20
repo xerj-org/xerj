@@ -1,0 +1,22 @@
+{
+ "corpus": "naenaetart--naenae-amll-ttml-tool",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how NaeNaeTart/NaeNae-AMLL-TTML-TOOL implements it: ye (not kanye) (selected work: src/modules, src-tauri, src/utils)",
+ "repos": [
+  {
+   "repo": "NaeNae-AMLL-TTML-TOOL",
+   "url": "https://github.com/NaeNaeTart/NaeNae-AMLL-TTML-TOOL",
+   "sha": "5d26b49cb812514bbb8aa556e25e4b1e1dfd0442",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 5d26b49cb812: \"feat(projects): add linked projects that keep files in place\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

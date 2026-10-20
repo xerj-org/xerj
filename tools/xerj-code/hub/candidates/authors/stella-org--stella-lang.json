@@ -1,0 +1,22 @@
+{
+ "corpus": "stella-org--stella-lang",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on algebraic-effects, functional-programming, programming-language queries this for how stella-org/stella-lang implements it: A effect-oriented functional programming language inspired by PureScript (selected work: compiler)",
+ "repos": [
+  {
+   "repo": "stella-lang",
+   "url": "https://github.com/stella-org/stella-lang",
+   "sha": "4212c5ce6a87b258956eb47e3f956163d4e4ca11",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 4212c5ce6a87: \"[Feature] compiler: inference of ambient effect row --  minimal closing\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

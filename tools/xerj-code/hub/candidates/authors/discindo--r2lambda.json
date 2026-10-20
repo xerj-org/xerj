@@ -1,0 +1,22 @@
+{
+ "corpus": "discindo--r2lambda",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on aws, aws-lambda, r queries this for how discindo/r2lambda implements it: Deploy an R script as AWS lambda from the R console (selected work: tests, R, man)",
+ "repos": [
+  {
+   "repo": "r2lambda",
+   "url": "https://github.com/discindo/r2lambda",
+   "sha": "a99bfc0b6b3b51e9fc63e3ff459001928ea5ee3b",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit a99bfc0b6b3b: \"fix: look up AWS resources by name instead of listing them\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

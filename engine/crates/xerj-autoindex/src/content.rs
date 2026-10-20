@@ -307,7 +307,7 @@ mod tests {
         );
         assert_eq!(
             OBSERVED_DIGEST_POOL_THREADS.load(std::sync::atomic::Ordering::Relaxed),
-            crate::pool::scan_pool().current_num_threads(),
+            crate::pool::width(),
             "the digest phase must see exactly the scan pool the run configured"
         );
         assert_eq!(

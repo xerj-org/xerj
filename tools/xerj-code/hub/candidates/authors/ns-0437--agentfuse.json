@@ -1,0 +1,22 @@
+{
+ "corpus": "ns-0437--agentfuse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentkit, ai-agents, autonomous-agents queries this for how ns-0437/agentfuse implements it: A logical circuit breaker for long-range autonomous agents: detects tool loops, goal drift, logic traps and runaway spend, then steers the a (selected work: agentfuse, evals)",
+ "repos": [
+  {
+   "repo": "agentfuse",
+   "url": "https://github.com/ns-0437/agentfuse",
+   "sha": "75a8053814e8d3bbfd4b63c7286d4048dd4cd657",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 75a8053814e8: \"Journal unsafe tool effects before execution\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

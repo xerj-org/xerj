@@ -1,0 +1,22 @@
+{
+ "corpus": "sewox--echomind",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on byok, dlp, local-first queries this for how sewox/EchoMind implements it: Privacy-first AI meeting assistant \u2014 local Whisper, BYOK cloud, DLP redaction, speaker diarization. Tauri + Rust + React (selected work: src-tauri, src/components)",
+ "repos": [
+  {
+   "repo": "EchoMind",
+   "url": "https://github.com/sewox/EchoMind",
+   "sha": "cfbbcec4e437e2d533fbe556afbcfe5a6c1b4e18",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit cfbbcec4e437: \"feat(audio): capture system audio on Windows and Linux (#108)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "festinalli--bankmore-challenge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on angular, clean-architecture, cqrs queries this for how festinalli/BankMore-Challenge implements it: Plataforma banc\u00e1ria event-driven com antifraude em tempo real (PyFlink + XGBoost) e arranjo PIX completo (ISO 20022, mTLS). .NET 8, Clean Ar (selected work: frontend, jev, the project root)",
+ "repos": [
+  {
+   "repo": "BankMore-Challenge",
+   "url": "https://github.com/festinalli/BankMore-Challenge",
+   "sha": "a5131f60b72664bab21ac7df06d34f86f6cc161f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit a5131f60b726: \"feat(jev): tela /ops/jev no BankMore com API local do Jev\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

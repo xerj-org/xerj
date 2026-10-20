@@ -1,0 +1,22 @@
+{
+ "corpus": "nitrologic--relay",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how nitrologic/relay implements it: Research tool for advanced model manipulation (selected work: gd, the project root)",
+ "repos": [
+  {
+   "repo": "relay",
+   "url": "https://github.com/nitrologic/relay",
+   "sha": "8c9bf94021565dfd11c20fc6c864c2ce92a4e9fd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 8c9bf9402156: \"ignore dmg\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

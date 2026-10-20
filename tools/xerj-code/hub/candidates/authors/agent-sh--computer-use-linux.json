@@ -1,0 +1,22 @@
+{
+ "corpus": "agent-sh--computer-use-linux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai, claude queries this for how agent-sh/computer-use-linux implements it: Native Linux desktop control for AI agents (MCP, Pi, CLI) \u2014 semantic AT-SPI trees, screenshots, window targeting, and input across GNOME, KD (selected work: src, scripts, pi)",
+ "repos": [
+  {
+   "repo": "computer-use-linux",
+   "url": "https://github.com/agent-sh/computer-use-linux",
+   "sha": "3ece2e4b19d847f2b375fa071789da5c91d8a34a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 3ece2e4b19d8: \"fix: stabilize Hyprland wtype input and preserve missing-focus warnin\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

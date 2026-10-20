@@ -1,0 +1,22 @@
+{
+ "corpus": "qinz1yang--differential-geometry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Lean queries this for how qinz1yang/differential-geometry implements it: A general geometry library in LEAN 4 (selected work: DifferentialGeometry, the project root)",
+ "repos": [
+  {
+   "repo": "differential-geometry",
+   "url": "https://github.com/qinz1yang/differential-geometry",
+   "sha": "391b7e1c612b53df0ba29d4e7690f27d64fcc4b7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 391b7e1c612b: \"Remove Geometrization admissions and reconnect proved consumers\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

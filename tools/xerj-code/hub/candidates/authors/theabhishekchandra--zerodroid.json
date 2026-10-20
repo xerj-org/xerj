@@ -1,0 +1,22 @@
+{
+ "corpus": "theabhishekchandra--zerodroid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on android, ble-scanner, bluetooth queries this for how theabhishekchandra/ZeroDroid implements it: The all-in-one Android hardware toolkit. 29 tools for wireless analysis, sensor monitoring, network scanning, and security auditing (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "ZeroDroid",
+   "url": "https://github.com/theabhishekchandra/ZeroDroid",
+   "sha": "1682edce6679920726fc017f5df573e34f6a9792",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 1682edce6679: \"feat(ui): finish redesign leftovers \u2014 SDP services, remaining old panels\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

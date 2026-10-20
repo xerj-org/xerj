@@ -1,0 +1,22 @@
+{
+ "corpus": "modelscope--evalscope",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on evaluation, llm, performance queries this for how modelscope/evalscope implements it: A streamlined and customizable framework for efficient large model (LLM, VLM, AIGC) evaluation and performance benchmarking (selected work: tests, evalscope)",
+ "repos": [
+  {
+   "repo": "evalscope",
+   "url": "https://github.com/modelscope/evalscope",
+   "sha": "7374840043bddf85026df7a5b63df106f1ef9816",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 7374840043bd: \"fix(dataset): reuse the default ModelScope cache for Native loading (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

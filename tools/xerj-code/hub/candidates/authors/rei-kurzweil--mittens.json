@@ -1,0 +1,22 @@
+{
+ "corpus": "rei-kurzweil--mittens",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on game-engine, vr, vtubing queries this for how rei-kurzweil/mittens implements it: vulkan + openxr based game engine written in rust (selected work: src/scripting, examples, assets)",
+ "repos": [
+  {
+   "repo": "mittens",
+   "url": "https://github.com/rei-kurzweil/mittens",
+   "sha": "098c8c2c665933246d3da26616dd5ce2ef96d59f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 098c8c2c6659: \"add missing support for custom events / emit_data in runtime_config\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

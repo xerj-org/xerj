@@ -1,0 +1,22 @@
+{
+ "corpus": "sekaikx--lifeline",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on airdrop, airdrop-deploy, disaster-response queries this for how sekaikx/lifeline implements it: Desktop resupply planner for disaster response and humanitarian logistics. Compares truck, drone and parachute airdrop delivery on real terr (selected work: crates/supply, crates/ai, crates/planner)",
+ "repos": [
+  {
+   "repo": "lifeline",
+   "url": "https://github.com/sekaikx/lifeline",
+   "sha": "57b7b65016629d2c39457478edaa4ec6e88c5a87",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 57b7b6501662: \"AI assistant, supply ledger, map exports and the new icon\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

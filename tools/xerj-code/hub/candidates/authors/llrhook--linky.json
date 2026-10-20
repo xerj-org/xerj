@@ -1,0 +1,22 @@
+{
+ "corpus": "llrhook--linky",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on bot, discord-bot, discord-js queries this for how LLRHook/linky implements it: Free hosted Discord bot that fixes link previews for X, Instagram, TikTok, Facebook Reels, Bluesky, Reddit, Twitch clips, YouTube and articl (selected work: tests, src/services, src)",
+ "repos": [
+  {
+   "repo": "linky",
+   "url": "https://github.com/LLRHook/linky",
+   "sha": "ebe9efb3f4521e26fe7964ba7cd75fa3c2694147",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit ebe9efb3f452: \"feat: finish deliveries on shutdown and catch up after restarts [FEAT\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "milenpl--taskmanagerwidget",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how MilenPL/TaskManagerWidget implements it: MilenPL/TaskManagerWidget (Python) (selected work: taskwidget, tests, tools)",
+ "repos": [
+  {
+   "repo": "TaskManagerWidget",
+   "url": "https://github.com/MilenPL/TaskManagerWidget",
+   "sha": "9c3e135af2ce2b290fe732476f008874aedb3e72",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 9c3e135af2ce: \"task manager widget - v2.29-gnome\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

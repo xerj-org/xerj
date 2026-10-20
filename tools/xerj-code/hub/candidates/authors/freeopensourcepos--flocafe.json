@@ -1,0 +1,22 @@
+{
+ "corpus": "freeopensourcepos--flocafe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on billing-software, cafe-pos, electron queries this for how FreeOpenSourcePOS/FloCafe implements it: Free, open-source, offline-first Point of Sale for cafes, restaurants, and food businesses (selected work: frontend, tests)",
+ "repos": [
+  {
+   "repo": "FloCafe",
+   "url": "https://github.com/FreeOpenSourcePOS/FloCafe",
+   "sha": "453d412691c3ca7eb682a5554a0fdaa64f319944",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 453d412691c3: \"fix: align restricted staff permissions (#913)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

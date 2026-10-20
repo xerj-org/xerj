@@ -1,0 +1,22 @@
+{
+ "corpus": "holyarsenic--chandigarh-safesim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how holyarsenic/Chandigarh-SafeSim implements it: Chandigarh SafeSim is an AI-powered urban safety platform that simulates city emergencies, maps affected areas, identifies nearby emergency  (selected work: components, app/api, the project root)",
+ "repos": [
+  {
+   "repo": "Chandigarh-SafeSim",
+   "url": "https://github.com/holyarsenic/Chandigarh-SafeSim",
+   "sha": "c91eeb13eab93f301a806b7d54b84599a966510b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit c91eeb13eab9: \"feat: enhance emergency guidance structure with recommended facility \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

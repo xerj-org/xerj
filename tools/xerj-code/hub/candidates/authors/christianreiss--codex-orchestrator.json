@@ -1,0 +1,22 @@
+{
+ "corpus": "christianreiss--codex-orchestrator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on admin-dashboard, authentication, caddy queries this for how christianreiss/codex-orchestrator implements it: Codex Orchestrator: a Dockerized PHP application that orchestrates Codex authentication across hosts, provides a sleek admin dashboard, mana (selected work: mobile)",
+ "repos": [
+  {
+   "repo": "codex-orchestrator",
+   "url": "https://github.com/christianreiss/codex-orchestrator",
+   "sha": "343f39c158537008fa351a38a9a90b474d951d3f",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 343f39c15853: \"Cache active Android chat history and refresh it from the server\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

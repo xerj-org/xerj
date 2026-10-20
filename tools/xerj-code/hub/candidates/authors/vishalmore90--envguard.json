@@ -1,0 +1,22 @@
+{
+ "corpus": "vishalmore90--envguard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, environment-variables, github-actions queries this for how vishalmore90/EnvGuard implements it: A powerful CLI tool and GitHub Action to scan source code for environment variable usage, enforce type-safe schemas, and detect leaked secre (selected work: src/envguard, tests)",
+ "repos": [
+  {
+   "repo": "EnvGuard",
+   "url": "https://github.com/vishalmore90/EnvGuard",
+   "sha": "2b94b4a1319508418a3d2a03bcaabf5ec03bd4f0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 2b94b4a13195: \"feat(commands): implement init and check commands\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

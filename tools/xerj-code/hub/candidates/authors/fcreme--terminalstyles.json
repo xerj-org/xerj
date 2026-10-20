@@ -1,0 +1,22 @@
+{
+ "corpus": "fcreme--terminalstyles",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, powershell, powershell-script queries this for how fcreme/TerminalStyles implements it: Live terminal theme switcher with themes, instant previews, and support for Windows, macOS & Linux (selected work: lib, tests, the project root)",
+ "repos": [
+  {
+   "repo": "TerminalStyles",
+   "url": "https://github.com/fcreme/TerminalStyles",
+   "sha": "d67726d83c437806314bfa6a8246ca5bc506190d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit d67726d83c43: \"Make the VS Code writer's messages and comments true on every path\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

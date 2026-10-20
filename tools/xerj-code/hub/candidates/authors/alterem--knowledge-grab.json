@@ -1,0 +1,22 @@
+{
+ "corpus": "alterem--knowledge-grab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how alterem/knowledge-grab implements it: knowledge-grab \u662f\u4e00\u4e2a\u57fa\u4e8e Tauri \u548c Vue 3 \u6784\u5efa\u7684\u684c\u9762\u5e94\u7528\u7a0b\u5e8f\uff0c\u65b9\u4fbf\u7528\u6237\u4ece \u56fd\u5bb6\u4e2d\u5c0f\u5b66\u667a\u6167\u6559\u80b2\u5e73\u53f0 (basic.smartedu.cn) \u4e0b\u8f7d\u5404\u7c7b\u6559\u80b2\u8d44\u6e90\u3002 (selected work: src-tauri, src/pages, src)",
+ "repos": [
+  {
+   "repo": "knowledge-grab",
+   "url": "https://github.com/alterem/knowledge-grab",
+   "sha": "b8a875b881d4d719b3a047bc95989167f1494172",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b8a875b881d4: \"\ud83d\udc1b fix(auth): restore automatic token login\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

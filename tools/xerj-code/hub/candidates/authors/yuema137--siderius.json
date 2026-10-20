@@ -1,0 +1,22 @@
+{
+ "corpus": "yuema137--siderius",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how yuema137/SIDERIUS implements it: Long-Horizon auto-ML agent system (selected work: tests, src/agent, src/core)",
+ "repos": [
+  {
+   "repo": "SIDERIUS",
+   "url": "https://github.com/yuema137/SIDERIUS",
+   "sha": "218483c6049eef94060ee890e8dd388165547630",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 218483c6049e: \"fix(training): honor operator-owned epoch ceilings (#688)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

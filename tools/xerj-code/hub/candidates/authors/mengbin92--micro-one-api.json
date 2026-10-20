@@ -1,0 +1,22 @@
+{
+ "corpus": "mengbin92--micro-one-api",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how mengbin92/micro-one-api implements it: mengbin92/micro-one-api (Go) (selected work: platform, app/identity, app/channel)",
+ "repos": [
+  {
+   "repo": "micro-one-api",
+   "url": "https://github.com/mengbin92/micro-one-api",
+   "sha": "fd32cf2b15e33c2e905752f36b9312d71614ef5c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit fd32cf2b15e3: \"fix: remediate security and billing review findings\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

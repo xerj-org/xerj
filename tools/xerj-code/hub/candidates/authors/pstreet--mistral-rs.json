@@ -1,0 +1,22 @@
+{
+ "corpus": "pstreet--mistral-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how pstreet/mistral.rs implements it: Fast, flexible LLM inference (selected work: mistralrs-core, mistralrs-quant, mistralrs-server-core)",
+ "repos": [
+  {
+   "repo": "mistral.rs",
+   "url": "https://github.com/pstreet/mistral.rs",
+   "sha": "fa996df0719c5e0c3a15c0bf06e8413d1bede980",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit fa996df0719c: \"feat(core): phase-2 hot-expert VRAM cache (infra) + plumbing, disable\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

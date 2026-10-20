@@ -1,0 +1,22 @@
+{
+ "corpus": "izivkov--gshockapi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how izivkov/GShockAPI implements it: izivkov/GShockAPI (Kotlin) (selected work: api)",
+ "repos": [
+  {
+   "repo": "GShockAPI",
+   "url": "https://github.com/izivkov/GShockAPI",
+   "sha": "a6eb12f4350484cdee384ba6fed5d28fadba2b76",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit a6eb12f43504: \"See release notes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

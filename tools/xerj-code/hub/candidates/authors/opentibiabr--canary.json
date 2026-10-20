@@ -1,0 +1,22 @@
+{
+ "corpus": "opentibiabr--canary",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on game, server, mmorpg queries this for how opentibiabr/canary implements it: Canary Server 15.25 for OpenTibia community (selected work: tests, src/server, src/game)",
+ "repos": [
+  {
+   "repo": "canary",
+   "url": "https://github.com/opentibiabr/canary",
+   "sha": "d245c95a3aaeb2e9be4448d8e91169e34c6d7152",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit d245c95a3aae: \"fix(network): cancel queued writes after socket closure (#4134)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

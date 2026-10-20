@@ -53,7 +53,8 @@ class ClaudeCodeXerj(ClaudeCode):
     @override
     async def install(self, environment: BaseEnvironment) -> None:
         await super().install(environment)
-        if not str(XERJ_BIN) or not XERJ_BIN.exists():
+        # Path("") is Path("."), which exists: an unset XERJ_BIN must fail here.
+        if not XERJ_BIN.is_file():
             raise RuntimeError(
                 "Set XERJ_BIN to the x86_64-unknown-linux-musl release binary "
                 "(https://github.com/xerj-org/xerj/releases) — musl, not a "

@@ -2804,10 +2804,19 @@ impl FrozenClaim {
         });
         // Free the dead generations off the publish critical path.  If
         // thread spawn fails the Arcs drop inline: same correctness, we
-        // only lose the async-free optimisation.
-        let _ = std::thread::Builder::new()
-            .name("xerj-drain-free".to_string())
-            .spawn(move || drop(dead));
+        // only lose the async-free optimisation.  #1122: std PANICS when
+        // the new thread's alternate signal stack cannot be allocated, and
+        // the shipped profile is panic=abort, so under memory pressure the
+        // spawn is not attempted at all — the Arcs drop inline right here,
+        // on the same fallback path the comment always intended.
+        // `try_spawn` consults the governor's spawn gate (installed by
+        // `governor::init`) and hands the job back on a refusal or a failed
+        // spawn; dropping the returned job frees the Arcs inline.
+        if let Err(failure) =
+            xerj_common::thread_spawn::try_spawn("xerj-drain-free", move || drop(dead))
+        {
+            drop(failure.job);
+        }
         guard
     }
 

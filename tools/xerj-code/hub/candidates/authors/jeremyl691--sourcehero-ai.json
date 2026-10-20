@@ -1,0 +1,22 @@
+{
+ "corpus": "jeremyl691--sourcehero-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on fastapi, knowledge-base, backend queries this for how JeremyL691/SourceHero-AI implements it: Self-hosted research workspace: ingestion-to-retrieval pipeline for webpages, RSS, PDFs with content-hash dedup, hybrid search, and cited an (selected work: dashboard-web, tests, app/briefs)",
+ "repos": [
+  {
+   "repo": "SourceHero-AI",
+   "url": "https://github.com/JeremyL691/SourceHero-AI",
+   "sha": "15c7de3f3c77cf0a5a709ed145405346c10b4a5d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 15c7de3f3c77: \"feat(api): briefs, imports, source reliability, bookmarklet capture a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

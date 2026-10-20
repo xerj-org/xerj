@@ -1,0 +1,22 @@
+{
+ "corpus": "aistastudio--myc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-memory, ai-agents, bun queries this for how aistastudio/myc implements it: AI-agents development memory/tasks/context (selected work: packages/cli, packages/swarm, the project root)",
+ "repos": [
+  {
+   "repo": "myc",
+   "url": "https://github.com/aistastudio/myc",
+   "sha": "c27523fdabacc406e434f9f7a08c1241ae180b0d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit c27523fdabac: \"0.4.4\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

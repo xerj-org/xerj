@@ -1,0 +1,22 @@
+{
+ "corpus": "blackshield-company--openshield",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai, cli queries this for how Blackshield-Company/openshield implements it: The harness that learns. The agent that decides. Open-source AI coding harness in Rust. \ud83d\udee1 (selected work: src/api, src, src/config)",
+ "repos": [
+  {
+   "repo": "openshield",
+   "url": "https://github.com/Blackshield-Company/openshield",
+   "sha": "e47fb86dc470120f3d21f37cbef7eff8e84e0117",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e47fb86dc470: \"serve: require token on loopback, CORS allowlist, Host validation, co\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

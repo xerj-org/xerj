@@ -1,0 +1,22 @@
+{
+ "corpus": "leonardomb1--basalt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on etl, sql, data-engineering queries this for how leonardomb1/basalt implements it: A single-binary engine that moves data with SQL scripts: reads and writes many sources, including files, object storage, file servers, datab (selected work: src/runtime, tests)",
+ "repos": [
+  {
+   "repo": "basalt",
+   "url": "https://github.com/leonardomb1/basalt",
+   "sha": "6cff39255800a658b490b61c006b82f145e0e618",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 6cff39255800: \"perf: WHERE conjuncts move below joins to the side they name; CTE and\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

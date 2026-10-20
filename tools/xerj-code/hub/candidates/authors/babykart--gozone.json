@@ -1,0 +1,22 @@
+{
+ "corpus": "babykart--gozone",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on dns, golang, pdns queries this for how babykart/gozone implements it: A clean web interface for managing PowerDNS authoritative DNS servers (selected work: internal/handlers, web, internal/pdns)",
+ "repos": [
+  {
+   "repo": "gozone",
+   "url": "https://github.com/babykart/gozone",
+   "sha": "b8635d1fc7a61e343712b238ef16d4e59b0fdff7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b8635d1fc7a6: \"test: [gozone] close sensitive-path coverage gaps (SSO role guard, OI\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

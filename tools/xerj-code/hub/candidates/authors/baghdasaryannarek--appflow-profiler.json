@@ -1,0 +1,22 @@
+{
+ "corpus": "baghdasaryannarek--appflow-profiler",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on devops, fastapi, gemini-api queries this for how BaghdasaryanNarek/appflow-profiler implements it: Enterprise-grade network topology and observability dashboard. Streams OS-level socket connections to an interactive React Flow canvas with  (selected work: apps/web)",
+ "repos": [
+  {
+   "repo": "appflow-profiler",
+   "url": "https://github.com/BaghdasaryanNarek/appflow-profiler",
+   "sha": "28cfb3ddcb9dacf4a5bee674f4f12dd03864846f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 28cfb3ddcb9d: \"feat(web): add realtime client with resync, backoff and batching\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "zycck--claude-mods",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how zycck/claude-mods implements it: Claude Code mods: live plan progress bars above the prompt (selected work: plugins, the project root)",
+ "repos": [
+  {
+   "repo": "claude-mods",
+   "url": "https://github.com/zycck/claude-mods",
+   "sha": "549ecee6d9625cb9e20cb3705c9a1ac370806eba",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 549ecee6d962: \"plan-progress 0.5: demo video, flicker-free track, agent models, bars\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

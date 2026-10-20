@@ -1,0 +1,1108 @@
+{
+ "url": "http://localhost:9471",
+ "k": 10,
+ "p_min": 0.5,
+ "conf_gate": 0.8,
+ "n_candidates": 120,
+ "n_fires": 120,
+ "fired_correct": 94,
+ "calibration_present": false,
+ "raw": {
+  "confident_fires": 98,
+  "wrong_and_confident": 24,
+  "rate": 0.24489795918367346,
+  "pass": false
+ },
+ "calibrated": null,
+ "confusion": {
+  "personal->personal": 30,
+  "newsletter->newsletter": 30,
+  "needs-reply->needs-reply": 21,
+  "invoice->personal": 11,
+  "needs-reply->newsletter": 9,
+  "invoice->invoice": 13,
+  "invoice->needs-reply": 6
+ },
+ "fires": [
+  {
+   "doc_id": "c0",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c1",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c2",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c3",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c5",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 0.908549,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c7",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 0.962065,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c4",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 0.80084,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c6",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 0.715486,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c8",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c13",
+   "fired": "personal",
+   "gold": "invoice",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c9",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c11",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 0.757214,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c10",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 0.957323,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c12",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c14",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c16",
+   "fired": "newsletter",
+   "gold": "needs-reply",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c15",
+   "fired": "invoice",
+   "gold": "invoice",
+   "correct": true,
+   "p": 0.711286,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c17",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c18",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c21",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c19",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c20",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 0.836472,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c22",
+   "fired": "personal",
+   "gold": "invoice",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c23",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c25",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c26",
+   "fired": "needs-reply",
+   "gold": "invoice",
+   "correct": false,
+   "p": 0.870614,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c24",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c27",
+   "fired": "invoice",
+   "gold": "invoice",
+   "correct": true,
+   "p": 0.711286,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c28",
+   "fired": "invoice",
+   "gold": "invoice",
+   "correct": true,
+   "p": 0.711286,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c29",
+   "fired": "personal",
+   "gold": "invoice",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c30",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 0.584203,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c31",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c32",
+   "fired": "needs-reply",
+   "gold": "invoice",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c33",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c34",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c35",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c36",
+   "fired": "invoice",
+   "gold": "invoice",
+   "correct": true,
+   "p": 0.660073,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c37",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c38",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 0.927923,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c40",
+   "fired": "invoice",
+   "gold": "invoice",
+   "correct": true,
+   "p": 0.625931,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c39",
+   "fired": "needs-reply",
+   "gold": "invoice",
+   "correct": false,
+   "p": 0.951226,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c42",
+   "fired": "personal",
+   "gold": "invoice",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c41",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c43",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c45",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c46",
+   "fired": "newsletter",
+   "gold": "needs-reply",
+   "correct": false,
+   "p": 0.885246,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c47",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c48",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 0.951226,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c44",
+   "fired": "invoice",
+   "gold": "invoice",
+   "correct": true,
+   "p": 0.625931,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c49",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 0.715486,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c50",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 0.836472,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c52",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c51",
+   "fired": "newsletter",
+   "gold": "needs-reply",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c53",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c54",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 0.715486,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c55",
+   "fired": "personal",
+   "gold": "invoice",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c56",
+   "fired": "needs-reply",
+   "gold": "invoice",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c57",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c58",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c59",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c60",
+   "fired": "needs-reply",
+   "gold": "invoice",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c61",
+   "fired": "personal",
+   "gold": "invoice",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c62",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c63",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 0.894323,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c64",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c65",
+   "fired": "personal",
+   "gold": "invoice",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c66",
+   "fired": "personal",
+   "gold": "invoice",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c67",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c68",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 0.886194,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c69",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c71",
+   "fired": "newsletter",
+   "gold": "needs-reply",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c70",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c72",
+   "fired": "personal",
+   "gold": "invoice",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c73",
+   "fired": "invoice",
+   "gold": "invoice",
+   "correct": true,
+   "p": 0.711286,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c74",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c75",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c76",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 0.957323,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c77",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 0.886194,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c78",
+   "fired": "invoice",
+   "gold": "invoice",
+   "correct": true,
+   "p": 0.711286,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c79",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 0.927923,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c80",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c81",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 0.836472,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c82",
+   "fired": "needs-reply",
+   "gold": "invoice",
+   "correct": false,
+   "p": 0.870614,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c83",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 0.715486,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c84",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c85",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c87",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 0.715486,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c86",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c88",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c89",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c90",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c91",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 0.836472,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c92",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c93",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 0.834033,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c94",
+   "fired": "invoice",
+   "gold": "invoice",
+   "correct": true,
+   "p": 0.711286,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c95",
+   "fired": "newsletter",
+   "gold": "needs-reply",
+   "correct": false,
+   "p": 0.957323,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c96",
+   "fired": "newsletter",
+   "gold": "needs-reply",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c97",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c98",
+   "fired": "invoice",
+   "gold": "invoice",
+   "correct": true,
+   "p": 0.625931,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c99",
+   "fired": "invoice",
+   "gold": "invoice",
+   "correct": true,
+   "p": 0.625931,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c100",
+   "fired": "invoice",
+   "gold": "invoice",
+   "correct": true,
+   "p": 0.660073,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c101",
+   "fired": "invoice",
+   "gold": "invoice",
+   "correct": true,
+   "p": 0.625931,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c102",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c103",
+   "fired": "newsletter",
+   "gold": "needs-reply",
+   "correct": false,
+   "p": 0.512126,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c104",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 0.965858,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c105",
+   "fired": "personal",
+   "gold": "invoice",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c106",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c107",
+   "fired": "personal",
+   "gold": "invoice",
+   "correct": false,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c108",
+   "fired": "newsletter",
+   "gold": "needs-reply",
+   "correct": false,
+   "p": 0.512126,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c109",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 0.885246,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c110",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c111",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 0.957323,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c112",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c113",
+   "fired": "needs-reply",
+   "gold": "needs-reply",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c115",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 0.962065,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c114",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c116",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c117",
+   "fired": "newsletter",
+   "gold": "newsletter",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c118",
+   "fired": "newsletter",
+   "gold": "needs-reply",
+   "correct": false,
+   "p": 0.927923,
+   "p_cal": null,
+   "calibrated": false
+  },
+  {
+   "doc_id": "c119",
+   "fired": "personal",
+   "gold": "personal",
+   "correct": true,
+   "p": 1.0,
+   "p_cal": null,
+   "calibrated": false
+  }
+ ]
+}

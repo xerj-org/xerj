@@ -1,0 +1,22 @@
+{
+ "corpus": "puxxalwl--stille-messenger-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Zig queries this for how Puxxalwl/stille-messenger-core implements it: shopot-core - Serverless P2P messaging engine \u2014 end-to-end encrypted with forward secrecy, no servers, no accounts, encrypted local history. (selected work: zig)",
+ "repos": [
+  {
+   "repo": "stille-messenger-core",
+   "url": "https://github.com/Puxxalwl/stille-messenger-core",
+   "sha": "83ea91e1d49888d5655beb451a5961edbb483d43",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 83ea91e1d498: \"zig: crypto: hybrid post-quantum handshake (ML-KEM-768)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

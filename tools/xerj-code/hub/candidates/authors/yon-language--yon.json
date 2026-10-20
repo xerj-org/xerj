@@ -1,0 +1,22 @@
+{
+ "corpus": "yon-language--yon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how yon-language/yon implements it: An experimental language whose object system is a topos: places are pre-sheaves, values are content-addressed on the Leech lattice, and the  (selected work: regression, runtime)",
+ "repos": [
+  {
+   "repo": "yon",
+   "url": "https://github.com/yon-language/yon",
+   "sha": "932fc5e70bc1e65bbbf26b10d23833894326a855",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 932fc5e70bc1: \"A1: a world is a region of its names, released in one piece (fonte: T\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "pysudo--quantoscript",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bytecode, c, c99 queries this for how PySudo/QuantoScript implements it: A modern, beginner-friendly scripting language written in C with an interpreter and bytecode virtual machine (selected work: src/parts, tests, the project root)",
+ "repos": [
+  {
+   "repo": "QuantoScript",
+   "url": "https://github.com/PySudo/QuantoScript",
+   "sha": "642168e7f3104ad1b6e318523f5c30c2aa169d61",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 642168e7f310: \"Fix wss/IPv6 WebSocket, POSIX regex on Windows, and sandbox escape\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

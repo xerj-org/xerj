@@ -1,0 +1,22 @@
+{
+ "corpus": "aryanjsx--locus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, automation, chromadb queries this for how aryanjsx/Locus implements it: Private, offline-first assistant for your PC. Type or speak a command and Locus runs it on your machine (selected work: experiments)",
+ "repos": [
+  {
+   "repo": "Locus",
+   "url": "https://github.com/aryanjsx/Locus",
+   "sha": "9a120923003a3da9d069d8d7b3f0254d780a432c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 9a120923003a: \"feat(experiments): add stage 2 benchmark harness\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

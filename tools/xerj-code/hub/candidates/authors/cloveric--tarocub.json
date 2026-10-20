@@ -1,0 +1,22 @@
+{
+ "corpus": "cloveric--tarocub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on codex, typescript, anthropic queries this for how cloveric/tarocub implements it: The local-first answer to Grok Bot, OpenAI dots and Meta Muse: always-on personal AI bots that run on your own machine and live in Feishu/La (selected work: src/telegram, tests, src/lark)",
+ "repos": [
+  {
+   "repo": "tarocub",
+   "url": "https://github.com/cloveric/tarocub",
+   "sha": "2941619b8a97d9c7352843c5171eb9de998e886e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 2941619b8a97: \"fix(asr): surface partial transcripts safely\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

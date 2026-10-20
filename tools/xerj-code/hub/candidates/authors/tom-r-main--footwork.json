@@ -1,0 +1,22 @@
+{
+ "corpus": "tom-r-main--footwork",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on browser-automation, browser-use, jev queries this for how Tom-R-Main/Footwork implements it: A verified browser agent: a cheap Jev guard (evidence-checked completions, a destructive gate) in front of any LLM browser driver, with Jev  (selected work: tools)",
+ "repos": [
+  {
+   "repo": "Footwork",
+   "url": "https://github.com/Tom-R-Main/Footwork",
+   "sha": "0e5a59ade255b14848dff23fedbaf63ebe33ade6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 0e5a59ade255: \"Validate frozen simulation source cleanup and private result boundaries\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

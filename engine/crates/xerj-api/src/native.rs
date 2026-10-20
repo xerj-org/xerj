@@ -594,10 +594,10 @@ pub async fn search(
                 started.elapsed(),
                 result.hits.len() as u64,
                 "",
-                &query_body
-                    .get("query")
-                    .map(|q| q.to_string())
-                    .unwrap_or_default(),
+                &xerj_engine::slow_query::logged_search_query(
+                    query_body.get("query"),
+                    query_body.get("knn"),
+                ),
             );
 
             let hits: Vec<Value> = result.hits.iter().map(native_hit_value).collect();
@@ -862,8 +862,18 @@ pub async fn retry_failed_index(
 // Handler: GET /v1/cluster/health — native cluster health summary
 //
 // Mirrors the data the ES-compat `_cluster/health` exposes, in the native
-// `{ data, took_ms, request_id }` envelope. Single-node by design (Xerj is one
-// binary), so node counts are 1.
+// `{ data, took_ms, request_id }` envelope.
+//
+// Node count is the honest configured membership, identical to the ES-compat
+// path (#1169): `1` when `[cluster]` is off, otherwise the distinct configured
+// members (own address + peers). This is the configured floor, not live ring
+// state — reachability, leader and term arrive with the ring-to-engine wiring
+// tracked in #1170. A node whose cluster transport failed to bind reports the
+// single node actually serving and flags `cluster_transport: "degraded"`
+// (#1171), matching the ES-compat body rather than wearing the degraded state
+// as a topology. Before this, the native endpoint hardcoded `1` with a comment
+// claiming "single-node by design", which was false on a configured ring and
+// disagreed with `_cluster/health`.
 // ─────────────────────────────────────────────────────────────────────────────
 
 pub async fn cluster_health(State(state): State<AppState>) -> impl IntoResponse {
@@ -871,20 +881,27 @@ pub async fn cluster_health(State(state): State<AppState>) -> impl IntoResponse 
     let request_id = Uuid::new_v4().to_string();
 
     let h = state.engine.health().await;
+    let cluster_transport_degraded =
+        state.cluster_transport == crate::state::ClusterTransportStatus::Degraded;
+    let nodes = if cluster_transport_degraded {
+        1
+    } else {
+        crate::es_compat::configured_node_count(&state.config)
+    };
     let took_ms = started.elapsed().as_millis() as u64;
-    let resp = NativeResponse::new(
-        serde_json::json!({
-            "cluster_name": "xerj",
-            "status": h.status,
-            "number_of_nodes": 1,
-            "number_of_data_nodes": 1,
-            "index_count": h.index_count,
-            "total_docs": h.total_docs,
-            "version": h.version,
-        }),
-        took_ms,
-        &request_id,
-    );
+    let mut data = serde_json::json!({
+        "cluster_name": "xerj",
+        "status": h.status,
+        "number_of_nodes": nodes,
+        "number_of_data_nodes": nodes,
+        "index_count": h.index_count,
+        "total_docs": h.total_docs,
+        "version": h.version,
+    });
+    if cluster_transport_degraded {
+        data["cluster_transport"] = serde_json::json!("degraded");
+    }
+    let resp = NativeResponse::new(data, took_ms, &request_id);
     Json(resp).into_response()
 }
 
@@ -2710,4 +2727,94 @@ pub async fn ingest_with_pipeline(
         &request_id,
     );
     (StatusCode::CREATED, Json(resp)).into_response()
+}
+
+#[cfg(test)]
+mod cluster_health_topology_tests {
+    //! Issue #1170 (honest positioning) / #1169: the native
+    //! `GET /v1/cluster/health` used to hardcode `number_of_nodes: 1` with a
+    //! "single-node by design" comment, disagreeing with the ES-compat
+    //! `_cluster/health` after that path learned the configured membership.
+    //! These pin the two bodies to the same honest count.
+    use crate::state::AppState;
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use serde_json::Value;
+    use tower::ServiceExt;
+
+    fn state_with_cluster(enabled: bool, peers: &[&str], cluster_port: u16) -> AppState {
+        let dir = tempfile::tempdir().expect("tempdir").keep();
+        let mut config = xerj_common::config::Config::default();
+        config.server.data_dir = dir.to_string_lossy().into_owned();
+        config.storage.wal_sync = xerj_common::config::WalSync::Async;
+        config.server.bind_address = "127.0.0.1".to_string();
+        if enabled {
+            config.cluster.enabled = true;
+            config.cluster.port = cluster_port;
+            config.cluster.auth_secret = "test-secret-0123456789abcdef".to_string();
+            config.cluster.peers = peers.iter().map(|s| s.to_string()).collect();
+        }
+        let metrics = xerj_common::metrics::Metrics::new().expect("metrics");
+        let engine = xerj_engine::Engine::new(config.clone()).expect("engine");
+        AppState::new(config, engine, metrics)
+    }
+
+    async fn get(app: &axum::Router, path: &str) -> (StatusCode, Value) {
+        let response = app
+            .clone()
+            .oneshot(Request::get(path).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        let status = response.status();
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    #[tokio::test]
+    async fn single_node_reports_one() {
+        let state = state_with_cluster(false, &[], 9300);
+        let app = crate::router::build_native_router(state);
+        let (status, body) = get(&app, "/v1/cluster/health").await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["data"]["number_of_nodes"], 1);
+        assert_eq!(body["data"]["number_of_data_nodes"], 1);
+        assert!(body["data"].get("cluster_transport").is_none());
+    }
+
+    #[tokio::test]
+    async fn configured_ring_reports_real_membership() {
+        let state = state_with_cluster(
+            true,
+            &[
+                "127.0.0.1:19311=127.0.0.1:19311",
+                "127.0.0.1:19312=127.0.0.1:19312",
+            ],
+            19310,
+        );
+        let app = crate::router::build_native_router(state);
+        let (status, body) = get(&app, "/v1/cluster/health").await;
+        assert_eq!(status, StatusCode::OK);
+        // Own address + two distinct peers = 3, never a hardcoded 1 (#1170).
+        assert_eq!(body["data"]["number_of_nodes"], 3);
+        assert_eq!(body["data"]["number_of_data_nodes"], 3);
+    }
+
+    #[tokio::test]
+    async fn self_in_peer_list_is_not_double_counted() {
+        let state = state_with_cluster(
+            true,
+            &[
+                "127.0.0.1:19310=127.0.0.1:19310",
+                "127.0.0.1:19311=127.0.0.1:19311",
+            ],
+            19310,
+        );
+        let app = crate::router::build_native_router(state);
+        let (_, body) = get(&app, "/v1/cluster/health").await;
+        assert_eq!(body["data"]["number_of_nodes"], 2);
+    }
 }

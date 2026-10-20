@@ -1,0 +1,22 @@
+{
+ "corpus": "amz34--rekit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on arm64, binary-analysis, ghidra queries this for how Amz34/rekit implements it: Read-only reverse-engineering toolkit: CLI + MCP server for triage, strings, IOCs, disassembly, APK/firmware/PCAP/JS analysis, Ghidra headle (selected work: rea, tests, the project root)",
+ "repos": [
+  {
+   "repo": "rekit",
+   "url": "https://github.com/Amz34/rekit",
+   "sha": "22ac241ce07b47c21c25f155d348f3b9e73c503c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 22ac241ce07b: \"v1.1.0 - stack release: REA integration, aarch64 decompiler path, 16-\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

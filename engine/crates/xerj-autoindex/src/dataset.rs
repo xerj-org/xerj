@@ -17,10 +17,13 @@
 //! cluster by schema fingerprint (Jaccard on field-name sets ≥ 0.7) within the
 //! same format family AND scope — a real schema that recurs across files is a
 //! dataset. But a self-describing config blob is not: a small cluster of
-//! `json`/`yaml`/`xml` files that each produced exactly one record is *demoted*
-//! to the scope's document dataset and indexed as a document (title/body),
-//! because its one-off key set is configuration, not a collection
-//! (#173: valkey's per-command JSON files made 382 such "datasets").
+//! `json`/`yaml`/`xml` files, including a short multi-document stream, is
+//! *demoted* to the scope's document dataset and indexed as a document
+//! (title/body), because its one-off key set is configuration, not a
+//! collection (#173: valkey's per-command JSON files made 382 such
+//! "datasets"). A scope that still has more medium structured clusters than
+//! [`MAX_STRUCTURED_DATASETS_PER_SCOPE`] folds the smallest into documents;
+//! a cluster of [`DATASET_CAP_PROTECT_RECORDS`] or more stays.
 //!
 //! Only DATA-derived names take part in schema clustering. A name the
 //! extractor invented — `defs`, `symbols`, `title`, `page` — is not evidence
@@ -36,11 +39,40 @@ use crate::infer::FieldAcc;
 use crate::sniff::Family;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-/// A schema-clustered `json`/`yaml`/`xml` group at most this many files large,
-/// in which every file produced exactly one record, is configuration — demote
-/// it to the scope's document dataset. A schema that recurs across more files
-/// than this is treated as a real single-record-per-file collection.
+/// A schema-clustered `json`/`yaml`/`xml` group at most this many files large
+/// is eligible to fold into the scope's document dataset. A schema that
+/// recurs across more files than this is treated as a real collection.
 pub const DOC_DEMOTE_MAX_FILES: usize = 8;
+
+/// Per file, this many records is still a config document: one JSON object,
+/// a short array, or a multi-document YAML stream. The old rule required
+/// exactly one record, so a workflow file or a small manifest became its own
+/// index (one repository → well over a hundred indices).
+pub const DOC_DEMOTE_MAX_RECORDS_PER_FILE: u64 = 32;
+
+/// After the small-config fold, one repository scope keeps at most this many
+/// `json`/`yaml`/`xml` data datasets below [`DATASET_CAP_PROTECT_RECORDS`].
+/// The smallest are folded into the document dataset until the scope is at
+/// the cap. CSV, JSONL, logs and SQL are collections by nature and are never
+/// folded by this cap.
+pub const MAX_STRUCTURED_DATASETS_PER_SCOPE: usize = 12;
+
+/// A `json`/`yaml`/`xml` cluster with at least this many records is a real
+/// collection. The per-scope cap never folds it.
+pub const DATASET_CAP_PROTECT_RECORDS: u64 = 1024;
+
+/// A small `json`/`yaml`/`xml` cluster (no sub-file group) is configuration,
+/// not a dataset: few files, and not many records in each file.
+pub(crate) fn small_structured_config(c: &Cluster) -> bool {
+    if !demotable_family(c.family) || c.group.is_some() || c.members.is_empty() {
+        return false;
+    }
+    if c.members.len() > DOC_DEMOTE_MAX_FILES {
+        return false;
+    }
+    let ceiling = (c.members.len() as u64).saturating_mul(DOC_DEMOTE_MAX_RECORDS_PER_FILE);
+    c.records <= ceiling
+}
 
 #[derive(Debug)]
 pub struct Sketch {
@@ -174,23 +206,50 @@ pub fn cluster(sketches: Vec<Sketch>, rels: &[String], scopes: &[String]) -> Vec
         }
     }
 
-    // Demote one-off config clusters to their scope's document dataset. Their
-    // sampled fields are dropped — the caller re-samples the demoted files
-    // through the document renderer, which is also what indexes them.
+    // Demote small config clusters — one record each, or a short multi-doc
+    // YAML/JSON/XML file — to their scope's document dataset. Their sampled
+    // fields are dropped — the caller re-samples the demoted files through
+    // the document renderer, which is also what indexes them.
     let mut kept: Vec<Cluster> = Vec::with_capacity(data.len());
+    let mut capped: BTreeMap<String, Vec<Cluster>> = BTreeMap::new();
     for c in data {
-        let one_record_each = c.records == c.members.len() as u64;
-        if demotable_family(c.family)
-            && c.group.is_none()
-            && c.members.len() <= DOC_DEMOTE_MAX_FILES
-            && one_record_each
-        {
+        if small_structured_config(&c) {
             let d = docs_cluster(&mut docs, &c.scope);
             d.members.extend(c.members.iter().copied());
             d.demoted.extend(c.members);
             continue;
         }
+        // Candidates for the per-scope cap: structured formats, no sub-file
+        // group, and not a large collection. Everything else stays.
+        if demotable_family(c.family)
+            && c.group.is_none()
+            && c.records < DATASET_CAP_PROTECT_RECORDS
+        {
+            capped.entry(c.scope.clone()).or_default().push(c);
+            continue;
+        }
         kept.push(c);
+    }
+    for (scope, mut group) in capped {
+        // Largest collections stay. Ties break toward the earlier file so
+        // the fold does not depend on hash order.
+        group.sort_by(|a, b| {
+            b.records
+                .cmp(&a.records)
+                .then(b.members.len().cmp(&a.members.len()))
+                .then_with(|| {
+                    let am = a.members.iter().copied().min().unwrap_or(usize::MAX);
+                    let bm = b.members.iter().copied().min().unwrap_or(usize::MAX);
+                    am.cmp(&bm)
+                })
+        });
+        let keep_n = MAX_STRUCTURED_DATASETS_PER_SCOPE.min(group.len());
+        for c in group.drain(keep_n..) {
+            let d = docs_cluster(&mut docs, &scope);
+            d.members.extend(c.members.iter().copied());
+            d.demoted.extend(c.members);
+        }
+        kept.extend(group);
     }
 
     // Docs slugs are scope-derived — independent of which other files exist,
@@ -613,7 +672,8 @@ mod tests {
     /// one-off key sets are configuration, not datasets — they demote into
     /// the scope's document dataset and their config keys never reach its
     /// mapping. A recurring schema (many files) stays a data dataset, and a
-    /// multi-record structured file is a collection whatever its size.
+    /// large multi-record file stays a collection when the scope is under
+    /// the dataset cap.
     #[test]
     fn one_off_config_files_demote_to_documents() {
         let mut sketches = Vec::new();
@@ -664,8 +724,100 @@ mod tests {
         assert!(
             data.iter()
                 .any(|c| c.records == 500 && c.key_fields.contains("evt")),
-            "a multi-record collection must stay a data dataset"
+            "a multi-record collection must stay a data dataset while the scope is under the cap"
         );
+    }
+
+    /// A YAML/JSON file that yields a handful of records is still config.
+    /// The one-record rule left every multi-doc manifest as its own index.
+    #[test]
+    fn small_multi_doc_yaml_and_json_fold_into_documents() {
+        let mut sketches = Vec::new();
+        let mut rels = Vec::new();
+        rels.push("src/main.rs".into());
+        sketches.push(code_sketch(0, true));
+        for i in 1..=20 {
+            rels.push(format!(".github/workflows/w{i}.yml"));
+            sketches.push(data_sketch_n(
+                i,
+                Family::Yaml,
+                &[&format!("job{i}"), "runs_on"],
+                4,
+            ));
+        }
+        // one short JSON array, its own schema
+        rels.push("config/matrix.json".into());
+        sketches.push(data_sketch_n(21, Family::Json, &["os", "rust"], 6));
+        let clusters = cluster(sketches, &rels, &root_scopes(rels.len()));
+        let docs: Vec<&Cluster> = clusters.iter().filter(|c| c.is_docs).collect();
+        assert_eq!(docs.len(), 1, "{clusters:#?}");
+        assert_eq!(docs[0].demoted.len(), 21, "20 workflows + the matrix");
+        assert!(
+            clusters.iter().filter(|c| !c.is_docs).count() == 0,
+            "small multi-doc configs must not each become an index: {clusters:#?}"
+        );
+    }
+
+    /// Twenty medium one-off JSON files would be twenty indices. The cap
+    /// keeps the largest [`MAX_STRUCTURED_DATASETS_PER_SCOPE`] and folds the
+    /// rest. A collection at the protect threshold is never folded.
+    #[test]
+    fn a_scope_caps_medium_structured_datasets_and_keeps_large_ones() {
+        let mut sketches = Vec::new();
+        let mut rels = Vec::new();
+        rels.push("README.md".into());
+        sketches.push(prose_sketch(0));
+        let n_medium = MAX_STRUCTURED_DATASETS_PER_SCOPE + 8;
+        for i in 0..n_medium {
+            let idx = i + 1;
+            rels.push(format!("fixtures/f{idx}.json"));
+            // Larger index → more records, so the cap keeps the tail.
+            sketches.push(data_sketch_n(
+                idx,
+                Family::Json,
+                &[&format!("k{idx}")],
+                40 + i as u64,
+            ));
+        }
+        let big = n_medium + 1;
+        rels.push("data/events.json".into());
+        sketches.push(data_sketch_n(
+            big,
+            Family::Json,
+            &["evt", "ts"],
+            DATASET_CAP_PROTECT_RECORDS,
+        ));
+        // A CSV schema is not subject to the structured cap.
+        let csv = big + 1;
+        rels.push("data/rows.csv".into());
+        sketches.push(data_sketch_n(csv, Family::Csv, &["a", "b"], 10));
+
+        let clusters = cluster(sketches, &rels, &root_scopes(rels.len()));
+        let docs = clusters.iter().find(|c| c.is_docs).expect("docs");
+        assert_eq!(
+            docs.demoted.len(),
+            8,
+            "the eight smallest medium files fold"
+        );
+        let data: Vec<&Cluster> = clusters.iter().filter(|c| !c.is_docs).collect();
+        assert_eq!(
+            data.len(),
+            MAX_STRUCTURED_DATASETS_PER_SCOPE + 2,
+            "cap + the protected JSON + the CSV: {data:#?}"
+        );
+        assert!(
+            data.iter()
+                .any(|c| c.records == DATASET_CAP_PROTECT_RECORDS),
+            "a large collection is not folded by the cap"
+        );
+        assert!(data.iter().any(|c| c.family == Family::Csv));
+        let kept_medium: Vec<u64> = data
+            .iter()
+            .filter(|c| c.family == Family::Json && c.records < DATASET_CAP_PROTECT_RECORDS)
+            .map(|c| c.records)
+            .collect();
+        assert_eq!(kept_medium.len(), MAX_STRUCTURED_DATASETS_PER_SCOPE);
+        assert!(kept_medium.iter().all(|r| *r >= 40 + 8), "{kept_medium:?}");
     }
 
     /// Scope is a hard boundary for data schemas too: the same CSV schema in

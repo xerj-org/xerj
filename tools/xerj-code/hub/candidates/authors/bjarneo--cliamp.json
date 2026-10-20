@@ -1,0 +1,22 @@
+{
+ "corpus": "bjarneo--cliamp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on m3u, music, music-player queries this for how bjarneo/cliamp implements it: cliamp - Terminal music player inspired by winamp (selected work: ui)",
+ "repos": [
+  {
+   "repo": "cliamp",
+   "url": "https://github.com/bjarneo/cliamp",
+   "sha": "646b5735d44bc467b86a634e3cdae0deba9120f3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit 646b5735d44b: \"feat(radio): show live listener counts on cliamp radio rows\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

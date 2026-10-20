@@ -1,0 +1,22 @@
+{
+ "corpus": "sinansarikaya--viewgrid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on chrome-extension, developer-tools, firefox-addon queries this for how sinansarikaya/viewgrid implements it: Responsive testing for Chrome and Firefox. Compare multiple viewports, run local SEO and accessibility checks, and export reports. Supports  (selected work: tests, src/core, src/ui)",
+ "repos": [
+  {
+   "repo": "viewgrid",
+   "url": "https://github.com/sinansarikaya/viewgrid",
+   "sha": "eb886603ff1326350cc763dd10e2f273afc27fec",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit eb886603ff13: \"Assess target spacing, group component findings and distinguish optio\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

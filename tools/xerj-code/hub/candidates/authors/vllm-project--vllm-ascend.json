@@ -1,0 +1,22 @@
+{
+ "corpus": "vllm-project--vllm-ascend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on inference, llm, llm-serving queries this for how vllm-project/vllm-ascend implements it: Community maintained hardware plugin for vLLM on Huawei Ascend (selected work: vllm_ascend, tests)",
+ "repos": [
+  {
+   "repo": "vllm-ascend",
+   "url": "https://github.com/vllm-project/vllm-ascend",
+   "sha": "178e4d2fdb4e0302279db86b190b73808293eb97",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 178e4d2fdb4e: \"[Feature][MRV2] Align spec-decode draft LM head with lmhead TP (#15079)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

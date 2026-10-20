@@ -1,0 +1,22 @@
+{
+ "corpus": "aariiparekh3012-collab--limit-order-book-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how aariiparekh3012-collab/limit-order-book-engine implements it: C++17 limit order book matching engine. price-time priority, multi-symbol, four order types, and sub-microsecond latency (selected work: tests, include, bench)",
+ "repos": [
+  {
+   "repo": "limit-order-book-engine",
+   "url": "https://github.com/aariiparekh3012-collab/limit-order-book-engine",
+   "sha": "37b042b6612c5cce696cb29d30a8e2320a9b5bb3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 37b042b6612c: \"Restore repository tree with Sonar fixes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

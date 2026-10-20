@@ -1,0 +1,22 @@
+{
+ "corpus": "brianofrokk3r--svdo-meter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how brianofrokk3r/svdo-meter implements it: SVDO Meter is an open-source telemetry and evaluation layer for AI coding agents. Measure execution, token usage, cost, sessions, tooling be (selected work: examples, crates/svdo-meter)",
+ "repos": [
+  {
+   "repo": "svdo-meter",
+   "url": "https://github.com/brianofrokk3r/svdo-meter",
+   "sha": "6128a077060c4984279c303956a122408274f0f8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 6128a077060c: \"asd-ste100 vs standard prompt, perf comparison in terms of token cons\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

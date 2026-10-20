@@ -1,0 +1,22 @@
+{
+ "corpus": "lidor30--pokedaisy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how lidor30/pokedaisy implements it: A Game Boy, Game Boy Color and GBA player for Android handhelds with two screens or one, with a live companion for Pok\u00e9mon games and ROM hac (selected work: app/src, ui-preview, app)",
+ "repos": [
+  {
+   "repo": "pokedaisy",
+   "url": "https://github.com/lidor30/pokedaisy",
+   "sha": "de63ad0c317bbe1de6fa4c33b397a800fe9096d7",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit de63ad0c317b: \"v1.1.2: fix crashes, CPU spikes and memory churn; turn off Game Boy\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

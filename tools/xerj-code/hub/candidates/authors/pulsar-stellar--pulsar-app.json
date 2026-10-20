@@ -1,0 +1,22 @@
+{
+ "corpus": "pulsar-stellar--pulsar-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on indexer, soroba, typescript-sdk queries this for how pulsar-stellar/pulsar-app implements it: The application layer of Pulsar Stellar. TypeScript SDK, Go indexer daemon, and Next.js web explorer for browsing decoded Soroban contract e (selected work: apps/web)",
+ "repos": [
+  {
+   "repo": "pulsar-app",
+   "url": "https://github.com/pulsar-stellar/pulsar-app",
+   "sha": "2f5daf28c620228f3c7086389d3a010f872014e4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 2f5daf28c620: \"feat(web): add explorer states, accessibility pass, and health indicator\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

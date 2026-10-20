@@ -87,13 +87,16 @@ pub struct SourceSpec {
     pub kind: SourceKind,
     /// `dir` sources: a path relative to the recipe file.
     pub path: Option<String>,
-    /// `http-zip`/`git` sources: where the bytes come from. A git url may
-    /// also be a local path (git itself accepts both — tests rely on it).
+    /// `http-zip`/`http-json`/`git` sources: where the bytes come from. A git
+    /// url may also be a local path (git itself accepts both — tests rely on it).
     pub url: Option<String>,
     /// `git` sources: a full commit sha (pinned), a branch or tag name, or
     /// absent to track the remote's default branch (HEAD).
     pub rev: Option<String>,
     pub glob: String,
+    /// Optional top-level JSON object key holding the records array when a
+    /// `.json` file is a wrapper catalog (e.g. CISA KEV's `"vulnerabilities"`).
+    pub records_field: Option<String>,
     pub format: Format,
     /// Carried onto every record from this source as record DATA — the tool
     /// never enforces it; the pack author owns what goes in the pack.
@@ -104,6 +107,7 @@ pub struct SourceSpec {
 pub enum SourceKind {
     Dir,
     HttpZip,
+    HttpJson,
     Git,
 }
 
@@ -267,6 +271,8 @@ struct RawSource {
     rev: Option<String>,
     #[serde(default = "d_glob")]
     glob: String,
+    #[serde(default)]
+    records_field: Option<String>,
     format: String,
     #[serde(default)]
     licence: String,
@@ -418,9 +424,10 @@ fn compile(path: &Path, file: RawRecipe) -> Result<Recipe> {
         let kind = match s.kind.as_str() {
             "dir" => SourceKind::Dir,
             "http-zip" => SourceKind::HttpZip,
+            "http-json" => SourceKind::HttpJson,
             "git" => SourceKind::Git,
             other => bail!(at(&format!(
-                "source '{}': unknown kind '{other}' (supported: dir, http-zip, git)",
+                "source '{}': unknown kind '{other}' (supported: dir, http-zip, http-json, git)",
                 s.slug
             ))),
         };
@@ -433,6 +440,14 @@ fn compile(path: &Path, file: RawRecipe) -> Result<Recipe> {
                 s.slug
             ))),
         };
+        if let Some(rf) = &s.records_field {
+            if rf.trim().is_empty() {
+                bail!(at(&format!(
+                    "source '{}': 'records_field' cannot be empty",
+                    s.slug
+                )));
+            }
+        }
         let url = s.url.as_deref().unwrap_or_default().to_string();
         let rev = s.rev.as_deref().unwrap_or_default().to_string();
         match kind {
@@ -458,16 +473,21 @@ fn compile(path: &Path, file: RawRecipe) -> Result<Recipe> {
                     )));
                 }
             }
-            SourceKind::HttpZip => {
+            SourceKind::HttpZip | SourceKind::HttpJson => {
+                let kind_str = if kind == SourceKind::HttpZip {
+                    "http-zip"
+                } else {
+                    "http-json"
+                };
                 if !url.starts_with("http://") && !url.starts_with("https://") {
                     bail!(at(&format!(
-                        "http-zip source '{}' needs an http(s) 'url', got '{url}'",
+                        "{kind_str} source '{}' needs an http(s) 'url', got '{url}'",
                         s.slug
                     )));
                 }
                 if s.path.is_some() || !rev.is_empty() {
                     bail!(at(&format!(
-                        "http-zip source '{}' takes 'url' only — no 'path'/'rev'",
+                        "{kind_str} source '{}' takes 'url' only — no 'path'/'rev'",
                         s.slug
                     )));
                 }
@@ -495,6 +515,7 @@ fn compile(path: &Path, file: RawRecipe) -> Result<Recipe> {
             url: s.url.clone(),
             rev: if rev.is_empty() { None } else { Some(rev) },
             glob: s.glob.clone(),
+            records_field: s.records_field.clone(),
             format,
             licence: s.licence.clone(),
         });

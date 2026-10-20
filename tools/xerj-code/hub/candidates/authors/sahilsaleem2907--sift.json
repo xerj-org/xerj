@@ -1,0 +1,22 @@
+{
+ "corpus": "sahilsaleem2907--sift",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, ai-code-review, appsec queries this for how sahilsaleem2907/sift implements it: Self-hosted AI code review agent for GitHub PRs. LLM reasoning plus Semgrep/CodeQL static analysis, BYOK via LiteLLM (OpenAI, Anthropic, Oll (selected work: sift, tests)",
+ "repos": [
+  {
+   "repo": "sift",
+   "url": "https://github.com/sahilsaleem2907/sift",
+   "sha": "6b48c2f08869e412f7c1dc4afc02644efeba246e",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 6b48c2f08869: \"Make agentic and critic tool loops work on Ollama endpoints\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

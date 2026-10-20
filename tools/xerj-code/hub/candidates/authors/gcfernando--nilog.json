@@ -1,0 +1,22 @@
+{
+ "corpus": "gcfernando--nilog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on benchmarkdotnet, csharp, dotnet queries this for how gcfernando/nilog implements it: Zero-allocation ILogger extensions for .NET 8/9/10: typed Microsoft.Extensions.Logging overloads with Roslyn analyzers, Native AOT support a (selected work: Nilog)",
+ "repos": [
+  {
+   "repo": "nilog",
+   "url": "https://github.com/gcfernando/nilog",
+   "sha": "58434de51b2e557ec617b99298b55ac313b9c6d7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 58434de51b2e: \"Fixed minor issues\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

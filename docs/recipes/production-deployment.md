@@ -59,18 +59,14 @@ Boot it:
 xerj --config /etc/xerj/xerj.toml
 ```
 
-On first start the admin key is printed **once** (illustrative — yours is a
-random 64-hex-character value):
+On first start the admin key is written **once** to `<data_dir>/admin.key`
+(mode 0600). The banner names that path and does not print the key:
 
 ```
-╔══════════════════════════════════════════════════╗
-║  First-run: admin API key auto-generated         ║
-║                                                  ║
-║  <64 random hex chars>                           ║
-║                                                  ║
-║  Keep this secret. Written to:                   ║
-║  /var/lib/xerj/admin.key                         ║
-╚══════════════════════════════════════════════════╝
+First-run: admin API key auto-generated.
+The key is not printed here. Read it from (owner-only, mode 0600):
+/var/lib/xerj/admin.key
+Keep that file secret. Clients send it as `Authorization: ApiKey $(cat /var/lib/xerj/admin.key)`.
 ```
 
 …followed by the deployment-posture banner (verbatim from a real TLS+auth boot;
@@ -104,10 +100,10 @@ this build — provide them at the layers described in
 ### How auth behaves
 
 * **On by default.** `[auth] enabled` defaults to `true`. Leave `admin_api_key`
-  empty and XERJ generates a 64-hex-character key on first run, writes it to
-  `<data_dir>/admin.key` with `0600` permissions, and prints it once. Or set
-  `admin_api_key` yourself (then no file is written — protect the config file
-  with `chmod 600`).
+  empty and XERJ generates a 64-hex-character key on first run and writes it to
+  `<data_dir>/admin.key` with `0600` permissions. The startup notice prints the
+  path, not the key. Or set `admin_api_key` yourself (then no file is written —
+  protect the config file with `chmod 600`).
 * **One key, full access.** Every request must carry the key; there is **no
   RBAC** — any authenticated caller can read and write every index. Both header
   schemes work:
@@ -666,7 +662,7 @@ inter-node consensus and search:
 [cluster]
 enabled     = true
 port        = 9300
-peers       = ["n2=10.0.0.2:9300", "n3=10.0.0.3:9300"]
+peers       = ["10.0.0.2:9300=10.0.0.2:9300", "10.0.0.3:9300=10.0.0.3:9300"]  # label = address (#1171)
 tick_ms     = 50
 auth_secret = "…"   # or XERJ_CLUSTER_AUTH_SECRET; same value on every node
 ```

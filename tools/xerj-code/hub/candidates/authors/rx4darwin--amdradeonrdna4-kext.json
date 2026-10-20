@@ -1,0 +1,22 @@
+{
+ "corpus": "rx4darwin--amdradeonrdna4-kext",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how RX4Darwin/AMDRadeonRDNA4.kext implements it: RDNA4 (only RX 9070 XT is supported for now) display driver for macOS: Lilu plugin extending IONDRVFramebuffer with full Metal support as th (selected work: src, vulkan, tools)",
+ "repos": [
+  {
+   "repo": "AMDRadeonRDNA4.kext",
+   "url": "https://github.com/RX4Darwin/AMDRadeonRDNA4.kext",
+   "sha": "a7247b0353fc44f0acdc8f1a49c299d4bc4720eb",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit a7247b0353fc: \"vulkan: a shader's fault hangs the ring (reproduced); noticed at once\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

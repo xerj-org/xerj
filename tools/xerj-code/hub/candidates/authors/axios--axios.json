@@ -1,0 +1,22 @@
+{
+ "corpus": "axios--axios",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on http-client, javascript, nodejs queries this for how axios/axios implements it: Promise based HTTP client for the browser and node.js (selected work: tests, lib/core)",
+ "repos": [
+  {
+   "repo": "axios",
+   "url": "https://github.com/axios/axios",
+   "sha": "fe2fbf8c9322ad6d83ca820771e85e2cad0f23c6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit fe2fbf8c9322: \"fix(AxiosError): inline the wrapped error stack for cause-unaware too\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

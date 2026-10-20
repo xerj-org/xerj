@@ -1,0 +1,22 @@
+{
+ "corpus": "ticoworld--fiber-latch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on access-control, nervos, signed-receipts queries this for how Ticoworld/fiber-latch implements it: Signed, scoped access receipts for applications after trusted payment or permission decisions (selected work: packages/postgres-store)",
+ "repos": [
+  {
+   "repo": "fiber-latch",
+   "url": "https://github.com/Ticoworld/fiber-latch",
+   "sha": "fdc5177ade05d41e0063552e35f5a389da6376a1",
+   "licence": "hint only: ISC (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "ISC",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit fdc5177ade05: \"feat: add reusable PostgreSQL access receipt store\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

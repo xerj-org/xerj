@@ -1,0 +1,22 @@
+{
+ "corpus": "jason571--exoharness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-framework, agent-harness, ai-agent queries this for how jason571/Exoharness implements it: Rust AI agent framework and self-hosted web console with MCP, Skills, sandboxed execution, persistent sessions, tracing, and file delivery (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "Exoharness",
+   "url": "https://github.com/jason571/Exoharness",
+   "sha": "afc2432a04cc4ed89cebf1bdb31214d4fe4bbab7",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit afc2432a04cc: \"Prepare public preview release, UI demos, and source language statistics\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "jushayden--claude-code-memory-cache",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, chromadb, claude queries this for how jushayden/claude-code-memory-cache implements it: Persistent, token-efficient memory for Claude Code \u2014 5 memory layers (vector store, file facts, Obsidian vault, code graphs, brain files) ke (selected work: memory_server, scripts, config)",
+ "repos": [
+  {
+   "repo": "claude-code-memory-cache",
+   "url": "https://github.com/jushayden/claude-code-memory-cache",
+   "sha": "958096e222c93463446c589fef7641f05573d45e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 958096e222c9: \"Add Codex wiring so Codex and Claude Code share one memory store\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

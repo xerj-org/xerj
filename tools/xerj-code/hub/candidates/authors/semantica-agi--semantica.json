@@ -1,0 +1,22 @@
+{
+ "corpus": "semantica-agi--semantica",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-governance, artificial-intelligence queries this for how semantica-agi/semantica implements it: Graph-Native Infrastructure for Context and Accountable AI Systems (selected work: tests, semantica)",
+ "repos": [
+  {
+   "repo": "semantica",
+   "url": "https://github.com/semantica-agi/semantica",
+   "sha": "415dfc621f8d15458951c559dc4934017d7ea879",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 415dfc621f8d: \"fix(explorer): type the dedup wire shape with a validated DuplicatePa\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

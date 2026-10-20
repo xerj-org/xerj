@@ -1,0 +1,22 @@
+{
+ "corpus": "soumatheusgomes--vibe-coding-toolkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-coding, claude-code queries this for how soumatheusgomes/vibe-coding-toolkit implements it: A curated, battle-tested AI-coding toolkit: Claude Code plugins, subagent orchestration, quality gates, and ready-to-copy prompts, extracted (selected work: templates, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "vibe-coding-toolkit",
+   "url": "https://github.com/soumatheusgomes/vibe-coding-toolkit",
+   "sha": "705d86f10f695c318864f9c92ebc4f4682367abb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 705d86f10f69: \"feat: standardize Next.js project bootstrap\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "kris-hansen--comanda",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, ai, ai-agents queries this for how kris-hansen/comanda implements it: The CLI-native orchestrator for AI agent workflows. Run Claude Code, Codex, Gemini CLI & Kimi Code from declarative YAML. Because the termin (selected work: utils, cmd)",
+ "repos": [
+  {
+   "repo": "comanda",
+   "url": "https://github.com/kris-hansen/comanda",
+   "sha": "a14422d32022c76fb237c66ed642ff671075b5e5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit a14422d32022: \"feat(graph): deepen traversal and ground graph enhancement in index\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "microsphere-projects--microsphere-java",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cloud-native, devops, java queries this for how microsphere-projects/microsphere-java implements it: The common Java feautres used for the other microsphere sub-projects (selected work: microsphere-java-core, microsphere-lang-model, microsphere-jdk-tools)",
+ "repos": [
+  {
+   "repo": "microsphere-java",
+   "url": "https://github.com/microsphere-projects/microsphere-java",
+   "sha": "34e278230eba3f1296cea034d1b512dadd462e5a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 34e278230eba: \"Refine nullability contracts across core APIs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

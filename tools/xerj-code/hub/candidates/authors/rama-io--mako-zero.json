@@ -1,0 +1,22 @@
+{
+ "corpus": "rama-io--mako-zero",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, foss, launcher queries this for how rama-io/mako_zero implements it: Just a launcher that gets out of the way (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "mako_zero",
+   "url": "https://github.com/rama-io/mako_zero",
+   "sha": "9051079020d28c19c4f785cebd96bff848cb6bc3",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 9051079020d2: \"add permissions list when clicking the clock\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

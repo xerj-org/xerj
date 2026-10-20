@@ -1,0 +1,22 @@
+{
+ "corpus": "hugo0--voiceio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Hugo0/voiceio implements it: Push-to-talk voice-to-text for Linux. Hold a hotkey, speak, release \u2014 text appears at your cursor. Local & offline via faster-whisper (selected work: tests, voiceio, the project root)",
+ "repos": [
+  {
+   "repo": "voiceio",
+   "url": "https://github.com/Hugo0/voiceio",
+   "sha": "2572f8f4db75a90d3273c0e7817287ad8814eb15",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 2572f8f4db75: \"feat: close the mic and cue streams while idle on battery ([audio] ke\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

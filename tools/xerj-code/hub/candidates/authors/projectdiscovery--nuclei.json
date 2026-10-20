@@ -1,0 +1,22 @@
+{
+ "corpus": "projectdiscovery--nuclei",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on cve-scanner, subdomain-takeover, nuclei-engine queries this for how projectdiscovery/nuclei implements it: Nuclei is a fast, customizable vulnerability scanner powered by the global security community and built on a simple YAML-based DSL, enabling (selected work: pkg/protocols, the project root)",
+ "repos": [
+  {
+   "repo": "nuclei",
+   "url": "https://github.com/projectdiscovery/nuclei",
+   "sha": "a5715288aa7e405dcff8ab458de541f8d99ceac0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit a5715288aa7e: \"fix(runtime): honor cancellation in HTTP and headless waits (#7814)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

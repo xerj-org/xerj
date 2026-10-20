@@ -1,0 +1,22 @@
+{
+ "corpus": "omni-line--omni-audit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, composer, dependency-confusion queries this for how omni-line/omni-audit implements it: \ud83d\udee1\ufe0f A fast, zero-config CLI to audit your projects for Dependency Confusion and supply chain risks across multiple registries. Backed by Omni (selected work: internal/scan, internal/registry, internal/lockfile)",
+ "repos": [
+  {
+   "repo": "omni-audit",
+   "url": "https://github.com/omni-line/omni-audit",
+   "sha": "a5e7606c813c69f645a86e5aa76675625e0c7e08",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit a5e7606c813c: \"Harden scan I/O, URL redaction, and release assurance for v0.7.1\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

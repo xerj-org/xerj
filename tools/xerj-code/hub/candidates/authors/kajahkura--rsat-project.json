@@ -1,0 +1,22 @@
+{
+ "corpus": "kajahkura--rsat-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Python queries this for how Kajahkura/RSAT_Project implements it: Remote Security Audit Tool (selected work: web, scripts, src/rsat)",
+ "repos": [
+  {
+   "repo": "RSAT_Project",
+   "url": "https://github.com/Kajahkura/RSAT_Project",
+   "sha": "ab261c3db543fba77f24e178c91862f2d3cc8f70",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ab261c3db543: \"Add local onboarding, device reassessment and client reporting workflows\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

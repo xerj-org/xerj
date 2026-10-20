@@ -1,0 +1,22 @@
+{
+ "corpus": "yyjeqhc--webcodex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, chatgpt, codex queries this for how yyjeqhc/webcodex implements it: Give cloud AI agents a real development environment on your own machines (selected work: crates/webcodex-browser)",
+ "repos": [
+  {
+   "repo": "webcodex",
+   "url": "https://github.com/yyjeqhc/webcodex",
+   "sha": "f6bd366ef7de9896ec1adbe59dd10b34e7e40c8c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit f6bd366ef7de: \"fix(browser): avoid admitting disabled and readonly controls (#894)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

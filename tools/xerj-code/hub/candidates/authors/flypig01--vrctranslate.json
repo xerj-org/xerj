@@ -1,0 +1,22 @@
+{
+ "corpus": "flypig01--vrctranslate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how FlyPig01/VRCTranslate implements it: FlyPig01/VRCTranslate (C#) (selected work: src/VrcTranslate.Desktop, tests, src/VrcTranslate.Core)",
+ "repos": [
+  {
+   "repo": "VRCTranslate",
+   "url": "https://github.com/FlyPig01/VRCTranslate",
+   "sha": "8fd473b8e64ed537a4348806d6e705dc803426e7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8fd473b8e64e: \"feat: \u5b8c\u5584\u8bf4\u8bdd\u4eba\u5217\u8868\u3001\u5bb9\u91cf\u4e0e\u5b57\u5e55\u8ddf\u968f\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

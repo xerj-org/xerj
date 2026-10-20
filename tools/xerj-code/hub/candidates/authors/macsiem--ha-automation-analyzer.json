@@ -1,0 +1,22 @@
+{
+ "corpus": "macsiem--ha-automation-analyzer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on custom-card, hacs, home-assistant queries this for how MacSiem/ha-automation-analyzer implements it: Home Assistant automation analyzer: admin integration, retained trace statistics, Timeline and Dashboard card (selected work: custom_components, the project root, shared)",
+ "repos": [
+  {
+   "repo": "ha-automation-analyzer",
+   "url": "https://github.com/MacSiem/ha-automation-analyzer",
+   "sha": "e7b5ecd9822cc36ac001622600c29906134d47a8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e7b5ecd9822c: \"fix: keep shared native export modal connected during repaint\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

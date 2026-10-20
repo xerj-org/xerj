@@ -1,0 +1,22 @@
+{
+ "corpus": "alyssaaa11--hivey",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, coding-agents queries this for how alyssaaa11/hivey implements it: Terminal workspace for swarms of AI agents \u2014 fork of herdr (selected work: src/client, src/swarm, src/cli)",
+ "repos": [
+  {
+   "repo": "hivey",
+   "url": "https://github.com/alyssaaa11/hivey",
+   "sha": "3e1054336130843aaba67b3e356eef0dfcf4842f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 3e1054336130: \"feat: set quiet mode's schedule to any start and end time\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

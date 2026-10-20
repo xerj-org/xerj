@@ -1,0 +1,22 @@
+{
+ "corpus": "teaql--teaql-java",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on java, springboot, teaql queries this for how teaql/teaql-java implements it: AI-native Java library and runtime for business apps: model-driven, typed SQL queries, safe expressions and audited graph mutations (selected work: teaql-runtime, examples, teaql-core)",
+ "repos": [
+  {
+   "repo": "teaql-java",
+   "url": "https://github.com/teaql/teaql-java",
+   "sha": "c48acc2371c6882903cd4e03251761ae87601dc9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit c48acc2371c6: \"feat: add Business ID permutation V1 (#181) (#182)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

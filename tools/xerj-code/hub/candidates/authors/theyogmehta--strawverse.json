@@ -1,0 +1,22 @@
+{
+ "corpus": "theyogmehta--strawverse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on anime-download, anime-downloader, batch-downloader queries this for how TheYogMehta/StrawVerse implements it: A fast, open-source anime and manga downloader for Windows, Linux, and Android with batch downloads, subtitles, multiple sources, quality se (selected work: gui, capacitor, backend)",
+ "repos": [
+  {
+   "repo": "StrawVerse",
+   "url": "https://github.com/TheYogMehta/StrawVerse",
+   "sha": "8c185dfdd4d4d9787e48494f8a099f040bd68348",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit 8c185dfdd4d4: \"feat: shared ui and backend improvements for desktop and android\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

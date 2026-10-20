@@ -1,0 +1,22 @@
+{
+ "corpus": "jagdish-padhi--hackdekh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on data-engineering, etl-pipeline, event-driven-architecture queries this for how Jagdish-Padhi/HackDekh implements it: Centralizing Hackathon Lifecycle! (selected work: frontend, backend)",
+ "repos": [
+  {
+   "repo": "HackDekh",
+   "url": "https://github.com/Jagdish-Padhi/HackDekh",
+   "sha": "6bf3d6cb43f4fd7f089d29557d1de678ac32676f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 6bf3d6cb43f4: \"feat: auth optimization, security tightening and UI/UX refactor for l\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

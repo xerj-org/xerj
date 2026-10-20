@@ -1,0 +1,22 @@
+{
+ "corpus": "hobbo91--ferriteweazle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on greaseweazle, greaseweazle-frontend, greaseweazle-gui queries this for how hobbo91/Ferriteweazle implements it: Modern cross-platform GUI for Greaseweazle, the floppy disk flux reader and writer (selected work: src, tests)",
+ "repos": [
+  {
+   "repo": "Ferriteweazle",
+   "url": "https://github.com/hobbo91/Ferriteweazle",
+   "sha": "a2ea34cb27a642ad7b99fa825c63497453bd8101",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit a2ea34cb27a6: \"theme: text reads at 4.5:1 or better on what it is drawn on, in every\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

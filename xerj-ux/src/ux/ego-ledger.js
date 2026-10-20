@@ -42,6 +42,12 @@
 
 import { esc, fmt, num, Num } from './text.js';
 import { Spark, Series, Dist } from './charts.js';
+import { vocabFor } from './sb-vocab.js';
+
+/** The display vocabulary for a render's data bag — note-like corpora keep
+ *  the "notes / believed" persona, everything else gets the neutral
+ *  "records / active" frame (issue #1100). Unknown ⇒ neutral. */
+const vocOf = (data) => vocabFor(!!(data && data.sb && data.sb.noteLike));
 
 // Rows shown per link-kind group before the in-band "TOP n OF m" cap.
 export const LEDGER_GROUP_CAP = 12;
@@ -250,14 +256,14 @@ const evidenceLine = (e) => {
  *  This block is the ONLY place raw ids surface — labelled. `pinned`
  *  renders it open in-flow (the pin set lives in module state on the
  *  controller side, so pins survive every re-render). */
-const EvidenceBlock = (e, pinned) => {
+const EvidenceBlock = (e, pinned, voc = vocabFor(false)) => {
   const ev = e.evidence || {};
   const src = ev.source
     ? `<span>from ${esc(ev.source)}${ev.offset != null && ev.offset > 0 ? ` · byte ${esc(ev.offset)}` : ''}</span>`
     : '';
   const conf = e.confidence ?? 1;
   const invalid = e.invalid_at != null
-    ? ` · believed until ${esc(fmtTs(e.invalid_at))}` : '';
+    ? ` · ${voc.until} ${esc(fmtTs(e.invalid_at))}` : '';
   const expired = e.expired_at != null
     ? ` · retirement recorded ${esc(fmtTs(e.expired_at))}` : '';
   return `
@@ -266,7 +272,7 @@ const EvidenceBlock = (e, pinned) => {
     <div class="sb-evmeta mono faint">
       ${src}
       <span>taught by ${esc(detectorName(e.detector).toLowerCase())} (${esc(e.detector || 'unknown detector')}) · ${esc(fmt(conf * 100, { decimals: 0 }))}% confident · strength ${esc(fmt(e.weight ?? 1, { decimals: 2 }))}</span>
-      <span>believed since ${esc(fmtTs(e.valid_at))}${invalid}${expired}</span>
+      <span>${voc.since} ${esc(fmtTs(e.valid_at))}${invalid}${expired}</span>
       <span>link id ${esc(e.edge_id)} · this is the handle the API takes</span>
     </div>
   </div>`;
@@ -297,7 +303,7 @@ const evidenceChip = (e) => {
   return '<span class="sb-eq sb-eq-none">NO EVIDENCE</span>';
 };
 
-const edgeRow = (e, side, { counts, asOf, clipped, nodes, names, open }) => {
+const edgeRow = (e, side, { counts, asOf, clipped, nodes, names, open, voc = vocabFor(false) }) => {
   const id = farEnd(e);
   const state = edgeStateAt(e, asOf);
   const n = counts.get(id) || 0;
@@ -321,7 +327,7 @@ const edgeRow = (e, side, { counts, asOf, clipped, nodes, names, open }) => {
         <span class="sb-tag sb-tag-notyet">NOT YET</span>
       </button>
     </div>
-    ${EvidenceBlock(e, pinned)}
+    ${EvidenceBlock(e, pinned, voc)}
   </div>`;
 };
 
@@ -464,7 +470,7 @@ export const caretAlignClass = (pct) =>
  * interval set is pinned at NOW with retired links included, so
  * scrubbing never removes data from the strip — only states change.
  */
-export const BeliefScrubber = ({ timeline, asOf, shift }) => {
+export const BeliefScrubber = ({ timeline, asOf, shift, voc = vocabFor(false) }) => {
   const edges = (timeline && timeline.edges) || [];
   if (!edges.length) {
     return `<div class="sb-scrub" data-sb-scrub><div class="panel-empty mono faint">NOTHING TO REPLAY YET · EVERY LINK WILL DRAW ITS LIFETIME HERE</div></div>`;
@@ -575,7 +581,7 @@ export const BeliefScrubber = ({ timeline, asOf, shift }) => {
       <polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1"/>
     </svg>
     <span class="sb-curvemax mono faint">peak ${esc(floor)}${num(maxC)}</span>`;
-    explain = `THE LINE COUNTS BELIEFS OVER TIME — TOO MANY LINKS (${floor}${num(edges.length)}) TO DRAW ONE PER ROW`;
+    explain = `THE LINE COUNTS LIVE LINKS OVER TIME — TOO MANY LINKS (${floor}${num(edges.length)}) TO DRAW ONE PER ROW`;
   }
 
   // What the last time-travel changed, stated in the legend: counts of
@@ -597,7 +603,7 @@ export const BeliefScrubber = ({ timeline, asOf, shift }) => {
 
   return `
   <div class="sb-scrub" data-sb-scrub data-d0="${d0}" data-d1="${d1}"${stepsAttr}${eventsAttr}>
-    <div class="key">BELIEF TIME · DRAG ANYWHERE ON THE STRIP — THE PAGE REPLAYS WHAT THIS BRAIN BELIEVED AT THAT MOMENT</div>
+    <div class="key">${esc(voc.timeAxis)} · DRAG ANYWHERE ON THE STRIP — ${esc(voc.replayLine)}</div>
     <div class="sb-strip" data-sb-strip style="height:${h}px;">
       ${stripInner}
       <div class="sb-caret" data-sb-caret style="left:${caretPct}%;" role="slider" tabindex="0"
@@ -608,7 +614,7 @@ export const BeliefScrubber = ({ timeline, asOf, shift }) => {
     </div>
     <div class="sb-scrub-legend mono faint">
       <span>${esc(fmtDay(d0raw))}</span>
-      <span class="mid"><span data-sb-livecount>${esc(floor)}${num(liveAtCaret)} OF ${esc(floor)}${num(edges.length)}</span> BELIEVED AT THIS MOMENT<span class="sb-scrub-explain"> · ${explain}</span>${shiftHtml}</span>
+      <span class="mid"><span data-sb-livecount>${esc(floor)}${num(liveAtCaret)} OF ${esc(floor)}${num(edges.length)}</span> ${esc(voc.atMoment)}<span class="sb-scrub-explain"> · ${explain}</span>${shiftHtml}</span>
       <span>${asOf != null ? `<button type="button" class="text-btn" data-sb-now>BACK TO NOW</button>` : `TODAY · ${esc(fmtDay(now))}`}</span>
     </div>
   </div>`;
@@ -638,9 +644,10 @@ export const EgoLedger = ({ data }) => {
   const ego = data.ego;
   const asOf = sb.asOf ?? null;
   const names = sb.names || {};
+  const voc = vocOf(data);
   if (!ego) {
     return `
-  <div class="panel-empty mono faint">${sb.focus ? 'READING WHAT THE BRAIN BELIEVES ABOUT ' + esc(String(sb.focus).toUpperCase()) + '…' : 'NO NOTE IN FOCUS · CLICK ANY NOTE ON THIS PAGE TO OPEN ITS LEDGER'}</div>`;
+  <div class="panel-empty mono faint">${sb.focus ? voc.readingFocus + esc(String(sb.focus).toUpperCase()) + '…' : `NO ${voc.Item} IN FOCUS · CLICK ANY ${voc.item} ON THIS PAGE TO OPEN ITS LEDGER`}</div>`;
   }
   const nodes = ego.nodes || {};
   const clipped = !!(ego.not_shown && ego.not_shown.edges_clipped > 0);
@@ -649,6 +656,7 @@ export const EgoLedger = ({ data }) => {
     nodes, names, counts, asOf, clipped,
     open: sb.openEvidence,     // pinned paper trails — survive re-renders
     collapsed: sb.collapsed,   // folded link-kind groups
+    voc,                       // corpus-aware wording (#1100)
   };
   const inGroups = groupEdges(ego.edges, 'in');
   const outGroups = groupEdges(ego.edges, 'out');
@@ -693,6 +701,7 @@ const hrow = (k, v, emph, rawName) => `
 export const HonestyList = ({ data }) => {
   const ns = (data.ego && data.ego.not_shown) || {};
   const on = (data.overview && data.overview.not_shown) || {};
+  const voc = vocOf(data);
   const z = (v) => num(v || 0);
   const dangling = Array.isArray(ns.dangling_ids) && ns.dangling_ids.length
     ? `<div class="sb-hids mono faint">no document behind: ${ns.dangling_ids.slice(0, 8).map(esc).join(', ')}${ns.dangling_ids.length > 8 ? ` +${ns.dangling_ids.length - 8} more` : ''}</div>`
@@ -705,18 +714,18 @@ export const HonestyList = ({ data }) => {
   <div class="sb-honesty mono">
     <div class="sb-hgroup key">THE LEDGER READ</div>
     ${hrow('links beyond the fetch cap (not drawn)', z(ns.edges_clipped), true, 'edges_clipped')}
-    ${hrow('starting notes the walk had to drop', z(ns.frontier_clipped), true, 'frontier_clipped')}
+    ${hrow(`starting ${voc.items} the walk had to drop`, z(ns.frontier_clipped), true, 'frontier_clipped')}
     ${hrow('links hidden by the belief-time cut', z(ns.expired_excluded), false, 'expired_excluded')}
     ${hrow('links hidden by a kind filter', z(ns.type_filtered), false, 'type_filtered')}
     ${hrow('storage segments this read had to skip', z(ns.segments_without_columns), true, 'segments_without_columns')}
     ${hrow('unflushed writes checked (cost, not loss)', z(ns.memtable_docs_scanned), false, 'memtable_docs_scanned')}
-    ${hrow('links pointing at notes with no document', z(ns.dangling_nodes), true, 'dangling_nodes')}
+    ${hrow(`links pointing at ${voc.items} with no document`, z(ns.dangling_nodes), true, 'dangling_nodes')}
     ${dangling}
     <div class="sb-hgroup key">THE COUNTS ABOVE</div>
     ${hrow('link kinds beyond the top list', z(on.types_not_listed), true, 'types_not_listed')}
     ${hrow('detectors beyond the top list', z(on.detectors_not_listed), true, 'detectors_not_listed')}
-    ${hrow('most-citing notes beyond the top list', z(on.hubs_out_not_listed), false, 'hubs_out_not_listed')}
-    ${hrow('most-cited notes beyond the top list', z(on.hubs_in_not_listed), false, 'hubs_in_not_listed')}
+    ${hrow(`most-citing ${voc.items} beyond the top list`, z(on.hubs_out_not_listed), false, 'hubs_out_not_listed')}
+    ${hrow(`most-cited ${voc.items} beyond the top list`, z(on.hubs_in_not_listed), false, 'hubs_in_not_listed')}
     <div class="sb-hgroup key">CAPS THIS PAGE APPLIES</div>
     ${hrow('ledger rows per link kind (capped groups say so)', `≤ ${num(LEDGER_GROUP_CAP)}`, false)}
     ${hrow('belief-strip lifetimes beyond its fetch cap', z(tlns.edges_clipped), true, 'edges_clipped')}
@@ -747,6 +756,7 @@ const hubList = (items, notListed, focus, ctx) => {
 
 export const HubsPanel = ({ data }) => {
   const o = data.overview || {};
+  const voc = vocOf(data);
   const hubs = o.hubs || { out: [], in: [] };
   const ns = o.not_shown || {};
   const sb = data.sb || {};
@@ -755,15 +765,15 @@ export const HubsPanel = ({ data }) => {
   return `
   <div class="sb-hubs">
     <div>
-      <div class="key">MOST CITED · LINKS POINTING AT A NOTE</div>
+      <div class="key">MOST CITED · LINKS POINTING AT A ${voc.Item}</div>
       ${hubList(hubs.in, ns.hubs_in_not_listed, focus, ctx)}
     </div>
     <div>
-      <div class="key">CITES THE MOST · LINKS A NOTE SENDS OUT</div>
+      <div class="key">CITES THE MOST · LINKS A ${voc.Item} SENDS OUT</div>
       ${hubList(hubs.out, ns.hubs_out_not_listed, focus, ctx)}
     </div>
   </div>
-  <div class="hint" style="margin-top:var(--sp-1);">click any note to open its ledger above</div>`;
+  <div class="hint" style="margin-top:var(--sp-1);">click any ${voc.item} to open its ledger above</div>`;
 };
 
 // ----- small panels -------------------------------------------------
@@ -780,6 +790,7 @@ const legChip = (cls, label) =>
  */
 const BelievedPanel = ({ data }) => {
   const o = data.overview || {};
+  const voc = vocOf(data);
   const ed = o.edges || { total: 0, live: 0, invalidated: 0 };
   const m = (data.metrics && data.metrics.edgesLive) || { formatted: num(ed.live), hint: '' };
   if (!ed.total) {
@@ -802,7 +813,7 @@ const BelievedPanel = ({ data }) => {
   <div class="sb-splitwrap">
     ${bar}
     <div class="sb-splitleg mono">
-      ${legChip('sb-seg-live', `${num(ed.live)} BELIEVED`)}
+      ${legChip('sb-seg-live', `${num(ed.live)} ${voc.live}`)}
       ${legChip('sb-seg-retired', `${num(ed.invalidated)} RETIRED`)}
     </div>
   </div>`;
@@ -970,7 +981,7 @@ export const EmptyBrainNote = ({ brain, connected, error }) => {
     <p class="sb-ftext">Point it at a folder of notes, docs or exports. Every wiki-link,
     relative link, reading sequence and folder neighborhood becomes a link that
     remembers the exact quote that taught it — then this page turns into a ledger
-    of what your notes believe, replayable at any moment in time.</p>
+    of what your documents link to, replayable at any moment in time.</p>
     <div class="sb-cmdrow"><pre class="sb-cmd mono" data-sb-cmd>xerj brain ~/your-folder</pre><button type="button" class="text-btn" data-sb-copy>COPY</button></div>
     <p class="sb-ftext">The folder's name becomes the brain's name here. Detection is
     deterministic — the same folder always produces the same brain, and re-running
@@ -1032,7 +1043,7 @@ const MapPanel = ({ data }) => {
  *  map restyles and the ledger rows restate from the same drag. */
 const ScrubPanel = ({ data }) => {
   const sb = data.sb || {};
-  return BeliefScrubber({ timeline: sb.timeline, asOf: sb.asOf ?? null, shift: sb.lastShift });
+  return BeliefScrubber({ timeline: sb.timeline, asOf: sb.asOf ?? null, shift: sb.lastShift, voc: vocOf(data) });
 };
 
 // ----- statistics row -----------------------------------------------
@@ -1070,6 +1081,7 @@ const statRow = (label, count, max, title) => `
 const NotesPanel = ({ data }) => {
   const o = data.overview || {};
   const sb = data.sb || {};
+  const voc = vocOf(data);
   const st = sb.nodeStats || null;
   // overview.nodes.total is live-verified to be a false 0 when the
   // brain spans several notes indices (comma-list) — only fall back to
@@ -1079,23 +1091,23 @@ const NotesPanel = ({ data }) => {
     : (singleIndex && o.nodes && Number.isFinite(o.nodes.total) ? o.nodes.total : null);
   if (total == null) {
     return st && st.error
-      ? `<div class="panel-empty mono faint">COULD NOT COUNT THE NOTES · ${esc(String(st.error).slice(0, 60))}</div>`
+      ? `<div class="panel-empty mono faint">COULD NOT COUNT THE ${voc.Items} · ${esc(String(st.error).slice(0, 60))}</div>`
       : `<div class="panel-empty mono faint">NOT COUNTED YET</div>`;
   }
   const formats = (st && st.formats) || [];
   const max = Math.max(...formats.map((f) => f.count), 1);
   const rows = formats.map((f) => statRow(fmtFormat(f.format), f.count, max)).join('');
   const other = st && st.otherFormats > 0
-    ? `<div class="hint">+ ${num(st.otherFormats)} notes in file types beyond this list</div>` : '';
-  // Notes with no links: the map computes it (distinct linked notes out
-  // of its weight-ranked fetch), so it is a floor whenever that fetch
+    ? `<div class="hint">+ ${num(st.otherFormats)} ${voc.items} in file types beyond this list</div>` : '';
+  // Records with no links: the map computes it (distinct linked records
+  // out of its weight-ranked fetch), so it is a floor whenever that fetch
   // was budget-truncated — say which.
   const ms = sb.mapStats || null;
   const orphans = ms && Number.isFinite(ms.orphansFloor)
-    ? `<div class="hint" style="margin-top:6px;">notes with no links: ${ms.orphansIsFloor ? '≥ ' : ''}${num(ms.orphansFloor)}${ms.orphansIsFloor ? ' — a floor; the map read the strongest links, not all of them' : ''}</div>`
-    : `<div class="hint" style="margin-top:6px;">notes with no links: counted once the map has read the links</div>`;
+    ? `<div class="hint" style="margin-top:6px;">${voc.items} with no links: ${ms.orphansIsFloor ? '≥ ' : ''}${num(ms.orphansFloor)}${ms.orphansIsFloor ? ' — a floor; the map read the strongest links, not all of them' : ''}</div>`
+    : `<div class="hint" style="margin-top:6px;">${voc.items} with no links: counted once the map has read the links</div>`;
   return `
-  ${Num({ value: num(total), unit: 'notes', hint: 'each file counts once, and its sections count as their own notes', emphasis: false })}
+  ${Num({ value: num(total), unit: voc.items, hint: `each file counts once, and its sections count as their own ${voc.items}`, emphasis: false })}
   <div class="sb-dets" style="margin-top:var(--sp-1);">${rows}</div>
   ${other}${orphans}`;
 };
@@ -1209,6 +1221,7 @@ const ReadsPanel = ({ data }) => {
 export function renderPanelBody(id, data) {
   if (!data || !data.sb) return LiveOnlyNote();
   const sb = data.sb;
+  const voc = vocOf(data);
   const hasBrain = !!(data.overview && data.overview.exists !== false);
   const hasEdges = hasBrain && data.overview.edges && data.overview.edges.total > 0;
   const broken = !!sb.overviewError && sb.connected; // engine up, brain unreadable
@@ -1274,7 +1287,7 @@ export function renderPanelBody(id, data) {
       return EmptyBrainNote({ brain: data.brain, connected: sb.connected, error: sb.error });
     case 'hubs':
       if (offline) return offNote;
-      return hasEdges ? HubsPanel({ data }) : `<div class="panel-empty mono faint">YOUR MOST-CITED NOTES WILL RANK HERE</div>`;
+      return hasEdges ? HubsPanel({ data }) : `<div class="panel-empty mono faint">YOUR MOST-CITED ${voc.Items} WILL RANK HERE</div>`;
     case 'notShown':
       // Always renders — zeros prove absence.
       return HonestyList({ data });

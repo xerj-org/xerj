@@ -1,0 +1,22 @@
+{
+ "corpus": "loopx-project--loopx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-control-plane, ai-agents, codex queries this for how loopx-project/loopx implements it: A control plane with a durable state kernel for long-horizon agents and teams. Keep work moving and improving across sessions, with less hum (selected work: tests, loopx, apps/presentation)",
+ "repos": [
+  {
+   "repo": "loopx",
+   "url": "https://github.com/loopx-project/loopx",
+   "sha": "cb06759c3e0c409bdf9ab9ce671366a39933aa94",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit cb06759c3e0c: \"refactor(work-items): compose whole-Goal task maps in TypeScript (#6602)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

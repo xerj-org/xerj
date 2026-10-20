@@ -1,0 +1,22 @@
+{
+ "corpus": "protocol-wealth--pwos-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on advisory, ai, compliance queries this for how Protocol-Wealth/pwos-core implements it: Open source compliance-first AI operating system for SEC-registered investment advisers. Apache 2.0 licensed with defensive patent grant (selected work: apps/evals)",
+ "repos": [
+  {
+   "repo": "pwos-core",
+   "url": "https://github.com/Protocol-Wealth/pwos-core",
+   "sha": "eea0e32b42daf65c37d9ae0cbbf1727ed2f13469",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit eea0e32b42da: \"feat(evals): expand fixtures and add opt-in HTTP runner (#123)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

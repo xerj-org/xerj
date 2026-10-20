@@ -1,0 +1,22 @@
+{
+ "corpus": "idfkit--idfkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on building-energy-simulation, energy-modeling, energyplus queries this for how idfkit/idfkit implements it: \u26a1 A fast, modern EnergyPlus IDF/epJSON toolkit for Python (selected work: tests, scripts, src/idfkit)",
+ "repos": [
+  {
+   "repo": "idfkit",
+   "url": "https://github.com/idfkit/idfkit",
+   "sha": "38276cfc0618fa76da3c975b1fb28f4b1f2f3f1f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 38276cfc0618: \"Add the caller and the commands that adopt an EnergyPlus release (#220)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

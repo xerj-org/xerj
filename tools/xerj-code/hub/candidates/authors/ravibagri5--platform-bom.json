@@ -1,0 +1,22 @@
+{
+ "corpus": "ravibagri5--platform-bom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on crossplane, gitops, golang queries this for how ravibagri5/platform-bom implements it: Your internal platform, as a versioned product: discover components across clusters, publish platform releases, track drift and upstream upd (selected work: internal/auth, charts, internal/server)",
+ "repos": [
+  {
+   "repo": "platform-bom",
+   "url": "https://github.com/ravibagri5/platform-bom",
+   "sha": "92935f0028ba439a19354f190e3a9bff2e87dd90",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 92935f0028ba: \"feat: OpenID Connect sign-in and authenticating-proxy mode; prepare v\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

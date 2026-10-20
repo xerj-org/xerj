@@ -1,0 +1,22 @@
+{
+ "corpus": "vllm-project--vllm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on gpt, llm, pytorch queries this for how vllm-project/vllm implements it: A high-throughput and memory-efficient inference and serving engine for LLMs (selected work: tests, vllm)",
+ "repos": [
+  {
+   "repo": "vllm",
+   "url": "https://github.com/vllm-project/vllm",
+   "sha": "ce8853d27a977bd5d955c7e03c3d1dd9c735ef86",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ce8853d27a97: \"[Bugfix][KV Offload] Allow explicit SimpleCPUOffload block counts (#6\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

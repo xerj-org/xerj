@@ -1,0 +1,22 @@
+{
+ "corpus": "tusharkhadde--bollard-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how Tusharkhadde/Bollard-UI implements it: Beautifully designed, copy-paste React components for any website. Buttons, forms, cards, navbars, modals, pricing tables, dashboards and mo (selected work: registry, tests, components)",
+ "repos": [
+  {
+   "repo": "Bollard-UI",
+   "url": "https://github.com/Tusharkhadde/Bollard-UI",
+   "sha": "3e2b659339e64a1fc03fc89008473632e866ae90",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 3e2b659339e6: \"refactor: separate validation logic into its own module and improve v\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

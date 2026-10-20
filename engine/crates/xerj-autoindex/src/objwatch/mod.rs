@@ -687,16 +687,28 @@ fn fetch_batch(
     let next = std::sync::atomic::AtomicUsize::new(0);
     let slots: Vec<std::sync::Mutex<Option<Result<FetchedObject>>>> =
         keys.iter().map(|_| std::sync::Mutex::new(None)).collect();
+    let fetch = || loop {
+        let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if i >= keys.len() {
+            break;
+        }
+        let r = src.get(keys[i], max_bytes);
+        *slots[i].lock().unwrap_or_else(|e| e.into_inner()) = Some(r);
+    };
     std::thread::scope(|scope| {
         for _ in 0..FETCH_CONCURRENCY.min(keys.len()) {
-            scope.spawn(|| loop {
-                let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                if i >= keys.len() {
-                    break;
-                }
-                let r = src.get(keys[i], max_bytes);
-                *slots[i].lock().unwrap_or_else(|e| e.into_inner()) = Some(r);
-            });
+            // #1122: `Scope::spawn` panics when a thread cannot be created,
+            // and release builds are panic=abort. The fetchers share one
+            // cursor, so a short pool only costs concurrency: stop spawning
+            // and let this thread fetch alongside whichever ones started.
+            if std::thread::Builder::new()
+                .name("xerj-objwatch-fetch".into())
+                .spawn_scoped(scope, fetch)
+                .is_err()
+            {
+                fetch();
+                break;
+            }
         }
     });
     slots

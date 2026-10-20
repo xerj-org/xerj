@@ -1,0 +1,22 @@
+{
+ "corpus": "kamiiroawase--nexttime",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how kamiiroawase/nexttime implements it: \u5012\u6570\u65e5\u6216\u5012\u8ba1\u65f6\u76ee\u6807\u65f6\u95f4\u63a8\u7b97\u5e93\uff0c\u652f\u6301\u519c\u5386\u548c\u516c\u5386\u63a8\u7b97\uff0c\u76ee\u6807\u5e73\u53f0\uff1aAndroid\uff08minSdk 24\uff09\u3001JVM\uff0811+\uff09\u3001iOS\uff08arm64 \u771f\u673a\u4e0e\u6a21\u62df\u5668\uff09\u3001wasmJs (selected work: the project root, rrule, serialization)",
+ "repos": [
+  {
+   "repo": "nexttime",
+   "url": "https://github.com/kamiiroawase/nexttime",
+   "sha": "01eb3f628f2da42f8c7ef82b33d00f4d2c4018e3",
+   "licence": "hint only: Unlicense (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Unlicense",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 01eb3f628f2d: \"Reject non-cartesian RRULE BYDAY imports, fix ordinal export order an\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

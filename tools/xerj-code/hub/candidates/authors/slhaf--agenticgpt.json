@@ -1,0 +1,22 @@
+{
+ "corpus": "slhaf--agenticgpt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on automation, chatgpt, gpt-actions queries this for how slhaf/AgenticGPT implements it: Linux local execution agent and Rust Hub for controlled ChatGPT Actions and Apps MCP access (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "AgenticGPT",
+   "url": "https://github.com/slhaf/AgenticGPT",
+   "sha": "9b6b8b2c31a303b31be50279f6443675e2500b1e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 9b6b8b2c31a3: \"refactor(migration): unify config and private state upgrades\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

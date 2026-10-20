@@ -1,0 +1,22 @@
+{
+ "corpus": "ignis-lang--ignis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on compiler, language, programing-language queries this for how Ignis-lang/ignis implements it: The Ignis compiler (selected work: test_cases, ignis)",
+ "repos": [
+  {
+   "repo": "ignis",
+   "url": "https://github.com/Ignis-lang/ignis",
+   "sha": "31939d8c42a495a2f178579a19fd7d6481d45e85",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 31939d8c42a4: \"fix(selfhost): let a closure bound out of an owned scrutinee own its \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

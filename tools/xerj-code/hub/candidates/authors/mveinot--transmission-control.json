@@ -1,0 +1,22 @@
+{
+ "corpus": "mveinot--transmission-control",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C++ queries this for how mveinot/transmission-control implements it: A remote GUI client for Transmission built in Qt/C++. Inspired by Transmission Remote GUI (selected work: scripts, packaging, src)",
+ "repos": [
+  {
+   "repo": "transmission-control",
+   "url": "https://github.com/mveinot/transmission-control",
+   "sha": "c9542439a6051680a0422b57fd677e22ae886800",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit c9542439a605: \"Add Windows LLVM-MinGW installer packaging and application icons\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

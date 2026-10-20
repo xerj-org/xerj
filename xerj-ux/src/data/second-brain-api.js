@@ -50,6 +50,7 @@ import {
   renderPanelBody, drawLedgerTraces, edgeStateAt, fmtTs, caretAlignClass,
   EvidencePreview, FindResults, authoredSplit, splitLabel,
 } from '../ux/ego-ledger.js';
+import { isNoteLikeCorpus, vocabFor } from '../ux/sb-vocab.js';
 
 /** Panel ids of the second-brain dashboard, in render order. The
  *  controller patches exactly these after an interaction — except a
@@ -565,6 +566,27 @@ async function fetchServerReads(signal) {
   }
 }
 
+// ----- corpus-aware vocabulary (issue #1100) ------------------------
+//
+// Whether this brain's corpus is note-like (speak "notes / believed") or
+// not (speak the neutral "records / active" frame) is decided ONCE, from
+// the `ax_format` tally the notes tile already runs (fetchNodeStats). The
+// map (ux/brain-map.js) has no `data` bag of its own, so it reads the same
+// decision through these getters — one source of truth for the whole page.
+
+function currentFormats() {
+  const ns = S.nodeStats;
+  return ns && !ns.error && Array.isArray(ns.formats) ? ns.formats : [];
+}
+function currentOtherFormats() {
+  const ns = S.nodeStats;
+  return ns && !ns.error && Number.isFinite(ns.otherFormats) ? ns.otherFormats : 0;
+}
+/** Is the open brain's corpus note-like? False (neutral) when unknown. */
+export const sbNoteLike = () => isNoteLikeCorpus(currentFormats(), currentOtherFormats());
+/** The open brain's display vocabulary (ux/sb-vocab.js), for the map. */
+export const sbVocabNow = () => vocabFor(sbNoteLike());
+
 // ----- data assembly (§7.3 shape, extras under `sb`) ---------------
 
 function assemble() {
@@ -617,6 +639,10 @@ function assemble() {
       reads: S.reads,
       readsTotal: S.readsTotal,
       mapStats: S.mapStats,
+      // #1100: note-like corpus → "notes / believed" persona; otherwise the
+      // neutral "records / active" frame. Decided from the format tally so a
+      // source tree does not render as a notebook of beliefs.
+      noteLike: sbNoteLike(),
     },
   };
 }

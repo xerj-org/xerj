@@ -1,0 +1,22 @@
+{
+ "corpus": "axlaser--pitwall",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, developer-tools, terminal queries this for how axlaser/pitwall implements it: A pit wall for Claude Code: live telemetry above your prompt, a side panel for cost, cache and agents, and themes that repaint all of Claude (selected work: hooks, tests)",
+ "repos": [
+  {
+   "repo": "pitwall",
+   "url": "https://github.com/axlaser/pitwall",
+   "sha": "a2e4c6502d508d8dbde429bcf1d8d9f63551f51c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a2e4c6502d50: \"Fit the box and the panel to narrow columns, and reorder the models\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

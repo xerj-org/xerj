@@ -1,0 +1,22 @@
+{
+ "corpus": "thozoz--twitch-drops-miner-go",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on afk-farming, automation, cli queries this for how thozoz/twitch-drops-miner-go implements it: Headless Twitch drops miner written in Go. Runs as a background daemon, mines timed drops with zero video/audio bandwidth, and auto-claims r (selected work: internal/auth, cmd/tdm)",
+ "repos": [
+  {
+   "repo": "twitch-drops-miner-go",
+   "url": "https://github.com/thozoz/twitch-drops-miner-go",
+   "sha": "dd5a1ebde41c16ab61fec697f608474fa20e2d94",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit dd5a1ebde41c: \"fix(auth): document login outage and gate token imports\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

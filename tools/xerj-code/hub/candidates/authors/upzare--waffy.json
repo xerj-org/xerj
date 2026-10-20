@@ -1,0 +1,22 @@
+{
+ "corpus": "upzare--waffy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-agent, automation, browser queries this for how upzare/Waffy implements it: Waffy - AI Copilot for Web (selected work: extension, the project root)",
+ "repos": [
+  {
+   "repo": "Waffy",
+   "url": "https://github.com/upzare/Waffy",
+   "sha": "79d7761d9e2325dc3b06ed5127a90e98e6decd9b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 79d7761d9e23: \"feat: page mention\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

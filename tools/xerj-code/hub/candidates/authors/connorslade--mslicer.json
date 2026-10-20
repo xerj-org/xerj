@@ -1,0 +1,22 @@
+{
+ "corpus": "connorslade--mslicer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 3d-printing, resin-3d-printers, slicer queries this for how connorslade/mslicer implements it: A high-performance, open-source slicer for MSLA resin printers (selected work: format, common, slicer)",
+ "repos": [
+  {
+   "repo": "mslicer",
+   "url": "https://github.com/connorslade/mslicer",
+   "sha": "974a859f90fa4de5ee56d5e885c2dc60b1d90dcd",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 974a859f90fa: \"Intagrate CTBv4 into mslicer IO pipeline\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

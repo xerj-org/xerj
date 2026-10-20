@@ -1,0 +1,22 @@
+{
+ "corpus": "alseif0x--rustycore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on game-server, mariadb, mmorpg queries this for how alseif0x/rustycore implements it: Bringing Azeroth to Rust. An open-source WotLK Classic 3.4.3 server emulator, focused on faithful gameplay and a modular Rust core. Under ac (selected work: crates/wow-world, crates/wow-world-application, tools)",
+ "repos": [
+  {
+   "repo": "rustycore",
+   "url": "https://github.com/alseif0x/rustycore",
+   "sha": "6c74fbe0ebd60f6368c450e1f8c80779a8896ece",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 6c74fbe0ebd6: \"[F5] #1263 remaining: the 15 non-deferred families onto their existin\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

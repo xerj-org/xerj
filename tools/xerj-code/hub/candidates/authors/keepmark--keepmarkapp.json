@@ -1,0 +1,22 @@
+{
+ "corpus": "keepmark--keepmarkapp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how Keepmark/KeepmarkApp implements it: Keepmark Browser Apps (selected work: tests, src/popup, src)",
+ "repos": [
+  {
+   "repo": "KeepmarkApp",
+   "url": "https://github.com/Keepmark/KeepmarkApp",
+   "sha": "46145877f2c01ec899447f0342e3dfd2c7ee8f40",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 46145877f2c0: \"feat: redesign the QR connect card, service picker and status actions\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

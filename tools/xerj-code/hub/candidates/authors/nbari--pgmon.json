@@ -1,0 +1,22 @@
+{
+ "corpus": "nbari--pgmon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Rust queries this for how nbari/pgmon implements it: Real-time PostgreSQL TUI monitoring (selected work: src/pg)",
+ "repos": [
+  {
+   "repo": "pgmon",
+   "url": "https://github.com/nbari/pgmon",
+   "sha": "b4f48ad585f67b026860cb7b80a078c0e49af525",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit b4f48ad585f6: \"Fall back between TLS and plaintext like libpq for prefer and allow\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

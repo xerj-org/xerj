@@ -1,0 +1,22 @@
+{
+ "corpus": "abouchard11--midnight-agent-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-safety, agent-skills, ai-agents queries this for how abouchard11/midnight-agent-skills implements it: Closed-loop agent skills. The model does not own accept, post, pay, or remember (selected work: skills, the project root)",
+ "repos": [
+  {
+   "repo": "midnight-agent-skills",
+   "url": "https://github.com/abouchard11/midnight-agent-skills",
+   "sha": "37961b9f39aadcf69ff8b0f746fd32a1ff3d56f5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 37961b9f39aa: \"daily-compounding: replace the two unsatisfiable contract boxes with \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

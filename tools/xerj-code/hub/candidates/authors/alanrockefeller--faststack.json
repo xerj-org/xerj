@@ -1,0 +1,22 @@
+{
+ "corpus": "alanrockefeller--faststack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on image-viewer, inaturalist queries this for how AlanRockefeller/faststack implements it: A photo viewer optimized for speed and image uploading. Has light editing features (selected work: faststack)",
+ "repos": [
+  {
+   "repo": "faststack",
+   "url": "https://github.com/AlanRockefeller/faststack",
+   "sha": "b438f072956c06a628c12ad34f4913359d1bfd04",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit b438f072956c: \"Move session persistence off the UI thread\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

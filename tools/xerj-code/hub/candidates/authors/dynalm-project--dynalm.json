@@ -1,0 +1,22 @@
+{
+ "corpus": "dynalm-project--dynalm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on apple-silicon, avx2, continuous-batching queries this for how dynalm-project/dynalm implements it: Run LLMs locally on your CPU: an open-source Ollama and llama.cpp alternative with no GPU needed. Llama, Qwen, Gemma, Phi, Mistral (GGUF, Sa (selected work: dynalm, dynacore)",
+ "repos": [
+  {
+   "repo": "dynalm",
+   "url": "https://github.com/dynalm-project/dynalm",
+   "sha": "c24b4dabfcd06e424a401fc30b4663da1152d327",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c24b4dabfcd0: \"feat: q8_0 KV cache (--kv q8_0, DD-074)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

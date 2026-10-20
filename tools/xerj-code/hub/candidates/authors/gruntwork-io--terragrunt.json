@@ -1,0 +1,22 @@
+{
+ "corpus": "gruntwork-io--terragrunt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on terraform, devops, cli queries this for how gruntwork-io/terragrunt implements it: Terragrunt is a flexible orchestration tool that allows Infrastructure as Code written in OpenTofu/Terraform to scale (selected work: internal/cli)",
+ "repos": [
+  {
+   "repo": "terragrunt",
+   "url": "https://github.com/gruntwork-io/terragrunt",
+   "sha": "549167fe7fcc4f821ecc6e35562bcc20a86acb28",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 549167fe7fcc: \"fix(catalog): report actually-generated files in scaffold message (#6\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

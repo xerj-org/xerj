@@ -1,0 +1,22 @@
+{
+ "corpus": "csitea--csi-spl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how csitea/csi-spl implements it: the spool: GCP csi-spl-dev/prd projects and the git-rel relay bucket IaC (selected work: csi-spl-wui)",
+ "repos": [
+  {
+   "repo": "csi-spl",
+   "url": "https://github.com/csitea/csi-spl",
+   "sha": "f2ec75c2cddfa88b6703e20102b53beff65a248d",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f2ec75c2cddf: \"feat(wui, SPL-1684): an AI agents switch on the channel's Settings tab\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

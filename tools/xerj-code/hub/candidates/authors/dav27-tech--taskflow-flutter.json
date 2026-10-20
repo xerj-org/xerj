@@ -1,0 +1,22 @@
+{
+ "corpus": "dav27-tech--taskflow-flutter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Dart queries this for how Dav27-tech/TaskFlow-Flutter implements it: TaskFlow est une application collaborative de gestion des t\u00e2ches avec Flutter, Firebase Authentication, Cloud Firestore et Clean Architectur (selected work: lib/features, the project root, lib/core)",
+ "repos": [
+  {
+   "repo": "TaskFlow-Flutter",
+   "url": "https://github.com/Dav27-tech/TaskFlow-Flutter",
+   "sha": "c6eebf43849ab2cad7be35bb6e454dc082d2efc6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c6eebf43849a: \"finalisation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

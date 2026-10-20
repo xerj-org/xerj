@@ -1,0 +1,22 @@
+{
+ "corpus": "ayxan20145-prog--terbium",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how ayxan20145-prog/Terbium implements it: a compiler written in rust (selected work: src)",
+ "repos": [
+  {
+   "repo": "Terbium",
+   "url": "https://github.com/ayxan20145-prog/Terbium",
+   "sha": "40758abdea43826ecebf5989a19db92eed85bddf",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); pinned to the default-branch head; suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

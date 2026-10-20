@@ -1,0 +1,22 @@
+{
+ "corpus": "mmali3287--vibewatt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, claude-code, cli queries this for how MMALI3287/vibewatt implements it: Token usage, cost and plan utilization for Claude Code, Cowork, Codex, Copilot Chat and Antigravity, from data already on your machine (selected work: tests, vibewatt)",
+ "repos": [
+  {
+   "repo": "vibewatt",
+   "url": "https://github.com/MMALI3287/vibewatt",
+   "sha": "ee4ce7171aa68ad8fd68b85b13278c630d65eb06",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit ee4ce7171aa6: \"fix(cli): handle closed stdout pipes quietly (#136)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

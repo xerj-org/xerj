@@ -1,0 +1,22 @@
+{
+ "corpus": "mathoyer--kipitiny",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on backups, cloudflare, deployment queries this for how MatHoyer/kipitiny implements it: Lightweight self-hosted PaaS: deploy Docker apps and Databases with automatic HTTPS, verified backups, zero-downtime deploys and Cloudflare  (selected work: internal/core, web, internal/store)",
+ "repos": [
+  {
+   "repo": "kipitiny",
+   "url": "https://github.com/MatHoyer/kipitiny",
+   "sha": "7e11b2baeb067167809b8d263955aab3e0345183",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 7e11b2baeb06: \"feat(email): several email providers, picked per use\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

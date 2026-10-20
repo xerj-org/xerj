@@ -1,0 +1,22 @@
+{
+ "corpus": "longcipher--spec-mock",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on grpc, openapi, prism queries this for how longcipher/spec-mock implements it: Pure Rust spec-driven mock runtime for HTTP(OpenAPI), Websocket(AsyncAPI) and gRPC (selected work: crates/specmock-runtime, crates/specmock-core)",
+ "repos": [
+  {
+   "repo": "spec-mock",
+   "url": "https://github.com/longcipher/spec-mock",
+   "sha": "99445fa3166f8076a122e4acd98173ecc1e93a47",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 99445fa3166f: \"feat(grpc): drive protobuf methods from the same scenario model\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

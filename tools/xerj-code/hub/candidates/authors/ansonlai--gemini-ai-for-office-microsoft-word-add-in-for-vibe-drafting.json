@@ -1,0 +1,22 @@
+{
+ "corpus": "ansonlai--gemini-ai-for-office-microsoft-word-add-in-for-vibe-drafting",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on add-in, gemini-ai, microsoft-office queries this for how AnsonLai/Gemini-AI-for-Office-Microsoft-Word-Add-In-for-Vibe-Drafting implements it: Gemini AI for Office integrates Google Gemini AI to draft, edit, and review your document directly. Unlock the power of Google's Gemini AI d (selected work: tests, src/taskpane, scripts)",
+ "repos": [
+  {
+   "repo": "Gemini-AI-for-Office-Microsoft-Word-Add-In-for-Vibe-Drafting",
+   "url": "https://github.com/AnsonLai/Gemini-AI-for-Office-Microsoft-Word-Add-In-for-Vibe-Drafting",
+   "sha": "d3e315f1d23f754dd677a61a1a8a591604ce51ac",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit d3e315f1d23f: \"Coalesce table append edits and guard known formatting loss\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

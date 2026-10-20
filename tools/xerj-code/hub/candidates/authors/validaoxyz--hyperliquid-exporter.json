@@ -1,0 +1,22 @@
+{
+ "corpus": "validaoxyz--hyperliquid-exporter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how validaoxyz/hyperliquid-exporter implements it: A Prometheus exporter written in Go that collects and exports metrics for Hyperliquid node operators (selected work: internal/monitors, internal/metrics)",
+ "repos": [
+  {
+   "repo": "hyperliquid-exporter",
+   "url": "https://github.com/validaoxyz/hyperliquid-exporter",
+   "sha": "8e69ba37c88d46a9421e10665b273a1c1561c483",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 8e69ba37c88d: \"Read current consensus RPC requests and served responses\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

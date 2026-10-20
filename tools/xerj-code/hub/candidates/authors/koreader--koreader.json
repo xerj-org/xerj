@@ -1,0 +1,22 @@
+{
+ "corpus": "koreader--koreader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on luajit, kobo, kindle queries this for how koreader/koreader implements it: An ebook reader application supporting PDF, DjVu, EPUB, FB2 and many more formats, running on Cervantes, Kindle, Kobo, PocketBook and Androi (selected work: plugins, spec)",
+ "repos": [
+  {
+   "repo": "koreader",
+   "url": "https://github.com/koreader/koreader",
+   "sha": "caf5e93f5a632e8d8c03af6452fa64a399a936da",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit caf5e93f5a63: \"OPDS: cache parent, don't call updateCatalog when going back up (#16103)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

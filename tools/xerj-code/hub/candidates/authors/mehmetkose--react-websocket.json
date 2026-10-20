@@ -1,0 +1,22 @@
+{
+ "corpus": "mehmetkose--react-websocket",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on react, websocket queries this for how mehmetkose/react-websocket implements it: Easy-to-use React component for websocket communications (selected work: test, src, the project root)",
+ "repos": [
+  {
+   "repo": "react-websocket",
+   "url": "https://github.com/mehmetkose/react-websocket",
+   "sha": "ceb09cfec21f74e48d6ec93b8d25c4d59972fc49",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit ceb09cfec21f: \"Add topic subscriptions and message state (3.1.0)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

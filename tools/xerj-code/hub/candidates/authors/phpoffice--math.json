@@ -1,0 +1,22 @@
+{
+ "corpus": "phpoffice--math",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on mathml, oomml queries this for how PHPOffice/Math implements it: A pure PHP library for manipulating Math Formula (selected work: tests, src/Math, the project root)",
+ "repos": [
+  {
+   "repo": "Math",
+   "url": "https://github.com/PHPOffice/Math",
+   "sha": "fefb7acc977a6ad2815c4f2fe0684054ba3b7c0a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit fefb7acc977a: \"Add MathML subscript element support (#29)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "aai-labs--agent-barn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agent-skills, agentic-ai queries this for how aai-labs/agent-barn implements it: run a fleet of AI agents on your own Kubernetes (selected work: ui, api)",
+ "repos": [
+  {
+   "repo": "agent-barn",
+   "url": "https://github.com/aai-labs/agent-barn",
+   "sha": "b537658be9a2f3a0f6d6678a790072676da9d448",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit b537658be9a2: \"fix(templates): restore built-in snapshots into organization drafts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

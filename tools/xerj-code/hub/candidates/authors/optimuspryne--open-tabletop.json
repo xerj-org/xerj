@@ -1,0 +1,22 @@
+{
+ "corpus": "optimuspryne--open-tabletop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how optimuspryne/open-tabletop implements it: An authoritative-physics virtual tabletop where *any* game can be played, because the engine only simulates physical objects and lets people (selected work: test, public, scripts)",
+ "repos": [
+  {
+   "repo": "open-tabletop",
+   "url": "https://github.com/optimuspryne/open-tabletop",
+   "sha": "f36262a74081fc73553045a9d0f234cd12d06e4b",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit f36262a74081: \"Keep room cutaways visible until camera crosses boundaries\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "remurusama--ota-pulse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on oneplus, oppo, ota-pulse queries this for how RemuruSama/OTA-Pulse implements it: OTA Pulse is an Android app to fetch, download & extract OTA updates for Realme, OPPO, and OnePlus devices. Supports payload.bin partition e (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "OTA-Pulse",
+   "url": "https://github.com/RemuruSama/OTA-Pulse",
+   "sha": "b95c1e42786746e396fcc6b8405a220d586a78e1",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit b95c1e427867: \"Enhance device software update check logic and notification\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

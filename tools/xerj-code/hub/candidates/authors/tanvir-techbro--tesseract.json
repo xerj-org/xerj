@@ -1,0 +1,22 @@
+{
+ "corpus": "tanvir-techbro--tesseract",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C++ queries this for how tanvir-techbro/tesseract implements it: A simple lightweight high performance browser (selected work: Libraries, Src)",
+ "repos": [
+  {
+   "repo": "tesseract",
+   "url": "https://github.com/tanvir-techbro/tesseract",
+   "sha": "b768fd5449edeee0dce4015e4c88296630440963",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit b768fd5449ed: \"feat(RenderKit): Refractor/split renderkit, render PRE tag\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

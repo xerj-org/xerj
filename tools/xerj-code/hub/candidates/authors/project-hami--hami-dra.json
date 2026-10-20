@@ -1,0 +1,22 @@
+{
+ "corpus": "project-hami--hami-dra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how Project-HAMi/HAMi-DRA implements it: Fast migration from Device Plugin to DRA for HAMi users (selected work: pkg/metrics, cmd/monitor)",
+ "repos": [
+  {
+   "repo": "HAMi-DRA",
+   "url": "https://github.com/Project-HAMi/HAMi-DRA",
+   "sha": "ac2c0d8b4d784bca0e3d83dc2a94d84dc817aa77",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit ac2c0d8b4d78: \"feat: keep legacy metric names behind --legacy-metrics flag\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

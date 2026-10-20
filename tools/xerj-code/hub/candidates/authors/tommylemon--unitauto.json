@@ -1,0 +1,22 @@
+{
+ "corpus": "tommylemon--unitauto",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on apijson, vuejs2, vue2 queries this for how TommyLemon/UnitAuto implements it: \u2600\ufe0f \u6700\u5148\u8fdb\u3001\u6700\u7701\u4e8b\u3001ROI \u6700\u9ad8\u7684\u5355\u5143\u6d4b\u8bd5\uff0c\u673a\u5668\u5b66\u4e60 \u96f6\u4ee3\u7801\u3001\u5168\u65b9\u4f4d\u3001\u81ea\u52a8\u5316 \u6d4b\u8bd5 \u65b9\u6cd5/\u51fd\u6570\uff0c\u7528\u6237\u5305\u542b\u817e\u8baf\u3001\u5feb\u624b\u3001\u67d0 500 \u5f3a\u5de8\u5934\u7b49 \u2600\ufe0f The most advanced unit testing way powered by machine learning. Cod (selected work: UnitAuto-Java, UnitAuto-SpringBoot-SDK, UnitAuto-Java-Demo)",
+ "repos": [
+  {
+   "repo": "UnitAuto",
+   "url": "https://github.com/TommyLemon/UnitAuto",
+   "sha": "e6e6140b41cb84725b0f8e0dba78c2d98807c17c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit e6e6140b41cb: \"Java: upgrade unitauto-java, unitauto-springboot, demo 3.2.1, unitaut\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

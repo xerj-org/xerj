@@ -1,0 +1,22 @@
+{
+ "corpus": "kyle-celis--kimfresh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Kyle-celis/kimfresh implements it: IoT-Based Kimchi Management System (selected work: backend)",
+ "repos": [
+  {
+   "repo": "kimfresh",
+   "url": "https://github.com/Kyle-celis/kimfresh",
+   "sha": "fc6e0f2e52279ff71a9c54642e438279b0f42cf1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit fc6e0f2e5227: \"feat(profile): add driver and retailer profile endpoints (MVC)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

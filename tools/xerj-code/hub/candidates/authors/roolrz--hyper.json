@@ -1,0 +1,22 @@
+{
+ "corpus": "roolrz--hyper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how roolrz/HypeR implements it: A modular, no_std type-1 hypervisor kernel in Rust, with Tier-1 AArch64 support and Linux guests on AArch64 and RISC-V (selected work: kernel, sdk, app/memstat)",
+ "repos": [
+  {
+   "repo": "HypeR",
+   "url": "https://github.com/roolrz/HypeR",
+   "sha": "806bafe691fdbb380215e00025581ad5063383c0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 806bafe691fd: \"feat: add memory diagnostics and optional heap profiling (#166)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

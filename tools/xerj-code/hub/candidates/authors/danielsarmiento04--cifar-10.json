@@ -1,0 +1,22 @@
+{
+ "corpus": "danielsarmiento04--cifar-10",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cifar10, keras, tensorflow queries this for how DanielSarmiento04/Cifar-10 implements it: This repo contain the code to train a simple object classier using #tensorlfow (selected work: cifar10, the project root, api)",
+ "repos": [
+  {
+   "repo": "Cifar-10",
+   "url": "https://github.com/DanielSarmiento04/Cifar-10",
+   "sha": "9a5afc21e58d7a256b3ceb191d68254f0b1d31b2",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 9a5afc21e58d: \"feat: add hybrid and traditional CIFAR-10 network implementations wit\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "lavx--bazarr-provider-catalog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on bazarr, emby, jellyfin queries this for how LavX/bazarr-provider-catalog implements it: Community subtitle provider plugin catalog for Bazarr+ (https://github.com/LavX/bazarr) Provider Hub. Ships 60+ subtitle scrapers (OpenSubti (selected work: providers, tests, the project root)",
+ "repos": [
+  {
+   "repo": "bazarr-provider-catalog",
+   "url": "https://github.com/LavX/bazarr-provider-catalog",
+   "sha": "8d87ebe7349e98d7cc69347c5701624629cb52ac",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 8d87ebe7349e: \"fix(providers): generate stable desktop browser identities\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "stellarfeline--delvewright",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on dsl, minecraft, adventure-map queries this for how stellarfeline/delvewright implements it: AI Minecraft adventure map generator: story in, it generates a playable RPG dungeon datapack with quests. A Claude Code skill (LLM agent) (selected work: crates/delvec, tools)",
+ "repos": [
+  {
+   "repo": "delvewright",
+   "url": "https://github.com/stellarfeline/delvewright",
+   "sha": "4ee5ad1cf5f8e8f330b30fb0ee04b5de4973f7b6",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4ee5ad1cf5f8: \"fix(view): a cell no build write reached holds the horizon generator'\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

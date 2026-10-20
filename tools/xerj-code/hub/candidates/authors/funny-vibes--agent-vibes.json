@@ -1,0 +1,22 @@
+{
+ "corpus": "funny-vibes--agent-vibes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, antigravity, chatgpt queries this for how funny-vibes/agent-vibes implements it: Unified Agent Gateway \u2014 Enables Claude Code CLI and Cursor IDE to use free AI backends (Antigravity, Codex) through protocol translation (selected work: apps/protocol-bridge)",
+ "repos": [
+  {
+   "repo": "agent-vibes",
+   "url": "https://github.com/funny-vibes/agent-vibes",
+   "sha": "065d34f50ac929c25bf7ea9777e7b8d387298021",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 065d34f50ac9: \"feat: run gpt-live sessions on Codex voice, and recent relay work\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "elixir-nx--bumblebee",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on axon, elixir, nx queries this for how elixir-nx/bumblebee implements it: Pre-trained Neural Network models in Axon (+ \ud83e\udd17 Models integration) (selected work: lib/bumblebee)",
+ "repos": [
+  {
+   "repo": "bumblebee",
+   "url": "https://github.com/elixir-nx/bumblebee",
+   "sha": "10e131e2dc72cc93b344b3ba3c2f4ffb15fd911d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 10e131e2dc72: \"Unify RoPE scaling strategy handling across models\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

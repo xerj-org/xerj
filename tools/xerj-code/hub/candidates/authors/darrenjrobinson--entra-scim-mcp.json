@@ -1,0 +1,22 @@
+{
+ "corpus": "darrenjrobinson--entra-scim-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how darrenjrobinson/entra-scim-mcp implements it: Model Context Protocol server for the Microsoft Entra SCIM 2.0 Provisioning API (GA April 2026). Exposes user and group lifecycle operations (selected work: node)",
+ "repos": [
+  {
+   "repo": "entra-scim-mcp",
+   "url": "https://github.com/darrenjrobinson/entra-scim-mcp",
+   "sha": "bb11a6ae0f3052cd2505b9401a4882cb0698469e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit bb11a6ae0f30: \"Record the live probe of the new create and filter behaviour\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

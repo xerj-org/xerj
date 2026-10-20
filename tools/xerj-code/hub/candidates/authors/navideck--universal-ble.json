@@ -1,0 +1,22 @@
+{
+ "corpus": "navideck--universal-ble",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, ble, bluetooth queries this for how Navideck/universal_ble implements it: A cross-platform Android/iOS/macOS/Windows/Linux/Web Bluetooth Low Energy (BLE) plugin for Flutter (selected work: hil, windows)",
+ "repos": [
+  {
+   "repo": "universal_ble",
+   "url": "https://github.com/Navideck/universal_ble",
+   "sha": "90cc765d04163bcbe2e93dae89b124fa9ca4745c",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 90cc765d0416: \"Extend Windows HIL fault coverage and fix blocking connection teardow\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

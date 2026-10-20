@@ -1,0 +1,22 @@
+{
+ "corpus": "no-country-simulation--g10-latam-equipo-27",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how No-Country-simulation/G10-LATAM-equipo-27 implements it: CommunityLab \u2013 Motor Inteligente de Transformaci\u00f3n y Distribuci\u00f3n para Comunidades Digitales (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "G10-LATAM-equipo-27",
+   "url": "https://github.com/No-Country-simulation/G10-LATAM-equipo-27",
+   "sha": "420fc97811df46c4be9d7f354d3622afed09db6b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 420fc97811df: \"Feat(UI): Implementar selector de fechas interactivo en Streamlit\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

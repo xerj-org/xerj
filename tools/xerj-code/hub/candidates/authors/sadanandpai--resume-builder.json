@@ -1,0 +1,22 @@
+{
+ "corpus": "sadanandpai--resume-builder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on javascript, reactjs, html5 queries this for how sadanandpai/resume-builder implements it: Build a standard and professional single page resume (selected work: src/templates, src/stores, src/modules)",
+ "repos": [
+  {
+   "repo": "resume-builder",
+   "url": "https://github.com/sadanandpai/resume-builder",
+   "sha": "a737c0880689fa8272b55e099df1f195178fbfc5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit a737c0880689: \"Templates clean up\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

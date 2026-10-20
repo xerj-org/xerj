@@ -1,0 +1,22 @@
+{
+ "corpus": "rahul7562--dungeon-trouble",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Rahul7562/Dungeon-Trouble implements it: Brand new video game (selected work: src/engine, src/components, src)",
+ "repos": [
+  {
+   "repo": "Dungeon-Trouble",
+   "url": "https://github.com/Rahul7562/Dungeon-Trouble",
+   "sha": "7323b7fedbf1ee7125f64af44a2b8e7ae95eda5f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 7323b7fedbf1: \"feat: implement item upgrade system and UI guide\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

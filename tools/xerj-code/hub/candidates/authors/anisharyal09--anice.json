@@ -1,0 +1,22 @@
+{
+ "corpus": "anisharyal09--anice",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, clipboard, ecosystem queries this for how anisharyal09/aniCe implements it: Super app for Mac + Android ecosystem (selected work: apps/android, apps/macos)",
+ "repos": [
+  {
+   "repo": "aniCe",
+   "url": "https://github.com/anisharyal09/aniCe",
+   "sha": "95f02353914c45f01c5c4dcc5db70787aec8469a",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 95f02353914c: \"fix: stabilize playback controls, streamline device navigation, and f\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "hanamorilabs--qajev",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, browser-automation, e2e-testing queries this for how HanamoriLabs/qajev implements it: Test your website the way a person uses it: plain-language goals, verdicts from the page. A CLI and an MCP server for people and AI agents (selected work: tests, qajev)",
+ "repos": [
+  {
+   "repo": "qajev",
+   "url": "https://github.com/HanamoriLabs/qajev",
+   "sha": "8a25dcf2708e4bfaa50b3c679c9df8beb600230e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 8a25dcf2708e: \"App: a new bridge key each launch, and app.files for a seeded test to\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

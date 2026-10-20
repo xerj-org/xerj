@@ -1,0 +1,22 @@
+{
+ "corpus": "andreabenetton--pcontacts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Kotlin queries this for how andreabenetton/pcontacts implements it: A GPL-3.0 Android app that signs in to a Proton Mail account, decrypts the user's contacts client-side, and exposes them to ContactsContract (selected work: feature)",
+ "repos": [
+  {
+   "repo": "pcontacts",
+   "url": "https://github.com/andreabenetton/pcontacts",
+   "sha": "b8037b90be849b90c7b96c51b27617811e5b84d9",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit b8037b90be84: \"feature/onboarding: a second-password step for two-password mode, and\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

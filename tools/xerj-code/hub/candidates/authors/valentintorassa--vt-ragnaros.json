@@ -1,0 +1,22 @@
+{
+ "corpus": "valentintorassa--vt-ragnaros",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ValentinTorassa/VT-Ragnaros implements it: Reverse-engineered Linux driver and daemon for the Ragnaros USB deck - native libusb transport, 10 LCD keys, 4 rotary knobs, touch strip, YA (selected work: packaging)",
+ "repos": [
+  {
+   "repo": "VT-Ragnaros",
+   "url": "https://github.com/ValentinTorassa/VT-Ragnaros",
+   "sha": "fda333444d4a8e7eeebd4a7198e3b799db2ca71a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit fda333444d4a: \"Debian and AUR packaging, and a release workflow for v* tags\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

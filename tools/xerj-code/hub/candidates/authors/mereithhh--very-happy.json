@@ -1,0 +1,22 @@
+{
+ "corpus": "mereithhh--very-happy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how Mereithhh/very-happy implements it: Work anywhere. Orchestrate coding agents and real terminal workflows from one Web command panel (selected work: packages/happy-web-v2)",
+ "repos": [
+  {
+   "repo": "very-happy",
+   "url": "https://github.com/Mereithhh/very-happy",
+   "sha": "57a39446506d31ba84c218e81d10f804bd42fbb0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 57a39446506d: \"feat(web): render /compact as one boundary line (B-540) (#474)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

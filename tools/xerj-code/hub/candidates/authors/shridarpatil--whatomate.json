@@ -1,0 +1,22 @@
+{
+ "corpus": "shridarpatil--whatomate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on whatsapp, whatsapp-automation, whatsapp-bot queries this for how shridarpatil/whatomate implements it: Whatomate is an open-source WhatsApp integration (selected work: internal/handlers, internal/calling, frontend)",
+ "repos": [
+  {
+   "repo": "whatomate",
+   "url": "https://github.com/shridarpatil/whatomate",
+   "sha": "146b5cbc0a77148ca9130b0a8b486c933974b3be",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 146b5cbc0a77: \"feat(calling): ring only the click-to-call agent, log missed calls in\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

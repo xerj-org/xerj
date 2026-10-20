@@ -1,0 +1,22 @@
+{
+ "corpus": "xorza--palantir",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how xorza/palantir implements it: An immediate-mode GUI library for Rust, with WPF-style two-pass layout and a wgpu renderer (selected work: src/gpu)",
+ "repos": [
+  {
+   "repo": "palantir",
+   "url": "https://github.com/xorza/palantir",
+   "sha": "36b28550c990ac2f7e38a3b0dd952b75732127b0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 36b28550c990: \"Cut the scrolling frame's shading on V3D by a quarter\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

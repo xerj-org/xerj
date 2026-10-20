@@ -1,0 +1,22 @@
+{
+ "corpus": "alpadalar--ccinfobar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, claude-code, cli queries this for how alpadalar/ccinfobar implements it: A customizable status line for Claude Code with a drag-and-drop editor (selected work: test, src/catalog, src/editor)",
+ "repos": [
+  {
+   "repo": "ccinfobar",
+   "url": "https://github.com/alpadalar/ccinfobar",
+   "sha": "78c6aca6c276471efe549424395d49966bb344c4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 78c6aca6c276: \"fix(market): key publisher tokens and handles by the full endpoint; a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

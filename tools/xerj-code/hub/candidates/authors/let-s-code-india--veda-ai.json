@@ -1,0 +1,22 @@
+{
+ "corpus": "let-s-code-india--veda-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-assistants, android queries this for how Let-s-Code-India/Veda-AI implements it: Your own team of 15 AI agents on your own device. Bring a free Groq API key: auto-routing, memory, images, audio, PDFs and voice. Runs on Te (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "Veda-AI",
+   "url": "https://github.com/Let-s-Code-India/Veda-AI",
+   "sha": "54e1f963a37c218ee02c8079483976cf64ddef34",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 54e1f963a37c: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

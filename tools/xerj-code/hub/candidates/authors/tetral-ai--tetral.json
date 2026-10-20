@@ -1,0 +1,22 @@
+{
+ "corpus": "tetral-ai--tetral",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how tetral-ai/tetral implements it: The open-source cloud agent platform (selected work: internal/testinfra)",
+ "repos": [
+  {
+   "repo": "tetral",
+   "url": "https://github.com/tetral-ai/tetral",
+   "sha": "53e4b340f9cea3c4904aeb240a0821dda895c64d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 53e4b340f9ce: \"[engine] add a CI Benchmark that measures base and head Go Race side \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

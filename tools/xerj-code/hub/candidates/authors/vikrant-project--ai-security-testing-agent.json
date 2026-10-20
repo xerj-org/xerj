@@ -1,0 +1,22 @@
+{
+ "corpus": "vikrant-project--ai-security-testing-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on adb, agent-skills, ai-agent queries this for how vikrant-project/ai-security-testing-agent implements it: AI agent skills for debug APK security testing, Flutter/Kotlin review, ADB live testing, and authorized staging web/API assessments with rep (selected work: scripts, the project root, agents)",
+ "repos": [
+  {
+   "repo": "ai-security-testing-agent",
+   "url": "https://github.com/vikrant-project/ai-security-testing-agent",
+   "sha": "e90b74f99db9aad3d8b2f72f639213a08114245e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e90b74f99db9: \"Publish debug-only AI security testing skill and documentation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

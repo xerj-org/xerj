@@ -1,0 +1,22 @@
+{
+ "corpus": "rezadesky--rsdvault",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on expense-tracker, expo, financial-management queries this for how rezadesky/RSDVault implements it: Modern, secure, offline-first personal finance and expense tracking mobile application built with React Native Expo (selected work: src/app, src/database)",
+ "repos": [
+  {
+   "repo": "RSDVault",
+   "url": "https://github.com/rezadesky/RSDVault",
+   "sha": "e894d0c80079b7b14649643ab37c2ae5cf91c0cb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit e894d0c80079: \"feat: add weekly cycle financial mode for student pocket money\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

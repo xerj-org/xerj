@@ -1,0 +1,22 @@
+{
+ "corpus": "microsoft--fastdiar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how microsoft/fastdiar implements it: FASTDIAR: Frame-Level Speaker Encoder for Streaming Diarization (selected work: fastdiar, the project root)",
+ "repos": [
+  {
+   "repo": "fastdiar",
+   "url": "https://github.com/microsoft/fastdiar",
+   "sha": "183dd8381b184e4379804968c818af5db5838733",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 183dd8381b18: \"Add GPU inference\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

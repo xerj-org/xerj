@@ -1,0 +1,22 @@
+{
+ "corpus": "analogjs--analog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on angular, vite, framework queries this for how analogjs/analog implements it: The fullstack meta-framework for Angular. Powered by Vite and Nitro (selected work: packages/vite-plugin-angular)",
+ "repos": [
+  {
+   "repo": "analog",
+   "url": "https://github.com/analogjs/analog",
+   "sha": "4f3fd7659293451e91b237e4d2bbe62f2fbb3b0f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 4f3fd7659293: \"fix(vite-plugin-angular): emit unary operators by operator and positi\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

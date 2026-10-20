@@ -1,0 +1,22 @@
+{
+ "corpus": "gustawdaniel--vault-track",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how gustawdaniel/vault-track implements it: Free application for managing cash and synchronise with external sources of data (selected work: apps/web, apps/backend, apps/ui)",
+ "repos": [
+  {
+   "repo": "vault-track",
+   "url": "https://github.com/gustawdaniel/vault-track",
+   "sha": "ba55acacdc27474e6d793d7fbdf490a719e67446",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ba55acacdc27: \"feat: plaintext sync, connector API and Enable Banking\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

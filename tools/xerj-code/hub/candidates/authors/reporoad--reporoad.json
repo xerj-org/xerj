@@ -1,0 +1,22 @@
+{
+ "corpus": "reporoad--reporoad",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how reporoad/reporoad implements it: reporoad/reporoad (TypeScript) (selected work: tests, components, lib)",
+ "repos": [
+  {
+   "repo": "reporoad",
+   "url": "https://github.com/reporoad/reporoad",
+   "sha": "d19e4b7273b73fca8f012f040125c7e78515a6f2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit d19e4b7273b7: \"Handle unavailable WebGL and add MIT license\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

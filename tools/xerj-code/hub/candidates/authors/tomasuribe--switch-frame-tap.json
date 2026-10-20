@@ -1,0 +1,22 @@
+{
+ "corpus": "tomasuribe--switch-frame-tap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on atmosphere, homebrew, nintendo-switch queries this for how TomasUribe/switch-frame-tap implements it: Play your Nintendo Switch or Switch Lite on your PC: stream games at up to 1080p60 with sound over USB-C or the network, no dock or capture  (selected work: android-tv)",
+ "repos": [
+  {
+   "repo": "switch-frame-tap",
+   "url": "https://github.com/TomasUribe/switch-frame-tap",
+   "sha": "bf740d4d39811c1705ffd1eaf97da0bc0a544540",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit bf740d4d3981: \"Add Android TV viewer with USB and network streaming\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

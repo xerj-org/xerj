@@ -1,0 +1,22 @@
+{
+ "corpus": "csouzape--hyprdots",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on QML queries this for how csouzape/hyprdots implements it: My Hyprland Config for keyboard management and performance! (selected work: config, the project root)",
+ "repos": [
+  {
+   "repo": "hyprdots",
+   "url": "https://github.com/csouzape/hyprdots",
+   "sha": "f2c8302bf88457b3123502598d1985c5c5a6a6ec",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit f2c8302bf884: \"refactor: refactor the 3 files to make the best\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

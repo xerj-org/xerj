@@ -51,6 +51,17 @@ fn make_engine(dir: &TempDir, ingest_shards: usize) -> Engine {
     Engine::new(config).expect("engine::new")
 }
 
+/// [`make_engine`] with tiny-segment merging pinned off (#1186's `nomerge`
+/// config): the tiered merge otherwise collapses the many small segments the
+/// probe-budget test needs, mid-test and timing-dependent.
+fn make_engine_nomerge(dir: &TempDir, ingest_shards: usize) -> Engine {
+    let mut config = Config::default();
+    config.server.data_dir = dir.path().to_str().unwrap().to_string();
+    config.engine.ingest_shards = ingest_shards;
+    config.merge.min_merge_count = 100_000;
+    Engine::new(config).expect("engine::new")
+}
+
 /// One buried occurrence of the term in a LONG field that grows with `i` —
 /// low BM25, strictly decreasing.
 fn weak_body(i: usize) -> String {
@@ -286,4 +297,91 @@ async fn deletes_do_not_break_the_union() {
             page(&r.hits)[..5].to_vec()
         );
     }
+}
+
+/// #1186 — padding a query with terms that match NOTHING must return the
+/// same hits with the same scores as the unpadded query.
+///
+/// A term with df=0 contributes 0 to every document's BM25 score, so padding
+/// is score-neutral — PROVIDED both queries are scored against the same
+/// index-wide statistics. It stopped being neutral the moment the padded
+/// query crossed the stats pre-pass probe budget
+/// `(fields + pairs) * segments > 4096`: the pre-pass silently returned
+/// `None`, every segment fell back to its OWN df/avgdl, and the whole top-5
+/// reordered (reported: top hit `1-1:1.6797521` → `8-4:1.6904112`; after
+/// `_forcemerge?max_num_segments=1` both queries agreed again — proof the
+/// reorder was the stats fallback, not the extra terms).
+///
+/// The corpus mirrors the reporter's: 8 flush cycles of 20 docs each on a
+/// 4-shard engine (a segment per non-empty shard per flush) with merging
+/// pinned off. The padded query projects 1 field + 1502 terms over ~32
+/// segments ≈ 48k probes — far past the old 4096 combined cap (where the
+/// ranking changed) and well inside the split per-term budget (where both
+/// queries are scored against the same union).
+#[tokio::test]
+async fn padding_a_query_with_terms_that_match_nothing_never_reorders_results() {
+    let dir = TempDir::new().unwrap();
+    let engine = make_engine_nomerge(&dir, 4);
+    engine.create_index("t", Schema::empty()).unwrap();
+    let idx = engine.get_index("t").unwrap();
+
+    // Per-batch term frequencies differ (batch b carries b `alpha`s and b
+    // `beta`s), so per-segment statistics genuinely differ from index-wide
+    // ones — a silent fallback MOVES scores, it does not just rescale them.
+    for b in 1..=8 {
+        for i in 1..=20 {
+            let alphas = "alpha ".repeat(b);
+            let beta = if i <= b { " beta" } else { "" };
+            idx.index_document(
+                Some(format!("{b}-{i}")),
+                json!({"body": format!("doc {i} batch {b} gamma{alphas}{beta}")}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+    }
+
+    let segments = idx.stats().await.segment_count;
+    assert!(
+        segments >= 3,
+        "sanity: need ≥3 segments for the padded query ({pairs} pairs × \
+         {segments}) to cross the old 4096-probe cap; got {segments}",
+        pairs = 1 + 1502
+    );
+
+    let unpadded = parse_request(&json!({
+        "size": 5, "_source": false,
+        "query": {"match": {"body": "alpha beta"}}
+    }))
+    .expect("parse_request");
+    let pads = (1..=1500)
+        .map(|i| format!("zqx{i}"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let padded = parse_request(&json!({
+        "size": 5, "_source": false,
+        "query": {"match": {"body": format!("alpha beta {pads}")}}
+    }))
+    .expect("parse_request");
+
+    let plain = idx.search(&unpadded).await.unwrap();
+    let padded_r = idx.search(&padded).await.unwrap();
+
+    assert_eq!(
+        plain.total.value, padded_r.total.value,
+        "terms that match nothing must not change hits.total"
+    );
+    let top = |hits: &[xerj_query::Hit]| {
+        hits.iter()
+            .map(|h| (h.id.clone(), h.score.to_bits()))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        top(&plain.hits),
+        top(&padded_r.hits),
+        "padding the query with 1500 terms that match no document reordered \
+         the top-5 or changed a score — the stats pre-pass declined and every \
+         segment silently scored against its own df/avgdl (#1186)"
+    );
 }

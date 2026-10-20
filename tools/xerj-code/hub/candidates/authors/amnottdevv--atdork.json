@@ -1,0 +1,22 @@
+{
+ "corpus": "amnottdevv--atdork",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on cyber-security, dork, dorking queries this for how amnottdevv/AtDork implements it: tools auto dorking with multi enggine search (selected work: core, the project root, core/case)",
+ "repos": [
+  {
+   "repo": "AtDork",
+   "url": "https://github.com/amnottdevv/AtDork",
+   "sha": "267c5e1eefe590f76ccf7f7b84bf691ba3644542",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 267c5e1eefe5: \"fix: resolve security and correctness bugs in tools\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "ramiz69--purchasekit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on in-app-purchase, ios, spm queries this for how Ramiz69/PurchaseKit implements it: A Swift framework that streamlines in-app purchases using StoreKit 2 with SPM and static linking support (selected work: Sources, Tests)",
+ "repos": [
+  {
+   "repo": "PurchaseKit",
+   "url": "https://github.com/Ramiz69/PurchaseKit",
+   "sha": "d37c760db916344a975ed7885c301b8a9f9520bb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit d37c760db916: \"Server-verified consumables: buy with an account token, finish after \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

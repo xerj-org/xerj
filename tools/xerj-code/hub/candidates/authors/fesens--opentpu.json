@@ -1,0 +1,22 @@
+{
+ "corpus": "fesens--opentpu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Verilog queries this for how FeSens/openTPU implements it: An open-source AI accelerator, developed by AI: RTL, ISA, simulator, compiler and profiler in one repo. Runs Qwen3, LFM2.5 and Qwen3.5 on a  (selected work: tests, opentpu, tools)",
+ "repos": [
+  {
+   "repo": "openTPU",
+   "url": "https://github.com/FeSens/openTPU",
+   "sha": "987ebe8de55e56be08cf2d5f976b7bc76ef8dea7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 987ebe8de55e: \"Expert pools get a key, <pool>.key (moe.pool_key: the quantizer's cod\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

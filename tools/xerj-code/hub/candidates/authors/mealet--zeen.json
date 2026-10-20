@@ -1,0 +1,22 @@
+{
+ "corpus": "mealet--zeen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on compiler, llvm, programming-language queries this for how mealet/zeen implements it: Zeen Programming Language (selected work: compiler)",
+ "repos": [
+  {
+   "repo": "zeen",
+   "url": "https://github.com/mealet/zeen",
+   "sha": "12831d5a406beb25f9d6b204296fc1fb95f6976c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 12831d5a406b: \"feat: prompt mid-function drops for temporaries via liveness\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

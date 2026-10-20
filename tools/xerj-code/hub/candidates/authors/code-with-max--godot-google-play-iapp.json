@@ -1,0 +1,22 @@
+{
+ "corpus": "code-with-max--godot-google-play-iapp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on addon, godot, google-play-billing queries this for how code-with-max/godot-google-play-iapp implements it: Godot 4.7+ plugin for Google Play Billing Library 9.1.0, supports consumables, non-consumables, and multi-plan subscriptions with strict typ (selected work: the project root, AndroidIAPP, gradle)",
+ "repos": [
+  {
+   "repo": "godot-google-play-iapp",
+   "url": "https://github.com/code-with-max/godot-google-play-iapp",
+   "sha": "0e73208db53b37f9f782ae5dc4c470793a2d6ccd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 0e73208db53b: \"Update ver\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

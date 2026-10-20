@@ -1,0 +1,22 @@
+{
+ "corpus": "qiyuhuating--quorum-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on consensus, deterministic-simulation, distributed-systems queries this for how qiyuhuating/quorum-lab implements it: A deterministic Raft consensus lab: fault injection, real log replication, safety invariants, and exact experiment replay. TypeScript + Reac (selected work: src/ui, src/engine, tests)",
+ "repos": [
+  {
+   "repo": "quorum-lab",
+   "url": "https://github.com/qiyuhuating/quorum-lab",
+   "sha": "df1431d4490009fea2c9b24e06a1ef8c50fa2e6a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit df1431d44900: \"Build Quorum Lab: deterministic Raft, fault injection, replay and ver\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

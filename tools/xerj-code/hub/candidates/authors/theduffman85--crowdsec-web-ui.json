@@ -1,0 +1,22 @@
+{
+ "corpus": "theduffman85--crowdsec-web-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on crowdsec, crowdsec-lapi, crowdsec-manager queries this for how TheDuffman85/crowdsec-web-ui implements it: A self-hosted dashboard for CrowdSec: investigate alerts, manage decisions, monitor runtime metrics, and send notifications from one respons (selected work: client, server, shared)",
+ "repos": [
+  {
+   "repo": "crowdsec-web-ui",
+   "url": "https://github.com/TheDuffman85/crowdsec-web-ui",
+   "sha": "dc38787ab3c5ee5608a80c67dc913c603068ff70",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit dc38787ab3c5: \"Add: Top IP list with AS/IP toggle on dashboard\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

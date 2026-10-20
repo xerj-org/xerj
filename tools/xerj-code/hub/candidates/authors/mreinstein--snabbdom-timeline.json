@@ -1,0 +1,22 @@
+{
+ "corpus": "mreinstein--snabbdom-timeline",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how mreinstein/snabbdom-timeline implements it: an interactive timeline component implemented in snabbdom (selected work: the project root, src)",
+ "repos": [
+  {
+   "repo": "snabbdom-timeline",
+   "url": "https://github.com/mreinstein/snabbdom-timeline",
+   "sha": "fc2e5a1568110a84e17c77293048be44caa71c43",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit fc2e5a156811: \"0.9.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

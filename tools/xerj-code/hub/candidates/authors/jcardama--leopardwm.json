@@ -1,0 +1,22 @@
+{
+ "corpus": "jcardama--leopardwm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how jcardama/LeopardWM implements it: A tiling window manager for Windows (selected work: crates/daemon, crates/platform_win32)",
+ "repos": [
+  {
+   "repo": "LeopardWM",
+   "url": "https://github.com/jcardama/LeopardWM",
+   "sha": "52f7acb9caef03d82d3affd10d2780aebd6caac5",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 52f7acb9caef: \"fix(gestures): bound gesture hook teardown on runtime toggles\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

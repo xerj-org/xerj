@@ -1,0 +1,22 @@
+{
+ "corpus": "chastitywhiterose--chastelib",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how chastitywhiterose/chastelib implements it: chastelib is a C library for managing integers in radix 2 to 36. It consists of 4 core functions which are well documented with example prog (selected work: c)",
+ "repos": [
+  {
+   "repo": "chastelib",
+   "url": "https://github.com/chastitywhiterose/chastelib",
+   "sha": "ff94626b06565384e25b42c7a640011a2728c250",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ff94626b0656: \"chastelib update\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

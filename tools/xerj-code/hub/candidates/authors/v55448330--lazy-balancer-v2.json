@@ -1,0 +1,22 @@
+{
+ "corpus": "v55448330--lazy-balancer-v2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Go queries this for how v55448330/lazy-balancer-v2 implements it: Caddy Reverse Proxy Balancer WebUI (selected work: geoipnames, caddygeoip, internal/services)",
+ "repos": [
+  {
+   "repo": "lazy-balancer-v2",
+   "url": "https://github.com/v55448330/lazy-balancer-v2",
+   "sha": "49c0b93f9fd051284401295c7f352ed202f2c324",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 49c0b93f9fd0: \"\u5730\u57df\u62e6\u622a\u722c\u866b\u8c41\u514d\uff08\u65b9\u6848 B\uff1aUA+PTR \u53cc\u8df3\u9a8c\u8bc1\uff0cAI \u722c\u866b\u5f15\u64ce\u6269\u5c55\uff09\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

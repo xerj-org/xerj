@@ -67,7 +67,7 @@ if [ -n "$INDEX" ]; then
 else
   command -v curl >/dev/null 2>&1 || { echo "curl is required to fetch $SOURCES_URL" >&2; exit 2; }
   TMPIDX=$(mktemp "${TMPDIR:-/tmp}/xerj-sources-XXXXXX.gz")
-  trap 'rm -f "$TMPIDX" "$JOIN" "$JOIN.pkgs" "$JOIN.crates" 2>/dev/null' EXIT
+  trap 'rm -f "$TMPIDX" 2>/dev/null' EXIT   # JOIN is not set yet; its trap comes below
   echo "fetching $SOURCES_URL" >&2
   curl -sSf -m 300 -o "$TMPIDX" "$SOURCES_URL"
   DEB_PACKAGES=$(gzip -dc "$TMPIDX" | sed -n 's/^Package: //p' | sort -u)

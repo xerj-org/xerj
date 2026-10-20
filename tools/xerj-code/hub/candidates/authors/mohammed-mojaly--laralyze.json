@@ -1,0 +1,22 @@
+{
+ "corpus": "mohammed-mojaly--laralyze",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on PHP queries this for how Mohammed-Mojaly/laralyze implements it: Self-hosted Laravel observability dashboard with SQL Databases and ClickHouse support. Track requests, jobs, queries, exceptions, logs, cach (selected work: tests, src/Assistant, src/Livewire)",
+ "repos": [
+  {
+   "repo": "laralyze",
+   "url": "https://github.com/Mohammed-Mojaly/laralyze",
+   "sha": "b8e61aca5995c142c413b8670e830e24eccbe9ac",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit b8e61aca5995: \"Ask AI treats what the app recorded as data, never instructions: fenc\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

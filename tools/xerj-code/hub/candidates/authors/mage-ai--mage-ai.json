@@ -1,0 +1,22 @@
+{
+ "corpus": "mage-ai--mage-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on machine-learning, artificial-intelligence, data queries this for how mage-ai/mage-ai implements it: \ud83e\uddd9 Build, run, and manage data pipelines for integrating and transforming data (selected work: mage_ai)",
+ "repos": [
+  {
+   "repo": "mage-ai",
+   "url": "https://github.com/mage-ai/mage-ai",
+   "sha": "5591d07e7dc209e678d07a3059727b200cec0079",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 5591d07e7dc2: \"Avoid blocking Files API scans and load folders on demand (#6190)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

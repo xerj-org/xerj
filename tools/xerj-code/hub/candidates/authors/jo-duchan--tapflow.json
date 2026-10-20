@@ -1,0 +1,22 @@
+{
+ "corpus": "jo-duchan--tapflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on appetize-alternative, android, ios queries this for how jo-duchan/tapflow implements it: Self-hosted iOS & Android simulator streaming for the whole team (selected work: packages/flow-runner, packages/mcp-server)",
+ "repos": [
+  {
+   "repo": "tapflow",
+   "url": "https://github.com/jo-duchan/tapflow",
+   "sha": "4fc0e29c994277b8450f8cdb50fe5805cd1a263a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 4fc0e29c9942: \"fix(mcp-server,flow-runner): settle in-flight boot on session rebound\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

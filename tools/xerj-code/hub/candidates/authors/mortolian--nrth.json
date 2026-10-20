@@ -1,0 +1,22 @@
+{
+ "corpus": "mortolian--nrth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on budget, exchange, international queries this for how mortolian/nrth implements it: Open-source accounting & finance for contractors and small businesses. Invoicing, expenses, VAT, ledger, and bank statement imports (selected work: resources, app/Domain, app/Http)",
+ "repos": [
+  {
+   "repo": "nrth",
+   "url": "https://github.com/mortolian/nrth",
+   "sha": "594aed8de5b10fa0662326d7c089fdf09e9de3fe",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 594aed8de5b1: \"feat: add aged receivables and client statement reports with PDF expo\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

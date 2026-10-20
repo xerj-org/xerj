@@ -1,0 +1,22 @@
+{
+ "corpus": "zarestia-dev--rclone-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on rclone-gui, angular, angular-material queries this for how Zarestia-Dev/rclone-manager implements it: RClone Manager is a cross-platform GUI application designed to help users manage Rclone remotes efficiently (selected work: src/app, src-tauri, src)",
+ "repos": [
+  {
+   "repo": "rclone-manager",
+   "url": "https://github.com/Zarestia-Dev/rclone-manager",
+   "sha": "39e91f4f7585361af9403c445a0ec5fb7dc986fc",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 39e91f4f7585: \"refactor: adopt EscapeCloseDirective across modals and add quick-run \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

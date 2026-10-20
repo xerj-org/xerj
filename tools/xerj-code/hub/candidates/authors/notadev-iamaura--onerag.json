@@ -1,0 +1,22 @@
+{
+ "corpus": "notadev-iamaura--onerag",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on chatbot, fastapi, graphrag queries this for how notadev-iamaura/OneRAG implements it: Production-ready RAG Framework (Python/FastAPI). 1-line config swaps: 6 Vector DBs (Weaviate, Pinecone, Qdrant, ChromaDB, pgvector, MongoDB) (selected work: tests, app/api)",
+ "repos": [
+  {
+   "repo": "OneRAG",
+   "url": "https://github.com/notadev-iamaura/OneRAG",
+   "sha": "74a3308ef9c169ad63088655b667e479e9313738",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 74a3308ef9c1: \"fix: expose Self-RAG status and retry filters\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

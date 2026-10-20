@@ -1,0 +1,22 @@
+{
+ "corpus": "houminxi--surflare-watchdog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how HouMinXi/surflare-watchdog implements it: HouMinXi/surflare-watchdog (Shell) (selected work: router, tests, the project root)",
+ "repos": [
+  {
+   "repo": "surflare-watchdog",
+   "url": "https://github.com/HouMinXi/surflare-watchdog",
+   "sha": "3a022cfec90ec0ed564ffb624a52e07471a29e53",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 3a022cfec90e: \"proxy: chain the default egress through the dedicated SOCKS\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

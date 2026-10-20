@@ -1,0 +1,22 @@
+{
+ "corpus": "realmichaelstetson--aniflow-api",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on anime, anime-api, anime-downloader queries this for how realmichaelstetson/AniFlow-API implements it: Anime embed API + player. AniList/MAL ID in, stream out. Multi-server, auto-skip, edge HLS proxy (selected work: app/api, app, app/m3u8)",
+ "repos": [
+  {
+   "repo": "AniFlow-API",
+   "url": "https://github.com/realmichaelstetson/AniFlow-API",
+   "sha": "4bd7031ad42fffeb8688d1b2950d633cbbc56ed8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 4bd7031ad42f: \"Add direct M3U8 stream routes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

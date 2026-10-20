@@ -1,0 +1,22 @@
+{
+ "corpus": "megablue--mega-skillstate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on context-window, opencode, opencode-plugin queries this for how megablue/mega-skillstate implements it: An OpenCode 2.0 plugin that bounds a session's context window with an explicit, structured execution state (\u03a3) instead of an append-only con (selected work: src/proxy, scripts)",
+ "repos": [
+  {
+   "repo": "mega-skillstate",
+   "url": "https://github.com/megablue/mega-skillstate",
+   "sha": "10ef2a5f738792a7e4806f4c65438c69115f6de0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 10ef2a5f7387: \"Add the proxy's session identity and durable store\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

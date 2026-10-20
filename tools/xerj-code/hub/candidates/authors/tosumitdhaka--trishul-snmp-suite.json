@@ -1,0 +1,22 @@
+{
+ "corpus": "tosumitdhaka--trishul-snmp-suite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on mib-browser, mib-parser, snmp queries this for how tosumitdhaka/trishul-snmp-suite implements it: \ud83d\udd31 Modern SNMP management platform - Simulate agents, walk devices, manage traps, browse MIBs. Replace Net-SNMP CLI, iReasoning, snmpsim with (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "trishul-snmp-suite",
+   "url": "https://github.com/tosumitdhaka/trishul-snmp-suite",
+   "sha": "b84d0db64b93cee7e540215a4499ad01675d32dc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit b84d0db64b93: \"feat: MIB schema integration for 2.1.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

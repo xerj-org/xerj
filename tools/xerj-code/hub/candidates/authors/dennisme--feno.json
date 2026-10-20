@@ -1,0 +1,22 @@
+{
+ "corpus": "dennisme--feno",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how dennisme/feno implements it: anomalies (selected work: cmd/feno, internal/config)",
+ "repos": [
+  {
+   "repo": "feno",
+   "url": "https://github.com/dennisme/feno",
+   "sha": "c173d18370a5d82800e2fce7355b634a8686b15b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c173d18370a5: \"feat: waiver\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

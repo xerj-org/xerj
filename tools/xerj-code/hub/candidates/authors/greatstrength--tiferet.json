@@ -1,0 +1,22 @@
+{
+ "corpus": "greatstrength--tiferet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on design-patterns, domain-driven-design, esoteric queries this for how greatstrength/tiferet implements it: Build an app, the beautiful way (selected work: tiferet, tests)",
+ "repos": [
+  {
+   "repo": "tiferet",
+   "url": "https://github.com/greatstrength/tiferet",
+   "sha": "3fa3c58254dd7d4fc6b02cba4f74ddb56d7ce6c5",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 3fa3c58254dd: \"Super-TRD - Admin Catalogs (#1188) (#1227)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

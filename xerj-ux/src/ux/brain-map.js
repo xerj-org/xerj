@@ -37,7 +37,7 @@
 
 import { esc, num } from './text.js';
 import { typeName, detectorName, evidenceKind, displayId } from './ego-ledger.js';
-import { sbRefocus, sbLogRead, sbPublishMapStats, sbSnapshot } from '../data/second-brain-api.js';
+import { sbRefocus, sbLogRead, sbPublishMapStats, sbSnapshot, sbVocabNow } from '../data/second-brain-api.js';
 import {
   buildMap, restateAt, memberOrder, bundleLiveAt, phyllotaxis, edgeStateAtI,
   MAP_PAGE, MAP_EDGE_BUDGET, MAP_EXPAND_CAP,
@@ -691,7 +691,7 @@ function layoutBodyLabels(ctx, v, t) {
     }
     const fpx = c.isElse ? 13 : rankFontPx(ci); // clusters arrive rank-ordered
     const live = M.previewT !== undefined ? clusterLiveAt(ci, t) : c.linkLive;
-    const countLine = `${num(c.noteCount)} notes · ${num(live)} link${live === 1 ? '' : 's'}`;
+    const countLine = `${num(c.noteCount)} ${sbVocabNow().items} · ${num(live)} link${live === 1 ? '' : 's'}`;
     const name = ex === ci ? `▾ ${clusterName(ci)}` : clusterName(ci);
     ctx.font = bodyFont(fpx);
     const w1 = ctx.measureText(name).width;
@@ -907,7 +907,7 @@ function drawMembers(ctx, v, t, colors, bodyRects) {
   if (md.satellite > 0 && spread > 0.85) {
     const [sx, sy] = toScreen(md.satX, md.satY, v);
     const selected = M.sel && M.sel.kind === 'satellite';
-    labelBlock(ctx, sx, sy, `+ ${num(md.satellite)} MORE NOTES`, null, 13,
+    labelBlock(ctx, sx, sy, `+ ${num(md.satellite)} MORE ${sbVocabNow().Items}`, null, 13,
       selected ? colors.accent : colors.mute, 0.9, { kind: 'satellite' });
   }
   ctx.globalAlpha = 1;
@@ -936,7 +936,7 @@ function drawDirect(ctx, v, t, colors, dimAll) {
     const fpx = d >= maxDeg * 0.8 ? 16 : d > 0 ? 13 : 11;
     const notes = fg.fileSize[f];
     const countLine = notes > 1
-      ? `${num(notes)} notes · ${num(d)} link${d === 1 ? '' : 's'}`
+      ? `${num(notes)} ${sbVocabNow().items} · ${num(d)} link${d === 1 ? '' : 's'}`
       : `${num(d)} link${d === 1 ? '' : 's'}`;
     const name = fileLabel(f);
     ctx.font = bodyFont(fpx);
@@ -1321,10 +1321,11 @@ function railHome() {
   if (M.status === 'loading') return `<div class="panel-empty mono faint">READING EVERY LINK…</div>`;
   if (M.status === 'error') return `<div class="panel-empty mono faint">COULD NOT READ THE LINK GRAPH · ${esc(String(M.error).slice(0, 90))}</div>`;
   if (!model) return '';
+  const voc = sbVocabNow();
   const capped = !!M.capped;
   const orphanRow = M.nodesTotal != null
-    ? railRow('notes with no links', `${capped ? '≥ ' : ''}${num(Math.max(0, M.nodesTotal - model.distinctNotes))}`)
-    : railRow('notes with no links', 'could not be counted');
+    ? railRow(`${voc.items} with no links`, `${capped ? '≥ ' : ''}${num(Math.max(0, M.nodesTotal - model.distinctNotes))}`)
+    : railRow(`${voc.items} with no links`, 'could not be counted');
   const hl = M.highlightFiles
     ? `<div class="sb-map-note accent">FIND: ${num(M.highlightFiles.size)} document${M.highlightFiles.size === 1 ? '' : 's'} lit up${M.highlightMiss ? ` · ${num(M.highlightMiss)} match${M.highlightMiss === 1 ? '' : 'es'} have no links — not on the map` : ''}</div>`
     : '';
@@ -1334,13 +1335,14 @@ function railHome() {
     ${railRow('links beyond the map budget', capped ? `${M.serverTotalIsFloor ? '≥ ' : ''}${num(Math.max(0, M.serverTotal - model.g.n))}` : '0')}
     ${railRow('links inside single documents', num(model.fg.selfLoops))}
     ${orphanRow}
-    ${railRow('notes drawn per opened group', `≤ ${num(MAP_EXPAND_CAP)} — the rest wait in a satellite`)}
+    ${railRow(`${voc.items} drawn per opened group`, `≤ ${num(MAP_EXPAND_CAP)} — the rest wait in a satellite`)}
     <div class="sb-hgroup key">HOW TO READ IT</div>
-    <div class="sb-map-note faint">each name is a group of documents that cite each other or share a folder · line thickness is how many links cross · click a group to spread it · click a line to see the quotes that taught those links · click a note to open its ledger below</div>`;
+    <div class="sb-map-note faint">each name is a group of documents that cite each other or share a folder · line thickness is how many links cross · click a group to spread it · click a line to see the quotes that taught those links · click a ${voc.item} to open its ledger below</div>`;
 }
 
 function railCluster(ci) {
   const model = M.model;
+  const voc = sbVocabNow();
   const c = model.clusters[ci];
   const t = caretT();
   const live = M.previewT !== undefined ? clusterLiveAt(ci, t) : c.linkLive;
@@ -1358,23 +1360,24 @@ function railCluster(ci) {
     ? railRow('links drawn inside this group', `strongest ${num(MAP_INTRA_EDGE_DRAW)} of ${num(md.intraTotal)}`) : '';
   return `
     <div class="sb-map-selname">${esc(clusterName(ci))}</div>
-    ${railRow('notes', num(c.noteCount))}
+    ${railRow(voc.items, num(c.noteCount))}
     ${railRow('documents', num(c.files.length))}
-    ${railRow('links believed at this moment', num(live))}
-    ${notNow > 0 ? railRow('links retired or not yet believed', num(notNow)) : ''}
+    ${railRow(voc.linksAtMoment, num(live))}
+    ${notNow > 0 ? railRow(voc.linksNotNow, num(notNow)) : ''}
     ${domKind ? railRow('mostly connected by', typeName(model.g.typeNames[domKind[0]]).toLowerCase()) : ''}
     ${c.isElse
-    ? `<div class="sb-map-note faint">small groups and loose notes pooled so the picture stays readable — nothing is hidden, it is all here</div>`
+    ? `<div class="sb-map-note faint">small groups and loose ${voc.items} pooled so the picture stays readable — nothing is hidden, it is all here</div>`
     : (c.dirLabel
       ? railRow('named after its folder', `holds ≥ 60% of its links`)
-      : railRow('named after its busiest note', 'no folder holds 60% of its links'))}
+      : railRow(`named after its busiest ${voc.item}`, 'no folder holds 60% of its links'))}
     ${capNote}${intraNote}
-    ${openBtn(fileRepId(c.hubFile), 'OPEN ITS BUSIEST NOTE IN THE LEDGER')}
-    <div class="sb-map-note faint">${M.expanded === ci ? 'click the group name again to fold it away' : 'click the group on the map to spread its notes'}</div>`;
+    ${openBtn(fileRepId(c.hubFile), `OPEN ITS BUSIEST ${voc.Item} IN THE LEDGER`)}
+    <div class="sb-map-note faint">${M.expanded === ci ? 'click the group name again to fold it away' : `click the group on the map to spread its ${voc.items}`}</div>`;
 }
 
 function railMember(f) {
   const id = fileRepId(f);
+  const voc = sbVocabNow();
   const meta = M.names.get(id) || {};
   const model = M.model;
   const notes = model.fg.fileSize[f];
@@ -1392,16 +1395,16 @@ function railMember(f) {
   const exploreBlock = ex
     ? (ex.error
       ? `<div class="sb-map-note">COULD NOT WALK FURTHER · ${esc(ex.error.slice(0, 120))}</div>`
-      : `<div class="sb-map-note accent">${num(ex.reached.size)} note${ex.reached.size === 1 ? '' : 's'} within ${num(ex.hops)} hop${ex.hops === 1 ? '' : 's'} · ${num(ex.calls)} walk${ex.calls === 1 ? '' : 's'} of 2 hops each${ex.clipped > 0 ? ` · ${num(ex.clipped)} starting notes past the per-walk cap wait for the next walk` : ''}</div>
+      : `<div class="sb-map-note accent">${num(ex.reached.size)} ${ex.reached.size === 1 ? voc.item : voc.items} within ${num(ex.hops)} hop${ex.hops === 1 ? '' : 's'} · ${num(ex.calls)} walk${ex.calls === 1 ? '' : 's'} of 2 hops each${ex.clipped > 0 ? ` · ${num(ex.clipped)} starting ${voc.items} past the per-walk cap wait for the next walk` : ''}</div>
          <div class="sb-map-note faint">depth comes from repeated 2-hop walks — the engine caps each walk at 2 hops, and this view says so instead of pretending otherwise</div>`)
     : '';
   return `
     <div class="sb-map-selname">${esc(meta.path ? meta.path.split('/').pop() : (meta.title || displayId(id)))}</div>
     ${meta.path ? `<div class="sb-map-note faint">${esc(meta.path)}</div>` : ''}
     ${meta.title && meta.path ? `<div class="sb-map-note">${esc(meta.title.slice(0, 90))}</div>` : ''}
-    ${notes > 1 ? railRow('notes inside (reading order)', num(notes)) : ''}
-    ${railRow('links believed at this moment', num(live))}
-    ${total > live ? railRow('links retired or not yet believed', num(total - live)) : ''}
+    ${notes > 1 ? railRow(`${voc.items} inside (reading order)`, num(notes)) : ''}
+    ${railRow(voc.linksAtMoment, num(live))}
+    ${total > live ? railRow(voc.linksNotNow, num(total - live)) : ''}
     ${openBtn(id, 'OPEN THE LEDGER · EVERY LINK, WITH WHAT TAUGHT IT')}
     <button type="button" class="text-btn sb-map-act" data-sb-map-explore${ex && ex.running ? ' disabled' : ''}>${ex ? (ex.running ? 'WALKING…' : 'WALK 2 MORE HOPS') : 'EXPLORE · WALK 2 HOPS FROM HERE'}</button>
     ${exploreBlock}`;
@@ -1417,12 +1420,12 @@ function railSatellite() {
   // Re-render only when names actually landed; hydrateNames settles
   // every asked-for id (hit or miss) and returns 0 once nothing is
   // new, so the render→hydrate→render chain cannot loop.
-  hydrateNames(listed.map(fileRepId), 'naming the notes in the satellite')
+  hydrateNames(listed.map(fileRepId), `naming the ${sbVocabNow().items} in the satellite`)
     .then((added) => { if (added) renderRail(); });
   const rows = listed.map((f) =>
     `<button type="button" class="sb-clink sb-map-satrow" data-sb-map-open="${esc(fileRepId(f))}">${esc(fileLabel(f, 40))}</button>`).join('');
   return `
-    <div class="sb-map-selname">+ ${num(md.satellite)} MORE NOTES</div>
+    <div class="sb-map-selname">+ ${num(md.satellite)} MORE ${sbVocabNow().Items}</div>
     <div class="sb-map-note">${listed.length < rest.length ? `FIRST ${num(listed.length)} OF ${num(rest.length)} · ` : ''}each opens its ledger below</div>
     <div class="sb-map-satlist">${rows}</div>`;
 }

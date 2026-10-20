@@ -1,0 +1,22 @@
+{
+ "corpus": "chang-yo--dela",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, canvas, pi queries this for how Chang-Yo/Dela implements it: Dela is an agent harness specially designed for SJTUer (selected work: src/renderer, src/main, src/shared)",
+ "repos": [
+  {
+   "repo": "Dela",
+   "url": "https://github.com/Chang-Yo/Dela",
+   "sha": "d2b1a1cd9929a48c4b9ca6c00a2b962b376ad660",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit d2b1a1cd9929: \"feat(chat): offer downloaded courseware as @ reference candidates\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

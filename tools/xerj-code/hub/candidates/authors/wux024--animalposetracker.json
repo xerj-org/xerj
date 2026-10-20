@@ -1,0 +1,22 @@
+{
+ "corpus": "wux024--animalposetracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how wux024/AnimalPoseTracker implements it: A cross-species animal pose decoding software package that integrates numerous features (selected work: animalposetracker, tools)",
+ "repos": [
+  {
+   "repo": "AnimalPoseTracker",
+   "url": "https://github.com/wux024/AnimalPoseTracker",
+   "sha": "a93560f0d4083635f16acc6b18a15f4b5cd885ec",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit a93560f0d408: \"Split nn/modules.py into conv.py and block.py; retire modules.py\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

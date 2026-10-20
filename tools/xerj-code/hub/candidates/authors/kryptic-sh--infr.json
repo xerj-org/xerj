@@ -1,0 +1,22 @@
+{
+ "corpus": "kryptic-sh--infr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how kryptic-sh/infr implements it: Pure-Rust, Vulkan-first LLM inference engine (selected work: crates/infr-plat)",
+ "repos": [
+  {
+   "repo": "infr",
+   "url": "https://github.com/kryptic-sh/infr",
+   "sha": "7c79a954172e9f5953767eaf129a7dad3bdc84d4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 7c79a954172e: \"fix(windows): budget remaining job memory\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "awa--go-iap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on amazonappstrore, iap, appstore queries this for how awa/go-iap implements it: go-iap verifies the purchase receipt via AppStore, GooglePlayStore, AmazonAppStore and Huawei HMS (selected work: appstore)",
+ "repos": [
+  {
+   "repo": "go-iap",
+   "url": "https://github.com/awa/go-iap",
+   "sha": "536d9a5bb546d3c076233023f6ff6afb57eef296",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 536d9a5bb546: \"feat(appstore): Added the Get Customer Groups and Get Group Members e\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

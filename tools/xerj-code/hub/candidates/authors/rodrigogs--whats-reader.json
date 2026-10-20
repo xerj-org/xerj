@@ -1,0 +1,22 @@
+{
+ "corpus": "rodrigogs--whats-reader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai, backup, bookmarks queries this for how rodrigogs/whats-reader implements it: Browse WhatsApp chat exports offline with AI-powered voice transcription. Privacy-first desktop/web app with bookmarks, search, and statisti (selected work: src/lib, tests, src/routes)",
+ "repos": [
+  {
+   "repo": "whats-reader",
+   "url": "https://github.com/rodrigogs/whats-reader",
+   "sha": "f30be133118b1ee0f2ebb592a729a590b4cbfefc",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit f30be133118b: \"feat(chat): open chat images and stickers in the media lightbox (GH-9\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

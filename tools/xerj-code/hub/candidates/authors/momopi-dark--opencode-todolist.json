@@ -1,0 +1,22 @@
+{
+ "corpus": "momopi-dark--opencode-todolist",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how MomoPi-Dark/opencode-todolist implements it: Hierarchical todo list plugin for OpenCode with a real-time TUI widget (selected work: src/todos, src, src/storage)",
+ "repos": [
+  {
+   "repo": "opencode-todolist",
+   "url": "https://github.com/MomoPi-Dark/opencode-todolist",
+   "sha": "5a97c40198fd81aa4bc634a3c6988bc7fddd6c95",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 5a97c40198fd: \"refactor(todos): extract scoped read module and centralize order vali\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

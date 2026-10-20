@@ -1,0 +1,22 @@
+{
+ "corpus": "getsentry--sentry-options",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on tag-production queries this for how getsentry/sentry-options implements it: Enabling runtime options for any Sentry service (selected work: sentry-options-cli)",
+ "repos": [
+  {
+   "repo": "sentry-options",
+   "url": "https://github.com/getsentry/sentry-options",
+   "sha": "96d38cec4ca6f1362fe247c01f8b8b70d29a18c6",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 96d38cec4ca6: \"feat(cli): Diff command for options values [DI-1638] (#194)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

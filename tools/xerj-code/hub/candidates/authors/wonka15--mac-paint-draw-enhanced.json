@@ -1,0 +1,22 @@
+{
+ "corpus": "wonka15--mac-paint-draw-enhanced",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Wonka15/Mac-Paint-Draw-Enhanced- implements it: A Free Mac Paint Enhanced (selected work: the project root, scripts)",
+ "repos": [
+  {
+   "repo": "Mac-Paint-Draw-Enhanced-",
+   "url": "https://github.com/Wonka15/Mac-Paint-Draw-Enhanced-",
+   "sha": "506402a948f8b935ea5d52399e873c90deffaf66",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 506402a948f8: \"Fix Corvette Indiglo mode and radio\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

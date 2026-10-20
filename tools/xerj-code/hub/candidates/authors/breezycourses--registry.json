@@ -1,0 +1,22 @@
+{
+ "corpus": "breezycourses--registry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Rust queries this for how breezycourses/registry implements it: A single-binary OCI container registry (with retention policies!) (selected work: src)",
+ "repos": [
+  {
+   "repo": "registry",
+   "url": "https://github.com/breezycourses/registry",
+   "sha": "6643a1a39d5b3f428978552a57ef044179bbcac9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 6643a1a39d5b: \"fix(gc): serialize cache unlinks with blob commits and stream the walk\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "rohan-prasen--audioreconstruction",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on audio, deeplearning, gan queries this for how rohan-prasen/audioreconstruction implements it: An adversarial neural network that restores the high fidelity audio lost during lossy compression (selected work: frontend, the project root)",
+ "repos": [
+  {
+   "repo": "audioreconstruction",
+   "url": "https://github.com/rohan-prasen/audioreconstruction",
+   "sha": "a0b339b3fabcbcb70f381010855397bd8c07a430",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit a0b339b3fabc: \"[ui] polish the frontend react webapp ui (#53)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "primebuild-pc--lightcrosshair",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on crosshair, gaming, light queries this for how PrimeBuild-pc/LightCrosshair implements it: \ud83c\udfaf Lightweight, customizable crosshair overlay for competitive gaming on Windows (selected work: LightCrosshair, LightCrosshair.Tests, scripts)",
+ "repos": [
+  {
+   "repo": "LightCrosshair",
+   "url": "https://github.com/PrimeBuild-pc/LightCrosshair",
+   "sha": "488b083026627453170fe931064ba89615e7e543",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 488b08302662: \"feat: add independent monitor targeting\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

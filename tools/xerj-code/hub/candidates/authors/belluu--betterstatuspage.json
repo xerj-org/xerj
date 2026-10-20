@@ -1,0 +1,22 @@
+{
+ "corpus": "belluu--betterstatuspage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how BElluu/BetterStatusPage implements it: A self-hosted status page that doesn't make you cry (selected work: apps/api, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "BetterStatusPage",
+   "url": "https://github.com/BElluu/BetterStatusPage",
+   "sha": "aaeaeb306a749f97be2b417e74995d82ae27afb3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit aaeaeb306a74: \"fix: make db:migrate and db:seed work again, build only changed share\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

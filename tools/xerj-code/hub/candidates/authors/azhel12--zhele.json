@@ -1,0 +1,22 @@
+{
+ "corpus": "azhel12--zhele",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cpp20, modern-cpp, stm32 queries this for how azhel12/Zhele implements it: Framework for Stm32 MCU on C++ templates. Project based on \"mcucpp\" by Konstantin Chizhov (selected work: include, example)",
+ "repos": [
+  {
+   "repo": "Zhele",
+   "url": "https://github.com/azhel12/Zhele",
+   "sha": "a89e1d207b08599aa57ac7c8c388fb87e7f24e76",
+   "licence": "hint only: BSD-2-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-2-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit a89e1d207b08: \"Minor fixes for G4, added G4 to examples\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

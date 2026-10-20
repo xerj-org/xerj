@@ -1,0 +1,22 @@
+{
+ "corpus": "alleyinteractive--wp-rest-api-guard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on rest-api, wordpress, wordpress-plugin queries this for how alleyinteractive/wp-rest-api-guard implements it: Restrict and control access to the REST API (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "wp-rest-api-guard",
+   "url": "https://github.com/alleyinteractive/wp-rest-api-guard",
+   "sha": "90319be5a139d5bde46983843bcbe9bb4f14afec",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 90319be5a139: \"Track and revoke JWTs, send nocache headers, release 1.5.0\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

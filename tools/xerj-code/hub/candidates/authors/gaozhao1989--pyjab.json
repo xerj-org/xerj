@@ -1,0 +1,22 @@
+{
+ "corpus": "gaozhao1989--pyjab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on java, jab, javaaccessbridge queries this for how gaozhao1989/pyjab implements it: Python implementation for Java application UI automation with Java Access Bridge (selected work: tests, tools, the project root)",
+ "repos": [
+  {
+   "repo": "pyjab",
+   "url": "https://github.com/gaozhao1989/pyjab",
+   "sha": "37a23509ba2d5a614896a9ee9a85d7c3140477b1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 37a23509ba2d: \"Nothing local goes public: guard what a list cannot (#247)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

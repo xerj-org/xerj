@@ -1,0 +1,22 @@
+{
+ "corpus": "comwanga--pactagent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how comwanga/pactagent implements it: Open-source framework for bounded economic agents to discover, coordinate private work, and settle using Nostr and Cashu (selected work: src/lib)",
+ "repos": [
+  {
+   "repo": "pactagent",
+   "url": "https://github.com/comwanga/pactagent",
+   "sha": "b49edae2ce3e3453beebbc90e429cf477b1901e7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit b49edae2ce3e: \"fix(demo): reclaim expired funded escrows to free exposure\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

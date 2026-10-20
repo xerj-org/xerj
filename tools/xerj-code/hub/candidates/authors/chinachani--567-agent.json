@@ -1,0 +1,22 @@
+{
+ "corpus": "chinachani--567-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Chinachani/567-agent implements it: Chinachani/567-agent (TypeScript) (selected work: packages/plugins, apps/desktop, packages/coding-agent)",
+ "repos": [
+  {
+   "repo": "567-agent",
+   "url": "https://github.com/Chinachani/567-agent",
+   "sha": "4f692c7447612629d661c9a16f49dea5aafa5d31",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4f692c744761: \"feat(client): \u5b8c\u5584 1.x \u66f4\u65b0\u4f53\u9a8c\u4e0e\u98ce\u683c\u5e93\u9884\u89c8\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

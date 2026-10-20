@@ -1,0 +1,22 @@
+{
+ "corpus": "koala73--worldmonitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, dashboard, geopolitics queries this for how koala73/worldmonitor implements it: Real-time global intelligence dashboard. AI-powered news aggregation, geopolitical monitoring, and infrastructure tracking in a unified situ (selected work: tests, src/components, src)",
+ "repos": [
+  {
+   "repo": "worldmonitor",
+   "url": "https://github.com/koala73/worldmonitor",
+   "sha": "f32e4dff321db3f6a44fdb2b31f00320938d5e92",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f32e4dff321d: \"feat(markets): SEC Material Events panel \u2014 first dashboard surface fo\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

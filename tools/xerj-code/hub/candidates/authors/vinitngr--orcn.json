@@ -1,0 +1,22 @@
+{
+ "corpus": "vinitngr--orcn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on TypeScript queries this for how vinitngr/Orcn implements it: Open-source compute orchestration platform for deploying AI models and workloads across heterogeneous infrastructure (selected work: runtimes, apps/console)",
+ "repos": [
+  {
+   "repo": "Orcn",
+   "url": "https://github.com/vinitngr/Orcn",
+   "sha": "f0f381b4044939a3e90924bf78aa80358250baed",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f0f381b40449: \"fix(vllm): improve validation and handle invalid configurations\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

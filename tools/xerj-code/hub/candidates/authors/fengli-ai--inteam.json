@@ -1,0 +1,22 @@
+{
+ "corpus": "fengli-ai--inteam",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, dify, enterprise-ai queries this for how FengLi-AI/InTeam implements it: \u9762\u5411\u4e2d\u5c0f\u4f01\u4e1a\u7684\u4f01\u4e1a\u77e5\u8bc6\u95ee\u7b54\u4e0e\u529e\u516c\u4efb\u52a1 Agent\uff1a\u652f\u6301 RAG \u77e5\u8bc6\u95ee\u7b54\u3001\u9884\u7f6e\u4f01\u5212/\u65b9\u6848/\u62a5\u4ef7\u5355\u7b49\u591a\u6b65\u9aa4\u5de5\u4f5c\u6d41\uff0cAgent \u81ea\u4e3b\u68c0\u7d22\u8d44\u6599\u5e76\u751f\u6210\u6750\u6599\uff0c\u5173\u952e\u884c\u52a8\u7ecf\u7528\u6237\u786e\u8ba4\u3002 (selected work: backend, frontend, dify)",
+ "repos": [
+  {
+   "repo": "InTeam",
+   "url": "https://github.com/FengLi-AI/InTeam",
+   "sha": "ac63fe02d995b24e8c4e77d5815b125b57d219e6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit ac63fe02d995: \"feat: add bounded task preparation agent and repair Dify retrieval\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

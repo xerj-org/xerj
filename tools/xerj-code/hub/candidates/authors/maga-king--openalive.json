@@ -1,0 +1,22 @@
+{
+ "corpus": "maga-king--openalive",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how Maga-King/OpenAlive implements it: \u628a Flyme Alive \u7684\u8fde\u8d2f\u52a8\u753b\u5e26\u5230 ColorOS\uff0c\u8ba9\u606f\u5c4f\u3001\u9501\u5c4f\u548c\u684c\u9762\u63a5\u8d77\u6765\u3002 (selected work: app/java, tests, tools)",
+ "repos": [
+  {
+   "repo": "OpenAlive",
+   "url": "https://github.com/Maga-King/OpenAlive",
+   "sha": "eb196ad74756797adf5494825eb76f252f4e241c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit eb196ad74756: \"Fix authenticated wallpaper handoff and verify 0.4.38 release checksums\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

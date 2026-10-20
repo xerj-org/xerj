@@ -1,0 +1,22 @@
+{
+ "corpus": "beesyst--beejsp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on formal-verification, lean, lean4 queries this for how beesyst/beejsp implements it: Reproducible Lean formalization for mathematical problems (selected work: scripts, the project root, proofs)",
+ "repos": [
+  {
+   "repo": "beejsp",
+   "url": "https://github.com/beesyst/beejsp",
+   "sha": "d95714b170b3ad92a60a5baffd63d86460cfa7a5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d95714b170b3: \"feat: bootstrap BeeJSP repository foundation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "rbenaley--vauban",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on bastion, rust, security queries this for how rbenaley/Vauban implements it: A fortified bastion (PAM) designed to protect and control access to organization computing assets. Goal: deliver a unique free and open-sour (selected work: shared, the project root, vauban-proxy-rdp)",
+ "repos": [
+  {
+   "repo": "Vauban",
+   "url": "https://github.com/rbenaley/Vauban",
+   "sha": "848b088d2958d4ba748f9cf239841956fad5a80e",
+   "licence": "hint only: BSD-2-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-2-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 848b088d2958: \"test(just): shorten validate and keep parallel tests stable\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

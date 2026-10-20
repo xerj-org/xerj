@@ -1,0 +1,22 @@
+{
+ "corpus": "bobbyesp--docucraft",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, document-management, document-processing queries this for how BobbyESP/Docucraft implements it: Scan, organize and read your documents. All of it on your device. Android app with full-text search, text recognition (OCR) and no watermark (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "Docucraft",
+   "url": "https://github.com/BobbyESP/Docucraft",
+   "sha": "e4e245fe544fff852175dfc9be0a88b6968ea5f9",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit e4e245fe544f: \"feat(widget): enhance recent documents widget and add scan widget views\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

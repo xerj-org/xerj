@@ -124,6 +124,7 @@
     "verdict": "PASS"
    },
    "lane": "A",
+   "note": "Withdrawn 2026-10-17: the pinned repository https://github.com/xerj-org/corpus-rust-vulns-txt returns HTTP 404, so the hub-packs backfill cannot build it (benchmarks/hub-backfill/PREFLIGHT.md). Rebuild the mirror and re-pin to restore it.",
    "refresh": "weekly",
    "slug": "rustsec-advisories",
    "sources": [
@@ -136,7 +137,7 @@
      "url": "https://github.com/rust-lang/crates.io/ (OSV export via osv.dev)"
     }
    ],
-   "status": "live",
+   "status": "withdrawn",
    "tags": {
     "region": "GLOBAL",
     "topics": [
@@ -644,6 +645,7 @@
     "verdict": "PASS"
    },
    "lane": "A",
+   "note": "Withdrawn 2026-10-17: the pinned repository https://github.com/xerj-org/corpus-ietf-rfc-abstracts returns HTTP 404, so the hub-packs backfill cannot build it (benchmarks/hub-backfill/PREFLIGHT.md). Rebuild the mirror and re-pin to restore it.",
    "refresh": "pinned",
    "slug": "ietf-rfc-abstracts",
    "sources": [
@@ -652,7 +654,7 @@
      "url": "https://www.rfc-editor.org/rfc/rfc-txt.tar.gz"
     }
    ],
-   "status": "live",
+   "status": "withdrawn",
    "superseded_by": "ietf-rfc-abstracts",
    "tags": {
     "region": "GLOBAL",
@@ -1433,6 +1435,7 @@
     "verdict": "PASS"
    },
    "lane": "A",
+   "note": "Withdrawn 2026-10-17: the pinned repository https://github.com/xerj-org/corpus-redos-precedent returns HTTP 404, so the hub-packs backfill cannot build it (benchmarks/hub-backfill/PREFLIGHT.md). Rebuild the mirror and re-pin to restore it.",
    "refresh": "weekly",
    "slug": "redos-precedent",
    "sources": [
@@ -1441,7 +1444,7 @@
      "url": "curated from GHSA/RUSTSEC/PYSEC ReDoS-class advisories"
     }
    ],
-   "status": "live",
+   "status": "withdrawn",
    "tags": {
     "region": "GLOBAL",
     "topics": [
@@ -1465,7 +1468,7 @@
      "url": "curated from advisory databases by CWE class"
     }
    ],
-   "status": "live",
+   "status": "withdrawn",
    "tags": {
     "region": "GLOBAL",
     "topics": [
@@ -13252,6 +13255,52 @@
    }
   },
   {
+   "cat": "API",
+   "domain": "An agent writing Swift queries this for The Swift Programming Language book: syntax and semantics of concurrency (async/await, async let, actors), generics, optionals, error handling and the language reference grammar.",
+   "lane": "A",
+   "refresh": "weekly",
+   "slug": "swift-book",
+   "sources": [
+    {
+     "licence_hint": "Apache-2.0",
+     "url": "https://github.com/swiftlang/swift-book"
+    }
+   ],
+   "status": "live",
+   "tags": {
+    "region": "GLOBAL",
+    "topics": [
+     "swift",
+     "language-guide",
+     "concurrency",
+     "language-reference"
+    ]
+   }
+  },
+  {
+   "cat": "API",
+   "domain": "An agent writing Swift queries this for the accepted Swift Evolution proposals (SE-NNNN): the motivation, exact semantics and API of language and standard-library features such as Result, async let, typed throws and macros.",
+   "lane": "A",
+   "refresh": "weekly",
+   "slug": "swift-evolution",
+   "sources": [
+    {
+     "licence_hint": "Apache-2.0",
+     "url": "https://github.com/swiftlang/swift-evolution"
+    }
+   ],
+   "status": "live",
+   "tags": {
+    "region": "GLOBAL",
+    "topics": [
+     "swift",
+     "evolution-proposals",
+     "stdlib",
+     "language-design"
+    ]
+   }
+  },
+  {
    "cat": "AI",
    "domain": "an agent building reusable content-production skills queries this for skill installation and routing validation, audio-locked video story contracts, SRT generation, and code-rendered video QA",
    "lane": "A",
@@ -13259,11 +13308,11 @@
    "slug": "cs-skills",
    "sources": [
     {
-     "licence_hint": "MIT; automated inspection in cs-skills.json, human review pending",
+     "licence_hint": "MIT at c2a8989a58d15d8335346b54246d00fe2d0d0e8f; automated inspection only, human G4 review pending. See hub/drafts/cs-skills.json. Promotion also requires a verified text/code-only source or pack that excludes bundled media and character/brand assets; the full upstream checkout is not approved for redistribution.",
      "url": "https://github.com/ChenShuo2004/cs-skills"
     }
    ],
-   "status": "live",
+   "status": "candidate",
    "tags": {
     "region": "GLOBAL",
     "topics": [

@@ -1,0 +1,22 @@
+{
+ "corpus": "alibaba--atrex-kernel-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agentic-workflow, autoresearch queries this for how alibaba/atrex-kernel-agent implements it: An end-to-end agent project for GPU kernel implementation, analysis, profiling, and iterative optimization. It helps an agent turn PyTorch l (selected work: orchestrator, tools, long_horizon)",
+ "repos": [
+  {
+   "repo": "atrex-kernel-agent",
+   "url": "https://github.com/alibaba/atrex-kernel-agent",
+   "sha": "7247206287ef2747342eccb89421fa4606368e2d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 7247206287ef: \"Skip production source checks for multi-GPU Agate evaluations (#112)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

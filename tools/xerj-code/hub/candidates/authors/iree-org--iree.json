@@ -1,0 +1,22 @@
+{
+ "corpus": "iree-org--iree",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on mlir, vulkan, tensorflow queries this for how iree-org/iree implements it: A retargetable MLIR-based machine learning compiler and runtime toolkit (selected work: runtime, compiler)",
+ "repos": [
+  {
+   "repo": "iree",
+   "url": "https://github.com/iree-org/iree",
+   "sha": "17fb04de33a91c8d2ddc69bee6ca7990d75b2407",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 17fb04de33a9: \"[HAL] Add command buffer flush and invalidate operations (#24945)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

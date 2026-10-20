@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--nutch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on java, nutch, web-crawler queries this for how apache/nutch implements it: Apache Nutch is an extensible and scalable web crawler (selected work: src/java, src/plugin, conf)",
+ "repos": [
+  {
+   "repo": "nutch",
+   "url": "https://github.com/apache/nutch",
+   "sha": "d877b42aa75ae27f180c68999fc11dab89952f41",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit d877b42aa75a: \"NUTCH-3215 Remove trailing whitespace reported by Yetus blanks on mas\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

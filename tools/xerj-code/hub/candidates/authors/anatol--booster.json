@@ -1,0 +1,22 @@
+{
+ "corpus": "anatol--booster",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on linux, boot, initramfs queries this for how anatol/booster implements it: Fast and secure initramfs generator (selected work: init, tests)",
+ "repos": [
+  {
+   "repo": "booster",
+   "url": "https://github.com/anatol/booster",
+   "sha": "97597a5334516625c2883f115d74722ef2c96070",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 97597a533451: \"init: name every setting a device's second source lost\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

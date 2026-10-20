@@ -77,6 +77,14 @@ pub(crate) fn parse_note(note: &str) -> (u64, u64, Option<u64>) {
 
 /// Pull search events out of the audit snapshot (`{entries: [...]}`),
 /// separating the user's searches from autoindex's machine traffic.
+///
+/// Two sources of truth, in order (#1109): an entry carrying the server-set
+/// `actor` field is classified by it — the server derived the class from the
+/// request itself at append time, which a client cannot influence; entries
+/// written by a binary older than #1109 carry no `actor`, and for those the
+/// note/resource heuristics below remain the (only) derivation. The two agree
+/// on everything the heuristics could see; the field's value is that it is
+/// authoritative rather than inferred.
 pub(crate) fn search_events(audit: &Value) -> SearchWindow {
     let mut out = SearchWindow::default();
     let Some(entries) = audit.get("entries").and_then(Value::as_array) else {
@@ -93,13 +101,35 @@ pub(crate) fn search_events(audit: &Value) -> SearchWindow {
             .to_string();
         let note = e.get("note").and_then(Value::as_str).unwrap_or("");
         let (took_ms, hits, size) = parse_note(note);
-        if size == Some(0) {
-            out.counting_probes += 1;
-            continue;
-        }
-        if resource == "autoindex-catalog" {
-            out.catalog_sweeps += 1;
-            continue;
+        match e.get("actor").and_then(Value::as_str) {
+            // Written by a post-#1109 server: trust the server-side class.
+            // Within "machine", keep the probe/sweep split for the honesty
+            // line: the two machine classes are exactly size:0 probes and
+            // catalog sweeps, so the size alone disambiguates them.
+            Some("machine") => {
+                if size == Some(0) {
+                    out.counting_probes += 1;
+                } else {
+                    out.catalog_sweeps += 1;
+                }
+                continue;
+            }
+            Some(_) => {}
+            // No actor field: a log written before #1109. The note/resource
+            // heuristics that shipped with #1105 stay as the legacy
+            // derivation — an old log read by a new client must still
+            // separate machine traffic, or every upgraded install would
+            // report a hit-rate dip that is really a version skew.
+            None => {
+                if size == Some(0) {
+                    out.counting_probes += 1;
+                    continue;
+                }
+                if resource == crate::catalog::CATALOG_INDEX {
+                    out.catalog_sweeps += 1;
+                    continue;
+                }
+            }
         }
         out.user.push(SearchEvent {
             index: resource,
@@ -168,7 +198,7 @@ pub fn run_gain_cli() -> i32 {
         .unwrap_or_else(|| "http://localhost:9200".to_string());
     let mut api_key = std::env::var("XERJ_API_KEY").ok().filter(|s| !s.is_empty());
     let mut as_json = false;
-    let mut it = std::env::args().skip(2);
+    let mut it = xerj_common::argv::args_after_subcommand().into_iter();
     while let Some(a) = it.next() {
         match a.as_str() {
             "-h" | "--help" => {
@@ -408,7 +438,9 @@ mod tests {
     fn counting_probes_and_catalog_sweeps_are_not_user_searches() {
         // #1105, verbatim from the rc.80 harness run: 179 size-0 verification
         // probes on the dataset index, catalog reconcile sweeps, three real
-        // searches — gain must report the three.
+        // searches — gain must report the three. These entries carry no
+        // `actor` field (pre-#1109 shape), so they also pin the legacy
+        // note/resource derivation an upgraded client reads an old log with.
         let probe = |hits: u64| {
             json!({ "op": "search", "subject": "superuser", "resource": "ax-docs",
                     "outcome": "ok", "note": format!("took=0ms hits={hits} size=0") })
@@ -430,6 +462,66 @@ mod tests {
         assert_eq!(s["searches"], 3);
         assert_eq!(s["with_hits"], 3);
         assert_eq!(s["hit_rate"], 100.0);
+    }
+
+    /// #1109: entries written by a post-#1109 server carry the server-set
+    /// `actor` field, and THAT classifies — not the note heuristics. This is
+    /// the anti-spoof half of the feature living where its consumer reads it:
+    /// the classification was derived from the request itself at append time,
+    /// so a note that says `size=10` on machine traffic (or vice versa) is
+    /// data, not a verdict.
+    #[test]
+    fn actor_field_is_authoritative_when_present() {
+        let a = audit(vec![
+            // Machine by the field, and the note would agree — normal case.
+            json!({ "op": "search", "subject": "superuser", "resource": "ax-docs",
+                    "outcome": "ok", "actor": "machine",
+                    "note": "took=0ms hits=0 size=0" }),
+            // Machine by the field with a note the legacy heuristic could NOT
+            // parse a class from (no size, data index): still excluded, split
+            // into catalog_sweeps as the non-probe machine class.
+            json!({ "op": "search", "subject": "superuser", "resource": "ax-docs",
+                    "outcome": "ok", "actor": "machine",
+                    "note": "took=1ms hits=5" }),
+            // User by the field even where the heuristic would have said
+            // machine: a post-#1109 server never writes this combination, and
+            // pinning that the field wins is what makes one classifier — the
+            // server's — authoritative instead of two half-trusted ones.
+            json!({ "op": "search", "subject": "superuser", "resource": "ax-docs",
+                    "outcome": "ok", "actor": "user",
+                    "note": "took=2ms hits=1 size=0" }),
+        ]);
+        let w = search_events(&a);
+        assert_eq!(w.user.len(), 1);
+        assert_eq!(w.user[0].hits, 1);
+        assert_eq!(w.counting_probes, 1);
+        assert_eq!(w.catalog_sweeps, 1);
+    }
+
+    /// A mixed-version audit window — an upgraded install whose ring still
+    /// holds pre-#1109 entries — must classify both halves correctly in one
+    /// pass: the fieldless tail by the legacy derivation, the new head by the
+    /// field.
+    #[test]
+    fn mixed_version_log_classifies_both_halves() {
+        let a = audit(vec![
+            // Old-shape entry (no actor): heuristic must still exclude it.
+            json!({ "op": "search", "subject": "superuser", "resource": "ax-docs",
+                    "outcome": "ok", "note": "took=0ms hits=0 size=0" }),
+            // New-shape machine entry.
+            json!({ "op": "search", "subject": "superuser", "resource": "autoindex-catalog",
+                    "outcome": "ok", "actor": "machine",
+                    "note": "took=0ms hits=40 size=100" }),
+            // New-shape user entry.
+            json!({ "op": "search", "subject": "superuser", "resource": "ax-docs",
+                    "outcome": "ok", "actor": "user",
+                    "note": "took=8ms hits=4 size=10" }),
+        ]);
+        let w = search_events(&a);
+        assert_eq!(w.user.len(), 1);
+        assert_eq!(w.user[0].took_ms, 8);
+        assert_eq!(w.counting_probes, 1, "the legacy entry");
+        assert_eq!(w.catalog_sweeps, 1, "the fielded entry");
     }
 
     #[test]

@@ -1,0 +1,22 @@
+{
+ "corpus": "strangedoctor073-alt--ai-pr-reviewer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, claude, code-review queries this for how strangedoctor073-alt/ai-pr-reviewer implements it: AI-powered GitHub PR reviews with validated inline findings, security guardrails, and a deterministic fallback (selected work: tests, ai_pr_reviewer, dashboard)",
+ "repos": [
+  {
+   "repo": "ai-pr-reviewer",
+   "url": "https://github.com/strangedoctor073-alt/ai-pr-reviewer",
+   "sha": "bee3629858f3b398f8bed0052a1e76d218bc3b6a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit bee3629858f3: \"fix: redact legacy findings and harden output boundaries\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

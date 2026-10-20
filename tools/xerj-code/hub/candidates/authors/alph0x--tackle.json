@@ -1,0 +1,22 @@
+{
+ "corpus": "alph0x--tackle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how alph0x/Tackle implements it: Durable plans that survive handoffs \u2014 then work the plan, point by point (selected work: eval)",
+ "repos": [
+  {
+   "repo": "Tackle",
+   "url": "https://github.com/alph0x/Tackle",
+   "sha": "b6f1c06bc0e73737b3b13da08311403a58d014fd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit b6f1c06bc0e7: \"Publish the held-out final-consent cohort\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

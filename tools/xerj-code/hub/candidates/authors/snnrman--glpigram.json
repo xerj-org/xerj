@@ -1,0 +1,22 @@
+{
+ "corpus": "snnrman--glpigram",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on glpi, helpdesk, telegrambot queries this for how snnrman/glpigram implements it: GLPIgram \u2014 Telegram bot for GLPI 11 helpdesk: tickets, notifications, technician workflow (selected work: bot, tests)",
+ "repos": [
+  {
+   "repo": "glpigram",
+   "url": "https://github.com/snnrman/glpigram",
+   "sha": "e98023b50ab2583cb7508d823c3e94dc571cd08e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit e98023b50ab2: \"fix(access): preserve Claude approver cards and decision history\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

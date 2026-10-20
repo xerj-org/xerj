@@ -1,0 +1,22 @@
+{
+ "corpus": "jkeskikangas--pi-actors",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how jkeskikangas/pi-actors implements it: Subagents for pi, built like Erlang processes: spawn fresh or forked children on any model, message them, get their reports pushed back (selected work: model, test, src/client)",
+ "repos": [
+  {
+   "repo": "pi-actors",
+   "url": "https://github.com/jkeskikangas/pi-actors",
+   "sha": "e2bbb320ef293f6d1410b050235f56cf4dfde27a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit e2bbb320ef29: \"pi-actors 0.2.7: one connection's ops apply in arrival order; clients\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

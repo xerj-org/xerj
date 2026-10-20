@@ -1,0 +1,22 @@
+{
+ "corpus": "bkojha74--global-wallet-microservices",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Go queries this for how bkojha74/global-wallet-microservices implements it: bkojha74/global-wallet-microservices (Go) (selected work: pkg/resilience, cmd/wallet-service, cmd/fx-service)",
+ "repos": [
+  {
+   "repo": "global-wallet-microservices",
+   "url": "https://github.com/bkojha74/global-wallet-microservices",
+   "sha": "05c02c2ad6b38b495eee84d287257223b148c265",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 05c02c2ad6b3: \"feat(resilience): implement Pillar 3 circuit breaking, FX stale fallb\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

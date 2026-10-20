@@ -1,0 +1,22 @@
+{
+ "corpus": "zhanglun--lettura",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on rss, rss-reader, rust queries this for how zhanglun/lettura implements it: another rss reader (selected work: apps/desktop)",
+ "repos": [
+  {
+   "repo": "lettura",
+   "url": "https://github.com/zhanglun/lettura",
+   "sha": "45ae00ff41d0aa208dc9090df4f250af47b5948d",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 45ae00ff41d0: \"feat(fusion): \u9605\u8bfb\u6539\u4e3a\u539f\u4f4d\u62bd\u5c49 + \u5217\u8868\u56de\u5f52\u7eaf\u6587\u672c\u884c\u2014\u2014\u65f6\u95f4\u5206\u7ec4 A\u2032 \u4fee\u7f2e\u4e00\u5e76\u843d\u5730\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

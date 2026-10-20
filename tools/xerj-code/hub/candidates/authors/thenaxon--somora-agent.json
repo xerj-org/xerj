@@ -1,0 +1,22 @@
+{
+ "corpus": "thenaxon--somora-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-framework, ai-agents, chatgpt queries this for how thenaxon/somora_agent implements it: Your personal AI team that gets things done. Shared memory. Any model. Local or cloud. Run. Rest. Dream. \ud83d\udc28 (selected work: src/server, src/engine, web)",
+ "repos": [
+  {
+   "repo": "somora_agent",
+   "url": "https://github.com/thenaxon/somora_agent",
+   "sha": "0c4144aa498811b145aa9e8d649e61f88d688032",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit 0c4144aa4988: \"compact by hand: /compact [what to keep] in the TUI and web chat, \"Co\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

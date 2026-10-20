@@ -1,0 +1,22 @@
+{
+ "corpus": "typephp-php--typephp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how typephp-php/typephp implements it: Pure PHP Transparent Runtime Enforcement of PHPdoctype, with support for generics, type-arrays, (selected work: src/Internal, tests)",
+ "repos": [
+  {
+   "repo": "typephp",
+   "url": "https://github.com/typephp-php/typephp",
+   "sha": "ff564652485bea97b9e37d6a08039df15de5df75",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit ff564652485b: \"Refactor and enhance member assignment validation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

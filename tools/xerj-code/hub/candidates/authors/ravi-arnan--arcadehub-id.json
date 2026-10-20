@@ -1,0 +1,22 @@
+{
+ "corpus": "ravi-arnan--arcadehub-id",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on community, google-cloud-arcade, indonesia queries this for how ravi-arnan/arcadehub-id implements it: Tracker poin Google Cloud Arcade Fasilitator 2026. Hitung poin otomatis dari profil Cloud Skills Boost. React + Vite. Live: arcadehub-id.ver (selected work: lib, scripts, api)",
+ "repos": [
+  {
+   "repo": "arcadehub-id",
+   "url": "https://github.com/ravi-arnan/arcadehub-id",
+   "sha": "52e408290f8c0fc36170df028b936ed865e9e61b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 52e408290f8c: \"feat(db): siapkan migrasi Neon ke Turso di branch terpisah\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

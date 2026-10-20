@@ -1,0 +1,22 @@
+{
+ "corpus": "xiaoyu98628--docker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Dockerfile queries this for how xiaoyu98628/docker implements it: \u5b58\u653e\u5404\u79cddocker image\u6784\u5efa\u811a\u672c\u6216\u8005\u5feb\u901f\u542f\u52a8\u7684docker-compose\u6587\u4ef6\u3002 (selected work: mysql)",
+ "repos": [
+  {
+   "repo": "docker",
+   "url": "https://github.com/xiaoyu98628/docker",
+   "sha": "ff02eb9612cc396ebc53fdd1abf811d1d6a2a6e3",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ff02eb9612cc: \"feat(mysql): \u6dfb\u52a0 MySQL 26 \u7248\u672c\u7684 Docker \u652f\u6301\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

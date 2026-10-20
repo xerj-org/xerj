@@ -1,0 +1,22 @@
+{
+ "corpus": "awolverp--cachebox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cache, cachebox, caching queries this for how awolverp/cachebox implements it: The fastest memoizing and caching Python library written in Rust (selected work: cachebox, tests, the project root)",
+ "repos": [
+  {
+   "repo": "cachebox",
+   "url": "https://github.com/awolverp/cachebox",
+   "sha": "b4f7ae20a5c44749719344acf13cbc71f480813c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit b4f7ae20a5c4: \"Fix lint warnings, add ruff and mypy as `lint` dependency\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "cobble-project--cobble-flink",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Java queries this for how cobble-project/cobble-flink implements it: A unified storage layer for Apache Flink that makes state and sink data disaggregated, observable, and consumable (selected work: cobble-state-bench)",
+ "repos": [
+  {
+   "repo": "cobble-flink",
+   "url": "https://github.com/cobble-project/cobble-flink",
+   "sha": "9beb04366f54fcb4884517c800cb9474de5fe3be",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 9beb04366f54: \"test: train adaptive memtables using benchmark read methods\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

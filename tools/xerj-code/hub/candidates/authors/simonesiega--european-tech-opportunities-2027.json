@@ -1,0 +1,22 @@
+{
+ "corpus": "simonesiega--european-tech-opportunities-2027",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on internship, nextjs, career queries this for how simonesiega/european-tech-opportunities-2027 implements it: Your open-source hub for 2027 tech internships and New Grad opportunities across Europe (selected work: tests, src/opportunities)",
+ "repos": [
+  {
+   "repo": "european-tech-opportunities-2027",
+   "url": "https://github.com/simonesiega/european-tech-opportunities-2027",
+   "sha": "df7b7989466f11c9bfc1aca273693468bd2b5d4e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit df7b7989466f: \"feat: publish validated partial collections and rotate searches (#236)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

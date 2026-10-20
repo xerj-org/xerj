@@ -1,0 +1,22 @@
+{
+ "corpus": "tinle0301--coffee-pos-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Tinle0301/coffee-pos-system implements it: Tinle0301/coffee-pos-system (JavaScript) (selected work: backend, supabase)",
+ "repos": [
+  {
+   "repo": "coffee-pos-system",
+   "url": "https://github.com/Tinle0301/coffee-pos-system",
+   "sha": "11ce8565d6329d30d97d6c1f85598f0c5ddf529c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 11ce8565d632: \"POS-16: Row level security on payments and immutable transaction logs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

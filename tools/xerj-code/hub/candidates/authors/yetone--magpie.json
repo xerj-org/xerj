@@ -1,0 +1,22 @@
+{
+ "corpus": "yetone--magpie",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, codex, deepseek queries this for how yetone/magpie implements it: Every agent's model. One place. Codex on DeepSeek, Claude Code on Kimi, from the menu bar (selected work: internal/agent, internal/edit, internal/library)",
+ "repos": [
+  {
+   "repo": "magpie",
+   "url": "https://github.com/yetone/magpie",
+   "sha": "8031edc78b6242dc5c37559acaffe19ca9c7ae66",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit 8031edc78b62: \"agent: AtomCode support \u2014 one provider account, one model table per c\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

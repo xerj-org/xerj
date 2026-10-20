@@ -1,0 +1,22 @@
+{
+ "corpus": "omnomkar--event-driven-orders",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on docker, event-driven, go queries this for how omnomkar/event-driven-orders implements it: Go microservices coordinating over Kafka with an orchestrated saga, transactional outbox, idempotency, and chaos-tested exactly-once payment (selected work: loadtest, scripts, services)",
+ "repos": [
+  {
+   "repo": "event-driven-orders",
+   "url": "https://github.com/omnomkar/event-driven-orders",
+   "sha": "5695ba48b55f4b833a0547c57aa363f5e701d3b7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 5695ba48b55f: \"Add k6 load test with cache comparison, and finish the docs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

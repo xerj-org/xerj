@@ -1,0 +1,22 @@
+{
+ "corpus": "3pm-baking--wright",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on allergen-detection, bill-of-materials, bom queries this for how 3pm-baking/wright implements it: Multi-domain Python library for bill-of-materials planning, recipe costing, shopping list aggregation, unit conversion, allergen detection,  (selected work: tests, src/wright)",
+ "repos": [
+  {
+   "repo": "wright",
+   "url": "https://github.com/3pm-baking/wright",
+   "sha": "31cfb08259afb7e4448fabb938dd9cee7b27f442",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 31cfb08259af: \"feat: ingredient substitution \u2014 Assembly.substitute() and swap()\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "michaelballen97--aero-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how MichaelBallen97/aero-engine implements it: Open-source, cross-platform 3D game engine with an editor and TypeScript or C++ scripting (selected work: tests, editor)",
+ "repos": [
+  {
+   "repo": "aero-engine",
+   "url": "https://github.com/MichaelBallen97/aero-engine",
+   "sha": "e55a7e8e42806abae25e15910016c3b1d602a91a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit e55a7e8e4280: \"fix(editor): the reference field drops its hint, then its swatch, bef\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

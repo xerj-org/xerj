@@ -1,0 +1,22 @@
+{
+ "corpus": "hluk--copyq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on clipboard-manager, clipboard, cross-platform queries this for how hluk/CopyQ implements it: Clipboard manager with advanced features (selected work: src/gui, src/tests, src/ui)",
+ "repos": [
+  {
+   "repo": "CopyQ",
+   "url": "https://github.com/hluk/CopyQ",
+   "sha": "0ca0dcec858802b2293187178d3272c10cf7e50d",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 0ca0dcec8588: \"Add option to hide the menu bar (#3732)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

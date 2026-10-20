@@ -1,0 +1,22 @@
+{
+ "corpus": "tufein--duofrost",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ambient-lighting, android, ayn-thor queries this for how Tufein/DuoFrost implements it: Make your AYN device's lighting your own. Ambient colors, audio-reactive effects, widgets, sleep timers and better background controls. An o (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "DuoFrost",
+   "url": "https://github.com/Tufein/DuoFrost",
+   "sha": "2ad857b88d7002673b514eb09b423f848f4fc0e0",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 2ad857b88d70: \"Prepare 2.2.0 pre-release with responsive landscape controls\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

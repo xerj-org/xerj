@@ -1,0 +1,22 @@
+{
+ "corpus": "dsdred--goal-starter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how dsdred/goal-starter implements it: GoAl - Lightweight cross-platform manager for local AI runtimes, models, and launch profiles. Single binary for Windows and Linux (selected work: internal/storage, internal/webui, internal/application)",
+ "repos": [
+  {
+   "repo": "goal-starter",
+   "url": "https://github.com/dsdred/goal-starter",
+   "sha": "eec300796436f118622e4e07493186cb227fe25b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit eec300796436: \"feat(portable): implement ADR 018 restore semantics\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

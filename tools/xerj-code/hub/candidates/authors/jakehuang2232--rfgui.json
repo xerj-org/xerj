@@ -1,0 +1,22 @@
+{
+ "corpus": "jakehuang2232--rfgui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how jakehuang2232/rfgui implements it: A retained-mode GUI framework in Rust built on a frame graph (selected work: src/view)",
+ "repos": [
+  {
+   "repo": "rfgui",
+   "url": "https://github.com/jakehuang2232/rfgui",
+   "sha": "d1126c98e02a33981579ba82a136938c8671833a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit d1126c98e02a: \"fix: send key events to the first root without focus and fix up a rem\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

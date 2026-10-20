@@ -1,0 +1,22 @@
+{
+ "corpus": "tehnewb--valthorne",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 2d, framework, game queries this for how tehnewb/Valthorne implements it: Java Game Engine (selected work: src/test, src/main, the project root)",
+ "repos": [
+  {
+   "repo": "Valthorne",
+   "url": "https://github.com/tehnewb/Valthorne",
+   "sha": "07e1042ee57470962d9436ee95fa6f4f3a932355",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 07e1042ee574: \"Add audio output device switching\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

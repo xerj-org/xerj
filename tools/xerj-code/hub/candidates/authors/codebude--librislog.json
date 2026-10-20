@@ -1,0 +1,22 @@
+{
+ "corpus": "codebude--librislog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on book-tracker, books, reading-time queries this for how codebude/librislog implements it: Just a book tracker (selected work: backend, the project root)",
+ "repos": [
+  {
+   "repo": "librislog",
+   "url": "https://github.com/codebude/librislog",
+   "sha": "4bda28ec16ade5ab7d7ecd7f5fa83d78d3b9fbb8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 4bda28ec16ad: \"Add Deutsche Nationalbibliothek as book import source\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "mokulakshithreddy--campus-connect",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how MokuLakshithReddy/campus-connect implements it: CampusConnect - College Club Community & Event Management Platform (selected work: scripts, src/test, src)",
+ "repos": [
+  {
+   "repo": "campus-connect",
+   "url": "https://github.com/MokuLakshithReddy/campus-connect",
+   "sha": "3e7b6df8ff8bde72822d3d01bb1e1e2a2042c586",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 3e7b6df8ff8b: \"fix(security): fail-closed sign-in profile resolution, strict test is\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

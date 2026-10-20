@@ -1,0 +1,22 @@
+{
+ "corpus": "parsaazima--dbagent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on agent, agentic, agentic-ai queries this for how ParsaAzima/DBAgent implements it: A Ai Agent For Working On Your Database's (selected work: scripts, src/core, src/tui)",
+ "repos": [
+  {
+   "repo": "DBAgent",
+   "url": "https://github.com/ParsaAzima/DBAgent",
+   "sha": "b7b44ff968c32e9cd33ccfcf43e3faed5ee06131",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b7b44ff968c3: \"feat: Agent Skills system (SKILL.md standard)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

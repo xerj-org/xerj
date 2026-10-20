@@ -1,0 +1,22 @@
+{
+ "corpus": "opencrawling--opencrawling",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on java, ollama, pgvector queries this for how opencrawling/opencrawling implements it: Reference Java & Spring implementation of the Open Ingestion Standard (OIS). It provides a secure, decoupled, and vendor-neutral enterprise  (selected work: oc-runtime, oc-admin-ui, oc-java-client-sdk)",
+ "repos": [
+  {
+   "repo": "opencrawling",
+   "url": "https://github.com/opencrawling/opencrawling",
+   "sha": "48ae658d03288074be0c2a93b8ab59f38026785c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 48ae658d0328: \"added reporting feature (#148)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

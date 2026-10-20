@@ -1,0 +1,22 @@
+{
+ "corpus": "cascode-ai--analog-canvas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how cascode-ai/analog-canvas implements it: Circuit design assets, SPICE fixtures, and an auditable Agent workflow (selected work: packages/netlist, packages/devices, apps/editor)",
+ "repos": [
+  {
+   "repo": "analog-canvas",
+   "url": "https://github.com/cascode-ai/analog-canvas",
+   "sha": "1886904c5eedf280835a3bde8fbe3dc029dc34e0",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 1886904c5eed: \"Unify effective model contracts and generated-model transport (#1330)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

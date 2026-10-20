@@ -1,0 +1,22 @@
+{
+ "corpus": "programmersd21--flint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bytecode, c, garbage-collection queries this for how programmersd21/flint implements it: a fast, lightweight programming language built in portable c11 with a custom bytecode vm (selected work: tests, src/util, src/runtime)",
+ "repos": [
+  {
+   "repo": "flint",
+   "url": "https://github.com/programmersd21/flint",
+   "sha": "33afda07958bf19f2fb915a1eca7db9e206f9ec7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 33afda07958b: \"Fixed critical bug\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

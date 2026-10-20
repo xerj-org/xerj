@@ -1,0 +1,22 @@
+{
+ "corpus": "dkruempe--lintel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on application-framework, bootstrap, cli queries this for how dkruempe/lintel implements it: A modular C++ application framework: bootstrap and dependency injection, HTTP and CLI servers, XML/file/database/shared-memory configuration (selected work: src/features, src/include)",
+ "repos": [
+  {
+   "repo": "lintel",
+   "url": "https://github.com/dkruempe/lintel",
+   "sha": "8be5702419f1a90748d71b14243c938fc8fe92c8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 8be5702419f1: \"fix(dto): harden JSON deserializers against malformed input\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

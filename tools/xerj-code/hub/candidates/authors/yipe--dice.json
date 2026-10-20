@@ -1,0 +1,22 @@
+{
+ "corpus": "yipe--dice",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how yipe/dice implements it: A TypeScript library for calculating D&D 5e dice probabilities and damage statistics (selected work: src/turn, tests, src/builder)",
+ "repos": [
+  {
+   "repo": "dice",
+   "url": "https://github.com/yipe/dice",
+   "sha": "6ac2d9c4a0cf94bc342f62b8ac41771edafa4b0a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 6ac2d9c4a0cf: \"Tags, one-name `of`, and save() for a fluent whole turn\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

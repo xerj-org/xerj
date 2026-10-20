@@ -1,0 +1,22 @@
+{
+ "corpus": "palusc--codebone",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on coding, coding-assistant, llm queries this for how palusc/codebone implements it: A real-time semantic codebase knowledge graph powered by a local LLM for macOS, delivering clean architectural context to AI coding agents t (selected work: src, src/domain, tests)",
+ "repos": [
+  {
+   "repo": "codebone",
+   "url": "https://github.com/palusc/codebone",
+   "sha": "30cc832bb89d0d2441eb1368fbeecd6181640780",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 30cc832bb89d: \"feat: release v1.8 - full Domain-Driven Design (DDD) architecture and\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "iamvirul--nexora",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on event-bus, execution-engine, grafana queries this for how iamvirul/nexora implements it: Nexora is a Java execution engine that turns a high-level goal into a set of steps and runs them (selected work: nexora-tracing-otel, the project root, nexora-all)",
+ "repos": [
+  {
+   "repo": "nexora",
+   "url": "https://github.com/iamvirul/nexora",
+   "sha": "529ef211f6647fb634b6df1b4c95a356ea8a68b2",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 529ef211f664: \"add nexora-tracing-otel module\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

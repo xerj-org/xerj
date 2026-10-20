@@ -1,0 +1,22 @@
+{
+ "corpus": "mgvs--winstats",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how mgvs/winstats implements it: System resource widgets embedded in the Windows taskbar (selected work: src/metrics, src)",
+ "repos": [
+  {
+   "repo": "winstats",
+   "url": "https://github.com/mgvs/winstats",
+   "sha": "391ca819fbf90e0553884633531f099fca8656b1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 391ca819fbf9: \"Windows 7 fixes, AMD sensors, settings submenu, --diag\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

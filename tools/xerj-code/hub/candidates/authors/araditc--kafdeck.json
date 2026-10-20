@@ -1,0 +1,22 @@
+{
+ "corpus": "araditc--kafdeck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on kafka, management, ui queries this for how araditc/Kafdeck implements it: A modern, production-grade open-source control plane for Apache Kafka, manage clusters, topics, messages, consumer groups, schemas, Kafka Co (selected work: tests, src/backend, src/cli)",
+ "repos": [
+  {
+   "repo": "Kafdeck",
+   "url": "https://github.com/araditc/Kafdeck",
+   "sha": "b26d297cbc95579a29f34602e8eb4ae837b18436",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit b26d297cbc95: \"feat(g2): integrate notifier and governed CLI verticals\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

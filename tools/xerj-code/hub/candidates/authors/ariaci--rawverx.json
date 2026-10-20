@@ -1,0 +1,22 @@
+{
+ "corpus": "ariaci--rawverx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how ariaci/rawverx implements it: A lightweight, idiomatic Go library for application version information (selected work: the project root, genverx)",
+ "repos": [
+  {
+   "repo": "rawverx",
+   "url": "https://github.com/ariaci/rawverx",
+   "sha": "e87df71b42af25b67ca1c5cf69359ad40d912dfa",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e87df71b42af: \"* initial implementation of appverx and genverx\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "vedantjadhav701--openphysicalai-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how VedantJadhav701/OpenphysicalAI-lab implements it: VedantJadhav701/OpenphysicalAI-lab (Python) (selected work: python)",
+ "repos": [
+  {
+   "repo": "OpenphysicalAI-lab",
+   "url": "https://github.com/VedantJadhav701/OpenphysicalAI-lab",
+   "sha": "ba7a75850822939c159a33013c9931beaaaf1c46",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ba7a75850822: \"feat(v0.2.1): implement Alpha-Beta velocity tracking, fix WDDM VRAM a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

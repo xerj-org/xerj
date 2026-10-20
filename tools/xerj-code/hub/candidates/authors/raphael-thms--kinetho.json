@@ -1,0 +1,22 @@
+{
+ "corpus": "raphael-thms--kinetho",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how raphael-THMS/Kinetho implements it: Kinetho is free software for processing ethological data. Its Video Processing module handles videos regardless of format or quality and gen (selected work: src, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "Kinetho",
+   "url": "https://github.com/raphael-THMS/Kinetho",
+   "sha": "553056f6fc7637f67af4128a40ec42a0eb39a3d5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 553056f6fc76: \"Prepare standalone macOS build\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

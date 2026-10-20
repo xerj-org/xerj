@@ -1,0 +1,22 @@
+{
+ "corpus": "bacnet-stack--bacnet-stack-zephyr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how bacnet-stack/bacnet-stack-zephyr implements it: Zephyr OS integration of BACnet Stack (selected work: zephyr)",
+ "repos": [
+  {
+   "repo": "bacnet-stack-zephyr",
+   "url": "https://github.com/bacnet-stack/bacnet-stack-zephyr",
+   "sha": "f5554fcc5bcb7969ffb9e5bfcfb0c0d8fb8d02bc",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f5554fcc5bcb: \"feat: add BACnet File shell commands (#87)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

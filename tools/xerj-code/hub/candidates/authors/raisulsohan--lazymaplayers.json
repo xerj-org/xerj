@@ -1,0 +1,22 @@
+{
+ "corpus": "raisulsohan--lazymaplayers",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on adobe, after-effects, cartography queries this for how raisulsohan/LazyMapLayers implements it: Free, open-source map design and map animation for After Effects: frame-exact basemaps, smooth flights, 3D cities, labels in every script. F (selected work: src/panel, src/core, tests)",
+ "repos": [
+  {
+   "repo": "LazyMapLayers",
+   "url": "https://github.com/raisulsohan/LazyMapLayers",
+   "sha": "a0c04be12f68b71cfbca58ab26c115f3c9d29bc5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a0c04be12f68: \"Only the story's names: a button in Auto labels keeps the names of th\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

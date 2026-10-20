@@ -1,0 +1,22 @@
+{
+ "corpus": "fjtrujy--ps2-drivers",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how fjtrujy/ps2_drivers implements it: A library for making easier the usage of the IO drivers (`.IRX` + `EE .a`) (selected work: src, tools, include)",
+ "repos": [
+  {
+   "repo": "ps2_drivers",
+   "url": "https://github.com/fjtrujy/ps2_drivers",
+   "sha": "ff99cc515d5ce1dccfcdec22cb04da6466c32fe9",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit ff99cc515d5c: \"Add external IRX convenience helpers\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

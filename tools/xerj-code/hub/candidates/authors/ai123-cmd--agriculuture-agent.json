@@ -1,0 +1,22 @@
+{
+ "corpus": "ai123-cmd--agriculuture-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how AI123-cmd/agriculuture-agent implements it: \ud83c\udf31 \u8bdd\u519c\u70b9\u91d1\uff08HNDJ\uff09 \u662f\u4e00\u4e2a\u9762\u5411\u519c\u6237\u548c\u519c\u6280\u5458\u7684 \u5fae\u4fe1\u5c0f\u7a0b\u5e8f AI \u519c\u6280\u52a9\u624b \u3002 \ud83e\ude7a AI \u519c\u6280\u8bca\u65ad \uff1a\u591a\u667a\u80fd\u4f53\u6309\u4f5c\u7269\u5206\u6d41\u8f6c\u8bca\uff08\u6c34\u7a3b/\u8336\u53f6/\u6cb9\u83dc/\u8fa3\u6912/\u6742\u8349/\u751f\u732a\uff09\uff0c\u4e00\u95ee\u4e00\u7b54\u6536\u96c6\u75c5\u60c5\u3002 \ud83d\udce2 \u519c\u4e8b\u64ad\u62a5 + \u73af\u5883\u76d1\u6d4b \uff1a\u89c4\u5219\u4f18\u5148\u3001\u591a\u7ea7\u515c\u5e95\uff0c\u6309\u65f6\u6309\u5730\u63a8\u9001\u6700\u4f73\u519c\u4e8b\u7a97\u53e3\u3002 \u2699\ufe0f \u6280\u672f\u6808\uff1a (selected work: backend, miniprogram)",
+ "repos": [
+  {
+   "repo": "agriculuture-agent",
+   "url": "https://github.com/AI123-cmd/agriculuture-agent",
+   "sha": "9cd784242384bc4efac87e3335b3a714edead657",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 9cd784242384: \"feat: \u65b0\u589e\u7edf\u4e00\u95ee\u8bca\u7ed3\u679c\uff0c\u6240\u6709\u7ec8\u6001\u8def\u5f84\u90fd\u4ea7\u51fa\u7ed3\u679c\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

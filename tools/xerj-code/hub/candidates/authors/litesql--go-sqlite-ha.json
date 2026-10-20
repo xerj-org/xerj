@@ -1,0 +1,22 @@
+{
+ "corpus": "litesql--go-sqlite-ha",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Go queries this for how litesql/go-sqlite-ha implements it: SQLite database/sql go driver with replication (selected work: _examples, the project root)",
+ "repos": [
+  {
+   "repo": "go-sqlite-ha",
+   "url": "https://github.com/litesql/go-sqlite-ha",
+   "sha": "3e3649bf66c512b602a41279a20aa428776c4533",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 3e3649bf66c5: \"fix: 2pc lock\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

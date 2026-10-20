@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>XERJ.ai · Docs · Clustering</title>
-<meta name="description" content="XERJ ships an embedded Raft implementation — no etcd, no ZooKeeper. Leader election, metadata replication, and per-shard data replication in one binary.">
+<meta name="description" content="XERJ ships an embedded Raft ring — leader election, heartbeats, and an authenticated cluster transport in one binary. What replicates today and what is roadmap, stated plainly.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -15,7 +15,7 @@
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="article">
 <meta property="og:title" content="XERJ.ai · Docs · Clustering">
-<meta property="og:description" content="XERJ ships an embedded Raft implementation — no etcd, no ZooKeeper. Leader election, metadata replication, and per-shard data replication in one binary.">
+<meta property="og:description" content="XERJ ships an embedded Raft ring — leader election, heartbeats, and an authenticated cluster transport in one binary. What replicates today and what is roadmap, stated plainly.">
 <meta property="og:url" content="https://xerj.org/docs/clustering">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
 <meta property="og:image:width" content="1200">
@@ -24,7 +24,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="XERJ.ai · Docs · Clustering">
-<meta name="twitter:description" content="XERJ ships an embedded Raft implementation — no etcd, no ZooKeeper. Leader election, metadata replication, and per-shard data replication in one binary.">
+<meta name="twitter:description" content="XERJ ships an embedded Raft ring — leader election, heartbeats, and an authenticated cluster transport in one binary. What replicates today and what is roadmap, stated plainly.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
 {
@@ -58,7 +58,7 @@
   "@context": "https://schema.org",
   "@type": "TechArticle",
   "headline": "XERJ.ai · Docs · Clustering",
-  "description": "XERJ ships an embedded Raft implementation — no etcd, no ZooKeeper. Leader election, metadata replication, and per-shard data replication in one binary.",
+  "description": "XERJ ships an embedded Raft ring — leader election, heartbeats, and an authenticated cluster transport in one binary. What replicates today and what is roadmap, stated plainly.",
   "url": "https://xerj.org/docs/clustering",
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
@@ -123,7 +123,10 @@
   <a href="/docs/" class="active">DOCS</a>
   <a href="/docs/recipes/">RECIPES</a>
   <a href="/playground">DASHBOARDS</a>
+  <a href="https://hub.xerj.org" rel="external">HUB</a>
   <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
+  <a href="https://x.com/xerj_org" rel="external" title="XERJ on X" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+  <a href="https://discord.com/invite/yetXFusXfs" rel="external" title="XERJ on Discord" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.79 19.79 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.74 19.74 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.1 13.1 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.3 12.3 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.84 19.84 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
   <span class="spacer"></span>
   <span class="theme">
     <button type="button" data-theme="day" class="active">DAY</button>
@@ -199,6 +202,10 @@
     <a href="/docs/recipes/continuous-anomaly-datafeeds" class=""><span class="eyebrow">09</span>Anomaly datafeeds</a>
     <a href="/docs/recipes/migrate-from-elasticsearch" class=""><span class="eyebrow">10</span>Migrate from ES</a>
   </div>
+  <div class="group">
+    <span class="label">CORPUS HUB</span>
+    <a href="/docs/corpus-hub" class=""><span class="eyebrow">01</span>Registry &amp; contributing</a>
+  </div>
 </nav>
 
 <main class="docs-content">
@@ -215,24 +222,24 @@
   <h1>Clustering</h1>
 
 
-  <p>XERJ ships an <strong>embedded Raft implementation</strong> — no etcd, no ZooKeeper, no Consul. One binary is still one binary; cluster mode is a config switch, not a separate process. Raft replicates cluster <em>metadata</em> only: index schemas, shard assignments, and the node roster. Actual index data lives under the <a href="/docs/storage">storage layer</a> and is replicated per-shard outside the Raft group.</p>
+  <p>XERJ ships an <strong>embedded Raft implementation</strong> — no etcd, no ZooKeeper, no Consul. One binary is still one binary; cluster mode is a config switch, not a separate process. <strong>Where the ring stands today, plainly:</strong> leader election, heartbeats, and the authenticated inter-node transport are real and tested; nothing in the production write path rides on the log yet. Indices, mappings, and documents are node-local — a document indexed on one node is not visible on another until the replication work lands (public tracking: <a href="https://github.com/xerj-org/xerj/issues/1170">xerj-org/xerj#1170</a>). If you need a second live copy of your data today, use the <a href="/docs/config#wal_tap">WAL tap</a> or per-node backups.</p>
+
+  <h2>What cluster mode does not give you yet</h2>
+  <div class="enum-list">
+    <div class="item">No metadata replication<span class="dsc">An index created on node A does not exist on node B — no production path proposes a ClusterCommand yet.</span></div>
+    <div class="item">No document replication<span class="dsc">PUT a document on node A, GET it from node B: <code class="inline">404 index_not_found</code>. Measured on a 3-node ring.</span></div>
+    <div class="item">No shard routing<span class="dsc">No forwarding to a primary, no replica reads. Each node's API serves that node's storage only.</span></div>
+    <div class="item">No node-lifecycle APIs<span class="dsc">There is no drain / activate / remove endpoint and no region split-merge. Earlier revisions of this page documented them; the binary has never shipped them.</span></div>
+  </div>
+  <p>Treat a clustered node's data durability exactly like a single node's.</p>
 
   <h2>What you get</h2>
   <ul>
-    <li><strong>Leader election</strong> — exactly one leader per term, automatic failover within an election timeout when a leader is lost.</li>
-    <li><strong>Log replication</strong> — every metadata change (create index, reassign shard, add node) is proposed by the leader and replicated to a quorum before it's committed.</li>
-    <li><strong>Log safety</strong> — commits are durable across crashes. A node rejoining the cluster catches up from the leader's log without losing data.</li>
-    <li><strong>Shard routing</strong> — writes are forwarded to the node holding the primary for that shard. Reads can hit any active replica.</li>
-    <li><strong>Region split / merge</strong> — for range-partitioned indices, regions split when they exceed a byte threshold and merge when neighbours drop below it.</li>
+    <li><strong>Leader election</strong> — exactly one leader per term, randomized 150–300 ms election timeouts, automatic failover. Measured on a 3-node loopback ring (tick 50 ms): a new leader within ~250 ms of killing the leader, then election-stable for minutes. Leader death used to cause perpetual election churn — fixed by <a href="https://github.com/xerj-org/xerj/issues/1168">#1168</a>.</li>
+    <li><strong>Authenticated transport</strong> — every inter-node connection is HMAC-SHA256 over a per-connection challenge using the cluster secret. There is no unauthenticated mode; the node refuses to start without a secret.</li>
+    <li><strong>Dead-peer isolation</strong> — a hung or dead peer costs one <code class="inline">WARN</code> on the transition and a retry ladder backing off 100 ms → 6.4 s; it never delays messages to live peers.</li>
+    <li><strong>Durable local Raft log</strong> — each node persists its term, votes, and committed entries, and replays them on restart.</li>
   </ul>
-
-  <h2>Node lifecycle</h2>
-  <p>Every node has a <code class="inline">NodeState</code> in the replicated metadata:</p>
-  <div class="enum-list">
-    <div class="item">Active<span class="dsc">Accepting reads and writes. Eligible for shard assignment.</span></div>
-    <div class="item">Draining<span class="dsc">Gracefully shedding load. New shards are not assigned here; existing shards stay until moved.</span></div>
-    <div class="item">Down<span class="dsc">Unreachable or explicitly removed. Shards owned by a Down node are reassigned to Active peers.</span></div>
-  </div>
 
   <h2>Bootstrapping a 3-node cluster</h2>
   <p>Start three nodes, each with its own data dir, and point them at each other. On first startup they hold a Raft election and one becomes leader:</p>
@@ -242,98 +249,76 @@
 data_dir     = "/var/lib/xerj"
 bind_address = "10.0.0.11"
 
+[tls]                                     # required off loopback (or terminate TLS in front
+enabled   = true                          # and set server.allow_insecure_network_bind = true)
+cert_path = "/etc/xerj/certs/node-a.crt"
+key_path  = "/etc/xerj/certs/node-a.key"
+allow_insecure_grpc_h2c = true            # gRPC is cleartext h2c; required off loopback with TLS on
+
 [cluster]
-enabled = true
-port    = 9300                            # intra-cluster Raft + search port
-peers   = [
-  "a=10.0.0.11:9300",                     # this node
-  "b=10.0.0.12:9300",
-  "c=10.0.0.13:9300",
+enabled     = true
+port        = 9300                        # intra-cluster Raft + search port
+auth_secret = "&lt;the same secret, 16+ chars, on every node&gt;"   # or XERJ_CLUSTER_AUTH_SECRET
+peers       = [
+  "10.0.0.11:9300=10.0.0.11:9300",       # this node
+  "10.0.0.12:9300=10.0.0.12:9300",
+  "10.0.0.13:9300=10.0.0.13:9300",
 ]
-tick_ms = 50                              # Raft tick interval</pre>
+tick_ms = 50</pre>
 
 <pre class="code"># /etc/xerj/node-b.toml  (run on 10.0.0.12)
 [server]
 data_dir     = "/var/lib/xerj"
 bind_address = "10.0.0.12"
 
+[tls]                                     # required off loopback (or terminate TLS in front
+enabled   = true                          # and set server.allow_insecure_network_bind = true)
+cert_path = "/etc/xerj/certs/node-b.crt"
+key_path  = "/etc/xerj/certs/node-b.key"
+allow_insecure_grpc_h2c = true            # gRPC is cleartext h2c; required off loopback with TLS on
+
 [cluster]
-enabled = true
-port    = 9300
-peers   = [
-  "a=10.0.0.11:9300",
-  "b=10.0.0.12:9300",                     # this node
-  "c=10.0.0.13:9300",
+enabled     = true
+port        = 9300                        # intra-cluster Raft + search port
+auth_secret = "&lt;the same secret, 16+ chars, on every node&gt;"   # or XERJ_CLUSTER_AUTH_SECRET
+peers       = [
+  "10.0.0.11:9300=10.0.0.11:9300",
+  "10.0.0.12:9300=10.0.0.12:9300",       # this node
+  "10.0.0.13:9300=10.0.0.13:9300",
 ]
 tick_ms = 50</pre>
 
-  <p>The <code class="inline">peers</code> list uses <code class="inline">"&lt;node_id&gt;=&lt;host&gt;:&lt;port&gt;"</code>. The current node's id is inferred from the entry whose address matches its own <code class="inline">bind_address:port</code>. Start all three boxes:</p>
+  <p>Each <code class="inline">peers</code> entry is <code class="inline">"&lt;host&gt;:&lt;port&gt;=&lt;host&gt;:&lt;port&gt;"</code>: node ids <em>are</em> socket addresses, and the node refuses to start on an entry whose label differs from its address (<a href="https://github.com/xerj-org/xerj/issues/1171">#1171</a> — a friendly label made that node's vote replies undeliverable). The current node is the entry whose address matches its own <code class="inline">bind_address</code> and <code class="inline">cluster.port</code>. Three more startup checks apply to this example and each refuses to boot when unmet: <code class="inline">cluster.auth_secret</code> (or <code class="inline">XERJ_CLUSTER_AUTH_SECRET</code>) must be set; a non-loopback <code class="inline">bind_address</code> needs <code class="inline">[tls]</code> or <code class="inline">server.allow_insecure_network_bind = true</code>; and with TLS on off loopback, the cleartext gRPC listener needs <code class="inline">tls.allow_insecure_grpc_h2c = true</code>. Start all three boxes:</p>
 <pre class="code">$ xerj --config /etc/xerj/node-a.toml     # on 10.0.0.11
 $ xerj --config /etc/xerj/node-b.toml     # on 10.0.0.12
 $ xerj --config /etc/xerj/node-c.toml     # on 10.0.0.13</pre>
 
-  <p>Within a second the cluster elects a leader. You can check the status on any node:</p>
+  <p>Within a second the ring elects a leader. The honest place to watch it today is the log — the health endpoints report the node answering the request, not the ring's membership (that plumbing is part of the <a href="https://github.com/xerj-org/xerj/issues/1170">wiring work</a>):</p>
+<pre class="code">$ journalctl -u xerj -f | grep xerj_cluster
+INFO xerj_cluster::transport: TCP transport listening (authenticated) node=10.0.0.11:9300
+INFO xerj_cluster::raft: Starting election node=10.0.0.12:9300 term=1
+INFO xerj_cluster::raft: Became leader node=10.0.0.12:9300 term=1</pre>
 <pre class="code">$ curl -sH "Authorization: ApiKey $XERJ_API_KEY" \
-    http://10.0.0.11:8080/v1/cluster/health | jq
-{
-  "state":   "active",
-  "leader":  "b",
-  "term":    3,
-  "nodes": [
-    { "id": "a", "address": "10.0.0.11:8100", "state": "active" },
-    { "id": "b", "address": "10.0.0.12:8100", "state": "active" },
-    { "id": "c", "address": "10.0.0.13:8100", "state": "active" }
-  ],
-  "indices": 4,
-  "shards":  24
-}</pre>
+    http://10.0.0.11:9200/_cluster/health | jq '.status, .number_of_nodes'
+"green"
+1</pre>
 
-  <h2>Creating a sharded index</h2>
-  <p>Specify <code class="inline">shards</code> at create time. Shards are assigned to nodes round-robin; the leader replicates the assignment through Raft so every node sees the same mapping:</p>
-
-<pre class="code">$ curl -sXPUT -H "Authorization: ApiKey $XERJ_API_KEY" \
-    -H "Content-Type: application/json" \
-    http://10.0.0.11:8080/v1/indices/events \
-    -d '{
-      "shards": 6,
-      "schema": {
-        "@timestamp": "date",
-        "host":       "keyword",
-        "message":    "text"
-      }
-    }'</pre>
-
-  <h2>Draining a node for maintenance</h2>
-  <p>Before rebooting a node, mark it <code class="inline">draining</code> so the cluster migrates its shards to peers first:</p>
-
-<pre class="code">$ curl -sXPOST -H "Authorization: ApiKey $XERJ_API_KEY" \
-    http://10.0.0.11:8080/v1/cluster/nodes/b/drain
-{ "state": "draining", "shards_remaining": 8 }
-
-# ... wait for shards_remaining to hit 0 ...
-
-$ systemctl restart xerj    # on node b
-
-# After the reboot, mark it active again:
-$ curl -sXPOST -H "Authorization: ApiKey $XERJ_API_KEY" \
-    http://10.0.0.11:8080/v1/cluster/nodes/b/activate</pre>
-
-  <h2>Regions — range partitioning</h2>
-  <p>For range-partitioned indices (typically logs and time-series), XERJ splits the key space into <strong>regions</strong>. Each region is owned by exactly one node. When a region crosses <code class="inline">split_bytes_threshold</code> it splits into two; when two neighbouring regions together fall below <code class="inline">merge_bytes_threshold</code> they merge back. The <em>region manager</em> rebalances regions across nodes when load skew exceeds the configured tolerance.</p>
-  <p>Regions are transparent to clients — writes and reads use the normal index name; the cluster router looks up the correct region and forwards the request.</p>
+  <h2>Indexes and data are node-local today</h2>
+  <p>Index creation, mappings, and documents do not cross the wire — every node's API serves that node's <a href="/docs/storage">storage</a> only. There is no shard assignment to other members, no replica set, and no drain/region API; the sections that used to document them were removed because the binary has never shipped them.</p>
+  <p>For a second live copy of your data, point the <a href="/docs/config#wal_tap">WAL tap</a> at another XERJ or any ES-compatible target: it ships indexed writes near-real-time from the WAL, one-directional, without touching the write path.</p>
 
   <h2>Failure modes</h2>
   <div class="enum-list">
-    <div class="item">Leader crash<span class="dsc">Followers time out, hold an election, a new leader is chosen. In-flight proposals from the old term are retried by clients.</span></div>
-    <div class="item">Minority partition<span class="dsc">The minority side loses quorum and refuses writes. The majority continues. When the partition heals, the minority catches up from the leader's log.</span></div>
-    <div class="item">Majority partition<span class="dsc">Cluster metadata is read-only until quorum is restored. Existing shards continue to serve reads from any active node.</span></div>
-    <div class="item">Permanent node loss<span class="dsc">Mark the node <code class="inline">down</code> with <code class="inline">POST /v1/cluster/nodes/:id/remove</code>. The router reassigns its shards to peers.</span></div>
+    <div class="item">Leader crash<span class="dsc">Followers time out and elect a new leader — measured ~250 ms on a 3-node loopback ring, including one split-vote retry. The ring stays stable with the dead member absent; its Raft log survives on disk for the rejoin.</span></div>
+    <div class="item">Hung or dead peer<span class="dsc">One WARN on the down transition, then quiet: retries back off 100 ms → 6.4 s, and messages to live peers are never delayed behind a dead one. A peer that answers again logs "peer reachable again" at INFO.</span></div>
+    <div class="item">Minority partition<span class="dsc">The minority side cannot reach quorum and its elections never conclude; the majority side keeps its leader. Raft safety holds — at most one leader per term.</span></div>
+    <div class="item">Node rejoin<span class="dsc">Restart with the same config: the node replays its local Raft log and re-enters the election. Catch-up from the leader's log (snapshot install) is part of the wiring roadmap.</span></div>
   </div>
 
   <h2>When not to cluster</h2>
-  <p>If one node handles your load, don't cluster. One box avoids network round-trips, needs no quorum, and is trivial to back up. Clustering earns its complexity when you need <strong>more CPU or disk than a single box can give you</strong>, when you need <strong>HA without a hot standby pair</strong>, or when you're <strong>geo-distributed</strong>. The default config ships with <code class="inline">[cluster] enabled = false</code>.</p>
+  <p>Today, almost always. Until the replication wiring lands, cluster mode gives you a leader-election ring — not copies of your data. One node avoids network round-trips, needs no quorum, and is trivial to back up; add a WAL tap to a second node if you want a live spare. The default config ships with <code class="inline">[cluster] enabled = false</code>.</p>
 
-  <p class="source-note">Source · engine/crates/xerj-cluster/src/node.rs · engine/crates/xerj-cluster/src/metadata.rs · engine/crates/xerj-cluster/src/regions.rs</p>
+  <p class="source-note">Source · engine/crates/xerj-cluster/src/raft.rs · engine/crates/xerj-cluster/src/transport.rs · engine/crates/xerj-cluster/src/runner.rs</p>
   
 
 <div class="next">
@@ -343,7 +328,7 @@ $ curl -sXPOST -H "Authorization: ApiKey $XERJ_API_KEY" \
 
   <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
   <div class="print-footer" style="display:none;">
-    <span>XERJ.AI · V1.0.0-RC.80 · 2026-08-11</span>
+    <span>XERJ.AI · V1.0.0-RC.96 · 2026-08-11</span>
     <a href="https://xerj.org/docs/">https://xerj.org/docs/</a>
     <span>Clustering</span>
   </div>
@@ -401,12 +386,12 @@ $ curl -sXPOST -H "Authorization: ApiKey $XERJ_API_KEY" \
 </nav>
 <!-- seo:footer-end -->
 <footer class="footer">
-  <span>XERJ.AI · DOCS · V1.0.0-RC.80</span>
+  <span>XERJ.AI · DOCS · V1.0.0-RC.96</span>
   <span>READ THE SOURCE</span>
   <span><a href="/">HOME</a> · <a href="/product">PRODUCT</a> · <a href="/brand">BRAND</a> · <a href="/playground">DASHBOARDS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
 </footer>
 
-<script type="application/json" id="docs-index">[{"title":"Overview","slug":"/docs/","kicker":"START","snip":""},{"title":"Quickstart","slug":"/docs/quickstart","kicker":"START","snip":""},{"title":"Install","slug":"/docs/install","kicker":"START","snip":""},{"title":"Migrate from ES","slug":"/docs/migration-from-es","kicker":"START","snip":""},{"title":"CLI","slug":"/docs/cli","kicker":"REFERENCE","snip":""},{"title":"Config TOML","slug":"/docs/config","kicker":"REFERENCE","snip":""},{"title":"Environment","slug":"/docs/env","kicker":"REFERENCE","snip":""},{"title":"Native REST API","slug":"/docs/api-native","kicker":"REFERENCE","snip":""},{"title":"ES-compat API","slug":"/docs/api-es-compat","kicker":"REFERENCE","snip":""},{"title":"Query types","slug":"/docs/queries","kicker":"DATA MODEL","snip":""},{"title":"Aggregations","slug":"/docs/aggregations","kicker":"DATA MODEL","snip":""},{"title":"Analyzers","slug":"/docs/analyzers","kicker":"DATA MODEL","snip":""},{"title":"Vectors & kNN","slug":"/docs/vectors","kicker":"DATA MODEL","snip":""},{"title":"Ingest pipelines","slug":"/docs/ingest","kicker":"ENGINE","snip":""},{"title":"Storage & WAL","slug":"/docs/storage","kicker":"ENGINE","snip":""},{"title":"Compression","slug":"/docs/compression","kicker":"ENGINE","snip":""},{"title":"Clustering","slug":"/docs/clustering","kicker":"ENGINE","snip":""},{"title":"Metrics","slug":"/docs/metrics","kicker":"ENGINE","snip":""},{"title":"Auth & TLS","slug":"/docs/security","kicker":"ENGINE","snip":""},{"title":"Running in production","slug":"/docs/operations","kicker":"OPERATIONS","snip":""},{"title":"Backup & restore","slug":"/docs/backup-restore","kicker":"OPERATIONS","snip":""},{"title":"Upgrades","slug":"/docs/upgrades","kicker":"OPERATIONS","snip":""},{"title":"Troubleshooting","slug":"/docs/troubleshooting","kicker":"OPERATIONS","snip":""},{"title":"SIEM","slug":"/docs/playbooks/siem","kicker":"PLAYBOOKS","snip":""},{"title":"Log analytics","slug":"/docs/playbooks/log-analytics","kicker":"PLAYBOOKS","snip":""},{"title":"Vector · RAG","slug":"/docs/playbooks/vector-search","kicker":"PLAYBOOKS","snip":""},{"title":"Full-text search","slug":"/docs/playbooks/full-text","kicker":"PLAYBOOKS","snip":""},{"title":"Observability","slug":"/docs/playbooks/observability","kicker":"PLAYBOOKS","snip":""},{"title":"CLI · --config","slug":"/docs/cli#config-flag","kicker":"CLI","snip":"-c, --config <PATH>  Path to the TOML config file."},{"title":"CLI · --data-dir","slug":"/docs/cli#data-dir-flag","kicker":"CLI","snip":"-d, --data-dir <PATH>  Override [server] data_dir at the command line."},{"title":"CLI · --insecure","slug":"/docs/cli#insecure-flag","kicker":"CLI","snip":"-k, --insecure  Disable TLS and API-key auth. Dev only."},{"title":"[server] rest_port","slug":"/docs/config#server","kicker":"CONFIG","snip":"u16 · default 8080 · Native REST API listener port."},{"title":"[server] es_compat_port","slug":"/docs/config#server","kicker":"CONFIG","snip":"u16 · default 9200 · Elasticsearch-wire-format port. 0 to disable."},{"title":"[storage] wal_sync","slug":"/docs/config#storage","kicker":"CONFIG","snip":"enum · default batched · sync · batched · async. Durability knob."},{"title":"[vector] hnsw_ef_search","slug":"/docs/config#vector","kicker":"CONFIG","snip":"u32 · default 100 · Accepted but not wired — the beam width comes from the request num_candidates."},{"title":"[vector] default_quantization","slug":"/docs/config#vector","kicker":"CONFIG","snip":"enum · none (default) · scalar8. binary is refused at startup; scalar4 is not accepted."},{"title":"GET /v1/health","slug":"/docs/api-native#health","kicker":"NATIVE API","snip":"Liveness + readiness. {status, uptime_s, version}."},{"title":"GET /v1/metrics","slug":"/docs/api-native#metrics","kicker":"NATIVE API","snip":"Prometheus text format. Scrape-friendly."},{"title":"POST /v1/indices/:name/turbo-ingest","slug":"/docs/api-native#turbo-ingest","kicker":"NATIVE API","snip":"NDJSON bulk path with parallel tokenization."},{"title":"POST /v1/indices/:name/search","slug":"/docs/api-native#search","kicker":"NATIVE API","snip":"Unified query endpoint — full-text, term, range, KNN, hybrid."},{"title":"POST /:index/_bulk","slug":"/docs/api-es-compat#bulk","kicker":"ES API","snip":"NDJSON bulk. Actions: index, create, update, delete."},{"title":"POST /:index/_search","slug":"/docs/api-es-compat#search","kicker":"ES API","snip":"ES query DSL. Drop-in migration path."},{"title":"match_all","slug":"/docs/queries#match-all","kicker":"QUERY","snip":"Everything in the index."},{"title":"bool","slug":"/docs/queries#bool","kicker":"QUERY","snip":"must / should / must_not / filter clauses."},{"title":"knn","slug":"/docs/queries#knn","kicker":"QUERY","snip":"Vector kNN — HNSW-served when unfiltered (exact-rescored); filtered runs the exact scan."},{"title":"semantic","slug":"/docs/queries#semantic","kicker":"QUERY","snip":"Embed the query text at query time and search the vector field."},{"title":"hybrid","slug":"/docs/queries#hybrid","kicker":"QUERY","snip":"RRF / linear fusion of sub-queries."},{"title":"terms aggregation","slug":"/docs/aggregations#terms","kicker":"AGG","snip":"Exact, pre-computed terms histograms over keyword fields."},{"title":"date_histogram","slug":"/docs/aggregations#date-histogram","kicker":"AGG","snip":"Time-bucketed counts."},{"title":"kNN serving","slug":"/docs/vectors#knn-query","kicker":"VECTORS","snip":"Unfiltered kNN via persisted HNSW + exact rescore; filtered kNN exact scan."},{"title":"SQ8 quantization","slug":"/docs/vectors#quantization","kicker":"VECTORS","snip":"8-bit scalar quantization. int8 scoring precision, not a memory saving (#392)."},{"title":"turbo-ingest","slug":"/docs/ingest#turbo","kicker":"INGEST","snip":"NDJSON bulk path. Parallel tokenization across cores."},{"title":"delta-of-delta","slug":"/docs/compression#delta-of-delta","kicker":"COMPRESSION","snip":"Timestamp encoding. Apache/Nginx/ISO auto-detect."},{"title":"dictionary encoding","slug":"/docs/compression#dictionary","kicker":"COMPRESSION","snip":"Up to 256 unique strings per column."},{"title":"api_key","slug":"/docs/security#api-key","kicker":"SECURITY","snip":"Static admin key. Auto-generated on first run."},{"title":"SIEM playbook","slug":"/docs/playbooks/siem","kicker":"PLAYBOOK","snip":"Terms agg over source IPs for SIEM, with detection rules."},{"title":"RAG playbook","slug":"/docs/playbooks/vector-search","kicker":"PLAYBOOK","snip":"Embeddings, kNN, hybrid search, BM25 + kNN fusion."},{"title":"[cluster] enabled","slug":"/docs/config#cluster","kicker":"CONFIG","snip":"bool · default false · Enable multi-node Raft cluster mode."},{"title":"[cluster] peers","slug":"/docs/config#cluster","kicker":"CONFIG","snip":"array · \"node_id=host:port\" · At least one peer per node."},{"title":"[cluster] port","slug":"/docs/config#cluster","kicker":"CONFIG","snip":"u16 · default 9300 · Intra-cluster Raft + search port."},{"title":"[embedding] default_endpoint","slug":"/docs/config#embedding","kicker":"CONFIG","snip":"string · OpenAI-compatible embeddings URL for auto-embedding on ingest."},{"title":"[embedding] default_model","slug":"/docs/config#embedding","kicker":"CONFIG","snip":"string · Model name (e.g. text-embedding-3-small, nomic-embed-text)."},{"title":"Raft","slug":"/docs/clustering","kicker":"CLUSTER","snip":"Embedded Raft — leader election, log replication, metadata only."},{"title":"Node draining","slug":"/docs/clustering","kicker":"CLUSTER","snip":"POST /v1/cluster/nodes/:id/drain before maintenance."},{"title":"Region split/merge","slug":"/docs/clustering","kicker":"CLUSTER","snip":"Range partitions auto-split at byte threshold, merge back when small."},{"title":"Systemd unit","slug":"/docs/operations","kicker":"OPS","snip":"Production unit file with hardening directives."},{"title":"Readiness probe","slug":"/docs/operations","kicker":"OPS","snip":"GET /v1/health/ready — only 200 once WAL replay is complete."},{"title":"Config reload","slug":"/docs/operations","kicker":"OPS","snip":"SIGHUP reloads most keys without restart."},{"title":"Hot backup","slug":"/docs/backup-restore","kicker":"OPS","snip":"rsync the data dir after POST /v1/admin/flush."},{"title":"S3 backup","slug":"/docs/backup-restore","kicker":"OPS","snip":"POST /v1/admin/backup → any S3-compatible endpoint."},{"title":"Rolling upgrade","slug":"/docs/upgrades","kicker":"OPS","snip":"Drain → stop → upgrade → start → activate, per node."},{"title":"Merge pressure","slug":"/docs/troubleshooting","kicker":"OPS","snip":"Segment count climbing → raise merge.max_concurrent + io_rate."},{"title":"Cluster flapping","slug":"/docs/troubleshooting","kicker":"OPS","snip":"Leader changes every few seconds → raise cluster.tick_ms."},{"title":"WAL replay failed","slug":"/docs/troubleshooting","kicker":"OPS","snip":"xerj verify --repair-wal truncates at last valid entry."},{"title": "Recipes", "slug": "/docs/recipes/", "kicker": "RECIPES", "snip": "Task-oriented AI & search recipes, each verified end-to-end against a live XERJ."},{"title": "Semantic search & RAG", "slug": "/docs/recipes/semantic-search-rag", "kicker": "RECIPE", "snip": "Retrieval by meaning with semantic_text — auto-embed on ingest, no separate vector DB."},{"title": "Agent memory", "slug": "/docs/recipes/agentic-memory", "kicker": "RECIPE", "snip": "Long-term memory for agents via /_memory — store, recall, forget, per-agent isolation."},{"title": "Passage retrieval", "slug": "/docs/recipes/passage-retrieval", "kicker": "RECIPE", "snip": "Auto-chunk long docs; best-passage (max-sim) scoring — 98% top-3."},{"title": "Vector search · kNN", "slug": "/docs/recipes/vector-search-knn", "kicker": "RECIPE", "snip": "Nearest-neighbor over dense_vector — HNSW-served unfiltered, exact with filters."},{"title": "Vector quantization", "slug": "/docs/recipes/vector-quantization", "kicker": "RECIPE", "snip": "scalar8 (accepts ES int8_hnsw; exact code scan) — int8 scoring at recall@10 = 0.998. Precision, not memory."},{"title": "Hybrid search", "slug": "/docs/recipes/hybrid-search", "kicker": "RECIPE", "snip": "Keyword + vector in one query — RRF fusion."},{"title": "Log analytics", "slug": "/docs/recipes/log-analytics", "kicker": "RECIPE", "snip": "Raw logs to dashboards — error rates, p95 latency, top services."},{"title": "Anomaly detection", "slug": "/docs/recipes/anomaly-detection", "kicker": "RECIPE", "snip": "Statistical _ml detectors that flag spikes in metrics/logs."},{"title": "Anomaly datafeeds", "slug": "/docs/recipes/continuous-anomaly-datafeeds", "kicker": "RECIPE", "snip": "Live _ml datafeed re-scores an index on a timer, stores anomaly records."},{"title": "Migrate from ES", "slug": "/docs/recipes/migrate-from-elasticsearch", "kicker": "RECIPE", "snip": "Point your existing ES client at XERJ — same wire, change the URL."}]</script>
+<script type="application/json" id="docs-index">[{"title":"Corpus Hub","slug":"/docs/corpus-hub","kicker":"CORPUS HUB","snip":"Registry of corpora for agents — reference code and record packs, pinned, licenced, signed."},{"title":"Overview","slug":"/docs/","kicker":"START","snip":""},{"title":"Quickstart","slug":"/docs/quickstart","kicker":"START","snip":""},{"title":"Install","slug":"/docs/install","kicker":"START","snip":""},{"title":"Migrate from ES","slug":"/docs/migration-from-es","kicker":"START","snip":""},{"title":"CLI","slug":"/docs/cli","kicker":"REFERENCE","snip":""},{"title":"Config TOML","slug":"/docs/config","kicker":"REFERENCE","snip":""},{"title":"Environment","slug":"/docs/env","kicker":"REFERENCE","snip":""},{"title":"Native REST API","slug":"/docs/api-native","kicker":"REFERENCE","snip":""},{"title":"ES-compat API","slug":"/docs/api-es-compat","kicker":"REFERENCE","snip":""},{"title":"Query types","slug":"/docs/queries","kicker":"DATA MODEL","snip":""},{"title":"Aggregations","slug":"/docs/aggregations","kicker":"DATA MODEL","snip":""},{"title":"Analyzers","slug":"/docs/analyzers","kicker":"DATA MODEL","snip":""},{"title":"Vectors & kNN","slug":"/docs/vectors","kicker":"DATA MODEL","snip":""},{"title":"Ingest pipelines","slug":"/docs/ingest","kicker":"ENGINE","snip":""},{"title":"Storage & WAL","slug":"/docs/storage","kicker":"ENGINE","snip":""},{"title":"Compression","slug":"/docs/compression","kicker":"ENGINE","snip":""},{"title":"Clustering","slug":"/docs/clustering","kicker":"ENGINE","snip":""},{"title":"Metrics","slug":"/docs/metrics","kicker":"ENGINE","snip":""},{"title":"Auth & TLS","slug":"/docs/security","kicker":"ENGINE","snip":""},{"title":"Running in production","slug":"/docs/operations","kicker":"OPERATIONS","snip":""},{"title":"Backup & restore","slug":"/docs/backup-restore","kicker":"OPERATIONS","snip":""},{"title":"Upgrades","slug":"/docs/upgrades","kicker":"OPERATIONS","snip":""},{"title":"Troubleshooting","slug":"/docs/troubleshooting","kicker":"OPERATIONS","snip":""},{"title":"SIEM","slug":"/docs/playbooks/siem","kicker":"PLAYBOOKS","snip":""},{"title":"Log analytics","slug":"/docs/playbooks/log-analytics","kicker":"PLAYBOOKS","snip":""},{"title":"Vector · RAG","slug":"/docs/playbooks/vector-search","kicker":"PLAYBOOKS","snip":""},{"title":"Full-text search","slug":"/docs/playbooks/full-text","kicker":"PLAYBOOKS","snip":""},{"title":"Observability","slug":"/docs/playbooks/observability","kicker":"PLAYBOOKS","snip":""},{"title":"CLI · --config","slug":"/docs/cli#config-flag","kicker":"CLI","snip":"-c, --config <PATH>  Path to the TOML config file."},{"title":"CLI · --data-dir","slug":"/docs/cli#data-dir-flag","kicker":"CLI","snip":"-d, --data-dir <PATH>  Override [server] data_dir at the command line."},{"title":"CLI · --insecure","slug":"/docs/cli#insecure-flag","kicker":"CLI","snip":"-k, --insecure  Disable TLS and API-key auth. Dev only."},{"title":"[server] rest_port","slug":"/docs/config#server","kicker":"CONFIG","snip":"u16 · default 8080 · Native REST API listener port."},{"title":"[server] es_compat_port","slug":"/docs/config#server","kicker":"CONFIG","snip":"u16 · default 9200 · Elasticsearch-wire-format port. 0 = OS-assigned port."},{"title":"[storage] wal_sync","slug":"/docs/config#storage","kicker":"CONFIG","snip":"enum · default batched · sync · batched · async. Durability knob."},{"title":"[vector] hnsw_ef_search","slug":"/docs/config#vector","kicker":"CONFIG","snip":"u32 · default 100 · Accepted but not wired — the beam width comes from the request num_candidates."},{"title":"[vector] default_quantization","slug":"/docs/config#vector","kicker":"CONFIG","snip":"enum · none (default) · scalar8. binary is refused at startup; scalar4 is not accepted."},{"title":"GET /v1/health","slug":"/docs/api-native#health","kicker":"NATIVE API","snip":"Liveness + readiness. {status, uptime_s, version}."},{"title":"GET /v1/metrics","slug":"/docs/api-native#metrics","kicker":"NATIVE API","snip":"Prometheus text format. Scrape-friendly."},{"title":"POST /v1/indices/:name/turbo-ingest","slug":"/docs/api-native#turbo-ingest","kicker":"NATIVE API","snip":"NDJSON bulk path with parallel tokenization."},{"title":"POST /v1/indices/:name/search","slug":"/docs/api-native#search","kicker":"NATIVE API","snip":"Unified query endpoint — full-text, term, range, KNN, hybrid."},{"title":"POST /:index/_bulk","slug":"/docs/api-es-compat#bulk","kicker":"ES API","snip":"NDJSON bulk. Actions: index, create, update, delete."},{"title":"POST /:index/_search","slug":"/docs/api-es-compat#search","kicker":"ES API","snip":"ES query DSL. Drop-in migration path."},{"title":"match_all","slug":"/docs/queries#match-all","kicker":"QUERY","snip":"Everything in the index."},{"title":"bool","slug":"/docs/queries#bool","kicker":"QUERY","snip":"must / should / must_not / filter clauses."},{"title":"knn","slug":"/docs/queries#knn","kicker":"QUERY","snip":"Vector kNN — HNSW-served when unfiltered (exact-rescored); filtered runs the exact scan."},{"title":"semantic","slug":"/docs/queries#semantic","kicker":"QUERY","snip":"Embed the query text at query time and search the vector field."},{"title":"hybrid","slug":"/docs/queries#hybrid","kicker":"QUERY","snip":"RRF / linear fusion of sub-queries."},{"title":"terms aggregation","slug":"/docs/aggregations#terms","kicker":"AGG","snip":"Exact, pre-computed terms histograms over keyword fields."},{"title":"date_histogram","slug":"/docs/aggregations#date-histogram","kicker":"AGG","snip":"Time-bucketed counts."},{"title":"kNN serving","slug":"/docs/vectors#knn-query","kicker":"VECTORS","snip":"Unfiltered kNN via persisted HNSW + exact rescore; filtered kNN exact scan."},{"title":"SQ8 quantization","slug":"/docs/vectors#quantization","kicker":"VECTORS","snip":"8-bit scalar quantization. int8 scoring precision, not a memory saving (#392)."},{"title":"turbo-ingest","slug":"/docs/ingest#turbo","kicker":"INGEST","snip":"NDJSON bulk path. Parallel tokenization across cores."},{"title":"delta-of-delta","slug":"/docs/compression#delta-of-delta","kicker":"COMPRESSION","snip":"Timestamp encoding. Apache/Nginx/ISO auto-detect."},{"title":"dictionary encoding","slug":"/docs/compression#dictionary","kicker":"COMPRESSION","snip":"Up to 256 unique strings per column."},{"title":"api_key","slug":"/docs/security#api-key","kicker":"SECURITY","snip":"Static admin key. Auto-generated on first run."},{"title":"SIEM playbook","slug":"/docs/playbooks/siem","kicker":"PLAYBOOK","snip":"Terms agg over source IPs for SIEM, with detection rules."},{"title":"RAG playbook","slug":"/docs/playbooks/vector-search","kicker":"PLAYBOOK","snip":"Embeddings, kNN, hybrid search, BM25 + kNN fusion."},{"title":"[cluster] enabled","slug":"/docs/config#cluster","kicker":"CONFIG","snip":"bool · default false · Enable multi-node Raft cluster mode."},{"title":"[cluster] peers","slug":"/docs/config#cluster","kicker":"CONFIG","snip":"array · \"host:port=host:port\" · label must equal address (#1171)."},{"title":"[cluster] port","slug":"/docs/config#cluster","kicker":"CONFIG","snip":"u16 · default 9300 · Intra-cluster Raft + search port."},{"title":"[embedding] default_endpoint","slug":"/docs/config#embedding","kicker":"CONFIG","snip":"string · OpenAI-compatible embeddings URL for auto-embedding on ingest."},{"title":"[embedding] default_model","slug":"/docs/config#embedding","kicker":"CONFIG","snip":"string · Model name (e.g. text-embedding-3-small, nomic-embed-text)."},{"title":"Raft","slug":"/docs/clustering","kicker":"CLUSTER","snip":"Embedded Raft ring — leader election, heartbeats, authenticated transport."},{"title":"Leader failover","slug":"/docs/clustering","kicker":"CLUSTER","snip":"Kill the leader of a 3-node ring: survivors elect a new leader in ~250 ms."},{"title":"Cluster honesty","slug":"/docs/clustering","kicker":"CLUSTER","snip":"What the ring does today; metadata and data replication are roadmap (#1170)."},{"title":"Systemd unit","slug":"/docs/operations","kicker":"OPS","snip":"Production unit file with hardening directives."},{"title":"Readiness probe","slug":"/docs/operations","kicker":"OPS","snip":"GET /v1/health/ready — only 200 once WAL replay is complete."},{"title":"Config reload","slug":"/docs/operations","kicker":"OPS","snip":"SIGHUP reloads most keys without restart."},{"title":"Hot backup","slug":"/docs/backup-restore","kicker":"OPS","snip":"rsync the data dir after POST /v1/admin/flush."},{"title":"S3 backup","slug":"/docs/backup-restore","kicker":"OPS","snip":"POST /v1/admin/backup → any S3-compatible endpoint."},{"title":"Cluster upgrade","slug":"/docs/upgrades","kicker":"OPS","snip":"The cluster wire has no version negotiation — full stop/start, not rolling."},{"title":"Merge pressure","slug":"/docs/troubleshooting","kicker":"OPS","snip":"Segment count climbing → raise merge.max_concurrent + io_rate."},{"title":"Cluster flapping","slug":"/docs/troubleshooting","kicker":"OPS","snip":"Sustained leader churn is a defect — capture RUST_LOG=xerj_cluster=debug and file it."},{"title":"WAL warnings after a crash","slug":"/docs/troubleshooting","kicker":"OPS","snip":"Repaired on startup; no manual repair command."},{"title": "Recipes", "slug": "/docs/recipes/", "kicker": "RECIPES", "snip": "Task-oriented AI & search recipes, each verified end-to-end against a live XERJ."},{"title": "Semantic search & RAG", "slug": "/docs/recipes/semantic-search-rag", "kicker": "RECIPE", "snip": "Retrieval by meaning with semantic_text — auto-embed on ingest, no separate vector DB."},{"title": "Agent memory", "slug": "/docs/recipes/agentic-memory", "kicker": "RECIPE", "snip": "Long-term memory for agents via /_memory — store, recall, forget, per-agent isolation."},{"title": "Passage retrieval", "slug": "/docs/recipes/passage-retrieval", "kicker": "RECIPE", "snip": "Auto-chunk long docs; best-passage (max-sim) scoring — 98% top-3."},{"title": "Vector search · kNN", "slug": "/docs/recipes/vector-search-knn", "kicker": "RECIPE", "snip": "Nearest-neighbor over dense_vector — HNSW-served unfiltered, exact with filters."},{"title": "Vector quantization", "slug": "/docs/recipes/vector-quantization", "kicker": "RECIPE", "snip": "scalar8 (accepts ES int8_hnsw; exact code scan) — int8 scoring at recall@10 = 0.998. Precision, not memory."},{"title": "Hybrid search", "slug": "/docs/recipes/hybrid-search", "kicker": "RECIPE", "snip": "Keyword + vector in one query — RRF fusion."},{"title": "Log analytics", "slug": "/docs/recipes/log-analytics", "kicker": "RECIPE", "snip": "Raw logs to dashboards — error rates, p95 latency, top services."},{"title": "Anomaly detection", "slug": "/docs/recipes/anomaly-detection", "kicker": "RECIPE", "snip": "Statistical _ml detectors that flag spikes in metrics/logs."},{"title": "Anomaly datafeeds", "slug": "/docs/recipes/continuous-anomaly-datafeeds", "kicker": "RECIPE", "snip": "Live _ml datafeed re-scores an index on a timer, stores anomaly records."},{"title": "Migrate from ES", "slug": "/docs/recipes/migrate-from-elasticsearch", "kicker": "RECIPE", "snip": "Point your existing ES client at XERJ — same wire, change the URL."}]</script>
 
 <script>
   // IIFE — js-auth navigates between decrypted pages in the same

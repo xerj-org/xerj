@@ -1,0 +1,22 @@
+{
+ "corpus": "docling-project--docling-pipelines",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on docling, docling-serve, hacktoberfest queries this for how docling-project/docling-pipelines implements it: Scalable Ingestion pipeline (selected work: tests, src/docpipe, frontend)",
+ "repos": [
+  {
+   "repo": "docling-pipelines",
+   "url": "https://github.com/IBM/docling-pipelines",
+   "sha": "465ccf62102356220e7094a5f95ece46055dba31",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit 465ccf621023: \"feat(ingest): migrate IngestSourceOperator to unified provider_config\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

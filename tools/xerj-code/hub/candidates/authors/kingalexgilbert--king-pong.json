@@ -1,0 +1,22 @@
+{
+ "corpus": "kingalexgilbert--king-pong",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, apk, arcade-game queries this for how KingAlexGilbert/king-pong implements it: Retro Pong-inspired arcade campaign game for browsers, Android, Linux, and Windows, with multiplayer, progressive paddle shapes, and a secre (selected work: game, Linux, android)",
+ "repos": [
+  {
+   "repo": "king-pong",
+   "url": "https://github.com/KingAlexGilbert/king-pong",
+   "sha": "7ab185bb3e8f91a4aba227541866e7f6ddecf70c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 7ab185bb3e8f: \"Polish gameplay, audio, match rules, and retro UI\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

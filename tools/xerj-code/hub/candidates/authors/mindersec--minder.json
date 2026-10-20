@@ -1,0 +1,22 @@
+{
+ "corpus": "mindersec--minder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on security, supply-chain, software-supply-chain queries this for how mindersec/minder implements it: Software Supply Chain Security Platform (selected work: pkg/ruletest, internal/engine, cmd/dev)",
+ "repos": [
+  {
+   "repo": "minder",
+   "url": "https://github.com/mindersec/minder",
+   "sha": "f8ad8a8502c64a0c2c686e67292adc06cf780946",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit f8ad8a8502c6: \"feat(ruletest): capture print() output per test result (#6882)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "efe-clk--osiris",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how efe-clk/OSIRIS implements it: Digital Intelligence/OSINT Tool (selected work: crates/osiris-server, crates/osiris-db, crates/osiris-pipeline)",
+ "repos": [
+  {
+   "repo": "OSIRIS",
+   "url": "https://github.com/efe-clk/OSIRIS",
+   "sha": "433b1fe6675f1ff7b22fb83d817f76463b4e6ddb",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 433b1fe6675f: \"Rust R7: migration 006 \u2014 eski embedding s\u00fctunu kald\u0131r\u0131ld\u0131, audit yaln\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

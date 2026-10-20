@@ -1,0 +1,22 @@
+{
+ "corpus": "yamkin29--backend-doctor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on backend, code-quality, lint queries this for how yamkin29/backend-doctor implements it: Deterministic static analyzer for Node.js/NestJS backends \u2014 async bugs, event-loop blocking, security, DI, Prisma. CLI: backend-doctor (selected work: src/cli, tests, the project root)",
+ "repos": [
+  {
+   "repo": "backend-doctor",
+   "url": "https://github.com/yamkin29/backend-doctor",
+   "sha": "26dcff3deeab27a3e5f14dfeb7ba97877d5eefde",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 26dcff3deeab: \"feat(console): add interactive review and CLI lifecycle\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "andeeplus--aplus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, agentic-ai, claude-code queries this for how andeeplus/aplus implements it: Agent skills for shipping changes with care (selected work: skills)",
+ "repos": [
+  {
+   "repo": "aplus",
+   "url": "https://github.com/andeeplus/aplus",
+   "sha": "ad94790f43e827f47848e719c2ca0da9bebe9457",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit ad94790f43e8: \"feat(audit): choose the audit dirs with APLUS_AUDIT_DIRS and mirror t\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

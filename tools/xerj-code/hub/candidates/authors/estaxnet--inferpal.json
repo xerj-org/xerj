@@ -1,0 +1,22 @@
+{
+ "corpus": "estaxnet--inferpal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agent, code-completion queries this for how EstaxNet/Inferpal implements it: Your AI pair programmer for Visual Studio 2026 & VS Code - 100% local, no API key, no telemetry. Agentic loop with 28 tools: reads, edits, b (selected work: Inferpal.Tests, Inferpal.Core, vscode)",
+ "repos": [
+  {
+   "repo": "Inferpal",
+   "url": "https://github.com/EstaxNet/Inferpal",
+   "sha": "036ca9479f1ab0a8199766f0547db606cf85c7e6",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 036ca9479f1a: \"Fixes from the continuing review (tours 54-63)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

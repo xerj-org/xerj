@@ -1,0 +1,22 @@
+{
+ "corpus": "yassernull--logcat-live-wallpaper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how YasserNull/logcat-live-wallpaper implements it: LogCat Live Wallpaper is a live wallpaper app that displays Logcat output on your screen with extensive customization options (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "logcat-live-wallpaper",
+   "url": "https://github.com/YasserNull/logcat-live-wallpaper",
+   "sha": "2eb6a3e4f09ef65e060857bbe7a9d02b00e91248",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 2eb6a3e4f09e: \"\u0625\u0636\u0627\u0641\u0629 \u0632\u0631 \u0627\u062e\u062a\u064a\u0627\u0631 \u0645\u0642\u0637\u0639 \u0644\u0644\u062e\u0644\u0641\u064a\u0629\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

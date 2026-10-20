@@ -1,0 +1,22 @@
+{
+ "corpus": "avinal--nikki",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how avinal/nikki implements it: A native Android client for Memos with integrated Todoist-style task management (selected work: composeApp)",
+ "repos": [
+  {
+   "repo": "nikki",
+   "url": "https://github.com/avinal/nikki",
+   "sha": "b28bb0500002c9f509fc81df17976df35ef90a21",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit b28bb0500002: \"Redesign memo cards with date gutter and spacing\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "vellira-dev--vellira",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on accessibility, react, react-native queries this for how vellira-dev/vellira implements it: TypeScript-first design system for React and React Native with shared design tokens, accessible components and consistent APIs (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "vellira",
+   "url": "https://github.com/vellira-dev/vellira",
+   "sha": "7f51b0baa854b3b59cee9bd1ffb37be720ab487c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 7f51b0baa854: \"fix(generator): enforce one fail-closed discovery gate in all checks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

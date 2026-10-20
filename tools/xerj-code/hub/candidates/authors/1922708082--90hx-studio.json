@@ -1,0 +1,22 @@
+{
+ "corpus": "1922708082--90hx-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how 1922708082/90HX-Studio implements it: HX\u5bb6\u65cf\u591a\u529f\u80fd\u5de5\u5177\u7bb1\uff1aNVIDIA CMP \u5168\u7cfb\u663e\u5361\uff0830HX/40HX/50HX/70HX/90HX/170HX\uff09\u56fe\u5f62/\u7b97\u529b/\u5149\u8ffd\u89e3\u9501\u3001\u578b\u53f7\u4f2a\u88c5\u4e0e\u81ea\u9002\u5e94\u7701\u7535\u63a7\u5236\u53f0 (selected work: build_source)",
+ "repos": [
+  {
+   "repo": "90HX-Studio",
+   "url": "https://github.com/1922708082/90HX-Studio",
+   "sha": "eb1018161719faf553b9043b9377b759f7bf3d47",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit eb1018161719: \"\u7701\u7535\u5168\u9762\u52a8\u6001\u5316 + \u5b9e\u65f6\u8f6e\u8be2 + \u5168\u7cfb\u5217\u5361\u578b\u9002\u914d\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "babo-jeonguk--paseo-usage-auto-resume",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on automation, claude-code, codex queries this for how babo-jeonguk/paseo-usage-auto-resume implements it: Paseo plugin to automatically resume Claude and Codex after usage limits reset, with configurable provider IDs (selected work: server, client, shared)",
+ "repos": [
+  {
+   "repo": "paseo-usage-auto-resume",
+   "url": "https://github.com/babo-jeonguk/paseo-usage-auto-resume",
+   "sha": "60b6bb11b35e946df099de3cd5bf6d6ffa8ba311",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 60b6bb11b35e: \"fix: decide every limit stop by the usage windows\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "unixipher--lite-orm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how unixipher/lite-orm implements it: Type safe ORM written in rust prisma like schema definition (selected work: lite-orm-cli, lite-orm-studio, src)",
+ "repos": [
+  {
+   "repo": "lite-orm",
+   "url": "https://github.com/unixipher/lite-orm",
+   "sha": "1a64129560d9bac39162a3841ab2e45187426730",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 1a64129560d9: \"Support PostgreSQL USER-DEFINED enum types and arrays in db pull and \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

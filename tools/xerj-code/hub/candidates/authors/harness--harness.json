@@ -1,0 +1,22 @@
+{
+ "corpus": "harness--harness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on continuous-delivery, continuous-integration, go queries this for how harness/harness implements it: Harness Open Source is an end-to-end developer platform with Source Control Management, CI/CD Pipelines, Hosted Developer Environments, and  (selected work: app/services, app/api, mocks)",
+ "repos": [
+  {
+   "repo": "harness",
+   "url": "https://github.com/harness/harness",
+   "sha": "f854b3a25729e5e881380470bd3d71cda60426bf",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit f854b3a25729: \"feat: [CODE-6480]: limit number of PR reviewers (#5375)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

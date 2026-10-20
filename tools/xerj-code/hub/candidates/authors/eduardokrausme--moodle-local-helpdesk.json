@@ -1,0 +1,22 @@
+{
+ "corpus": "eduardokrausme--moodle-local-helpdesk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how EduardoKrausME/moodle-local_helpdesk implements it: EduardoKrausME/moodle-local_helpdesk (PHP) (selected work: classes, tests, the project root)",
+ "repos": [
+  {
+   "repo": "moodle-local_helpdesk",
+   "url": "https://github.com/EduardoKrausME/moodle-local_helpdesk",
+   "sha": "61b08b1870d01a67c0adecb83c5235d37e4113c8",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 61b08b1870d0: \"feat: expose Helpdesk MCP tools via automatic provider discovery\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

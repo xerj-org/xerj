@@ -1,0 +1,22 @@
+{
+ "corpus": "elzastrelitzia--libremusic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on kotlin, music-player, android-app queries this for how elzastrelitzia/libremusic implements it: random kid music player (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "libremusic",
+   "url": "https://github.com/elzastrelitzia/libremusic",
+   "sha": "8620718b4330b2e3b14ffb65773dba5590470933",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8620718b4330: \"android: share one card between album and playlist items\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

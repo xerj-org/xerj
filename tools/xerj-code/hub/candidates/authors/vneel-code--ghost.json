@@ -1,0 +1,22 @@
+{
+ "corpus": "vneel-code--ghost",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, android-app, android-development queries this for how vNeeL-code/GHOST implements it: Agentic \u2727 Gemma Inference for Android System Intelligence (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "GHOST",
+   "url": "https://github.com/vNeeL-code/GHOST",
+   "sha": "aa36d210f0966ac3141b92f8d16f7267d7bc8d8f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit aa36d210f096: \"feat(agent): implement 4-Tier Agent Architecture with Core 6 tools, a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "conwnet--github1s",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on vscode, agent, ai queries this for how conwnet/github1s implements it: One second to read GitHub code with VS Code (selected work: extensions)",
+ "repos": [
+  {
+   "repo": "github1s",
+   "url": "https://github.com/conwnet/github1s",
+   "sha": "8c92f3a282f699f07b082e683bbd456b398f4c3b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 8c92f3a282f6: \"feat: add retry for failed message (#757)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

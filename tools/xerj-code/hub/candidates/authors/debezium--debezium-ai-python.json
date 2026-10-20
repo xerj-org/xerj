@@ -1,0 +1,22 @@
+{
+ "corpus": "debezium--debezium-ai-python",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how debezium/debezium-ai-python implements it: A Python library to integrate Debezium with AI-enabled applications. Please log issues at https://github.com/debezium/dbz/issues. Resources (selected work: tools, tests, the project root)",
+ "repos": [
+  {
+   "repo": "debezium-ai-python",
+   "url": "https://github.com/debezium/debezium-ai-python",
+   "sha": "dc082dc31d1cb87ab4d1d523158e164554aa0b52",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit dc082dc31d1c: \"debezium/dbz#2616 fix(build): packaging, zero-Maven jar setup, and Wi\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "yoruxyv--semantix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on ai, benchmark, cache queries this for how Yoruxyv/semantix implements it: Semantic caching playground with AI providers, embeddings, benchmarking, and explainable cache retrieval (selected work: packages/cache)",
+ "repos": [
+  {
+   "repo": "semantix",
+   "url": "https://github.com/Yoruxyv/semantix",
+   "sha": "416ad9a93fd09d20a8b50f829d37cd8fe44592b7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 416ad9a93fd0: \"refactor(cache): isolate Redis policy, format and inspection (#184)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

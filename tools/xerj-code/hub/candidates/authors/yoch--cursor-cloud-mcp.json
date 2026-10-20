@@ -1,0 +1,22 @@
+{
+ "corpus": "yoch--cursor-cloud-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how yoch/cursor-cloud-mcp implements it: yoch/cursor-cloud-mcp (Python) (selected work: src/cursor_cloud_mcp, tests)",
+ "repos": [
+  {
+   "repo": "cursor-cloud-mcp",
+   "url": "https://github.com/yoch/cursor-cloud-mcp",
+   "sha": "7991f4e09256c43537e6bdba6ff0f1765779552a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 7991f4e09256: \"Add 0.4.0: supervision diagnostics, tool output window, fleet git, cr\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

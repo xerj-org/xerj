@@ -1,0 +1,22 @@
+{
+ "corpus": "grlap--termal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how grlap/TermAl implements it: Terminal meets AI (selected work: src/tests, src)",
+ "repos": [
+  {
+   "repo": "TermAl",
+   "url": "https://github.com/grlap/TermAl",
+   "sha": "d6c0ca78f86d5e54f1097133ba9f5e7c4ac8ccc7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit d6c0ca78f86d: \"Add durable admission fence for queued prompts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "daniiislo--antigravity-mcp-bridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Daniiislo/antigravity-mcp-bridge implements it: MCP bridge for orchestrating persistent Antigravity CLI workers from Codex or Claude Code (selected work: test, src, scripts)",
+ "repos": [
+  {
+   "repo": "antigravity-mcp-bridge",
+   "url": "https://github.com/Daniiislo/antigravity-mcp-bridge",
+   "sha": "2a965d41f1450ec09db335ef22554afec64309e3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 2a965d41f145: \"Eliminate model-driven task wait polling\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "pwittchen--jrs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on build-system, jvm, rust queries this for how pwittchen/jrs implements it: A simple, fast JVM build system, written in Rust. \ud83e\udd80 \u2615 (selected work: src, tests)",
+ "repos": [
+  {
+   "repo": "jrs",
+   "url": "https://github.com/pwittchen/jrs",
+   "sha": "8a5f42ca622686a4ceea3c1ac56258a54aca8d70",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 8a5f42ca6226: \"Add `jrs audit`, a vulnerability check against the OSV database\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

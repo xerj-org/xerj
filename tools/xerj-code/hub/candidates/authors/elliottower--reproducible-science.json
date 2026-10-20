@@ -1,0 +1,22 @@
+{
+ "corpus": "elliottower--reproducible-science",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on citations, claude-code, cli queries this for how elliottower/reproducible-science implements it: Command-line tools and a Claude Code plugin bundling preregistration, citation verification, and results provenance for reproducible science (selected work: packages/results, packages/prereg)",
+ "repos": [
+  {
+   "repo": "reproducible-science",
+   "url": "https://github.com/elliottower/reproducible-science",
+   "sha": "c0c325c6c1d5fbddeacd4cb71fd7bf53e3e166de",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit c0c325c6c1d5: \"results, prereg: a run recorded as holding no outcome does not count \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

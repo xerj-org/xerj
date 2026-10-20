@@ -1,0 +1,22 @@
+{
+ "corpus": "aiteachme--aiteachme",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how aiteachme/AITeachMe implements it: aiteachme/AITeachMe (Python) (selected work: backend)",
+ "repos": [
+  {
+   "repo": "AITeachMe",
+   "url": "https://github.com/aiteachme/AITeachMe",
+   "sha": "8c349dd39b6c1c3ba22d6bfb4407dfdf7bde7dfc",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 8c349dd39b6c: \"fix: \u4fee\u590d\u8bfe\u7a0b\u6570\u91cf\u7ea6\u675f\u4f20\u9012\u4e0e\u53d1\u5e03\u6821\u9a8c\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

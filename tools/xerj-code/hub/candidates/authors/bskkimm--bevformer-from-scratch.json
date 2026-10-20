@@ -1,0 +1,22 @@
+{
+ "corpus": "bskkimm--bevformer-from-scratch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how bskkimm/BevFormer_from_scratch implements it: Pure PyTorch BEVFormer reimplementation from scratch (selected work: bevformer, tests)",
+ "repos": [
+  {
+   "repo": "BevFormer_from_scratch",
+   "url": "https://github.com/bskkimm/BevFormer_from_scratch",
+   "sha": "60e977a1b0af446424009ad47b61bf2df2175e52",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 60e977a1b0af: \"Add a watcher that logs fixed-subset validation loss to the live MLfl\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "achcarlucas--webrtc-godot-example",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on GDScript queries this for how AchcarLucas/WebRTC-Godot-Example implements it: Example project demonstrating WebRTC peer-to-peer communication in Godot, using manual JSON copy-and-paste to exchange SDP offers, answers,  (selected work: scripts, scenes, addons)",
+ "repos": [
+  {
+   "repo": "WebRTC-Godot-Example",
+   "url": "https://github.com/AchcarLucas/WebRTC-Godot-Example",
+   "sha": "3a05dab31b5ce8d864978d75a0eaced85e3bcea2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 3a05dab31b5c: \" - Project to understand the WebRTC protocol\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

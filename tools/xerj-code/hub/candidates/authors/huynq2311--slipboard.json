@@ -1,0 +1,22 @@
+{
+ "corpus": "huynq2311--slipboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Swift queries this for how huynq2311/SlipBoard implements it: Local-first clipboard history manager for macOS. Menu bar app built with SwiftUI, with search, pinning, notes and optional App Lock. No netw (selected work: SlipBoard)",
+ "repos": [
+  {
+   "repo": "SlipBoard",
+   "url": "https://github.com/huynq2311/SlipBoard",
+   "sha": "99af3343f1fe484f6b15a3d4e7591023a9c2158c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 99af3343f1fe: \"feat: create, edit and delete snippets in Settings > Snippets\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

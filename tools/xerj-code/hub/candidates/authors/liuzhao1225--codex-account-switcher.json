@@ -1,0 +1,22 @@
+{
+ "corpus": "liuzhao1225--codex-account-switcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on account-switcher, codex-desktop, macos queries this for how liuzhao1225/codex-account-switcher implements it: Native Codex account switcher by Zhao Liu (liuzhao1225) for macOS and Windows. Local accounts, weekly/5h usage, confirmed Desktop switching (selected work: npm, scripts)",
+ "repos": [
+  {
+   "repo": "codex-account-switcher",
+   "url": "https://github.com/liuzhao1225/codex-account-switcher",
+   "sha": "82f68ddfde932d63ea525da6ff0887d4cae9e584",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 82f68ddfde93: \"Install and update native apps from GitHub latest through npm (#21)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "scikit-bio--scikit-bio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on bioinformatics, computational-biology, compositional-data queries this for how scikit-bio/scikit-bio implements it: scikit-bio: a community-driven Python library for bioinformatics, providing versatile data structures, algorithms and educational resources (selected work: skbio)",
+ "repos": [
+  {
+   "repo": "scikit-bio",
+   "url": "https://github.com/scikit-bio/scikit-bio",
+   "sha": "2f573b9a9411c3c41465d9abcd41c3ad3a7dc077",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 2f573b9a9411: \"ENH: add a Numba GPU kernel for permdisp (#2597)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

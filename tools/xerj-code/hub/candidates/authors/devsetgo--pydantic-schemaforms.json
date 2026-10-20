@@ -1,0 +1,22 @@
+{
+ "corpus": "devsetgo--pydantic-schemaforms",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bootstrap, forms, jinja2 queries this for how devsetgo/pydantic-schemaforms implements it: Create Python based forms rapidly using classes and the power of Pydantic for validation (selected work: examples, tests, pydantic_schemaforms)",
+ "repos": [
+  {
+   "repo": "pydantic-schemaforms",
+   "url": "https://github.com/devsetgo/pydantic-schemaforms",
+   "sha": "3c2b9cf21d13270554fe56d6839f224386018b46",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 3c2b9cf21d13: \"Cover every layout, input option, and validation in the examples; fix\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

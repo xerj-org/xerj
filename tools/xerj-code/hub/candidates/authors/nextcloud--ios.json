@@ -1,0 +1,22 @@
+{
+ "corpus": "nextcloud--ios",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on nextcloud, ios, open-source queries this for how nextcloud/ios implements it: \ud83d\udcf1 Nextcloud iOS App (selected work: iOSClient, Nextcloud.xcodeproj)",
+ "repos": [
+  {
+   "repo": "ios",
+   "url": "https://github.com/nextcloud/ios",
+   "sha": "4ac2f0d797dbfdf31f65f2c1c9fe6b21062dc5d0",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4ac2f0d797db: \"fix: add fullscreen video menus and improve playback transitions (#4375)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

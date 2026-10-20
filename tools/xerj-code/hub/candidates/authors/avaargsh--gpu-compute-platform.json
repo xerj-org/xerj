@@ -1,0 +1,22 @@
+{
+ "corpus": "avaargsh--gpu-compute-platform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how avaargsh/gpu-compute-platform implements it: avaargsh/gpu-compute-platform (Go) (selected work: frontend, cmd/management-e2e-fixture, scripts)",
+ "repos": [
+  {
+   "repo": "gpu-compute-platform",
+   "url": "https://github.com/avaargsh/gpu-compute-platform",
+   "sha": "5b26eee61202ab657d42763e350a1e414e16c527",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 5b26eee61202: \"test(management): real Chromium to Go Management and disposable Postg\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

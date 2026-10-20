@@ -1,0 +1,22 @@
+{
+ "corpus": "abozaralizadeh--traide",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, algorithmic-trading, azure-openai queries this for how abozaralizadeh/trAIde implements it: GenAI Trader: an autonomous multi-agent AI crypto trader on Azure OpenAI and KuCoin, with risk management, backtesting and a Telegram superv (selected work: src, tests)",
+ "repos": [
+  {
+   "repo": "trAIde",
+   "url": "https://github.com/abozaralizadeh/trAIde",
+   "sha": "446c75e17532a1d97a7013722ef2e120e9ecb169",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 446c75e17532: \"Redact Telegram secrets from logs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

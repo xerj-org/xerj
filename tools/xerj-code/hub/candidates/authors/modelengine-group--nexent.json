@@ -1,0 +1,22 @@
+{
+ "corpus": "modelengine-group--nexent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agentic-ai, agentic-framework queries this for how ModelEngine-Group/nexent implements it: Nexent is a zero-code platform for auto-generating production-grade AI agents using Harness Engineering principles \u2014 unified tools, skills,  (selected work: test, sdk, backend)",
+ "repos": [
+  {
+   "repo": "nexent",
+   "url": "https://github.com/ModelEngine-Group/nexent",
+   "sha": "628d3e72a97dd5e8773aea62fbe8bb98127ab917",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 628d3e72a97d: \"\ud83d\udc1b Bugfix: sandbox-tool-bridge thread leak (#3934)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

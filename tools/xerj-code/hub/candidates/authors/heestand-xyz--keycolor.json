@@ -1,0 +1,22 @@
+{
+ "corpus": "heestand-xyz--keycolor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how heestand-xyz/KeyColor implements it: Find key colors in images (selected work: Sources, the project root)",
+ "repos": [
+  {
+   "repo": "KeyColor",
+   "url": "https://github.com/heestand-xyz/KeyColor",
+   "sha": "91d0e2bc82c7070639038073bb44ebe3ab3d0713",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 91d0e2bc82c7: \"Distinct Colors\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

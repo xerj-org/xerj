@@ -1,0 +1,22 @@
+{
+ "corpus": "markus-global--markus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-governance, agent-runtime, agent-to-agent queries this for how markus-global/markus implements it: The all-in-one AI workforce platform, to build AI agent teams. You are the boss (selected work: packages/comms, packages/shared)",
+ "repos": [
+  {
+   "repo": "markus",
+   "url": "https://github.com/markus-global/markus",
+   "sha": "c27198c9c51d8661fd3d9a761592511bb0901bc1",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit c27198c9c51d: \"feat(comms): add stage-one Discord adapter and client\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

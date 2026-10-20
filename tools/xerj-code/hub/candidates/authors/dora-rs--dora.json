@@ -1,0 +1,22 @@
+{
+ "corpus": "dora-rs--dora",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on dataflow, low-latency, robotics queries this for how dora-rs/dora implements it: DORA (Dataflow-Oriented Robotic Architecture) is middleware designed to streamline and simplify the creation of AI-based robotic application (selected work: libraries)",
+ "repos": [
+  {
+   "repo": "dora",
+   "url": "https://github.com/dora-rs/dora",
+   "sha": "71c2c39a1c0208230eef541aae563c901a5d685f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 71c2c39a1c02: \"perf(ros2-bridge): encode and decode uint8[] sequences in one copy (#\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

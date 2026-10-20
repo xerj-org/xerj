@@ -1,0 +1,22 @@
+{
+ "corpus": "moeclub-open--metafusion",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how MoeClub-Open/MetaFusion implements it: Hub for high quality media data (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "MetaFusion",
+   "url": "https://github.com/MoeclubM/MetaFusion",
+   "sha": "44a0ce7421b281e08e8465d210b199c0b99c23bc",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 44a0ce7421b2: \"feat(developer): edit API keys and MCP grants in focused dialogs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

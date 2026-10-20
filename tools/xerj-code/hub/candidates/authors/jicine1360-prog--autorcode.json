@@ -1,0 +1,22 @@
+{
+ "corpus": "jicine1360-prog--autorcode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, automation, cli queries this for how jicine1360-prog/autorcode implements it: \ub85c\uceec \uc6b0\uc120 LLM \uc5d0\uc774\uc804\ud2b8 CLI \u2014 \ubaa8\ub378\u00b7\ub370\uc774\ud130\uac00 \ub0b4 \uc11c\ubc84 \ubc16\uc73c\ub85c \uc548 \ub098\uac00\uc694. \uc0cc\ub4dc\ubc15\uc2a4+\ud654\uc774\ud2b8\ub9ac\uc2a4\ud2b8+SSRF \uac00\ub4dc, Ollama\u00b7OpenRouter \uc790\ub3d9 \ub77c\uc6b0\ud305, GPU \uc5c6\uc774\ub3c4 \ub3d9\uc791 (selected work: harness, tests, the project root)",
+ "repos": [
+  {
+   "repo": "autorcode",
+   "url": "https://github.com/jicine1360-prog/autorcode",
+   "sha": "a15e0a6eeb3da808d5f004d9de7270ce7805c24c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a15e0a6eeb3d: \"feat(tui): opencode \uc2a4\ud0c0\uc77c \uc804\uccb4\ud654\uba74 TUI (autorcode tui)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "shaivpidadi--freeridev3",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, hermes, huggingface queries this for how Shaivpidadi/FreeRideV3 implements it: One free AI endpoint, every free tier behind it. Local OpenAI-compatible gateway routing across OpenRouter, Groq, NVIDIA NIM, Cloudflare Wor (selected work: services, freeride, tests)",
+ "repos": [
+  {
+   "repo": "FreeRideV3",
+   "url": "https://github.com/Shaivpidadi/FreeRideV3",
+   "sha": "3811c8e29ef41d96eea2fe37d0219c1790e530b1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 3811c8e29ef4: \"0.4.0a25: per-provider telemetry split; single-row totals on the worker\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

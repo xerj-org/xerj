@@ -1,0 +1,22 @@
+{
+ "corpus": "g0v--civic-talk-hono",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how g0v/civic-talk-hono implements it: \u4ee5Vue SSR + Hono\u8907\u523bCivic Talk, \u958b\u767c\u4e2d\u3002\u5229\u7528 AI \u8207\u4eba\u6a5f\u5354\u4f5c\uff0c\u964d\u4f4e\u516c\u5171\u8a0e\u8ad6\u7684\u9580\u6abb\u3002Using AI and human\u2013machine collaboration to lower the barriers to public deliberation (selected work: src/l10n, src/tests, src/components)",
+ "repos": [
+  {
+   "repo": "civic-talk-hono",
+   "url": "https://github.com/g0v/civic-talk-hono",
+   "sha": "244de676e12617a7848f87ff930530415323bd45",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 244de676e126: \"feat: \u65b0\u589e\u65e5\u8a9e\u4ecb\u9762\u4e26\u8abf\u6574\u65e5\u8a9e\u97ff\u61c9\u5f0f\u6392\u7248\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

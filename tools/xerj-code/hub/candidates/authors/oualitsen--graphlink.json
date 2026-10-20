@@ -1,0 +1,22 @@
+{
+ "corpus": "oualitsen--graphlink",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dart, graphql, code-generation queries this for how Oualitsen/graphlink implements it: Type-safe code generator for GraphQL schemas \u2014 produces clients and server interfaces for Dart, Flutter, Java, and Spring Boot. Features bui (selected work: lib/src)",
+ "repos": [
+  {
+   "repo": "graphlink",
+   "url": "https://github.com/Oualitsen/graphlink",
+   "sha": "329e66eb4cf3ae55100df76aee7be1202db67e11",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 329e66eb4cf3: \"feature/flutter-sdk-version-gates (#440)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

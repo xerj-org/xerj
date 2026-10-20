@@ -1,0 +1,22 @@
+{
+ "corpus": "gdavid7--cryptocode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Python queries this for how gdavid7/cryptocode implements it: A simple, easy to use python library that encrypts and decrypts strings (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "cryptocode",
+   "url": "https://github.com/gdavid7/cryptocode",
+   "sha": "5534a3212982311db7a302c8caadb69afb078f36",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 5534a3212982: \"Add compatibility CI, strict token parsing, and modern packaging\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

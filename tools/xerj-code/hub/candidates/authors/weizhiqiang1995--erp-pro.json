@@ -1,0 +1,22 @@
+{
+ "corpus": "weizhiqiang1995--erp-pro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on erp, duplex, apollo queries this for how weizhiqiang1995/erp-pro implements it: Skyeye\u4e91\u96f6\u4ee3\u7801\uff0c\u91c7\u7528Springboot + UNI-APP + Ant Design Vue\u7684\u6846\u67b6\u7684\u5feb\u901f\u5f00\u53d1\u5e73\u53f0\u3002\u5305\u542b50\u591a\u79cd\u7535\u5b50\u6d41\u7a0b\uff0cCRM\u3001PM\u3001ERP\u3001MES\u3001ADM\u3001OA\u3001EHR\u3001AI\u3001\u9879\u76ee\u3001\u5546\u57ce\u3001\u8d22\u52a1\u3001\u591a\u73ed\u6b21\u8003\u52e4\u3001\u85aa\u8d44\u3001\u62db\u8058\u3001\u4e91\u552e\u540e\u3001\u8bba\u575b\u3001\u95ee\u5377\u3001\u62a5\u8868\u8bbe\u8ba1\u3001\u5de5\u4f5c\u6d41 (selected work: skyeye-adm, skyeye-erp, skyeye-promote)",
+ "repos": [
+  {
+   "repo": "erp-pro",
+   "url": "https://github.com/weizhiqiang1995/erp-pro",
+   "sha": "d6d8cf9a582c7e3a157c0bc8e91a61c6a687ddce",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit d6d8cf9a582c: \"feat: \u8d22\u52a1\u5bf9\u63a5\u591a\u4e2aERP\u6a21\u5757\u529f\u80fd\uff0c\u540c\u65f6\u4ed3\u5e93\u65b0\u589e\u4ed3\u5e93\u5de5\u4f5c\u53f0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "r-uby-dev--llm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, llm, llm-agents queries this for how r-uby-dev/llm implements it: An agentic runtime (selected work: spec, lib/llm)",
+ "repos": [
+  {
+   "repo": "llm",
+   "url": "https://github.com/r-uby-dev/llm",
+   "sha": "e61f42c8f4bac3205eaf992c0d35da52fcd36008",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit e61f42c8f4ba: \"guard: add LLM::Guard.multi (#287)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

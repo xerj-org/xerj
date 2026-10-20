@@ -1,0 +1,22 @@
+{
+ "corpus": "ikelaiah--mathlib-fp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on free-pascal, freepascal, lazarus queries this for how ikelaiah/mathlib-fp implements it: A focused Free Pascal math library collection for scientific, engineering, statistical, financial, optimization, time-series, machine-learni (selected work: src, tests, examples)",
+ "repos": [
+  {
+   "repo": "mathlib-fp",
+   "url": "https://github.com/ikelaiah/mathlib-fp",
+   "sha": "2e4aa5e0e0d0972514f9c760ff5fc6c89b24ff2a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 2e4aa5e0e0d0: \"feat(sparse): add reusable minimum-degree LU analysis\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

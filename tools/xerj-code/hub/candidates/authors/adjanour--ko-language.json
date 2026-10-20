@@ -1,0 +1,22 @@
+{
+ "corpus": "adjanour--ko-language",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Zig queries this for how Adjanour/ko-language implements it: K\u014d - vibecoded a minimal functional programming language (selected work: ko-dist, ko-zig, the project root)",
+ "repos": [
+  {
+   "repo": "ko-language",
+   "url": "https://github.com/Adjanour/ko-language",
+   "sha": "129f5f3e5edd266cb8c7c22d9794625f32064e5f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 129f5f3e5edd: \"examples: add bench, sat, and typing multifile programs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

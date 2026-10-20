@@ -1,0 +1,22 @@
+{
+ "corpus": "islamalorabi--al-minshawi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, islam, islamic queries this for how IslamAlorabI/Al-Minshawi implements it: Al-Minshawi Telawat Android Application (selected work: app/src, app, gradle)",
+ "repos": [
+  {
+   "repo": "Al-Minshawi",
+   "url": "https://github.com/IslamAlorabI/Al-Minshawi",
+   "sha": "e61697a566bec3766b08f50f0ffc33eefc5f2e08",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit e61697a566be: \"feat: release 1.4 with download-and-play, resume, juz downloads and r\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

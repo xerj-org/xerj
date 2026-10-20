@@ -1,0 +1,22 @@
+{
+ "corpus": "orefkov--simstr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on expression-templates, string-manipulation, strings queries this for how orefkov/simstr implements it: Yet another C++ strings library implementation (selected work: include, tests, bench)",
+ "repos": [
+  {
+   "repo": "simstr",
+   "url": "https://github.com/orefkov/simstr",
+   "sha": "e8c1dc72b5de38d45df81e2d3f8f76046cb0d57f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit e8c1dc72b5de: \"2.1.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

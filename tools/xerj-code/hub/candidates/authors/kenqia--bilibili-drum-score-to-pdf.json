@@ -1,0 +1,22 @@
+{
+ "corpus": "kenqia--bilibili-drum-score-to-pdf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skill, ai-agent, bilibili queries this for how kenqia/bilibili-drum-score-to-pdf implements it: Turn existing Bilibili and local drum-score videos into printable A4 PDFs with a visual AI agent. \u5e26\u6765\u6e90\u8bb0\u5f55\u4e0e\u9010\u9875\u68c0\u67e5\u7684\u9f13\u8c31\u6574\u7406 Skill\u3002 (selected work: skills, tests)",
+ "repos": [
+  {
+   "repo": "bilibili-drum-score-to-pdf",
+   "url": "https://github.com/kenqia/bilibili-drum-score-to-pdf",
+   "sha": "9b732549e3461409426a277d7b3a69ea0e21be50",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 9b732549e346: \"refactor: share row continuity evidence without navigation back-depen\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

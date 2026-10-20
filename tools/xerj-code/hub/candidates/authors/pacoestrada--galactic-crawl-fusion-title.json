@@ -1,0 +1,22 @@
+{
+ "corpus": "pacoestrada--galactic-crawl-fusion-title",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on davinci-resolve, drfx, fusion queries this for how pacoestrada/galactic-crawl-fusion-title implements it: T\u00edtulo Fusion de texto en perspectiva con estrellas editables para DaVinci Resolve 21. Primera beta (selected work: tools, src)",
+ "repos": [
+  {
+   "repo": "galactic-crawl-fusion-title",
+   "url": "https://github.com/pacoestrada/galactic-crawl-fusion-title",
+   "sha": "77fcfa5aa9fe7f1e8bb28c383c30ba3f17574431",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 77fcfa5aa9fe: \"Add Paco Estrada showcase crawl\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

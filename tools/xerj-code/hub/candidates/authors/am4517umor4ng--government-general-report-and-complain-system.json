@@ -1,0 +1,22 @@
+{
+ "corpus": "am4517umor4ng--government-general-report-and-complain-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Blade queries this for how AM4517UMOR4NG/Government-General-Report-and-Complain-System implements it: Laravel-based public reports and complaints system with role-based dashboards (admin, staff, citizen), file attachments, workflow management (selected work: resources)",
+ "repos": [
+  {
+   "repo": "Government-General-Report-and-Complain-System",
+   "url": "https://github.com/AM4517UMOR4NG/Government-General-Report-and-Complain-System",
+   "sha": "e6d377829065e90d5b7079f36c2d89255b50df6a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit e6d377829065: \"feat(views): implement workflow interaction modals and action components\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

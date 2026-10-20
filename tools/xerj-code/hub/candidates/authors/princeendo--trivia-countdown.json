@@ -1,0 +1,22 @@
+{
+ "corpus": "princeendo--trivia-countdown",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how princeendo/trivia_countdown implements it: princeendo/trivia_countdown (Python) (selected work: scripts, tests, trivia_countdown)",
+ "repos": [
+  {
+   "repo": "trivia_countdown",
+   "url": "https://github.com/princeendo/trivia_countdown",
+   "sha": "0faac585d997f6d2f4ad634de32ecf6c4d54399a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 0faac585d997: \"Complete source-built Windows packaging and release qualification too\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

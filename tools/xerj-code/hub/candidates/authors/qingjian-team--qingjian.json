@@ -1,0 +1,22 @@
+{
+ "corpus": "qingjian-team--qingjian",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on chinese, chinese-input-method, english-learning queries this for how qingjian-team/qingjian implements it: \u9752\u7b80 Qingjian\uff1a\u7528 Rust \u5199\u7684\u62fc\u97f3\u8f93\u5165\u6cd5\uff0c\u5019\u9009\u8bcd\u65c1\u591a\u4e00\u6761\u6b63\u5728\u5b66\u7684\u8bed\u8a00\u7684\u8bd1\u8bcd (selected work: apps/windows, apps/settings, crates/qingjian-platform)",
+ "repos": [
+  {
+   "repo": "qingjian",
+   "url": "https://github.com/qingjian-team/qingjian",
+   "sha": "cc08b48c3caaf9fe0e64c35056cfecc5d8aa44dc",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit cc08b48c3caa: \"feat(windows): \u6309\u9700\u4e91\u8054\u60f3\u5feb\u6377\u952e\u4e0e\u81ea\u52a8\u8054\u60f3\u5f00\u5173 (#564)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

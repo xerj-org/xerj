@@ -1,0 +1,22 @@
+{
+ "corpus": "whoashish115--kitsune-tales-qwen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on dpo, fantasy, fine-tuning queries this for how whoashish115/kitsune-tales-qwen implements it: Kitsune-Tales-E4B-JP and -EN: LoRA fine-tunes of Gemma 4 E4B that write original fantasy light-novel fiction in Japanese and English. Synthe (selected work: src, slides)",
+ "repos": [
+  {
+   "repo": "kitsune-tales-qwen",
+   "url": "https://github.com/whoashish115/kitsune-tales-qwen",
+   "sha": "1eb8ee9436fab44fc83a89604b12c513773e1c78",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 1eb8ee9436fa: \"update: slides follow a research talk structure\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

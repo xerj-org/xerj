@@ -29,10 +29,10 @@ The rules
 2. The value is an integer in [1, MAX_TIMEOUT]. The upper bound is what makes
    the gate mean something: a job allowed 300 minutes would satisfy rule 1 and
    still hold a slot all afternoon.
-3. Parser self-check: every block this script treats as a job must contain
-   `runs-on:` or `uses:`. If a workflow file's shape ever drifts away from what
-   the parser below assumes, that check fails loudly instead of the guard
-   silently passing over jobs it never saw.
+3. Parser self-check: every entry at job indentation must be recognized, and
+   every job must contain `runs-on:` or `uses:`. If a workflow file's shape
+   ever drifts away from what the parser below assumes, that check fails
+   loudly instead of the guard silently passing over jobs it never saw.
 
 The one exemption is a job that calls a reusable workflow (`uses:` at job
 level): GitHub rejects `timeout-minutes` on those outright, so the cap has to
@@ -93,7 +93,7 @@ def parse_jobs(text: str, where: str) -> list:
 
     jobs = []
     current = None
-    for ln in lines[start + 1 :]:
+    for line_no, ln in enumerate(lines[start + 1 :], start + 2):
         if not ln.strip() or ln.lstrip().startswith("#"):
             continue
         indent = len(ln) - len(ln.lstrip())
@@ -104,6 +104,14 @@ def parse_jobs(text: str, where: str) -> list:
             current = {}
             jobs.append((m.group(1), current))
             continue
+        if indent == 2:
+            # Otherwise this entry's keys would be folded into the previous
+            # job, whose timeout could hide an uncapped job entirely.
+            raise ParseError(
+                f"{where}:{line_no}: unsupported job declaration: {ln!r}; "
+                f"expected a plain job id on its own two-space-indented line; "
+                f"extend the parser if this YAML shape is needed"
+            )
         if current is None:
             raise ParseError(f"{where}: content before the first job: {ln!r}")
         km = JOB_KEY_RE.match(ln)
@@ -249,6 +257,30 @@ def self_test() -> int:
         failures += 1
     else:
         print("ok  parser finds exactly the real jobs")
+    # An unsupported header after a valid job must not merge its keys into
+    # that job and inherit its timeout. These fixtures leave beta uncapped.
+    unsupported_jobs = [
+        ("double-quoted job id", _STEP_ONLY.replace("  beta:", '  "beta":')),
+        ("single-quoted job id", _STEP_ONLY.replace("  beta:", "  'beta':")),
+        ("anchored job", _STEP_ONLY.replace("  beta:", "  beta: &uncapped")),
+        (
+            "inline job mapping",
+            _STEP_ONLY.split("  beta:", 1)[0]
+            + "  beta: {runs-on: ubuntu-latest, steps: [{run: echo hi}]}\n",
+        ),
+    ]
+    for label, text in unsupported_jobs:
+        try:
+            check_workflow(fake, text)
+        except ParseError as exc:
+            if "fixture.yml:" in str(exc) and "unsupported job declaration" in str(exc):
+                print(f"ok  parser refuses {label}")
+            else:
+                print(f"FAIL parser refuses {label} with an unrelated error: {exc}")
+                failures += 1
+        else:
+            print(f"FAIL parser silently accepts {label}")
+            failures += 1
     print("self-test:", "PASS" if failures == 0 else f"{failures} FAILURE(S)")
     return 1 if failures else 0
 

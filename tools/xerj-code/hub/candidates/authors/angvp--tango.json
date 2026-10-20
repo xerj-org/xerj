@@ -1,0 +1,22 @@
+{
+ "corpus": "angvp--tango",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Go queries this for how angvp/tango implements it: tanGO is a small, explicit web framework for Go, inspired by Django (selected work: internal/shellcore, internal/cli, shell)",
+ "repos": [
+  {
+   "repo": "tango",
+   "url": "https://github.com/angvp/tango",
+   "sha": "8100d82a921106bf4929798081d2acff16ca5fb7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 8100d82a9211: \"feat: shell Options.Helpers registers project functions as project.Name\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--beam",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on python, java, big-data queries this for how apache/beam implements it: Apache Beam is a unified programming model for Batch and Streaming data processing (selected work: sdks, the project root, playground)",
+ "repos": [
+  {
+   "repo": "beam",
+   "url": "https://github.com/apache/beam",
+   "sha": "debfa0e6088789388375c669f13f9e6143e7b07f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit debfa0e60887: \"[#40250] Remove support for Python 3.10 (#40413)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

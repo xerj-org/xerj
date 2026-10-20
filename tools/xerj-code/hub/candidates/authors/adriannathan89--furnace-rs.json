@@ -1,0 +1,22 @@
+{
+ "corpus": "adriannathan89--furnace-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on rust, api, axum queries this for how Adriannathan89/furnace-rs implements it: Axum Based http Framework, built for giving fast development experience with rust type safety and rust fast performance (selected work: crates/furnace-rs-common, crates/furnace-rs-core, crates/furnace-rs)",
+ "repos": [
+  {
+   "repo": "furnace-rs",
+   "url": "https://github.com/Adriannathan89/furnace-rs",
+   "sha": "78dd50c298e39d8898c82e4b1d69e8dad4465796",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 78dd50c298e3: \"refactor!: require declarative cauldron registration\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

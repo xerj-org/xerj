@@ -1,0 +1,22 @@
+{
+ "corpus": "notbigmuzzy--riveraid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how notbigmuzzy/riveraid implements it: A ( rather simple ) tribute to River Raid (== best game ever made ==) using native web technologies I created for the #devember 2021 challen (selected work: src, src/game)",
+ "repos": [
+  {
+   "repo": "riveraid",
+   "url": "https://github.com/notbigmuzzy/riveraid",
+   "sha": "095ba451dc919a888cca2850a976a1d10d7fa215",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 095ba451dc91: \"update screens\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

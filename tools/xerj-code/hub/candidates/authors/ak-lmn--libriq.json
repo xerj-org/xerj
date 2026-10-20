@@ -1,0 +1,22 @@
+{
+ "corpus": "ak-lmn--libriq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how AK-Lmn/Libriq implements it: A modern, aesthetic book tracker web application built with HTML, CSS, and JavaScript (selected work: frontend, the project root)",
+ "repos": [
+  {
+   "repo": "Libriq",
+   "url": "https://github.com/AK-Lmn/Libriq",
+   "sha": "b3e196701116fdbd60385e6b1ea8e2d97e3b32c9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit b3e196701116: \"feat(v4.8.0): add 3d digital bookshelf view and update deep indigo br\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

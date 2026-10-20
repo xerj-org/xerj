@@ -1,0 +1,22 @@
+{
+ "corpus": "sunlightlinux--slinit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on container, dinit, golang queries this for how sunlightlinux/slinit implements it: Go init system + service manager with dinit-compat config, full systemd journalctl parity (65/65 flags), FSS-sealed binary journal, ~250 sys (selected work: tests, cmd/slinitctl, pkg/service)",
+ "repos": [
+  {
+   "repo": "slinit",
+   "url": "https://github.com/sunlightlinux/slinit",
+   "sha": "9cb50cfa9d1f0399c74f33528b713df07a12f14d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 9cb50cfa9d1f: \"Close two of v3.1.6's Known entries; the third is not a defect\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

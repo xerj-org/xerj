@@ -1,0 +1,22 @@
+{
+ "corpus": "mishrashardendu22--puter-ai-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, cli, developer-tools queries this for how MishraShardendu22/puter-ai-cli implements it: Free CLI AI assistant powered by Puter.js \u2014 stream GPT-4o, GPT-5.4, Claude & more directly from your terminal with zero OpenAI API keys, tok (selected work: src, src/commands, tests)",
+ "repos": [
+  {
+   "repo": "puter-ai-cli",
+   "url": "https://github.com/MishraShardendu22/puter-ai-cli",
+   "sha": "899c42c4f1719cd23a8917d7ce1ae6f0f676363f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 899c42c4f171: \"feat: add model alias normalizer and models listing command\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

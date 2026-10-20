@@ -1,0 +1,22 @@
+{
+ "corpus": "novia-rdi-seafaring--anchor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Novia-RDI-Seafaring/anchor implements it: ANCHOR is an agentic workspace for ingesting technical PDFs, extracting grounded knowledge, and connecting evidence to collaborative enginee (selected work: web)",
+ "repos": [
+  {
+   "repo": "anchor",
+   "url": "https://github.com/Novia-RDI-Seafaring/anchor",
+   "sha": "127fbbe3e8d908671d523b965298d30c5fd31213",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 127fbbe3e8d9: \"fix(canvas): consume one pending armed placement gesture (#506)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

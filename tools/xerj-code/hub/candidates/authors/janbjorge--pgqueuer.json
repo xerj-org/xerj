@@ -1,0 +1,22 @@
+{
+ "corpus": "janbjorge--pgqueuer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on postgres, python, queue queries this for how janbjorge/pgqueuer implements it: PostgreSQL-backed background job and task queue for Python (selected work: test, pgqueuer)",
+ "repos": [
+  {
+   "repo": "pgqueuer",
+   "url": "https://github.com/janbjorge/pgqueuer",
+   "sha": "0578460703a1fe64252149c9d9d82ba918bdf1e8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 0578460703a1: \"feat(queries): raise a duplicate's priority with on_conflict=\"update_\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

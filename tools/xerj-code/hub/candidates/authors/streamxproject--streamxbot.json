@@ -1,0 +1,22 @@
+{
+ "corpus": "streamxproject--streamxbot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on music-player, streaming-audio, telegram queries this for how StreamXProject/StreamXBot implements it: StreamX is a self-hosted music platform that manage your personal library and YouTube Music into one fast, modern experience across Android, (selected work: Api, stream)",
+ "repos": [
+  {
+   "repo": "StreamXBot",
+   "url": "https://github.com/StreamXProject/StreamXBot",
+   "sha": "aeea7386bf33bfa9d69e7a285b216ca681e89d53",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit aeea7386bf33: \"query handling\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

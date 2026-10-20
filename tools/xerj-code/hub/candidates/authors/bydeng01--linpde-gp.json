@@ -1,0 +1,22 @@
+{
+ "corpus": "bydeng01--linpde-gp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on bayesian-methods, data-driven, gaussian-processes queries this for how bydeng01/linpde-gp implements it: Gaussian process PDE solvers that combine linear PDEs with linear inequality constraints and solve complex-valued Helmholtz field problems (selected work: experiments, the project root)",
+ "repos": [
+  {
+   "repo": "linpde-gp",
+   "url": "https://github.com/bydeng01/linpde-gp",
+   "sha": "171c09e945bc3d0fe722f0ff0cffa286bc67df4c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 171c09e945bc: \"Experiments update 01\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

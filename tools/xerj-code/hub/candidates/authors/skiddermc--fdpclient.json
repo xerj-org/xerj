@@ -1,0 +1,22 @@
+{
+ "corpus": "skiddermc--fdpclient",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on java, kotlin, cheat queries this for how SkidderMC/FDPClient implements it: Minecraft 1.8.9 forge hacked client based on LiquidBounce (selected work: src/main, src/test)",
+ "repos": [
+  {
+   "repo": "FDPClient",
+   "url": "https://github.com/SkidderMC/FDPClient",
+   "sha": "ba1492ac7c0da34d3fde3c62316a1043725d4b24",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit ba1492ac7c0d: \"refactor: (rotation) unify the aiming engine\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

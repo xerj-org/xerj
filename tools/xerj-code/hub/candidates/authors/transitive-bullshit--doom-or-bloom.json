@@ -1,0 +1,22 @@
+{
+ "corpus": "transitive-bullshit--doom-or-bloom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-futures, ai-risks queries this for how transitive-bullshit/doom-or-bloom implements it: Doom or Bloom: map your AI worldview and compare it to others (selected work: lib/assessment, lib/persistence, tests)",
+ "repos": [
+  {
+   "repo": "doom-or-bloom",
+   "url": "https://github.com/transitive-bullshit/doom-or-bloom",
+   "sha": "3d80a481b11215fd3a528174d00d5096d6b7615f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 3d80a481b112: \"Strengthen test contracts and retire obsolete coverage (#88)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

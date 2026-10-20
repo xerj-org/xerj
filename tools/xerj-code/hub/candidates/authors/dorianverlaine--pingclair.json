@@ -1,0 +1,22 @@
+{
+ "corpus": "dorianverlaine--pingclair",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on acme, async-rust, http3 queries this for how dorianverlaine/pingclair implements it: \u26a1 High-performance Rust web server and reverse proxy built on Cloudflare Pingora. \ud83e\uddfe Caddyfile-compatible config \u00b7 \ud83d\udd10 automatic HTTPS \u00b7 \ud83d\ude80 HTTP (selected work: pingclair-fastcgi, pingclair-proxy, pingclair)",
+ "repos": [
+  {
+   "repo": "pingclair",
+   "url": "https://github.com/dorianverlaine/pingclair",
+   "sha": "a2f3de44d8d28aaa39965f49f8aa8b8196333068",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit a2f3de44d8d2: \"\ud83d\udc1b fix(fastcgi): refuse parameters that exceed a record\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

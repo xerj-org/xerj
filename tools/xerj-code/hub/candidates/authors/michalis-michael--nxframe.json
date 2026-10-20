@@ -1,0 +1,22 @@
+{
+ "corpus": "michalis-michael--nxframe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how Michalis-Michael/nxframe implements it: Linux-based broadcast contribution encoder/decoder for low-latency SDI-over-IP workflows (selected work: core, app, tests)",
+ "repos": [
+  {
+   "repo": "nxframe",
+   "url": "https://github.com/Michalis-Michael/nxframe",
+   "sha": "9c747e624a0b9c6fb7ff3a7c8ea5a2f5aeac5f70",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 9c747e624a0b: \"refactor: clean up receiver CLI telemetry\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

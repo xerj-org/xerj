@@ -1,0 +1,22 @@
+{
+ "corpus": "chenshuo2004--cs-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on HTML queries this for how ChenShuo2004/cs-skills implements it: \u9648\u7855\u7684 Codex Skills \u4e0e AI \u5de5\u4f5c\u6d41\u624b\u518c\uff1a\u628a\u4ea7\u54c1\u3001\u5185\u5bb9\u3001\u8c03\u7814\u4e0e\u4ea4\u4ed8\u6c89\u6dc0\u4e3a\u53ef\u590d\u7528\u7684\u667a\u80fd\u5de5\u4f5c\u6d41\u3002 (selected work: scripts, cs-code-story-video, cs-code-video)",
+ "repos": [
+  {
+   "repo": "cs-skills",
+   "url": "https://github.com/ChenShuo2004/cs-skills",
+   "sha": "c2a8989a58d15d8335346b54246d00fe2d0d0e8f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit c2a8989a58d1: \"feat: release unified CS Skills v0.7.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

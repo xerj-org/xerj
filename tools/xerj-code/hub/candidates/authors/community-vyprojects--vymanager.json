@@ -1,0 +1,22 @@
+{
+ "corpus": "community-vyprojects--vymanager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on vyos, web-interface, vyos-router queries this for how Community-VyProjects/VyManager implements it: Multi-tenant network management platform to configure, deploy, and monitor VyOS instances across multiple sites (selected work: frontend, backend)",
+ "repos": [
+  {
+   "repo": "VyManager",
+   "url": "https://github.com/Community-VyProjects/VyManager",
+   "sha": "64fa587abb6114e43588dbc9eb7f78b996847b92",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 64fa587abb61: \"fix: separate GQL lookup for PPPoE sessions' MTU\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

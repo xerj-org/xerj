@@ -1,0 +1,22 @@
+{
+ "corpus": "jiansoft--rayleigh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on error-handling, option-type, result-type queries this for how jiansoft/Rayleigh implements it: Rust-inspired Option & Result types for C# (selected work: benchmarks, tests, src/jIAnSoft.Rayleigh)",
+ "repos": [
+  {
+   "repo": "Rayleigh",
+   "url": "https://github.com/jiansoft/Rayleigh",
+   "sha": "0ad552aaa3dcc559206d60347134848d9316d70d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 0ad552aaa3dc: \"perf: optimize collection pipelines and enforce Result null contracts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

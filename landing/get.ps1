@@ -148,7 +148,7 @@
     # --- next steps --------------------------------------------------------------
     Write-Host ""
     Write-Host "xerj $tag is ready." -ForegroundColor White
-    Write-Host "  start it:               xerj --insecure --data-dir .\data"
+    Write-Host "  start it:               xerj --insecure --data-dir `$HOME\xerj-data"
     Write-Host "  then open the console:  http://localhost:9200/_xerj-console/"
     Write-Host "  docs: https://xerj.org/docs/  -  source: https://github.com/$Repo"
     Write-Host ""

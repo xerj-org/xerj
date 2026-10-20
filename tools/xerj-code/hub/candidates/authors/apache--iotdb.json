@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--iotdb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on timeseries, iot, big-data queries this for how apache/iotdb implements it: Apache IoTDB (selected work: iotdb-core)",
+ "repos": [
+  {
+   "repo": "iotdb",
+   "url": "https://github.com/apache/iotdb",
+   "sha": "5b9e8868c475ad2699a3252862ece5dde3607d92",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 5b9e8868c475: \"[ConfigNode] Skip non-existent and duplicate region IDs during recons\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

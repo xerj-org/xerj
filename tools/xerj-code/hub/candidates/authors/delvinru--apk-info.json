@@ -1,0 +1,22 @@
+{
+ "corpus": "delvinru--apk-info",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on android, apk, arsc queries this for how delvinru/apk-info implements it: Fast, malware-robust parser for Android APK/XAPK/APKM files (selected work: crates/axml, crates/zip, core/src)",
+ "repos": [
+  {
+   "repo": "apk-info",
+   "url": "https://github.com/delvinru/apk-info",
+   "sha": "73599dac93002b38c9cbd5129bc3f197a31e7eab",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 73599dac9300: \"perf: lazy string pools, in-place nested archives, zlib-rs backend\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

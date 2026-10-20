@@ -1,0 +1,22 @@
+{
+ "corpus": "coregx--fursy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on generics, go, golang queries this for how coregx/fursy implements it: Next-generation HTTP router for Go 1.27+ with type-safe handlers, RFC 9457 errors, and built-in OpenAPI generation. Minimal dependencies, bl (selected work: examples, internal/radix)",
+ "repos": [
+  {
+   "repo": "fursy",
+   "url": "https://github.com/coregx/fursy",
+   "sha": "15910e3b4026f0fdc682b60e2596495342a9196b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 15910e3b4026: \"fix: literal colon in path \u2014 Google AIP-136 custom methods (#21) (#22)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

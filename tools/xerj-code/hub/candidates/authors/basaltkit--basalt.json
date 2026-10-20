@@ -1,0 +1,22 @@
+{
+ "corpus": "basaltkit--basalt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api, authentication, backend queries this for how basaltkit/basalt implements it: Besalt The complete toolkit for building SaaS on Node.js Tenancy, auth, billing, permissions, queues and audit \u2014 integrated end to end, self (selected work: packages/deploy-ui)",
+ "repos": [
+  {
+   "repo": "basalt",
+   "url": "https://github.com/basaltkit/basalt",
+   "sha": "a327caaeae916f103fea3df8450c24bb6fe2ae0b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit a327caaeae91: \"feat(deploy-ui): visual redesign as an operations console\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

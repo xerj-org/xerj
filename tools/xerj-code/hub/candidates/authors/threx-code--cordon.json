@@ -1,0 +1,22 @@
+{
+ "corpus": "threx-code--cordon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Python queries this for how Threx-code/cordon implements it: Language-agnostic software supply-chain security scanner. Detects malicious packages, suspicious install-time behaviour, secrets and depende (selected work: src/cordon_scanner, tests)",
+ "repos": [
+  {
+   "repo": "cordon",
+   "url": "https://github.com/Threx-code/cordon",
+   "sha": "3cdb3cd31657cbf2912c6873fbd591fe3a6cbff1",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 3cdb3cd31657: \"Advisories for the eight ecosystems no source covers, through each pa\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "tmfadhlul--claude-code-profile",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how tmfadhlul/claude-code-profile implements it: tmfadhlul/claude-code-profile (TypeScript) (selected work: packages/cli, packages/core)",
+ "repos": [
+  {
+   "repo": "claude-code-profile",
+   "url": "https://github.com/tmfadhlul/claude-code-profile",
+   "sha": "fd79421d583944a96c5aa821a918eb44b1b8aa82",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit fd79421d5839: \"feat: automatic profile fallback and bundled statusline\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

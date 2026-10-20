@@ -1,0 +1,22 @@
+{
+ "corpus": "openzim--zim-tools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on zim, command-line-tool queries this for how openzim/zim-tools implements it: Various ZIM command line tools (selected work: test, src/zimcheck, debian)",
+ "repos": [
+  {
+   "repo": "zim-tools",
+   "url": "https://github.com/openzim/zim-tools",
+   "sha": "6a7a8c7f50980d983dc65091bedcee00b9f9a7bb",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 6a7a8c7f5098: \"Check MIME types against filename extensions\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

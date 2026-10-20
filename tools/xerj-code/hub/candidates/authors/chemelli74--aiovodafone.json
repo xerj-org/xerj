@@ -1,0 +1,22 @@
+{
+ "corpus": "chemelli74--aiovodafone",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on hacktoberfest queries this for how chemelli74/aiovodafone implements it: Python library to control Vodafone Station (selected work: tests, src/aiovodafone)",
+ "repos": [
+  {
+   "repo": "aiovodafone",
+   "url": "https://github.com/chemelli74/aiovodafone",
+   "sha": "96e7ab8323273565d96477b8d280912ec41cf1c4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 96e7ab832327: \"fix: handle new firmware for UltraHub (#672)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

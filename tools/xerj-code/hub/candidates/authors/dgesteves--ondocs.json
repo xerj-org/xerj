@@ -1,0 +1,22 @@
+{
+ "corpus": "dgesteves--ondocs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-sdk, docs-search, embeddings queries this for how dgesteves/ondocs implements it: Make your docs answerable by people and by agents, from one static index: a cited Ask box, an MCP server and llms.txt, on your own function  (selected work: examples, scripts)",
+ "repos": [
+  {
+   "repo": "ondocs",
+   "url": "https://github.com/dgesteves/ondocs",
+   "sha": "f93dfc9f6d4e9f932fb2d8efbd7153d84087b8b2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f93dfc9f6d4e: \"feat(examples): make Ask AI the first thing on the three demos\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

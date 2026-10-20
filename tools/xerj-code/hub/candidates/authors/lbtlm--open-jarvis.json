@@ -1,0 +1,22 @@
+{
+ "corpus": "lbtlm--open-jarvis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how lbtlm/open-jarvis implements it: Reusable AI teams for Codex: specialist roles, skill matching, supervised execution, and portable assets (selected work: test, src, bin)",
+ "repos": [
+  {
+   "repo": "open-jarvis",
+   "url": "https://github.com/lbtlm/open-jarvis",
+   "sha": "401f60776d7ec7b09d9ed01aa385b04447f796da",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 401f60776d7e: \"feat: add Markdown experience and optional QMD setup\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

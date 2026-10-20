@@ -1,0 +1,22 @@
+{
+ "corpus": "hddm-github--frequi-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how hddm-github/frequi-dashboard implements it: \ud83d\ude80 \u4e13\u4e3a Freqtrade \u6253\u9020\u7684\u73b0\u4ee3\u5206\u5f62\u91cf\u5316\u770b\u76d8\u5de5\u4f5c\u533a\uff0c\u5168\u9762\u9002\u914d\u624b\u673a\u7aef\uff0c\u652f\u6301\u52a0\u5bc6\u53ea\u8bfb\u5206\u4eab\u3002\uff1bNext-gen Trading Dashboard for Freqtrade & NostalgiaForInfinity. Features Trellis fractal do (selected work: src/views, src/components)",
+ "repos": [
+  {
+   "repo": "frequi-dashboard",
+   "url": "https://github.com/hddm-github/frequi-dashboard",
+   "sha": "ef04241b53273795b70244937af43623c237f735",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit ef04241b5327: \"feat(i18n): translate secondary dashboard views\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

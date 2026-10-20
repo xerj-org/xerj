@@ -1,0 +1,22 @@
+{
+ "corpus": "zacbemis--pi-antigravity-acp-provider",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on acp, antigravity, gemini queries this for how zacbemis/pi-antigravity-acp-provider implements it: First-class Google Antigravity ACP provider for Pi (selected work: test, src/acp, extensions)",
+ "repos": [
+  {
+   "repo": "pi-antigravity-acp-provider",
+   "url": "https://github.com/zacbemis/pi-antigravity-acp-provider",
+   "sha": "220b028a0a9d91fb5c3e1522e9aaf76851630961",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 220b028a0a9d: \"fix: reuse the saved macOS credential instead of re-authorizing per p\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

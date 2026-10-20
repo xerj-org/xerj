@@ -1,0 +1,22 @@
+{
+ "corpus": "reactos--reactos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on operating-system, c, kernel queries this for how reactos/reactos implements it: A free Windows-compatible Operating System (selected work: dll, sdk)",
+ "repos": [
+  {
+   "repo": "reactos",
+   "url": "https://github.com/reactos/reactos",
+   "sha": "af9ad54d466794075836c1f4f6beee3dc8588737",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit af9ad54d4667: \"[KEYBOARD][KBDNEC][SDK] Implement kbdnec.dll (#9601)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

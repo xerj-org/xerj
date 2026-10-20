@@ -1,0 +1,22 @@
+{
+ "corpus": "elder-plinius--v3r1t4s",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how elder-plinius/V3R1T4S implements it: liberating known unknowns (selected work: known-knowns)",
+ "repos": [
+  {
+   "repo": "V3R1T4S",
+   "url": "https://github.com/elder-plinius/V3R1T4S",
+   "sha": "16bbd6cce444248bf337542d689a26328f711e6d",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 16bbd6cce444: \"claim: codetables-qubit-upper-bounds-n101-256 2026-10-17-verexxi-de7e\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

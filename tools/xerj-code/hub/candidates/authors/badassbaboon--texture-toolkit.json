@@ -1,0 +1,22 @@
+{
+ "corpus": "badassbaboon--texture-toolkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how BadassBaboon/Texture-Toolkit implements it: A texture replacement toolkit that allows for high-resolution texture replacements in DX9/11 games (selected work: src)",
+ "repos": [
+  {
+   "repo": "Texture-Toolkit",
+   "url": "https://github.com/BadassBaboon/Texture-Toolkit",
+   "sha": "8585972b58662c6a937e27719be1369ca83086fc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8585972b5866: \"Tested against The Sims 4  and now hook CopySubresourceRegion1 and Up\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

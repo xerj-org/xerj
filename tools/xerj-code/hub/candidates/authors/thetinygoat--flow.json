@@ -1,0 +1,22 @@
+{
+ "corpus": "thetinygoat--flow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, libghostty, terminal queries this for how thetinygoat/flow implements it: A fast, native terminal built on Ghostty, for everyday work (selected work: Sources, Tests, the project root)",
+ "repos": [
+  {
+   "repo": "flow",
+   "url": "https://github.com/thetinygoat/flow",
+   "sha": "41527fc0c709d78f0aabd6f093c8c4760c40a195",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 41527fc0c709: \"Reorder workspaces by dragging them in the sidebar\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

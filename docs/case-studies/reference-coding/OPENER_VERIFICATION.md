@@ -5,6 +5,10 @@ Claude Code agent, then independently verified (the verifier re-checked the
 filesystem and XERJ, and compiled + tested the output — it did not trust the
 executor's report).
 
+That run used the wrapper scripts of the time (`xc-index.sh`, `xc.py`); they
+were removed in #977, and the opener now names their built-in equivalents,
+`xerj corpus index` and `xerj code`.
+
 **Scenario.** A running XERJ at `:9200`, the `xerj-code` skill available, and one
 reference library downloaded locally: `sift`, a real Rust crate whose API is
 deliberately *not* `new()/push()/top_k()` but a two-phase, seal-gated count-min

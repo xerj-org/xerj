@@ -1,0 +1,22 @@
+{
+ "corpus": "ywleeo--mark2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on macos, markdown, tauri queries this for how ywleeo/mark2 implements it: Markdown \u5de5\u5177\uff0c\u5f88\u597d\u7528\uff0c\u6709\u8fd9\u4e00\u4e2a\u5c31\u591f\u4e86\u3002 (selected work: src/modules, tests, src/components)",
+ "repos": [
+  {
+   "repo": "mark2",
+   "url": "https://github.com/ywleeo/mark2",
+   "sha": "e6f8d69fea6f9332c921b0a33d488dc2cc6595e2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit e6f8d69fea6f: \"feat: improve AI document editing and chat controls\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

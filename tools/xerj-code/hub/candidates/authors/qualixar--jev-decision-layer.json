@@ -1,0 +1,22 @@
+{
+ "corpus": "qualixar--jev-decision-layer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-routing, ai-agents, codex-plugin queries this for how qualixar/jev-decision-layer implements it: Open-source decision layer for AI agents. Typed task, tool, skill and review routing through TypeSafe Jev, with local policy gates and audit (selected work: plugins, tests)",
+ "repos": [
+  {
+   "repo": "jev-decision-layer",
+   "url": "https://github.com/qualixar/jev-decision-layer",
+   "sha": "88affbfe6f2b336c25c9bcf1c6a19375cd5060d7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 88affbfe6f2b: \"fix: report malformed allowlists as Claude Code enforces them\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

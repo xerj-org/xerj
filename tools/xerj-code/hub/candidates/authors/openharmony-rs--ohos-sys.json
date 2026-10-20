@@ -1,0 +1,22 @@
+{
+ "corpus": "openharmony-rs--ohos-sys",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ffi, openharmony, rust queries this for how openharmony-rs/ohos-sys implements it: FFI-Bindings for OpenHarmony (selected work: components, the project root, scripts)",
+ "repos": [
+  {
+   "repo": "ohos-sys",
+   "url": "https://github.com/openharmony-rs/ohos-sys",
+   "sha": "3285d7dfe45b12173492f0e9a9b074a39fcef307",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 3285d7dfe45b: \"Add NativeDisplaySoloist bindings\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

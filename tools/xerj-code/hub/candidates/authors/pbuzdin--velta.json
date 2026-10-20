@@ -1,0 +1,22 @@
+{
+ "corpus": "pbuzdin--velta",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, chat, chatmail queries this for how pbuzdin/velta implements it: Velta is a Delta Chat client built with JavaScript, HTML, CSS, and web components inside a Tauri shell. V for Velta (selected work: app/js, tests)",
+ "repos": [
+  {
+   "repo": "velta",
+   "url": "https://github.com/pbuzdin/velta",
+   "sha": "b45296973d2edcdc9459b326767b7cce858078f4",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b45296973d2e: \"app: bound in-memory caches with a shared LRU helper\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

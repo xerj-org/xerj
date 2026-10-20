@@ -1,0 +1,22 @@
+{
+ "corpus": "victor-haefner--polyvr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how Victor-Haefner/polyvr implements it: PolyVR - a shortcut to virtual reality (selected work: src/addons, src/core)",
+ "repos": [
+  {
+   "repo": "polyvr",
+   "url": "https://github.com/Victor-Haefner/polyvr",
+   "sha": "791f89c501df4faa152c84ce6cc31a9415865f56",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 791f89c501df: \"working on LLM and added character ranges for imgui\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

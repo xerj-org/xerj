@@ -1,0 +1,22 @@
+{
+ "corpus": "rustdesk--rustdesk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on remote-control, remote-desktop, teamviewer queries this for how rustdesk/rustdesk implements it: An open-source remote desktop application designed for self-hosting, as an alternative to TeamViewer (selected work: src/server, flutter, src)",
+ "repos": [
+  {
+   "repo": "rustdesk",
+   "url": "https://github.com/rustdesk/rustdesk",
+   "sha": "3f4bfe535ee020df9470ba8fcdde86cb7f4cf18b",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 3f4bfe535ee0: \"Fix/wayland input keyboard layout (#16462)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

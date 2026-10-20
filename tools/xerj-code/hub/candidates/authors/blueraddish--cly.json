@@ -1,0 +1,22 @@
+{
+ "corpus": "blueraddish--cly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how BlueRaddish/cly implements it: Launch Claude Code from one fixed directory, whatever directory you are in - so its per-directory memory store always loads (selected work: lib/cly, the project root)",
+ "repos": [
+  {
+   "repo": "cly",
+   "url": "https://github.com/BlueRaddish/cly",
+   "sha": "6c229f5d877b1410c26766ddde50958104ef657d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 6c229f5d877b: \"Discover and bind running native terminals during snapshot capture\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

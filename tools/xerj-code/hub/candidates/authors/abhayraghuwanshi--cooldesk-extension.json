@@ -1,0 +1,22 @@
+{
+ "corpus": "abhayraghuwanshi--cooldesk-extension",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on chrome-extension, developer-tools, launcher queries this for how abhayraghuwanshi/cooldesk-extension implements it: Don't open apps. Open spaces. A free, local-first launcher for Windows, macOS & Linux that keeps your tabs, apps, files and notes in spaces  (selected work: src/features, src-tauri, src/services)",
+ "repos": [
+  {
+   "repo": "cooldesk-extension",
+   "url": "https://github.com/abhayraghuwanshi/cooldesk-extension",
+   "sha": "f2b1d521d1f817316916a0aa5f9c9805d4d1eff3",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit f2b1d521d1f8: \"agent: CoolDesk data tools, learning loop and redesigned chat\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

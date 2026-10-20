@@ -1,0 +1,22 @@
+{
+ "corpus": "xopmc--galaxybridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on adb, android, kotlin queries this for how XopMC/GalaxyBridge implements it: Samsung Galaxy on your Mac. Screen control, app windows, clipboard, files and notifications (selected work: android, Sources, protocol)",
+ "repos": [
+  {
+   "repo": "GalaxyBridge",
+   "url": "https://github.com/XopMC/GalaxyBridge",
+   "sha": "f151afb0306c0428154fdf23c432baecf151bde6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit f151afb0306c: \"Relay scoped display-state leases with recoverable cancellation [skip\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

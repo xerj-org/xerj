@@ -1,0 +1,22 @@
+{
+ "corpus": "byrizki--rusto-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on mnn, ocr, paddleocr queries this for how byrizki/rusto-rs implements it: Pure Rust OCR Library - Fast, Safe, and Cross-Platform (selected work: scripts, packages/models, packages/android)",
+ "repos": [
+  {
+   "repo": "rusto-rs",
+   "url": "https://github.com/byrizki/rusto-rs",
+   "sha": "2f826fe0b0942260e98063a1d22deef45a66e3ef",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 2f826fe0b094: \"fix: separate models publishing\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

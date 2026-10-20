@@ -1,0 +1,22 @@
+{
+ "corpus": "daviddgxd--biruk-subli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how DavidDgxd/BIRUK-SUBLI implements it: an AI-powered lost-and-found system designed for the City of Baguio that centralizes lost item tracking across multiple participating office (selected work: web, ai-service)",
+ "repos": [
+  {
+   "repo": "BIRUK-SUBLI",
+   "url": "https://github.com/DavidDgxd/BIRUK-SUBLI",
+   "sha": "8b4110356b98ca023928716e5006a77664ed6b5c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 8b4110356b98: \"feat(staff): implement custody intake page with dev staff context\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

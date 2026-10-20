@@ -1,0 +1,22 @@
+{
+ "corpus": "beyhangl--evalcraft",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-evaluation, agent-testing, agents queries this for how beyhangl/evalcraft implements it: Deterministic $0 pytest assertions for AI agents \u2014 catch the agent that quietly stopped calling its tools, and cost blowups, offline in CI (selected work: evalcraft, tests, research)",
+ "repos": [
+  {
+   "repo": "evalcraft",
+   "url": "https://github.com/beyhangl/evalcraft",
+   "sha": "0015420aee65b6780ae735f2afed58da88ad181e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 0015420aee65: \"Playback: run current agent code against recorded model responses (#29)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

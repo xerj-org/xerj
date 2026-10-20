@@ -1,0 +1,22 @@
+{
+ "corpus": "aashved--dedeucerl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how AashVed/DedeuceRL implements it: DedeuceRL is a modular, extensible framework for benchmarking and training LLM agents on active system identification tasks (selected work: dedeucerl, tests, the project root)",
+ "repos": [
+  {
+   "repo": "DedeuceRL",
+   "url": "https://github.com/AashVed/DedeuceRL",
+   "sha": "f6a06f8ba3738a1e6791a514e546e76d7e34a63c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f6a06f8ba373: \"Add MCP benchmark server and release fixes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

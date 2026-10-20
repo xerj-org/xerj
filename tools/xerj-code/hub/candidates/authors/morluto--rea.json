@@ -1,0 +1,22 @@
+{
+ "corpus": "morluto--rea",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, binary-analysis, cli queries this for how morluto/rea implements it: Reverse engineer anything with agents, from app behavior down to native binaries (selected work: src/apktool, tests, src/domain)",
+ "repos": [
+  {
+   "repo": "rea",
+   "url": "https://github.com/morluto/rea",
+   "sha": "6668424343d952587210fad6402aefd06e53ddb9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 6668424343d9: \"feat(apktool): share one APK resource decode across selected locale t\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

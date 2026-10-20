@@ -1,0 +1,22 @@
+{
+ "corpus": "shipap--vless-vpn-shop-telegram-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on aiogram, docker-compose, fastapi queries this for how shipap/vless-vpn-shop-telegram-bot implements it: Open-source VLESS VPN shop with Telegram bot, web dashboard, admin panel, Remnawave integration, payments and subscription management (selected work: tests, packages/infrastructure, packages/web-ui)",
+ "repos": [
+  {
+   "repo": "vless-vpn-shop-telegram-bot",
+   "url": "https://github.com/shipap/vless-vpn-shop-telegram-bot",
+   "sha": "70200ae7c791b523c2ad651f705b2863209d916e",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 70200ae7c791: \"Fix subscription refresh and delivery review; update payment onboarding\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

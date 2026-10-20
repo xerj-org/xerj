@@ -1,0 +1,22 @@
+{
+ "corpus": "shaochami--chami-tavern-scene-plugin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how shaochami/chami_tavern-scene-plugin implements it: shaochami/chami_tavern-scene-plugin (JavaScript) (selected work: styles, modules)",
+ "repos": [
+  {
+   "repo": "chami_tavern-scene-plugin",
+   "url": "https://github.com/shaochami/chami_tavern-scene-plugin",
+   "sha": "cdaf201c3f77649962dbb6457b0568d263d802b4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit cdaf201c3f77: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

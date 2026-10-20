@@ -6,7 +6,7 @@
    "repo": "corpus-ghsa-db-v2",
    "url": "https://github.com/github/advisory-database",
    "licence": "CC-BY-4.0",
-   "sha": "0af427f696c10b5e19cec4d33e71ff000cd6fe43",
+   "sha": "4b4ac300e0f6718d5e56e9a410069894c3a22cb7",
    "files": 36263,
    "bytes": 79404027,
    "review": {

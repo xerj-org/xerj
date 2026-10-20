@@ -1,0 +1,22 @@
+{
+ "corpus": "xfce-mirror--xfwl4",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how xfce-mirror/xfwl4 implements it: Mirror repository, PRs are not watched, please use Xfce's GitLab (selected work: src/core, src/protocols, resources)",
+ "repos": [
+  {
+   "repo": "xfwl4",
+   "url": "https://github.com/xfce-mirror/xfwl4",
+   "sha": "c718dee25b8f577857e22710b514f2b23ca4fbfe",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit c718dee25b8f: \"Implement find-cursor functionality\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "kestra-io--plugin-azure",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on kestra, azure, blob-storage queries this for how kestra-io/plugin-azure implements it: Plugin to interact with Azure Cloud from Kestra workflows (selected work: src/test, src/main)",
+ "repos": [
+  {
+   "repo": "plugin-azure",
+   "url": "https://github.com/kestra-io/plugin-azure",
+   "sha": "02169f2b9dedb5738d3d5d2462d04b54a069d2b7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 02169f2b9ded: \"feat(azure): support cancelling AI Foundry agent runs (#357)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

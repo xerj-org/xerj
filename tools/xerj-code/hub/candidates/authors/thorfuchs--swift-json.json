@@ -1,0 +1,22 @@
+{
+ "corpus": "thorfuchs--swift-json",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on codable, json, json-merge-patch queries this for how ThorFuchs/Swift-JSON implements it: Exact JSON for modern Swift: lossless decimals and Unicode scalar keys, offline Draft 2020-12 schemas, transactional JSON Patch, and pull-dr (selected work: Tools, Scripts, Tests)",
+ "repos": [
+  {
+   "repo": "Swift-JSON",
+   "url": "https://github.com/ThorFuchs/Swift-JSON",
+   "sha": "25fb04f747e583209b4c4511abf39e11ef5b4f80",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 25fb04f747e5: \"Add bounded wasm32 WASI command support (#20)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

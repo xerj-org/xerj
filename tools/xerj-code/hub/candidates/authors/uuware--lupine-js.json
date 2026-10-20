@@ -1,0 +1,22 @@
+{
+ "corpus": "uuware--lupine-js",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how uuware/lupine.js implements it: lupine.js is a full-featured web application that includes both Front-End and Back-End services. The Front-End, lupine.web, is an extremely  (selected work: packages/lupine.components)",
+ "repos": [
+  {
+   "repo": "lupine.js",
+   "url": "https://github.com/uuware/lupine.js",
+   "sha": "91f92d7b8451582589b12c756be37f560ddd0175",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 91f92d7b8451: \"Add slide page\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

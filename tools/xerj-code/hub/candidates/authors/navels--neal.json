@@ -1,0 +1,22 @@
+{
+ "corpus": "navels--neal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude, cli queries this for how navels/neal implements it: A plan-driven, multi-agent coding loop: separate planner, coder, and reviewer roles, each on the provider and model you choose, work togethe (selected work: src/neal, test)",
+ "repos": [
+  {
+   "repo": "neal",
+   "url": "https://github.com/navels/neal",
+   "sha": "d1a35dde4912031ac5925ead5599bd5dbaa80584",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit d1a35dde4912: \"Add usage reporting command (#82)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "monesyilya3-niko--novel-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on creative-writing, echarts, local-first queries this for how monesyilya3-Niko/novel-lab implements it: \u7f51\u6587\u62c6\u4e66\u4e0e\u521b\u4f5c\u5de5\u4f5c\u53f0\uff1a\u628a\u4f18\u79c0\u5c0f\u8bf4\u62c6\u6210\u7ed3\u6784\u5316\u8d44\u4ea7\uff0c\u518d\u9a71\u52a8 AI \u521b\u4f5c\u3002\u7eaf\u6807\u51c6\u5e93 Python \u540e\u7aef + React \u5de5\u4f5c\u53f0\uff0c\u672c\u5730\u4f18\u5148\u3002| Novel dissection & AI-assisted writing workbench, local-first (selected work: assets, gui, tests)",
+ "repos": [
+  {
+   "repo": "novel-lab",
+   "url": "https://github.com/monesyilya3-Niko/novel-lab",
+   "sha": "86dce2d9cce210d7548a8b591ed23e7c4878c7fc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 86dce2d9cce2: \"v2.0.2\uff1a\u5199\u4f5c\u521b\u4f5c\u9875\uff08\u5927\u7eb2/\u4eba\u7269\u5361/\u4fbf\u7b7e/\u7801\u5b57\u7edf\u8ba1/\u5bfc\u51fa\uff09+ 14\u65b0\u9898\u6750 + 36\u9898\u6750\u4e13\u5c5e\u6865\u6bb5 + \u65b0\u56fe\u6807\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

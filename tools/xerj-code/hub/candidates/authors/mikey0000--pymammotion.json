@@ -1,0 +1,22 @@
+{
+ "corpus": "mikey0000--pymammotion",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api, homeassistant, library queries this for how mikey0000/PyMammotion implements it: Python Mammotion API library (selected work: tests, pymammotion)",
+ "repos": [
+  {
+   "repo": "PyMammotion",
+   "url": "https://github.com/mikey0000/PyMammotion",
+   "sha": "6958ffebc1f7f585ae17ab57dcdabd9d45da4f0e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 6958ffebc1f7: \"fix: stop restoring migrated devices onto Aliyun\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

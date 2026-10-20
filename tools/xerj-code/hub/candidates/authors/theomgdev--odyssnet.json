@@ -1,0 +1,22 @@
+{
+ "corpus": "theomgdev--odyssnet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agi, chaos-theory, chaotic-systems queries this for how theomgdev/OdyssNet implements it: Zero-hidden neural networks that solve non-linear problems through temporal depth, not spatial layers. 90.14% MNIST with 480 parameters. Int (selected work: examples, tests, odyssnet)",
+ "repos": [
+  {
+   "repo": "OdyssNet",
+   "url": "https://github.com/theomgdev/OdyssNet",
+   "sha": "345b3b95775fa86e7017305f4247b6a93f3fc656",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 345b3b95775f: \"Scale System One to a large corpus, and fix what the gate was measuring\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

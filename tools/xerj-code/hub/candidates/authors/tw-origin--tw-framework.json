@@ -1,0 +1,22 @@
+{
+ "corpus": "tw-origin--tw-framework",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on backend, bun, bunjs queries this for how tw-origin/tw-framework implements it: A full-stack TypeScript web framework for Bun and Node \u2014 its own template language (.tw), styling (.tss), API routes (.twm), compiler, VDOM  (selected work: tests, apps/cli, packages/compiler)",
+ "repos": [
+  {
+   "repo": "tw-framework",
+   "url": "https://github.com/tw-origin/tw-framework",
+   "sha": "7ffe5cd08abe9c5205fc6dfd7fa362fa0adc932d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 7ffe5cd08abe: \"v2.0.0: islands \u2014 same-name fix, specifier walk, ambiguous guard\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

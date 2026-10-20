@@ -1,0 +1,22 @@
+{
+ "corpus": "sathishkannan-labs--myfinreview",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on artificial-intelligence, bootstrap, chartjs queries this for how sathishkannan-labs/myfinreview implements it: AI-assisted portfolio intelligence platform for Indian investors built with FastAPI, SQLModel and OpenRouter (selected work: backend, tests, supabase)",
+ "repos": [
+  {
+   "repo": "myfinreview",
+   "url": "https://github.com/sathishkannan-labs/myfinreview",
+   "sha": "8905bb056c1040732fc5e208197765f30c6ed4fb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 8905bb056c10: \"Fix account isolation and atomic portfolio transactions\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

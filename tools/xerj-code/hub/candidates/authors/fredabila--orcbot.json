@@ -1,0 +1,22 @@
+{
+ "corpus": "fredabila--orcbot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, assistant queries this for how fredabila/orcbot implements it: A self-improving AI agent that learns from failures, builds its own skills, and runs on Telegram/WhatsApp/CLI (selected work: src/cli, tests, src/config)",
+ "repos": [
+  {
+   "repo": "orcbot",
+   "url": "https://github.com/fredabila/orcbot",
+   "sha": "d3cd92c635ee935860c3e5a46331999d259e5e8a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit d3cd92c635ee: \"Add unit tests for ToolingScreen menus using Vitest\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

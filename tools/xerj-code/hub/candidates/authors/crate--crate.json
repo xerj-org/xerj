@@ -1,0 +1,22 @@
+{
+ "corpus": "crate--crate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on sql, distributed, database queries this for how crate/crate implements it: CrateDB is a distributed and scalable SQL database for storing and analyzing massive amounts of data in near real-time, even with complex qu (selected work: server)",
+ "repos": [
+  {
+   "repo": "crate",
+   "url": "https://github.com/crate/crate",
+   "sha": "a2af7bc035d205a6c367550e45b7abe124233088",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit a2af7bc035d2: \"Re-add auth caching and make it safe for connection-pooling proxy\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "filamentphp--filament",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on laravel, tailwind-css, alpine-js queries this for how filamentphp/filament implements it: A powerful open-source UI framework for Laravel \u2022 Build and ship apps & admin panels fast with Livewire (selected work: tests, packages/tables)",
+ "repos": [
+  {
+   "repo": "filament",
+   "url": "https://github.com/filamentphp/filament",
+   "sha": "13d22bb8c983747b9cae6640a26de2d32e82ac66",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 13d22bb8c983: \"Add table content render hooks and configurable pagination keys (#20566)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

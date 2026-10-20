@@ -1,0 +1,22 @@
+{
+ "corpus": "rootrasel--ai-for-computational-life-sciences",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how rootrasel/AI-for-Computational-Life-Sciences implements it: rootrasel/AI-for-Computational-Life-Sciences (Python) (selected work: the project root, Projects, 09-Computational-Biology)",
+ "repos": [
+  {
+   "repo": "AI-for-Computational-Life-Sciences",
+   "url": "https://github.com/rootrasel/AI-for-Computational-Life-Sciences",
+   "sha": "6377db78bdc0fc19e3fab708f8e5966b9f384d7f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 6377db78bdc0: \"ai computational life science\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

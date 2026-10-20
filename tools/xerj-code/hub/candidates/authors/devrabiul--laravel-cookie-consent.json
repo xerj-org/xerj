@@ -1,0 +1,22 @@
+{
+ "corpus": "devrabiul--laravel-cookie-consent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on cookie-consent, gdpr, gdpr-cookie queries this for how devrabiul/laravel-cookie-consent implements it: A GDPR-compliant solution offering enterprise-grade compliance with fully customizable cookie banners for Laravel applications (selected work: tests, src, assets)",
+ "repos": [
+  {
+   "repo": "laravel-cookie-consent",
+   "url": "https://github.com/devrabiul/laravel-cookie-consent",
+   "sha": "7d7952cfe791b5ddad6ee1cbce52235448409164",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 7d7952cfe791: \"feat: consent versioning, server-side consent API, Google Consent Mod\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

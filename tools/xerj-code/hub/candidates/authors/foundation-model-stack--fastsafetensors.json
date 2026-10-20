@@ -1,0 +1,22 @@
+{
+ "corpus": "foundation-model-stack--fastsafetensors",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on pytorch, safetensors, python queries this for how foundation-model-stack/fastsafetensors implements it: High-performance safetensors model loader (selected work: tests, fastsafetensors)",
+ "repos": [
+  {
+   "repo": "fastsafetensors",
+   "url": "https://github.com/foundation-model-stack/fastsafetensors",
+   "sha": "ff7d7fb50b55cb0165e179b725ecf1b33a7ee04e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit ff7d7fb50b55: \"Handle empty tensor chunks and rejected chunk plans safely\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "bugzmanov--bookokrat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on epub-reader, rust, tui queries this for how bugzmanov/bookokrat implements it: A terminal EPUB / PDF Book Reader (+djvu) (selected work: src/widget, tests, src)",
+ "repos": [
+  {
+   "repo": "bookokrat",
+   "url": "https://github.com/bugzmanov/bookokrat",
+   "sha": "4f8efc1a4f91e647546ea5b547464a3fb3b273b1",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4f8efc1a4f91: \"Add optional inline annotation visibility and peek\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

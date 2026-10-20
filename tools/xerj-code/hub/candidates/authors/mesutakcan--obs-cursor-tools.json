@@ -1,0 +1,22 @@
+{
+ "corpus": "mesutakcan--obs-cursor-tools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ahk, autohotkey, cursor queries this for how mesutakcan/OBS-Cursor-Tools implements it: OBS Cursor Tools is a lightweight AutoHotkey application that enhances OBS Studio recordings with cursor highlighting, click animations, and (selected work: src/lib, src)",
+ "repos": [
+  {
+   "repo": "OBS-Cursor-Tools",
+   "url": "https://github.com/mesutakcan/OBS-Cursor-Tools",
+   "sha": "387e91132c4c1815644ca2b3dc27082e7c9f05fc",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 387e91132c4c: \"v1.2\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

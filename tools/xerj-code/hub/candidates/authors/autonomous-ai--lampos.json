@@ -1,0 +1,22 @@
+{
+ "corpus": "autonomous-ai--lampos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, openclaw, physical-ai queries this for how autonomous-ai/lampOS implements it: The open-source operating system for physical AI (selected work: hal, robots)",
+ "repos": [
+  {
+   "repo": "lampOS",
+   "url": "https://github.com/autonomous-ai/lampOS",
+   "sha": "2ae04e553e22d68fe41d81a65c991e58bc882f86",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 2ae04e553e22: \"hal: servo overload cut-off, torque off on sustained high load\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

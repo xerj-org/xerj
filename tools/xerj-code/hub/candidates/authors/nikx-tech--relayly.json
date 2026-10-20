@@ -1,0 +1,22 @@
+{
+ "corpus": "nikx-tech--relayly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on e2ee, golang, local-first queries this for how NIKX-Tech/relayly implements it: Lightweight, self-hosted WebSocket protocol and reference relay for local-first applications. Enables secure end-to-end encrypted communicat (selected work: internal/relay, sdk, internal/database)",
+ "repos": [
+  {
+   "repo": "relayly",
+   "url": "https://github.com/NIKX-Tech/relayly",
+   "sha": "f2892af12d9eba8ed8e0e8ff9726af246861e599",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f2892af12d9e: \"feat(relay): add a device-initiated unpair capability (#142)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "sclaus2--cutcells",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how sclaus2/CutCells implements it: Library to compute intersections between mesh cells and implicit functions (selected work: cpp, python)",
+ "repos": [
+  {
+   "repo": "CutCells",
+   "url": "https://github.com/sclaus2/CutCells",
+   "sha": "31ade346cb57a6e1ecc7a6f37f3542eac95c8c4f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 31ade346cb57: \"Certify leaves touching a linear zero set without refinement\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

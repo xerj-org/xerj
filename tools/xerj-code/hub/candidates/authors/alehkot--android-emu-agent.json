@@ -1,0 +1,22 @@
+{
+ "corpus": "alehkot--android-emu-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how alehkot/android-emu-agent implements it: A CLI + daemon system for LLM-driven Android UI control on emulators and rooted devices (selected work: tests, src/android_emu_agent)",
+ "repos": [
+  {
+   "repo": "android-emu-agent",
+   "url": "https://github.com/alehkot/android-emu-agent",
+   "sha": "ae5e77155b8e90a786329e4ec9a7916f755b949a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit ae5e77155b8e: \"fix: preserve trace archives on failed export\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

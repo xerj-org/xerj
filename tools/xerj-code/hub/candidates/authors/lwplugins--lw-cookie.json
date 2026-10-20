@@ -1,0 +1,22 @@
+{
+ "corpus": "lwplugins--lw-cookie",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on PHP queries this for how lwplugins/lw-cookie implements it: GDPR-compliant cookie consent banner for WordPress \u2014 minimal footprint, full compliance (selected work: tests, includes, assets)",
+ "repos": [
+  {
+   "repo": "lw-cookie",
+   "url": "https://github.com/lwplugins/lw-cookie",
+   "sha": "c924ae889c321c6900fca890fdf267ebe5847f49",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit c924ae889c32: \"fix: guard survives output rewriters that rename the data layer (#13)\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

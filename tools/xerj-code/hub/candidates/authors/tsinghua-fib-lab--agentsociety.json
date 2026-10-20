@@ -1,0 +1,22 @@
+{
+ "corpus": "tsinghua-fib-lab--agentsociety",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentsociety2, ai-social-scientist, agent queries this for how tsinghua-fib-lab/AgentSociety implements it: AgentSociety 2 is a modern, LLM-native agent simulation platform designed for social science research and experimental design. It provides a (selected work: extension, packages/agentsociety2)",
+ "repos": [
+  {
+   "repo": "AgentSociety",
+   "url": "https://github.com/tsinghua-fib-lab/AgentSociety",
+   "sha": "8cf440a4119f3499f4c63a92fac05428777a5ce4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 8cf440a4119f: \"fix: \u5f3a\u5236 LiteLLM \u4f7f\u7528\u672c\u5730\u4ef7\u76ee\u8868\uff0c\u907f\u514d\u542f\u52a8\u65f6\u8fdc\u7a0b\u62c9\u53d6\u8b66\u544a\uff0c\u5e76\u4f18\u5316\u82e5\u5e72\u7ec6\u8282\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

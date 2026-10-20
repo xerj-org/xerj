@@ -1,0 +1,22 @@
+{
+ "corpus": "fustcoma--congito-simulator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on construct3, construct3-free, game queries this for how fustcoma/congito-simulator implements it: Congito Simulator Construct 3 (selected work: game-web)",
+ "repos": [
+  {
+   "repo": "congito-simulator",
+   "url": "https://github.com/fustcoma/congito-simulator",
+   "sha": "830f41c7df2bc12b5d56ee99b39d2af96fd0d782",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 830f41c7df2b: \"game publish\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

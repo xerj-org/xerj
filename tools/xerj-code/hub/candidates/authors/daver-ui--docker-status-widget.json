@@ -1,0 +1,22 @@
+{
+ "corpus": "daver-ui--docker-status-widget",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on JavaScript queries this for how DaveR-ui/docker-status-widget implements it: KDE Plasma 6 plasmoid: Docker daemon status with a scoped-polkit start button (selected work: tests, package, tools)",
+ "repos": [
+  {
+   "repo": "docker-status-widget",
+   "url": "https://github.com/DaveR-ui/docker-status-widget",
+   "sha": "003cad30a6a822fe1865802a342c7461211e10ed",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 003cad30a6a8: \"V 1.1.1 Fix design\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

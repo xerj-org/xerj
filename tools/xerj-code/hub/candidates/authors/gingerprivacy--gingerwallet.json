@@ -1,0 +1,22 @@
+{
+ "corpus": "gingerprivacy--gingerwallet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on C# queries this for how GingerPrivacy/GingerWallet implements it: GingerPrivacy/GingerWallet (C#) (selected work: WalletWasabi.Fluent, WalletWasabi.Tests)",
+ "repos": [
+  {
+   "repo": "GingerWallet",
+   "url": "https://github.com/GingerPrivacy/GingerWallet",
+   "sha": "3938ae43746b7f8ec32bcf3a23cbdd26ec9762c5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 3938ae43746b: \"Unify single and multiple recipient send editing\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "ovim-editor--ovim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how ovim-editor/ovim implements it: ovim-editor/ovim (Rust) (selected work: ovim-core, ovim)",
+ "repos": [
+  {
+   "repo": "ovim",
+   "url": "https://github.com/ovim-editor/ovim",
+   "sha": "5f29b25d5b0081ff3622fc0604dcaba4f0c651bf",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 5f29b25d5b00: \"Add replayable cross-file diff reviews for agents (#26)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

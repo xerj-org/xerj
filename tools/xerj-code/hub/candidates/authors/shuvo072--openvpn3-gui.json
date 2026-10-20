@@ -1,0 +1,22 @@
+{
+ "corpus": "shuvo072--openvpn3-gui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Python queries this for how shuvo072/openvpn3-gui implements it: shuvo072/openvpn3-gui (Python) (selected work: openvpn3_gui, scripts, tests)",
+ "repos": [
+  {
+   "repo": "openvpn3-gui",
+   "url": "https://github.com/shuvo072/openvpn3-gui",
+   "sha": "58008587221e7ec36ea4fb985354db27007344bc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 58008587221e: \"Feat/terminal client (#2)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

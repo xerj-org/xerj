@@ -1,0 +1,22 @@
+{
+ "corpus": "4c-multiphysics--4c",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how 4C-multiphysics/4C implements it: 4C: A Comprehensive Multiphysics Simulation Framework (selected work: tests, src/mat)",
+ "repos": [
+  {
+   "repo": "4C",
+   "url": "https://github.com/4C-multiphysics/4C",
+   "sha": "78b530a231c67afe70bcceaa1240ca8dd4f61b0e",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 78b530a231c6: \"Modify material output in MAT_ConstraintMixture\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

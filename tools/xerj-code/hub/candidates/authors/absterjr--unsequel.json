@@ -1,0 +1,22 @@
+{
+ "corpus": "absterjr--unsequel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on python, query-language, sql queries this for how absterjr/UNSeQueL implements it: UNSeQueL is a FROM-first query language for writing SQL-like transformations in execution order; Python prototype and DuckDB/TypeScript comp (selected work: unsequel, tests)",
+ "repos": [
+  {
+   "repo": "UNSeQueL",
+   "url": "https://github.com/absterjr/UNSeQueL",
+   "sha": "6849fb141f87019211c0c792408772a044f64b37",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 6849fb141f87: \"feat(python): in-memory execution of canonical .unsequel programs, pa\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

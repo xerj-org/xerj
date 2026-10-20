@@ -1,0 +1,22 @@
+{
+ "corpus": "aselimc--jepa-cpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cpu-inference, inference, jepa queries this for how aselimc/jepa.cpp implements it: The llama.cpp version of JEPA models, allowing fast CPU inference (selected work: tests, scripts, tools)",
+ "repos": [
+  {
+   "repo": "jepa.cpp",
+   "url": "https://github.com/aselimc/jepa.cpp",
+   "sha": "e9a09ac419830646dcdb61eab6ee388e89ee6749",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit e9a09ac41983: \"Planner parity on all 31 H-JEPA configurations, its timing, and the docs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

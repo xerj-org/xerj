@@ -1,0 +1,22 @@
+{
+ "corpus": "pullyard--pullyard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on claude-code, code-review, github queries this for how pullyard/pullyard implements it: Pull requests, without the browser. A tiny native GitHub client with a Claude Code workspace (selected work: Sources)",
+ "repos": [
+  {
+   "repo": "shipyard",
+   "url": "https://github.com/Vaache/shipyard",
+   "sha": "aa9671a5a1d66f2c8535bf64855b2f08472914c9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit aa9671a5a1d6: \"Gray sidebar selection, check for updates every 6 hours and announce \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

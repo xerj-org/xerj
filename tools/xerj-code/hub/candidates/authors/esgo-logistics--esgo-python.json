@@ -1,0 +1,22 @@
+{
+ "corpus": "esgo-logistics--esgo-python",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ESGO-Logistics/esgo-python implements it: Python SDK for the ESGO API (selected work: src/esgo, the project root, tests)",
+ "repos": [
+  {
+   "repo": "esgo-python",
+   "url": "https://github.com/ESGO-Logistics/esgo-python",
+   "sha": "75da3c55214ed5aabd17345153af4e3b37d8b674",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 75da3c55214e: \"0.1.0: alle Endpunkte der API v1, typisierte Modelle aus der Spec\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

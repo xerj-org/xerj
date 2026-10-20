@@ -1,0 +1,22 @@
+{
+ "corpus": "emalvarol--mocaco",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on convergence, data-science, monte-carlo queries this for how emalvarol/mocaco implements it: Convergence analysis for Monte Carlo series \u2014 works with Polars DataFrames (selected work: src/mocaco, examples, scripts)",
+ "repos": [
+  {
+   "repo": "mocaco",
+   "url": "https://github.com/emalvarol/mocaco",
+   "sha": "cc68ba9161b835a57b5039260a94cedf9fd24aa3",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit cc68ba9161b8: \"added group_cols and grouped results\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

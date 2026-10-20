@@ -1,0 +1,22 @@
+{
+ "corpus": "awslabs--loom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how awslabs/loom implements it: Loom for AWS is an enterprise-grade platform for building, deploying, integrating, and operating AI agents on Amazon Bedrock AgentCore (selected work: backend)",
+ "repos": [
+  {
+   "repo": "loom",
+   "url": "https://github.com/awslabs/loom",
+   "sha": "17c90717bc47cdc8cd76bddce8732cea7892a043",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 17c90717bc47: \"fix: keep the local-dev auth bypass unreachable from a deployment\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

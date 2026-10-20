@@ -1,0 +1,22 @@
+{
+ "corpus": "stapimaz--kessetsu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, circuit-design, circuit-simulation queries this for how Stapimaz/Kessetsu implements it: Circuit engineering for humans and AI agents: SPICE simulation, executable requirements, automatic schematics and KiCad/LTspice exports. Fre (selected work: webapp)",
+ "repos": [
+  {
+   "repo": "Kessetsu",
+   "url": "https://github.com/Stapimaz/Kessetsu",
+   "sha": "8b2164288fa988ecfec502446afdb88aab5bf04d",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 8b2164288fa9: \"Add Source SPICE-to-Kessetsu converter drawer and remove duplicate he\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

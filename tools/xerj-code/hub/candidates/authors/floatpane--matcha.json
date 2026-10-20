@@ -1,0 +1,22 @@
+{
+ "corpus": "floatpane--matcha",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bubbletea, cli, email queries this for how floatpane/matcha implements it: A beautiful and functional email client for your terminal, built with Go and the charming Bubble Tea TUI library. Never leave your command l (selected work: fetcher, pgp)",
+ "repos": [
+  {
+   "repo": "matcha",
+   "url": "https://github.com/floatpane/matcha",
+   "sha": "820afde09482ec49e5470d1e49a2ac0f76605fec",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit 820afde09482: \"fix: server-side PGP/MIME support\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

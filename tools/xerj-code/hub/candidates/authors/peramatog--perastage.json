@@ -1,0 +1,22 @@
+{
+ "corpus": "peramatog--perastage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dmx, gdtf, lighting queries this for how PeramatoG/Perastage implements it: Stage planning tool for lighting professionals, providing 2D and 3D visualization from MVR and GDTF files, with technical layout management (selected work: tests, core, core/symbols)",
+ "repos": [
+  {
+   "repo": "Perastage",
+   "url": "https://github.com/PeramatoG/Perastage",
+   "sha": "97626e6596c890f9ee668430aa87ff426c0bd2ad",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 97626e6596c8: \"fix: restore macOS 15 decimal parsing and retry curl SSL connections\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

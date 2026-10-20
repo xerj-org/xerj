@@ -1,0 +1,22 @@
+{
+ "corpus": "kovidgoyal--html5-parser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C queries this for how kovidgoyal/html5-parser implements it: Fast C based HTML 5 parsing for python (selected work: gumbo, test, src)",
+ "repos": [
+  {
+   "repo": "html5-parser",
+   "url": "https://github.com/kovidgoyal/html5-parser",
+   "sha": "17052935996206ccb98f8678eb32cad95f87c1e4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 170529359962: \"Add support for latest WHATWG HTML 5 spec changes and updated html5li\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

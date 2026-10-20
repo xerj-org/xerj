@@ -1,0 +1,22 @@
+{
+ "corpus": "alchemy-run--alchemy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on alchemy, cloud, effect queries this for how alchemy-run/alchemy implements it: Infrastructure as Effects (selected work: packages/alchemy)",
+ "repos": [
+  {
+   "repo": "alchemy",
+   "url": "https://github.com/alchemy-run/alchemy",
+   "sha": "db7442f0361f20803f66931df520a031408ff10c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit db7442f0361f: \"fix(docker): accept Podman missing images and push digests (#2095)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

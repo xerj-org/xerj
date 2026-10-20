@@ -1,0 +1,22 @@
+{
+ "corpus": "mda2av--httparena",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on C# queries this for how MDA2AV/HttpArena implements it: The most complete HTTP open source benchmarking platform. Don't just say you're fast, prove it (selected work: frameworks)",
+ "repos": [
+  {
+   "repo": "HttpArena",
+   "url": "https://github.com/MDA2AV/HttpArena",
+   "sha": "73a3a8ce0aa686462def2edd695c78520c6ea5cc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 73a3a8ce0aa6: \"Add Aegon (C++26) framework entry (#1491)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

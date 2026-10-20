@@ -1,0 +1,22 @@
+{
+ "corpus": "anguria-studio--paguro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on productivity queries this for how anguria-studio/Paguro implements it: A native macOS workspace for web apps (selected work: Paguro, PaguroTests)",
+ "repos": [
+  {
+   "repo": "Paguro",
+   "url": "https://github.com/anguria-studio/Paguro",
+   "sha": "7ccf0866da20746f3ec94b6c867803b57dfbfb79",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 7ccf0866da20: \"Keep sidebar icons continuous during sidebar transitions (#46)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "wqty123--dsh-browser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on browser, deepseek-harness, dsh-plugin queries this for how wqty123/dsh-browser implements it: Shared real browser plugin for DeepSeek Harness (selected work: lib/browser-electron, src/browser-electron, tests)",
+ "repos": [
+  {
+   "repo": "dsh-browser",
+   "url": "https://github.com/wqty123/dsh-browser",
+   "sha": "b6cefd78821714ac40d86491dd2f010c9467d2d5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b6cefd788217: \"fix(browser-electron): land clicks and keys on Windows; stop caching \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "phanbasongtoan--classical-query-routing-rag",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how PhanBaSongToan/classical-query-routing-rag implements it: PhanBaSongToan/classical-query-routing-rag (Python) (selected work: paper, lightweight-query-routing)",
+ "repos": [
+  {
+   "repo": "classical-query-routing-rag",
+   "url": "https://github.com/PhanBaSongToan/classical-query-routing-rag",
+   "sha": "6eeaf43fecd7e4146e019799aa87191b0c5d197f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 6eeaf43fecd7: \"Finalize reproducibility paper and paired ablation audit\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

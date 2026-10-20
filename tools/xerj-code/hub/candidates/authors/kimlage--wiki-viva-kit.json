@@ -1,0 +1,22 @@
+{
+ "corpus": "kimlage--wiki-viva-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on Python queries this for how kimlage/wiki-viva-kit implements it: Living operational wiki kit: Markdown/Git-first, deterministic Python core, honesty gates in CI, LLM deep-reading delegated to the agent tha (selected work: wiki_core, tests, apps/wiki-cockpit)",
+ "repos": [
+  {
+   "repo": "wiki-viva-kit",
+   "url": "https://github.com/kimlage/wiki-viva-kit",
+   "sha": "c60a19107e8962d38fb87f1d4c69c6a7673bb6e5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c60a19107e89: \"Verify preview provenance and handle malformed card dialogue (#95)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

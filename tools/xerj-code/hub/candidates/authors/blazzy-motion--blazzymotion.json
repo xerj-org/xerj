@@ -1,0 +1,22 @@
+{
+ "corpus": "blazzy-motion--blazzymotion",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on blazor, carousel, component queries this for how Blazzy-Motion/BlazzyMotion implements it: Premium Blazor UI components with glassmorphism design, source generators and zero-config setup (selected work: src/BlazzyMotion.Demo, tests)",
+ "repos": [
+  {
+   "repo": "BlazzyMotion",
+   "url": "https://github.com/Blazzy-Motion/BlazzyMotion",
+   "sha": "90516af72e9ed93146e60d1cb9ec2841de01eae1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 90516af72e9e: \"fix(demo): correct accessibility and self-host presentation fonts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

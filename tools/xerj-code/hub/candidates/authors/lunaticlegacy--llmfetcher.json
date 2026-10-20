@@ -1,0 +1,22 @@
+{
+ "corpus": "lunaticlegacy--llmfetcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agent-framework, agent-memory queries this for how LunaticLegacy/llmfetcher implements it: A homebrew Agent framework (selected work: tests, context_handlers, graph_memory)",
+ "repos": [
+  {
+   "repo": "llmfetcher",
+   "url": "https://github.com/LunaticLegacy/llmfetcher",
+   "sha": "cbc4c17ff03db5b157957afbd8cdf43db686920c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit cbc4c17ff03d: \"feat(context): let compaction retain a verbatim tail\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

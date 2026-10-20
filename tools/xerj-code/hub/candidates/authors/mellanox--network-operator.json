@@ -1,0 +1,22 @@
+{
+ "corpus": "mellanox--network-operator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Go queries this for how Mellanox/network-operator implements it: NVIDIA Network Operator (selected work: pkg/state, pkg/utils, manifests)",
+ "repos": [
+  {
+   "repo": "network-operator",
+   "url": "https://github.com/Mellanox/network-operator",
+   "sha": "22c617062fd90a29be2b8be950462b8db78512ec",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 22c617062fd9: \"feat: configure RDMA kubelet root via helm staticconfig\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

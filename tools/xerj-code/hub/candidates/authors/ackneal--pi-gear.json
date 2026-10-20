@@ -1,0 +1,22 @@
+{
+ "corpus": "ackneal--pi-gear",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, devloper-tools, pi-coding-agnet queries this for how ackneal/pi-gear implements it: Pi coding-agent extension with macOS-sandboxed Bash, filesystem and network policy, task planning, subagents, and LSP tools (selected work: context, ui)",
+ "repos": [
+  {
+   "repo": "pi-gear",
+   "url": "https://github.com/ackneal/pi-gear",
+   "sha": "fcfe9e0efef2bf3d15440d8e6c69f49eb135d020",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit fcfe9e0efef2: \"refactor(plan): streamline task state with atomic step progression (#16)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "vladimirkhmelev--quic-rpc-go",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Go queries this for how VladimirKhmelev/quic-rpc-go implements it: Future RPC over native QUIC streams for Go, with a reproducible benchmark against gRPC on impaired networks (selected work: rpc)",
+ "repos": [
+  {
+   "repo": "quic-rpc-go",
+   "url": "https://github.com/VladimirKhmelev/quic-rpc-go",
+   "sha": "9b627619184c47ac1a954ae6c29952102691e251",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 9b627619184c: \"rpc: add server\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

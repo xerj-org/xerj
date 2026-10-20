@@ -1,0 +1,22 @@
+{
+ "corpus": "honeynet--ochi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on honeypot, visualization queries this for how honeynet/ochi implements it: honeynet/ochi (Go) (selected work: backend, the project root)",
+ "repos": [
+  {
+   "repo": "ochi",
+   "url": "https://github.com/honeynet/ochi",
+   "sha": "b5ff95878e4c7c173f05a6194114019ae45668ac",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit b5ff95878e4c: \"Migrate authentication to go-chi/jwtauth (#167)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "crisperity--crisperity-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, claude-code, code-review queries this for how crisperity/crisperity-skills implements it: My agent skills for Claude Code and other harnesses. First: code-walkthrough, which turns a PR, diff, or any part of a codebase into a top-d (selected work: skills)",
+ "repos": [
+  {
+   "repo": "crisperit-skills",
+   "url": "https://github.com/crisperit/crisperit-skills",
+   "sha": "2081e2390d6e5796176394c3b2bd03e24ab5a325",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 2081e2390d6e: \"feat(code-walkthrough): comment threads with streaming replies and re\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "c9dev--penguin-mail",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on calendar, email, email-client queries this for how c9dev/penguin-mail implements it: Mail and calendar for Linux and macOS. Gmail and IMAP accounts, Google Calendar, contacts, OpenPGP and S/MIME. GTK4 and libadwaita, written  (selected work: app/src, packaging)",
+ "repos": [
+  {
+   "repo": "penguin-mail",
+   "url": "https://github.com/c9dev/penguin-mail",
+   "sha": "1b25c6e38a73750c9cad2d41b2d201c83d2c1028",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 1b25c6e38a73: \"Post new-mail notifications through gio::Notification\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

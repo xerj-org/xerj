@@ -1,0 +1,22 @@
+{
+ "corpus": "danielamenou--create-request",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how DanielAmenou/create-request implements it: A modern, chainable wrapper for fetch with automatic retries, timeouts, comprehensive error handling, and first-class TypeScript support (selected work: test, src, the project root)",
+ "repos": [
+  {
+   "repo": "create-request",
+   "url": "https://github.com/DanielAmenou/create-request",
+   "sha": "6f0b3bad5560b2bb00ba555b75f4a48c06c48b43",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 6f0b3bad5560: \"fix: read the body inside each attempt so retries and error intercept\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

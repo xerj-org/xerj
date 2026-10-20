@@ -1,0 +1,22 @@
+{
+ "corpus": "talibibrahim--lumos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how TalibIbrahim/Lumos implements it: Local-first desktop application for Tuya smart lights with Apple HomeKit bridge. Direct LAN control over TCP with sub-50ms latency, physical (selected work: src/main, src/__tests__, src/renderer)",
+ "repos": [
+  {
+   "repo": "Lumos",
+   "url": "https://github.com/TalibIbrahim/Lumos",
+   "sha": "e840e1e30ab4f73228b9c0b93f9c4767c7388500",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e840e1e30ab4: \"Smooth transitions for Music, Fireplace, and Chroma Cycle effects\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "navras98--privacybridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on anonymization, local-first, ocr queries this for how Navras98/PrivacyBridge implements it: Local-first, reversible anonymization for Italian texts and documents before using cloud AI (MIT) (selected work: src/backend, src/api)",
+ "repos": [
+  {
+   "repo": "PrivacyBridge",
+   "url": "https://github.com/Navras98/PrivacyBridge",
+   "sha": "95bd1cca742fbb3b5b1b80fe194959f83c76498f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 95bd1cca742f: \"Migliora PrivacyBridge: vault cifrato at-rest, modularizzazione motor\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

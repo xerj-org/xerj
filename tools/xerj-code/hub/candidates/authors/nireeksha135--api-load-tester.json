@@ -1,0 +1,22 @@
+{
+ "corpus": "nireeksha135--api-load-tester",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how Nireeksha135/API_LOAD_TESTER implements it: A command-line API load testing tool I'm building in Go to learn how load testing tools work under the hood. It uses concurrent workers to s (selected work: internal/exporter, internal/engine, internal/reporter)",
+ "repos": [
+  {
+   "repo": "API_LOAD_TESTER",
+   "url": "https://github.com/Nireeksha135/API_LOAD_TESTER",
+   "sha": "014be888eb5e5ff8475fcf336360ddee0a7576e1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 014be888eb5e: \"fix\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

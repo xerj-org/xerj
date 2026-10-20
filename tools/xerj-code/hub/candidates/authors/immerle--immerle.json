@@ -1,0 +1,22 @@
+{
+ "corpus": "immerle--immerle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on golang, javascript, music queries this for how immerle/immerle implements it: Next-generation self-hosted music solution \ud83d\udc26 (selected work: internal/scanner)",
+ "repos": [
+  {
+   "repo": "immerle",
+   "url": "https://github.com/immerle/immerle",
+   "sha": "94ce5a1a0b2771c5ab2d6da16309af7d460c53ca",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 94ce5a1a0b27: \"fix(scanner): read multi-value ID3v2 artist frames without concatenat\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

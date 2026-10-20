@@ -1,0 +1,22 @@
+{
+ "corpus": "wenyuchiou--research-hub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on academic-research, ai-agents, citation-management queries this for how WenyuChiou/research-hub implements it: AI-operable research workspace for Zotero, Obsidian, and NotebookLM. Use any two, or all three, through CLI, MCP, REST, and dashboard (selected work: src/research_hub, tests)",
+ "repos": [
+  {
+   "repo": "research-hub",
+   "url": "https://github.com/WenyuChiou/research-hub",
+   "sha": "ac3ec19aff2bd7cfa5206fa488f68bf9fa9d5967",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit ac3ec19aff2b: \"fix: preserve PDF glyph orientation and marginal prose flow\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

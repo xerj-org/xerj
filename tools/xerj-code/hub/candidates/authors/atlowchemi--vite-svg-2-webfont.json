@@ -1,0 +1,22 @@
+{
+ "corpus": "atlowchemi--vite-svg-2-webfont",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on font, font-icons, icons queries this for how atlowChemi/vite-svg-2-webfont implements it: A vite plugin which generates a webfont out of svg icons (selected work: crates/webfont-generator, packages/webfont-generator, packages/webfont-browser)",
+ "repos": [
+  {
+   "repo": "vite-svg-2-webfont",
+   "url": "https://github.com/atlowChemi/vite-svg-2-webfont",
+   "sha": "040e8084e5cb54d72c1ea02a6699d57991a45ae7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 040e8084e5cb: \"feat(webfont-generator): add incremental source helpers (#573)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

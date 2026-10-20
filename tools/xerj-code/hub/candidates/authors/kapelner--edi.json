@@ -1,0 +1,22 @@
+{
+ "corpus": "kapelner--edi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on causal-inference, clinical-trials, cpp queries this for how kapelner/EDI implements it: EDI (Experimental Design and Inference): R & Python packages for fixed and sequential randomized experimental designs (blocking, optimal, ma (selected work: R, scripts)",
+ "repos": [
+  {
+   "repo": "EDI",
+   "url": "https://github.com/kapelner/EDI",
+   "sha": "4d2531e97bc0636d3409003576a5766d15a308d0",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 4d2531e97bc0: \"more v1.0.5 fixes\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

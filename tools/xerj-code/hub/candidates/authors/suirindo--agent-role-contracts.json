@@ -1,0 +1,22 @@
+{
+ "corpus": "suirindo--agent-role-contracts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-governance, ai-agents, cli queries this for how suirindo/agent-role-contracts implements it: Offline checks for AI-agent roles, authority, task scope, review separation, and handoffs before execution (selected work: tests, scripts)",
+ "repos": [
+  {
+   "repo": "agent-role-contracts",
+   "url": "https://github.com/suirindo/agent-role-contracts",
+   "sha": "d024230e26bea3c80f9e75494c16a77d1e98dfe4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d024230e26be: \"test: validate packed README release claims (#53)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

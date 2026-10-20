@@ -1,0 +1,22 @@
+{
+ "corpus": "cloudsigma--pycloudsigma",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cloudsigma, cloud, api queries this for how cloudsigma/pycloudsigma implements it: CloudSigma's official python library (selected work: src/cloudsigma, tests_offline, ci)",
+ "repos": [
+  {
+   "repo": "pycloudsigma",
+   "url": "https://github.com/cloudsigma/pycloudsigma",
+   "sha": "9bde3bc3bf9d26424b9706366c324ab51f941e70",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 9bde3bc3bf9d: \"feat: add opt-in bounded drive download\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

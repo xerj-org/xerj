@@ -1,0 +1,22 @@
+{
+ "corpus": "career-ops-hq--career-ops",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, career, claude-code queries this for how career-ops-hq/career-ops implements it: Open-source AI job search agent and job finder: scan job boards, score each job 1-5 against your CV before you apply, tailor an ATS-friendly (selected work: tests, the project root)",
+ "repos": [
+  {
+   "repo": "career-ops",
+   "url": "https://github.com/career-ops-hq/career-ops",
+   "sha": "fe53d0b6bfeb161e3c124b78e752708e9e77b0f9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit fe53d0b6bfeb: \"feat(scan): add domain-level aggregator repost detection (#4263)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

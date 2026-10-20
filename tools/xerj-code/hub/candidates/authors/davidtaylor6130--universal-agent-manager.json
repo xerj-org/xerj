@@ -1,0 +1,22 @@
+{
+ "corpus": "davidtaylor6130--universal-agent-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, cef, cli queries this for how davidtaylor6130/Universal-Agent-Manager implements it: Native macOS/Windows desktop app for running AI agent CLIs (Gemini, Codex, Claude, Copilot) with structured chat and git worktree isolation (selected work: tests, src/common, UI-V2)",
+ "repos": [
+  {
+   "repo": "Universal-Agent-Manager",
+   "url": "https://github.com/davidtaylor6130/Universal-Agent-Manager",
+   "sha": "e5e51e919400675ec5ca3f1aeb6d9f30e018fa8a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit e5e51e919400: \"feat: add terminal-only Antigravity CLI provider\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

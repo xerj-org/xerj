@@ -1,0 +1,22 @@
+{
+ "corpus": "abdelmalek-maskri--fplens",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on fastapi, full-stack, ilp queries this for how abdelmalek-maskri/fplens implements it: FPLens predicts Fantasy Premier League points and helps you choose the best team (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "fplens",
+   "url": "https://github.com/abdelmalek-maskri/fplens",
+   "sha": "f658b19ab394764b10c37d8a94960d4a50e03e14",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit f658b19ab394: \"fix(app): make the predictions table explain itself\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

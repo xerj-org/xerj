@@ -1,0 +1,22 @@
+{
+ "corpus": "whatsock--apex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how WhatSock/apex implements it: Apex 4X: The Comprehensive ARIA Development Suite (selected work: FormatterUI, the project root)",
+ "repos": [
+  {
+   "repo": "apex",
+   "url": "https://github.com/WhatSock/apex",
+   "sha": "16e4e645494f88ab54ae2b7056755104064f230c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 16e4e645494f: \"Added the new Formatter UI utility\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

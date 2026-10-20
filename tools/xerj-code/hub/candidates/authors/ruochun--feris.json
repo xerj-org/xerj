@@ -1,0 +1,22 @@
+{
+ "corpus": "ruochun--feris",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Cuda queries this for how Ruochun/FERIS implements it: Finite Element Runtime with Independent Solvers, a GPU-accelerated (CUDA) framework for nonlinear solid mechanics and discrete particle simu (selected work: examples, src/solvers, src/elements)",
+ "repos": [
+  {
+   "repo": "FERIS",
+   "url": "https://github.com/Ruochun/FERIS",
+   "sha": "d21967ce69f3fa3900f98e8d09d5849cd7470fc8",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d21967ce69f3: \"Promote TPB coupling utilities into shared dynamics support\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

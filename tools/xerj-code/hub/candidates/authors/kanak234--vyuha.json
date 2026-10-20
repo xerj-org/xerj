@@ -1,0 +1,22 @@
+{
+ "corpus": "kanak234--vyuha",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on compiler, developer-tools, javascript queries this for how Kanak234/vyuha implements it: \u0935\u094d\u092f\u0942\u0939 \u2014 run code in any language and watch the structure it builds, as a VS Code visualiser (selected work: tests, src, lib)",
+ "repos": [
+  {
+   "repo": "vyuha",
+   "url": "https://github.com/Kanak234/vyuha",
+   "sha": "98a3222036cea7d65dc509892dd4f55bfae575a8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 98a3222036ce: \"VYUHA 4.2.0 stable: 15 bug fixes found by a new 158-check stability test\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

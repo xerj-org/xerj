@@ -1,0 +1,22 @@
+{
+ "corpus": "sayantan94--appliedin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how sayantan94/AppliedIn implements it: An agentic workflow that finds matching roles, tailors your resume, and automates job applications with you in control (selected work: src/tools, web, tests)",
+ "repos": [
+  {
+   "repo": "AppliedIn",
+   "url": "https://github.com/sayantan94/AppliedIn",
+   "sha": "8b00495231be6c98110b2f26f90a028817b0b965",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 8b00495231be: \"testing exp workflow\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

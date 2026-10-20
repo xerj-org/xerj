@@ -1,0 +1,22 @@
+{
+ "corpus": "dineshkorukonda--versiongate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on TypeScript queries this for how dineshkorukonda/VersionGate implements it: A gated, rollback-ready deployment engine that promotes only verified versions safely across environments (selected work: tests, src/worker, src/services)",
+ "repos": [
+  {
+   "repo": "VersionGate",
+   "url": "https://github.com/dineshkorukonda/VersionGate",
+   "sha": "d191f8fe570a94f16966814cabd367eec6cee5ac",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit d191f8fe570a: \"fix: resolve nine security and reliability audit findings (#312)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

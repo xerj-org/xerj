@@ -1,0 +1,22 @@
+{
+ "corpus": "umer-2612--mcp-eval-gate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ci, mcp, model-context-protocol queries this for how Umer-2612/mcp-eval-gate implements it: CI regression gate for MCP servers: run a golden set of tool calls, diff against a baseline, fail the build when outputs get worse (selected work: src/mcp_eval_gate, tests)",
+ "repos": [
+  {
+   "repo": "mcp-eval-gate",
+   "url": "https://github.com/Umer-2612/mcp-eval-gate",
+   "sha": "3361048c63bbd3a725f0b5ee0e4fa30a9306e5c0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 3361048c63bb: \"feat: baseline v2 with raw outcomes, contract check, lint, compare an\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

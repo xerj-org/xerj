@@ -1,0 +1,22 @@
+{
+ "corpus": "ruokee--ruokee-agent-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how ruokee/ruokee-agent-kit implements it: ruokee/ruokee-agent-kit (TypeScript) (selected work: projects)",
+ "repos": [
+  {
+   "repo": "ruokee-agent-kit",
+   "url": "https://github.com/ruokee/ruokee-agent-kit",
+   "sha": "ecf60c6f47dcd7e5e5aedc699008f3c40d7ab4ae",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ecf60c6f47dc: \"feat(extensions): add copy last reply shortcut\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "gitsocial-org--gitsocial",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on bubbletea, cli, decentralized queries this for how gitsocial-org/gitsocial implements it: Git-native collaboration platform (selected work: library)",
+ "repos": [
+  {
+   "repo": "gitsocial",
+   "url": "https://github.com/gitsocial-org/gitsocial",
+   "sha": "d2fd2e6d84856ce1760539b188acca49cda6530d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit d2fd2e6d8485: \"Timeline: show the actions taken on items\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

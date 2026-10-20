@@ -1,0 +1,22 @@
+{
+ "corpus": "lenitain--wireforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how lenitain/wireforge implements it: TUI based viewer for .wrfm 3D models (selected work: crates/wrfm-cli, crates/wrfm)",
+ "repos": [
+  {
+   "repo": "wireforge",
+   "url": "https://github.com/lenitain/wireforge",
+   "sha": "c616de73b1f2a2ed45b79479bd7fea1e2451cbf9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit c616de73b1f2: \"Reuse incident-edge tables and grid cells in check pipeline\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

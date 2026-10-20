@@ -1,0 +1,22 @@
+{
+ "corpus": "peoneer--self-hosted-vault-sync",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how PeoneEr/self-hosted-vault-sync implements it: Fast, reliable Obsidian vault sync via a self-hosted server \u2014 no vendor lock-in (selected work: src, src/__tests__, the project root)",
+ "repos": [
+  {
+   "repo": "self-hosted-vault-sync",
+   "url": "https://github.com/PeoneEr/self-hosted-vault-sync",
+   "sha": "64aaafb33f530687cb86a808b1c9ed7182455efa",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 64aaafb33f53: \"feat: faster pull, sync log, mobile error notices (0.6.0)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

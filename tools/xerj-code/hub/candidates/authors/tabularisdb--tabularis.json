@@ -1,0 +1,22 @@
+{
+ "corpus": "tabularisdb--tabularis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on ai-agent, cross-platform, database-client queries this for how TabularisDB/tabularis implements it: Open-source desktop SQL workspace with 3 built-in database drivers and 24 shipped driver plugins, including SQL Server, DuckDB, ClickHouse a (selected work: tests, src/utils, src/components)",
+ "repos": [
+  {
+   "repo": "tabularis",
+   "url": "https://github.com/TabularisDB/tabularis",
+   "sha": "393b612fdde28f000f744185c7cdd802ac1d908e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 393b612fdde2: \"feat(query-history): filter by outcome and time range (#943)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

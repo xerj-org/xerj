@@ -1,0 +1,22 @@
+{
+ "corpus": "cybersectober--cybersectober",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on HTML queries this for how CyberSecTober/Cybersectober implements it: Learn. Build. Contribute. Secure. A month-long open-source cybersecurity challenge (selected work: ai-security)",
+ "repos": [
+  {
+   "repo": "Cybersectober",
+   "url": "https://github.com/CyberSecTober/Cybersectober",
+   "sha": "c395729f744acb3f50b455a527dedd528b00852d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit c395729f744a: \"feat(ai-security): add LogPilot AI authentication log analyzer (#123)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

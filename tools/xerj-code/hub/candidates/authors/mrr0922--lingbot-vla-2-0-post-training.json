@@ -1,0 +1,22 @@
+{
+ "corpus": "mrr0922--lingbot-vla-2-0-post-training",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how MrR0922/lingbot-VLA-2.0_post-training implements it: ingbot-VLA-2.0 (selected work: configs, scripts, docker)",
+ "repos": [
+  {
+   "repo": "lingbot-VLA-2.0_post-training",
+   "url": "https://github.com/MrR0922/lingbot-VLA-2.0_post-training",
+   "sha": "c3b2616640f831e887c648d5fc62d0fbf74a1ebf",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit c3b2616640f8: \"Add switchable 4 and 8 GPU CUDA profiles\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

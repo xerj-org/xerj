@@ -1,0 +1,22 @@
+{
+ "corpus": "starfie1d1272--rivalhub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on esports, tournament-management, tournament-scheduler queries this for how Starfie1d1272/RivalHub implements it: Open-source collegiate esports operations: registration, team formation, eligibility review, scheduling, and tournament statistics (selected work: src/lib, src/components, tests)",
+ "repos": [
+  {
+   "repo": "RivalHub",
+   "url": "https://github.com/Starfie1d1272/RivalHub",
+   "sha": "502cb9c02a87f7f92db44eb3d5d46c8522334d52",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 502cb9c02a87: \"feat(stats): \u7edf\u4e00\u5e73\u53f0\u6570\u636e\u4e2d\u5fc3\u3001Records \u4e0e Insights (#798)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

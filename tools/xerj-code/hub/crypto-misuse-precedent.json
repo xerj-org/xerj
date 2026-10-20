@@ -1,21 +1,6 @@
 {
  "corpus": "crypto-misuse-precedent",
+ "withdrawn": "the source repository https://github.com/xerj-org/corpus-crypto-misuse-precedent returns HTTP 404, so this pin is not cloneable. The 721 records were a flatten of ghsa-db, osv, and pysec; use those corpora.",
  "cloned_at": "2026-10-05T02:00:00Z",
- "repos": [
-  {
-   "repo": "corpus-crypto-misuse-precedent",
-   "url": "https://github.com/xerj-org/corpus-crypto-misuse-precedent",
-   "licence": "CC-BY-4.0",
-   "sha": "a5a10175dc074483205b9609b97385ff557a3b56",
-   "files": 721,
-   "bytes": 1965491,
-   "review": {
-    "spdx": "CC-BY-4.0",
-    "use": "adapt-with-attribution",
-    "by": "xerj-org",
-    "at": "2026-10-05",
-    "note": "721-record crypto-misuse stratum (CWE-326/327/328/329/347 + weak-cipher/hardcoded-key/nonce-reuse/signature-bypass/padding-oracle/ECB/entropy prose), verbatim from the flattened ghsa-db-v2/osv-ecosystems-v2/pysec-v2 per-advisory mirrors; each record keeps its own Source/licence line. G7 r1 5/5"
-   }
-  }
- ]
+ "repos": []
 }

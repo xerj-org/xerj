@@ -1,0 +1,22 @@
+{
+ "corpus": "zero-state-logic--romi-nav-robot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Zero-State-Logic/Romi-nav-robot implements it: Human-in-the-loop Nav2 recommendation harness for ROMI Lab (selected work: kiyocore_bringup, firmware, pi_scripts)",
+ "repos": [
+  {
+   "repo": "Romi-nav-robot",
+   "url": "https://github.com/Zero-State-Logic/Romi-nav-robot",
+   "sha": "b7db56aa03de11ce41453f07b499d342ec54ebda",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit b7db56aa03de: \"Add Pi bringup package, firmware, IMU node\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "zdu-strong--technical-backup",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how zdu-strong/technical-backup implements it: This project is to do some knowledge backup (selected work: springboot, react)",
+ "repos": [
+  {
+   "repo": "technical-backup",
+   "url": "https://github.com/zdu-strong/technical-backup",
+   "sha": "17223d37c7a6354c21b99e66b288f0c29ebb0c0a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 17223d37c7a6: \"feat: support login by username\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

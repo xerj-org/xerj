@@ -1,0 +1,22 @@
+{
+ "corpus": "felipelalli--little-ant",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Haskell queries this for how felipelalli/little-ant implements it: felipelalli/little-ant (Haskell) (selected work: src/LittleAnt, test, the project root)",
+ "repos": [
+  {
+   "repo": "little-ant",
+   "url": "https://github.com/felipelalli/little-ant",
+   "sha": "b8150693dd9108e13dabcd678b9289330313756c",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit b8150693dd91: \"feat(list): pin the agenda calendar and mark weeks, periods, and folders\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

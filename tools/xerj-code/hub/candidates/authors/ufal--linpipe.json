@@ -1,0 +1,22 @@
+{
+ "corpus": "ufal--linpipe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how ufal/linpipe implements it: LinPipe: Multilingual Processing Tool (selected work: src/lib, src/models)",
+ "repos": [
+  {
+   "repo": "linpipe",
+   "url": "https://github.com/ufal/linpipe",
+   "sha": "57154d10e71604a0e3099160425beaa849a76840",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 57154d10e716: \"Add SHA-256 class (#4)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

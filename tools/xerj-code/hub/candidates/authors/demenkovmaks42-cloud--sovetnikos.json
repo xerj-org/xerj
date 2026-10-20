@@ -1,0 +1,22 @@
+{
+ "corpus": "demenkovmaks42-cloud--sovetnikos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how demenkovmaks42-cloud/SovetnikOS implements it: demenkovmaks42-cloud/SovetnikOS (C) (selected work: gui, kernel, fs)",
+ "repos": [
+  {
+   "repo": "SovetnikOS",
+   "url": "https://github.com/demenkovmaks42-cloud/SovetnikOS",
+   "sha": "1f9302d8b456b63789e2f813e6a423f68d56aebc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 1f9302d8b456: \"Improve GUI, terminal and CPU exception handling\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

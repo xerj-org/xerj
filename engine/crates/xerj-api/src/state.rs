@@ -488,6 +488,31 @@ impl MlDatafeed {
 // AppState
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Boot outcome of the cluster transport (#1171) — what *happened*, not what
+/// was asked for (`cluster.enabled` in the config is the ask).
+///
+/// The REST layer cannot infer this from the config: a node configured for a
+/// ring whose transport failed to bind serves single-node while the operator
+/// believes it is clustered, and before this enum existed that node's
+/// `/_cluster/health` stayed green forever — the failure was one ERROR line
+/// at boot and then invisible. `xerj-server/src/main.rs` records the real
+/// outcome here right after `AppState::new`, before any router exists to
+/// read it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ClusterTransportStatus {
+    /// Cluster mode is off: single-node is the *intended* state and health
+    /// reports green honestly.
+    #[default]
+    Disabled,
+    /// `cluster.enabled = true` and the transport bound and the Raft runner
+    /// started.
+    Running,
+    /// `cluster.enabled = true` but the transport failed to bind, or
+    /// cluster-state storage was unavailable: this node is serving
+    /// single-node against a configured ring. Health must say so (#1171).
+    Degraded,
+}
+
 /// Shared state injected into every request handler via Axum's `State`
 /// extractor.
 #[derive(Clone)]
@@ -559,6 +584,15 @@ pub struct AppState {
     /// handler, so every request path that ships a probability reads the same
     /// fit.
     pub decide_calibration: Arc<crate::systemone_api::CalibrationCache>,
+    /// What the cluster transport boot actually did (#1171) — see
+    /// [`ClusterTransportStatus`]. `AppState::new` cannot know a boot
+    /// outcome, so it seeds this from the config alone and
+    /// `xerj-server/src/main.rs` overwrites it with the truth before the
+    /// first router exists; the constructor's `enabled -> Running` seed is
+    /// for direct-construction tests modelling a configured ring that came
+    /// up, which is also what every handler assumed before the field
+    /// existed.
+    pub cluster_transport: ClusterTransportStatus,
 }
 
 impl AppState {
@@ -599,6 +633,14 @@ impl AppState {
         ));
         let decide = Arc::new(crate::systemone_api::DecideSettings::from_env());
         let decide_calibration = Arc::new(crate::systemone_api::CalibrationCache::default());
+        // Seeded from the config alone — see the field doc: `xerj-server`'s
+        // main overwrites this with the real boot outcome before the first
+        // router exists.
+        let cluster_transport = if config.cluster.enabled {
+            ClusterTransportStatus::Running
+        } else {
+            ClusterTransportStatus::Disabled
+        };
         Self {
             rerank,
             decide,
@@ -614,6 +656,7 @@ impl AppState {
             ml_results: Arc::new(DashMap::new()),
             ml_datafeed_tasks: Arc::new(DashMap::new()),
             shares,
+            cluster_transport,
         }
     }
 

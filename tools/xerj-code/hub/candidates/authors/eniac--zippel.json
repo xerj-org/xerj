@@ -1,0 +1,22 @@
+{
+ "corpus": "eniac--zippel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Rust queries this for how eniac/zippel implements it: The Zippel language for cryptographic proof systems, compiles into optimized and safe prover and verifier code (selected work: experiments, src, examples)",
+ "repos": [
+  {
+   "repo": "zippel",
+   "url": "https://github.com/eniac/zippel",
+   "sha": "371cf08731a63c788dccb94b861720d0e74922ad",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 371cf08731a6: \"refactor: split compiled protocols into prover and verifier roles\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

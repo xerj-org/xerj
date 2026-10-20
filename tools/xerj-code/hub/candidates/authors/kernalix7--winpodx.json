@@ -1,0 +1,22 @@
+{
+ "corpus": "kernalix7--winpodx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how kernalix7/winpodx implements it: Windows pod system for Linux (selected work: tests, src/winpodx)",
+ "repos": [
+  {
+   "repo": "winpodx",
+   "url": "https://github.com/kernalix7/winpodx",
+   "sha": "f2fc60a5a5977dad637190eea38accd699bbb100",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit f2fc60a5a597: \"feat: add SVG desktop icon compatibility and repair XDG theme lookup \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

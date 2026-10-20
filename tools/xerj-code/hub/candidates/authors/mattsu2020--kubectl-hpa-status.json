@@ -1,0 +1,22 @@
+{
+ "corpus": "mattsu2020--kubectl-hpa-status",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on autoscaling, golang, hpa queries this for how mattsu2020/kubectl-hpa-status implements it: kubectl plugin for actionable HorizontalPodAutoscaler diagnostics, health scoring, and safe fix suggestions (selected work: pkg/hpa, internal/tui, internal/kube)",
+ "repos": [
+  {
+   "repo": "kubectl-hpa-status",
+   "url": "https://github.com/mattsu2020/kubectl-hpa-status",
+   "sha": "9520f5787e17919c5cd84e93436f7bd96eef2a9d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 9520f5787e17: \"fix: \u81ea\u52d5\u4fee\u6b63\u306e\u5bfe\u8c61\u4fdd\u6301\u3068HPA\u8a3a\u65ad\u30fbTUI\u306e\u6574\u5408\u6027\u3092\u6539\u5584\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

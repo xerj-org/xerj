@@ -1,0 +1,22 @@
+{
+ "corpus": "sandeepannandi--nativelet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on expo, reanimated, skia queries this for how sandeepannandi/Nativelet implements it: Open-source React Native components library for Expo: gesture and physics driven interactions built with Reanimated and Skia (selected work: packages/ui, apps/showcase)",
+ "repos": [
+  {
+   "repo": "Nativelet",
+   "url": "https://github.com/sandeepannandi/Nativelet",
+   "sha": "ce6bdf4912e436419855c8d82970afd8298b9364",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit ce6bdf4912e4: \"RN visual parity 1: Genie, Page Curl, Liquid Tabs, Drag to Sort, Geis\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

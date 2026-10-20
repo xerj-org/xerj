@@ -1,0 +1,22 @@
+{
+ "corpus": "programminggod-byte--fluxio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cpp20, high-performance, io-uring queries this for how programmingGod-byte/FluxIO implements it: Ultra-high-performance, zero-allocation asynchronous storage engine in modern C++20 for NVMe Direct I/O (O_DIRECT). Powered by Linux io_urin (selected work: include, tests, the project root)",
+ "repos": [
+  {
+   "repo": "FluxIO",
+   "url": "https://github.com/programmingGod-byte/FluxIO",
+   "sha": "0537e41ab82e12a2ce2d5d567c71bc657558d3f0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 0537e41ab82e: \"Address code hygiene, benchmarking methodology, and docs update\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

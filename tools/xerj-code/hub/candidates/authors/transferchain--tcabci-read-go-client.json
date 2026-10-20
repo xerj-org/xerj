@@ -1,0 +1,22 @@
+{
+ "corpus": "transferchain--tcabci-read-go-client",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on websocket, websocket-client, golang queries this for how TransferChain/tcabci-read-go-client implements it: TransferChain Fastest Read Node Client (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "tcabci-read-go-client",
+   "url": "https://github.com/TransferChain/tcabci-read-go-client",
+   "sha": "d915632ed0494dcba70a0c6049d6d04a583bfea9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit d915632ed049: \"Security improvements and changed wsClient structure\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

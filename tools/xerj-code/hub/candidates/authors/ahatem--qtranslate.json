@@ -1,0 +1,22 @@
+{
+ "corpus": "ahatem--qtranslate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on cross-platform, desktop-app, flatlaf queries this for how ahatem/QTranslate implements it: A fast, extensible desktop translation suite. Translate, OCR, TTS, spell check \u2014 with a plugin system (selected work: core/src, ui-swing, plugins)",
+ "repos": [
+  {
+   "repo": "QTranslate",
+   "url": "https://github.com/ahatem/QTranslate",
+   "sha": "42f9c0dab4bd2aff1456bee2ae6ebecb63045675",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit 42f9c0dab4bd: \"fix(dictionary): honor active language pair in auto lookup (#334)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "nikhilswain--zketch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on TypeScript queries this for how nikhilswain/zketch implements it: A freehand drawing app (selected work: src/components, src/engine, src/models)",
+ "repos": [
+  {
+   "repo": "zketch",
+   "url": "https://github.com/nikhilswain/zketch",
+   "sha": "fd0b1a38e8b1b152a380de06a8b646563c9be772",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit fd0b1a38e8b1: \"feat: pencil, crayon and charcoal looks, rounded hand-drawn corners, \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

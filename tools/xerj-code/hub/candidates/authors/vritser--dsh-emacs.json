@@ -1,0 +1,22 @@
+{
+ "corpus": "vritser--dsh-emacs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dsh, dsh-plugin, emacs queries this for how vritser/dsh-emacs implements it: An Emacs client for DeepSeek Harness (selected work: the project root, test)",
+ "repos": [
+  {
+   "repo": "dsh-emacs",
+   "url": "https://github.com/vritser/dsh-emacs",
+   "sha": "763422aec340bcb0270d46c729ef3f51d5058da2",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 763422aec340: \"refactor: tighten protocol and render decoding\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

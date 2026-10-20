@@ -1,0 +1,22 @@
+{
+ "corpus": "theweekendprojects--emdash-better-auth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on astro, authentication, better-auth queries this for how theweekendprojects/emdash-better-auth implements it: Email/password + social (Google, GitHub) authentication for EmDash CMS, powered by Better Auth \u2014 prebuilt sign-in/sign-up pages, mandatory e (selected work: src, src/pages)",
+ "repos": [
+  {
+   "repo": "emdash-better-auth",
+   "url": "https://github.com/theweekendprojects/emdash-better-auth",
+   "sha": "5ee527a015ebb4406ef2a7d23672cf69eb486f0b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 5ee527a015eb: \"fix(auth): re-bridge Better Auth session into EmDash on page load\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "nanami-0713--token-ledger",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how nanami-0713/token-ledger implements it: One ledger for every model call on this machine: tokens, list-price cost, plan credits \u2014 a native macOS GPUI app (selected work: src/ui, src/core, scripts)",
+ "repos": [
+  {
+   "repo": "token-ledger",
+   "url": "https://github.com/nanami-0713/token-ledger",
+   "sha": "46108bb91d416e053f2376ca0e2e79ea2fc21cb4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 46108bb91d41: \"perf + polish + full price cards: scan-time aggregate cache, traffic-\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

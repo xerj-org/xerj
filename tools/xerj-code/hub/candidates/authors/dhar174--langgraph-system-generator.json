@@ -1,0 +1,22 @@
+{
+ "corpus": "dhar174--langgraph-system-generator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how dhar174/langgraph_system_generator implements it: Prompt -> Full Agentic System. Generates entire multiagent systems based on user constraints in a simple text prompt (selected work: tests, src/langgraph_system_generator)",
+ "repos": [
+  {
+   "repo": "langgraph_system_generator",
+   "url": "https://github.com/dhar174/langgraph_system_generator",
+   "sha": "e3cdddc3a215ea07e823b53a4e260905b51b795e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit e3cdddc3a215: \"fix(security): address endpoint isolation review findings\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

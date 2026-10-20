@@ -1,0 +1,22 @@
+{
+ "corpus": "really-fun--quantis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Really-Fun/Quantis implements it: Open-source music player aggregator with multiple platforms and a powerful plugin system (selected work: src/quantis, tests)",
+ "repos": [
+  {
+   "repo": "Quantis",
+   "url": "https://github.com/Really-Fun/Quantis",
+   "sha": "a1f1daf4e2690302c179c0d0ef59115f9826482d",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a1f1daf4e269: \"yandex_youtube - wave\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "apokroy--lx2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how apokroy/LX2 implements it: libxml2 binding to delphi (selected work: Source, Tests, Packages)",
+ "repos": [
+  {
+   "repo": "LX2",
+   "url": "https://github.com/apokroy/LX2",
+   "sha": "f09e2c9bc384a7fa2f8de89de53cccd86479a2e9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f09e2c9bc384: \"LX2.Reader: a pull reader after System.Xml.XmlReader\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

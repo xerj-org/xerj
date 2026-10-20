@@ -1,0 +1,22 @@
+{
+ "corpus": "deeplearnphysics--spine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on machine-learning, neutrino-physics, particle-imaging queries this for how DeepLearnPhysics/spine implements it: Modular deep learning framework for particle imaging detector reconstruction (selected work: test, src/spine, config)",
+ "repos": [
+  {
+   "repo": "spine",
+   "url": "https://github.com/DeepLearnPhysics/spine",
+   "sha": "a61b8148d7dfa96a369120bb989776d58929e2a0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit a61b8148d7df: \"Unify ordered module and configuration conventions (#179)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

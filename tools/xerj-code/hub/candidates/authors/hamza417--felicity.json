@@ -1,0 +1,22 @@
+{
+ "corpus": "hamza417--felicity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, android-app, kotlin queries this for how Hamza417/Felicity implements it: Premium audiophile grade offline music player with native DSP, Visualizer, 10-Band Equalizer, Parametric Equalizer with PreAmp and Milkdrop  (selected work: engine)",
+ "repos": [
+  {
+   "repo": "Felicity",
+   "url": "https://github.com/Hamza417/Felicity",
+   "sha": "e0f85459bd0b838ed6e1bd39d7e64a22d84bce5e",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit e0f85459bd0b: \"fix: player freeze after audio focus loss for calls\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

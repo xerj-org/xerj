@@ -1,0 +1,22 @@
+{
+ "corpus": "arsh-pathan--codehost",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cloud, hosting, hosting-panel queries this for how Arsh-Pathan/CodeHost implements it: CodeHost is a minimalist, beginner-friendly Cloud Hosting (PaaS) platform designed for students and developers who want to deploy their code (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "CodeHost",
+   "url": "https://github.com/Arsh-Pathan/CodeHost",
+   "sha": "132e3599e14c6be49f3a9198a835421765190075",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 132e3599e14c: \"perf: optimize dashboard LCP with immediate h1 SSR, font display swap\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

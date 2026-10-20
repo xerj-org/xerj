@@ -1,0 +1,22 @@
+{
+ "corpus": "andreykilanov--logfold",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, diff, drain queries this for how AndreyKilanov/logfold implements it: Fold large logs into templates and compare two runs. Rust core, Python API and CLI (selected work: python, tests)",
+ "repos": [
+  {
+   "repo": "logfold",
+   "url": "https://github.com/AndreyKilanov/logfold",
+   "sha": "b6715a6918f3d7b72b8ee000aa49c1081d1ff696",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit b6715a6918f3: \"feat(cli): add inspect, a level filter and clearer terminal output (#64)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

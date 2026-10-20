@@ -1,0 +1,22 @@
+{
+ "corpus": "jpzk--koto",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agent-orchestration, agentic-workflow queries this for how jpzk/koto implements it: koto is a microVM-based agent sandbox harness using Firecracker and that has the TUI and gRPC interface you always wanted (selected work: daemon)",
+ "repos": [
+  {
+   "repo": "koto",
+   "url": "https://github.com/jpzk/koto",
+   "sha": "2a2d891df0fda239cb675dfc345e166d7b2928d2",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 2a2d891df0fd: \"turn stream: read line state from the file, not the writer's memory\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

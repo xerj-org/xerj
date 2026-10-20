@@ -1,0 +1,22 @@
+{
+ "corpus": "google--meridian",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how google/meridian implements it: Meridian is an MMM framework that enables advertisers to set up and run their own in-house models (selected work: meridian)",
+ "repos": [
+  {
+   "repo": "meridian",
+   "url": "https://github.com/google/meridian",
+   "sha": "157e283b4e49f0224566950af88f1cc58ee9b6ee",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 157e283b4e49: \"[refactor] Move the calibration overview/details chart builders out o\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

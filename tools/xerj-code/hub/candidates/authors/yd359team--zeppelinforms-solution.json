@@ -1,0 +1,22 @@
+{
+ "corpus": "yd359team--zeppelinforms-solution",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on avalonia, code-behind, ui queries this for how YD359Team/ZeppelinForms-solution implements it: Zeppelin Forms - UI framework with ideas WinForms, WPF, Avalonia and Flutter. Fully free. For everyone (selected work: src/ZeppelinForms, tests, src/ZeppelinForms.Linux)",
+ "repos": [
+  {
+   "repo": "ZeppelinForms-solution",
+   "url": "https://github.com/YD359Team/ZeppelinForms-solution",
+   "sha": "e23b10e3099ce0574b1d757e507fa16826499997",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit e23b10e3099c: \"Rework UI thread dispatching\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

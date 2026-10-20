@@ -1,0 +1,22 @@
+{
+ "corpus": "rithikrathan--roguepm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how rithikrathan/RoguePM implements it: idk this was supposed to be something that creates a project directory and create a git repository in it but might add a lot of stuffs in th (selected work: modules, the project root)",
+ "repos": [
+  {
+   "repo": "RoguePM",
+   "url": "https://github.com/rithikrathan/RoguePM",
+   "sha": "b73178350fed9c5d01eb75bf02b5f046fb5b3f9a",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit b73178350fed: \"feat: workspace management, 2-step navigation, rsync archiving, and f\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

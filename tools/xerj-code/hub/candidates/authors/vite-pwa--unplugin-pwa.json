@@ -1,0 +1,22 @@
+{
+ "corpus": "vite-pwa--unplugin-pwa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on pwa, rolldown, rsbuild queries this for how vite-pwa/unplugin-pwa implements it: \ud83e\udde9 PWA Ecosystem (selected work: packages/core, the project root)",
+ "repos": [
+  {
+   "repo": "unplugin-pwa",
+   "url": "https://github.com/vite-pwa/unplugin-pwa",
+   "sha": "d35a706b63af3831b211ee47a1e9dae60aaa4879",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit d35a706b63af: \"test: add initial core package tests (#14)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

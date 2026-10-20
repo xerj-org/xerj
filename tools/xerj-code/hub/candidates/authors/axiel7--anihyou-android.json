@@ -1,0 +1,22 @@
+{
+ "corpus": "axiel7--anihyou-android",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, anilist, anime queries this for how axiel7/AniHyou-android implements it: Another unofficial Android AniList client (selected work: feature, app/src, core/ui)",
+ "repos": [
+  {
+   "repo": "AniHyou-android",
+   "url": "https://github.com/axiel7/AniHyou-android",
+   "sha": "bc6965dbe448dd513a06e1a62dad0bc25bce4ec2",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit bc6965dbe448: \"feat(Calendar): bring back old tab ui as an option\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

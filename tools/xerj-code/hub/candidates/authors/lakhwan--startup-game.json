@@ -1,0 +1,22 @@
+{
+ "corpus": "lakhwan--startup-game",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on browser-game, game, incremental-game queries this for how LaKhWaN/startup-game implements it: A browser startup simulator where you probably die. Hire a team, ship features, manage burn rate, survive crises \u2014 get to $10k MRR before th (selected work: src/v2, api, server)",
+ "repos": [
+  {
+   "repo": "startup-game",
+   "url": "https://github.com/LaKhWaN/startup-game",
+   "sha": "31e5ba5cd00c29704d7d377975c77d8dfa302027",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 31e5ba5cd00c: \"Idea scores from a six-part breakdown; weaker weak ideas; care, compu\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

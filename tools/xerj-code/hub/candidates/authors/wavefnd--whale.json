@@ -1,0 +1,22 @@
+{
+ "corpus": "wavefnd--whale",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on wave-lang queries this for how wavefnd/Whale implements it: Whale Compiler Toolchain (selected work: ir, tests, src/commands)",
+ "repos": [
+  {
+   "repo": "Whale",
+   "url": "https://github.com/wavefnd/Whale",
+   "sha": "ff38baf14dc5076ae5eea8ac78e8bc422d00b8c2",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit ff38baf14dc5: \"feat(ir): execute tracked stack memory and enforce initialized reads \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

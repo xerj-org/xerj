@@ -1,0 +1,22 @@
+{
+ "corpus": "abaniumbay--conveyor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on automation, bun, developer-tools queries this for how Abaniumbay/conveyor implements it: GitHub-native autonomous software delivery orchestrator (selected work: tests, src/app, src/engine)",
+ "repos": [
+  {
+   "repo": "conveyor",
+   "url": "https://github.com/Abaniumbay/conveyor",
+   "sha": "47c01df8cbb93ac91e5d42cb74c1392f5460c020",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 47c01df8cbb9: \"Add a board approval to an item's stage as its own gate (#328)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

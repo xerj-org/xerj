@@ -110,10 +110,10 @@ pub enum XerjError {
     /// A memory circuit breaker tripped: admitting the request would push the
     /// process past its memtable / RSS budget. Surfaced as HTTP 429
     /// `circuit_breaking_exception`, mirroring Elasticsearch's parent breaker.
-    /// Distinct from [`ResourceExhausted`] (thread-pool queue rejection →
+    /// Distinct from [`Self::ResourceExhausted`] (thread-pool queue rejection →
     /// `es_rejected_execution_exception`). Display is the bare reason (no
     /// type prefix): the ES mapper already emits the `circuit_breaking_exception`
-    /// `type`, so the reason should read like ES's (e.g. "[parent] …").
+    /// `type`, so the reason should read like ES's (e.g. "\[parent\] …").
     #[error("{reason}")]
     CircuitBreaking { reason: String },
 

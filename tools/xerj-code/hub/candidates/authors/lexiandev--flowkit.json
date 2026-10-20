@@ -1,0 +1,22 @@
+{
+ "corpus": "lexiandev--flowkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on gdscript, godot, godot-4 queries this for how LexianDEV/FlowKit implements it: An addon for Godot that adds a visual scripting solution, inspired by engines such as Clickteam Fusion 2.5 and Construct's event sheet edito (selected work: addons, tests)",
+ "repos": [
+  {
+   "repo": "FlowKit",
+   "url": "https://github.com/LexianDEV/FlowKit",
+   "sha": "91894de62e7131200882cb40bc67b899da5f7b64",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 91894de62e71: \"[Huge Feat] Action Input Modal System (+Cleanup, Bugfixes, and Visual\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

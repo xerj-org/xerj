@@ -1,0 +1,22 @@
+{
+ "corpus": "kiyoeditz--elaina-md",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how KiyoEditz/Elaina-MD implements it: A Multi Device based WhatsApp bot with various features. Don't sell this source bot (selected work: plugins, the project root, lib)",
+ "repos": [
+  {
+   "repo": "Elaina-MD",
+   "url": "https://github.com/KiyoEditz/Elaina-MD",
+   "sha": "936e97b3800fb9cfbc4439428b8d90602e868465",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 936e97b3800f: \"refactor: clean hardcoded api keys, route to config, add config.js.ex\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

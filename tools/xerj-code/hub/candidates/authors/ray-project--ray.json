@@ -1,0 +1,22 @@
+{
+ "corpus": "ray-project--ray",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ray, distributed, parallel queries this for how ray-project/ray implements it: Ray is an AI compute engine. Ray consists of a core distributed runtime and a set of AI Libraries for accelerating ML workloads (selected work: python, cpp, src/ray)",
+ "repos": [
+  {
+   "repo": "ray",
+   "url": "https://github.com/ray-project/ray",
+   "sha": "48894b0b6249caffbbbaa9e29d4d9eafe2d91c4a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 48894b0b6249: \"[Feat][Core/Auth] Enable token authentication for local clusters by d\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

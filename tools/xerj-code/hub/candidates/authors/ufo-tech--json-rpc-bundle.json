@@ -1,0 +1,22 @@
+{
+ "corpus": "ufo-tech--json-rpc-bundle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on PHP queries this for how UFO-Tech/json-rpc-bundle implements it: The Symfony bundle for simple usage api with json-rpc server (selected work: tests, src/DependencyInjection, install)",
+ "repos": [
+  {
+   "repo": "json-rpc-bundle",
+   "url": "https://github.com/UFO-Tech/json-rpc-bundle",
+   "sha": "9c720192b21c0fb40feb6e12eb9736f9d5c9274e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 9c720192b21c: \"change logic for simple validator\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

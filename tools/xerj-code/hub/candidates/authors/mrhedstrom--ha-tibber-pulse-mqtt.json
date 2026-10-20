@@ -1,0 +1,22 @@
+{
+ "corpus": "mrhedstrom--ha-tibber-pulse-mqtt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on hacs, hacs-integration, home-assistant queries this for how mrhedstrom/ha-tibber-pulse-mqtt implements it: Tibber Pulse MQTT is a local Home Assistant integration for Tibber Pulse devices (P1, HAN, KM). Decodes compressed protobuf envelopes, parse (selected work: tests, custom_components)",
+ "repos": [
+  {
+   "repo": "ha-tibber-pulse-mqtt",
+   "url": "https://github.com/mrhedstrom/ha-tibber-pulse-mqtt",
+   "sha": "37361b47e86997db1d2652e7cf48e765e8ad4f76",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 37361b47e869: \"Add raw MQTT capture, config flow, replay tests, and CI workflow\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

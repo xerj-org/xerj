@@ -1,0 +1,22 @@
+{
+ "corpus": "ramset--pihole-ha-cluster",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how RamSet/pihole-ha-cluster implements it: Pi-hole DHCP high-availability cluster: automatic failover, VIP, and config sync (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "pihole-ha-cluster",
+   "url": "https://github.com/RamSet/pihole-ha-cluster",
+   "sha": "cb3754fd0b053e92f672f6aa1a1dd13f73c896c2",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit cb3754fd0b05: \"Refuse to spread a blocklist that blocks nothing, and notice when one\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

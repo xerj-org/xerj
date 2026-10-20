@@ -1,0 +1,22 @@
+{
+ "corpus": "ecnu--eduwork",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dsh-plugin queries this for how ECNU/EduWork implements it: ECNU/EduWork (JavaScript) (selected work: packages/dsh-oidc, packages/dsh-knowledge-studio, packages/dsh-mail)",
+ "repos": [
+  {
+   "repo": "EduWork",
+   "url": "https://github.com/ECNU/EduWork",
+   "sha": "0d133e455d5faba557ce8f1db23df1ffc8e990c9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 0d133e455d5f: \"fix(i18n): route plugin copy through the DSH locale service\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

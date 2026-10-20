@@ -162,7 +162,7 @@ fn run_build_inner(args: &[String], home: &Path) -> Result<i32> {
         let files = walk(&fetched.root, &src.glob)?;
         let mut keys = HashSet::new();
         for (rel, path) in files {
-            for value in parse_file(&path)? {
+            for value in parse_file(&path, src.records_field.as_deref())? {
                 let mut env = normalize::normalize(src.format, &value);
                 env.insert(SRC.into(), Value::String(src.slug.clone()));
                 env.insert(
@@ -192,7 +192,7 @@ fn run_build_inner(args: &[String], home: &Path) -> Result<i32> {
 
     // ── identity + merge over the FULL store (not just this run's files) ──
     let slugs: HashSet<String> = recipe.sources.iter().map(|s| s.slug.clone()).collect();
-    let envelopes = store::read_all(&store_dir, &slugs);
+    let envelopes = store::read_all(&store_dir, &slugs)?;
     let clusters = identity::cluster(&envelopes, &recipe.identity);
     let merge_order = if recipe.merge.precedence.is_empty() {
         recipe.identity.canonical_source_order.clone()
@@ -278,6 +278,7 @@ fn kind_name(kind: SourceKind) -> &'static str {
     match kind {
         SourceKind::Dir => "dir",
         SourceKind::HttpZip => "http-zip",
+        SourceKind::HttpJson => "http-json",
         SourceKind::Git => "git",
     }
 }
@@ -288,6 +289,24 @@ fn kind_name(kind: SourceKind) -> &'static str {
 /// (posix-relative-path, absolute-path), sorted — directory iteration order
 /// must never reach the output.
 fn walk(root: &Path, glob: &str) -> Result<Vec<(String, PathBuf)>> {
+    // A source root that cannot be read is a HARD error, never an empty
+    // walk. A `dir` source whose path is typo'd, points at the wrong cwd, or
+    // names a tree that was renamed upstream would otherwise walk to zero
+    // files; `prune` then deletes every envelope the slug ever stored and
+    // the build exits 0 with a smaller, all-checksums-valid pack — silent
+    // data loss (#1110 negative-path audit, gap 1). An existing but empty
+    // directory is still allowed: a legitimately empty upstream prunes to
+    // zero on purpose, a missing one does not.
+    let meta = std::fs::metadata(root).with_context(|| {
+        format!(
+            "source root {} cannot be read — a typo'd path or a moved upstream \
+             tree must fail the build, not silently empty the pack",
+            root.display()
+        )
+    })?;
+    if !meta.is_dir() {
+        bail!("source root {} is not a directory", root.display());
+    }
     let re = glob_regex(glob);
     let mut out = Vec::new();
     fn recurse(dir: &Path, root: &Path, re: &regex::Regex, out: &mut Vec<(String, PathBuf)>) {
@@ -349,7 +368,7 @@ fn glob_regex(glob: &str) -> regex::Regex {
 /// source is visible junk, not a silent parse error. Other extensions are
 /// skipped by the glob, not here — reaching this with an unlisted type is a
 /// hard error, not a silent drop.
-fn parse_file(path: &Path) -> Result<Vec<Value>> {
+fn parse_file(path: &Path, records_field: Option<&str>) -> Result<Vec<Value>> {
     let raw =
         std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
     let name = path
@@ -357,10 +376,19 @@ fn parse_file(path: &Path) -> Result<Vec<Value>> {
         .and_then(|n| n.to_str())
         .unwrap_or_default()
         .to_lowercase();
-    if name.ends_with(".md") || name.ends_with(".markdown") {
+    let markdown = name.ends_with(".md") || name.ends_with(".markdown");
+    let jsonl = name.ends_with(".jsonl") || name.ends_with(".ndjson");
+    // `records_field` only means something for a wrapped `.json` catalog; on
+    // any other file type it would be silently ignored, so refuse instead.
+    if let (Some(field), true) = (records_field, markdown || jsonl) {
+        bail!(
+            "{}: records_field '{field}' applies only to .json files, not .md/.jsonl",
+            path.display()
+        );
+    }
+    if markdown {
         return Ok(vec![Value::String(raw)]);
     }
-    let jsonl = name.ends_with(".jsonl") || name.ends_with(".ndjson");
     if jsonl {
         let mut out = Vec::new();
         for (n, line) in raw.lines().enumerate() {
@@ -376,6 +404,21 @@ fn parse_file(path: &Path) -> Result<Vec<Value>> {
     } else {
         let v: Value = serde_json::from_str(&raw)
             .with_context(|| format!("{}: not valid JSON", path.display()))?;
+        if let Some(field) = records_field {
+            let Value::Object(mut m) = v else {
+                bail!(
+                    "{}: records_field '{field}' requires a top-level JSON object",
+                    path.display()
+                );
+            };
+            let Some(Value::Array(a)) = m.remove(field) else {
+                bail!(
+                    "{}: records_field '{field}' missing or not a JSON array",
+                    path.display()
+                );
+            };
+            return Ok(a);
+        }
         Ok(match v {
             Value::Array(a) => a,
             other => vec![other],
@@ -421,22 +464,70 @@ mod tests {
     }
 
     #[test]
+    fn walk_refuses_a_missing_root_instead_of_pruning_everything() {
+        // #1110 gap 1: a missing source root must fail the build, not walk to
+        // zero files and let `prune` wipe the slug with a green exit.
+        let tmp = tempfile::tempdir().unwrap();
+        let missing = tmp.path().join("does-not-exist");
+        let err = walk(&missing, "**/*.json").unwrap_err().to_string();
+        assert!(err.contains("cannot be read"), "{err}");
+
+        // an existing but empty directory is still fine — a legitimately
+        // empty upstream prunes to zero on purpose.
+        let empty = tmp.path().join("empty");
+        std::fs::create_dir_all(&empty).unwrap();
+        assert!(walk(&empty, "**/*.json").unwrap().is_empty());
+
+        // a file where a directory is expected is also refused.
+        let afile = tmp.path().join("a.json");
+        std::fs::write(&afile, "{}").unwrap();
+        let err = walk(&afile, "**/*.json").unwrap_err().to_string();
+        assert!(err.contains("is not a directory"), "{err}");
+    }
+
+    #[test]
     fn parse_file_understands_json_and_jsonl() {
         let tmp = tempfile::tempdir().unwrap();
         let a = tmp.path().join("a.json");
         std::fs::write(&a, r#"[{"id":"x"},{"id":"y"}]"#).unwrap();
-        assert_eq!(parse_file(&a).unwrap().len(), 2);
+        assert_eq!(parse_file(&a, None).unwrap().len(), 2);
         let b = tmp.path().join("b.jsonl");
         std::fs::write(&b, "{\"id\":\"z\"}\n\n{\"id\":\"w\"}\n").unwrap();
-        assert_eq!(parse_file(&b).unwrap().len(), 2, "blank lines skipped");
+        assert_eq!(
+            parse_file(&b, None).unwrap().len(),
+            2,
+            "blank lines skipped"
+        );
         let c = tmp.path().join("c.json");
         std::fs::write(&c, r#"{"id":"one"}"#).unwrap();
-        assert_eq!(parse_file(&c).unwrap().len(), 1);
+        assert_eq!(parse_file(&c, None).unwrap().len(), 1);
         let d = tmp.path().join("d.md");
         std::fs::write(&d, "```toml\n[advisory]\nid = \"R\"\n```\n\n# T\n").unwrap();
-        let parsed = parse_file(&d).unwrap();
+        let parsed = parse_file(&d, None).unwrap();
         assert_eq!(parsed.len(), 1, "one raw string value, not json-parsed");
         assert!(parsed[0].as_str().unwrap().starts_with("```toml"));
+        let wrapped = tmp.path().join("wrapped.json");
+        std::fs::write(
+            &wrapped,
+            r#"{"title":"KEV","vulnerabilities":[{"cveID":"CVE-1"},{"cveID":"CVE-2"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            parse_file(&wrapped, Some("vulnerabilities")).unwrap().len(),
+            2
+        );
+        let err = parse_file(&wrapped, Some("missing"))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("missing or not a JSON array"), "{err}");
+        let err = parse_file(&b, Some("vulnerabilities"))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("applies only to .json files"), "{err}");
+        let err = parse_file(&d, Some("vulnerabilities"))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("applies only to .json files"), "{err}");
     }
 
     // ── end to end: recipe → harvest → identity → pack, twice ─────────────
@@ -725,6 +816,22 @@ shards = 4
             "dead envelope pruned"
         );
         assert_eq!(read_records(&pack).len(), 1);
+
+        // ── fourth run with --fresh: wipes build dir, resets generation ────
+        let fresh_args: Vec<String> = vec!["e2e".to_string(), "--fresh".to_string()];
+        assert_eq!(run_build_inner(&fresh_args, home.path()).unwrap(), 0);
+        let manifest: Value =
+            serde_json::from_str(&std::fs::read_to_string(pack.join("manifest.json")).unwrap())
+                .unwrap();
+        assert_eq!(
+            manifest["generation"],
+            json!(1),
+            "--fresh wipes previous build dir and resets generation to 1"
+        );
+        for s in manifest["sources"].as_array().unwrap() {
+            assert_eq!(s["skipped"], json!(0), "--fresh re-harvests from scratch");
+            assert_eq!(s["new"], s["records"]);
+        }
     }
 
     // ── end to end: a git source, watermark-skipped on the second run ─────

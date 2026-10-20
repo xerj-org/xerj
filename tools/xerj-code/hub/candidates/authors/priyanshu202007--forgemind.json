@@ -1,0 +1,22 @@
+{
+ "corpus": "priyanshu202007--forgemind",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how priyanshu202007/ForgeMind implements it: AI-powered factory operational memory that learns from past incidents and helps teams investigate and resolve new defects (selected work: m1, the project root)",
+ "repos": [
+  {
+   "repo": "ForgeMind",
+   "url": "https://github.com/priyanshu202007/ForgeMind",
+   "sha": "b1a607047a26a9abb1c93903f9dabb38c3a797ad",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit b1a607047a26: \"feat(m1): structure memory evidence and recommendations\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

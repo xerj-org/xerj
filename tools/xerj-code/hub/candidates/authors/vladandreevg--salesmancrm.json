@@ -1,0 +1,22 @@
+{
+ "corpus": "vladandreevg--salesmancrm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on crm, crm-system, sales queries this for how vladandreevg/salesmancrm implements it: SalesMan CRM is probably the best CRM system for b2b (selected work: inc, _install, content)",
+ "repos": [
+  {
+   "repo": "salesmancrm",
+   "url": "https://github.com/vladandreevg/salesmancrm",
+   "sha": "7272a07642213025d7a2af3d97ab5c598bbfca93",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 7272a0764221: \"- \u0438\u0441\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0435 \u0438\u0441\u043f\u0440\u0430\u0432\u043b\u0435\u043d\u0438\u0439 :)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

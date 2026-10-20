@@ -1,6 +1,6 @@
 //! xerj configuration system.
 //!
-//! Configuration is intentionally minimal: **130 settings** versus
+//! Configuration is intentionally minimal: **134 settings** versus
 //! Elasticsearch's 3000+. Every option is named, documented, and has a sensible
 //! production-ready default. The format is TOML, loaded from a single file.
 //!
@@ -99,12 +99,16 @@ pub struct Config {
     /// Second-stage reranking provider — 3 settings. Inert until a key is set.
     pub rerank: RerankProviderConfig,
     /// Typed decisions answered from a labelled-history index by
-    /// nearest-neighbour vote — 8 settings. Inert until `decisions.index`
+    /// nearest-neighbour vote — 9 settings. Inert until `decisions.index`
     /// names an index that exists.
     pub decisions: DecisionsConfig,
+    /// Corpus Hub hosted read-only endpoints (`/_hub/v1/…`) — 2 settings.
+    /// Inert until `hub.catalogue_path` names a catalogue file; the routes
+    /// need an API key unless `hub.public` is switched on.
+    pub hub: HubConfig,
 }
 
-// 23 sub-configs, 130 leaf settings in total. Do not maintain that sum by hand
+// 24 sub-configs, 134 leaf settings in total. Do not maintain that sum by hand
 // — `journey_zero_config` in xerj-engine/tests/product_experience.rs counts a
 // serialised `Config::default()` and fails if this comment and the module
 // header stop matching. `Default` is derived: every field is a sub-config that
@@ -112,6 +116,21 @@ pub struct Config {
 // value the manual impl used to build by hand.
 
 impl Config {
+    /// Every setting this build accepts but does not act on, across all
+    /// sections, in the [`MergeConfig::dormant_overrides`] shape — named only
+    /// when the operator moved one off its default. The server logs each one
+    /// at WARN on startup (the accepted-and-ignored class, #204).
+    pub fn dormant_overrides(&self) -> Vec<(&'static str, &'static str)> {
+        let mut out = self.storage.dormant_overrides();
+        out.extend(self.merge.dormant_overrides());
+        out.extend(self.compression.dormant_overrides());
+        out.extend(self.fts.dormant_overrides());
+        out.extend(self.vector.dormant_overrides());
+        out.extend(self.logs.dormant_overrides());
+        out.extend(self.indexing.dormant_overrides());
+        out
+    }
+
     /// Load configuration from a TOML file.
     ///
     /// Missing keys fall back to their `Default` values, so a minimal config
@@ -220,6 +239,17 @@ impl Config {
             return Err(XerjError::config(reason));
         }
 
+        // Hub: a public node validates every corpus name against the
+        // catalogue, so a public node with no catalogue answers 404 to
+        // everything while appearing to be up. Refuse that at boot.
+        if self.hub.public && self.hub.catalogue_path.trim().is_empty() {
+            return Err(XerjError::config(
+                "hub.public = true requires hub.catalogue_path: the public routes validate \
+                 every corpus name against the catalogue, and with none every request \
+                 would be a 404",
+            ));
+        }
+
         // Compression: block_size_docs is documented as 16–4096 and was
         // accepted at any value (#318 got `999999` past startup in silence).
         // Range-check it even though the knob is dormant: an out-of-range
@@ -244,6 +274,18 @@ impl Config {
         // Vector: max_dimensions must be power-of-two-friendly and > 0
         if self.vector.max_dimensions == 0 {
             return Err(XerjError::config("vector.max_dimensions must be > 0"));
+        }
+
+        // A zero HTTP timeout fails every embedding request before it is sent
+        // (the `wal_tap.request_timeout_secs` rule).
+        if self.embedding.timeout_ms == 0 {
+            return Err(XerjError::config("embedding.timeout_ms must be at least 1"));
+        }
+
+        if !(1..=i32::MAX as usize).contains(&self.limits.max_result_window) {
+            return Err(XerjError::config(
+                "limits.max_result_window must be in 1..=2147483647",
+            ));
         }
 
         if !(1..=4096).contains(&self.embedding.onnx_scheduling_window) {
@@ -349,11 +391,47 @@ impl Config {
             )));
         }
 
+        // Decisions: escalate_below is a winning-vote-share floor in 0.0..=1.0
+        // (0.0 disables confidence escalation; #1094).
+        if !self.decisions.escalate_below.is_finite()
+            || !(0.0..=1.0).contains(&self.decisions.escalate_below)
+        {
+            return Err(XerjError::config(format!(
+                "decisions.escalate_below must be in 0.0..=1.0 (got {}); it is the winning \
+                 vote-share floor below which tier 1 escalates to the local decision tier, and \
+                 0.0 disables confidence escalation",
+                self.decisions.escalate_below
+            )));
+        }
+
         self.engine.validate()?;
 
         // Cluster: fail closed rather than expose an unauthenticated Raft
         // control port (issue #75).
         self.cluster.validate()?;
+
+        // The cluster port must not collide with this node's own data
+        // listeners (#1171). A collision makes the cluster transport's bind
+        // fail at boot and the node degrades to single-node while
+        // /_cluster/health stays green — refusing here turns that trap into
+        // a boot-time error. (Cross-process port collisions can only be
+        // caught at bind time; this check catches the self-inflicted class.)
+        if self.cluster.enabled {
+            let cluster_port = self.cluster.port;
+            let listeners = [
+                ("rest_port", self.server.rest_port),
+                ("grpc_port", self.server.grpc_port),
+                ("es_compat_port", self.server.es_compat_port),
+            ];
+            let collision = listeners.iter().find(|(_, p)| *p == cluster_port);
+            if let Some((name, _)) = collision {
+                return Err(XerjError::config(format!(
+                    "cluster.port ({cluster_port}) collides with server.{name} — the cluster \
+                     transport would fail to bind and the node would silently degrade to \
+                     single-node mode (issue #1171)"
+                )));
+            }
+        }
 
         // Logging: format must be one of the two supported line formats.
         let fmt = self.logging.format.as_str();
@@ -485,13 +563,13 @@ impl Config {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// Sub-configs  (130 user-facing settings total; counted by
+// Sub-configs  (134 user-facing settings total; counted by
 // `journey_zero_config`, not by hand)
 // ═════════════════════════════════════════════════════════════════════════════
 
 /// Network and data-directory settings.
 ///
-/// **7 settings.**
+/// **8 settings.**
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct ServerConfig {
@@ -553,6 +631,12 @@ pub struct ServerConfig {
     /// right-most address that is *not* itself a listed proxy is used — the
     /// left end of the chain is written by the caller and cannot be trusted.
     pub trusted_proxies: Vec<String>,
+    /// Multi-instance opt-in (default `false`). When `true`, a listener port
+    /// that is already in use makes the node bind the next free one, and a
+    /// `data_dir` held by another live process makes it use `<data_dir>-N`.
+    /// Off by default so a taken port stays a fatal startup error (#465).
+    #[serde(default)]
+    pub auto_port: bool,
 }
 
 impl Default for ServerConfig {
@@ -568,6 +652,7 @@ impl Default for ServerConfig {
             bind_address: "127.0.0.1".into(),
             allow_insecure_network_bind: false,
             trusted_proxies: Vec::new(),
+            auto_port: false,
         }
     }
 }
@@ -878,6 +963,23 @@ impl Default for StorageConfig {
             s3_endpoint: String::new(),
             local_cache_dir: "./cache".into(),
         }
+    }
+}
+
+impl StorageConfig {
+    /// Storage settings this build accepts but does not act on, in the
+    /// [`MergeConfig::dormant_overrides`] shape. `local_cache_dir` has been
+    /// dormant since #965 (see its field docs) without being reported.
+    pub fn dormant_overrides(&self) -> Vec<(&'static str, &'static str)> {
+        let mut out = Vec::new();
+        if self.local_cache_dir != StorageConfig::default().local_cache_dir {
+            out.push((
+                "storage.local_cache_dir",
+                "nothing reads it on the index path — segment families \
+                 materialize in data_dir/segments (#965)",
+            ));
+        }
+        out
     }
 }
 
@@ -1194,6 +1296,12 @@ pub struct FtsConfig {
     ///
     /// Built-in analyzers: `"standard"`, `"whitespace"`, `"simple"`, `"english"`.
     /// Custom analyzers are defined at index creation time.
+    ///
+    /// **DORMANT — accepted, but nothing reads it.** A `text` field without
+    /// an analyzer of its own uses the index's `analysis.analyzer.default`
+    /// when the index declares one (#991), and `standard` otherwise; this
+    /// node-wide key never enters that choice. Reported at startup when set
+    /// (see [`FtsConfig::dormant_overrides`]).
     pub default_analyzer: String,
 }
 
@@ -1202,6 +1310,23 @@ impl Default for FtsConfig {
         Self {
             default_analyzer: "standard".into(),
         }
+    }
+}
+
+impl FtsConfig {
+    /// Full-text settings this build accepts but does not act on, in the
+    /// [`MergeConfig::dormant_overrides`] shape: named only when the operator
+    /// moved one off its default.
+    pub fn dormant_overrides(&self) -> Vec<(&'static str, &'static str)> {
+        let mut out = Vec::new();
+        if self.default_analyzer != FtsConfig::default().default_analyzer {
+            out.push((
+                "fts.default_analyzer",
+                "nothing reads it — a text field uses its own analyzer, the \
+                 index's analysis.analyzer.default, or standard",
+            ));
+        }
+        out
     }
 }
 
@@ -1214,17 +1339,28 @@ impl Default for FtsConfig {
 #[serde(default, deny_unknown_fields)]
 pub struct VectorConfig {
     /// Similarity metric: `"cosine"`, `"dot_product"`, or `"euclidean"` (default: `"cosine"`).
+    ///
+    /// **DORMANT — accepted, but nothing reads it.** A `dense_vector` field
+    /// takes its `similarity` from the mapping, and a mapping without one
+    /// gets `cosine` (the ES default) whatever this says.
     pub default_metric: VectorMetric,
     /// HNSW `M` parameter — edges per node per layer (default: `16`).
     ///
     /// Higher values improve recall at the cost of memory and build time.
+    ///
+    /// **DORMANT — validated, but nothing reads it.** The graph builds with
+    /// a fixed `M = 16` (`HnswParams::new`).
     pub hnsw_m: usize,
     /// HNSW `ef_construction` — search width during index build (default: `200`).
+    ///
+    /// **DORMANT — validated, but nothing reads it.** The graph builds with
+    /// a fixed `ef_construction = 200` (`HnswParams::new`).
     pub hnsw_ef_construction: usize,
     /// HNSW `ef` — search width at query time (default: `100`).
     ///
-    /// Can be overridden per query. Must be ≥ the number of neighbours
-    /// requested (`k`).
+    /// **DORMANT — validated, but nothing reads it.** The query-time beam
+    /// width comes from the request's `num_candidates` (1.5 × `k` when
+    /// omitted), floored at `HNSW_EF_FLOOR`.
     pub hnsw_ef_search: usize,
     /// Default quantization: `"none"` (default) or `"scalar8"`. `"binary"` is
     /// **not implemented in this build** and is rejected at startup.
@@ -1239,18 +1375,77 @@ pub struct VectorConfig {
     ///   originals, so this shrinks the scoring working set, not total resident
     ///   memory. When the code store cannot serve (open-time walk not yet
     ///   converged, a publication race, coverage broken by a wrong-dimension
-    ///   write), queries fall back to the exact `_source` scan. Typically
-    ///   opted into per field via `index_options.type: int8_hnsw` on the
-    ///   mapping; this global default applies the same scheme index-wide.
+    ///   write), queries fall back to the exact `_source` scan. Opted into
+    ///   per field via `index_options.type: int8_hnsw` (or `int8_flat`) on
+    ///   the mapping.
     /// - `"binary"` — 1-bit binary quantization (~32× memory reduction) — NOT
     ///   YET IMPLEMENTED (no `BinaryQuantizer` exists).
     ///
     /// Honouring `binary` would silently store full-precision vectors while
     /// claiming a saving, so only `none` and `scalar8` are accepted (see
     /// `Config::validate`).
+    ///
+    /// **DORMANT — only the `binary` refusal reads it.** Quantization comes
+    /// from each field's `index_options`; setting `"scalar8"` here does not
+    /// quantize a field whose mapping does not ask for it.
     pub default_quantization: VectorQuantization,
     /// Maximum supported vector dimensionality (default: `16384`).
+    ///
+    /// **DORMANT — validated (must be ≥ 1), but nothing reads it.** No
+    /// mapping or document is checked against it.
     pub max_dimensions: usize,
+}
+
+impl VectorConfig {
+    /// Vector settings this build accepts but does not act on, in the
+    /// [`MergeConfig::dormant_overrides`] shape: named only when the operator
+    /// moved one off its default.
+    pub fn dormant_overrides(&self) -> Vec<(&'static str, &'static str)> {
+        let d = VectorConfig::default();
+        let mut out = Vec::new();
+        if self.default_metric != d.default_metric {
+            out.push((
+                "vector.default_metric",
+                "nothing reads it — similarity comes from the field mapping, \
+                 cosine when the mapping omits it",
+            ));
+        }
+        if self.hnsw_m != d.hnsw_m {
+            out.push((
+                "vector.hnsw_m",
+                "nothing reads it — the HNSW graph builds with a fixed M = 16",
+            ));
+        }
+        if self.hnsw_ef_construction != d.hnsw_ef_construction {
+            out.push((
+                "vector.hnsw_ef_construction",
+                "nothing reads it — the HNSW graph builds with a fixed \
+                 ef_construction = 200",
+            ));
+        }
+        if self.hnsw_ef_search != d.hnsw_ef_search {
+            out.push((
+                "vector.hnsw_ef_search",
+                "nothing reads it — the query-time beam width comes from the \
+                 request's num_candidates",
+            ));
+        }
+        if self.default_quantization != d.default_quantization {
+            out.push((
+                "vector.default_quantization",
+                "nothing reads it — quantization comes from each field's \
+                 index_options in the mapping",
+            ));
+        }
+        if self.max_dimensions != d.max_dimensions {
+            out.push((
+                "vector.max_dimensions",
+                "nothing reads it — mappings and documents are not checked \
+                 against it",
+            ));
+        }
+        out
+    }
 }
 
 impl Default for VectorConfig {
@@ -1299,10 +1494,17 @@ pub enum VectorQuantization {
 #[serde(default, deny_unknown_fields)]
 pub struct LogsConfig {
     /// How long to retain log data before automatic deletion (default: `90` days).
+    ///
+    /// **DORMANT — accepted, but nothing reads it, and nothing deletes log
+    /// data.** `xerj_logs::RetentionPolicy` exists but is constructed only by
+    /// that crate's own tests; no server or engine code uses `xerj-logs`.
     pub retention_days: u32,
     /// Time-based partition granularity (default: `"1h"`).
     ///
     /// Supported values: `"1m"`, `"5m"`, `"15m"`, `"1h"`, `"6h"`, `"1d"`.
+    ///
+    /// **DORMANT — accepted, but nothing reads it.** Log indices are not
+    /// partitioned by time.
     pub time_partition: String,
 }
 
@@ -1315,38 +1517,83 @@ impl Default for LogsConfig {
     }
 }
 
+impl LogsConfig {
+    /// `[logs]` settings this build accepts but does not act on, in the
+    /// [`MergeConfig::dormant_overrides`] shape.
+    ///
+    /// Unlike the merge and compression knobs, the cost of ignoring these is
+    /// data, not latency: an operator who sets `retention_days = 30` to keep a
+    /// log volume bounded gets unbounded growth. They stay accepted so a
+    /// config the project handed out still boots, and are named at startup.
+    pub fn dormant_overrides(&self) -> Vec<(&'static str, &'static str)> {
+        let d = LogsConfig::default();
+        let mut out = Vec::new();
+        if self.retention_days != d.retention_days {
+            out.push((
+                "logs.retention_days",
+                "nothing deletes log data in this build — no retention job \
+                 runs; delete old indices or documents yourself",
+            ));
+        }
+        if self.time_partition != d.time_partition {
+            out.push((
+                "logs.time_partition",
+                "nothing reads it — log indices are not partitioned by time",
+            ));
+        }
+        out
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Embedding backend settings.
 ///
-/// XERJ can embed `semantic_text` fields three ways, chosen by [`mode`]:
+/// XERJ can embed `semantic_text` fields four ways, chosen by
+/// [`mode`](Self::mode):
 ///   * `"lexical"` — the zero-dependency built-in feature-hash embedder
 ///     (deterministic, 384-dim, no model, no network). This is the honest
 ///     default: lexical, *not* neural semantic understanding.
 ///   * `"neural"` — a built-in BERT sentence embedder (all-MiniLM-L6-v2 by
 ///     default) that runs in-process via `candle`. The model weights are
-///     downloaded once on first use (or read from [`local_model_dir`] for
+///     downloaded once on first use (or read from
+///     [`local_model_dir`](Self::local_model_dir) for
 ///     air-gapped deployments). The neural backend ships in the standard
 ///     binary; a `--no-default-features` slim build omits it and falls back
 ///     to lexical.
 ///   * `"proxy"` — call an external OpenAI-compatible `/v1/embeddings`
-///     endpoint ([`default_endpoint`]). Lets customers plug in ANY embedding
-///     model / provider they already run.
-///   * `"auto"` (default) — use the proxy when [`default_endpoint`] is set,
-///     otherwise lexical. This preserves the historical behavior exactly.
+///     endpoint ([`default_endpoint`](Self::default_endpoint)). Lets
+///     customers plug in ANY embedding model / provider they already run. An explicit `mode = "proxy"` with a
+///     missing or unusable endpoint is a startup ERROR (#1189): silently
+///     running lexical instead would write the wrong vectors into the index
+///     while every embedding request appears to succeed.
+///   * `"onnx-experimental"` — a local FP32 ONNX model and tokenizer
+///     ([`onnx_model_path`](Self::onnx_model_path),
+///     [`onnx_tokenizer_path`](Self::onnx_tokenizer_path)) run through ONNX
+///     Runtime; never auto-downloaded. Needs a build with the
+///     `onnx-experimental` feature and is fail-closed: a build without it, or
+///     a missing model or tokenizer, is a startup error, never a lexical
+///     fallback.
+///   * `"auto"` (default) — use the proxy when
+///     [`default_endpoint`](Self::default_endpoint) is set,
+///     otherwise lexical; if the endpoint fails to initialize, fall back to
+///     lexical with a warning. The fallback exists ONLY on this path (#1189).
 ///
 /// **20 settings.**
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct EmbeddingConfig {
-    /// Backend selector: `"auto"` (default), `"lexical"`, `"neural"`, or
-    /// `"proxy"`. Unknown values are treated as `"auto"`.
+    /// Backend selector: `"auto"` (default), `"lexical"`, `"neural"`,
+    /// `"proxy"`, or `"onnx-experimental"`. Unknown values are treated as
+    /// `"auto"`.
     pub mode: String,
     /// OpenAI-compatible endpoint URL (default: `""` — disabled).
     pub default_endpoint: String,
     /// Model name to request from the endpoint (default: `""`).
     pub default_model: String,
-    /// Maximum documents per embedding API call (default: `64`).
+    /// Maximum documents per embedding API call (default: `64`). Providers
+    /// cap the request `input` array (often far below 64); the proxy splits
+    /// larger batches into consecutive requests of at most this size (#1190).
     pub batch_size: usize,
     /// HTTP timeout for embedding requests in ms (default: `5000`).
     pub timeout_ms: u64,
@@ -1493,10 +1740,11 @@ pub struct LimitsConfig {
     pub max_body_bytes: usize,
     /// Maximum value of `from + size` in a search request (default: `10_000`).
     ///
-    /// Mirrors Elasticsearch's `index.max_result_window`. Deep pagination past
-    /// this should use `search_after` / point-in-time cursors instead. The
-    /// limit prevents `size=2_000_000_000` from allocating 2 billion `Hit`
-    /// structs from a single HTTP POST.
+    /// The node-wide default for Elasticsearch's `index.max_result_window`:
+    /// an index whose settings carry `index.max_result_window` uses that, any
+    /// other index uses this. Deep pagination past it should use
+    /// `search_after` / point-in-time cursors instead. Must be in
+    /// `1..=2147483647` (the setting's ES range).
     pub max_result_window: usize,
     /// Maximum number of doc-references in a single `_mget` request body
     /// (default: `10_000`). Mirrors `max_result_window`.
@@ -1621,10 +1869,18 @@ pub struct IndexingConfig {
     ///
     /// Larger batches amortise WAL and fsync overhead but increase per-batch
     /// latency.  Values between 500 and 5000 work well for most workloads.
+    ///
+    /// **DORMANT — accepted, but nothing reads it.** A turbo request is
+    /// indexed as one batch, whatever its size.
     pub turbo_batch_size: usize,
     /// Enable parallel tokenisation via Rayon in turbo mode (default: `true`).
     ///
     /// Disable only for debugging or on single-core machines.
+    ///
+    /// **DORMANT — read, but a no-op.** Since M5.9 the turbo pipeline does
+    /// not pre-tokenise (the FTS index is built from stored fields at merge
+    /// time), so the `parallel` argument it feeds is unused — see the
+    /// `turbo_ingest` module docs.
     pub turbo_parallel: bool,
     /// Skip stemming and stopword removal in turbo mode for maximum speed (default: `false`).
     ///
@@ -1632,6 +1888,9 @@ pub struct IndexingConfig {
     /// normally be processed by the configured `fts.default_analyzer`.  Search
     /// recall may be reduced (e.g. "running" won't match "run"), but ingest
     /// throughput increases significantly.
+    ///
+    /// **DORMANT — read, but a no-op.** The turbo endpoint passes it to
+    /// `index_batch_turbo`, whose `_fast_analyzer` parameter is unused.
     pub turbo_fast_analyzer: bool,
 }
 
@@ -1642,6 +1901,36 @@ impl Default for IndexingConfig {
             turbo_parallel: true,
             turbo_fast_analyzer: false,
         }
+    }
+}
+
+impl IndexingConfig {
+    /// Turbo settings this build accepts but does not act on, in the
+    /// [`MergeConfig::dormant_overrides`] shape.
+    pub fn dormant_overrides(&self) -> Vec<(&'static str, &'static str)> {
+        let d = IndexingConfig::default();
+        let mut out = Vec::new();
+        if self.turbo_batch_size != d.turbo_batch_size {
+            out.push((
+                "indexing.turbo_batch_size",
+                "nothing reads it — a turbo request is indexed as one batch",
+            ));
+        }
+        if self.turbo_parallel != d.turbo_parallel {
+            out.push((
+                "indexing.turbo_parallel",
+                "turbo ingest no longer pre-tokenises, so there is nothing to \
+                 parallelise",
+            ));
+        }
+        if self.turbo_fast_analyzer != d.turbo_fast_analyzer {
+            out.push((
+                "indexing.turbo_fast_analyzer",
+                "the turbo path ignores it — fields keep their configured \
+                 analyzers",
+            ));
+        }
+        out
     }
 }
 
@@ -1752,9 +2041,14 @@ pub struct ClusterConfig {
     /// Each node in the cluster must expose this port and it must be reachable
     /// from all peers.
     pub port: u16,
-    /// Peer nodes in `"<node_id>=<host>:<port>"` format.
+    /// Peer nodes in `"<host>:<port>=<host>:<port>"` format — the label must
+    /// equal the address. A node's cluster id IS its socket address and
+    /// replies are routed by looking the sender's id up in this list, so a
+    /// differing label makes vote replies undeliverable and the node loses
+    /// every election with no diagnostic of its own (issue #1171; refused
+    /// at [`ClusterConfig::validate`]).
     ///
-    /// Example: `["n2=10.0.0.2:9300", "n3=10.0.0.3:9300"]`
+    /// Example: `["10.0.0.2:9300=10.0.0.2:9300", "10.0.0.3:9300=10.0.0.3:9300"]`
     pub peers: Vec<String>,
     /// Raft tick interval in milliseconds (default: `50`).
     ///
@@ -1845,8 +2139,53 @@ impl ClusterConfig {
                     Self::MIN_AUTH_SECRET_LEN
                 )))
             }
-            Some(_) => Ok(()),
+            Some(_) => self.validate_peers(),
         }
+    }
+
+    /// Validate peer entries beyond the shared-secret rules: every entry
+    /// must parse, and its label must equal its address (#1171).
+    ///
+    /// The cluster transport keys its reply map by peer label and routes
+    /// replies through `peers.get(candidate_id)` — and a node's Raft id IS
+    /// its listen address (derived in the server boot). A friendly label
+    /// (`n2=10.0.0.2:9300`) therefore makes the node's vote reply
+    /// undeliverable: it becomes an eternal candidate, re-electing every
+    /// ~200 ms, and the only diagnostic lands in the *rejecting* node's
+    /// log (`unknown peer: …`), never its own. Refusing at config load
+    /// turns that silent runtime churn into a boot-time error.
+    fn validate_peers(&self) -> Result<(), crate::XerjError> {
+        for peer in &self.peers {
+            match peer.split_once('=') {
+                Some((id, addr)) => {
+                    let addr = addr.trim();
+                    if let Err(e) = addr.parse::<std::net::SocketAddr>() {
+                        return Err(crate::XerjError::config(format!(
+                            "cluster.peers entry {peer:?} has an unparseable address ({e}); \
+                             expected \"<host:port>=<host:port>\" with the same address on both \
+                             sides of the '='"
+                        )));
+                    }
+                    if id.trim() != addr {
+                        return Err(crate::XerjError::config(format!(
+                            "cluster.peers entry {peer:?}: the label must equal the address. \
+                             Node ids in the cluster are socket addresses and replies are \
+                             routed by looking the sender's id up in the peer list, so a label \
+                             that differs from the address makes this node's vote replies \
+                             undeliverable — it will lose every election with no diagnostic of \
+                             its own (issue #1171). Write the entry as \"{addr}={addr}\""
+                        )));
+                    }
+                }
+                None => {
+                    return Err(crate::XerjError::config(format!(
+                        "cluster.peers entry {peer:?} is malformed: expected \
+                         \"<host:port>=<host:port>\" (the label must equal the address)"
+                    )))
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -2343,7 +2682,7 @@ impl RerankProviderConfig {
 /// weighted nearest-neighbour vote over a labelled-history index — the
 /// retrieval analogue of a judge model, with the evidence staying on the node.
 ///
-/// **8 settings.**
+/// **9 settings.**
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct DecisionsConfig {
@@ -2364,6 +2703,13 @@ pub struct DecisionsConfig {
     /// `/_decide` abstains below this vote share (0 = never abstain; the
     /// `/v1/systemone` wire has no abstain field and errors instead).
     pub min_confidence: f64,
+    /// Winning vote-share floor in `0.0..=1.0` below which a tier-1 history
+    /// vote escalates to the tier-2 local decision head when armed
+    /// (`XERJ_DECIDE_MODE=local`, issue #1094). Default `0.8` matches the
+    /// flywheel gate's confidence bar so low-confidence history hits do not
+    /// freeze write-back; `0.0` disables confidence escalation. With no local
+    /// tier armed, a vote below this floor still answers from history.
+    pub escalate_below: f64,
     /// How much more a human correction weighs in the vote than a cached or
     /// seeded example, when the history document carries `human: true`
     /// (issue #1061). 2.0 — the issue's ≥ 2x floor for corrections — is the
@@ -2386,11 +2732,43 @@ impl Default for DecisionsConfig {
             text_field: "text".to_string(),
             positive_label: "true".to_string(),
             min_confidence: 0.0,
+            escalate_below: 0.8,
             human_weight: 2.0,
             calibration: CalibrationMethod::None,
         }
     }
 }
+
+/// Corpus Hub hosted endpoints: four read-only `GET` routes under
+/// `/_hub/v1/` that answer from the pre-indexed packs restored on this node
+/// (`catalogue`, `def/{slug}/{symbol}`, `code/{slug}`, `search`). They are
+/// served on the Elasticsearch-compatible listener (`server.es_compat_port`),
+/// next to `/_memory`, not on the native one.
+///
+/// **2 settings.**
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct HubConfig {
+    /// Let those four routes — and nothing else — answer without an API key
+    /// (default: `false`, every route needs a key).
+    ///
+    /// With `true`, `GET /_hub/v1/catalogue`, `/_hub/v1/def/{slug}/{symbol}`,
+    /// `/_hub/v1/code/{slug}` and `/_hub/v1/search` skip authentication,
+    /// authorization and the audit log. Every other route on the node keeps
+    /// all three. The four routes are read-only, only ever query `xc-*`
+    /// indices, and are rate-limited to 60 requests a minute per client
+    /// address (`429` with `Retry-After`). Behind a reverse proxy, list the
+    /// proxy in `server.trusted_proxies`; without it every client shares the
+    /// proxy's address and therefore one 60-a-minute budget.
+    pub public: bool,
+    /// Path to the signed `catalogue.json` this node serves at
+    /// `GET /_hub/v1/catalogue` and validates every corpus name against
+    /// (default: `""` — none). A corpus name that is not in the file is a
+    /// `404`. Required when `public = true`. Prefer an absolute path: a
+    /// relative one resolves against the server's working directory.
+    pub catalogue_path: String,
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // Tests
 // ═════════════════════════════════════════════════════════════════════════════
@@ -2417,6 +2795,35 @@ mod tests {
         // and not judged.
         assert!(RerankProviderConfig::check_resolved_endpoint(good, Some(bad)).is_ok());
         assert!(RerankProviderConfig::check_resolved_endpoint(bad, Some(good)).is_err());
+    }
+
+    /// `[hub]` is closed and fail-closed: a typo is a boot error, the
+    /// defaults leave every route behind the API key, and a public node with
+    /// no catalogue is refused rather than left answering 404 to everything.
+    #[test]
+    fn hub_section_defaults_closed_and_public_requires_a_catalogue() {
+        let d = Config::default();
+        assert!(!d.hub.public, "the hosted routes are keyed by default");
+        assert!(d.hub.catalogue_path.is_empty());
+
+        let ok = Config::from_toml_str(
+            "[hub]\npublic = true\ncatalogue_path = \"/srv/hub/catalogue.json\"\n",
+        )
+        .expect("a public node with a catalogue is valid");
+        assert!(ok.hub.public);
+        assert_eq!(ok.hub.catalogue_path, "/srv/hub/catalogue.json");
+
+        let err = Config::from_toml_str("[hub]\npublic = true\n")
+            .expect_err("public without a catalogue must be refused at boot");
+        assert!(
+            err.to_string().contains("hub.catalogue_path"),
+            "the error names the setting to set: {err}"
+        );
+        // A private node needs no catalogue to boot.
+        Config::from_toml_str("[hub]\npublic = false\n").expect("private, no catalogue");
+
+        // Closed: a misspelt key is an error, not a silently ignored line.
+        assert!(Config::from_toml_str("[hub]\npubic = true\n").is_err());
     }
 
     #[test]
@@ -2532,6 +2939,22 @@ mod tests {
         )
         .expect("tls disabled with no paths should be ok");
         assert!(!cfg.tls.enabled);
+    }
+
+    #[test]
+    fn embedding_timeout_must_be_at_least_one_ms() {
+        assert!(Config::from_toml_str("[embedding]\ntimeout_ms = 0\n").is_err());
+        let cfg = Config::from_toml_str("[embedding]\ntimeout_ms = 900\n")
+            .expect("a sub-second timeout is a valid timeout");
+        assert_eq!(cfg.embedding.timeout_ms, 900);
+    }
+
+    #[test]
+    fn max_result_window_must_be_a_positive_es_int() {
+        assert!(Config::from_toml_str("[limits]\nmax_result_window = 0\n").is_err());
+        assert!(Config::from_toml_str("[limits]\nmax_result_window = 2147483648\n").is_err());
+        let cfg = Config::from_toml_str("[limits]\nmax_result_window = 50000\n").unwrap();
+        assert_eq!(cfg.limits.max_result_window, 50_000);
     }
 
     #[test]
@@ -3013,6 +3436,98 @@ mod tests {
         );
     }
 
+    /// The rest of the accepted-and-ignored keys (#204): each one was
+    /// documented as working, validated where it has a range, and read by
+    /// nothing — measured on rc.89, `fts.default_analyzer = "whitespace"`,
+    /// `vector.default_metric = "euclidean"`, `vector.max_dimensions = 4` and
+    /// a 90→30 day `logs.retention_days` all changed nothing, with no warning.
+    /// `Config::dormant_overrides` must name each one, only when it is set,
+    /// and must stay quiet on the shipped default file.
+    #[test]
+    fn every_dormant_setting_is_named_only_when_an_operator_sets_it() {
+        assert!(
+            Config::default().dormant_overrides().is_empty(),
+            "an untouched default asks for nothing, so it must not warn"
+        );
+        let shipped = Config::from_toml_str(include_str!("../../../xerj.default.toml")).unwrap();
+        assert!(
+            shipped.dormant_overrides().is_empty(),
+            "`cp xerj.default.toml xerj.toml` must boot without warnings: {:?}",
+            shipped.dormant_overrides()
+        );
+
+        for (toml, expected) in [
+            (
+                "[fts]\ndefault_analyzer = \"whitespace\"",
+                "fts.default_analyzer",
+            ),
+            (
+                "[vector]\ndefault_metric = \"euclidean\"",
+                "vector.default_metric",
+            ),
+            ("[vector]\nhnsw_m = 32", "vector.hnsw_m"),
+            (
+                "[vector]\nhnsw_ef_construction = 400",
+                "vector.hnsw_ef_construction",
+            ),
+            ("[vector]\nhnsw_ef_search = 200", "vector.hnsw_ef_search"),
+            (
+                "[vector]\ndefault_quantization = \"scalar8\"",
+                "vector.default_quantization",
+            ),
+            ("[vector]\nmax_dimensions = 4", "vector.max_dimensions"),
+            ("[logs]\nretention_days = 30", "logs.retention_days"),
+            ("[logs]\ntime_partition = \"1d\"", "logs.time_partition"),
+            (
+                "[indexing]\nturbo_batch_size = 2000",
+                "indexing.turbo_batch_size",
+            ),
+            (
+                "[indexing]\nturbo_parallel = false",
+                "indexing.turbo_parallel",
+            ),
+            (
+                "[indexing]\nturbo_fast_analyzer = true",
+                "indexing.turbo_fast_analyzer",
+            ),
+            (
+                "[storage]\nlocal_cache_dir = \"/mnt/nvme\"",
+                "storage.local_cache_dir",
+            ),
+            // The two older sections now reach the same aggregate.
+            ("[merge]\nmin_segments = 4", "merge.min_segments"),
+            (
+                "[compression]\nblock_size_docs = 512",
+                "compression.block_size_docs",
+            ),
+        ] {
+            let cfg = Config::from_toml_str(&format!("{toml}\n")).unwrap();
+            let named: Vec<&str> = cfg
+                .dormant_overrides()
+                .into_iter()
+                .map(|(key, _)| key)
+                .collect();
+            assert_eq!(
+                named,
+                vec![expected],
+                "setting {toml:?} must be reported, and nothing else"
+            );
+        }
+
+        // Neighbours that ARE read must never be reported.
+        for toml in [
+            "[storage]\nwal_sync = \"sync\"",
+            "[embedding]\nbatch_size = 16",
+            "[limits]\nmax_fields_per_index = 50",
+        ] {
+            let cfg = Config::from_toml_str(&format!("{toml}\n")).unwrap();
+            assert!(
+                cfg.dormant_overrides().is_empty(),
+                "{toml:?} is wired, so it is not dormant"
+            );
+        }
+    }
+
     /// The documented 16–4096 range was never enforced: #318's repro node
     /// booted happily on `block_size_docs = 999999`.
     #[test]
@@ -3176,7 +3691,7 @@ mod tests {
     /// module header, in `xerj-common/src/lib.rs`, in `engine/README.md` and in
     /// `xerj.default.toml`) — change the table and the prose together.
     const SETTINGS_BY_SECTION: &[(&str, usize)] = &[
-        ("server", 7),
+        ("server", 8),
         ("auth", 3),
         ("cors", 2),
         ("tls", 4),
@@ -3198,7 +3713,8 @@ mod tests {
         ("lifecycle", 1),
         ("wal_tap", 10),
         ("rerank", 3),
-        ("decisions", 8),
+        ("decisions", 9),
+        ("hub", 2),
     ];
 
     /// Count the settings by *counting them*.
@@ -3241,7 +3757,7 @@ mod tests {
             "the section table must sum to the whole config"
         );
         assert_eq!(
-            total, 130,
+            total, 134,
             "the total settings count changed. It is quoted in this module's \
              header, in xerj-common/src/lib.rs, in engine/README.md, in \
              xerj.default.toml and in EXPECTED_SETTINGS in \
@@ -3531,6 +4047,79 @@ mod tests {
         Config::default()
             .validate()
             .expect("defaults must validate");
+    }
+
+    // ── Cluster peers / ports: fail at load, not as silent runtime churn
+    //    (issue #1171) ────────────────────────────────────────────────────
+
+    #[test]
+    fn cluster_peer_label_must_equal_its_address() {
+        // A friendly label makes vote replies undeliverable (replies are
+        // routed by looking the sender's id up in the peer list, and ids
+        // ARE addresses) — the node then loses every election with no
+        // diagnostic of its own. Measured: 51+ elections in ~15 s.
+        let err = Config::from_toml_str(
+            "[cluster]\nenabled = true\nauth_secret = \"0123456789abcdef0123\"\n\
+             peers = [\"n2=10.0.0.2:9300\"]\n",
+        )
+        .expect_err("a peer label that differs from its address must be refused at load");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("label must equal the address"),
+            "error must name the rule, got: {msg}"
+        );
+        assert!(
+            msg.contains("10.0.0.2:9300=10.0.0.2:9300"),
+            "error must show the corrected entry, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn cluster_peer_label_matching_address_is_accepted() {
+        Config::from_toml_str(
+            "[cluster]\nenabled = true\nauth_secret = \"0123456789abcdef0123\"\n\
+             peers = [\"10.0.0.2:9300=10.0.0.2:9300\", \"10.0.0.3:9300=10.0.0.3:9300\"]\n",
+        )
+        .expect("label==address peer entries must load");
+    }
+
+    #[test]
+    fn cluster_malformed_peer_entry_is_rejected() {
+        let err = Config::from_toml_str(
+            "[cluster]\nenabled = true\nauth_secret = \"0123456789abcdef0123\"\n\
+             peers = [\"10.0.0.2:9300\"]\n",
+        )
+        .expect_err("a peer entry without label=address must be refused");
+        assert!(
+            err.to_string().contains("malformed"),
+            "error must say malformed, got: {err}"
+        );
+    }
+
+    #[test]
+    fn cluster_port_colliding_with_a_data_listener_is_rejected() {
+        // The bind would fail at boot and the node would silently degrade
+        // to single-node with a green /_cluster/health — refuse at load.
+        let err = Config::from_toml_str(
+            "[server]\nes_compat_port = 9300\n[cluster]\nenabled = true\n\
+             auth_secret = \"0123456789abcdef0123\"\nport = 9300\n",
+        )
+        .expect_err("cluster.port colliding with a data listener must be refused");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("collides with server.es_compat_port") && msg.contains("#1171"),
+            "error must name the colliding listener, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn cluster_port_distinct_from_data_listeners_is_accepted() {
+        Config::from_toml_str(
+            "[server]\nrest_port = 18000\ngrpc_port = 18001\nes_compat_port = 18002\n\
+             [cluster]\nenabled = true\nauth_secret = \"0123456789abcdef0123\"\nport = 19300\n\
+             peers = [\"10.0.0.2:19300=10.0.0.2:19300\"]\n",
+        )
+        .expect("a distinct cluster port must load");
     }
 
     #[test]

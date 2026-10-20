@@ -1,0 +1,22 @@
+{
+ "corpus": "maxofpower--featurefusion",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on aspire, aspire-dashboard, building-block queries this for how Maxofpower/FeatureFusion implements it: a .NET lab of production building blocks (Mediator, OpenTelemetry, Aspire/SigNoz, Mcp and etc) plus a runnable showcase. More packages, a fr (selected work: web)",
+ "repos": [
+  {
+   "repo": "FeatureFusion",
+   "url": "https://github.com/Maxofpower/FeatureFusion",
+   "sha": "77dad1edddc5fc9dcf6e2ed936dbf7eb8b71b787",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 77dad1edddc5: \"feat(web): add the pagination\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

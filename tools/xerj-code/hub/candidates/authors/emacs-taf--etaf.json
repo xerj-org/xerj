@@ -1,0 +1,22 @@
+{
+ "corpus": "emacs-taf--etaf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on emacs, framework, reactive queries this for how emacs-taf/etaf implements it: Component, state and application runtime for building Emacs text applications (selected work: lisp, tests, the project root)",
+ "repos": [
+  {
+   "repo": "etaf",
+   "url": "https://github.com/emacs-taf/etaf",
+   "sha": "9fca953208b5b399bdbd69b37ae87905e8d0acd4",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 9fca953208b5: \"feat(video): play split web streams with headers and proxy\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "xcrft--mastermind",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, codegraph, mcp queries this for how xcrft/mastermind implements it: Local-first repository context for coding agents: codegraph, cited project knowledge, change impact, and evidence-backed workflows (selected work: mcp, tests, evals)",
+ "repos": [
+  {
+   "repo": "mastermind",
+   "url": "https://github.com/xcrft/mastermind",
+   "sha": "0a1c783dc88591d312d2539aeacede26e4971e9b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 0a1c783dc885: \"Fix Git deadlines, process cleanup, and npm recovery\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

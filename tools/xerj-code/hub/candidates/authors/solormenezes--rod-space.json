@@ -1,0 +1,22 @@
+{
+ "corpus": "solormenezes--rod-space",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how SoloRMenezes/Rod-Space implements it: SoloRMenezes/Rod-Space (JavaScript) (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "Rod-Space",
+   "url": "https://github.com/SoloRMenezes/Rod-Space",
+   "sha": "6cbff51237aadd1fa6ddfbd96eead63fd684ac69",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 6cbff51237aa: \"Queue Rod Space offline downloads\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

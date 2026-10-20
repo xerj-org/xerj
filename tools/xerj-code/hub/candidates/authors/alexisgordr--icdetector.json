@@ -1,0 +1,22 @@
+{
+ "corpus": "alexisgordr--icdetector",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on android, cellular-security, grapheneos queries this for how Alexisgordr/ICdetector implements it: Open-source Android cellular anomaly auditor for IMSI-catcher research (no-root) (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "ICdetector",
+   "url": "https://github.com/Alexisgordr/ICdetector",
+   "sha": "a6ec98d3072169539767b29bbf228a9695de3778",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit a6ec98d30721: \"Fix Stable-Site RF neighbour learning for v2.10.1\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

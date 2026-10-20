@@ -1,0 +1,22 @@
+{
+ "corpus": "batuktech--cutroom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on captions, ffmpeg, local-first queries this for how Batuktech/Cutroom implements it: A local-first video clipping studio with AI-powered highlight discovery, transcription, animated captions, and YouTube imports. Turn long vi (selected work: scripts, server, shared)",
+ "repos": [
+  {
+   "repo": "Cutroom",
+   "url": "https://github.com/Batuktech/Cutroom",
+   "sha": "f168f6dc2c1104fb685e2bb45a1256c364cf98e1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit f168f6dc2c11: \"feat: improve clip scoring and evidence-based selection\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

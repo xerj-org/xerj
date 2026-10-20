@@ -1,0 +1,22 @@
+{
+ "corpus": "antarsoft--morphness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-harness, agentic-workflow, agents-md queries this for how Antarsoft/morphness implements it: Self-improving multi-agent harness for Claude Code. A Technical Lead plans, Full-stack builds, QA verifies, and retros turn lessons into rul (selected work: template, scripts)",
+ "repos": [
+  {
+   "repo": "morphness",
+   "url": "https://github.com/Antarsoft/morphness",
+   "sha": "514403d31d6c7aa678ea1470e9080bd15ac5b9b7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 514403d31d6c: \"Record an estimated dollar cost for every feature (#41)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

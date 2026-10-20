@@ -1,0 +1,22 @@
+{
+ "corpus": "startluxlabs--startlux-decision",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, calibration, classification queries this for how StartLuxLabs/StartLux-Decision implements it: Open decision models from 0.8B to 27B: a calibrated probability for every option in one pass, and a short thought only when unsure. Engine f (selected work: startlux_decision)",
+ "repos": [
+  {
+   "repo": "StartLux-Decision-v1",
+   "url": "https://github.com/StartLuxLabs/StartLux-Decision-v1",
+   "sha": "c61bfab3bb4fa3ae9d155d457247a7fd0a299a24",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit c61bfab3bb4f: \"Read images and prompts up to 262,144 tokens\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "argus-code-scanning--argus-codescan-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on cursor, devsecops, mcp queries this for how argus-code-scanning/argus-codescan-mcp implements it: Argus \u2014 open-source security scanner (SAST, secrets, malware heuristics, SARIF, MCP). YAML rules welcome \u2014 good first issues (selected work: packages/python)",
+ "repos": [
+  {
+   "repo": "argus-codescan-mcp",
+   "url": "https://github.com/argus-code-scanning/argus-codescan-mcp",
+   "sha": "0e9f35e286664e160743a8947cd92c9472e3e164",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 0e9f35e28666: \"feat: add argus scan pci and scan_pci MCP tool\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

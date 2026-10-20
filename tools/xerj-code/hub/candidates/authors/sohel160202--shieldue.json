@@ -1,0 +1,22 @@
+{
+ "corpus": "sohel160202--shieldue",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how Sohel160202/ShieldUE implements it: ShieldUE is a runtime variable protection plugin for Unreal Engine designed to help developers protect gameplay-critical values against memo (selected work: Source, Examples)",
+ "repos": [
+  {
+   "repo": "ShieldUE",
+   "url": "https://github.com/Sohel160202/ShieldUE",
+   "sha": "6c8c14f666e533050c6aa0b96564b64af8719ec9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 6c8c14f666e5: \"Add secure vector rotator and transform types\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

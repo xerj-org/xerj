@@ -1,0 +1,22 @@
+{
+ "corpus": "rawkfx--secure-file-validator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Java queries this for how RawkFX/secure-file-validator implements it: Secure File Validator is a Spring Boot validation utility for file uploads. It helps prevent unsafe or invalid files from entering your appl (selected work: src/main, the project root)",
+ "repos": [
+  {
+   "repo": "secure-file-validator",
+   "url": "https://github.com/RawkFX/secure-file-validator",
+   "sha": "ecd9bcedf71421c8662b9365441c470f007150fd",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit ecd9bcedf714: \"update(component): Implemented autoconfiguration, refactored small pa\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "asantos43--devcontainer-builder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on TypeScript queries this for how asantos43/devcontainer-builder implements it: Desktop workbench for creating, editing, testing and exporting Dev Containers (selected work: src/main, tests, src/renderer)",
+ "repos": [
+  {
+   "repo": "devcontainer-builder",
+   "url": "https://github.com/asantos43/devcontainer-builder",
+   "sha": "918631e999d5dc30d15d369cf6311468597ef117",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 918631e999d5: \"feat: add template library and remaining container tooling\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

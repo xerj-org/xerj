@@ -1,0 +1,22 @@
+{
+ "corpus": "scolladon--sf-git-merge-driver",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how scolladon/sf-git-merge-driver implements it: Git merge driver for Salesforce source format metadata (selected work: test, src/merger, src/service)",
+ "repos": [
+  {
+   "repo": "sf-git-merge-driver",
+   "url": "https://github.com/scolladon/sf-git-merge-driver",
+   "sha": "2a42a3f59b147fce4c6f3e67e68c2021d4e191b8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 2a42a3f59b14: \"feat(merger): merge CustomMetadata records and fail safe on keyless k\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

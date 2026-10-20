@@ -1,0 +1,22 @@
+{
+ "corpus": "townzc--liftcut-tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, fitness, nextjs queries this for how Townzc/liftcut-tracker implements it: Beginner-friendly open-source workout, nutrition, and progress tracker with guest mode and configurable AI planning (selected work: research)",
+ "repos": [
+  {
+   "repo": "liftcut-tracker",
+   "url": "https://github.com/Townzc/liftcut-tracker",
+   "sha": "f03e143cc575d9cfb08719098b857cb316e33a78",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit f03e143cc575: \"research: verify conditional memory projection against original traces\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

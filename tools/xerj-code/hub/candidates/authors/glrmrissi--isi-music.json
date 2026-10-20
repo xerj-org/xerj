@@ -1,0 +1,22 @@
+{
+ "corpus": "glrmrissi--isi-music",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ratatui-rs, rust, spotify queries this for how glrmrissi/isi_music implements it: A cross-platform terminal music player written in Rust. Streams from Spotify, plays local files (MP3, FLAC, Opus), syncs lyrics, visualizes  (selected work: src, src/utils, src/spotify)",
+ "repos": [
+  {
+   "repo": "isi_music",
+   "url": "https://github.com/glrmrissi/isi_music",
+   "sha": "7002eb0846d30f8598661e38a12b680e3227bb60",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 7002eb0846d3: \"fix: harden credentials, OAuth state, local scan, updater, IPC and te\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

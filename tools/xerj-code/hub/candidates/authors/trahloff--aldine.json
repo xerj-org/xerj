@@ -1,0 +1,22 @@
+{
+ "corpus": "trahloff--aldine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on collaboration, crdt, docker queries this for how trahloff/Aldine implements it: Aldine: self-hosted, open-source collaborative LaTeX editor (an Overleaf alternative). Real-time editing, git branches, GitHub/GitLab/Gitea  (selected work: apps/server, e2e, the project root)",
+ "repos": [
+  {
+   "repo": "Aldine",
+   "url": "https://github.com/trahloff/Aldine",
+   "sha": "f08de60d5b1c1ceeef07f47fe1792073716c6e7e",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit f08de60d5b1c: \"Sign in with your own OpenID Connect provider (#68)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

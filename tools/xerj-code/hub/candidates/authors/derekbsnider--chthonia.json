@@ -1,0 +1,22 @@
+{
+ "corpus": "derekbsnider--chthonia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on c, compiler, cplusplus queries this for how derekbsnider/chthonia implements it: C/C++ IDE for beginners (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "chthonia",
+   "url": "https://github.com/derekbsnider/chthonia",
+   "sha": "7e457c28cd36628efaada0b6262e5a415dcfc2ba",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 7e457c28cd36: \"0.0.2: every package stands alone, carrying the madc release it is pa\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

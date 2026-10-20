@@ -1,0 +1,22 @@
+{
+ "corpus": "aigrator--scribe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on offline, privacy, pyqt5-gui queries this for how AIgrator/Scribe implements it: Scribe is a free and open-source desktop assistant for speech-to-text conversion. It allows you to control your computer with your voice, su (selected work: scribe, the project root)",
+ "repos": [
+  {
+   "repo": "Scribe",
+   "url": "https://github.com/AIgrator/Scribe",
+   "sha": "b5a9722986c79bc9c53ca25ae5c35dcf518890d8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b5a9722986c7: \"Offline punctuation and capitalization for finals (RU neural, EN neur\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

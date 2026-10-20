@@ -1,0 +1,22 @@
+{
+ "corpus": "stescobedo92--swagger-cpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how stescobedo92/swagger-cpp implements it: swaggercpp is a modern C++23 library for reading, writing, validating, traversing, and packaging Swagger/OpenAPI documents with a profession (selected work: packaging, scripts, tests)",
+ "repos": [
+  {
+   "repo": "swagger-cpp",
+   "url": "https://github.com/stescobedo92/swagger-cpp",
+   "sha": "298fdb33b142e0a67259adbea464e56adddc33b3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 298fdb33b142: \"fix: validate portable vcpkg release registry and optional CLI\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

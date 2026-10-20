@@ -1,0 +1,22 @@
+{
+ "corpus": "imrajdas--llm-deployment",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on azure, gpu, huggingface queries this for how imrajdas/llm-deployment implements it: Serve an open model with vLLM and a Streamlit chat UI. An Azure VM runs the Kubernetes control plane, and a JarvisLabs GPU VM runs the model (selected work: k8s, scripts)",
+ "repos": [
+  {
+   "repo": "llm-deployment",
+   "url": "https://github.com/imrajdas/llm-deployment",
+   "sha": "bb2ff46e26174b101122549c5068affa2a34d511",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit bb2ff46e2617: \"Add NetBird as an optional mesh and document which network the cluste\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

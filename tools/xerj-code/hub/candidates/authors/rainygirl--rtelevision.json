@@ -1,0 +1,22 @@
+{
+ "corpus": "rainygirl--rtelevision",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how rainygirl/rtelevision implements it: A player for free TV streams from around the world (selected work: platforms, shared)",
+ "repos": [
+  {
+   "repo": "rtelevision",
+   "url": "https://github.com/rainygirl/rtelevision",
+   "sha": "4108d66e30deef5e27bb778a7d7024fae7d6a629",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 4108d66e30de: \":bug:\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

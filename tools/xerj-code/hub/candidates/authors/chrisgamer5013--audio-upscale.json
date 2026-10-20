@@ -1,0 +1,22 @@
+{
+ "corpus": "chrisgamer5013--audio-upscale",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ChrisGamer5013/Audio-Upscale implements it: High-quality audio super-resolution / bandwidth extension for Windows - DSP + ONNX engines, GPU via DirectML (AMD/Intel/NVIDIA), modern GUI  (selected work: audio_upscaler, tests)",
+ "repos": [
+  {
+   "repo": "Audio-Upscale",
+   "url": "https://github.com/ChrisGamer5013/Audio-Upscale",
+   "sha": "24e04795faf6b232ede4fd416469846e3c530ecf",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 24e04795faf6: \"v0.3.0: 28 new features - ONNX compat, chain UI, queue/progress UX, C\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "developerpuneet--crowdwide",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on community, community-platform, content queries this for how DeveloperPuneet/Crowdwide implements it: Crowdwide is a social platform designed to give everyone a fair chance at discovery, helping new voices reach audiences without making popul (selected work: test, src/controllers, src/services)",
+ "repos": [
+  {
+   "repo": "Crowdwide",
+   "url": "https://github.com/DeveloperPuneet/Crowdwide",
+   "sha": "f7cd63c1beb39f00f8ec1b1e7ed8aa5a7762be6c",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f7cd63c1beb3: \"feat: add OAuth 2.0 support for Google and GitHub sign-in\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "nixfred--blip",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on bun, hyprland, imessage queries this for how nixfred/blip implements it: iMessage in the Omarchy bar. Read, send, groups, blue dots. Your Mac is the gateway, Linux is the client (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "blip",
+   "url": "https://github.com/nixfred/blip",
+   "sha": "2176213b22703d98c71e3a194c2ddce4bc9a0dde",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 2176213b2270: \"Follow verified OTP digit boxes during autofill\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

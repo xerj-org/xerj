@@ -1,0 +1,22 @@
+{
+ "corpus": "martvanmale--hass-occupancy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on homeassistant, homeassistant-addons, occupancy-prediction queries this for how MartvanMale/hass-occupancy implements it: Home Assistant add-on that forecasts who will be home, hour by hour, for the next 48 hours. Including estimated time of depature and arrival (selected work: occupancy-forecast, occupancy-forecast-edge)",
+ "repos": [
+  {
+   "repo": "hass-occupancy",
+   "url": "https://github.com/MartvanMale/hass-occupancy",
+   "sha": "c1ec448a7f950e49e823a433ba625aa5599958a5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit c1ec448a7f95: \"Promote 0.4.3: training that fits in memory and publishes models whole\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "debricked--cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, debricked, sca queries this for how debricked/cli implements it: Debricked's command line interface. It brings open source security, compliance and health to your project via the command prompt (selected work: internal/mcpclient, internal/cmd, internal/auth)",
+ "repos": [
+  {
+   "repo": "cli",
+   "url": "https://github.com/debricked/cli",
+   "sha": "dbb8c407da393c029baaf9e91899336c3ec330bc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit dbb8c407da39: \"feat: add MCP setup instructions and implement token fetching\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

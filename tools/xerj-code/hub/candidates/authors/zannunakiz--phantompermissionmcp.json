@@ -1,0 +1,22 @@
+{
+ "corpus": "zannunakiz--phantompermissionmcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on mcp-server, nestjs-backend, rbac queries this for how zannunakiz/PhantomPermissionMCP implements it: \u2699\ufe0f\u2705 Self-hostable, read-only RBAC change-impact analysis backend with REST and MCP interfaces. Made for practice, can also be used as produc (selected work: src/mcp)",
+ "repos": [
+  {
+   "repo": "PhantomPermissionMCP",
+   "url": "https://github.com/zannunakiz/PhantomPermissionMCP",
+   "sha": "edaedde13bbba6166f3fb0f07df01523ba9cf0ff",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit edaedde13bbb: \"Expose compare_access_models MCP tool\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

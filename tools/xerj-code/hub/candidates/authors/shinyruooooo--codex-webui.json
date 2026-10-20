@@ -1,0 +1,22 @@
+{
+ "corpus": "shinyruooooo--codex-webui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how Shinyruooooo/codex-webui implements it: codex-webui (selected work: server, public, tests)",
+ "repos": [
+  {
+   "repo": "codex-webui",
+   "url": "https://github.com/Shinyruooooo/codex-webui",
+   "sha": "7c0993e4b479acb702d08fdd5d2c09d71832d1cd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 7c0993e4b479: \"feat(skills): add official and personal skill management with native \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

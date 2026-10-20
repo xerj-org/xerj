@@ -1,0 +1,22 @@
+{
+ "corpus": "0whitedev--java-process-inspector",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how 0WhiteDev/Java-Process-Inspector implements it: Java reverse-engineering toolkit for inspecting, decompiling, analyzing, and modifying running JVM applications in real time (selected work: src/main, src/test)",
+ "repos": [
+  {
+   "repo": "Java-Process-Inspector",
+   "url": "https://github.com/0WhiteDev/Java-Process-Inspector",
+   "sha": "811ecf5ed79ec7e9db7e3dcb3ced46f47d1dbc00",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 811ecf5ed79e: \"feat: add deterministic automatic investigation assistant\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

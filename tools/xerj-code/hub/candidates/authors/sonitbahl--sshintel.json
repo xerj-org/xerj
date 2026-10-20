@@ -1,0 +1,22 @@
+{
+ "corpus": "sonitbahl--sshintel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on cybersecurity, honeypot, paramiko queries this for how SonitBahl/SSHintel implements it: Self-contained SSH honeypot for capturing attacker interactions and turning them into structured security intelligence (selected work: tests, honeypot)",
+ "repos": [
+  {
+   "repo": "SSHintel",
+   "url": "https://github.com/SonitBahl/SSHintel",
+   "sha": "43eaa32d95ac39324dc233f123b242e6af2637e9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 43eaa32d95ac: \"fix(concurrency): drain SSH workers on shutdown and bound authentication\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

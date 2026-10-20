@@ -1,0 +1,22 @@
+{
+ "corpus": "vladbus--iceberg-thermodynamic-model",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on fortran, fpm, modeling queries this for how VladBus/iceberg-thermodynamic-model implements it: Master's thesis on modernization and supplementation of the Thermodynamic Model of Icebergs for modeling processes in the Arctic Ocean devel (selected work: python, src)",
+ "repos": [
+  {
+   "repo": "iceberg-thermodynamic-model",
+   "url": "https://github.com/VladBus/iceberg-thermodynamic-model",
+   "sha": "d0e9448efa96748857c4b63c4bc74b1d54f8941c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit d0e9448efa96: \"Stage 11.7E.1-CP: plan & contract corrections (roadmap restructure, o\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

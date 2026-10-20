@@ -1,0 +1,22 @@
+{
+ "corpus": "cubiclm--cubiclm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-client, android, cloud-api queries this for how CubicLM/CubicLM implements it: CubicLM is a unified cross-platform AI workspace with local GPU acceleration (GGUF, LiteRT-LM). Supports on-device image generation, 23+ clo (selected work: lib/views, lib/controllers, test)",
+ "repos": [
+  {
+   "repo": "CubicLM",
+   "url": "https://github.com/CubicLM/CubicLM",
+   "sha": "3d0775b028af7b8721822daf1387d0b260314707",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 3d0775b028af: \"feat(ui): add benchmark module and device category views\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

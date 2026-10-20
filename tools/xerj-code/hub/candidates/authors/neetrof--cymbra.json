@@ -1,0 +1,22 @@
+{
+ "corpus": "neetrof--cymbra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how NEETROF/cymbra implements it: Cymbra \u2014 open-source interactive music suite (Flutter + Rust). Apache-2.0 (selected work: scripts, crates/lingua-wasm)",
+ "repos": [
+  {
+   "repo": "cymbra",
+   "url": "https://github.com/NEETROF/cymbra",
+   "sha": "9eb63300180002151f5a2c7a946c9cb474c4aacf",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 9eb633001800: \"feat(lingua): fr-es's glosses labelled, listed once and corrected (#875)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "phasmanastasis--phasmaframe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Phasmanastasis/PhasmaFrame implements it: Phasmanastasis/PhasmaFrame (JavaScript) (selected work: apps/web)",
+ "repos": [
+  {
+   "repo": "PhasmaFrame",
+   "url": "https://github.com/Phasmanastasis/PhasmaFrame",
+   "sha": "09fe79e56ab52f967a3c673a5d22225c84957497",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 09fe79e56ab5: \"feat(web): harden PWA offline support, rebased onto master role routes\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

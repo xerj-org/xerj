@@ -1,0 +1,22 @@
+{
+ "corpus": "schart--flexql",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on lexer, lexer-parser, parser-library queries this for how schart/FlexQL implements it: FlexQL lets you add flexible backend filtering without changing your database layer (selected work: src/infrastructure, src/core, src/shared)",
+ "repos": [
+  {
+   "repo": "FlexQL",
+   "url": "https://github.com/schart/FlexQL",
+   "sha": "a08491a6264a7c5807be93c5ed72dc9b78c15f62",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a08491a6264a: \"prepare FlexQL for npm release\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

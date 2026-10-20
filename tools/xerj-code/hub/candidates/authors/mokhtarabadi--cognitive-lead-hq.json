@@ -1,0 +1,22 @@
+{
+ "corpus": "mokhtarabadi--cognitive-lead-hq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agent, cognitive-ai queries this for how mokhtarabadi/cognitive-lead-hq implements it: The centralized Headquarters for the Cognitive Lead AI multi-agent system. Features hallucination-resistant system prompts, MCP servers, and (selected work: mcp-context-server, tests, mcp-lint-server)",
+ "repos": [
+  {
+   "repo": "cognitive-lead-hq",
+   "url": "https://github.com/mokhtarabadi/cognitive-lead-hq",
+   "sha": "004ca80a004b83c21f40132c7260b877733f128a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 004ca80a004b: \"feat: modularize context server and enforce ruff\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

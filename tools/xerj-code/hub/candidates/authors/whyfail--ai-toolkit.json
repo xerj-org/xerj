@@ -1,0 +1,22 @@
+{
+ "corpus": "whyfail--ai-toolkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how whyfail/AI-Toolkit implements it: AI-Toolkit \u662f\u4e00\u6b3e\u901a\u7528\u7684 AI \u7f16\u7a0b\u5de5\u5177\u7ba1\u7406\u5de5\u5177\uff0c\u652f\u6301\u7edf\u4e00\u7ba1\u7406 MCP \u670d\u52a1\u5668\u914d\u7f6e\u548c Skills \u6280\u80fd\u540c\u6b65\u3002\u544a\u522b\u7e41\u7410\u7684\u624b\u52a8\u7f16\u8f91\uff0c\u4e00\u4e2a\u5e94\u7528\u5373\u53ef\u7ba1\u7406\u6240\u6709 AI CLI \u5de5\u5177\u7684\u63d2\u4ef6\u670d\u52a1\u3002 (selected work: src-tauri, src/components, scripts)",
+ "repos": [
+  {
+   "repo": "AI-Toolkit",
+   "url": "https://github.com/whyfail/AI-Toolkit",
+   "sha": "d4dcc26e56875b78a8c6f57f99530c1a2b391f68",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit d4dcc26e5687: \"feat(credits): show model details and use maximum channel context\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

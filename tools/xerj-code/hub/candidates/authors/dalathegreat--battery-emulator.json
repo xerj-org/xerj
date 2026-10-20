@@ -1,0 +1,22 @@
+{
+ "corpus": "dalathegreat--battery-emulator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how dalathegreat/Battery-Emulator implements it: This revolutionary software enables EV battery packs to be easily reused for stationary storage in combination with solar inverters (selected work: Software)",
+ "repos": [
+  {
+   "repo": "Battery-Emulator",
+   "url": "https://github.com/dalathegreat/Battery-Emulator",
+   "sha": "003b6e8d2421ac2387a3c83e6f50bf8fe7d3d170",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 003b6e8d2421: \"Fix Tesla extended data sharing between double batteries\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

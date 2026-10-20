@@ -1,0 +1,22 @@
+{
+ "corpus": "marcioaltoe--roundfix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, ai-assisted-development, automation queries this for how marcioaltoe/roundfix implements it: Local-first CLI for structured AI-assisted engineering loops with Codex, Claude, and OpenCode, PR review feedback, verification, and safe co (selected work: internal/spec, internal/cli)",
+ "repos": [
+  {
+   "repo": "roundfix",
+   "url": "https://github.com/marcioaltoe/roundfix",
+   "sha": "02c7675e3b7edf68367555c6586b19efb7e9bf70",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 02c7675e3b7e: \"feat: deliver 0271-history-sanitize-records-keep-their-summary-links-\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

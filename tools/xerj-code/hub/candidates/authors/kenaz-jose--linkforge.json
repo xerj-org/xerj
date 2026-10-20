@@ -1,0 +1,22 @@
+{
+ "corpus": "kenaz-jose--linkforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Kenaz-jose/linkforge implements it: An AI-powered multi-agent assistant for creating high-quality LinkedIn posts. Built with LangGraph and Ollama, it generates drafts, evaluate (selected work: frontend, src/prompts)",
+ "repos": [
+  {
+   "repo": "linkforge",
+   "url": "https://github.com/Kenaz-jose/linkforge",
+   "sha": "08aa07957b4508af6264c4f03719d0328a31f7ca",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 08aa07957b45: \"Frontend\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

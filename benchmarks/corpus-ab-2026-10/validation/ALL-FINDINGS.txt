@@ -1,0 +1,266 @@
+=== p1/F1 [high] Stack-overflow abort via ?force_synthetic_source=true on a stored dotted field name (read-privilege, persistent)
+FILE: engine/crates/xerj-api/src/es_compat.rs:16473
+CONF: high
+DESC: insert_nested() recurses once per '.' in a document's _source key with no depth cap, and expand_dotted_keys() is invoked on every hit whenever the caller passes ?force_synthetic_source=true (es_compat.rs:16260). serde_json's 128-level parse limit bounds JSON *nesting* but not the number of dots in one flat key, and ingest never expands dotted keys, so a document indexed with a single ~50,000-dot f
+ATTACK: Anyone with write on any one index (or a malicious corpus / autoindex source) plants one document with a 50,000-dot field name. Thereafter any read-scoped API key — or an external untrusted share-link guest, who is allow-listed to _search — kills the entire node with a 40-byte GET. On a node started
+METHOD: null
+
+=== p1/F2 [high] Exponential pipeline-DAG expansion in /_ingest/pipeline/_simulate — unbounded memory (49+ GB measured)
+FILE: engine/crates/xerj-api/src/es_compat.rs:29654
+CONF: high
+DESC: expand_pipeline_processors() walks stored pipelines referenced by {"pipeline":{"name":X}}. Its cycle guard `seen.insert(target)` is undone by `seen.remove(target)` on the way out (line 29654), so the reference graph is treated as a DAG and every shared descendant is re-expanded once per distinct path, with each expansion cloned into the `out` Vec. There is no cap on out.len(), recursion depth, or 
+ATTACK: A non-superuser operator key (any key minted without role_descriptors — the default shape) builds the DAG over 27 cheap PUTs; then any read-scoped key — or the same key — sends one ~120-byte POST that exhausts host memory. This is host-level OOM, not merely process-level: it competes with every othe
+METHOD: null
+
+=== p1/F3 [high] Unbounded CPU/memory amplification in the term suggester — 85 s for one 1 MB read request
+FILE: engine/crates/xerj-api/src/es_compat.rs:25458
+CONF: high
+DESC: suggest_edit_distance() allocates a full (m+1)x(n+1) usize DP matrix and runs the O(m*n) Levenshtein loop with no cap on either operand and no band/early-exit. process_suggest() calls it from inside a .filter() closure over every distinct term in the field (line 25589) and then again in the .map() (line 25593) — twice per term, per input token. `m` is the attacker's suggest text (whitespace-delimi
+ATTACK: Any principal holding read on an index — including an external share-link guest, for whom _search is explicitly allow-listed. Cost scales with (attacker token length) x (distinct terms in the field), so a modest real index makes a single small request cost hours of CPU, and the request is uninterrup
+METHOD: null
+
+=== p1/F4 [high] Doc-values .dv sidecar: unvalidated file-derived lengths and unchecked null-bitmap indexing abort the node
+FILE: engine/crates/xerj-storage/src/doc_values.rs:1022
+CONF: high
+DESC: decode_columns() trusts every length field in the sidecar: `name_len` (u32) and `payload_len` (u64) feed `vec![0u8; n]` with no cap, no remaining-bytes cross-check and no try_reserve (lines 1016-1022); the payload is then inflated with an uncapped `zstd::decode_all` (line 1025). Separately, decode_znv2() grows `data` to exactly `doc_count` entries and then writes `data[doc_id as usize] = 0` for ev
+ATTACK: An attacker with data-dir write access (or anyone who supplies a crafted/restored snapshot or a tampered backup) flips one u64 in a .dv file. The node boots fine and then aborts on the first query touching that column, with no error the operator can catch — and it aborts again after every restart. A
+METHOD: null
+
+=== p1/F5 [high] Stack-overflow abort via a dotted field name in PUT /{index}/_mapping
+FILE: engine/crates/xerj-api/src/es_compat.rs:2467
+CONF: high
+DESC: merge_dotted_property() recurses once per '.' in a mapping property name, re-allocating a Vec<&str> and a joined String per frame (fat frames, so the limit is reached near ~50k dots). The property-name key is taken verbatim from the request body; validate_properties() (line 1173) recurses into `properties`/`fields` structures but never inspects field *names* — no dot count, no length cap. The body
+ATTACK: A single ~120 KB request from any principal holding the admin-index (manage) privilege on an index — including a scoped key granted manage on its own index, and unauthenticated on an --insecure node. One request, whole-node abort.
+METHOD: null
+
+=== p1/F6 [high] git `rev` from a corpus recipe is spliced into argv unvalidated — arbitrary command execution
+FILE: engine/crates/xerj-autoindex/src/harvest/source.rs:128
+CONF: high
+DESC: harvest builds `git -C <dir> fetch --depth 1 origin <rev>` with `rev` taken verbatim from the recipe/manifest. The only validation is `rev.len() == 40 && all ascii_hexdigit`, which routes full SHAs elsewhere; everything else — including a string beginning with '-' — is passed as a positional that git's option parser is free to interpret as an option. `--upload-pack <path>` is a real `git fetch` op
+ATTACK: A malicious document/corpus provider hands the operator a recipe.toml or corpus manifest. The operator runs the documented `xerj corpus build --recipe <file>` / `xerj corpus add`, and arbitrary code runs as the operator. The existing comment at xc.rs:264 ("Never a shell string: Command passes it as 
+METHOD: null
+
+=== p1/F7 [high] Corpus-pack source slug is joined into filesystem paths unvalidated — arbitrary directory write and recursive delete
+FILE: engine/crates/xerj-autoindex/src/harvest/pack.rs:426
+CONF: high
+DESC: read_manifest() rigorously validates every *file* name in a pack with plain_file_name() (pack.rs:450: no '/', '\\', ':', leading '.', no ".."), but a source `slug` is checked only for emptiness (line 426). add_pack_materialize() then does `dest.join(&slug)` (xc.rs:918) with dest = ~/.xerj-code/corpora/<name>, writes attacker-controlled JSONL lines into it verbatim (xc.rs:925), and on a re-add runs
+ATTACK: A malicious corpus provider distributes a pack (directory or zip). The operator runs `xerj corpus add --from <pack>`, which writes attacker-chosen JSONL content to an arbitrary path relative to the corpus root (e.g. ~/.xerj-code/corpora/x/../../.config/autostart/records.jsonl), and on the next add r
+METHOD: null
+
+=== p1/F8 [medium] Console data-sources proxy has no role or tenant scoping — any console session, including 'viewer', reads every user index
+FILE: engine/crates/xerj-console-api/src/data_sources.rs:248
+CONF: high
+DESC: The /_xerj-console/api/v1/data-sources/... handlers take `_sess: AuthSession` (underscore: never consulted) and gate only on conn_id == builtin, no wildcard/_all, and is_hidden_index(). is_hidden_index() (line 46) refuses only `.xerj_*` system indices and the reserved `.xerj-memory-*` namespace — every ordinary user index is fully readable, and list_indices() (line 123) enumerates the complete inv
+ATTACK: On any node where the console has more than one user, an invited 'viewer' (mintable by an admin via POST /_xerj-console/api/v1/auth/magic/issue, which accepts role "viewer") can enumerate and read the full contents of every other user's index, including indices the operator never exposed to them. Th
+METHOD: null
+
+=== p1/F9 [medium] autoindex ES client unconditionally disables TLS certificate validation while sending the admin API key
+FILE: engine/crates/xerj-autoindex/src/esclient.rs:857
+CONF: high
+DESC: The blocking reqwest client is built with `.danger_accept_invalid_certs(true)` with no flag, config key or warning gating it. Every request this client makes carries credentials (esclient.rs:936: `Authorization: ApiKey <key>`), so any on-path attacker can impersonate the engine's HTTPS endpoint, capture the admin API key, and feed arbitrary bytes into the indexing pipeline (mappings, bulk response
+ATTACK: An operator points `xerj autoindex` at an https:// engine URL over a network the attacker can observe. The attacker presents any self-signed certificate, receives the admin key in the Authorization header, and thereafter owns the node — while also controlling every byte the indexer trusts.
+METHOD: null
+
+=== p1/F10 [medium] Segment / stored-field / postings readers slice with file-derived offsets and lengths without bounds checks
+FILE: engine/crates/xerj-storage/src/segment.rs:588
+CONF: high
+DESC: Same defect class as F4, different files. (a) segment.rs: from_mmap slices `&data[section_table_offset..]` where the u64 comes straight from the 32-byte footer, and section()/section_checked compute `&self.mmap[start..end]` from raw SectionEntry offset/length u64s — none are compared against mmap.len(). from_mmap_arc (line 578) re-parses the table with no CRC at all and no minimum-length guard. Th
+ATTACK: An attacker with data-dir write access, or a maliciously crafted snapshot/backup that the operator restores. Outcome ranges from a boot-time abort the operator cannot diagnose (segment footer) to a per-query OOM (postings). Combined with F4 this means essentially every persistence reader trusts file
+METHOD: null
+
+=== x1/F1 [high] One-request process kill via char-boundary panic in sort `format` translation (share-guest reachable)
+FILE: engine/crates/xerj-api/src/es_compat.rs:4136
+CONF: high
+DESC: java_pattern_to_strftime walks the attacker-supplied ES sort `format` string by byte (`i += 1`) but re-slices the `&str` every iteration (`let rest = &fmt[i..]`). After the first byte of any multi-byte UTF-8 character is consumed, `i` is no longer a char boundary and the next slice panics. The sort `format` is taken verbatim from the request body (parse_sort, es_compat.rs:6707) and format_sort_val
+ATTACK: A share-link guest — the lowest-privilege principal XERJ has, holding only a link id and passcode, no API account — searches the shared index sorted by any numeric/date field with a multi-byte format string. Dynamically confirmed on a local auth-enabled node: after claiming a share of index `case2` 
+METHOD: null
+
+=== x1/F2 [high] Reversed-brace slice panic in POST /_scripts/painless/_execute kills the node (any authenticated principal)
+FILE: engine/crates/xerj-api/src/es_compat.rs:35623
+CONF: high
+DESC: The MovingFunctions literal extractor takes `start = source.find('{')` and `end = source.rfind('}')` and slices `source[start + 1..end]` with no ordering check. If the last `}` precedes the first `{`, `start + 1 > end` and slice indexing panics — the exact defect class already fixed in `resolve_date_math_expr`, whose comment (es_compat.rs:19400) documents that under `panic = "abort"` such a slice 
+ATTACK: Dynamically confirmed: `POST /_scripts/painless/_execute {"script":{"source":"}MovingFunctions.max(){"}}` aborted the process with `panicked at crates/xerj-api/src/es_compat.rs:35623: byte range starts at 23 but ends at 0`. A tenant key scoped to a single read-only index, or any client of an --insec
+METHOD: null
+
+=== x1/F3 [high] Char-boundary/truncate panics in docvalue_fields `format` reformatting (reader-triggerable on non-ASCII data)
+FILE: engine/crates/xerj-api/src/es_compat.rs:38715
+CONF: high
+DESC: reformat_docvalue splits document text at the first '.' and then does `frac[..4]` (line 38715, for strict_date_optional_time) and `digits.truncate(9)` (line 38745, for *_nanos/SSSSSSSSS patterns). Both panic when byte 4 (resp. 9) falls inside a multi-byte character — e.g. a fraction starting with two-byte accented letters (é, ü, å, ß …), common in non-English corpora. The format string is passed t
+ATTACK: Dynamically confirmed three times on local nodes: indexing `{"note":".éé"}` and searching with `docvalue_fields:[{field:note, format:strict_date_optional_time}]` aborted at es_compat.rs:38715 (`end byte index 4 is not a char boundary`); `".ééééé"` with `strict_date_optional_time_nanos` aborted at 38
+METHOD: null
+
+=== x1/F4 [medium] Divide-by-zero process kill via unclamped `index.number_of_shards: 0` in sliced searches
+FILE: engine/crates/xerj-api/src/es_compat.rs:37571
+CONF: high
+DESC: The sliced-search path reads the stored `number_of_shards` with `.map(|n| n as u32).unwrap_or(1)` (es_compat.rs:12551-12571) — no `.max(1)` clamp — then calls `murmur3_routing_shard(key, shards)` whose `as_i32.rem_euclid(shard_count as i32)` (line 37571) divides by zero when the setting is 0. The setting is stored verbatim at index creation (create_index clones `body.settings` into engine.index_se
+ATTACK: Dynamically confirmed: `PUT /sh0 {"settings":{"number_of_shards":0}}` was acknowledged, then one document plus `POST /sh0/_search {"slice":{"id":0,"max":2},"query":{"match_all":{}}}` aborted the process with `panicked at crates/xerj-api/src/es_compat.rs:37571: attempt to calculate the remainder with
+METHOD: null
+
+=== x1/F5 [medium] Segment/sidecar readers trust on-disk lengths, offsets and counts — crafted files abort the node (open or query path)
+FILE: engine/crates/xerj-fts/src/index.rs:2343
+CONF: high
+DESC: Under the stated threat model (attacker with data-dir write access, or hostile bytes planted in a snapshot repo that an operator restores — the only gates there are a recomputable non-keyed CRC-32 and a filename whitelist), the persistence readers panic on malformed input, and `panic = "abort"` turns each into process death: (a) `load_norms` slices `&bytes[13..13+payload_len]` with an unvalidated 
+ATTACK: Dynamically confirmed for (a): after a clean flush and shutdown, patching one `<field>.norms` to a 14-byte file with `payload_len = 0xFFFFFFF0` let the node boot normally, and the first search touching that index aborted the process — `panicked at crates/xerj-fts/src/index.rs:2343: range end index 4
+METHOD: null
+
+=== x1/F6 [medium] Tampered stored `_seq_no` makes merges silently and permanently delete live documents
+FILE: engine/crates/xerj-storage/src/merge.rs:351
+CONF: medium
+DESC: The merge decides staleness from the stored document itself: `let doc_seq = doc.get("_seq_no").and_then(|v| v.as_u64()).unwrap_or(0); if entry.seq_no > doc_seq { continue; }`. The stored section is attacker-authored JSON (its only integrity check is a recomputable CRC-32), and nothing anchors a stored doc's seq to the version map. Setting `_seq_no` to 0, deleting it, or making it a string makes ev
+ATTACK: An attacker with data-dir write access (or who planted a hostile snapshot that an operator restored) rewrites one segment's stored section — recomputing the CRC — so that documents carry `_seq_no: 0`. The next background merge (or explicit `_forcemerge`) drops all of them and removes the source segm
+METHOD: null
+
+=== x1/F7 [low] GET /_resolve/index/* discloses other tenants' alias names
+FILE: engine/crates/xerj-api/src/es_compat.rs:25838
+CONF: high
+DESC: resolve_index iterates the raw engine.aliases map (es_compat.rs:25838-25853) instead of the visibility-filtered listing that GET /_alias and _cat/aliases use. The authz response-pruner does cover this route, but its alias rule (`Site::NamedIn("aliases","name")` in authz.rs prune_sites) only drops entries whose *name* is a hidden index name — an alias name is never an index name, so foreign aliases
+ATTACK: Dynamically confirmed on a multi-tenant lab node: with a key scoped to read `casefile` only, `GET /_resolve/index/*` returned `{"indices":[{"name":"casefile",…}],"aliases":[{"name":"al1","indices":["casefile"]},{"name":"alpha-secret-alias","indices":[]}]}` — the second alias belongs to another tenan
+METHOD: null
+
+=== x1/F8 [low] Predictable task ids let any key read other principals' completed task results
+FILE: engine/crates/xerj-api/src/es_compat.rs:37198
+CONF: high
+DESC: Task ids are "{node_id}:{sequential u64}" starting at 1 (state.rs:136-138, 195), and `GET /_tasks/{id}` is a cluster read that returns the stored completed `response` of whichever principal ran the task, with no ownership or visibility check. Every other server-side context (scroll, PIT, async-search, API keys) correctly uses UUID v4; only the task registry is predictable. The leaked payload is me
+ATTACK: Dynamically confirmed: the admin ran `POST /tenant-alpha/_update_by_query?wait_for_completion=false`, and a key scoped to a different single index read `GET /_tasks/local:3` back complete with the admin's response body (action, counts, failures[0].cause). Node ids come from `GET /_nodes`, so enumera
+METHOD: null
+
+=== x1/F9 [low] Unauthenticated 401 body discloses the server's absolute data directory and admin.key path
+FILE: engine/crates/xerj-api/src/auth.rs:478
+CONF: high
+DESC: unauthorized_response interpolates the configured data_dir into the free-text `reason` ("This server writes its admin key to <abs-path>/admin.key on first start, so `export XERJ_API_KEY=\"$(cat <abs-path>/admin.key)\"` … or pass --api-key … or restart with --insecure"). Any unauthenticated caller of any protected route receives the node's absolute filesystem layout plus the exact credential filena
+ATTACK: Dynamically confirmed on an auth-enabled node: `curl http://localhost:9940/logs-2026/_search` with no credentials returned a 401 whose body contains the absolute path `/root/ab-run-x1/scratch-audit/data-auth/admin.key` twice.
+METHOD: null
+
+=== x1/F10 [low] Console login/setup pages lack CSP, frame protection and no-store caching
+FILE: engine/crates/xerj-console-api/src/spa.rs:176
+CONF: high
+DESC: serve_asset gives index.html a strict CSP + Referrer-Policy + no-cache (spa.rs:186-209) and share/* the full guest header set (no-store, CSP, X-Frame-Options: DENY, COOP/CORP, permissions-policy; spa.rs:216-247) — but login.html and setup.html, the two credential-entry pages (setup.html receives the first-run token in its URL fragment and performs the first-user/passkey ceremony), get only `Cache-
+ATTACK: Dynamically confirmed on a local node: `GET /_xerj-console/login.html` and `/setup.html` return 200 with `cache-control: public, max-age=300` and none of the security headers, while index.html and share/ return the strict sets. An attacker who can frame the node's origin (tunneled deployments, DNS r
+METHOD: null
+
+=== p2/F1 [critical] Snapshot restore: a wildcard body index list is authorized with zero grants, then destroys every index it matches
+FILE: engine/crates/xerj-api/src/authz.rs:1231
+CONF: high
+DESC: authorize_expression() early-returns Ok(()) for ANY index pattern that cannot reach the reserved `.xerj-memory-` namespace, because restore is classified PatternExpansion::Unguarded: `if expansion == PatternExpansion::Guarded || !may_reach_reserved(expr) { return Ok(()); }`. The SnapshotRestore privilege is only demanded when the body names nothing (authz.rs:1632). Engine::restore_snapshot then ex
+ATTACK: Any authenticated API key holder — including the most narrowly-scoped tenant key with a single read grant on an unrelated pattern — destroys or rolls back every non-reserved index on the node, cross-tenant, silently. Requires an existing snapshot repo + snapshot, i.e. the normal operator backup stat
+METHOD: null
+
+=== p2/F2 [critical] slice.max u32 truncation causes a divide-by-zero panic that aborts the whole node — reachable by an untrusted read-only share guest
+FILE: engine/crates/xerj-api/src/es_compat.rs:12592
+CONF: high
+DESC: search_impl reads slice.id/slice.max as i64 from the request body and guards `max > 0 && id >= 0 && id < max`, but then casts to u32 before the arithmetic: `(shard % (max as u32))`. max = 4294967296 (2^32) passes the i64 guard and truncates to 0, so `0 <= shards` selects the first branch and `shard % 0` panics. The release profile sets `panic = "abort"` (engine/Cargo.toml:165) and there is no Catc
+ATTACK: An external, untrusted recipient of a read-only share link (who by design should only be able to read one corpus) kills the entire node with a single request. Also reachable by any key with read on any index, or with no credential at all on an --insecure node. Repeatable at will; restart does not he
+METHOD: null
+
+=== p2/F3 [high] reformat_docvalue byte-slices and truncates a String without a char-boundary check — one stored string value aborts the node
+FILE: engine/crates/xerj-api/src/es_compat.rs:38715
+CONF: high
+DESC: reformat_docvalue() is applied to EVERY value resolved from _source for a docvalue_fields entry, with no mapping or type check. For the `strict_date_optional_time`/`date_optional_time` formats it does `frac[..4].to_string()`; for the `*_nanos` / SSSSSSSSS patterns it does `digits.truncate(9)`. Both panic when the byte offset lands inside a multi-byte UTF-8 character. frac is the text from the firs
+ATTACK: Split trigger: any writer (including a low-privilege ingest key, or an autoindexed corpus file) plants an ordinary-looking string containing '.' followed by two characters and a multi-byte character; any reader whose client requests docvalue_fields with a date format — including a read-only share gu
+METHOD: null
+
+=== p2/F4 [high] The .seg footer is excluded from the segment CRC and its section_table_offset is never bounds-checked — 8 bytes of data-dir tamper bricks the node permanently
+FILE: engine/crates/xerj-storage/src/segment.rs:638
+CONF: high
+DESC: from_mmap() computes the integrity CRC over `data[..footer_start]` only — the entire 32-byte footer, which contains section_table_offset, is unauthenticated. It then slices with that value unchecked: `let st_start = section_table_offset as usize; Cursor::new(&data[st_start..])`. The writer always emits 64, so any out-of-file value is pure corruption that still passes the integrity gate. Dynamicall
+ATTACK: An attacker who can tamper with files in the data directory (malicious snapshot repo contents, compromised backup restore, another local user, a supply-chain-style corpus drop) converts 8 bytes of write access into permanent total denial of service of every index on the node. Because the corrupted v
+METHOD: null
+
+=== p2/F5 [high] Ingest pipeline `set`/`add_field` processors panic on a non-object document body, aborting the node
+FILE: engine/crates/xerj-wasm/src/builtins.rs:285
+CONF: high
+DESC: AddFieldPlugin::process and SetPlugin::process do `doc[&self.field] = self.value.clone()`. serde_json's IndexMut<&str> implementation panics on any non-object, non-null top-level value (`cannot access key ... in JSON array/string/number/boolean`). Every single-document ingest path hands an arbitrary serde_json::Value to the pipeline with no is-object check: POST /{index}/_doc (es_compat.rs:2760), 
+ATTACK: Any credential with write on a single index — the lowest common ingest grant, e.g. a Beats/Logstash shipper key — kills the whole node, all tenants, with one malformed request. Pipelines with set/add_field are the two most common ES processor types.
+METHOD: null
+
+=== p2/F6 [high] hdr.number_of_significant_value_digits is unclamped, so u64 overflow turns the bucket-target computation into an infinite loop that pins a worker forever
+FILE: engine/crates/xerj-engine/src/aggs.rs:7861
+CONF: high
+DESC: The percentiles HDR histogram computes `let target = 2u64 * 10u64.pow(hdr_digits); let mut p = 1u64; while p < target { p <<= 1; }` with digits taken verbatim from the request (ES's valid range is 0-5; there is no clamp). In release, overflow-checks are off, so digits=20 makes 10u64.pow(20) wrap to 7766279631452241920 and 2x that = 15532559262904483840, which lies in (2^63, 2^64). p reaches 2^63, 
+ATTACK: Any key with read on any index — including a read-only share guest, since this rides in the _search body — pins a tokio worker permanently per request. A handful of requests pins every worker and freezes the node's entire query capacity with no crash, no log line, and no recovery short of restart.
+METHOD: null
+
+=== p2/F7 [medium] The .dv doc-values reader allocates from unvalidated on-disk length fields, and .dv files carry no checksum at all
+FILE: engine/crates/xerj-storage/src/doc_values.rs:1021
+CONF: high
+DESC: decode_columns() reads `payload_len` as a raw u64 and immediately does `vec![0u8; payload_len]` before read_exact has any chance to bound it — `payload_len > isize::MAX` is a capacity-overflow panic and any large-but-plausible value (1 TiB) is an allocation failure, which aborts the process under panic=abort. name_len (u32, line 1017) is the same shape. NumericColumn::decode/KeywordColumn::decode 
+ATTACK: An attacker with data-dir write access (malicious snapshot repo, tampered backup, another local user) flips a handful of bytes in any <data_dir>/<index>/segments/*.dv and gets an immediate process abort on the first sort/aggregation/docvalue read touching that segment — and, since the file persists,
+METHOD: null
+
+=== p2/F8 [medium] Unbounded recursion on request-controlled dot-paths — stack overflow, which panic=unwind cannot catch
+FILE: engine/crates/xerj-api/src/es_compat.rs:19974
+CONF: medium
+DESC: Two recursive walks over dot-separated paths have no depth cap and no request-size limit on the paths that feed them. (1) set_source_path() recurses once per segment of the LHS of a scripted update: `let child = obj.entry(path[0].clone()).or_insert_with(|| json!({})); set_source_path(child, &path[1..], value);`. It is fed by consume_source_path() (line 19898), which splits an attacker-written `ctx
+ATTACK: A key with write on one index (case 1) or a malicious document author plus any reader who sets force_synthetic_source=true (case 2) crashes the whole node with a single request; a stack overflow is not catchable, so this is the same whole-process kill as F2/F3/F5.
+METHOD: null
+
+=== p2/F9 [medium] Term suggester runs full Levenshtein per dictionary term with no length pre-filter and computes it twice
+FILE: engine/crates/xerj-api/src/es_compat.rs:25759
+CONF: medium
+DESC: The term suggester allocates a full (m+1)x(n+1) DP matrix per (dictionary term, token) pair — `let mut dp = vec![vec![0usize; n + 1]; m + 1];` in suggest_edit_distance (25447) — where n is one whitespace token from suggest.<name>.text (bounded only by the 100 MiB router body limit) and m is a dictionary term. Keyword field values come back verbatim via all_keyword_values_for_field (xerj-engine/src
+ATTACK: A read-only share guest or low-privilege reader sends one search whose suggest.text contains a very long single token, stalling the node for minutes or aborting it on the allocation — while authz correctly reports the guest as able to do nothing else.
+METHOD: null
+
+=== p2/F10 [low] GET /_snapshot/{repo} returns stored repository settings verbatim, including absolute filesystem paths, to any authenticated key with zero grants
+FILE: engine/crates/xerj-api/src/es_compat.rs:32196
+CONF: high
+DESC: The snapshot-repo GET handler echoes each stored repo body back unchanged. Reads under /_snapshot are classified Target::Cluster + cluster_is_read, which is permitted to every authenticated principal with no privilege check, and prune_sites has no _snapshot entry — so a key with a single read grant on an unrelated pattern reads the operator's repo configuration, including settings.location, which 
+ATTACK: Any authenticated API key, however narrowly scoped — including keys minted for third-party shippers or dashboards — learns the node's absolute data_dir layout and snapshot topology, useful reconnaissance for the data-dir and path-traversal classes above.
+METHOD: null
+
+=== x2/F1 [high] Read-only scoped API keys can mutate cluster-wide ingest config (authz misclassifies PUT/DELETE as cluster reads)
+FILE: engine/crates/xerj-api/src/authz.rs:586
+CONF: high
+DESC: cluster_is_read() answers true for any non-GET verb whose first path segment is in POST_READ_OPS. That list (authz.rs:428-431) contains "_security", "_ingest", "_render", "_scripts" on the theory that they are 'only ever consulted for POST-shaped verbs', so PUT /_ingest/pipeline/{id} and PUT /_scripts/{id} 'remain the mutations they are'. The claim is false for the Target::Cluster arm (authz.rs:16
+ATTACK: A tenant is handed a minimally-privileged read-only API key (the documented way to give someone search-only access to one index). With that key they can enumerate every tenant's pipelines via GET /_ingest/pipeline and then replace or delete any of them, silently altering or disabling another tenant'
+METHOD: null
+
+=== x2/F2 [high] One _search request kills the node: unvalidated aggregation/highlight parameters reach panicking arithmetic (panic=abort)
+FILE: engine/crates/xerj-engine/src/aggs.rs:6179
+CONF: high
+DESC: engine/Cargo.toml sets panic="abort" for release, so any reachable panic is total process death. Four distinct request-derived parameters reach panicking operations with no validation anywhere on the path (es_compat.rs performs no validation of any of them; xerj_query::parse_request does not either): (a) date_histogram fixed_interval "0ms"/"0s"/"0d"... - interval_to_ms (aggs.rs:5768-5800) parses "
+ATTACK: Any authenticated user (including the least-privileged read-only tenant key), or an external attacker holding only a public reading-room share link and its passcode, kills the whole node with a single 60-byte request and repeats after every restart. On a node started with --insecure no credential is
+METHOD: null
+
+=== x2/F3 [medium] Persistence readers trust file-derived lengths: unchecked segment section table aborts the node and the whole-file CRC is not a barrier
+FILE: engine/crates/xerj-storage/src/segment.rs:675
+CONF: high
+DESC: SegmentReader::section() slices &self.mmap[start..end] where start/length come straight from SectionEntry::read_from as raw u64s with no bounds validation against each other or against mmap.len(), and start+length is an unchecked add. The only integrity gate is an unkeyed CRC32 over data[..footer_start] computed once at open (from_mmap, segment.rs:622-631), which an attacker with data-dir write ac
+ATTACK: An attacker who can tamper with files in the data dir (the stated threat model) plants a poison-pill segment: the node aborts on the next query and on every restart, so the index is permanently unopenable and the outage survives reboots and operator investigation. Because the CRC is unkeyed, 'we che
+METHOD: null
+
+=== x2/F4 [medium] Console session cookie is never marked Secure - the helper written for it is dead code
+FILE: engine/crates/xerj-console-api/src/auth/login.rs:195
+CONF: high
+DESC: Both session-minting sites pass the literal false: login.rs:195 and passkey.rs:280 call sessions::make_set_cookie(signed, false). make_set_cookie (sessions.rs:102-109) sets HttpOnly, SameSite=Lax and Path=/_xerj-console but c.set_secure(false). The module's own doc comment (sessions.rs:8-15) claims Secure is 'set on https when the request was over TLS', and a helper that would derive it, request_i
+ATTACK: An operator serves the console over HTTPS. A network attacker who can force or observe one cleartext request to the same host (a dual http/https listener, an http:// link or image referencing the node, or an active MITM) captures the session cookie and authenticates to /_xerj-console as that user.
+METHOD: null
+
+=== x2/F5 [medium] /v1/metrics hands the low-privilege scrape token every index name, including reserved memory brains
+FILE: engine/crates/xerj-api/src/authz.rs:1303
+CONF: high
+DESC: auth.rs:205-209 lets a caller presenting auth.metrics_token through authentication for /v1/metrics and nothing else, documented as 'a low-privilege scrape credential that cannot read index data'. authz_middleware's Target::Exempt arm returns early (authz.rs:1303-1321) without installing index_guard::scoped, and index_guard::visible() falls back to unwrap_or(true) when no task-local is present - bu
+ATTACK: Whoever holds the Prometheus scrape token - typically the least-trusted credential on the box, often written into a scrape config on a shared machine - learns the complete index inventory: every tenant index name and every agent memory namespace, plus per-index document counts and query rates.
+METHOD: null
+
+=== x2/F6 [low] /_share/claim: per-share rate window is an unauthenticated one-link kill switch, and the lockout is memory-only
+FILE: engine/crates/xerj-api/src/share.rs:1258
+CONF: high
+DESC: The per-share limiter is charged at share.rs:1257-1273 keyed on "share:{handle}", before the passcode is read or verified, and is capped at 10/minute and 30/hour. Anyone holding the 128-bit share id - which the CLI explicitly tells the operator to send separately from the passcode, and which crosses the network in cleartext whenever --public-url is plain http or a tunnel is used - can spend that b
+ATTACK: An attacker who learns only the share link URL (not the passcode) permanently denies the reading room to every intended guest, for as long as they keep sending roughly 30 requests an hour. A sniffed link from a plain-http share URL is sufficient.
+METHOD: null
+
+=== x2/F7 [low] Stored search templates: unbounded, unevicted map fed by the request body
+FILE: engine/crates/xerj-api/src/es_compat.rs:35507
+CONF: high
+DESC: put_script inserts the request's script.source (or, absent that, the entire request body) into engine.search_templates, an Arc<DashMap<String,Value>> (engine.rs:666). There is no size cap beyond limits.max_body_bytes, no entry-count cap, and no eviction. Each distinct id is a fresh entry, so N requests of a body-sized payload pin N times that payload in resident memory for the life of the process.
+ATTACK: Any holder of an ordinary (unscoped) minted key - or a read-only key via F1 - grows node memory without bound with unauthenticated-looking cheap writes, on a surface with no per-principal quota.
+METHOD: null
+
+=== x2/F8 [low] xerj-mcp: tool arguments are interpolated into request paths without encoding, and the corpus name traverses the filesystem
+FILE: engine/crates/xerj-mcp/src/lib.rs:1515
+CONF: medium
+DESC: The module defines enc() at lib.rs:1153-1167 with the comment 'Percent-encode one path segment ... this is not optional', and the graph builders use it (1613, 1633, 1647, 1663). Seven builders skip it and interpolate raw LLM-controlled arguments: format!("/_memory/{namespace}") at 1515 (a write), /_memory/{namespace}/_recall at 1538, /{index}/_search at 1414/1433/1458/1483 and 1743, and /_cat/indi
+ATTACK: Prompt injection through any document the agent retrieves: the tool-call arguments are attacker-chosen, so a malicious corpus entry makes the MCP host read arbitrary *.json files outside the corpora root, and crafted index/namespace values redirect the admin-keyed request to a different endpoint or 
+METHOD: null
+

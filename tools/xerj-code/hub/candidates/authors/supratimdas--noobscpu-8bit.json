@@ -1,0 +1,22 @@
+{
+ "corpus": "supratimdas--noobscpu-8bit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how supratimdas/NoobsCpu-8bit implements it: A simple 8bit CPU (selected work: utils, tests, blinky_soc)",
+ "repos": [
+  {
+   "repo": "NoobsCpu-8bit",
+   "url": "https://github.com/supratimdas/NoobsCpu-8bit",
+   "sha": "20e9bd5b794d32ef830e7e881dded119151b315b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 20e9bd5b794d: \"Added a subset C compiler written in python with the help of claude.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

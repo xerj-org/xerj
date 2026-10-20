@@ -1,0 +1,22 @@
+{
+ "corpus": "shubhnarang--scholarsetu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how ShubhNarang/ScholarSetu implements it: A platform that helps students find scholarships they\u2019re eligible for, explore opportunities, check deadlines, and track their applications  (selected work: src/lib, src/app, tests)",
+ "repos": [
+  {
+   "repo": "ScholarSetu",
+   "url": "https://github.com/ShubhNarang/ScholarSetu",
+   "sha": "5540c07864ddd340a76de5596d3869339a46bccb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 5540c07864dd: \"tinyfish pipeline added, readme changes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

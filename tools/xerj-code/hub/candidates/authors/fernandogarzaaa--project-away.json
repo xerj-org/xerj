@@ -1,0 +1,22 @@
+{
+ "corpus": "fernandogarzaaa--project-away",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on machine-learning, remote-control, remote-desktop queries this for how fernandogarzaaa/project-away implements it: Hands-free PC control, free and local. Webcam hand gestures drive the cursor, push-to-talk voice typing handles text, face cues gate who is  (selected work: tests, src/away)",
+ "repos": [
+  {
+   "repo": "project-away",
+   "url": "https://github.com/fernandogarzaaa/project-away",
+   "sha": "b1c5b118fa190406df3fded4e988053446cfdaa3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit b1c5b118fa19: \"Agent Link: who-looked-at-me capture history (#22)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

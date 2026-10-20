@@ -1,0 +1,22 @@
+{
+ "corpus": "vikonix--mimora",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on accent-training, kokoro-tts, language-learning queries this for how vikonix/Mimora implements it: Free, fully local pronunciation trainer for English and Spanish. TTS, speech recognition, phrase generation and scoring all run on your mach (selected work: tests, mimora)",
+ "repos": [
+  {
+   "repo": "Mimora",
+   "url": "https://github.com/vikonix/Mimora",
+   "sha": "df3de4dff6948091ab3dc83f7d8175b9792a013e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit df3de4dff694: \"connect to a running llama server\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

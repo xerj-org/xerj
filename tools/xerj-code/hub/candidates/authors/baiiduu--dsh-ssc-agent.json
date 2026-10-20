@@ -1,0 +1,22 @@
+{
+ "corpus": "baiiduu--dsh-ssc-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Baiiduu/dsh-ssc-agent implements it: Baiiduu/dsh-ssc-agent (TypeScript) (selected work: evals, src/runtime, tests)",
+ "repos": [
+  {
+   "repo": "dsh-ssc-agent",
+   "url": "https://github.com/Baiiduu/dsh-ssc-agent",
+   "sha": "774fdff1e8d9dad41b78f4d5f800b7bd01d4c590",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 774fdff1e8d9: \"feat: add evidence-driven security investigation workflow\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

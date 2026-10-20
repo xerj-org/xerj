@@ -1,0 +1,22 @@
+{
+ "corpus": "kadian-arch--stillwatch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on anomaly-detection, aws, elderly-care queries this for how kadian-arch/stillwatch implements it: Watches for the silence. Inactivity detection for people living alone, built on the Ring API (selected work: the project root, stillwatch)",
+ "repos": [
+  {
+   "repo": "stillwatch",
+   "url": "https://github.com/kadian-arch/stillwatch",
+   "sha": "f426135b196ca7cea074bf79bea971214ed572e0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f426135b196c: \"Let the product decide the theme\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

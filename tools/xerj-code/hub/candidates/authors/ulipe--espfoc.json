@@ -1,0 +1,22 @@
+{
+ "corpus": "ulipe--espfoc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C queries this for how uLipe/espFoC implements it: ESP-IDF component for using ESP32 to control motors like PMSM and BLDC using Field-Oriented(FoC) strategy (selected work: source, include)",
+ "repos": [
+  {
+   "repo": "espFoC",
+   "url": "https://github.com/uLipe/espFoC",
+   "sha": "7cb87058a5dafd3b056a7655de21dc79268dae8f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 7cb87058a5da: \"inverter: burst current sense on sars with etm sample tasks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "podman-container-tools--podman",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on containers, docker, kubernetes queries this for how podman-container-tools/podman implements it: Podman: A tool for managing OCI containers and pods (selected work: libpod)",
+ "repos": [
+  {
+   "repo": "podman",
+   "url": "https://github.com/podman-container-tools/podman",
+   "sha": "a55d383fc7d28a9649f2926a70286332284ae380",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit a55d383fc7d2: \"events/journald: omit timestamp from log output\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

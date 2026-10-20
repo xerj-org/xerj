@@ -1,34 +1,45 @@
 name: CLA field-report exemption
 
-# Provides the required `verification/cla-signed` status for a pull request whose
-# ENTIRE diff is agent field reports — markdown files under
-# user-feedback/16-agent-field-reports/ — and ONLY such a pull request.
+# Provides the required `verification/cla-signed` status for exactly two kinds of
+# pull request, and ONLY those:
+#
+#  1. A field-report-only PR: its ENTIRE diff is agent field reports — markdown
+#     files under user-feedback/16-agent-field-reports/.
+#  2. A self-CLA-signature PR: its ENTIRE diff is `.contributors` gaining ONE
+#     entry, the PR author's own login, with every commit authored by that
+#     author (scripts/check_cla_coauthors.py --is-self-cla-signature).
 #
 # Why a separate job at all: `verification/cla-signed` is normally posted by the
 # external cla-bot GitHub App, which matches commit AUTHORS against .contributors
 # and CANNOT path-scope itself. The agent field-report loop exists so any agent
 # can file one short report; gating that behind a CLA signature is the friction
 # that kept the folder empty (see demo/playbooks/AGENT_CONTRIBUTION_LOOP_2026-08-18.md).
-# This job scopes the exemption: it fires only when EVERY changed path is a field
-# report, so a mixed pull request (a field report plus any code/CI/other change)
-# is left entirely to cla-bot and gets the full gate. The predicate is the same
-# one the internal trailer gate uses (scripts/check_cla_coauthors.py
-# --is-field-report-only), so the two cannot drift.
+# And cla-bot reads .contributors from `main`, so the very PR that signs the CLA
+# can never pass cla-bot before it is merged (issue: the signature deadlock,
+# e.g. #1375). A mixed PR (either kind plus any other change) is left entirely
+# to cla-bot and gets the full gate. The predicates are the same code the
+# internal trailer gate uses, so they cannot drift.
 #
 # Why pull_request_target, not pull_request: only that event's token can write a
-# commit status on a fork pull request, and field reports come from exactly those
+# commit status on a fork pull request, and both kinds come from exactly those
 # forks. This job is safe under the elevated token because it NEVER checks out or
 # runs the pull request's code — it checks out the trusted base ref, reads the
-# changed FILE LIST from the API, and posts a status. Do not add a checkout of the
-# PR head here.
+# changed FILE LIST, commits and `.contributors` contents from the API as data,
+# and posts a status. Do not add a checkout of the PR head here.
 #
-# Honest limitation (stated plainly, per the task): posting this status races
-# cla-bot's own status for the same context — GitHub keeps the last writer per
-# context. Because this job never fires on a mixed PR, cla-bot stays authoritative
-# everywhere it matters, but the fully robust fix for field-report-only PRs is an
-# admin-level branch-protection or .clabot change, which lives outside this repo.
-# The status post is non-fatal (`|| echo`) so a token that cannot write it never
-# reddens the PR; cla-bot simply remains authoritative in that case.
+# Binding to the head SHA: every input is read pinned to
+# compare/<base.sha>...<head.sha> (and contents?ref=<sha>), and the status is
+# posted on that same head.sha — so a force-push after the check cannot inherit
+# a verdict about a different commit. A rename lists its source path too
+# (previous_filename), so a rename into an exempt path cannot hide a deletion.
+#
+# Honest limitation: GitHub keeps the last writer per status context, so this
+# races cla-bot's own status. The job waits (bounded) for cla-bot's first status
+# on the head SHA before posting, which covers the normal ordering; a later
+# `@cla-bot check` re-run can still overwrite it with cla-bot's verdict. Because
+# this job never fires on a mixed PR, cla-bot stays authoritative everywhere it
+# matters. The status post is non-fatal (`|| echo`) so a token that cannot write
+# it never reddens the PR; cla-bot simply remains authoritative in that case.
 
 on:
   pull_request_target:
@@ -54,23 +65,54 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
 
-      - name: Provide verification/cla-signed for a field-report-only PR
+      - name: Provide verification/cla-signed for a field-report-only or self-CLA-signature PR
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           REPO: ${{ github.repository }}
         run: |
-          FILES="$(gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/files" --jq '.[].filename')"
-          if python3 scripts/check_cla_coauthors.py --is-field-report-only --changed-files "$FILES"; then
-            echo "PR #${PR_NUMBER} is field-report-only; posting verification/cla-signed=success."
+          set -euo pipefail
+          # Changed paths of EXACTLY head.sha (pinned compare, not the moving
+          # pulls/N/files list). A rename also emits its source path. The compare
+          # API caps the file list at 300, so a list that long is untrustworthy
+          # and emits a sentinel that no predicate accepts.
+          FILES="$(gh api "repos/${REPO}/compare/${BASE_SHA}...${HEAD_SHA}" --jq '
+            if (.files | length) >= 300 then "<truncated-file-list>"
+            else .files[] | .filename, (.previous_filename // empty) end')" \
+            || FILES="<compare-failed>"  # unknown diff: no predicate accepts it
+
+          post_success() {
+            # Let cla-bot's first status for this SHA land first (last writer
+            # wins per context), bounded so a missing cla-bot never hangs us.
+            for _ in $(seq 1 20); do
+              n="$(gh api "repos/${REPO}/commits/${HEAD_SHA}/statuses" \
+                --jq '[.[] | select(.context == "verification/cla-signed" and .creator.login == "cla-bot[bot]")] | length' || echo 0)"
+              [ "${n:-0}" -gt 0 ] && break
+              sleep 15
+            done
             gh api -X POST "repos/${REPO}/statuses/${HEAD_SHA}" \
               -f context=verification/cla-signed \
               -f state=success \
-              -f description="Field-report-only PR: CLA gate waived for user-feedback/16-agent-field-reports/*.md" \
-              -f target_url="https://github.com/${REPO}/blob/main/user-feedback/16-agent-field-reports/README.md" \
+              -f description="$1" \
+              -f target_url="$2" \
               || echo "note: could not post the status (insufficient token permissions?). cla-bot remains authoritative."
+          }
+
+          if python3 scripts/check_cla_coauthors.py --is-field-report-only --changed-files "$FILES"; then
+            echo "PR #${PR_NUMBER} @ ${HEAD_SHA} is field-report-only; posting verification/cla-signed=success."
+            post_success \
+              "Field-report-only PR: CLA gate waived for user-feedback/16-agent-field-reports/*.md" \
+              "https://github.com/${REPO}/blob/main/user-feedback/16-agent-field-reports/README.md"
+          elif python3 scripts/check_cla_coauthors.py --is-self-cla-signature --pr "$PR_NUMBER" \
+              --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"; then
+            echo "PR #${PR_NUMBER} @ ${HEAD_SHA} is its author's own CLA signature; posting verification/cla-signed=success."
+            post_success \
+              "CLA signature PR: the author adds only their own login to .contributors" \
+              "https://github.com/${REPO}/blob/main/CLA.md"
           else
-            echo "PR #${PR_NUMBER} touches non-field-report paths; leaving verification/cla-signed to cla-bot."
+            echo "PR #${PR_NUMBER} is neither field-report-only nor a self-CLA signature; leaving verification/cla-signed to cla-bot."
           fi

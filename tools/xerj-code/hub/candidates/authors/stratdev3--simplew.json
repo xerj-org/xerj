@@ -1,0 +1,22 @@
+{
+ "corpus": "stratdev3--simplew",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on dotnet, http-server, restapi queries this for how stratdev3/SimpleW implements it: Lightweight Web Server for .NET. Simple by design. Standalone or embedded (selected work: src/Addons)",
+ "repos": [
+  {
+   "repo": "SimpleW",
+   "url": "https://github.com/stratdev3/SimpleW",
+   "sha": "37b83362c36528e3cede1cd75b3de4e53aa7d2d4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 37b83362c365: \"feature(SimpleW.Service.FileBrowser): add filesystem watcher (#458)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

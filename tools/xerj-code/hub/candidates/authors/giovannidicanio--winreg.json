@@ -1,0 +1,22 @@
+{
+ "corpus": "giovannidicanio--winreg",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on registry, win32api, win64 queries this for how GiovanniDicanio/WinReg implements it: Convenient high-level C++ wrapper around the Windows Registry API (selected work: Include, the project root)",
+ "repos": [
+  {
+   "repo": "WinReg",
+   "url": "https://github.com/GiovanniDicanio/WinReg",
+   "sha": "12117e599411432b3f7a09a14daf5858ebc8f5d6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 12117e599411: \"Improved the `RegKey`'s `ContainsSubKey()` and `TryContainsSubKey()` \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

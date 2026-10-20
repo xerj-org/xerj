@@ -746,6 +746,69 @@ pub fn elected_default_analyzer(
         .then_some(STEMMING_TEXT_ANALYZER)
 }
 
+/// The analyzer `--code-analyzer code` declares (#1198): the engine's built-in
+/// identifier-aware analyzer — standard tokenizer, then a word-delimiter
+/// filter that adds the sub-words of `snake_case`/`camelCase`/dotted
+/// identifiers at the original token's position (the original is kept), then
+/// lowercase (`AnalyzerRegistry::register_defaults`, xerj-fts). Under the
+/// `standard` or `stemmer` analyzer `get_connection_pool` is ONE term, so a
+/// query that says "connection pool" cannot reach it through BM25.
+///
+/// Measured on SWE-bench Lite file localization (#1198): acc@5 +0.11
+/// [+0.03, +0.19] on a pre-registered held-out sample; index size +15–17%;
+/// text analysis ~2.4× slower for whole-file records (seconds per repo).
+pub const CODE_TEXT_ANALYZER: &str = "code";
+
+/// `--code-analyzer`: which analyzer a NEWLY CREATED dataset index that holds
+/// source code gets.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CodeAnalyzer {
+    /// Today's election, unchanged: `standard`, or the #1059 stemmer when the
+    /// sample carries prose — which source code usually does.
+    #[default]
+    Standard,
+    /// [`CODE_TEXT_ANALYZER`] for any dataset with at least one code member.
+    Code,
+}
+
+impl CodeAnalyzer {
+    pub fn parse(raw: &str) -> Result<Self, String> {
+        match raw {
+            "standard" => Ok(Self::Standard),
+            "code" => Ok(Self::Code),
+            other => Err(format!(
+                "--code-analyzer: unknown value `{other}` (expected `standard` or `code`)"
+            )),
+        }
+    }
+}
+
+/// The dataset's text-analyzer election, `--code-analyzer` included.
+///
+/// Code files are not a dataset of their own: they share their scope's
+/// document dataset with prose and demoted config files (`dataset::cluster`).
+/// So the unit is "a dataset holding at least one file the sniffer routed to
+/// the code extractor" (`has_code`), and when `--code-analyzer code` applies,
+/// every text field of that index is analyzed with [`CODE_TEXT_ANALYZER`] —
+/// prose members included, which the word-delimiter filter leaves mostly as
+/// they were (it keeps every original token).
+///
+/// `code` wins over the stemmer (the maintainer's call on #1198): the flag is
+/// an explicit operator choice, sub-words already reach most of what stemming
+/// would in prose inside code, and layering both is unmeasured. A dataset
+/// without code members keeps [`elected_default_analyzer`]'s answer either way.
+pub fn elect_dataset_analyzer(
+    specs: &[FieldSpec],
+    fields: &HashMap<String, FieldAcc>,
+    has_code: bool,
+    code_analyzer: CodeAnalyzer,
+) -> Option<&'static str> {
+    if has_code && code_analyzer == CodeAnalyzer::Code {
+        return Some(CODE_TEXT_ANALYZER);
+    }
+    elected_default_analyzer(specs, fields)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1012,6 +1075,73 @@ mod tests {
         let specs = infer_fields(&fields, 40, true);
         assert_eq!(specs[0].es_type, "text", "no_semantic keeps it lexical");
         assert_eq!(elected_default_analyzer(&specs, &fields), Some("stemmer"));
+    }
+
+    /// #1198: a sample that elects the stemmer on its own. Source code does —
+    /// the profiler's prose predicate counts it as natural language — so this
+    /// is the common case `--code-analyzer code` has to win against.
+    fn stemmer_electing_sample() -> (Vec<FieldSpec>, HashMap<String, FieldAcc>) {
+        let prose = "The connection pool retries every failed handshake with backoff. \
+                     Each worker owns one socket and never shares it across threads.";
+        let mut acc = FieldAcc::default();
+        for _ in 0..20 {
+            acc.add(&Value::String(format!("{prose} {prose}")));
+        }
+        let mut fields = HashMap::new();
+        fields.insert("body".to_string(), acc);
+        let specs = infer_fields(&fields, 40, true);
+        assert_eq!(elected_default_analyzer(&specs, &fields), Some("stemmer"));
+        (specs, fields)
+    }
+
+    /// #1198: with `--code-analyzer code`, a dataset holding code elects the
+    /// `code` analyzer and the stemmer election defers to it.
+    #[test]
+    fn code_analyzer_flag_elects_code_for_a_code_dataset_and_the_stemmer_defers() {
+        let (specs, fields) = stemmer_electing_sample();
+        assert_eq!(
+            elect_dataset_analyzer(&specs, &fields, true, CodeAnalyzer::Code),
+            Some(CODE_TEXT_ANALYZER)
+        );
+    }
+
+    /// #1198: the flag only reaches datasets that hold code; a prose-only
+    /// dataset keeps today's election under either value.
+    #[test]
+    fn code_analyzer_flag_leaves_a_dataset_without_code_on_todays_election() {
+        let (specs, fields) = stemmer_electing_sample();
+        assert_eq!(
+            elect_dataset_analyzer(&specs, &fields, false, CodeAnalyzer::Code),
+            Some(STEMMING_TEXT_ANALYZER)
+        );
+        assert_eq!(
+            elect_dataset_analyzer(&[], &HashMap::new(), false, CodeAnalyzer::Code),
+            None
+        );
+    }
+
+    /// #1198: the default (`standard`) changes nothing, code or not.
+    #[test]
+    fn default_code_analyzer_keeps_todays_election() {
+        let (specs, fields) = stemmer_electing_sample();
+        assert_eq!(CodeAnalyzer::default(), CodeAnalyzer::Standard);
+        for has_code in [true, false] {
+            assert_eq!(
+                elect_dataset_analyzer(&specs, &fields, has_code, CodeAnalyzer::Standard),
+                elected_default_analyzer(&specs, &fields)
+            );
+        }
+    }
+
+    #[test]
+    fn code_analyzer_parses_its_two_values_and_names_a_bad_one() {
+        assert_eq!(CodeAnalyzer::parse("standard"), Ok(CodeAnalyzer::Standard));
+        assert_eq!(CodeAnalyzer::parse("code"), Ok(CodeAnalyzer::Code));
+        let err = CodeAnalyzer::parse("stemmer").unwrap_err();
+        assert!(
+            err.contains("stemmer") && err.contains("standard") && err.contains("code"),
+            "{err}"
+        );
     }
 
     /// #1059: prose sampled on a field the profiler types KEYWORD does not

@@ -1,0 +1,22 @@
+{
+ "corpus": "mikhail-angelov--2maps-and",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on android, brouter, kotlin queries this for how mikhail-angelov/2maps-and implements it: Offline Android navigator: MBTiles maps on MapLibre, on-device BRouter routing, placemarks and GPX tracks (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "2maps-and",
+   "url": "https://github.com/mikhail-angelov/2maps-and",
+   "sha": "a690d5fd7a05d04c3143f06eb21e99535e99810c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit a690d5fd7a05: \"Download nearby routing data into private app storage\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

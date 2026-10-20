@@ -1,0 +1,22 @@
+{
+ "corpus": "google--adk-go",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on a2a, agents, agents-sdk queries this for how google/adk-go implements it: An open-source, code-first Go toolkit for building, evaluating, and deploying sophisticated AI agents with flexibility and control (selected work: runner, internal/agent, tool)",
+ "repos": [
+  {
+   "repo": "adk-go",
+   "url": "https://github.com/google/adk-go",
+   "sha": "6ed5dd08a3e9630861ba8a6663481e698f25e270",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 6ed5dd08a3e9: \"feat(runner): bound model calls per invocation with RunConfig.MaxLLMC\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

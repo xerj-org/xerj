@@ -1,0 +1,22 @@
+{
+ "corpus": "zedong-liu--sparsereading",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, context-management queries this for how Zedong-Liu/SparseReading implements it: SparseRead: token-efficient reading for AI agents. \u8bfb\u5f97\u66f4\u5c11\uff0ctoken \u66f4\u7701\uff0c\u8bc1\u636e\u4e0d\u53d8\u3002 Paper arXiv:2608.22237 (selected work: integrations, tests)",
+ "repos": [
+  {
+   "repo": "SparseReading",
+   "url": "https://github.com/Zedong-Liu/SparseReading",
+   "sha": "6cc818028d3acdb78abee4d7f0b8bc615b06ca71",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 6cc818028d3a: \"feat(codex): package MCP tools and conservative trusted hooks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

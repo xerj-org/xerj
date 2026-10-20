@@ -1,0 +1,22 @@
+{
+ "corpus": "rohaquinlop--complexipy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on maintainability, understandability, clean-code queries this for how rohaquinlop/complexipy implements it: Blazingly fast cognitive complexity analysis for Python, written in Rust (selected work: crates/complexipy-cli, tests)",
+ "repos": [
+  {
+   "repo": "complexipy",
+   "url": "https://github.com/rohaquinlop/complexipy",
+   "sha": "c65520fa0514eaad40a40fda81ff0a3663865b2c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit c65520fa0514: \"feat(cli): fix only functions over the threshold\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

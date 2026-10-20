@@ -1,0 +1,22 @@
+{
+ "corpus": "nudenyang--nudenyang-discord-translator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on JavaScript queries this for how NudeNyang/NudeNyang-Discord-Translator implements it: Real-time Discord message and image translation for Windows, powered by local AI and optional translation services (selected work: src-tauri, web, extension)",
+ "repos": [
+  {
+   "repo": "NudeNyang-Discord-Translator",
+   "url": "https://github.com/NudeNyang/NudeNyang-Discord-Translator",
+   "sha": "e81ad9db84c1be550a6ca4d668781671c6f6b9d0",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit e81ad9db84c1: \"PR 5 \uc7ac\uc2dc\ub3c4\u00b7\uc804\uc1a1 \ud55c\ub3c4 \uc624\ub958 \uc218\uc815\uacfc CodeBuddy \uc124\uc815 \uc815\ub9ac\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

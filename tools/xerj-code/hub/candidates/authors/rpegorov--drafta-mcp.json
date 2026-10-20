@@ -1,0 +1,22 @@
+{
+ "corpus": "rpegorov--drafta-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on macos, mcp, model-context-protocol queries this for how rpegorov/drafta-mcp implements it: MCP server that exposes a local Drafta note library to Claude Code, Zed and other MCP clients. Local files only, no network (selected work: mcpb, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "drafta-mcp",
+   "url": "https://github.com/rpegorov/drafta-mcp",
+   "sha": "47db1283d94625aedf208013650053389134dd2c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 47db1283d946: \"Add MCPB bundle that launches the Drafta.app helper\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

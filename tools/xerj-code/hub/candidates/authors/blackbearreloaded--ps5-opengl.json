@@ -1,0 +1,22 @@
+{
+ "corpus": "blackbearreloaded--ps5-opengl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how blackbearreloaded/ps5-opengl implements it: Experimental OpenGL 4.6 Core and GLSL 4.60 port for PS5 homebrew, powered by Mesa/Gallium, with native EGL support, an SDK, and examples (selected work: tests, src/gallium, the project root)",
+ "repos": [
+  {
+   "repo": "ps5-opengl",
+   "url": "https://github.com/blackbearreloaded/ps5-opengl",
+   "sha": "50e1ea78af54215094c8c8b16fdbb20a46e46ffa",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 50e1ea78af54: \"gallium/ps5: take the new vertex-buffer references before dropping th\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

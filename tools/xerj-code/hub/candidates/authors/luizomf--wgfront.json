@@ -1,0 +1,22 @@
+{
+ "corpus": "luizomf--wgfront",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how luizomf/wgfront implements it: WireGuard config generator \u2014 no server, no tracking, just math (selected work: src/lib, e2e, src/components)",
+ "repos": [
+  {
+   "repo": "wgfront",
+   "url": "https://github.com/luizomf/wgfront",
+   "sha": "4a37fe0757e0f61769e344e3d325bd4a713c6325",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 4a37fe0757e0: \"feat(psk): manage optional preshared keys per connection (#8)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

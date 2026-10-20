@@ -1,0 +1,22 @@
+{
+ "corpus": "nagareworks--metricraft",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on metricsql, prometheus, promql queries this for how NagareWorks/metricraft implements it: Immutable PromQL/MetricsQL SDK with a shared Rust core and a Python client (selected work: tests, python, crates/metricraft-core)",
+ "repos": [
+  {
+   "repo": "metricraft",
+   "url": "https://github.com/NagareWorks/metricraft",
+   "sha": "44aa9d559bf034dbcae22d2c073ac8b97fc276b4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 44aa9d559bf0: \"fix: correct client timing and PromQL selector edge cases\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

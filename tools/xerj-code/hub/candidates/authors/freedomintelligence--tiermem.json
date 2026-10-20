@@ -1,0 +1,22 @@
+{
+ "corpus": "freedomintelligence--tiermem",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how FreedomIntelligence/Tiermem implements it: [COLM' 2026] TierMem: Balancing Compressed Memory and Raw Evidence for Long-Horizon Agent Memory (selected work: jev_tiermem)",
+ "repos": [
+  {
+   "repo": "Tiermem",
+   "url": "https://github.com/FreedomIntelligence/Tiermem",
+   "sha": "ca486bd626ec77960fb538dcaffb9542e29917a2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit ca486bd626ec: \"jev-tiermem\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

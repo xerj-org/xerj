@@ -1,0 +1,22 @@
+{
+ "corpus": "clawdotnet--openclaw-net",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on automation, csharp, llm queries this for how clawdotnet/openclaw.net implements it: Self-hosted Enterprise and Personal AI + agent runtime in .NET (NativeAOT-friendly) (selected work: src/OpenClaw.Tests, src/OpenClaw.Gateway, src/OpenClaw.Agent)",
+ "repos": [
+  {
+   "repo": "openclaw.net",
+   "url": "https://github.com/clawdotnet/openclaw.net",
+   "sha": "24d69bbf136078d0091babd8db0eb387a9f46e8f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit 24d69bbf1360: \"fix: preserve delegated credentials across gateway handoffs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

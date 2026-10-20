@@ -1,0 +1,22 @@
+{
+ "corpus": "migoric--agentia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-framework, ai-agents, anthropic queries this for how migoric/agentia implements it: \u9762\u5411\u5e94\u7528\u5f00\u53d1\u7684\u58f0\u660e\u5f0f agent \u670d\u52a1\u5f00\u53d1\u6846\u67b6\uff1a\u88c5\u9970\u5668 + DI \u58f0\u660e\u56db\u7c7b\u80fd\u529b\uff0c\u4e3b agent \u7f16\u6392\u6267\u884c\uff1b\u6bcf\u6b21 run \u4ea7\u51fa\u7ed3\u6784\u5316\u7ed3\u679c\u4e0e\u53ef\u89c2\u6d4b\u8c03\u7528\u6811\uff08trace\u3001\u6210\u672c\u3001\u6307\u6807\uff09\uff0c\u4ea4\u4ed8\u53ef\u76f4\u63a5\u4e0a\u7ebf\u7684\u670d\u52a1\u3002 (selected work: packages/cli, scripts)",
+ "repos": [
+  {
+   "repo": "agentia",
+   "url": "https://github.com/retrychx/agentia",
+   "sha": "b093b8415d6367ea3e07e83cc6abb99f62840513",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit b093b8415d63: \"feat(cli): \u811a\u624b\u67b6\u9ed8\u8ba4\u5165\u53e3\u7ffb\u6210\u670d\u52a1 \u2014\u2014 npm start \u5373 HTTP \u670d\u52a1\uff0c\u4e00\u6b21\u6027\u632a\u53bb batch.ts (#224)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "chandrabezzo--flutter-dynamic-icon-plus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C++ queries this for how chandrabezzo/flutter_dynamic_icon_plus implements it: chandrabezzo/flutter_dynamic_icon_plus (C++) (selected work: android, example, the project root)",
+ "repos": [
+  {
+   "repo": "flutter_dynamic_icon_plus",
+   "url": "https://github.com/chandrabezzo/flutter_dynamic_icon_plus",
+   "sha": "f63db204f509de075beb0a1e7804c3b2b059d06d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit f63db204f509: \"Fix Android icon switching and release 1.6.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

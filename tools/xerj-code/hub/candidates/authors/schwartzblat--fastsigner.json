@@ -1,0 +1,22 @@
+{
+ "corpus": "schwartzblat--fastsigner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how Schwartzblat/fastsigner implements it: Fast APK Signer written with Rust (selected work: src, bench, tests)",
+ "repos": [
+  {
+   "repo": "fastsigner",
+   "url": "https://github.com/Schwartzblat/fastsigner",
+   "sha": "59b40bf5d9dec2cbe9035987549dccb7f29db398",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 59b40bf5d9de: \"Speed up signing: two-stream SHA-NI digest over the mapped APK\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "webrpc--webrpc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on webrpc, json, webapps queries this for how webrpc/webrpc implements it: webrpc is a schema-driven approach to writing apis with code generation of full client libraries in many languages (selected work: tests, _examples)",
+ "repos": [
+  {
+   "repo": "webrpc",
+   "url": "https://github.com/webrpc/webrpc",
+   "sha": "f3ce9fb65711332816069a71e41ff87bd3fa61a0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit f3ce9fb65711: \"fix(gen/typescript): accept valid arrays, enums and any in the server\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

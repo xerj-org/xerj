@@ -1,0 +1,22 @@
+{
+ "corpus": "stevenmapes--django-aws-api-gateway-websockets",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on python, django, websockets queries this for how StevenMapes/django-aws-api-gateway-websockets implements it: Created to allow Django projects to be used as a HTTP backend for AWS API Gateway websockets (selected work: tests, django_aws_api_gateway_websockets)",
+ "repos": [
+  {
+   "repo": "django-aws-api-gateway-websockets",
+   "url": "https://github.com/StevenMapes/django-aws-api-gateway-websockets",
+   "sha": "812a002088c8f96506d9a13718e752f4fbce153c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 812a002088c8: \"Fix audit findings 1 to 13 from the b2877a9 security review\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

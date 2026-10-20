@@ -1,0 +1,22 @@
+{
+ "corpus": "microsoft--pyrit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-red-team, generative-ai, red-team-tools queries this for how microsoft/PyRIT implements it: The Python Risk Identification Tool for generative AI (PyRIT) is an open source framework built to empower security professionals and engine (selected work: tests, pyrit)",
+ "repos": [
+  {
+   "repo": "PyRIT",
+   "url": "https://github.com/microsoft/PyRIT",
+   "sha": "83719c5950d3fca71189f8ae06101475339781ea",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 83719c5950d3: \"FEAT: Add LSBImageStegoConverter and LSBImageStegoDecodeConverter (#3\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "ceamkrier--file-concat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-tools, code-sharing, file-concatenation queries this for how CeamKrier/file-concat implements it: FileConcat is a privacy-first tool that packs the files you pick into a single LLM-ready blob. The output is one XML or Markdown document yo (selected work: packages/core, apps/web, packages/cli)",
+ "repos": [
+  {
+   "repo": "file-concat",
+   "url": "https://github.com/CeamKrier/file-concat",
+   "sha": "54ebb1d7509255b7d85281564df500b609271715",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 54ebb1d75092: \"feat(core): a bounce, a forward and enriched mail read in full\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

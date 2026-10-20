@@ -1,0 +1,22 @@
+{
+ "corpus": "frank-zy-dou--coverage-axis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on 3d-reconstruction, mesh, modeling queries this for how Frank-ZY-Dou/Coverage_Axis implements it: Official code for the paper Coverage Axis: Inner Point Selection for 3D Shape Skeletonization, Eurographics 2022 (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "Coverage_Axis",
+   "url": "https://github.com/Frank-ZY-Dou/Coverage_Axis",
+   "sha": "7fdff77c703b1266c45d7d59bf4dbb7194fa620f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 7fdff77c703b: \"Add the skeleton connection step for mesh input to the tutorial (init\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "aliyevaladddin--aladdinai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, bentoml, crm queries this for how aliyevaladddin/AladdinAI implements it: AladdinAI: open-source BYOI (Bring Your Own Infrastructure) AI Agent platform. Connect your own VMs, NVIDIA NIM, OpenAI, Anthropic, Ollama \u2014 (selected work: backend, the project root)",
+ "repos": [
+  {
+   "repo": "AladdinAI",
+   "url": "https://github.com/aliyevaladddin/AladdinAI",
+   "sha": "c839ca7e2b8b9f7c502b9e9c42f89056b2191a00",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c839ca7e2b8b: \"fix(wrt): preserve inline image run order in DOCX parsing (#974)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

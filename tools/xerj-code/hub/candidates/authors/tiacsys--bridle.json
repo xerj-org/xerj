@@ -1,0 +1,22 @@
+{
+ "corpus": "tiacsys--bridle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on setup-zephyr, zephyr-documentation, zephyr-source queries this for how tiacsys/bridle implements it: Bridle and kite line for embedded systems based on Zephyr (selected work: boards)",
+ "repos": [
+  {
+   "repo": "bridle",
+   "url": "https://github.com/tiacsys/bridle",
+   "sha": "f747817db839cc9e56abca592fd267da8ed07cf4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit f747817db839: \"boards: mini_usb_rp2350: refactoring device tree\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

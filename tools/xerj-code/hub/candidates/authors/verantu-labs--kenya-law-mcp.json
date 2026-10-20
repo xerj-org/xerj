@@ -1,0 +1,22 @@
+{
+ "corpus": "verantu-labs--kenya-law-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Verantu-Labs/kenya-law-mcp implements it: Model Context Protocol (MCP) server for Kenya legal documents (statutes, judgments, cause lists, and gazettes) (selected work: src/test, src/akn, src/client)",
+ "repos": [
+  {
+   "repo": "kenya-law-mcp",
+   "url": "https://github.com/Verantu-Labs/kenya-law-mcp",
+   "sha": "6980bc194017f527e27127eadeedbd9d95be32b9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 6980bc194017: \"fix: parse source text and escape Markdown output safely\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

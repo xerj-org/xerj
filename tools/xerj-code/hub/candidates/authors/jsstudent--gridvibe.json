@@ -1,0 +1,22 @@
+{
+ "corpus": "jsstudent--gridvibe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-cli, coding, cross-platform queries this for how JSstudent/gridvibe implements it: GridVibe is a browser-first workspace for launching and managing multiple SSH terminals, local shell panes, agent panes, and SSH/SFTP or loc (selected work: tests, web, sessions)",
+ "repos": [
+  {
+   "repo": "gridvibe",
+   "url": "https://github.com/JSstudent/gridvibe",
+   "sha": "2706cfc04b1c4298a5c8b4eabeb54b1a11a2949b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 2706cfc04b1c: \"(fix) Save and close can recover from an outdated pane list.** The fa\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

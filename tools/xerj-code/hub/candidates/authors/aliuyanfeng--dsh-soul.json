@@ -1,0 +1,22 @@
+{
+ "corpus": "aliuyanfeng--dsh-soul",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on dsh-plugin, javascript, typescript queries this for how Aliuyanfeng/dsh-soul implements it: The DeepSeek Harness Personalization Settings plugin is used to configure the nickname, response style, tone, and custom commands of the Age (selected work: scripts, lib, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-soul",
+   "url": "https://github.com/Aliuyanfeng/dsh-soul",
+   "sha": "85615f86be2e3103a6dd067f1c22b5871e7e0be9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 85615f86be2e: \"feat(soul): \u4eba\u8bbe\u9884\u8bbe\u53ea\u7ba1 Agent \u4eba\u683c\uff0c\u4e0d\u518d\u5305\u542b\u300c\u5173\u4e8e\u4f60\u300d\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

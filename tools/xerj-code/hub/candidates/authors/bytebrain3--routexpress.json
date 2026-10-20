@@ -1,0 +1,22 @@
+{
+ "corpus": "bytebrain3--routexpress",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on courier, courier-integration, courier-management queries this for how bytebrain3/RouteXpress implements it: A Node.js library to manage courier services in Bangladesh (Pathao, Steadfast, REDX.) (selected work: src/controllers, test, src/types)",
+ "repos": [
+  {
+   "repo": "RouteXpress",
+   "url": "https://github.com/bytebrain3/RouteXpress",
+   "sha": "0bbfc4be7718550ebe703c5148555ba5e88093f8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 0bbfc4be7718: \"feat: add CarryBee provider with full API, webhooks, and tests\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "norconex--crawler",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on search-engine, web-crawler, java queries this for how Norconex/crawler implements it: Norconex Crawlers (or spiders) are flexible web and filesystem crawlers for collecting, parsing, and manipulating data from the web or files (selected work: importer, crawler)",
+ "repos": [
+  {
+   "repo": "crawler",
+   "url": "https://github.com/Norconex/crawler",
+   "sha": "fc42cfa8f2ff650d9b81234d19ecd60b4f9acc14",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit fc42cfa8f2ff: \"Cache TextEmbeddingTransformer results on the crawler's own cluster s\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "hash-anu--snkv",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on b-tree, kv-store, snkv queries this for how hash-anu/snkv implements it: SNKV \u2014 a lightweight key-value store focused on simplicity, security and performance file based database , written using sqlite's b-tree dir (selected work: tests, src, the project root)",
+ "repos": [
+  {
+   "repo": "snkv",
+   "url": "https://github.com/hash-anu/snkv",
+   "sha": "41d0e90ffb00c2efa89e89b6a95ca4ee46f22dfe",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 41d0e90ffb00: \"Key-only lookups for large values; fix TTL expiry after rollback and \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

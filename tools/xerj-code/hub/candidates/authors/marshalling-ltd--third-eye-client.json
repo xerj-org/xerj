@@ -1,0 +1,22 @@
+{
+ "corpus": "marshalling-ltd--third-eye-client",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how marshalling-ltd/third-eye-client implements it: marshalling-ltd/third-eye-client (Rust) (selected work: src/bin, src, tests)",
+ "repos": [
+  {
+   "repo": "third-eye-client",
+   "url": "https://github.com/marshalling-ltd/third-eye-client",
+   "sha": "6477bc9b33a4c34bd9fcf8e31a6b317e96578351",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 6477bc9b33a4: \"client: Spike: interface-bound RTSP forwarder #126\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

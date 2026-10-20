@@ -1,0 +1,22 @@
+{
+ "corpus": "hejunlong27--solodrama",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-short-drama, runninghub, short-drama queries this for how Hejunlong27/SoloDrama implements it: \u4e00\u4e2a\u4eba\uff0c\u5c31\u662f\u4e00\u4e2a\u5267\u7ec4 \u2014\u2014 AI \u77ed\u5267\u6279\u91cf\u751f\u4ea7\u7684\u672c\u5730\u5168\u94fe\u8def\u5de5\u5177\u96c6\uff08\u521b\u4f5c \u2192 \u6210\u7247 \u2192 \u6210\u672c\u53f0\u8d26\uff09 (selected work: stages, the project root, configs)",
+ "repos": [
+  {
+   "repo": "SoloDrama",
+   "url": "https://github.com/Hejunlong27/SoloDrama",
+   "sha": "73de2b823bd61debac2854d176aaa51f5b29109e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 73de2b823bd6: \"feat(assets): \u63a5\u5165\u672c\u5730 ComfyUI \u51fa\u56fe\u901a\u9053\uff08\uffe50\uff09\uff0c\u8d44\u4ea7\u51fa\u56fe\u9ed8\u8ba4\u672c\u5730\u4f18\u5148\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

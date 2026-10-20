@@ -1,0 +1,22 @@
+{
+ "corpus": "janasundar--ovio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how JanaSundar/ovio implements it: JanaSundar/ovio (TypeScript) (selected work: components, lib)",
+ "repos": [
+  {
+   "repo": "ovio",
+   "url": "https://github.com/JanaSundar/ovio",
+   "sha": "b4475b99e3bdfdb84b4c51fa96532b2c5aa116d7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b4475b99e3bd: \"Rebuild Craft motion on the compositor and steady the Toy pin\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

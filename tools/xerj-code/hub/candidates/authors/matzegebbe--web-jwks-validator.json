@@ -1,0 +1,22 @@
+{
+ "corpus": "matzegebbe--web-jwks-validator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Go queries this for how matzegebbe/web-jwks-validator implements it: This project is a simple web server that validates JSON Web Tokens (JWT) using JSON Web Key Sets (JWKS). The server is written in Go and use (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "web-jwks-validator",
+   "url": "https://github.com/matzegebbe/web-jwks-validator",
+   "sha": "b4d2863d79402b5c8fb170f225780d7d259e7174",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit b4d2863d7940: \"feat: modern go 1.27 (#110)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -972,7 +972,20 @@ function renderBuilder() {
   </div>`;
 }
 
+// render() is async (it awaits the route's data) and is called from many
+// places — boot, hashchange, the live-feature probe, the dashboard store,
+// per-panel settles — with nothing serialising them. Without a guard the
+// LAST render to finish wins, not the last one STARTED: a slow #/corpus fetch
+// begun just before a route change resolves after the new route has painted
+// and paints the old view (and its LIVE pill) back over it, with no further
+// render to correct it (issue #1425). Each render takes a generation number;
+// after every await, a render that has been superseded stops without touching
+// state or the DOM — the newer render owns both.
+let renderGen = 0;
+
 async function render() {
+  const gen = ++renderGen;
+  const superseded = () => gen !== renderGen;
   const app = document.getElementById('app');
   // Resolve the active dashboard from either the default registry or
   // the user metadata store. User-cloned dashboards inherit their
@@ -1043,11 +1056,13 @@ async function render() {
   } else if (state.section === 'data' || state.section === 'settings') {
     try {
       data = await buildSectionData(state.section);
+      if (superseded()) return;
       // DATA is built from the live index inventory (_cat/indices); SETTINGS is
       // local browser state. Label the pill honestly for each.
       state.sourceLabel = state.section === 'settings' ? 'LOCAL · SETTINGS' : 'LIVE · XERJ · INDEX INVENTORY';
       state.sourceKind = state.section === 'settings' ? 'local' : 'live';
     } catch (err) {
+      if (superseded()) return;
       data = {};
       fetchErr = err;
       // Surface the failure in the pill instead of leaving the prior view's
@@ -1066,6 +1081,7 @@ async function render() {
         cluster: state.cluster,
         filters: activeFilters,
       });
+      if (superseded()) return;
       data = result.data;
       if (dash.id === 'corpus') state.corpus = data;
       state.fetchedAt = result.meta.fetchedAt;
@@ -1081,10 +1097,12 @@ async function render() {
       }
       state.fetchErr = null;
     } catch (err) {
+      if (superseded()) return;
       state.fetchErr = err.message || String(err);
       fetchErr = err;
     } finally {
-      state.loading = false;
+      // The newer render set loading=true for its own pending fetch; leave it.
+      if (!superseded()) state.loading = false;
     }
     if (fetchErr) {
       app.innerHTML = `

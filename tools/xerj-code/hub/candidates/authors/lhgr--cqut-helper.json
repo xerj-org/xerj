@@ -1,0 +1,22 @@
+{
+ "corpus": "lhgr--cqut-helper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on class-schedule, cqut queries this for how lhgr/CQUT-Helper implements it: \u4e00\u6b3e\u9762\u5411\u91cd\u5e86\u7406\u5de5\u5927\u5b66\u540c\u5b66\u7684\u8bfe\u8868\u52a9\u624b App (selected work: test, packages/cqut_widget_bridge, lib/pages)",
+ "repos": [
+  {
+   "repo": "CQUT-Helper",
+   "url": "https://github.com/lhgr/CQUT-Helper",
+   "sha": "eb12edb04949d88ada38a1f0dae1b842318f7a57",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit eb12edb04949: \"feat(notification): \u5b8c\u5584\u8bfe\u7a0b\u63d0\u9192\u8bbe\u7f6e\u4e0e\u4e0a\u8bfe\u52ff\u6270\u9759\u97f3\u529f\u80fd\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

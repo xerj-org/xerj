@@ -1,0 +1,22 @@
+{
+ "corpus": "antrafa--skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how antrafa/skills implements it: Agent skills for software engineers who let AI agents near real systems: safer collaboration rules, Kubernetes and DevOps work, performance  (selected work: devops-expert, performance-architect, guardrails)",
+ "repos": [
+  {
+   "repo": "skills",
+   "url": "https://github.com/antrafa/skills",
+   "sha": "5305a296364b159d858e49d693c367bea0ee519a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 5305a296364b: \"feat: adiciona cluster-analyzer, devops-expert, guardrails e performa\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

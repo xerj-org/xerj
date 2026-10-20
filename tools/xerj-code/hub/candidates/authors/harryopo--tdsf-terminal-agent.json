@@ -1,0 +1,22 @@
+{
+ "corpus": "harryopo--tdsf-terminal-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, devops, linux queries this for how harryopo/tdsf-terminal-agent implements it: \u7ec8\u7aef\u4f18\u5148\u7684 Linux AI \u8fd0\u7ef4\u5de5\u4f5c\u53f0\uff1aSSH/SFTP\u3001\u771f\u5b9e\u547d\u4ee4\u56de\u663e\u3001\u5206\u7ea7\u5ba1\u6279\u4e0e\u4e00\u6b65\u4e00\u5361\u6559\u5b66\u3002Windows \u684c\u9762\u9884\u7a33\u5b9a\u7248\u3002A terminal-first AI workbench for Linux operations (selected work: src-tauri)",
+ "repos": [
+  {
+   "repo": "tdsf-terminal-agent",
+   "url": "https://github.com/harryopo/tdsf-terminal-agent",
+   "sha": "603bf6151db6bfedfd1b448b0b2a00095d3edc4c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 603bf6151db6: \"fix(security): enforce file approval and isolate SSH forwarding\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

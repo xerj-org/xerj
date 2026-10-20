@@ -1,0 +1,22 @@
+{
+ "corpus": "leonvanzyl--smolcoder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how leonvanzyl/smolcoder implements it: A highly efficient coding harness for small, local, open-weight models (selected work: test, src, src/web)",
+ "repos": [
+  {
+   "repo": "smolcoder",
+   "url": "https://github.com/leonvanzyl/smolcoder",
+   "sha": "c70eaa5d30728f42dd57c4d7534cd0afebdfcc2b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c70eaa5d3072: \"Save API keys per server, asked for when a server needs one\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "the-long-ride--aevra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on chatgpt, grok, mcp-server queries this for how the-long-ride/aevra implements it: Secure MCP gateway that lets ChatGPT, Claude, Grok & other AI agents remotely code, run commands, manage Git, control browsers and desktop a (selected work: apps/web-react)",
+ "repos": [
+  {
+   "repo": "aevra",
+   "url": "https://github.com/the-long-ride/aevra",
+   "sha": "0d3c10c65c9d402402e1af322b66f7437ce02adb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 0d3c10c65c9d: \"feat(web): show a lockout countdown on the admin login panel\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -215,10 +215,10 @@ fi
 say ""
 say "${BOLD}xerj ${tag}${RST} is ready."
 case ":${PATH}:" in
-  *":${dir}:"*) say "  ${DIM}start it:${RST}  xerj --insecure --data-dir ./data" ;;
+  *":${dir}:"*) say "  ${DIM}start it:${RST}  xerj --insecure --data-dir ~/xerj-data" ;;
   *) say "  ${DIM}${dir} is not on your PATH — either add it:${RST}"
      say "     export PATH=\"${dir}:\$PATH\""
-     say "  ${DIM}or run it directly:${RST}  ${dest} --insecure --data-dir ./data" ;;
+     say "  ${DIM}or run it directly:${RST}  ${dest} --insecure --data-dir ~/xerj-data" ;;
 esac
 say ""
 say "  ${DIM}then open the console:${RST}  http://localhost:9200/_xerj-console/"

@@ -1,0 +1,22 @@
+{
+ "corpus": "octen-team--octen-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on anthropic, claude, extract queries this for how Octen-Team/octen-mcp implements it: MCP server for Octen \u2014 real-time web search, broad multi-angle search, news, URL extraction, and image/video search for Claude Code, Cursor, (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "octen-mcp",
+   "url": "https://github.com/Octen-Team/octen-mcp",
+   "sha": "7b4cae8325dcd389379d86008753aa4f3fe2c6bb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 7b4cae8325dc: \"Add Agent Plugins and Cursor manifests, and guard the four copies (#31)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "buberlo--pt-ipad",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how buberlo/pt-ipad implements it: Native ARM64 P.T. source port for iPad, based on the reconstructed pt-pc C++ runtime. Original game assets required (selected work: patches, tools, tests)",
+ "repos": [
+  {
+   "repo": "pt-ipad",
+   "url": "https://github.com/buberlo/pt-ipad",
+   "sha": "e32dc7fd426c22431197e29678e9dfcb5ccc2e17",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit e32dc7fd426c: \"Add persistent frame modes and M2 performance qualification tooling\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

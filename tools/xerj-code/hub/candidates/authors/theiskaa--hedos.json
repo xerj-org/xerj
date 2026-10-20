@@ -1,0 +1,22 @@
+{
+ "corpus": "theiskaa--hedos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on huggingface, llm, local-llm queries this for how theiskaa/hedos implements it: Run and serve local models headlessly (selected work: cli, the project root)",
+ "repos": [
+  {
+   "repo": "hedos",
+   "url": "https://github.com/theiskaa/hedos",
+   "sha": "47f88e6b5ed6928b6ad478b595247f6729114e2d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 47f88e6b5ed6: \"feat(cli): draw the shelf on the terminal's own ground with the gatew\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

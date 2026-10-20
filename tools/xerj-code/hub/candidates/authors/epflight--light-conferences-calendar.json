@@ -1,0 +1,22 @@
+{
+ "corpus": "epflight--light-conferences-calendar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on academic-conferences, calendar, conference-deadlines queries this for how EPFLiGHT/LiGHT-Conferences-Calendar implements it: Track research conference deadlines: calendar, countdowns, ICS export, Slack reminders (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "LiGHT-Conferences-Calendar",
+   "url": "https://github.com/EPFLiGHT/LiGHT-Conferences-Calendar",
+   "sha": "7d989d904f8861f9aeb85e5bfd06d16161db2d42",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 7d989d904f88: \"refactor(sync-llm): split fetch.js into urls, html, fetcher and searc\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "abdullahprobd--2fa-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on 2fa, authenticator, encryption queries this for how AbdullahProBD/2fa-app implements it: \ud83d\udd12 Secure, zero-knowledge self-hosted 2FA (TOTP/HOTP) authenticator vault with modern dark UI, QR scanner, and custom groups (selected work: src/lib, src/components, tests)",
+ "repos": [
+  {
+   "repo": "2fa-app",
+   "url": "https://github.com/AbdullahProBD/2fa-app",
+   "sha": "47bdd4d5cb965690ac89714461c4f83f347479be",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 47bdd4d5cb96: \"feat(icon): enhance icon upload and URL handling with validation and \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

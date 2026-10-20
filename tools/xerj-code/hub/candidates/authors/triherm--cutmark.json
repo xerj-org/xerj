@@ -1,0 +1,22 @@
+{
+ "corpus": "triherm--cutmark",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Swift queries this for how TriHerm/cutmark implements it: Local-first video production workspace for people and AI agents, by TriHerm Labs / Fernando Abishai (selected work: mcp, Sources, Tests)",
+ "repos": [
+  {
+   "repo": "cutmark",
+   "url": "https://github.com/TriHerm/cutmark",
+   "sha": "0e8aaf43faa495215674b3243353a9e4f2f8845f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 0e8aaf43faa4: \"Editing: plan evidence-based smart speed\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

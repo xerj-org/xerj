@@ -1,0 +1,22 @@
+{
+ "corpus": "dariasmyr--fts-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on trie, approximate-matching, data-structures queries this for how dariasmyr/fts-engine implements it: Modular full-text search engine in Go with pluggable indexes, filters, and customizable text processing pipelines. You can instantly index y (selected work: pkg/fts, pkg/segmentbundle, pkg/segment)",
+ "repos": [
+  {
+   "repo": "fts-engine",
+   "url": "https://github.com/dariasmyr/fts-engine",
+   "sha": "5d5212ed0eeb56e3d34c27307fb5b33cdbe32a5f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 5d5212ed0eeb: \"feat: add self-validating persistence metadata\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

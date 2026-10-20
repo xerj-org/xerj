@@ -1,0 +1,22 @@
+{
+ "corpus": "tonquoc0407--capybara",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-tools, ai-agents, cli-tool queries this for how tonquoc0407/capybara implements it: Terminal trace debugger for AI agents (selected work: internal/ingest, cmd/capybara)",
+ "repos": [
+  {
+   "repo": "capybara",
+   "url": "https://github.com/tonquoc0407/capybara",
+   "sha": "716ae5381cf67d2b6a7f0bb5d9a4e427acdcde36",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 716ae5381cf6: \"feat(mcp): add stdio and sse proxy interceptor for zero-config mcp se\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

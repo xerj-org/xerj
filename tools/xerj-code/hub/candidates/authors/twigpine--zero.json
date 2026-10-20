@@ -1,0 +1,22 @@
+{
+ "corpus": "twigpine--zero",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, ai, anthropic queries this for how Twigpine/zero implements it: The coding agent that answers to you, your model, your machine, your rules (selected work: internal/zeroruntime, internal/config, internal/providers)",
+ "repos": [
+  {
+   "repo": "zero",
+   "url": "https://github.com/Twigpine/zero",
+   "sha": "eebb384676fb567acc1f5a20dcbb17df8a03dc42",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit eebb384676fb: \"feat(runtime): add process-local per-model RPM admission limits (#1116)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

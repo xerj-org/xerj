@@ -1,0 +1,22 @@
+{
+ "corpus": "nxtgrid--nxt-ai-assistant",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how nxtgrid/nxt-ai-assistant implements it: A production-ready chat orchestrator using Google's Gemini API with dynamic system instructions from Google Docs, RAG knowledge retrieval, a (selected work: chat_orchestrator, shared, anansi_app)",
+ "repos": [
+  {
+   "repo": "nxt-ai-assistant",
+   "url": "https://github.com/nxtgrid/nxt-ai-assistant",
+   "sha": "4210e6643a08ee7324d1543f12760871cbec97d5",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 4210e6643a08: \"Add optional OpenRouter Jev decisions routing (#206)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

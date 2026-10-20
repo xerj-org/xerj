@@ -1,0 +1,22 @@
+{
+ "corpus": "blksword--flashdir",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on disk-analyzer, disk-space, disk-usage queries this for how BlkSword/FlashDir implements it: Windows disk observability platform built with Rust and Tauri: NTFS MFT/USN-driven scanning, cross-volume file search, directory size analys (selected work: src-tauri, the project root)",
+ "repos": [
+  {
+   "repo": "FlashDir",
+   "url": "https://github.com/BlkSword/FlashDir",
+   "sha": "2cb6a676248fcd76caede07e6128b9c212de03bc",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 2cb6a676248f: \"fix: \u4fee\u590d\u7f3a\u9677\u6e05\u5355\uff08\u68c0\u7d22\u6b63\u786e\u6027 / \u524d\u7aef\u4e3b\u9898 / \u7d22\u5f15\u4e00\u81f4\u6027 / MFT \u8fb9\u754c / MCP \u52a0\u56fa / \u6587\u6863\u4e0e CI\uff09\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

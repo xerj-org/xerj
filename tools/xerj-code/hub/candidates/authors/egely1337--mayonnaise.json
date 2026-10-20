@@ -1,0 +1,22 @@
+{
+ "corpus": "egely1337--mayonnaise",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C++ queries this for how egely1337/mayonnaise implements it: Mayonnaise: a macOS like UI library for Linux, alternative to Qt and GTK. Written with pure C++ and OpenGL/Vulkan (selected work: src/render)",
+ "repos": [
+  {
+   "repo": "mayonnaise",
+   "url": "https://github.com/egely1337/mayonnaise",
+   "sha": "d7c24a8e7483651f9d19e4233e8570d0530e4496",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit d7c24a8e7483: \"mayonnaise added\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

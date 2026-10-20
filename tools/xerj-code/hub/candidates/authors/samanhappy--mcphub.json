@@ -1,0 +1,22 @@
+{
+ "corpus": "samanhappy--mcphub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on mcp, mcp-hub, mcp-server queries this for how samanhappy/mcphub implements it: Self-hosted MCP gateway and control plane for connecting, controlling, and operating MCP servers (selected work: src/utils, tests, frontend)",
+ "repos": [
+  {
+   "repo": "mcphub",
+   "url": "https://github.com/samanhappy/mcphub",
+   "sha": "c0f0965c8a2c3e45d8b69c4087d20f879f1e0ef5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit c0f0965c8a2c: \"feat: allow admin-managed upstream CIDR ranges (#1300)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

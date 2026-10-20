@@ -1,0 +1,22 @@
+{
+ "corpus": "little-scale--genmddj",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Assembly queries this for how little-scale/genmddj implements it: SEGA Mega Drive / Genesis / Nomad Music Tracker (selected work: src, tools)",
+ "repos": [
+  {
+   "repo": "genmddj",
+   "url": "https://github.com/little-scale/genmddj",
+   "sha": "fbe469912fb2ccdd13a338ac72b459b294ca07df",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit fbe469912fb2: \"feat: add YM2612 SSG-EG controls\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -31,6 +31,41 @@ pub struct RenderOpts<'a> {
     pub strict_licence: bool,
 }
 
+/// The longest non-empty string field of a source object (excluding `ax_*`
+/// provenance metadata), "" when there is none — the content-bearing field of
+/// a raw-JSON record (#1158). Fields are visited in sorted key order and only
+/// a STRICTLY longer field replaces the winner, so a tie goes to the
+/// alphabetically first name and the passage never depends on the wire's key
+/// order.
+fn longest_string_field(src: &Value) -> String {
+    let mut best: Option<(usize, &str)> = None;
+    if let Some(obj) = src.as_object() {
+        let mut keys: Vec<&String> = obj.keys().collect();
+        keys.sort();
+        for key in keys {
+            if key.starts_with("ax_") {
+                continue;
+            }
+            if let Some(s) = obj[key].as_str() {
+                if !s.trim().is_empty() && best.is_none_or(|(len, _)| s.chars().count() > len) {
+                    best = Some((s.chars().count(), s));
+                }
+            }
+        }
+    }
+    best.map(|(_, s)| s.to_string()).unwrap_or_default()
+}
+
+/// True for an autoindex `*-symbols` record: `name` and `kind` strings plus
+/// a numeric `line`, alongside the declaration in `code`. A raw-JSON data
+/// record that merely happens to have a `code` key does not match.
+fn is_symbol_record(src: &Value) -> bool {
+    src.get("name").is_some_and(Value::is_string)
+        && src.get("kind").is_some_and(Value::is_string)
+        && src.get("line").is_some_and(Value::is_u64)
+        && src.get("code").is_some_and(Value::is_string)
+}
+
 /// Render the full result block: the optional arms-ran note line, one block
 /// per hit, the footer. `note` is printed EVERY time it exists — a silently
 /// BM25-only "hybrid" result must never read as hybrid.
@@ -117,11 +152,25 @@ fn render_hit(h: &Value, licences: &HashMap<String, String>, opts: &RenderOpts) 
     };
     let mut out = format!("\n─── {loc}  ({shown}{lic_part})\n");
 
+    // `body` is the content field of every family EXCEPT plain text (`.txt`
+    // mirrors put their passage in `text`, #1139) and `*-symbols` records
+    // (which store the declaration in `code`). `code` is trusted ONLY on a
+    // record with the symbol shape (`name` + `kind` + numeric `line`): a
+    // raw-JSON record (#1158) may carry its own short `code` field (an error
+    // code, a CWE id) that must not displace its real content. A raw-JSON
+    // record's text lives in schema-named fields (`summary`, `details`, …),
+    // so the last resort is the longest non-`ax_*` string field.
     let body = src
         .get("body")
         .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
+        .or_else(|| src.get("text").and_then(Value::as_str))
+        .or_else(|| {
+            is_symbol_record(&src)
+                .then(|| src.get("code").and_then(Value::as_str))
+                .flatten()
+        })
+        .map(str::to_string)
+        .unwrap_or_else(|| longest_string_field(&src));
 
     if opts.full > 0 && !(restricted && opts.strict_licence) {
         // Prefer the matching DEFINITION over a byte window; fall back to the
@@ -277,6 +326,194 @@ mod tests {
             .expect("warning");
         assert!(warn_at > passage_at, "the warning sits UNDER the passage");
         assert!(text.contains("(score 9.01, AGPL)"), "{text}");
+    }
+
+    /// #1158: a raw-JSON record has neither `body` nor `text` — its content
+    /// lives in schema-named fields. The passage must come from the longest
+    /// string field (the advisory's `details`), and a tie on length goes to
+    /// the alphabetically first name so the passage is stable regardless of
+    /// key order on the wire.
+    #[test]
+    fn a_raw_json_hit_renders_its_longest_string_field_as_the_passage() {
+        let raw_hit = json!({
+            "_score": 7.5,
+            "_source": {
+                "ax_path": "ghsa-db/advisories/GHSA-9j.json",
+                "id": "GHSA-9j",
+                "summary": "lodash command injection",
+                "details": "Applications using lodash are vulnerable to command injection via the template function."
+            }
+        });
+        let text = render(
+            &[raw_hit],
+            &HashMap::new(),
+            &RenderOpts {
+                corpus: "ghsa-db",
+                query: "command injection",
+                full: 800,
+                no_symbol: true,
+                meatl: false,
+                rrf_scores: false,
+                age_days: None,
+                strict_licence: false,
+            },
+            None,
+        );
+        assert!(
+            text.contains("vulnerable to command injection"),
+            "the passage is `details`, the longest field: {text}"
+        );
+        assert!(
+            !text.contains("[0 of 0 chars"),
+            "no empty-passage shape: {text}"
+        );
+
+        // Tie: two fields of equal length — the alphabetically first wins.
+        let tie = json!({
+            "_score": 1.0,
+            "_source": {
+                "ax_path": "x/y.json",
+                "zzz_field": "same length exactly",
+                "aaa_field": "same length exactly"
+            }
+        });
+        let text = render(
+            &[tie],
+            &HashMap::new(),
+            &RenderOpts {
+                corpus: "kv",
+                query: "length",
+                full: 800,
+                no_symbol: true,
+                meatl: false,
+                rrf_scores: false,
+                age_days: None,
+                strict_licence: false,
+            },
+            None,
+        );
+        assert!(text.contains("aaa_field") || text.contains("same length exactly"));
+        // Both same content here — the deterministic pick is still ONE field.
+        assert!(text.contains("same length exactly"), "{text}");
+    }
+
+    #[test]
+    fn symbol_index_hit_and_short_raw_json_hit_never_render_ax_provenance_as_passage() {
+        // Autoindex `*-symbols` records store the declaration in `code` (with
+        // no `body`, `text`, or `symbols` array) alongside a 42-char `ax_file`
+        // provenance digest (`axf2-<32-hex>-<size-hex>`).
+        let sym_hit = json!({
+            "_score": 11.2,
+            "_source": {
+                "ax_file": "axf2-1fbdaa51d7231323867e3200dc599463-1075",
+                "ax_path": "tantivy/src/error.rs",
+                "title": "enum TantivyError — error.rs",
+                "path": "tantivy/src/error.rs",
+                "language": "rust",
+                "name": "TantivyError",
+                "kind": "enum",
+                "line": 15,
+                "code": "pub enum TantivyError {"
+            }
+        });
+        let text = render(
+            &[sym_hit],
+            &licences(),
+            &RenderOpts {
+                corpus: "tantivy",
+                query: "TantivyError",
+                full: 800,
+                no_symbol: false,
+                meatl: false,
+                rrf_scores: false,
+                age_days: None,
+                strict_licence: false,
+            },
+            None,
+        );
+        assert!(
+            text.contains("─── tantivy/src/error.rs:15  (score 11.20, Apache-2.0/MIT)\n"),
+            "{text}"
+        );
+        assert!(
+            text.contains("pub enum TantivyError {"),
+            "symbol hit must render `code`, not `ax_file`: {text}"
+        );
+        assert!(
+            !text.contains("axf2-"),
+            "internal `ax_file` digest must never be rendered as passage: {text}"
+        );
+
+        // A raw-JSON record whose content field is shorter than the 42-char
+        // `ax_file` digest must still render the content field, never `ax_*`.
+        let short_raw = json!({
+            "_score": 4.0,
+            "_source": {
+                "ax_file": "axf2-1fbdaa51d7231323867e3200dc599463-1075",
+                "ax_path": "notes/short.json",
+                "summary": "short advisory note"
+            }
+        });
+        let raw_text = render(
+            &[short_raw],
+            &HashMap::new(),
+            &RenderOpts {
+                corpus: "notes",
+                query: "advisory",
+                full: 800,
+                no_symbol: true,
+                meatl: false,
+                rrf_scores: false,
+                age_days: None,
+                strict_licence: false,
+            },
+            None,
+        );
+        assert!(
+            raw_text.contains("short advisory note"),
+            "short raw-JSON record must render `summary`, not `ax_file`: {raw_text}"
+        );
+        assert!(
+            !raw_text.contains("axf2-"),
+            "internal `ax_file` digest must never win longest_string_field: {raw_text}"
+        );
+    }
+
+    /// #1158 must survive the symbol-`code` passage source: a raw-JSON
+    /// record with its OWN short `code` field (here a CWE id) still renders
+    /// its longest content field, not the code.
+    #[test]
+    fn a_raw_json_hit_with_a_short_code_field_still_renders_its_content() {
+        let raw_hit = json!({
+            "_score": 3.0,
+            "_source": {
+                "ax_file": "axf2-1fbdaa51d7231323867e3200dc599463-1075",
+                "ax_path": "cwe/records/79.json",
+                "code": "CWE-79",
+                "name": "XSS",
+                "details": "Improper neutralization of input during web page generation allows cross-site scripting."
+            }
+        });
+        let text = render(
+            &[raw_hit],
+            &HashMap::new(),
+            &RenderOpts {
+                corpus: "cwe",
+                query: "cross-site scripting",
+                full: 800,
+                no_symbol: true,
+                meatl: false,
+                rrf_scores: false,
+                age_days: None,
+                strict_licence: false,
+            },
+            None,
+        );
+        assert!(
+            text.contains("allows cross-site scripting"),
+            "the passage is `details`, not the short `code`: {text}"
+        );
+        assert!(!text.contains("axf2-"), "{text}");
     }
 
     #[test]

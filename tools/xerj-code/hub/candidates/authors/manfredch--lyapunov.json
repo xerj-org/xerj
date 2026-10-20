@@ -1,0 +1,22 @@
+{
+ "corpus": "manfredch--lyapunov",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how ManfredCh/Lyapunov implements it: LLM-first, 3D-native robotics and simulation workspace (selected work: packages/viewer, packages/lyapunov-shell)",
+ "repos": [
+  {
+   "repo": "Lyapunov",
+   "url": "https://github.com/ManfredCh/Lyapunov",
+   "sha": "ab59c63f063a4a651f3a16f53db118e8edcfccc0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit ab59c63f063a: \"feat(viewer): add persistent lighting and material controls\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

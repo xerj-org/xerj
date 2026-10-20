@@ -1,0 +1,22 @@
+{
+ "corpus": "designer-awei--gzh-article-group",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Designer-Awei/gzh-article-group implements it: \u4e3aAgent\u6253\u9020\u4e00\u652f\u6807\u51c6\u5316\u7684\u516c\u4f17\u53f7\u6587\u7ae0\u751f\u4ea7\u56e2\u961f\u3002 (selected work: bots)",
+ "repos": [
+  {
+   "repo": "gzh-article-group",
+   "url": "https://github.com/Designer-Awei/gzh-article-group",
+   "sha": "1076fb5262b75a1cfb2dbfd596a4397d8036c8e0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 1076fb5262b7: \"feat(layout): \u6bcd\u7248\u5e93 02\u201304 + INDEX\uff1b\u66f4\u65b0\u5404 bot 2026-10-15 \u89c4\u5219\uff1bCHANGELOG\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

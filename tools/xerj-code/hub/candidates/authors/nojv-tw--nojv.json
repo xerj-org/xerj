@@ -1,0 +1,22 @@
+{
+ "corpus": "nojv-tw--nojv",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on competitive-programming, education, online-judge queries this for how NOJV-TW/NOJV implements it: Open-source online judge for competitive programming and CS courses (selected work: tests, packages/application, apps/web)",
+ "repos": [
+  {
+   "repo": "NOJV",
+   "url": "https://github.com/NOJV-TW/NOJV",
+   "sha": "dfd7b39aa0539a9f7f8228e2a7878513552a7f26",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit dfd7b39aa053: \"fix(security): enforce authority, resource limits and image budgets (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

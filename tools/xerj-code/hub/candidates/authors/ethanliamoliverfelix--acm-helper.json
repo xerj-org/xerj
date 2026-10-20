@@ -1,0 +1,22 @@
+{
+ "corpus": "ethanliamoliverfelix--acm-helper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how EthanLiamOliverFelix/ACM-Helper implements it: \u4e3aACMer\u6253\u9020\u7684\u4e00\u4f53\u5316\u5237\u9898\u5e73\u53f0\u3002 (selected work: src-tauri, src/stores, src/components)",
+ "repos": [
+  {
+   "repo": "ACM-Helper",
+   "url": "https://github.com/EthanLiamOliverFelix/ACM-Helper",
+   "sha": "dc0652f105dc1e54f46f00a807f834f52379461d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit dc0652f105dc: \"Add QOJ catalogs and submission support; stabilize CPH diagnostics\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

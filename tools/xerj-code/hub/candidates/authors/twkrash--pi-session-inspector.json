@@ -1,0 +1,22 @@
+{
+ "corpus": "twkrash--pi-session-inspector",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on pi, pi-extension, typescript queries this for how twKrash/pi-session-inspector implements it: See where your Pi tokens and cost went: local session analytics for models, tools, subagents, skills, integrations, and history (selected work: tests, src/ui, scripts)",
+ "repos": [
+  {
+   "repo": "pi-session-inspector",
+   "url": "https://github.com/twKrash/pi-session-inspector",
+   "sha": "74761aa60523ccaae7053f9cbe2455e850356574",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 74761aa60523: \"fix(ui): reduce duplicate read-path work (#64)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

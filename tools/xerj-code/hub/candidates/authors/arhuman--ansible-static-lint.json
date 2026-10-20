@@ -1,0 +1,22 @@
+{
+ "corpus": "arhuman--ansible-static-lint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on ansible, ansible-lint, ci queries this for how arhuman/ansible-static-lint implements it: Static Ansible linting in Go: the 38 ansible-lint rules decidable from YAML alone, byte-for-byte pep8 output, no Ansible runtime (selected work: internal/rules, internal/parse)",
+ "repos": [
+  {
+   "repo": "ansible-static-lint",
+   "url": "https://github.com/arhuman/ansible-static-lint",
+   "sha": "9308c33869933f2b12ef02608ce26e908ed7a87e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 9308c3386993: \"feat(rules): implement latest, the 39th rule\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

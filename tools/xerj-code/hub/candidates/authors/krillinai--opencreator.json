@@ -1,0 +1,22 @@
+{
+ "corpus": "krillinai--opencreator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on video-transcription, video-translation, dubbing queries this for how krillinai/OpenCreator implements it: Formerly KrillinAI, VideoTranslation and Dubbing Tool. Open-source AI workspace for creators, powered by Codex. Video downloading, video tra (selected work: apps/web, apps/daemon, packages/protocol)",
+ "repos": [
+  {
+   "repo": "OpenCreator",
+   "url": "https://github.com/krillinai/OpenCreator",
+   "sha": "404a623d8dd9e2d8133b8d7f6c17e4fc0c4fea80",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 404a623d8dd9: \"feat(creator): expand video translation sources and prioritize online\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

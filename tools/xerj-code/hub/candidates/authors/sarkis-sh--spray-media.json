@@ -1,0 +1,22 @@
+{
+ "corpus": "sarkis-sh--spray-media",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on api, attachments, download queries this for how sarkis-sh/spray-media implements it: Secure uploads, signed URLs, and flexible media delivery for Laravel (selected work: tests, src/Application, src/Domain)",
+ "repos": [
+  {
+   "repo": "spray-media",
+   "url": "https://github.com/sarkis-sh/spray-media",
+   "sha": "3dcb3b97d0ab40c7d1758e1a9337e018e5780b2b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 3dcb3b97d0ab: \"Serve from object storage and let clients upload straight to it\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

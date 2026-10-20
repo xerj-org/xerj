@@ -150,7 +150,15 @@ pub struct BulkAdmission {
 /// One congestion event may be reported by every worker that was in flight
 /// when the server pushed back; they must count once.
 const SHRINK_COOLDOWN: Duration = Duration::from_secs(1);
-/// Clean bulks required before the limit is probed upward by one.
+/// While no bulk has succeeded since the last shrink, coalesce repeated 429
+/// retries from the same parent-breaker trip into a single halving for up to
+/// 15 s (issue #1250) instead of cascading 32 → 16 → 8 → 4 → 2 → 1 once per
+/// second while the server drains. Sized from the issue's data: the server's
+/// breaker/drain cycle repeated every ~12 s, so a window shorter than that
+/// (1 s before, or 2 s) still lets one trip halve the window five times.
+const EPISODE_MAX_COOLDOWN: Duration = Duration::from_secs(15);
+/// Clean bulks required before the limit is probed upward by one below
+/// `ssthresh` (above `ssthresh`, congestion avoidance scales this by `limit`).
 const RECOVER_AFTER: usize = 8;
 
 /// Minimum gap between two "raising bulk concurrency" lines on stderr.
@@ -166,6 +174,16 @@ struct AdmissionState {
     in_flight: usize,
     ok_streak: usize,
     last_shrink: Option<Instant>,
+    /// True after a shrink until at least one bulk succeeds, so sustained 429
+    /// retries during a single breaker trip do not halve repeatedly every 1 s.
+    shrunk_in_episode: bool,
+    /// Slow-start threshold, set on each shrink to 3/4 of the limit that
+    /// tripped (kept above the halved limit). Below it, recovery steps every
+    /// `RECOVER_AFTER` clean bulks; at or above it — the band just under the
+    /// concurrency that last tripped the breaker — congestion avoidance needs
+    /// `RECOVER_AFTER * limit` clean bulks per +1 step, so the client creeps
+    /// up to the old ceiling instead of sprinting back into it.
+    ssthresh: usize,
     /// When the last "raising" line was printed, and the limit it named —
     /// so the next line can name the whole climb since.
     last_raise_announce: Option<Instant>,
@@ -205,6 +223,8 @@ impl BulkAdmission {
                 in_flight: 0,
                 ok_streak: 0,
                 last_shrink: None,
+                shrunk_in_episode: false,
+                ssthresh: ceiling,
                 last_raise_announce: None,
                 announced_limit: ceiling,
             }),
@@ -266,11 +286,20 @@ impl BulkAdmission {
         {
             return;
         }
+        if state.shrunk_in_episode
+            && state
+                .last_shrink
+                .is_some_and(|last| now.duration_since(last) < EPISODE_MAX_COOLDOWN)
+        {
+            return;
+        }
         state.last_shrink = Some(now);
         state.ok_streak = 0;
+        state.shrunk_in_episode = true;
         self.congestion_events.fetch_add(1, Ordering::Relaxed);
         let previous = state.limit;
         state.limit = (previous / 2).max(1);
+        state.ssthresh = (previous * 3 / 4).max(state.limit + 1);
         if state.limit != previous && self.announce {
             eprintln!(
                 "autoindex: server pushed back (HTTP 429); lowering bulk concurrency \
@@ -290,11 +319,17 @@ impl BulkAdmission {
             return;
         }
         let mut state = self.inner.lock().unwrap();
+        state.shrunk_in_episode = false;
         if state.limit >= self.ceiling {
             return;
         }
         state.ok_streak += 1;
-        if state.ok_streak < RECOVER_AFTER {
+        let needed = if state.limit < state.ssthresh {
+            RECOVER_AFTER
+        } else {
+            RECOVER_AFTER.saturating_mul(state.limit.max(1))
+        };
+        if state.ok_streak < needed {
             return;
         }
         state.ok_streak = 0;
@@ -382,6 +417,22 @@ const BULK_MAX_ACTIONS: usize = 10_000;
 /// very low limit is learned in about `log2(10_000)` halvings; a run that
 /// passes this is repeating itself and the count on `xerj-done` is the record.
 const SPLIT_ANNOUNCE_CAP: u64 = 16;
+
+/// Page timeout every [`Es::search_page`] request carries when its caller set
+/// no `timeout` of its own (#1212). The engine's default — a 30 s cooperative
+/// deadline on any body without one — answers a slow node with HTTP 200,
+/// partial hits and `timed_out: true`, which a page walker cannot tell from
+/// the last page. 120 s sits above the slowest sorted page measured on a
+/// breaker-drained node (40 s); the bounded retry in `search_page` covers
+/// anything slower.
+pub const SEARCH_PAGE_TIMEOUT: &str = "120s";
+
+/// How many times [`Es::search_page`] re-asks the SAME page when the node
+/// keeps answering it partial. Six attempts at a 120 s page timeout is a
+/// 12-minute ceiling per page — enough to ride out a merge or a breaker
+/// drain, short enough to fail a genuinely wedged node within a run's
+/// patience (the bulk patience is 600 s, `THROTTLE_PATIENCE`).
+const PARTIAL_PAGE_ATTEMPTS: usize = 6;
 
 /// What this run has learned about how large a `_bulk` request the server
 /// takes, shared by every clone of a client like [`BulkAdmission`].
@@ -941,6 +992,13 @@ impl Es {
         r
     }
 
+    /// True when `ping` failed because the node answered 401/403. That is not
+    /// "no node reachable" — the node is up and the key is missing or wrong.
+    pub fn ping_failure_is_auth(err: &anyhow::Error) -> bool {
+        let text = format!("{err:#}");
+        text.contains("(HTTP 401)") || text.contains("(HTTP 403)")
+    }
+
     pub fn ping(&self) -> Result<Value> {
         let resp = self
             .req(reqwest::Method::GET, "/")
@@ -1207,6 +1265,14 @@ impl Es {
                     if failures >= MAX_ATTEMPTS {
                         return Err(e);
                     }
+                    self.failure_notice(
+                        &mut last_notice,
+                        what,
+                        &e,
+                        failures,
+                        MAX_ATTEMPTS,
+                        started.elapsed(),
+                    );
                 }
             }
             self.backoff(delay);
@@ -1233,6 +1299,50 @@ impl Es {
             self.throttle_patience.as_secs()
         );
         *last = Some(Instant::now());
+    }
+
+    /// Say on stderr that a request is retrying after a transport error or a
+    /// 5xx — the first failure immediately, then at most once per
+    /// [`NOTICE_EVERY`] per request, sharing [`Self::throttle_notice`]'s clock
+    /// so an alternating 429/timeout sequence cannot double-announce. Same
+    /// announce gate: loading runs speak, probes and `--quiet` stay silent.
+    ///
+    /// Why the first failure is worth a line: the retry envelope here is
+    /// bounded (six attempts at the client's 300 s request timeout ≈ 31 min
+    /// worst case) but was SILENT, and #1183 reported exactly that silence as
+    /// a deadlock — the caller parks on `reqwest::blocking`'s oneshot, which
+    /// `/proc/<pid>/task/*/wchan` reports as `futex_do_wait`, so eight
+    /// minutes of no output and zero CPU were indistinguishable from a lock
+    /// cycle. A line that names the request, the reason, and the attempt
+    /// count turns "stalled" into "retrying, bounded". Returns whether a
+    /// line was printed, so the gate is testable without capturing stderr.
+    fn failure_notice(
+        &self,
+        last: &mut Option<Instant>,
+        what: &str,
+        error: &anyhow::Error,
+        attempt: usize,
+        max_attempts: usize,
+        waited: Duration,
+    ) -> bool {
+        if !self.admission.announces() || matches!(last, Some(t) if t.elapsed() < NOTICE_EVERY) {
+            return false;
+        }
+        // One line, capped: transport error chains can run long and the point
+        // is the request and the bound, not the whole diagnostic.
+        let mut reason = format!("{error:#}").replace('\n', " ");
+        let cut = reason
+            .char_indices()
+            .nth(120)
+            .map_or(reason.len(), |(i, _)| i);
+        reason.truncate(cut);
+        eprintln!(
+            "autoindex: {what} failed: {reason}; retrying (attempt {attempt} of {max_attempts}, \
+             {} s in this request so far)",
+            waited.as_secs()
+        );
+        *last = Some(Instant::now());
+        true
     }
 
     /// Sleep between attempts, recording how long was actually slept.
@@ -1344,9 +1454,6 @@ impl Es {
     }
 
     fn bulk_bounded(&self, body: Vec<u8>, max_bytes: usize) -> Result<BulkOutcome> {
-        // One admission slot for the whole body: its windows go out one after
-        // another, so this worker never offers more than one request at once.
-        let _permit = self.admission.acquire();
         let mut pending = std::collections::VecDeque::from([body]);
         let mut total = BulkOutcome::default();
         while let Some(next) = pending.pop_front() {
@@ -1551,6 +1658,10 @@ impl Es {
         // breaker happened to answer with.
         let throttles = std::cell::Cell::new(0u64);
         let round = self.retry_loop("_bulk", || {
+            // Acquire the admission permit per HTTP attempt rather than across
+            // the whole backoff loop (#1250), so throttled workers drop their
+            // slot before sleeping and immediately obey a halved window limit.
+            let _permit = self.admission.acquire();
             let resp = match self.send_bulk(body.clone()) {
                 Ok(resp) => resp,
                 Err(e) => return Attempt::Failed(e),
@@ -1669,6 +1780,16 @@ impl Es {
     }
 
     /// One server-side delete pass; returns the reported `deleted` count.
+    ///
+    /// A 404 is the answer, not a failure — the same rule as
+    /// [`Self::count_endpoint`]: this cleanup runs before a file-level
+    /// replacement against the index the journal names, and when a namespace
+    /// swap already retired that index the node answers 404. The stale
+    /// documents are then already absent (a missing index cannot hold any),
+    /// so the pass deleted nothing and the goal state holds. Treating it as
+    /// an abort (#1173) turned a converged state into a dead run whose final
+    /// message then claimed "wrote no new records" on a run that had written
+    /// plenty. Every other status keeps the refusal error.
     fn delete_by_query_pass(&self, index: &str, query: &Value) -> Result<u64> {
         self.with_retry(
             "delete_by_query",
@@ -1682,6 +1803,9 @@ impl Es {
                 .map_err(|e| anyhow!("delete_by_query: {e}"))
             },
             |resp| {
+                if resp.status() == reqwest::StatusCode::NOT_FOUND {
+                    return Ok(0);
+                }
                 let status = resp.status();
                 let body: Value = resp.json().unwrap_or(Value::Null);
                 if status.is_success()
@@ -1762,6 +1886,71 @@ impl Es {
         Ok(Some(v))
     }
 
+    /// One page of a paged walk, complete or not at all.
+    ///
+    /// The engine applies a 30 s cooperative deadline to any search whose
+    /// body carries no `timeout`, and answers a missed deadline with HTTP
+    /// 200, PARTIAL hits and `timed_out: true` — legal on the wire, and
+    /// lethal to a walker: a page that comes back short looks exactly like
+    /// the last page. That truncated the xerj-search catalog read-back at
+    /// 56,441 of 58,568 documents (#1212; the index held all 58,568 the
+    /// whole time). This helper sends the body with an explicit page
+    /// timeout (added only when the caller set none — 120 s covers the
+    /// slowest sorted page measured on a breaker-drained node, 40 s) and
+    /// re-asks the SAME page when the node answers `timed_out`, bounded by
+    /// [`PARTIAL_PAGE_ATTEMPTS`]. A timed-out page costs the node its whole
+    /// page budget, so consecutive attempts are naturally spaced; there is
+    /// no extra backoff to add. Exhaustion is a loud error naming the
+    /// index: rerunning the same command resumes, and every walker above
+    /// this layer is idempotent per page.
+    pub fn search_page(&self, index: &str, body: &Value) -> Result<Value> {
+        Ok(self
+            .search_page_inner(index, body, false)?
+            .expect("strict search page never returns None"))
+    }
+
+    /// [`Es::search_page`] for walkers over an index that may legitimately
+    /// not exist: a 404 is `Ok(None)`, every other non-success is an error,
+    /// and a `timed_out` page is retried exactly like `search_page`'s.
+    pub fn search_page_present(&self, index: &str, body: &Value) -> Result<Option<Value>> {
+        self.search_page_inner(index, body, true)
+    }
+
+    fn search_page_inner(
+        &self,
+        index: &str,
+        body: &Value,
+        allow_missing: bool,
+    ) -> Result<Option<Value>> {
+        let mut body = body.clone();
+        body.as_object_mut()
+            .context("search page body must be a JSON object")?
+            .entry("timeout")
+            .or_insert_with(|| Value::String(SEARCH_PAGE_TIMEOUT.to_owned()));
+        for attempt in 1..=PARTIAL_PAGE_ATTEMPTS {
+            let (status, response) = self.search_raw(index, &body)?;
+            if allow_missing && status == reqwest::StatusCode::NOT_FOUND {
+                return Ok(None);
+            }
+            if !status.is_success() {
+                return Err(anyhow!("search /{index} HTTP {status}: {response}"));
+            }
+            if response.get("timed_out") != Some(&Value::Bool(true)) {
+                return Ok(Some(response));
+            }
+            if attempt == PARTIAL_PAGE_ATTEMPTS {
+                anyhow::bail!(
+                    "search /{index} answered this page partial (timed_out) on \
+                     {PARTIAL_PAGE_ATTEMPTS} consecutive attempts at timeout \
+                     {SEARCH_PAGE_TIMEOUT}: the node cannot complete one page of \
+                     the walk. Nothing from this page was acted on — reduce load \
+                     on the node and rerun the same command, which resumes"
+                );
+            }
+        }
+        unreachable!("the attempt loop returns on its final iteration")
+    }
+
     pub fn count(&self, index: &str) -> Result<u64> {
         // `_count` first: it is the endpoint this call always meant, and a
         // node audits it as `count.post` — a size:0 search here lands in the
@@ -1772,15 +1961,13 @@ impl Es {
         match self.count_endpoint(index) {
             Count::Number(n) => Ok(n),
             Count::Zero => Ok(0),
-            Count::Unknown(_) => {
+            Count::Unknown(reason) => {
                 let v = self.search(
                     index,
                     &serde_json::json!({"size": 0, "track_total_hits": true}),
                 )?;
-                v.pointer("/hits/total/value")
-                    .and_then(|t| t.as_u64())
-                    .or_else(|| v.pointer("/hits/total").and_then(|t| t.as_u64()))
-                    .ok_or_else(|| anyhow!("no total in search response"))
+                search_hit_total(&v)
+                    .with_context(|| format!("count /{index}: _count did not answer ({reason})"))
             }
         }
     }
@@ -1894,6 +2081,25 @@ impl Es {
     }
 }
 
+/// The `hits.total` of a size:0 search used as a `_count` fallback.
+///
+/// A deadline answer is HTTP 200 with `timed_out: true` and `total.value: 0`
+/// (`relation: gte`). Reading that 0 as the live count is what made
+/// finalize abort a finished run: the journal had the records, the node
+/// had not finished counting, and the zero-live gate treated the partial
+/// page as an empty index.
+pub(crate) fn search_hit_total(v: &Value) -> Result<u64> {
+    if v.get("timed_out") == Some(&Value::Bool(true)) {
+        anyhow::bail!(
+            "search count fallback timed out; the total is partial and is not a live count"
+        );
+    }
+    v.pointer("/hits/total/value")
+        .and_then(|t| t.as_u64())
+        .or_else(|| v.pointer("/hits/total").and_then(|t| t.as_u64()))
+        .ok_or_else(|| anyhow!("no total in search response"))
+}
+
 /// The tri-state answer of [`Es::count_endpoint`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Count {
@@ -1917,6 +2123,23 @@ mod tests {
     use std::net::TcpListener;
     use std::sync::{mpsc, Arc, Mutex};
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn a_timed_out_search_is_not_a_zero_count() {
+        let partial = serde_json::json!({
+            "timed_out": true,
+            "hits": {"total": {"value": 0, "relation": "gte"}, "hits": []}
+        });
+        let err = super::search_hit_total(&partial).unwrap_err();
+        assert!(
+            err.to_string().contains("timed out"),
+            "a partial total must not become 0: {err}"
+        );
+        let complete = serde_json::json!({"hits": {"total": {"value": 3, "relation": "eq"}}});
+        assert_eq!(super::search_hit_total(&complete).unwrap(), 3);
+        let bare = serde_json::json!({"hits": {"total": 4}});
+        assert_eq!(super::search_hit_total(&bare).unwrap(), 4);
+    }
 
     #[test]
     fn bulk_request_uses_custom_timeout_and_drops_timed_out_connection() {
@@ -1951,6 +2174,136 @@ mod tests {
         assert!(elapsed < Duration::from_secs(3), "{elapsed:?}");
         assert!(closed_rx.recv_timeout(Duration::from_secs(4)).unwrap());
         server.join().unwrap();
+    }
+
+    /// The fake page server for the `search_page` tests: answers each request
+    /// with the next body in `answers`, recording every request it saw.
+    fn page_server(answers: Vec<&'static [u8]>) -> (std::net::SocketAddr, Arc<Mutex<Vec<String>>>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let recorded = Arc::clone(&seen);
+        std::thread::spawn(move || {
+            for answer in answers {
+                let (mut stream, _) = listener.accept().unwrap();
+                let request = read_request(&mut stream);
+                recorded
+                    .lock()
+                    .unwrap()
+                    .push(String::from_utf8_lossy(&request).into_owned());
+                respond_json(&mut stream, answer);
+            }
+        });
+        (address, seen)
+    }
+
+    /// #1212: the engine legally answers a missed search deadline with HTTP
+    /// 200, partial hits and `timed_out: true`. A page walker that took that
+    /// answer at face value read one partial page as the end of the catalog
+    /// (56,441 of 58,568 documents on the xerj-search rebuild). `search_page`
+    /// must retry the SAME request until the node answers a complete page,
+    /// and must put an explicit page timeout on the wire so the engine's 30 s
+    /// default deadline is not what decides.
+    #[test]
+    fn search_page_retries_a_partial_answer_and_returns_the_complete_page() {
+        let (address, seen) = page_server(vec![
+            br#"{"timed_out":true,"hits":{"hits":[]}}"#,
+            br#"{"timed_out":true,"hits":{"hits":[]}}"#,
+            br#"{"timed_out":false,"hits":{"total":{"value":1,"relation":"eq"},"hits":[{"_id":"a","_source":{},"sort":["a"]}]}}"#,
+        ]);
+        let es = Es::new(&format!("http://{address}"), None).unwrap();
+        let page = es
+            .search_page(
+                "autoindex-catalog",
+                &serde_json::json!({"size": 1000, "sort": [{"_id": "asc"}]}),
+            )
+            .unwrap();
+        assert_eq!(
+            page.pointer("/hits/hits")
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        let seen = seen.lock().unwrap();
+        assert_eq!(
+            seen.len(),
+            3,
+            "two partial answers, one retry each: {seen:?}"
+        );
+        assert!(
+            seen.iter()
+                .all(|request| request.contains("\"timeout\":\"120s\"")),
+            "every attempt must carry the explicit page timeout: {seen:?}"
+        );
+    }
+
+    /// #1212: a node that cannot complete one page at all must end the walk
+    /// in a named error, never in a short page the caller would read as
+    /// end-of-data — after exactly the bounded attempt count.
+    #[test]
+    fn search_page_fails_loudly_when_every_attempt_answers_partial() {
+        let answers: Vec<&'static [u8]> = (0..super::PARTIAL_PAGE_ATTEMPTS)
+            .map(|_| br#"{"timed_out":true,"hits":{"hits":[]}}"# as &'static [u8])
+            .collect();
+        let (address, seen) = page_server(answers);
+        let es = Es::new(&format!("http://{address}"), None).unwrap();
+        let error = es
+            .search_page("autoindex-catalog", &serde_json::json!({"size": 1000}))
+            .unwrap_err();
+        let message = format!("{error:#}");
+        assert!(message.contains("partial"), "{message}");
+        assert!(message.contains("autoindex-catalog"), "{message}");
+        assert_eq!(seen.lock().unwrap().len(), super::PARTIAL_PAGE_ATTEMPTS);
+    }
+
+    /// #1212: a caller's own `timeout` is honoured, not overridden — the page
+    /// budget belongs to the walk that knows how slow its node is.
+    #[test]
+    fn search_page_keeps_a_caller_supplied_timeout() {
+        let (address, seen) = page_server(vec![br#"{"timed_out":false,"hits":{"hits":[]}}"#]);
+        let es = Es::new(&format!("http://{address}"), None).unwrap();
+        es.search_page(
+            "autoindex-catalog",
+            &serde_json::json!({"size": 1000, "timeout": "5s"}),
+        )
+        .unwrap();
+        let seen = seen.lock().unwrap();
+        assert!(
+            seen[0].contains("\"timeout\":\"5s\"") && !seen[0].contains("120s"),
+            "caller timeout must survive: {seen:?}"
+        );
+    }
+
+    /// #1212: the present variant keeps `search_present`'s contract — a 404
+    /// is an answer (`Ok(None)`), and it is not retried as if it were a
+    /// partial page.
+    #[test]
+    fn search_page_present_treats_a_missing_index_as_an_answer() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let recorded = Arc::clone(&seen);
+        std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let request = read_request(&mut stream);
+            recorded
+                .lock()
+                .unwrap()
+                .push(String::from_utf8_lossy(&request).into_owned());
+            respond_status(
+                &mut stream,
+                "404 Not Found",
+                br#"{"error":"index_missing"}"#,
+            );
+        });
+        let es = Es::new(&format!("http://{address}"), None).unwrap();
+        assert!(es
+            .search_page_present("autoindex-catalog", &serde_json::json!({"size": 1000}))
+            .unwrap()
+            .is_none());
+        assert_eq!(seen.lock().unwrap().len(), 1);
     }
 
     fn read_request(stream: &mut std::net::TcpStream) -> Vec<u8> {
@@ -2246,6 +2599,84 @@ mod tests {
         server.join().unwrap();
     }
 
+    /// #1183: a retrying request must say so, or its bounded envelope reads
+    /// as a deadlock. The gate is the logic — first failure announces,
+    /// the next line waits for NOTICE_EVERY, a silent client never announces
+    /// — so it is pinned directly on the returned flag; the print itself is
+    /// a one-liner the flag stands for.
+    #[test]
+    fn failure_notices_announce_immediately_then_hold_the_cadence() {
+        let mk = |announce| {
+            Es::with_bulk_policy(
+                "http://127.0.0.1:1",
+                None,
+                Duration::from_millis(100),
+                Duration::from_millis(10),
+                Duration::from_millis(20),
+            )
+            .unwrap()
+            .with_bulk_concurrency(1, announce)
+        };
+        let error = anyhow::Error::msg("connection closed before message completed");
+        // a quiet client (probe, --quiet) never announces and never marks
+        let quiet = mk(false);
+        let mut last = None;
+        assert!(!quiet.failure_notice(&mut last, "search", &error, 1, 6, Duration::from_secs(0)));
+        assert!(last.is_none(), "a refused notice must not mark the clock");
+        // a loading run announces the first failure at once…
+        let loud = mk(true);
+        assert!(loud.failure_notice(&mut last, "search", &error, 1, 6, Duration::from_secs(310)));
+        let first = last.expect("an announced notice marks the clock");
+        // …and holds the cadence for the immediate next one
+        assert!(!loud.failure_notice(&mut last, "search", &error, 2, 6, Duration::from_secs(620)));
+        assert_eq!(
+            last,
+            Some(first),
+            "a held notice must not re-mark the clock"
+        );
+    }
+
+    /// The wire-level shape of the same contract: a connection dropped before
+    /// a response is a transport failure, the retry loop announces (loading
+    /// client) and re-offers, and the second attempt succeeds — the run is
+    /// bounded AND visibly so, never a silent stall.
+    #[test]
+    fn a_dropped_connection_is_retried_after_announcing() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let requests_server = requests.clone();
+        let server = std::thread::spawn(move || {
+            // first connection: read the request, answer nothing, close
+            let (mut first, _) = listener.accept().unwrap();
+            requests_server
+                .lock()
+                .unwrap()
+                .push(read_request(&mut first));
+            drop(first);
+            // second connection: the retried request, answered
+            let (mut second, _) = listener.accept().unwrap();
+            requests_server
+                .lock()
+                .unwrap()
+                .push(read_request(&mut second));
+            respond_json(&mut second, br#"{"deleted":0,"failures":[]}"#.as_slice());
+        });
+        let es = Es::with_bulk_policy(
+            &format!("http://{address}"),
+            None,
+            Duration::from_millis(100),
+            Duration::from_millis(10),
+            Duration::from_millis(20),
+        )
+        .unwrap()
+        .with_bulk_concurrency(1, true);
+        es.delete_by_query("data", &serde_json::json!({"term": {"ax_file": "key"}}))
+            .unwrap();
+        server.join().unwrap();
+        assert_eq!(requests.lock().unwrap().len(), 2, "one drop, one retry");
+    }
+
     #[test]
     fn all_timeout_retry_path_is_bounded_to_six_attempts_without_final_sleep() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -2350,6 +2781,57 @@ mod tests {
             let text = String::from_utf8_lossy(request);
             assert!(text.contains("POST /data/_delete_by_query"), "{text}");
         }
+    }
+
+    /// #1173: the cleanup before a file-level replacement targets the index
+    /// the journal names. When a namespace swap already retired it the node
+    /// answers 404, and the client turned that converged state ("the stale
+    /// documents are already absent — a missing index cannot hold any") into
+    /// a fatal abort. 404 must be the answer "deleted nothing", the same rule
+    /// as `count_endpoint`'s, and it must be answered on the FIRST request —
+    /// convergent is not a thing to retry.
+    #[test]
+    fn delete_by_query_on_a_missing_index_is_already_clean_not_an_abort() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let requests_server = requests.clone();
+        let server = std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            requests_server
+                .lock()
+                .unwrap()
+                .push(read_request(&mut stream));
+            respond_status(
+                &mut stream,
+                "404 Not Found",
+                br#"{"error":{"type":"index_not_found_exception","status":404},"status":404}"#,
+            );
+        });
+        let es = Es::with_bulk_policy(
+            &format!("http://{address}"),
+            None,
+            Duration::from_millis(100),
+            Duration::from_millis(10),
+            Duration::from_millis(20),
+        )
+        .unwrap();
+        es.delete_by_query(
+            "retired-generation",
+            &serde_json::json!({"term": {"ax_file": "key"}}),
+        )
+        .expect("a missing index is already clean, not a failed cleanup");
+        server.join().unwrap();
+        let requests = requests.lock().unwrap();
+        assert_eq!(
+            requests.len(),
+            1,
+            "a 404 is answered, not retried: {:#?}",
+            requests
+                .iter()
+                .map(|r| String::from_utf8_lossy(r).to_string())
+                .collect::<Vec<_>>()
+        );
     }
 
     /// #345: the reporter's whole issue was `delete_by_query: HTTP 500
@@ -3572,5 +4054,87 @@ mod mapping_refusal_tests {
             let rendered = mapping_error("/ax/_mapping".into(), status, "body".into()).to_string();
             assert_eq!(rendered, format!("PUT /ax/_mapping failed: {status} body"));
         }
+    }
+
+    #[test]
+    fn sustained_429_episode_halves_once_and_congestion_avoidance_slows_climb_near_ceiling() {
+        let admission = super::BulkAdmission::new(32, false);
+        admission.on_congestion();
+        assert_eq!(admission.limit(), 16);
+        assert_eq!(admission.congestion_events(), 1);
+
+        // Simulate a 3 s parent-breaker trip where no bulk succeeds: backdate
+        // `last_shrink` past `SHRINK_COOLDOWN` (1 s) but within
+        // `EPISODE_MAX_COOLDOWN` (15 s). Repeated 429s must NOT cascade 16 → 8 → 4 → 2 → 1.
+        admission.inner.lock().unwrap().last_shrink =
+            Some(std::time::Instant::now() - std::time::Duration::from_secs(3));
+        admission.on_congestion();
+        assert_eq!(
+            admission.limit(),
+            16,
+            "sustained 429s within one breaker episode must not cascade-halve past the first cut"
+        );
+        assert_eq!(admission.congestion_events(), 1);
+
+        // Below ssthresh (24), each +1 step takes RECOVER_AFTER (8) clean bulks.
+        for expected in 17..=24 {
+            for _ in 0..super::RECOVER_AFTER {
+                admission.on_success();
+            }
+            assert_eq!(admission.limit(), expected);
+        }
+
+        // At ssthresh (24), congestion avoidance kicks in: climbing 24 → 25
+        // requires RECOVER_AFTER * 24 clean bulks, not just 8.
+        for _ in 0..super::RECOVER_AFTER {
+            admission.on_success();
+        }
+        assert_eq!(
+            admission.limit(),
+            24,
+            "at or above ssthresh, 8 clean bulks must not immediately raise concurrency"
+        );
+        for _ in 0..(super::RECOVER_AFTER * 23) {
+            admission.on_success();
+        }
+        assert_eq!(admission.limit(), 25);
+    }
+
+    /// #1250 data: the parent breaker's drain cycle measured ~12 s on the
+    /// reporter's box (`memory breaker engaged ... every ~12 seconds`), and
+    /// the 1 s cooldown let one such cycle collapse the window 32 → 1. The
+    /// episode cooldown must therefore outlast one cycle (15 s), still let a
+    /// genuinely longer stall keep shrinking, and reset on the first clean
+    /// bulk so the NEXT trip is answered immediately.
+    #[test]
+    fn episode_cooldown_outlasts_one_breaker_cycle_and_resets_on_success() {
+        use std::time::{Duration, Instant};
+        let admission = super::BulkAdmission::new(32, false);
+        admission.on_congestion();
+        assert_eq!(admission.limit(), 16);
+
+        // 12 s into the same trip, nothing has succeeded: still one halving.
+        admission.inner.lock().unwrap().last_shrink =
+            Some(Instant::now() - Duration::from_secs(12));
+        admission.on_congestion();
+        assert_eq!(admission.limit(), 16, "one ~12 s breaker cycle = one cut");
+        assert_eq!(super::EPISODE_MAX_COOLDOWN, Duration::from_secs(15));
+
+        // A stall that outlives the episode window keeps converging.
+        admission.inner.lock().unwrap().last_shrink =
+            Some(Instant::now() - Duration::from_secs(16));
+        admission.on_congestion();
+        assert_eq!(admission.limit(), 8);
+        assert_eq!(admission.congestion_events(), 2);
+        // ssthresh is 3/4 of the limit that tripped (16), above the new 8.
+        assert_eq!(admission.inner.lock().unwrap().ssthresh, 12);
+
+        // One clean bulk ends the episode; a new 429 past the 1 s
+        // de-duplication window is a NEW trip and halves at once.
+        admission.on_success();
+        admission.inner.lock().unwrap().last_shrink = Some(Instant::now() - Duration::from_secs(2));
+        admission.on_congestion();
+        assert_eq!(admission.limit(), 4);
+        assert_eq!(admission.congestion_events(), 3);
     }
 }

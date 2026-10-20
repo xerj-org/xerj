@@ -1,0 +1,22 @@
+{
+ "corpus": "material-extensions--material-icons-browser-extension",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on browser-extension, material-icons queries this for how material-extensions/material-icons-browser-extension implements it: Material Design icons for web browsers (selected work: src/lib, src/styles, src)",
+ "repos": [
+  {
+   "repo": "material-icons-browser-extension",
+   "url": "https://github.com/material-extensions/material-icons-browser-extension",
+   "sha": "b64b7926ff2fef9e1ffdbf56b9f797c15fd8e2b5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit b64b7926ff2f: \"feat: refactor styles and improve content script management for Forge\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

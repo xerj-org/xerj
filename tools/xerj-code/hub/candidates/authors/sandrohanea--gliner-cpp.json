@@ -1,0 +1,22 @@
+{
+ "corpus": "sandrohanea--gliner-cpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how sandrohanea/gliner.cpp implements it: gliner.cpp is a dependency-light C++ implementation of GLiNER 2.5 using GGML and GGUF. It adds a DeBERTa-v2-style encoder implementation to  (selected work: tests, src, convert)",
+ "repos": [
+  {
+   "repo": "gliner.cpp",
+   "url": "https://github.com/sandrohanea/gliner.cpp",
+   "sha": "7177ceb92c060e0efaf627bac2ecb2c3a5bdfe32",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 7177ceb92c06: \"Wired boundary RecordHead\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

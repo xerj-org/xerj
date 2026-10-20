@@ -1,0 +1,22 @@
+{
+ "corpus": "danialfarid--termdeck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how danialfarid/termdeck implements it: Local-first workspace for running, organizing, and monitoring Codex, Claude Code, Aider, AGY, OpenCode, and shell sessions (selected work: termdeck, tests)",
+ "repos": [
+  {
+   "repo": "termdeck",
+   "url": "https://github.com/danialfarid/termdeck",
+   "sha": "67b83e83daca343b7e8f6b3950ca41adf0a6403b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 67b83e83daca: \"Patch: mobile sidebar/transcript, remote relay, codex paging, transcr\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

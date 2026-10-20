@@ -1,0 +1,22 @@
+{
+ "corpus": "wjie98--rosa-soft",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Cuda queries this for how wjie98/rosa_soft implements it: Softened ROSA QKV Operators for Training Next-Generation LLM Models (selected work: tests, rosa_soft)",
+ "repos": [
+  {
+   "repo": "rosa_soft",
+   "url": "https://github.com/wjie98/rosa_soft",
+   "sha": "efa60f0888ae1b167aa10e2710e005e3a942361b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit efa60f0888ae: \"Add configurable head chunks to bitflip backward\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

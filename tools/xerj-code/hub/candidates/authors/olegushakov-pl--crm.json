@@ -1,0 +1,22 @@
+{
+ "corpus": "olegushakov-pl--crm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on crm, self-hosted, storage queries this for how OlegUshakov-pl/CRM implements it: Self-hosted CRM for manufacturing (selected work: core, tests, assistant)",
+ "repos": [
+  {
+   "repo": "CRM",
+   "url": "https://github.com/OlegUshakov-pl/CRM",
+   "sha": "037df4eca603552235991c3cc7b3b404c2c62b55",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 037df4eca603: \"Fix authenticated SSRF and file:// read in URL import; guard URL fetches\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "masihmoafi--rag-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Jupyter Notebook queries this for how MasihMoafi/rag-mcp implements it: Local hybrid-search (BM25 + vector + reranking) MCP server \u2014 ask questions of any local codebase or document folder, fully offline (selected work: tests, rag)",
+ "repos": [
+  {
+   "repo": "rag-mcp",
+   "url": "https://github.com/MasihMoafi/rag-mcp",
+   "sha": "16250786dd0e79c4bdcdb05d019f3eb150a44a18",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 16250786dd0e: \"Expand answer evidence with verified neighbouring chunks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

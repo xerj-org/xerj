@@ -748,7 +748,7 @@ fn extract_parallel<R: BufRead + Send>(
     std::thread::scope(|scope| {
         let splitter_tx = done_tx.clone();
         let (stop_ref, budget_ref) = (&stop, &budget);
-        scope.spawn(move || {
+        let splitter = move || {
             let mut split = Splitter::new(reader);
             let mut seq = 0u64;
             loop {
@@ -774,33 +774,74 @@ fn extract_parallel<R: BufRead + Send>(
             }
             let _ = splitter_tx.send(Done::End { total: seq });
             // `job_tx` drops here: the parsers drain what is queued and exit.
-        });
+        };
+        // #1122: `Scope::spawn` panics when a thread cannot be created, and
+        // release builds are panic=abort. Spawn through the fallible builder:
+        // fewer parsers than asked for only costs speed; none at all — or no
+        // splitter — fails this mailbox through the ordinary error path below
+        // instead of aborting the run.
+        let mut parsers = 0usize;
+        let mut spawn_error: Option<std::io::Error> = None;
         for _ in 0..workers {
             let job_rx = Arc::clone(&job_rx);
             let done_tx = done_tx.clone();
-            scope.spawn(move || loop {
-                // Hold the lock only while waiting for a job, never while
-                // parsing one: the other parsers must be able to take theirs.
-                let job = match job_rx.lock() {
-                    Ok(rx) => rx.recv(),
-                    Err(_) => return,
-                };
-                let Ok(Job { seq, msg }) = job else { return };
-                let _slot = gate().acquire();
-                let bytes = msg.bytes.len();
-                let (records, stats) = extract_one(&msg);
-                drop(msg);
-                if done_tx
-                    .send(Done::Message {
-                        seq,
-                        bytes,
-                        records,
-                        stats,
-                    })
-                    .is_err()
-                {
-                    return;
+            let spawned = std::thread::Builder::new()
+                .name("xerj-mbox-parse".into())
+                .spawn_scoped(scope, move || loop {
+                    // Hold the lock only while waiting for a job, never while
+                    // parsing one: the other parsers must be able to take theirs.
+                    let job = match job_rx.lock() {
+                        Ok(rx) => rx.recv(),
+                        Err(_) => return,
+                    };
+                    let Ok(Job { seq, msg }) = job else { return };
+                    let _slot = gate().acquire();
+                    let bytes = msg.bytes.len();
+                    let (records, stats) = extract_one(&msg);
+                    drop(msg);
+                    if done_tx
+                        .send(Done::Message {
+                            seq,
+                            bytes,
+                            records,
+                            stats,
+                        })
+                        .is_err()
+                    {
+                        return;
+                    }
+                });
+            match spawned {
+                Ok(_) => parsers += 1,
+                Err(error) => {
+                    spawn_error = Some(error);
+                    break;
                 }
+            }
+        }
+        let splitter_spawn = if parsers == 0 {
+            // Nobody would drain the job queue; dropping the splitter (and
+            // with it `job_tx` and the reader) is the clean way out.
+            drop(splitter);
+            Err(spawn_error.unwrap_or_else(|| {
+                std::io::Error::other("no mailbox parser threads were requested")
+            }))
+        } else {
+            std::thread::Builder::new()
+                .name("xerj-mbox-split".into())
+                .spawn_scoped(scope, splitter)
+                .map(drop)
+        };
+        if let Err(error) = splitter_spawn {
+            // The failed closure dropped `job_tx`, so any parsers that did
+            // start see a closed queue and exit; the consumer below reads
+            // this as an error at seq 0 and stops.
+            let _ = done_tx.send(Done::Error {
+                seq: 0,
+                error: std::io::Error::new(
+                    error.kind(),
+                    format!("could not start the mailbox reader threads: {error}"),
+                ),
             });
         }
         drop(done_tx);

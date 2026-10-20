@@ -1,0 +1,22 @@
+{
+ "corpus": "naufaldi--teacher-exam",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on anthropic, better-auth, cerebral-valley queries this for how naufaldi/teacher-exam implements it: AI-generated, print-ready exam sheets for Indonesian elementary teachers \u2014 Built with Claude Opus 4.7. React 19 + Hono + Effect-TS (selected work: apps/api)",
+ "repos": [
+  {
+   "repo": "teacher-exam",
+   "url": "https://github.com/naufaldi/teacher-exam",
+   "sha": "c32c7cc7badfaf95403595b98c066a1ee24403e6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit c32c7cc7badf: \"fix(api): key AI caps and student lockouts per person\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

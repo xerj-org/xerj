@@ -1,0 +1,22 @@
+{
+ "corpus": "jinukmoon--oh-my-mlip",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ase, catalysis, claude-code queries this for how JinukMoon/oh-my-mlip implements it: Take the pain out of installing and running machine-learning interatomic potentials: every major MLIP in one registry, set up, verified and  (selected work: scripts, tests)",
+ "repos": [
+  {
+   "repo": "oh-my-mlip",
+   "url": "https://github.com/JinukMoon/oh-my-mlip",
+   "sha": "039ad391905556047f5e9ab4e7d894d68c4c2005",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 039ad3919055: \"distill: judge elapsed on the boot clock; bind .al_status by snapshot\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

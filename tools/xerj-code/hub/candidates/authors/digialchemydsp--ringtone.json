@@ -1,0 +1,22 @@
+{
+ "corpus": "digialchemydsp--ringtone",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how DigiAlchemydsp/RingTone implements it: Master Ringmod / Wavefolding / EQ for the Digitone mk1 (selected work: mods)",
+ "repos": [
+  {
+   "repo": "RingTone",
+   "url": "https://github.com/DigiAlchemydsp/RingTone",
+   "sha": "754266dd548ce2198d1740499b75a844adf3efbb",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 754266dd548c: \"Tone+FX 3.0b: bundle the TONE+FX boot splash into the single-elemod s\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

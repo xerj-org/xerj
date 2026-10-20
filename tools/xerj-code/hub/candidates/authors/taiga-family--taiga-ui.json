@@ -1,0 +1,22 @@
+{
+ "corpus": "taiga-family--taiga-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on angular, components, component-library queries this for how taiga-family/taiga-ui implements it: Angular components library for awesome people (selected work: projects)",
+ "repos": [
+  {
+   "repo": "taiga-ui",
+   "url": "https://github.com/taiga-family/taiga-ui",
+   "sha": "d983495255ce277232351b8561ca5a1f7464f846",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit d983495255ce: \"refactor(core): `Hint` decompose positioning (#14967)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

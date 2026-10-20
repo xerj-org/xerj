@@ -1,0 +1,22 @@
+{
+ "corpus": "lutfi238--antigravity-for-copilot-vscode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on HTML queries this for how lutfi238/antigravity-for-copilot-vscode implements it: Unofficial VS Code Language Model Provider: use Gemini, Claude and GPT-OSS from your Google Antigravity account inside native Copilot Chat (selected work: test, src/ui, src/api)",
+ "repos": [
+  {
+   "repo": "antigravity-for-copilot-vscode",
+   "url": "https://github.com/lutfi238/antigravity-for-copilot-vscode",
+   "sha": "429a7894dc07115e0d969e1940241d754e182bd8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 429a7894dc07: \"Show account plan and AI credits in quota status bar (v0.15.14)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "fent--randexp-js",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on node, regular-expression, testing queries this for how fent/randexp.js implements it: Create random strings that match a given regular expression (selected work: test, lib, src)",
+ "repos": [
+  {
+   "repo": "randexp.js",
+   "url": "https://github.com/fent/randexp.js",
+   "sha": "c45c6b8ca7a472159ce07ae74bbc410e6e8ed407",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit c45c6b8ca7a4: \"refactor: convert to typescript\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

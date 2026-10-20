@@ -1,0 +1,22 @@
+{
+ "corpus": "glebo309--chemdraw-mcp-macos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how glebo309/chemdraw-mcp-macos implements it: Native ChemDraw automation for macOS: MCP and CLI for editable molecules and reactions (selected work: chemdraw_macos, tests)",
+ "repos": [
+  {
+   "repo": "chemdraw-mcp-macos",
+   "url": "https://github.com/glebo309/chemdraw-mcp-macos",
+   "sha": "8cc37552ab4ecb018cb4b41dff0e0505ae7c73f8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 8cc37552ab4e: \"Draw reactions into the open document with one append and an offline \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

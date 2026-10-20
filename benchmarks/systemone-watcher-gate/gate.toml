@@ -1,0 +1,11 @@
+# Private config for the #1108 watcher-gate measurement. Calibration is turned
+# ON so that any fitted p_cal rides onto fire records; the watch still fires on
+# the RAW confidence (p_min is a raw threshold by design).
+[decisions]
+index          = "email-history"
+k              = 10
+label_field    = "label"
+text_field     = "text"
+positive_label = "needs-reply"
+min_confidence = 0.0
+calibration    = "isotonic"

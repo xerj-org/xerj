@@ -1,0 +1,22 @@
+{
+ "corpus": "pavlenkosa--wayvoice",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, dictation, faster-whisper queries this for how pavlenkosa/wayvoice implements it: Offline voice typing for Linux/Wayland. Press a hotkey, speak, and text appears in the active application. Local Whisper \u2022 GTK/libadwaita \u2022  (selected work: tests, app/src)",
+ "repos": [
+  {
+   "repo": "wayvoice",
+   "url": "https://github.com/pavlenkosa/wayvoice",
+   "sha": "876d42d9e84a2292c5a9363e0698b4b0388cd7d2",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 876d42d9e84a: \"fix(asr): retain worker ownership across transport failures\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

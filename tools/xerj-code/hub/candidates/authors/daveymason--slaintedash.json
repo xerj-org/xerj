@@ -1,0 +1,22 @@
+{
+ "corpus": "daveymason--slaintedash",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on Python queries this for how daveymason/SlainteDash implements it: A simplified app to showcase HTMX & FHIR integration (selected work: the project root, templates, static)",
+ "repos": [
+  {
+   "repo": "SlainteDash",
+   "url": "https://github.com/daveymason/SlainteDash",
+   "sha": "fc5b6d70c776195b6477fd96728aa6ec260560d5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit fc5b6d70c776: \"feat: Phase 5 - SlainteDash clinical intake, MTS triage queue, and se\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

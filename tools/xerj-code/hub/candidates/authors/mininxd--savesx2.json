@@ -1,0 +1,22 @@
+{
+ "corpus": "mininxd--savesx2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on aethersx2, armsx2, nethersx2 queries this for how mininxd/SAVESX2 implements it: PS2 Memory Card Manager for Android (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "SAVESX2",
+   "url": "https://github.com/mininxd/SAVESX2",
+   "sha": "2a1be94d78d2165001762b3dc89d59e266802967",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 2a1be94d78d2: \"Add offline PS2 game serial database and canonical title lookup\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

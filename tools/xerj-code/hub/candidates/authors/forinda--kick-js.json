@@ -1,0 +1,22 @@
+{
+ "corpus": "forinda--kick-js",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api, expressjs, kickjs queries this for how forinda/kick-js implements it: Modern type-safe backend framework, powered by Vite. Built for developer experience. Pluggable as you need (selected work: packages/ai)",
+ "repos": [
+  {
+   "repo": "kick-js",
+   "url": "https://github.com/forinda/kick-js",
+   "sha": "80623abc9d0d8543b81b03064e2cb5a2c5383964",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 80623abc9d0d: \"feat(ai): scoped adapters register under their own tokens and resolve\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

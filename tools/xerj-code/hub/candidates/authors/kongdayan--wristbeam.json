@@ -1,0 +1,22 @@
+{
+ "corpus": "kongdayan--wristbeam",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on Swift queries this for how kongdayan/wristbeam implements it: Your wrist, in view. Native macOS health companion with menu bar, floating panel and daily charts. Currently compatible with Garmin (selected work: scripts, Tests, Sources)",
+ "repos": [
+  {
+   "repo": "wristbeam",
+   "url": "https://github.com/kongdayan/wristbeam",
+   "sha": "712f577ac55b476ff91e0b44565934ac0d4cad4d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 712f577ac55b: \"Add opt-in keyless MCP access and measure CI performance (#12)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

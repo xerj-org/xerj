@@ -1,0 +1,22 @@
+{
+ "corpus": "adrijshikhar--aim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how adrijshikhar/aim implements it: Lightweight CLI and TUI for running multiple AI coding assistants under fully isolated profiles (selected work: web, internal/service, internal/web)",
+ "repos": [
+  {
+   "repo": "aim",
+   "url": "https://github.com/adrijshikhar/aim",
+   "sha": "965bb9352d1ccde79ab02102fbab452208252174",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 965bb9352d1c: \"feat(web): add faceted CWD directory filter to sessions dashboard (#90)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

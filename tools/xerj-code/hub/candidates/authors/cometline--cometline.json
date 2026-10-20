@@ -1,0 +1,22 @@
+{
+ "corpus": "cometline--cometline",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-companion, chatbot queries this for how Cometline/cometline implements it: AI companion for your workspace, with per\u2011project memory, coding agents, and a native desktop chat UI (selected work: cometmind)",
+ "repos": [
+  {
+   "repo": "cometline",
+   "url": "https://github.com/Cometline/cometline",
+   "sha": "a446a708be2f2d1e7b0710fdbb7928c17633d61c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit a446a708be2f: \"feat(agent): review skills and wiki together\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

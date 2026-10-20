@@ -1,0 +1,22 @@
+{
+ "corpus": "kdbsoft--dockercart",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on PHP queries this for how kdbsoft/dockercart implements it: A free shopping cart system. DockerCart is an open source PHP-based online e-commerce platform (selected work: upload, docker, the project root)",
+ "repos": [
+  {
+   "repo": "dockercart",
+   "url": "https://github.com/kdbsoft/dockercart",
+   "sha": "3e31e37fb8e45ea0351c9cb8d23194c2326e9c30",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 3e31e37fb8e4: \"feat(setting): add admin indexing page to manage robots.txt\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

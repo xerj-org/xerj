@@ -1,0 +1,22 @@
+{
+ "corpus": "rsgarrido--sazanami",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, android-auto, equalizer queries this for how rsgarrido/sazanami implements it: Offline, privacy-first Android music player for your own local music library (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "sazanami",
+   "url": "https://github.com/rsgarrido/sazanami",
+   "sha": "62db89336357a783ee57319ec6178baa7b55cff2",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 62db89336357: \"fix: stabilize adaptive tablet layout and regression coverage\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

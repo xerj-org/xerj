@@ -1,0 +1,22 @@
+{
+ "corpus": "cncsnet1--jadx-gui-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Java queries this for how cncsnet1/jadx-gui-ai implements it: jadx-gui\u53cd\u7f16\u8bd1\u5de5\u5177\u4e8c\u6b21\u5f00\u53d1\uff0c\u63a5\u5165AI\u8d4b\u80fd\u3002 (selected work: jadx-gui, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "jadx-gui-ai",
+   "url": "https://github.com/cncsnet1/jadx-gui-ai",
+   "sha": "8f210493876f65317277ca7b6cf81c788ff361ef",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8f210493876f: \"feat: release AI reverse engineering workbench v2.0.0-beta.1\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "flytohub--flyto-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, workflow-automation, flyto2 queries this for how flytohub/flyto-ai implements it: Plans new work as Flyto2 workflows, then reuses exact solved procedures without another planning call (selected work: tests, flyto_ai)",
+ "repos": [
+  {
+   "repo": "flyto-ai",
+   "url": "https://github.com/flytohub/flyto-ai",
+   "sha": "75496e4daef843dd591744ea6f7fc4a1d150e4eb",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 75496e4daef8: \"fix: bound CLI intent format recovery without expanding tool authority\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

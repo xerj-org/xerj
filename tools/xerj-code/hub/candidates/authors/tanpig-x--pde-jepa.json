@@ -1,0 +1,22 @@
+{
+ "corpus": "tanpig-x--pde-jepa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Tanpig-X/PDE-JEPA implements it: Official implementation for: \"PDE-JEPA: Predictive Representation Learning of Latent Dynamics modeling for Parametric PDEs\" (selected work: pde_jepa, configs, scripts)",
+ "repos": [
+  {
+   "repo": "PDE-JEPA",
+   "url": "https://github.com/Tanpig-X/PDE-JEPA",
+   "sha": "b9d2565f539bebce70176e657beb05daca0db507",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit b9d2565f539b: \"Add PDE-JEPA training code and configurations\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

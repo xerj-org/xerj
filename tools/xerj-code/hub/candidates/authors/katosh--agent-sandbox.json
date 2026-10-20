@@ -1,0 +1,22 @@
+{
+ "corpus": "katosh--agent-sandbox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, bubblewrap, firejail queries this for how katosh/agent_sandbox implements it: Sandbox AI agents on HPC systems with slurm (selected work: chaperon, the project root)",
+ "repos": [
+  {
+   "repo": "agent_sandbox",
+   "url": "https://github.com/katosh/agent_sandbox",
+   "sha": "65a42fa559a5b911a4b1ce7df2d272302cee8ccc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 65a42fa559a5: \"chaperon: refuse %x and unsafe job names in Slurm output paths\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

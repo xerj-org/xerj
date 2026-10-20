@@ -1,0 +1,22 @@
+{
+ "corpus": "amersarhan--darce-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, ai-coding-agent, claude queries this for how AmerSarhan/darce-cli implements it: Open-source AI coding agent for your terminal that you can undo, even its shell commands. 250+ models, /taste for AI-slop UI, model racing a (selected work: src/brain, src/ui, src/auth)",
+ "repos": [
+  {
+   "repo": "darce-cli",
+   "url": "https://github.com/AmerSarhan/darce-cli",
+   "sha": "55ffb203e68040c988a56d3da075319a9be355e8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 55ffb203e680: \"0.13.0: brain view (/brain) and early-beta codes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "yag00--sandvik",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, java, jvm queries this for how yag00/sandvik implements it: ** Mirror ** Main repo on GitLab! ** The Sandvik project is a minimal Dalvik JVM written in C++. It is a work in progress, aiming to become  (selected work: src/loader, android, src)",
+ "repos": [
+  {
+   "repo": "sandvik",
+   "url": "https://github.com/yag00/sandvik",
+   "sha": "8caa182b22d98a42d5bf5df6fceed27cafb5b9da",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 8caa182b22d9: \"dex: parse DEX annotations and wire reflection presence/value natives\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

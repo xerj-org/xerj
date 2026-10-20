@@ -1,0 +1,22 @@
+{
+ "corpus": "danirv--runxin-local",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on broadlink, custom-component, hacs queries this for how Danirv/runxin-local implements it: Local Home Assistant integration for Runxin water softeners, including Ypsilon G6 and Euro-Clear Midnight, with read-only compatibility diag (selected work: tests, custom_components, scripts)",
+ "repos": [
+  {
+   "repo": "runxin-local",
+   "url": "https://github.com/Danirv/runxin-local",
+   "sha": "fce313ce146426d590385e28a48c1c4615a46861",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit fce313ce1464: \"Migrate to async python-broadlink for HA 2026.10 (2.10.0) (#34)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

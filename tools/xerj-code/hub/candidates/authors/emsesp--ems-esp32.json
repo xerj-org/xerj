@@ -1,0 +1,22 @@
+{
+ "corpus": "emsesp--ems-esp32",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on mqtt, esp32, thermostat queries this for how emsesp/EMS-ESP32 implements it: ESP32 firmware to read and control EMS and Heatronic compatible equipment such as boilers, thermostats, solar modules, and heat pumps (selected work: interface, recovery, src/core)",
+ "repos": [
+  {
+   "repo": "EMS-ESP32",
+   "url": "https://github.com/emsesp/EMS-ESP32",
+   "sha": "956f7ab098de69edd1a2a7aaf82a5ac23abd36ab",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 956f7ab098de: \"show recovery app in Version page\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

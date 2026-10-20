@@ -1,0 +1,22 @@
+{
+ "corpus": "silicq--ordkort",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on anki-alternative, cloudflare-workers, dictionary queries this for how silicq/ordkort implements it: Free, open-source flashcards with FSRS spaced repetition for 60 languages: ready word lists, a learner's dictionary, grammar and a translato (selected work: public, tests, the project root)",
+ "repos": [
+  {
+   "repo": "ordkort",
+   "url": "https://github.com/silicq/ordkort",
+   "sha": "18e23e56e2ea7491e3381683f7b296ac7f441bce",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 18e23e56e2ea: \"Cards and progress move to IndexedDB\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

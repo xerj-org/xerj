@@ -1,0 +1,22 @@
+{
+ "corpus": "cel-expr--cel-java",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cel, expression, expression-language queries this for how cel-expr/cel-java implements it: Fast, portable, non-Turing complete expression evaluation with gradual typing (Java) (selected work: common)",
+ "repos": [
+  {
+   "repo": "cel-java",
+   "url": "https://github.com/cel-expr/cel-java",
+   "sha": "715d34bf43041f917e9500f62e6db144d48ebc50",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 715d34bf4304: \"Resolve known and unknown lite fields in ProtoLiteCelValueConverter\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

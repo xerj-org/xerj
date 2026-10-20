@@ -1,0 +1,22 @@
+{
+ "corpus": "mettifire--dropwheel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ffmpeg, file-converter, macos queries this for how MettiFire/dropwheel implements it: Drag-and-drop file converter for macOS (selected work: Sources, scripts, engine)",
+ "repos": [
+  {
+   "repo": "dropwheel",
+   "url": "https://github.com/MettiFire/dropwheel",
+   "sha": "9fba184014e3a73b5916510f24e76ec2a4082457",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 9fba184014e3: \"New menu bar icon, app icon, README\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

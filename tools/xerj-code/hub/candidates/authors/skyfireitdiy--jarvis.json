@@ -1,0 +1,22 @@
+{
+ "corpus": "skyfireitdiy--jarvis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai, automation queries this for how skyfireitdiy/Jarvis implements it: A multi-agent collaboration framework that lets AI agents work together, operate your computer, and browse the web (selected work: src/jarvis, tests, scripts)",
+ "repos": [
+  {
+   "repo": "Jarvis",
+   "url": "https://github.com/skyfireitdiy/Jarvis",
+   "sha": "9b7b9db29fd47131cbe4404987d63a1af26ce1cb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 9b7b9db29fd4: \"[Jarvis Code Agent\u63d0\u4ea4] feat(ci): \u65b0\u589e CI \u96c6\u6210\u6307\u5357\u4e0e SDK \u7f16\u6392 API\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

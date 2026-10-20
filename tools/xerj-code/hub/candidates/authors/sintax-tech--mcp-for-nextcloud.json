@@ -1,0 +1,22 @@
+{
+ "corpus": "sintax-tech--mcp-for-nextcloud",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on PHP queries this for how sintax-tech/mcp-for-nextcloud implements it: MCP for Cloud \u2014 Model Context Protocol server for your Nextcloud: connect Claude, ChatGPT and other AI clients (selected work: mcp)",
+ "repos": [
+  {
+   "repo": "mcp-for-nextcloud",
+   "url": "https://github.com/sintax-tech/mcp-for-nextcloud",
+   "sha": "331bdede7ad5fede9eb0db2dec3fc484fa42447f",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 331bdede7ad5: \"Make permission states and bulk changes explicit\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

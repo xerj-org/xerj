@@ -1,0 +1,22 @@
+{
+ "corpus": "osamamu64--vecshift",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Osamamu64/vecshift implements it: Osamamu64/vecshift (Python) (selected work: src/vecshift, tests)",
+ "repos": [
+  {
+   "repo": "vecshift",
+   "url": "https://github.com/Osamamu64/vecshift",
+   "sha": "4aaca3567feaec807aa4f785e6087a7662957c4e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 4aaca3567fea: \"Move apply, cutover, rollback, and cleanup into the service layer\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

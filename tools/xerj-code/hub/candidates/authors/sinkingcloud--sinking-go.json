@@ -1,0 +1,22 @@
+{
+ "corpus": "sinkingcloud--sinking-go",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Go queries this for how SinKingCloud/sinking-go implements it: sinking-web framework (selected work: sinking-consul, sinking-demo)",
+ "repos": [
+  {
+   "repo": "sinking-go",
+   "url": "https://github.com/SinKingCloud/sinking-go",
+   "sha": "7dff6e811b59b26e8683b31a64f89c3c7dbac179",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 7dff6e811b59: \"\u4fee\u6b63\u82e5\u5e72\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

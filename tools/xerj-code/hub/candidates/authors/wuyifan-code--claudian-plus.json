@@ -1,0 +1,22 @@
+{
+ "corpus": "wuyifan-code--claudian-plus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how wuyifan-code/Claudian-plus implements it: wuyifan-code/Claudian-plus (TypeScript) (selected work: src/providers, tests, src/core)",
+ "repos": [
+  {
+   "repo": "Claudian-plus",
+   "url": "https://github.com/wuyifan-code/Claudian-plus",
+   "sha": "6cbac2b799f6f7c3780b4a52d11bc5098bfc6089",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 6cbac2b799f6: \"feat(providers): add DeepSeek Harness (dsh) provider\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

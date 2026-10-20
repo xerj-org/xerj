@@ -1,0 +1,22 @@
+{
+ "corpus": "sidhuk--glyph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-assistant, ai-tools queries this for how SidhuK/Glyph implements it: \ud83d\udcdd Glyph is a private desktop workspace for notes, documents, and ideas, with Markdown editing and built-in AI tools (selected work: src/components, src-tauri, src/styles)",
+ "repos": [
+  {
+   "repo": "Glyph",
+   "url": "https://github.com/SidhuK/Glyph",
+   "sha": "140dbbbe48a58edcd11aa92f4e705854804ec3a5",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 140dbbbe48a5: \"Add a Tasks tab that lists open checklist items across the space (#64\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

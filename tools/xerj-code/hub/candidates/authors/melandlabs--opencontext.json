@@ -1,0 +1,22 @@
+{
+ "corpus": "melandlabs--opencontext",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agent, context queries this for how melandlabs/opencontext implements it: A temporal context graph, a memory API, retrieval primitives, and a multiple-platform integration mesh \u2014 designed to be embedded into any ho (selected work: benchmark, packages/memory-store, packages/sqlite)",
+ "repos": [
+  {
+   "repo": "opencontext",
+   "url": "https://github.com/melandlabs/opencontext",
+   "sha": "41096e718b9aefb8fc24b0c7907b29ceb7ecae6c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 41096e718b9a: \"feat: preserve message order and harden AML BEAM evaluation (#58)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

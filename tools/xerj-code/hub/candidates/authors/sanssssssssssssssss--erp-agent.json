@@ -1,0 +1,22 @@
+{
+ "corpus": "sanssssssssssssssss--erp-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-harness, ai-agent, electron queries this for how Sanssssssssssssssss/ERP-agent implements it: A Windows workbench and native Python Pi harness for Odoo 19: approved business actions, state readback, traceable runs, and ERP-Bench evalu (selected work: experiments, tests, src/erp_harness)",
+ "repos": [
+  {
+   "repo": "ERP-agent",
+   "url": "https://github.com/Sanssssssssssssssss/ERP-agent",
+   "sha": "2af89dc55ab42ba646dfe419a51515958d862264",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 2af89dc55ab4: \"fix: retain approved and uncertain action failure context\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "latte03--dsh-select-quote",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on deepseek-harness, deepseek-harness-plugin, dsh-plugin queries this for how latte03/dsh-select-quote implements it: \u5728\u5bf9\u8bdd\u91cc\u5212\u8bcd\u52a0\u6279\u6ce8\u2014\u2014\u628a\u9009\u4e2d\u7684\u539f\u6587\u8fde\u540c\u4f60\u7684\u8bc4\u8bba\u4e00\u8d77\u4ea4\u7ed9\u6a21\u578b\uff0c\u5e76\u8ba9\u5b83\u5728\u56de\u7b54\u91cc\u660e\u786e\u6307\u51fa\u8bf4\u7684\u662f\u54ea\u4e00\u6bb5\u3002 (selected work: lib, src/client, scripts)",
+ "repos": [
+  {
+   "repo": "dsh-select-quote",
+   "url": "https://github.com/latte03/dsh-select-quote",
+   "sha": "f093f026a84610a817e8dd9c324aeecf180840fb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit f093f026a846: \"feat: \u5212\u4e2d\u7684\u662f\u94fe\u63a5\u65f6\uff0c\u5de5\u5177\u6761\u7ed9\u51fa\u300c\u6253\u5f00\u94fe\u63a5\u300d\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

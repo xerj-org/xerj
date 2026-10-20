@@ -1,0 +1,22 @@
+{
+ "corpus": "arnodoelinger--dreamdisplays",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on minecraft, minecraft-mod, minecraft-plugin queries this for how arnodoelinger/dreamdisplays implements it: Create in-game screens to stream your favorite videos in Minecraft (selected work: platform)",
+ "repos": [
+  {
+   "repo": "dreamdisplays",
+   "url": "https://github.com/arnodoelinger/dreamdisplays",
+   "sha": "1e527bb8d207540cc1761394fff0b911f749f0a8",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 1e527bb8d207: \"feat(server): allow network fullscreen broadcasts from the console an\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

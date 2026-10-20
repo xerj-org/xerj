@@ -1,0 +1,22 @@
+{
+ "corpus": "jkugsiya--devicegate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on anthropic, claude-code, gateway queries this for how jkugsiya/DeviceGate implements it: Self-hosted gateway for Claude Code: give each of your own machines its own key, model access, limits and usage tracking on your Claude subs (selected work: drizzle, app/admin, lib/policy)",
+ "repos": [
+  {
+   "repo": "DeviceGate",
+   "url": "https://github.com/jkugsiya/DeviceGate",
+   "sha": "1268dc021dd02bd0acbb2a4e0cc26e3f4d9a40b8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 1268dc021dd0: \"Add per-device spend limits and GitHub Pages site (#13)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

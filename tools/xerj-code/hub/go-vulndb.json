@@ -6,7 +6,7 @@
    "repo": "corpus-go-vulndb-osv",
    "url": "https://github.com/golang/vulndb",
    "licence": "BSD-3-Clause",
-   "sha": "6f4f07681f45fbbc11cf2f1543d4222b51e7808d",
+   "sha": "5cd8418cf9c867d344fda07a73ea844b0f34bca2",
    "files": 4577,
    "bytes": 4249312,
    "review": {
@@ -14,7 +14,7 @@
     "use": "adapt-with-attribution",
     "by": "xerj-org",
     "at": "2026-10-05",
-    "note": "4577 flattened per-advisory text records from golang/vulndb data/osv/ @5cd8418c (BSD-3-Clause, LICENSE verified at pin; whole-repo provenance clone moved OUT of the corpus dir after it re-entered the walk). G7 r2 4/5 (miss: query 5). First r1 failed on the 1.2M-doc whole-repo shape"
+    "note": "4577 flattened per-advisory text records from golang/vulndb data/osv/ @5cd8418cf9c867d344fda07a73ea844b0f34bca2 (BSD-3-Clause, LICENSE verified at pin; whole-repo provenance clone moved OUT of the corpus dir after it re-entered the walk). The previous pin 6f4f07681f45fbbc11cf2f1543d4222b51e7808d is rejected by golang/vulndb (git fetch: not our ref; GitHub commits API HTTP 422). G7 r2 4/5 (miss: query 5). First r1 failed on the 1.2M-doc whole-repo shape"
    }
   }
  ]

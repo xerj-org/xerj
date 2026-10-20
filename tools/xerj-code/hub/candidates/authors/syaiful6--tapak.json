@@ -1,0 +1,22 @@
+{
+ "corpus": "syaiful6--tapak",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on framework, ocaml, web queries this for how syaiful6/tapak implements it: Modern, type-safe, contract-first web framework for OCaml 5 (selected work: pkg/sch)",
+ "repos": [
+  {
+   "repo": "tapak",
+   "url": "https://github.com/syaiful6/tapak",
+   "sha": "b1005390347db50a5a3ed798e27a17878a8a29b2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit b1005390347d: \"fix(sch): add tests to sch format constraints\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

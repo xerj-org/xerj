@@ -1,0 +1,22 @@
+{
+ "corpus": "pouyanjay--drosophila-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on brain-atlas, brain-inspired-ai, computational-neuroscience queries this for how PouyanJay/drosophila-lab implements it: Interactive 3D Drosophila brain atlas and local connectomics research lab. Explore MaleCNS anatomy, train connectome-based neural networks,  (selected work: scripts, tests, the project root)",
+ "repos": [
+  {
+   "repo": "drosophila-lab",
+   "url": "https://github.com/PouyanJay/drosophila-lab",
+   "sha": "d35da43dc563e0a1ec3db97be08658f8d8f3c8ee",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit d35da43dc563: \"Add shared coding agents and uv-based local workspace commands\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

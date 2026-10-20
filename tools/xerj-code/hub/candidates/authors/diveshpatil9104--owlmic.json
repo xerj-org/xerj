@@ -1,0 +1,22 @@
+{
+ "corpus": "diveshpatil9104--owlmic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, audio-streaming, bluetooth queries this for how diveshpatil9104/owlmic implements it: Turn your Android phone into a high-quality PC webcam & studio microphone! Stream 1080p video & low-latency Opus audio over USB (ADB), Wi-Fi (selected work: landing)",
+ "repos": [
+  {
+   "repo": "owlmic",
+   "url": "https://github.com/diveshpatil9104/owlmic",
+   "sha": "308b3282e0e6a5ba81693e1ccd363cc1270d1e53",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 308b3282e0e6: \"feat(site): add playground drawer overlays\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

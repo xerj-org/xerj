@@ -1,0 +1,22 @@
+{
+ "corpus": "koative--hyperliquid-go",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api-client, crypto, defi queries this for how koative/hyperliquid-go implements it: Go SDK for the Hyperliquid API: market data, trading, transfers and WebSocket streams, with signing verified against the official SDK (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "hyperliquid-go",
+   "url": "https://github.com/koative/hyperliquid-go",
+   "sha": "90a5c1f43774af37eb6638785f8be4958d01ba3c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 90a5c1f43774: \"test: decode strictly in tests and add live API test helpers\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "watermark-hd--aquafinder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on apple-silicon, finder, macos queries this for how watermark-hd/AquaFinder implements it: Mac OS X 10.4-10.6 (Tiger-Snow Leopard) \u98a8 Finder \u30af\u30ed\u30fc\u30f3 (selected work: Sources, the project root)",
+ "repos": [
+  {
+   "repo": "AquaFinder",
+   "url": "https://github.com/watermark-hd/AquaFinder",
+   "sha": "181c73323cf391a16fbfb0ee94d1e1faf2da3fa6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 181c73323cf3: \"Add classic Aqua-styled progress UI for copy/move, with real byte-lev\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

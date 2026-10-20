@@ -1,0 +1,22 @@
+{
+ "corpus": "weberdak--transtractor-lib",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how weberdak/transtractor-lib implements it: Rust-based Python library for converting bank statement PDF files to CSV (selected work: src/structs, src/parsers, src/fixers)",
+ "repos": [
+  {
+   "repo": "transtractor-lib",
+   "url": "https://github.com/weberdak/transtractor-lib",
+   "sha": "ce511c5485e48684bd7b3e03d0461174b3365871",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit ce511c5485e4: \"breaking: create AccountData and StatementData layers for handling st\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "elmasas--lcs-recomp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how elmasas/lcs-recomp implements it: elmasas/lcs-recomp (C++) (selected work: docker)",
+ "repos": [
+  {
+   "repo": "lcs-recomp",
+   "url": "https://github.com/elmasas/lcs-recomp",
+   "sha": "73ef859799a077dee3006c9bf8ab4835bea1cc95",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 73ef859799a0: \"Add support for building/running the windows binary on linux\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

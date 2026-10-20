@@ -1,0 +1,22 @@
+{
+ "corpus": "cheginisoroush--ubuntu-optimizer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on apt, bash, bilingual queries this for how CheginiSoroush/ubuntu-optimizer implements it: A self-updating Bash CLI that cleans, optimizes, repairs and secures Ubuntu \u2014 23 tools (DNS switcher, kernel cleanup, swap manager, fzf laun (selected work: lib, test, the project root)",
+ "repos": [
+  {
+   "repo": "ubuntu-optimizer",
+   "url": "https://github.com/CheginiSoroush/ubuntu-optimizer",
+   "sha": "7d659410fc78e2120b6ae07b150aa5e78b9099bb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 7d659410fc78: \"v7.16: maintenance & hardware family \u2014 DNS preset switcher, old-kerne\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

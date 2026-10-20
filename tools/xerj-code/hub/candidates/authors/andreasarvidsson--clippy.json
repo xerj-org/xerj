@@ -1,0 +1,22 @@
+{
+ "corpus": "andreasarvidsson--clippy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how AndreasArvidsson/clippy implements it: Clipboard manager with RPC (selected work: src/tests, src, src/types)",
+ "repos": [
+  {
+   "repo": "clippy",
+   "url": "https://github.com/AndreasArvidsson/clippy",
+   "sha": "170dbd6a4f86d82f30f06c9f203f008d1e124255",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 170dbd6a4f86: \"Update Electron dependency to 44.6.0. Changes clipboard read from syn\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

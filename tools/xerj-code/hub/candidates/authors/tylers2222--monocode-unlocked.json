@@ -1,0 +1,22 @@
+{
+ "corpus": "tylers2222--monocode-unlocked",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on coding-agents, orchestration, tauri queries this for how tylers2222/Monocode-Unlocked implements it: MonoCode plus orchestration unlocks: steer or queue follow-ups on busy sessions from the CLI, Mono-to-Mono messaging, readable dev builds. R (selected work: src/features, src-tauri, src/app)",
+ "repos": [
+  {
+   "repo": "Monocode-Unlocked",
+   "url": "https://github.com/tylers2222/Monocode-Unlocked",
+   "sha": "78f00dc26696e6ad4e739411d10bbe98f24a29a4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 78f00dc26696: \"Prepend an inference line to Mono replies and steers (#15)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

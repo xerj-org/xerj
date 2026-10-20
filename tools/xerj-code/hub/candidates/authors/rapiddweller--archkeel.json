@@ -1,0 +1,22 @@
+{
+ "corpus": "rapiddweller--archkeel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-engineering, agentic-workflows, architecture queries this for how rapiddweller/archkeel implements it: Archkeel checks architecture boundaries and declared changes in AI-assisted code (selected work: tests, schema, src/archkeel)",
+ "repos": [
+  {
+   "repo": "archkeel",
+   "url": "https://github.com/rapiddweller/archkeel",
+   "sha": "ab767a89ff8c5ca42d28ff11432158343dc14423",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit ab767a89ff8c: \"Focus agent reports on native findings (#368)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "camthink-ai--neoruntime",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C queries this for how camthink-ai/neoruntime implements it: NeoRuntime: an edge AI computing platform for smart cameras and edge devices, with HAL, platform services, web console, and multi-SoC suppor (selected work: platform)",
+ "repos": [
+  {
+   "repo": "neoruntime",
+   "url": "https://github.com/camthink-ai/neoruntime",
+   "sha": "4c7d43f6f11151d4a4a45fdbf716195b81748c39",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 4c7d43f6f111: \"fix(camera-daemon): serialize stream layout ops and validate reconfig\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "esquetta--codexplugindoctor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cli, codex, developer-tooling queries this for how Esquetta/CodexPluginDoctor implements it: Local CLI validator for Codex plugin packages, skills, and MCP server bundles (selected work: tests, src/core, src/reporting)",
+ "repos": [
+  {
+   "repo": "CodexPluginDoctor",
+   "url": "https://github.com/Esquetta/CodexPluginDoctor",
+   "sha": "f1d2bb71152fe383fa28c5470885111ff925dd44",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit f1d2bb71152f: \"feat: compare saved MCP tool definitions (v1.64.0) (#32)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

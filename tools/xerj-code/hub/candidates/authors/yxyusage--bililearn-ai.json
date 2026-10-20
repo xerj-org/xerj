@@ -1,0 +1,22 @@
+{
+ "corpus": "yxyusage--bililearn-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how yxyusage/BiliLearn-AI implements it: \u66f4\u597d\u5730\u5b66\u4e60B\u7ad9\u7684\u89c6\u9891\uff0c\u5927\u5b66\u751f\u51b2\u523a\u671f\u672b\uff0c\u4fdd\u7814\uff0c\u8003\u7814 (selected work: backend, frontend, launcher)",
+ "repos": [
+  {
+   "repo": "BiliLearn-AI",
+   "url": "https://github.com/yxyusage/BiliLearn-AI",
+   "sha": "6074c86973485f2e17eb9f328689b74933ad4481",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 6074c8697348: \"feat(review-material): \u590d\u4e60\u8d44\u6599\u300c\u8be6\u7248\u300d\u9010\u7ae0\u751f\u6210\uff0c\u957f\u5408\u96c6\u4e0d\u518d\u53ea\u6709\u6982\u89c8 (v1.8.10)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

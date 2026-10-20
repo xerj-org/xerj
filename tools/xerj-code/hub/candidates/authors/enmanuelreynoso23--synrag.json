@@ -1,0 +1,22 @@
+{
+ "corpus": "enmanuelreynoso23--synrag",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, code-search queries this for how EnmanuelReynoso23/synrag implements it: Local MCP code search that cuts AI agent tokens: AST chunks, CPU reranking and a dependency impact graph. -63.9% tokens measured (selected work: engine)",
+ "repos": [
+  {
+   "repo": "synrag",
+   "url": "https://github.com/EnmanuelReynoso23/synrag",
+   "sha": "0b080ad902b92e90ef19cadebab3db97f4e408af",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 0b080ad902b9: \"Implementar telemetria honesta con deteccion de clientes y distincion\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

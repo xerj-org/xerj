@@ -1,0 +1,22 @@
+{
+ "corpus": "claymore666--docker-net-dhcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on bridge, containers, dhcp queries this for how claymore666/docker-net-dhcp implements it: Docker network plugin: containers get real DHCP leases from the DHCP server your LAN already runs, through the project's own Go DHCP engine, (selected work: pkg/plugin)",
+ "repos": [
+  {
+   "repo": "docker-net-dhcp",
+   "url": "https://github.com/claymore666/docker-net-dhcp",
+   "sha": "4d8c53c0c9072f16b1513345081a2950ff92fe04",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 4d8c53c0c907: \"fix(plugin): an on_stop endpoint whose client never started hands its\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

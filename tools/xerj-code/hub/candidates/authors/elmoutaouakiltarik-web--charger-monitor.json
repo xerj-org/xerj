@@ -1,0 +1,22 @@
+{
+ "corpus": "elmoutaouakiltarik-web--charger-monitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on billing, can-bus, cpp17 queries this for how elmoutaouakiltarik-web/charger_monitor implements it: Exact charging-session ledger, durable hash-chained journal and fleet KPIs for industrial DC charger bays. C++17, zero dependencies (selected work: charger_project, the project root)",
+ "repos": [
+  {
+   "repo": "charger_monitor",
+   "url": "https://github.com/elmoutaouakiltarik-web/charger_monitor",
+   "sha": "49a5ca5cb9582b42a14b971a16ebd96217c77de0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 49a5ca5cb958: \"fix(core): enforce the durable ledger contract and make the verificat\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

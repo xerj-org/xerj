@@ -1,0 +1,22 @@
+{
+ "corpus": "mhxie--atelier",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, thinking-tools, cli-app queries this for how mhxie/Atelier implements it: AI-native personal operating system (selected work: tests, scripts, harness)",
+ "repos": [
+  {
+   "repo": "Atelier",
+   "url": "https://github.com/mhxie/Atelier",
+   "sha": "6cbe114539a1563fa686aadcba3bd00d220974a3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 6cbe114539a1: \"digest and routines: one Reflect-native daily note; harden routine in\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

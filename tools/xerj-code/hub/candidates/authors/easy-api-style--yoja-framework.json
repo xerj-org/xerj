@@ -1,0 +1,22 @@
+{
+ "corpus": "easy-api-style--yoja-framework",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Java queries this for how Easy-API-Style/yoja-framework implements it: Full-stack Java framework built on Vert.x. Backend: non-blocking HTTP server, WebSocket, sessions, reverse proxy, fluent API \u2014 no annotation (selected work: yoja-http-server, yoja-selenium)",
+ "repos": [
+  {
+   "repo": "yoja-framework",
+   "url": "https://github.com/Easy-API-Style/yoja-framework",
+   "sha": "af9102c294070a86238e441cd5fce1263ba51a1e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit af9102c29407: \"manage cookie options\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "supertinykernel-rtos--stk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on arm, cortex-m, risc-v queries this for how SuperTinyKernel-RTOS/stk implements it: SuperTinyKernel RTOS is a lightweight, high-performance, deterministic, bare-metal C++ RTOS for resource-constrained embedded systems based  (selected work: test, stk)",
+ "repos": [
+  {
+   "repo": "stk",
+   "url": "https://github.com/SuperTinyKernel-RTOS/stk",
+   "sha": "1ebc8ac1ba6e56f7d20850491f337827634f5617",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 1ebc8ac1ba6e: \"Add new scheduling strategy Preemption-Threshold.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

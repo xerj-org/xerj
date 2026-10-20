@@ -1,0 +1,22 @@
+{
+ "corpus": "jahanzaibjameel--lumora-photogallery-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on react-native, reactnavigation, designtokens queries this for how JahanzaibJameel/Lumora-photogallery-App implements it: Lumora combines smooth performance, privacy-first design, and a thoughtful user experience to create a gallery that feels alive. Smart album (selected work: src/hooks, src/screens)",
+ "repos": [
+  {
+   "repo": "Lumora-photogallery-App",
+   "url": "https://github.com/JahanzaibJameel/Lumora-photogallery-App",
+   "sha": "2ae2d74a4f6c0e4503ed3a4970e2f85e9a79ebb7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 2ae2d74a4f6c: \"feat: add favorites feature implementation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "zarfld--presonus-studiolive-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on audio, mcp, mixer queries this for how zarfld/presonus-studiolive-mcp implements it: MCP server using featherbear / presonus-studiolive-ap (selected work: test, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "presonus-studiolive-mcp",
+   "url": "https://github.com/zarfld/presonus-studiolive-mcp",
+   "sha": "ce1c735b8b326826d1c2a7c7c836eabe73f92eab",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit ce1c735b8b32: \"feat: add privacy guard to check for sensitive information in commits\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

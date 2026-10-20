@@ -1,0 +1,22 @@
+{
+ "corpus": "dissimilis--blake3-managed",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on arm-neon, avx2, blake3 queries this for how Dissimilis/Blake3.Managed implements it: BLAKE3 cryptographic hash for .NET - pure managed C#, SIMD accelerated (AVX-512, AVX2, SSE, ARM SVE2 and NEON), multithreaded, no native dep (selected work: src/Blake3.Managed, src/Blake3.Managed.Tests)",
+ "repos": [
+  {
+   "repo": "Blake3.Managed",
+   "url": "https://github.com/Dissimilis/Blake3.Managed",
+   "sha": "8cc84fb281cfff2374091efd18a02a3ea8ea7308",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 8cc84fb281cf: \"Optimize SVE2 hashing and add Cortex-A510 tuning\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

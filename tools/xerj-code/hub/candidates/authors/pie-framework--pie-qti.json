@@ -1,0 +1,22 @@
+{
+ "corpus": "pie-framework--pie-qti",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how pie-framework/pie-qti implements it: QTI Player and QTI <-> PIE transforms framework (selected work: packages/pie-to-qti2, packages/qti-common, packages/to-pie)",
+ "repos": [
+  {
+   "repo": "pie-qti",
+   "url": "https://github.com/pie-framework/pie-qti",
+   "sha": "8fd28e368f07c8326864a73b2e3d59eae4812ef7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 8fd28e368f07: \"feat(pie-to-qti2): add a QTI 3.0 export\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

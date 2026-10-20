@@ -1,0 +1,22 @@
+{
+ "corpus": "zeative--zaileys",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on automation, bot-zaileys, js-whatsapp queries this for how zeative/zaileys implements it: Zaileys - type-safe WhatsApp framework for Node.js & TypeScript with two providers behind one API: the unofficial WhatsApp Web engine (Baile (selected work: tests, src/events, src/client)",
+ "repos": [
+  {
+   "repo": "zaileys",
+   "url": "https://github.com/zeative/zaileys",
+   "sha": "b8afb29d1e35ad5a0226c7d033ebccee087881ff",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit b8afb29d1e35: \"feat(events): report delivery receipts on a linked device, not only o\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

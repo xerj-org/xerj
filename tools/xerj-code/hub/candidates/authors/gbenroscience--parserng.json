@@ -1,0 +1,22 @@
+{
+ "corpus": "gbenroscience--parserng",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on math-expressions, matrix-calculations, parsing queries this for how gbenroscience/ParserNG implements it: ParserNG is a pure-Java, blazing-fast, scalable math runtime with Vector API (JDK 21+) Turbo mode for massive bulk performance. It supports  (selected work: parser-ng-bench)",
+ "repos": [
+  {
+   "repo": "ParserNG",
+   "url": "https://github.com/gbenroscience/ParserNG",
+   "sha": "8af882f80ffd634097d6a4f899413c9b47b52ff5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 8af882f80ffd: \"gpu-simd works, but discovered needs fusion on sqrt(abs(args)) - reve\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

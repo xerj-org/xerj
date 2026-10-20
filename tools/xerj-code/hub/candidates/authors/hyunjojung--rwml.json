@@ -1,0 +1,22 @@
+{
+ "corpus": "hyunjojung--rwml",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on document-processing, library queries this for how HyunjoJung/rwml implements it: Native Rust Microsoft Word reader (.doc/.docx) + .docx writer + native PDF renderer \u2014 no JVM, panic-free, MIT (selected work: tests, scripts)",
+ "repos": [
+  {
+   "repo": "rwml",
+   "url": "https://github.com/HyunjoJung/rwml",
+   "sha": "19a8aee44c92d8a310480360f63df5ce73bb28f9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 19a8aee44c92: \"Add bounded commit-bound diagnostic render CI\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

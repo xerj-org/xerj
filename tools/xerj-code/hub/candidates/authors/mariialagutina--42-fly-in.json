@@ -1,0 +1,22 @@
+{
+ "corpus": "mariialagutina--42-fly-in",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cooperative-pathfinding, graph-algorithms, logistics queries this for how MariiaLagutina/42_Fly-in implements it: Mariia's Airlanes: a turn-based air-traffic simulation with cooperative space-time routing, capacity limits, weather, and a Pygame dispatch  (selected work: benchmarks, tests, the project root)",
+ "repos": [
+  {
+   "repo": "42_Fly-in",
+   "url": "https://github.com/MariiaLagutina/42_Fly-in",
+   "sha": "89db821ef64c7d18fbdd8bf26aa98493803362f8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 89db821ef64c: \"feat: add a reproducible performance benchmark (#27)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

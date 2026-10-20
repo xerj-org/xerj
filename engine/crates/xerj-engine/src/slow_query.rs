@@ -70,11 +70,34 @@ pub struct SlowQueryEntry {
     pub hits: u64,
     /// Optional short reason (e.g. "many segments scanned", "agg fan-out").
     pub note: String,
-    /// The query body (bounded to [`SLOW_QUERY_MAX_BODY`] chars). Empty when
-    /// the caller had no structured body (e.g. a URI-only `q=` request or a
-    /// `match_all`). This is what makes an entry *actionable* — the operator
-    /// sees the exact DSL that ran slow.
+    /// The query body (bounded to [`SLOW_QUERY_MAX_BODY`] chars). Search
+    /// callers fill this via [`logged_search_query`], so an omitted clause
+    /// is recorded as `{"match_all":{}}` (what the engine runs) and a
+    /// top-level `knn` is recorded with the query instead of an empty
+    /// `query=` field. This is what makes an entry *actionable* — the
+    /// operator sees the exact DSL that ran slow.
     pub query: String,
+}
+
+/// Text stored in [`SlowQueryEntry::query`] for one search.
+///
+/// An omitted query is match_all. A top-level `knn` with no query clause is
+/// the knn object, not an empty string — an empty `query=` on the tracing
+/// line reads as "the body was lost". Null clauses are treated as absent.
+/// When both are present the entry keeps both, because logging only `query`
+/// hides the knn that may be why the search was slow.
+pub fn logged_search_query(
+    query: Option<&serde_json::Value>,
+    knn: Option<&serde_json::Value>,
+) -> String {
+    let query = query.filter(|q| !q.is_null());
+    let knn = knn.filter(|k| !k.is_null());
+    match (query, knn) {
+        (Some(q), None) => q.to_string(),
+        (Some(q), Some(knn)) => serde_json::json!({"query": q, "knn": knn}).to_string(),
+        (None, Some(knn)) => serde_json::json!({"knn": knn}).to_string(),
+        (None, None) => r#"{"match_all":{}}"#.to_string(),
+    }
 }
 
 /// Bounded ring buffer of slow query entries.
@@ -254,5 +277,38 @@ mod tests {
         );
         // Body (minus the ellipsis) never exceeds the byte cap.
         assert!(stored.len() <= SLOW_QUERY_MAX_BODY + '…'.len_utf8());
+    }
+
+    #[test]
+    fn logged_search_query_is_never_empty() {
+        let knn = serde_json::json!({"field": "embedding", "query_vector": [0.1, 0.2], "k": 10});
+        let lexical = serde_json::json!({"match": {"body": "rotate keys"}});
+
+        let omitted = logged_search_query(None, None);
+        assert_eq!(omitted, r#"{"match_all":{}}"#);
+        assert!(!omitted.is_empty());
+
+        let nulls = logged_search_query(
+            Some(&serde_json::Value::Null),
+            Some(&serde_json::Value::Null),
+        );
+        assert_eq!(nulls, r#"{"match_all":{}}"#);
+
+        assert_eq!(
+            logged_search_query(Some(&lexical), None),
+            lexical.to_string()
+        );
+
+        let knn_only = logged_search_query(None, Some(&knn));
+        assert_eq!(knn_only, serde_json::json!({"knn": knn}).to_string());
+        assert!(!knn_only.is_empty());
+
+        let both = logged_search_query(Some(&lexical), Some(&knn));
+        assert_eq!(
+            both,
+            serde_json::json!({"query": lexical, "knn": knn}).to_string()
+        );
+        assert!(both.contains("\"knn\""));
+        assert!(both.contains("rotate keys"));
     }
 }

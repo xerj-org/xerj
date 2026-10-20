@@ -1,0 +1,22 @@
+{
+ "corpus": "infomaniak--design-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Infomaniak/design-system implements it: Infomaniak/design-system (TypeScript) (selected work: packages/figma, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "design-system",
+   "url": "https://github.com/Infomaniak/design-system",
+   "sha": "87064096c155b35e044b59c055656e95f37c796f",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 87064096c155: \"feat(figma-plugin): add ESDS icons plugin (#386)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

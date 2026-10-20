@@ -1,0 +1,22 @@
+{
+ "corpus": "thibautrey--multivibe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on codex, moltbot, multi-account queries this for how thibautrey/multivibe implements it: OpenAI-compatible multi-account Codex and vibe coding proxy (selected work: native)",
+ "repos": [
+  {
+   "repo": "multivibe",
+   "url": "https://github.com/thibautrey/multivibe",
+   "sha": "b8524765a2d2b771fa5ed4dfff8047b2ee2268db",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit b8524765a2d2: \"MULTIVIBE-89 encrypt Swift application history with delegated keys\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

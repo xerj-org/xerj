@@ -1,0 +1,22 @@
+{
+ "corpus": "dessalines--thumb-key",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, android-app, android-keyboard queries this for how dessalines/thumb-key implements it: A privacy-conscious Android keyboard made for your thumbs (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "thumb-key",
+   "url": "https://github.com/dessalines/thumb-key",
+   "sha": "10e60c0d8d82b1218f51e29a8d741d3f69a6a18d",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 10e60c0d8d82: \"Add search and pinned selection to the layouts dialog (#2020)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

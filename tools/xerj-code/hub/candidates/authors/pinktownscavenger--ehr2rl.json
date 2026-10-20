@@ -1,0 +1,22 @@
+{
+ "corpus": "pinktownscavenger--ehr2rl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on d3rlpy, ehr, healthcare queries this for how pinktownscavenger/ehr2rl implements it: Convert MIMIC-IV EHR data into offline reinforcement learning datasets for healthcare research (selected work: tests, ehr2rl, examples)",
+ "repos": [
+  {
+   "repo": "ehr2rl",
+   "url": "https://github.com/pinktownscavenger/ehr2rl",
+   "sha": "1adddec9ea4ac20d27cbb35a2a350686abf169c9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 1adddec9ea4a: \"fix: export trainable medication actions and convert vasopressor rate\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

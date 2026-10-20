@@ -1,0 +1,22 @@
+{
+ "corpus": "wulisha-hub--mau",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how WuLiSha-HUB/mau implements it: \u57fa\u4e8eC#.Net 10 \u5b9e\u73b0\uff0c\u53ef\u8fd0\u884c\u4e8ewindowsX64\u684c\u9762\u7684Harness\u5de5\u7a0b (selected work: CatHome4, Mau, the project root)",
+ "repos": [
+  {
+   "repo": "mau",
+   "url": "https://github.com/WuLiSha-HUB/mau",
+   "sha": "24f11b6be6c78bf1d6d029c5dd4ccc5c36a198a0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 24f11b6be6c7: \"v1.8.141 A260 startup resilience phase 1 - degradation registry + fiv\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

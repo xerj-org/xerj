@@ -1,0 +1,22 @@
+{
+ "corpus": "jgeek00--linkdy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, bookmark-manager, bookmarks queries this for how JGeek00/linkdy implements it: Linkding client created with Flutter (selected work: lib/screens, lib/providers, ios)",
+ "repos": [
+  {
+   "repo": "linkdy",
+   "url": "https://github.com/JGeek00/linkdy",
+   "sha": "d2081ad2e9e41be576730bbcf62e7afeb2331239",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit d2081ad2e9e4: \"Updated dependencies\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

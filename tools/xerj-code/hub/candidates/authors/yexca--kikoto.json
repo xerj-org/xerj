@@ -1,0 +1,22 @@
+{
+ "corpus": "yexca--kikoto",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how yexca/kikoto implements it: A local personal DLsite audio library, source browser, and player (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "kikoto",
+   "url": "https://github.com/yexca/kikoto",
+   "sha": "218ee05d95e34442cd6c88639b545f99ae3696d9",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 218ee05d95e3: \"feat(metadata): clarify language title editing\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

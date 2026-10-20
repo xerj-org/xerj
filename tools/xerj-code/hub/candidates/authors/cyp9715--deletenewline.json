@@ -1,0 +1,22 @@
+{
+ "corpus": "cyp9715--deletenewline",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how Cyp9715/DeleteNewline implements it: Stop reopening Notepad just to run Find & Replace. Save your regex rules once, assign a hotkey, then: select \u2192 hotkey \u2192 paste. Anywhere (selected work: Delete Newline, Delete Newline.Tests)",
+ "repos": [
+  {
+   "repo": "DeleteNewline",
+   "url": "https://github.com/Cyp9715/DeleteNewline",
+   "sha": "52729bd00f772fa66f1491004602d5248653ec6d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 52729bd00f77: \"fix: harden text cleanup, OCR capture, and MCP\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

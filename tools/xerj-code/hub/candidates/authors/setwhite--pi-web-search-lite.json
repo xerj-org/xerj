@@ -1,0 +1,22 @@
+{
+ "corpus": "setwhite--pi-web-search-lite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how setwhite/pi-web-search-lite implements it: Pi extension: lightweight web_search + web_fetch (Tavily/Brave/Exa/Firecrawl/Jina/Perplexity, GitHub via gh, static SSRF guard, configurable (selected work: test, extractors, providers)",
+ "repos": [
+  {
+   "repo": "pi-web-search-lite",
+   "url": "https://github.com/setwhite/pi-web-search-lite",
+   "sha": "8f3d6be9e029ea8e5e4828f909fbaec1d8f9f17e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8f3d6be9e029: \"feat(providers,extractors): \u65b0\u589e\u4e09\u5bb6\u641c\u7d22\u6e90\u4e0e\u63d0\u53d6\u5668\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

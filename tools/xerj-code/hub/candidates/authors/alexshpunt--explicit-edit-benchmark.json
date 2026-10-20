@@ -1,0 +1,22 @@
+{
+ "corpus": "alexshpunt--explicit-edit-benchmark",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-harness, ai-agents, benchmark queries this for how alexshpunt/explicit-edit-benchmark implements it: Benchmark coding agents and agent harnesses on 226 deterministic file-editing tasks with byte-exact verification and a public leaderboard (selected work: test, scripts)",
+ "repos": [
+  {
+   "repo": "explicit-edit-benchmark",
+   "url": "https://github.com/alexshpunt/explicit-edit-benchmark",
+   "sha": "aa41466d325d9f2fee4e3a2a41b62071b23e00d5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit aa41466d325d: \"fix: normalize registered model aliases in public projections (#167)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

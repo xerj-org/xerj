@@ -1,0 +1,22 @@
+{
+ "corpus": "lamellixlabs--vauth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on authentication, backend, fido queries this for how lamellixlabs/vAuth implements it: Minimalistic FIDO2 authenticator for Linux built to have convenience of Windows Hello (selected work: examples)",
+ "repos": [
+  {
+   "repo": "vAuth",
+   "url": "https://github.com/lamellixlabs/vAuth",
+   "sha": "3820c319413f20545a6152024af9711a9cbc0f09",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 3820c319413f: \"Updated example agents.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

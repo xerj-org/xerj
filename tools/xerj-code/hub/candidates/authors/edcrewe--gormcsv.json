@@ -1,0 +1,22 @@
+{
+ "corpus": "edcrewe--gormcsv",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how edcrewe/gormcsv implements it: gormcsv provides loading of CSV data files / fixtures to the golang ORM, GORM (selected work: importcsv, meta, the project root)",
+ "repos": [
+  {
+   "repo": "gormcsv",
+   "url": "https://github.com/edcrewe/gormcsv",
+   "sha": "5412c793e60aa0628fabc5488283cb4bf03ef96d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 5412c793e60a: \"clean up and add embedded-postgres to allow proper concurrent batch u\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

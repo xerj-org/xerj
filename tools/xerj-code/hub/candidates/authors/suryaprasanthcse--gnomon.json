@@ -1,0 +1,22 @@
+{
+ "corpus": "suryaprasanthcse--gnomon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, bitemporal, event-sourcing queries this for how suryaprasanthcse/gnomon implements it: An event-sourced operating system for AI agents, built entirely inside FalkorDB. Counterfactual branching, atomic task leases, bitemporal me (selected work: tests, gnomon)",
+ "repos": [
+  {
+   "repo": "gnomon",
+   "url": "https://github.com/suryaprasanthcse/gnomon",
+   "sha": "0f94e6fd5f88704f43e0d7db0c83bf4c6d5de53b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 0f94e6fd5f88: \"feat(wave-4): approve D-69..D-73 and implement MCP tool surface (A16)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

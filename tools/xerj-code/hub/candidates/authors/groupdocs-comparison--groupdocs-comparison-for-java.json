@@ -1,0 +1,22 @@
+{
+ "corpus": "groupdocs-comparison--groupdocs-comparison-for-java",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on Shell queries this for how groupdocs-comparison/GroupDocs.Comparison-for-Java implements it: GroupDocs.Comparison for Java examples, plugins and showcase projects (selected work: Examples, the project root)",
+ "repos": [
+  {
+   "repo": "GroupDocs.Comparison-for-Java",
+   "url": "https://github.com/groupdocs-comparison/GroupDocs.Comparison-for-Java",
+   "sha": "2c47abb8360f7651665b5b68d0d00f32e31d8827",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 2c47abb8360f: \"Port missing examples from GroupDocs.Comparison for .NET\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

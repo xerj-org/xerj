@@ -1,0 +1,22 @@
+{
+ "corpus": "ulisescm--navori-harness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, cli queries this for how UlisesCm/navori-harness implements it: CLI that scaffolds a multi-agent harness with spec-driven development for Claude Code, Codex and other AI engines (selected work: packages/cli, packages/core)",
+ "repos": [
+  {
+   "repo": "navori-harness",
+   "url": "https://github.com/UlisesCm/navori-harness",
+   "sha": "9c60f0d51758d32ef5feb774d0a165aca2acebb2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 9c60f0d51758: \"feat(hooks): el implementer escribe Markdown de doctrina de IA\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

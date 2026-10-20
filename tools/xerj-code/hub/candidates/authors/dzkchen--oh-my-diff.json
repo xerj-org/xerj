@@ -1,0 +1,22 @@
+{
+ "corpus": "dzkchen--oh-my-diff",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agent, cli queries this for how dzkchen/oh-my-diff implements it: Oh My Diff: A Moddable Codex Runtime (selected work: runtime, scripts, tests)",
+ "repos": [
+  {
+   "repo": "oh-my-diff",
+   "url": "https://github.com/dzkchen/oh-my-diff",
+   "sha": "b0c1a600a28169aa5810ee153de25a524777fccf",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit b0c1a600a281: \"feat: prerelease update channel, beta label and split hosted validati\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

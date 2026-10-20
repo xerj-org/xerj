@@ -1,0 +1,22 @@
+{
+ "corpus": "takamasa045--tsugite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-video, cli, remotion queries this for how Takamasa045/tsugite implements it: A local, vendor-neutral, human-gated AI video production pipeline for planning, generation, editing, and QA (selected work: adapters, test, src/orchestrator)",
+ "repos": [
+  {
+   "repo": "tsugite",
+   "url": "https://github.com/Takamasa045/tsugite",
+   "sha": "24da3eec61de26232b14f6f1e0b5f3b493200dca",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 24da3eec61de: \"Add ElevenLabs v4 Turbo MCP narration adapter\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

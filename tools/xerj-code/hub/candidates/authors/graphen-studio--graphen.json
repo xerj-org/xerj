@@ -1,0 +1,22 @@
+{
+ "corpus": "graphen-studio--graphen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-architecture, ai-agents, architecture-as-code queries this for how graphen-studio/graphen implements it: The visual workspace for Agent Architecture Language (AAL). Model complex multi-agent meshes, security guardrails, and LLM topologies with r (selected work: src/styles, src/components, src/core)",
+ "repos": [
+  {
+   "repo": "graphen",
+   "url": "https://github.com/graphen-studio/graphen",
+   "sha": "c4090c3e188e70f09998babacd08106c0b469abb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit c4090c3e188e: \"feat: add metadata info popover component to canvas panel\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

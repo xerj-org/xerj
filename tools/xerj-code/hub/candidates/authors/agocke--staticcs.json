@@ -1,0 +1,22 @@
+{
+ "corpus": "agocke--staticcs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how agocke/StaticCs implements it: A series of analyzers, attributes, and libraries to help C# developers write clearer, more type-safe code (selected work: src/PathRoot, test)",
+ "repos": [
+  {
+   "repo": "StaticCs",
+   "url": "https://github.com/agocke/StaticCs",
+   "sha": "00ce62c73704a2558dc2ab8ea0af10b29988f683",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 00ce62c73704: \"Add hard-link support to PathRoot (#43)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

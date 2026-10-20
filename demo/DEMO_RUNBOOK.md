@@ -406,7 +406,7 @@ The HTML version of the same flow lives at `landing/demo/index.html` §3.5 ("Cla
   http://localhost:9200/_xerj-console/setup#token=…
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│ Need a fresh link?  `xerj admin magic-link --role owner`                    │
+│ Need a fresh link?  Restart this node: a new one is printed on boot.         │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 

@@ -1,0 +1,22 @@
+{
+ "corpus": "bassem-elsodany--resolvr-dns-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on dashboard, dns, dns-server queries this for how bassem-elsodany/resolvr-dns-dashboard implements it: Self-hosted monitoring dashboard for Technitium DNS Server \u2014 live query logs, clients, cache, and blocking, with cluster support and its own (selected work: backend, frontend, docker)",
+ "repos": [
+  {
+   "repo": "resolvr-dns-dashboard",
+   "url": "https://github.com/bassem-elsodany/resolvr-dns-dashboard",
+   "sha": "97bcca232c0dfb464c26978689746bac3582a145",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 97bcca232c0d: \"Home Assistant add-on mode and a single-container image (#14)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

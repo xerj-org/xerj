@@ -1,0 +1,22 @@
+{
+ "corpus": "gideonba--better-linux-cad",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how GideonBa/Better-Linux-CAD implements it: Parametric CAD system for Linux with an OCCT-based geometry core, modern sketching, feature history, assemblies, engineering assistants, and (selected work: tests, src/geometry, include)",
+ "repos": [
+  {
+   "repo": "Better-Linux-CAD",
+   "url": "https://github.com/GideonBa/Better-Linux-CAD",
+   "sha": "8ed12a4d0e07f75363348fce14970c83fe3fe097",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 8ed12a4d0e07: \"Recognize exact curved Sketch regions through selection and feature a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

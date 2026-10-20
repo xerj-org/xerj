@@ -1,0 +1,22 @@
+{
+ "corpus": "nanassound--mnft",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on 3d-printing, ai-agents, build123d queries this for how nanassound/mnft implements it: Text-to-CAD tools in Elixir with build123d, OpenSCAD, and smlibpy (selected work: mnft_cad, the project root, mnft_cad_web)",
+ "repos": [
+  {
+   "repo": "mnft",
+   "url": "https://github.com/nanassound/mnft",
+   "sha": "a247e813317b9c19b44f2e5ae65c4cbffc8f0f5d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit a247e813317b: \"openscad: fix dialect routing and ship an OpenSCAD prompt\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

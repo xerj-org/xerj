@@ -1,0 +1,22 @@
+{
+ "corpus": "ohzinteractive--core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on core, library, threejs queries this for how ohzinteractive/core implements it: OHZI Core Library \u2014 a collection of reusable classes to build high-quality WebGL & WebGPU experiences faster. A foundational utility library (selected work: tests, tasks, src/dev_bridge)",
+ "repos": [
+  {
+   "repo": "core",
+   "url": "https://github.com/ohzinteractive/core",
+   "sha": "bb4d3157015f2b48db669d38485f9f853c3aa694",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit bb4d3157015f: \"Feat/import model (#30)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

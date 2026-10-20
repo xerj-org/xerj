@@ -1,0 +1,22 @@
+{
+ "corpus": "acefelix--jarvis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agent, ai-coding queries this for how aceFelix/jarvis implements it: An AI butler tailored for personal computers - paying tribute to Jarvis from \"Iron Man\". It engages in conversation with you, assists you in (selected work: tests, agent)",
+ "repos": [
+  {
+   "repo": "jarvis",
+   "url": "https://github.com/aceFelix/jarvis",
+   "sha": "ec8e7b2db9e553c22b52237c97061532b590abb6",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit ec8e7b2db9e5: \"fix(ui): \u4fee\u590d\u4e09\u901a\u9053 query \u9501\u5728\u7b49\u9501\u7a97\u53e3\u88ab\u53d6\u6d88\u65f6\u7684\u6cc4\u6f0f\u4e0e\u6536\u5c3e\u7f3a\u5931\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

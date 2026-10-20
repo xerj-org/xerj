@@ -1,0 +1,115 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "title": "Snapshot restore: a wildcard body index list is authorized with zero grants, then destroys every index it matches",
+      "severity": "critical",
+      "file": "engine/crates/xerj-api/src/authz.rs",
+      "line": 1231,
+      "description": "authorize_expression() early-returns Ok(()) for ANY index pattern that cannot reach the reserved `.xerj-memory-` namespace, because restore is classified PatternExpansion::Unguarded: `if expansion == PatternExpansion::Guarded || !may_reach_reserved(expr) { return Ok(()); }`. The SnapshotRestore privilege is only demanded when the body names nothing (authz.rs:1632). Engine::restore_snapshot then expands that pattern against the SNAPSHOT MANIFEST — not the caller's visible set — and for each match runs std::fs::remove_dir_all on the index directory and rewrites it from the snapshot (engine/engine.rs:4503-4546). Result: a Scoped key holding only `read` on `logs-*` can roll back or wipe any other tenant's index it can name with a wildcard. Dynamically verified on a live node with an admin key and a minted `read logs-*` key: POST /_snapshot/repo1/snap1/_restore {\"indices\":\"victim-secret\"} -> 403, but {\"indices\":\"v*\"} -> 200 and {\"indices\":\"ten*\"} -> 200 (no grant on either prefix). The restore rolled `victim-secret` back to snapshot state, silently deleting a document written after the snapshot (count 2 -> 1). Bare \"*\" is correctly refused only because may_reach_reserved(\"*\") is true; every other wildcard shape passes.",
+      "attack_scenario": "Any authenticated API key holder — including the most narrowly-scoped tenant key with a single read grant on an unrelated pattern — destroys or rolls back every non-reserved index on the node, cross-tenant, silently. Requires an existing snapshot repo + snapshot, i.e. the normal operator backup state.",
+      "exploit_sketch": "1) Operator has PUT /_snapshot/repo1 and a snapshot snap1. 2) Attacker holds a key with role_descriptors granting only read on logs-*. 3) POST /_snapshot/repo1/snap1/_restore with body {\"indices\":\"v*\"} (or \"ten*\", \"[a-z]*\", \"?*\") -> HTTP 200 accepted; matching index directories are remove_dir_all'd and rewritten to snapshot state, discarding all writes since the snapshot.",
+      "confidence": "high"
+    },
+    {
+      "id": "F2",
+      "title": "slice.max u32 truncation causes a divide-by-zero panic that aborts the whole node — reachable by an untrusted read-only share guest",
+      "severity": "critical",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 12592,
+      "description": "search_impl reads slice.id/slice.max as i64 from the request body and guards `max > 0 && id >= 0 && id < max`, but then casts to u32 before the arithmetic: `(shard % (max as u32))`. max = 4294967296 (2^32) passes the i64 guard and truncates to 0, so `0 <= shards` selects the first branch and `shard % 0` panics. The release profile sets `panic = \"abort\"` (engine/Cargo.toml:165) and there is no CatchPanicLayer or catch_unwind on this path, so the panic kills the process — every index, the console, all tenants. Dynamically verified twice, including end-to-end with the lowest-privilege principal that exists: created a share via POST /_share, claimed it UNAUTHENTICATED via POST /_share/claim to obtain a guest key, confirmed the guest is correctly confined (403 on /_cat/indices, 403 on another index, 403 on DELETE), then sent one search request and the node died: `thread 'xerj-rt' panicked at crates/xerj-api/src/es_compat.rs:12592:25: attempt to calculate the remainder with a divisor of zero`, process gone.",
+      "attack_scenario": "An external, untrusted recipient of a read-only share link (who by design should only be able to read one corpus) kills the entire node with a single request. Also reachable by any key with read on any index, or with no credential at all on an --insecure node. Repeatable at will; restart does not help.",
+      "exploit_sketch": "POST /{any-readable-index}/_search  Content-Type: application/json  {\"query\":{\"match_all\":{}},\"size\":1,\"slice\":{\"id\":0,\"max\":4294967296}}  — connection drops, process aborts.",
+      "confidence": "high"
+    },
+    {
+      "id": "F3",
+      "title": "reformat_docvalue byte-slices and truncates a String without a char-boundary check — one stored string value aborts the node",
+      "severity": "high",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 38715,
+      "description": "reformat_docvalue() is applied to EVERY value resolved from _source for a docvalue_fields entry, with no mapping or type check. For the `strict_date_optional_time`/`date_optional_time` formats it does `frac[..4].to_string()`; for the `*_nanos` / SSSSSSSSS patterns it does `digits.truncate(9)`. Both panic when the byte offset lands inside a multi-byte UTF-8 character. frac is the text from the first '.' to the next 'Z'/'+'/'-', so a value like `x.abé` yields frac = \".abé\" (5 bytes) and frac[..4] cuts into the 2-byte é. Dynamically verified: indexing {\"d\":\"x.abé\"} and searching with docvalue_fields [{\"field\":\"d\",\"format\":\"strict_date_optional_time\"}] produced `panicked at crates/xerj-api/src/es_compat.rs:38715:33` and, with panic=abort, killed the process. The truncate(9) sibling site (line 38745) is reached the same way with a value of the form `x.abcdefghé` under strict_date_optional_time_nanos.",
+      "attack_scenario": "Split trigger: any writer (including a low-privilege ingest key, or an autoindexed corpus file) plants an ordinary-looking string containing '.' followed by two characters and a multi-byte character; any reader whose client requests docvalue_fields with a date format — including a read-only share guest, since _search is in GUEST_INDEX_OPS — kills the node. Real corpora hit this accidentally (filenames, URLs, non-ASCII text).",
+      "exploit_sketch": "1) PUT {\"d\":\"x.abé\"} (raw bytes 78 2e 61 62 c3 a9) into any index.  2) POST /{index}/_search {\"query\":{\"match_all\":{}},\"docvalue_fields\":[{\"field\":\"d\",\"format\":\"strict_date_optional_time\"}]}  -> node aborts.",
+      "confidence": "high"
+    },
+    {
+      "id": "F4",
+      "title": "The .seg footer is excluded from the segment CRC and its section_table_offset is never bounds-checked — 8 bytes of data-dir tamper bricks the node permanently",
+      "severity": "high",
+      "file": "engine/crates/xerj-storage/src/segment.rs",
+      "line": 638,
+      "description": "from_mmap() computes the integrity CRC over `data[..footer_start]` only — the entire 32-byte footer, which contains section_table_offset, is unauthenticated. It then slices with that value unchecked: `let st_start = section_table_offset as usize; Cursor::new(&data[st_start..])`. The writer always emits 64, so any out-of-file value is pure corruption that still passes the integrity gate. Dynamically verified: after writing 0x0000_0100_0000_0000 into bytes [len-32, len-24) of one .seg (leaving the CRC field and trailing 'BEEZ' magic untouched), the node aborted on boot with `panicked at crates/xerj-storage/src/segment.rs:638:52: range start index 1099511627776 out of range for slice of length 228`, and three consecutive restarts each aborted the same way (from the merge threads) — a permanent crash loop requiring manual filesystem surgery. The section table entries themselves (section()/section_checked(), lines 673-689) are likewise used as raw slice offsets without validation against mmap.len().",
+      "attack_scenario": "An attacker who can tamper with files in the data directory (malicious snapshot repo contents, compromised backup restore, another local user, a supply-chain-style corpus drop) converts 8 bytes of write access into permanent total denial of service of every index on the node. Because the corrupted value lives in the CRC-excluded footer, the file's integrity check reports it as healthy.",
+      "exploit_sketch": "For any <data_dir>/<index>/segments/*.seg of size N: seek to N-32, write a little-endian u64 greater than N (e.g. 2^40), leaving the last 4 bytes as the 'BEEZ' magic. On next boot or first query the node aborts; every subsequent boot aborts identically.",
+      "confidence": "high"
+    },
+    {
+      "id": "F5",
+      "title": "Ingest pipeline `set`/`add_field` processors panic on a non-object document body, aborting the node",
+      "severity": "high",
+      "file": "engine/crates/xerj-wasm/src/builtins.rs",
+      "line": 285,
+      "description": "AddFieldPlugin::process and SetPlugin::process do `doc[&self.field] = self.value.clone()`. serde_json's IndexMut<&str> implementation panics on any non-object, non-null top-level value (`cannot access key ... in JSON array/string/number/boolean`). Every single-document ingest path hands an arbitrary serde_json::Value to the pipeline with no is-object check: POST /{index}/_doc (es_compat.rs:2760), PUT|POST /{index}/_doc/{id} (:2892), PUT /{index}/_create/{id} (:3068), the `create` action of /_bulk (bulk.rs:845), POST /v1/indices/{name}/ingest (native.rs:2643), and _reindex/_update_by_query. The asymmetry shows this is an oversight rather than a decision: the bulk `index` action explicitly rejects a non-object body two branches above. Dynamically verified: registering {\"processors\":[{\"set\":{\"field\":\"env\",\"value\":\"prod\"}}]} then POST /pipe/_doc?pipeline=p with body `[1,2,3]` aborted the process (`panicked at serde_json-1.0.149/src/value/index.rs:102`). Setting the index's default_pipeline makes every subsequent non-object write to that index fatal.",
+      "attack_scenario": "Any credential with write on a single index — the lowest common ingest grant, e.g. a Beats/Logstash shipper key — kills the whole node, all tenants, with one malformed request. Pipelines with set/add_field are the two most common ES processor types.",
+      "exploit_sketch": "PUT /_ingest/pipeline/p {\"processors\":[{\"set\":{\"field\":\"env\",\"value\":\"prod\"}}]}  then  POST /{index}/_doc?pipeline=p  with body  [1,2,3]  -> node aborts.",
+      "confidence": "high"
+    },
+    {
+      "id": "F6",
+      "title": "hdr.number_of_significant_value_digits is unclamped, so u64 overflow turns the bucket-target computation into an infinite loop that pins a worker forever",
+      "severity": "high",
+      "file": "engine/crates/xerj-engine/src/aggs.rs",
+      "line": 7861,
+      "description": "The percentiles HDR histogram computes `let target = 2u64 * 10u64.pow(hdr_digits); let mut p = 1u64; while p < target { p <<= 1; }` with digits taken verbatim from the request (ES's valid range is 0-5; there is no clamp). In release, overflow-checks are off, so digits=20 makes 10u64.pow(20) wrap to 7766279631452241920 and 2x that = 15532559262904483840, which lies in (2^63, 2^64). p reaches 2^63, then `p <<= 1` wraps to 0, and `0 < target` is true forever — a pure spin with no await point and no fuel budget, so the request never returns and the worker is permanently consumed. A twin of the same code exists at es_compat.rs:6542. Dynamically verified on a one-document index: the request never completed in 35s (curl exit 28) and again in 30s, while the node consumed a steady ~92% of one core; other requests continued to be served, so the damage is silent until enough workers are pinned. The loop body runs before any data check, so an empty index is sufficient.",
+      "attack_scenario": "Any key with read on any index — including a read-only share guest, since this rides in the _search body — pins a tokio worker permanently per request. A handful of requests pins every worker and freezes the node's entire query capacity with no crash, no log line, and no recovery short of restart.",
+      "exploit_sketch": "POST /{index}/_search {\"size\":0,\"aggs\":{\"p\":{\"percentiles\":{\"field\":\"v\",\"hdr\":{\"number_of_significant_value_digits\":20}}}}} — repeat a few times against an empty index to consume all workers.",
+      "confidence": "high"
+    },
+    {
+      "id": "F7",
+      "title": "The .dv doc-values reader allocates from unvalidated on-disk length fields, and .dv files carry no checksum at all",
+      "severity": "medium",
+      "file": "engine/crates/xerj-storage/src/doc_values.rs",
+      "line": 1021,
+      "description": "decode_columns() reads `payload_len` as a raw u64 and immediately does `vec![0u8; payload_len]` before read_exact has any chance to bound it — `payload_len > isize::MAX` is a capacity-overflow panic and any large-but-plausible value (1 TiB) is an allocation failure, which aborts the process under panic=abort. name_len (u32, line 1017) is the same shape. NumericColumn::decode/KeywordColumn::decode repeat it with u32 fields: bitmap_len, Vec::with_capacity(doc_count), sorted_len, num_terms (lines 409/413/429/459/466/794/805/818). Additionally line 515-517 `for doc_id in &null_bitmap { data[doc_id as usize] = 0; }` indexes a doc_count-bounded buffer with ids from an attacker-supplied RoaringBitmap and no bounds check — an out-of-bounds write-shaped panic on the query path. Unlike .seg, .dv sidecars are fs::read with no checksum whatsoever, so there is no integrity gate to defeat; the reader is reached lazily per query via Index::read_doc_values_sidecar (xerj-engine/src/index.rs:25758) through dv_columns_for.",
+      "attack_scenario": "An attacker with data-dir write access (malicious snapshot repo, tampered backup, another local user) flips a handful of bytes in any <data_dir>/<index>/segments/*.dv and gets an immediate process abort on the first sort/aggregation/docvalue read touching that segment — and, since the file persists, a crash loop as in F4.",
+      "exploit_sketch": "In a .dv file, overwrite the 8-byte little-endian payload_len of any column with 0x0000_0100_0000_0000 (1 TiB). The next query that needs doc values for that field aborts the node.",
+      "confidence": "high"
+    },
+    {
+      "id": "F8",
+      "title": "Unbounded recursion on request-controlled dot-paths — stack overflow, which panic=unwind cannot catch",
+      "severity": "medium",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 19974,
+      "description": "Two recursive walks over dot-separated paths have no depth cap and no request-size limit on the paths that feed them. (1) set_source_path() recurses once per segment of the LHS of a scripted update: `let child = obj.entry(path[0].clone()).or_insert_with(|| json!({})); set_source_path(child, &path[1..], value);`. It is fed by consume_source_path() (line 19898), which splits an attacker-written `ctx._source.a.a.a... = 1` left-hand side with no segment limit, reached from apply_one_update_stmt -> update_doc (19751). Unlike _scripts/painless/_execute, which caps source at MAX_SCRIPT_BYTES, the _update body has no size cap beyond the router-wide body limit. (2) expand_dotted_keys/insert_nested (16423/16457) recurse per dot segment of a DOCUMENT KEY whenever the query parameter force_synthetic_source=true is set (16254), so a single _source key of \"a.a.a...a\" (~100 KB, one JSON level) makes every read with that flag recurse to the same depth. Both sibling helpers (insert_synthetic_path 5749, set_dotted_path 30247) are iterative, confirming these two were missed. A stack overflow raises SIGSEGV/stack-guard abort rather than a Rust panic, so the painless fault-capture wrapper at 19782 cannot catch it.",
+      "attack_scenario": "A key with write on one index (case 1) or a malicious document author plus any reader who sets force_synthetic_source=true (case 2) crashes the whole node with a single request; a stack overflow is not catchable, so this is the same whole-process kill as F2/F3/F5.",
+      "exploit_sketch": "POST /{index}/_update/{id} {\"script\":{\"source\":\"ctx._source.<'a.' repeated ~50000 times>a = 1\",\"lang\":\"painless\"}} — or index {\"a.a.a...a\":1} and then GET /{index}/_search?force_synthetic_source=true.",
+      "confidence": "medium"
+    },
+    {
+      "id": "F9",
+      "title": "Term suggester runs full Levenshtein per dictionary term with no length pre-filter and computes it twice",
+      "severity": "medium",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 25759,
+      "description": "The term suggester allocates a full (m+1)x(n+1) DP matrix per (dictionary term, token) pair — `let mut dp = vec![vec![0usize; n + 1]; m + 1];` in suggest_edit_distance (25447) — where n is one whitespace token from suggest.<name>.text (bounded only by the 100 MiB router body limit) and m is a dictionary term. Keyword field values come back verbatim via all_keyword_values_for_field (xerj-engine/src/index.rs:25001), so a corpus can seed very long terms. There is no |m-n| > max_edits bail, no length pre-filter (the distance is computed before being compared to max_edits, so even max_edits:0 pays full cost), and the distance is computed twice per pair — once in a filter() closure and once in the following map() (25759-25772). A 1 MB token against a 100k-term dictionary is ~4e12 character operations; a single large (term, token) pair first attempts a multi-gigabyte vec! allocation, which aborts under panic=abort. Because suggest rides in the _search body, this is reachable by any read-only key and by read-only share guests (GUEST_INDEX_OPS contains _search and only the pit/scroll params are denied).",
+      "attack_scenario": "A read-only share guest or low-privilege reader sends one search whose suggest.text contains a very long single token, stalling the node for minutes or aborting it on the allocation — while authz correctly reports the guest as able to do nothing else.",
+      "exploit_sketch": "POST /{index}/_search {\"size\":0,\"suggest\":{\"s\":{\"text\":\"<one ~1 MB token with no whitespace>\",\"term\":{\"field\":\"body\"}}}} against an index with a populated keyword/text field.",
+      "confidence": "medium"
+    },
+    {
+      "id": "F10",
+      "title": "GET /_snapshot/{repo} returns stored repository settings verbatim, including absolute filesystem paths, to any authenticated key with zero grants",
+      "severity": "low",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 32196,
+      "description": "The snapshot-repo GET handler echoes each stored repo body back unchanged. Reads under /_snapshot are classified Target::Cluster + cluster_is_read, which is permitted to every authenticated principal with no privilege check, and prune_sites has no _snapshot entry — so a key with a single read grant on an unrelated pattern reads the operator's repo configuration, including settings.location, which is an absolute path inside the node's data_dir. Dynamically verified with a key whose only grant was read on logs-*: GET /_snapshot/repo1 returned {\"repo1\":{\"type\":\"fs\",\"settings\":{\"location\":\"/root/ab-run-p2/scratch-auth-9950/snaps\"}}}. This discloses the data directory's absolute location and the existence/naming of backup infrastructure to every tenant. (PUT /_snapshot/{repo} is, by contrast, correctly superuser/Unscoped-only.)",
+      "attack_scenario": "Any authenticated API key, however narrowly scoped — including keys minted for third-party shippers or dashboards — learns the node's absolute data_dir layout and snapshot topology, useful reconnaissance for the data-dir and path-traversal classes above.",
+      "exploit_sketch": "With a key granted only read on logs-*: GET /_snapshot/repo1  (or /_snapshot/_all)  -> 200 with the absolute location path in the body.",
+      "confidence": "high"
+    }
+  ],
+  "method_note": "I mapped the attack surface from the two routers (which routes exist, which middleware runs and in what order), then audited each focus area in parallel with subagents covering es_compat.rs, the xerj-wasm ingest pipeline, the xerj-storage/xerj-engine persistence readers, and the console/SPA. I then personally re-derived and dynamically verified every high-severity claim against a prebuilt release binary, booting fresh nodes per test. Dynamically confirmed: the authz wildcard-restore bypass (literal 403 vs wildcard 200, data actually rolled back), the slice.max divide-by-zero (including end-to-end from an unauthenticated /_share/claim guest key that was 403 on everything else), the docvalue_fields char-boundary panic, the .seg footer tamper causing a three-restart crash loop, the pipeline non-object panic, the HDR infinite loop at ~92% of a core, and the snapshot repo path leak. I also tried to reproduce the reported _clone escalation; it did not reproduce (index_guard held), so I excluded it. Static-only findings are marked medium confidence."
+}

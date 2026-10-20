@@ -1,0 +1,22 @@
+{
+ "corpus": "imsks--saransh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how imsks/Saransh implements it: An Open Source Alternative to InShorts. News For Bharat \ud83c\uddee\ud83c\uddf3 (selected work: frontend, tests, alembic)",
+ "repos": [
+  {
+   "repo": "Saransh",
+   "url": "https://github.com/imsks/Saransh",
+   "sha": "9c6d7fa9df1d5cd8c2c91b91b04b520fd132829d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 9c6d7fa9df1d: \"refactor: remove published_at from Story model and update related pro\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

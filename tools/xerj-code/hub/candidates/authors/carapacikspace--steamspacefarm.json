@@ -1,0 +1,22 @@
+{
+ "corpus": "carapacikspace--steamspacefarm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on flutter, steam, automation queries this for how CarapacikSpace/SteamSpaceFarm implements it: Your Steam library. Your playtime goals. Manage games, automate idle sessions, and track hours in a clean app with Steam Family support (selected work: ssf_flutter, ssf_steam_helper, tools)",
+ "repos": [
+  {
+   "repo": "SteamSpaceFarm",
+   "url": "https://github.com/CarapacikSpace/SteamSpaceFarm",
+   "sha": "8aa2e30b019901e85ee41064245cdc2141345b7b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 8aa2e30b0199: \"2.1\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

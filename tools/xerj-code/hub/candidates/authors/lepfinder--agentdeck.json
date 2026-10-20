@@ -1,0 +1,22 @@
+{
+ "corpus": "lepfinder--agentdeck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how lepfinder/AgentDeck implements it: Collect every coding-agent session and message on your machine into one place \u2014 manage, search, and analyze them from a single native deskto (selected work: src/lib, src/components)",
+ "repos": [
+  {
+   "repo": "AgentDeck",
+   "url": "https://github.com/lepfinder/AgentDeck",
+   "sha": "ae6af31003bc7547f559cab61c2606fd196e57c8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ae6af31003bc: \"fix(outline): single loading banner + harden TOC JSON parse\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

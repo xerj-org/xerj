@@ -1,0 +1,22 @@
+{
+ "corpus": "samg-coder--kingdomcomegluemapper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cryengine, kingdom-come-deliverance, modding queries this for how SamG-Coder/KingdomComeGlueMapper implements it: Experimental compiled KCD1 terrain and material converter for the Kingdom Come: Deliverance II development runtime (selected work: tests, tools)",
+ "repos": [
+  {
+   "repo": "KingdomComeGlueMapper",
+   "url": "https://github.com/SamG-Coder/KingdomComeGlueMapper",
+   "sha": "00c028bab7cbf8b6b891f924d7dc159306dc787c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 00c028bab7cb: \"Validate the arrival contracts the travel package already ships\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

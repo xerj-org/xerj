@@ -1,0 +1,22 @@
+{
+ "corpus": "chencheng666--great-powers-rts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how chencheng666/great-powers-rts implements it: \u5927\u56fd\u5d1b\u8d77\uff1aAI \u8f85\u52a9\u5f00\u53d1\u7684\u539f\u521b\u7ea2\u8b66\u98ce\u683c\u6d4f\u89c8\u5668\u5373\u65f6\u6218\u7565\u6e38\u620f\uff0c\u652f\u6301\u5355\u673a\u9646\u6d77\u7a7a\u5bf9\u6218\u3001\u73b0\u4ee3\u652f\u63f4\u5175\u79cd\u548c\u79bb\u7ebf\u8bd5\u73a9\u3002 (selected work: src, test, scripts)",
+ "repos": [
+  {
+   "repo": "great-powers-rts",
+   "url": "https://github.com/chencheng666/great-powers-rts",
+   "sha": "9a392ff8366aa73c8e9e09a44422fd0382f00bc6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 9a392ff8366a: \"\u53d1\u5e03 v0.8.0\uff1a\u5b8c\u5584\u52a8\u4f5c\u6d77\u519b\u540e\u52e4\u3001\u8054\u673a\u8868\u73b0\u4e0e\u6218\u540e\u590d\u76d8\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "thinkinaixyz--deepchat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-assistant, cross-platform, llm-client queries this for how ThinkInAIXYZ/deepchat implements it: \ud83d\udc2cDeepChat - A smart assistant that connects powerful AI to your personal world (selected work: src/renderer, test)",
+ "repos": [
+  {
+   "repo": "deepchat",
+   "url": "https://github.com/ThinkInAIXYZ/deepchat",
+   "sha": "746544aa7cfc15d1901a97648609665479161d54",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 746544aa7cfc: \"feat(settings): redesign scheduled tasks UI (#2364)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

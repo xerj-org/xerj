@@ -1,0 +1,22 @@
+{
+ "corpus": "gauravkarakoti--secureflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on TypeScript queries this for how GauravKarakoti/SecureFlow implements it: GauravKarakoti/SecureFlow (TypeScript) (selected work: src/app, src/lib, src/components)",
+ "repos": [
+  {
+   "repo": "SecureFlow",
+   "url": "https://github.com/GauravKarakoti/SecureFlow",
+   "sha": "d0c0773894bc78b589bacaf36839ab655c793826",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d0c0773894bc: \"feat: add real-time voice alerts for critical security events (#1307)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

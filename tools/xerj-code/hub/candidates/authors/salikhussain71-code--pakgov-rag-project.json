@@ -1,0 +1,22 @@
+{
+ "corpus": "salikhussain71-code--pakgov-rag-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on artificial-intelligence, information-retrieval, legal-nlp queries this for how salikhussain71-code/PAKGOV-RAG-project implements it: Research project on bilingual Urdu-English retrieval-augmented generation for Pakistani government and legal documents, with OCR, hybrid ret (selected work: data, ingestion)",
+ "repos": [
+  {
+   "repo": "PAKGOV-RAG-project",
+   "url": "https://github.com/salikhussain71-code/PAKGOV-RAG-project",
+   "sha": "41b909b33913f3873d2a49b086e6513c4fa0d339",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 41b909b33913: \"Senate 10 PDFs 1080 chunks 1080 vectors - 2 scanned placeholder fixed\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

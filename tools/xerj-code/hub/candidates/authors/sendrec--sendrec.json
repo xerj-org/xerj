@@ -1,0 +1,22 @@
+{
+ "corpus": "sendrec--sendrec",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on async-video, eu, gdpr queries this for how sendrec/sendrec implements it: The async video platform built for Europe. Open source, GDPR native, EU hosted (selected work: web)",
+ "repos": [
+  {
+   "repo": "sendrec",
+   "url": "https://github.com/sendrec/sendrec",
+   "sha": "54f24284fb601387bb60ad30662a20552941d8a1",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit 54f24284fb60: \"feat(recorder): add a camera picker\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

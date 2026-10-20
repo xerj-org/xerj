@@ -1,0 +1,22 @@
+{
+ "corpus": "albis0--ficsit-planner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on calculator, factory-planner, game-tools queries this for how Albis0/ficsit_planner implements it: Satisfactory production planner in the browser: factories, power plants, a Codex of the game data and a world map with every node, creature  (selected work: src/components, src/lib, tests)",
+ "repos": [
+  {
+   "repo": "ficsit_planner",
+   "url": "https://github.com/Albis0/ficsit_planner",
+   "sha": "3e9cbdbd157bb6dfaf5a54ab305e7fe061d90055",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 3e9cbdbd157b: \"0.13.24: belts that need more than one belt's worth are drawn side by\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

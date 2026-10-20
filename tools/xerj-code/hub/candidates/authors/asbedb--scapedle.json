@@ -1,0 +1,22 @@
+{
+ "corpus": "asbedb--scapedle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how asbedb/Scapedle implements it: An OSRS inspired wordle game (selected work: scripts, the project root, deploy)",
+ "repos": [
+  {
+   "repo": "Scapedle",
+   "url": "https://github.com/asbedb/Scapedle",
+   "sha": "b6a90d66832f1952ca86918d82f3993d528ff4e5",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit b6a90d66832f: \"feat: moved away from actions - docker build and deploy\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

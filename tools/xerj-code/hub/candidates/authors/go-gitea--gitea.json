@@ -1,0 +1,22 @@
+{
+ "corpus": "go-gitea--gitea",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on gitea, golang, devops queries this for how go-gitea/gitea implements it: Git with a cup of tea! Painless self-hosted all-in-one software development service, including Git hosting, code review, team collaboration, (selected work: routers, services, tests)",
+ "repos": [
+  {
+   "repo": "gitea",
+   "url": "https://github.com/go-gitea/gitea",
+   "sha": "f270534e8396cd2dfbee6cdac4c3018a5878386c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit f270534e8396: \"fix: validate \"scope\" for OAuth2, \"state\" for OpenID (#39642)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

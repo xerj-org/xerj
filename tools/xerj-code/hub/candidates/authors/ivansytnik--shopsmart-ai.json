@@ -1,0 +1,22 @@
+{
+ "corpus": "ivansytnik--shopsmart-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on docker, fastapi, llm queries this for how IvanSytnik/shopsmart-ai implements it: AI shopping-list generator for German supermarkets: budget-aware, diet-aware weekly lists. React + TypeScript + Vite, FastAPI, OpenAI, Docke (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "shopsmart-ai",
+   "url": "https://github.com/IvanSytnik/shopsmart-ai",
+   "sha": "2046520dffe476856514f42b0c7a1d465f4b4a97",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 2046520dffe4: \"feat(backend): structured outputs with AsyncOpenAI and one repair retry\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

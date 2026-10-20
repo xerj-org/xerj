@@ -1,0 +1,22 @@
+{
+ "corpus": "stelgr--arrowanticheat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how StelGR/ArrowAntiCheat implements it: Arrow Anticheat is my custom packet based anticheat solution (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "ArrowAntiCheat",
+   "url": "https://github.com/StelGR/ArrowAntiCheat",
+   "sha": "88bad222c6e4e00b1ac3228b251f041a39e5928c",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 88bad222c6e4: \"Posted trainin and neural network aim check on github, fixed 2 falses\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

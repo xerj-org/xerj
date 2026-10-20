@@ -1,0 +1,22 @@
+{
+ "corpus": "y-elsayed--webly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how Y-Elsayed/Webly implements it: Webly is a modular, GenAI-powered web crawling and knowledge extraction framework. It crawls any website, understands its content using LLMs (selected work: webly, tests)",
+ "repos": [
+  {
+   "repo": "Webly",
+   "url": "https://github.com/Y-Elsayed/Webly",
+   "sha": "2c9c7e113a04cc4416f22f92952fea65e58b2fb4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 2c9c7e113a04: \"fix(query): bound hybrid retrieval and validate grounded citations\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

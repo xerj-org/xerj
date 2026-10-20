@@ -1,0 +1,22 @@
+{
+ "corpus": "gr219--vless-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how gr219/vless-server implements it: gr219/vless-server (Python) (selected work: scripts, tests, the project root)",
+ "repos": [
+  {
+   "repo": "vless-server",
+   "url": "https://github.com/gr219/vless-server",
+   "sha": "568bea2c4dfbb47c6e83985e5f67de1ec8e8ee23",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 568bea2c4dfb: \"Add Telegram /stats command with online users, total connected users,\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

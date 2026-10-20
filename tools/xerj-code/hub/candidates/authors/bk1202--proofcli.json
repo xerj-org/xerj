@@ -1,0 +1,22 @@
+{
+ "corpus": "bk1202--proofcli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, command-line, csv queries this for how bk1202/proofcli implements it: Verify CLI output files against JSON contracts. Catch broken JSON/CSV exports even when commands exit 0. Zero runtime dependencies (selected work: demo, tools)",
+ "repos": [
+  {
+   "repo": "proofcli",
+   "url": "https://github.com/bk1202/proofcli",
+   "sha": "de25785595eef40ca9fd2762d0232f39cd4c6579",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit de25785595ee: \"Add vertical and landscape motion demos (#5)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

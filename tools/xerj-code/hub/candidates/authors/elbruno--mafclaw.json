@@ -1,0 +1,22 @@
+{
+ "corpus": "elbruno--mafclaw",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on C# queries this for how elbruno/mafclaw implements it: elbruno/mafclaw (C#) (selected work: session-03)",
+ "repos": [
+  {
+   "repo": "mafclaw",
+   "url": "https://github.com/elbruno/mafclaw",
+   "sha": "854cfafd202a8a7520a15bd08b0a107ea21279dc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 854cfafd202a: \"Refactor Sample 21: Implement confined shell agent with approval-gate\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

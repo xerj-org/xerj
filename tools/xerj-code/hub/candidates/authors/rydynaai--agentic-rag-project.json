@@ -1,0 +1,22 @@
+{
+ "corpus": "rydynaai--agentic-rag-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how RydynaAi/agentic_rag_project implements it: RydynaAi/agentic_rag_project (Python) (selected work: eval, scripts, app)",
+ "repos": [
+  {
+   "repo": "agentic_rag_project",
+   "url": "https://github.com/RydynaAi/agentic_rag_project",
+   "sha": "e0306266af115d800de0642edcb8d5d3b11171d1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e0306266af11: \"feat: describe indexed document in router prompt and add evaluation s\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

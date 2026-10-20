@@ -1,0 +1,22 @@
+{
+ "corpus": "ode1l--nx-cast",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Ode1l/NX-Cast implements it: NX-Cast is an open-source media center for Nintendo Switch (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "NX-Cast",
+   "url": "https://github.com/Ode1l/NX-Cast",
+   "sha": "d74d21779630e32cf8caaa0922d45e8b7765fb96",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit d74d21779630: \"build: unify cross-platform developer tasks and release publishing\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

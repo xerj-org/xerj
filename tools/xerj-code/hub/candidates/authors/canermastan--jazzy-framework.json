@@ -1,0 +1,22 @@
+{
+ "corpus": "canermastan--jazzy-framework",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Nim queries this for how canermastan/jazzy-framework implements it: Productive, developer-friendly web framework for Nim. Write less code, build more features (selected work: src/jazzy, tests, src)",
+ "repos": [
+  {
+   "repo": "jazzy-framework",
+   "url": "https://github.com/canermastan/jazzy-framework",
+   "sha": "d45d49d07a6d130b56c1070f723cf668094e276b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit d45d49d07a6d: \"feat(cli): add generated AI agent guide\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

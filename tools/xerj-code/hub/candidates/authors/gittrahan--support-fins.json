@@ -1,0 +1,22 @@
+{
+ "corpus": "gittrahan--support-fins",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how gittrahan/support-fins implements it: gittrahan/support-fins (JavaScript) (selected work: web, tests)",
+ "repos": [
+  {
+   "repo": "support-fins",
+   "url": "https://github.com/gittrahan/support-fins",
+   "sha": "406ce8c9c7a4cfa9b25722da3c3e92db23c3e914",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 406ce8c9c7a4: \"Wall cutouts: diamond / triangle / arch / lattice holes to save filam\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

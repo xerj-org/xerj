@@ -1,0 +1,22 @@
+{
+ "corpus": "goya-rs--goya",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Go queries this for how goya-rs/goya implements it: Goya is an eBPF library for the Go and Rust programming language, built with a focus on developer experience and operability (selected work: ayalog)",
+ "repos": [
+  {
+   "repo": "goya",
+   "url": "https://github.com/goya-rs/goya",
+   "sha": "1b7aa0a567d8ac0f62fcd708ad07c70cc713ec06",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 1b7aa0a567d8: \"ayalog: proper Logs API with error return and injectable output\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

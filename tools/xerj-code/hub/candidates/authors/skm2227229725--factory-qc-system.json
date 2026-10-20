@@ -1,0 +1,22 @@
+{
+ "corpus": "skm2227229725--factory-qc-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how SKM2227229725/factory-qc-system implements it: A Django-based Factory Operations & Quality Control System for managing work orders, production stages, quality inspections, supervisor appr (selected work: dispatch, templates, accounts)",
+ "repos": [
+  {
+   "repo": "factory-qc-system",
+   "url": "https://github.com/SKM2227229725/factory-qc-system",
+   "sha": "4c8996f01033ec2b4e410c4c399d6ba41faa0069",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 4c8996f01033: \"feat(dispatch): shipping interlock, gate pass, packing slip with 3-ru\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

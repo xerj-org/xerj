@@ -1,0 +1,22 @@
+{
+ "corpus": "unitybtw--nova-browser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how unitybtw/nova-browser implements it: An open source browser built with React and Electron (selected work: electron, src/components, tests)",
+ "repos": [
+  {
+   "repo": "nova-browser",
+   "url": "https://github.com/unitybtw/nova-browser",
+   "sha": "96be2799166e47713bd7eb560b773b7d5a85c45d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 96be2799166e: \"fix(security): remediate remaining CodeQL alerts for TOCTOU file race\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

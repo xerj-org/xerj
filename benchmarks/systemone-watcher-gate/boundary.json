@@ -1,0 +1,722 @@
+[
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Noor! Sorting out the group thing \u2014 your share works out to about $383. Pay me back this week or just cover the next round, whatever's easier. Miss you, let's actually hang soon.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "hey, free this weekend?",
+  "text": "Hey Rafe, free this weekend? Also \u2014 still owe you for the concert tickets, want to say $3,627? Let me know what works, cash or Venmo when I see you.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "this week at Greenfield Robotics",
+  "text": "This week's digest: three things we shipped and a customer story worth reading. One ask before you go \u2014 which feature should we cover next issue? Just reply with a word. We read every response.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "this week at Ridgeway Consulting",
+  "text": "This week's digest: three things we shipped and a customer story worth reading. One ask before you go \u2014 which feature should we cover next issue? Just reply with a word. We read every response.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "status + one ask",
+  "text": "Everything's on track at Northwind Supply \u2014 design signed off, copy is in review. The only blocker is you: I need the final headcount tomorrow or the caterer won't hold our slot. Can you send it over?",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "before Friday's launch",
+  "text": "Quick note from the team at Bluepeak Logistics before Friday: we could use your take \u2014 reply and tell us which tagline you'd run with, A or B. We publish the results in next week's issue either way, so no wrong answer.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "status + one ask",
+  "text": "Everything's on track at Cedarline Studio \u2014 design signed off, copy is in review. The only blocker is you: I need the final headcount this week or the caterer won't hold our slot. Can you send it over?",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "a customer story worth reading",
+  "text": "Our weekly from Fenwick Cloud: the usual roundup, plus a short piece on how a customer cut their costs. Curious \u2014 would a deep-dive version be useful to you? Hit reply and let us know, it shapes what we write next.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend",
+  "text": "Was thinking we could grab dinner this weekend. Oh and I'll bring the $4,506 I owe you from the trip \u2014 completely forgot until now. No pressure either way, just wanted to catch up.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "what changed in the release",
+  "text": "Here's what changed this week at Voss & Rane. Reading time about four minutes. Before you unsubscribe or archive \u2014 one question: did the new layout work for you on mobile? Reply yes or no, it genuinely helps.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "status + one ask",
+  "text": "Everything's on track at Ridgeway Consulting \u2014 design signed off, copy is in review. The only blocker is you: I need the final headcount before month end or the caterer won't hold our slot. Can you send it over?",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "before Friday's launch",
+  "text": "Quick note from the team at Greenfield Robotics before Friday: we could use your take \u2014 reply and tell us which tagline you'd run with, A or B. We publish the results in next week's issue either way, so no wrong answer.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "what changed in the release",
+  "text": "Here's what changed this week at Harborline Freight. Reading time about four minutes. Before you unsubscribe or archive \u2014 one question: did the new layout work for you on mobile? Reply yes or no, it genuinely helps.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "did that ever go through?",
+  "text": "Hey Sara, quick check \u2014 did the transfer for last month's freight land yet? Should have been around $1,716, the reference was on the packing slip. No rush, just reconciling the books by Friday.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "this week at Fenwick Cloud",
+  "text": "This week's digest: three things we shipped and a customer story worth reading. One ask before you go \u2014 which feature should we cover next issue? Just reply with a word. We read every response.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "for the offsite",
+  "text": "Wrapping up the offsite numbers. Catering came to $1,032, venue was a bit more. Same split as always \u2014 tell accounting this week if your card wasn't the one charged so we can true it up.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "This week at Northwind Supply: two quick things",
+  "text": "Hi \u2014 this week's rundown from the studio: the mockups are attached and we shipped the new brand kit. One thing before Friday though: I do need you to confirm the print run number, otherwise the press slot slips.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend",
+  "text": "Was thinking we could grab dinner this weekend. Oh and I'll bring the $4,373 I owe you from the trip \u2014 completely forgot until now. No pressure either way, just wanted to catch up.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "this week at Harborline Freight",
+  "text": "This week's digest: three things we shipped and a customer story worth reading. One ask before you go \u2014 which feature should we cover next issue? Just reply with a word. We read every response.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "status + one ask",
+  "text": "Everything's on track at Harborline Freight \u2014 design signed off, copy is in review. The only blocker is you: I need the final headcount by end of day or the caterer won't hold our slot. Can you send it over?",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "one thing before I book this",
+  "text": "Before I book the freight slot I need a yes or no on the pallet count \u2014 24 or 32? The vendor holds the rate until 5pm tomorrow, after that it resets and we lose the discount, so whenever you get a sec.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "a customer story worth reading",
+  "text": "Our weekly from Northwind Supply: the usual roundup, plus a short piece on how a customer cut their costs. Curious \u2014 would a deep-dive version be useful to you? Hit reply and let us know, it shapes what we write next.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "did that ever go through?",
+  "text": "Hey Ola, quick check \u2014 did the transfer for last month's freight land yet? Should have been around $4,557, the reference was on the packing slip. No rush, just reconciling the books by end of day.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "hey, free this weekend?",
+  "text": "Hey Ola, free this weekend? Also \u2014 still owe you for the concert tickets, want to say $880? Let me know what works, cash or Venmo when I see you.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "this week at Cedarline Studio",
+  "text": "This week's digest: three things we shipped and a customer story worth reading. One ask before you go \u2014 which feature should we cover next issue? Just reply with a word. We read every response.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "weekly update",
+  "text": "Rundown: shipping is on schedule, the invoice cleared, support queue is quiet. The one thing I can't move without you \u2014 do we go with vendor A or B? I need that call tomorrow to lock the rate.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "reconciling",
+  "text": "Going through the books by end of day. I have $346 against the pallet job but no matching record on your side \u2014 did we ever settle that, or is it still open? Reference should be on the slip.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "for the offsite",
+  "text": "Wrapping up the offsite numbers. Catering came to $4,690, venue was a bit more. Same split as always \u2014 tell accounting by Friday if your card wasn't the one charged so we can true it up.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "for the offsite",
+  "text": "Wrapping up the offsite numbers. Catering came to $536, venue was a bit more. Same split as always \u2014 tell accounting before month end if your card wasn't the one charged so we can true it up.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "did that ever go through?",
+  "text": "Hey Mei, quick check \u2014 did the transfer for last month's freight land yet? Should have been around $4,568, the reference was on the packing slip. No rush, just reconciling the books by Friday.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "owe you for gas",
+  "text": "Hey! Can you send me $1,816 whenever for the gas we split on the drive back? Venmo's fine, or just get me before month end next time you're over. No rush at all.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "hey, free this weekend?",
+  "text": "Hey Owen, free this weekend? Also \u2014 still owe you for the concert tickets, want to say $292? Let me know what works, cash or Venmo when I see you.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "the transfer",
+  "text": "Hi Luca \u2014 can you confirm the $3,911 went out before month end? The account on file changed last quarter and I want to be sure it landed in the right one before I close out the month.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "this week at Bluepeak Logistics",
+  "text": "This week's digest: three things we shipped and a customer story worth reading. One ask before you go \u2014 which feature should we cover next issue? Just reply with a word. We read every response.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend",
+  "text": "Was thinking we could grab dinner this weekend. Oh and I'll bring the $1,442 I owe you from the trip \u2014 completely forgot until now. No pressure either way, just wanted to catch up.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "a customer story worth reading",
+  "text": "Our weekly from Harborline Freight: the usual roundup, plus a short piece on how a customer cut their costs. Curious \u2014 would a deep-dive version be useful to you? Hit reply and let us know, it shapes what we write next.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "reconciling",
+  "text": "Going through the books this afternoon. I have $2,261 against the pallet job but no matching record on your side \u2014 did we ever settle that, or is it still open? Reference should be on the slip.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "what changed in the release",
+  "text": "Here's what changed this week at Bluepeak Logistics. Reading time about four minutes. Before you unsubscribe or archive \u2014 one question: did the new layout work for you on mobile? Reply yes or no, it genuinely helps.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Luca! Sorting out the group thing \u2014 your share works out to about $3,676. Pay me back before month end or just cover the next round, whatever's easier. Miss you, let's actually hang soon.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "the transfer",
+  "text": "Hi Alex \u2014 can you confirm the $4,370 went out by the 15th? The account on file changed last quarter and I want to be sure it landed in the right one before I close out the month.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "reconciling",
+  "text": "Going through the books tomorrow. I have $810 against the pallet job but no matching record on your side \u2014 did we ever settle that, or is it still open? Reference should be on the slip.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "weekly update",
+  "text": "Rundown: shipping is on schedule, the invoice cleared, support queue is quiet. The one thing I can't move without you \u2014 do we go with vendor A or B? I need that call by end of day to lock the rate.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "did that ever go through?",
+  "text": "Hey Tom\u00e1s, quick check \u2014 did the transfer for last month's freight land yet? Should have been around $3,770, the reference was on the packing slip. No rush, just reconciling the books before month end.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "weekly update",
+  "text": "Rundown: shipping is on schedule, the invoice cleared, support queue is quiet. The one thing I can't move without you \u2014 do we go with vendor A or B? I need that call by Friday to lock the rate.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "reconciling",
+  "text": "Going through the books this week. I have $1,949 against the pallet job but no matching record on your side \u2014 did we ever settle that, or is it still open? Reference should be on the slip.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "what changed in the release",
+  "text": "Here's what changed this week at Northwind Supply. Reading time about four minutes. Before you unsubscribe or archive \u2014 one question: did the new layout work for you on mobile? Reply yes or no, it genuinely helps.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "weekly update",
+  "text": "Rundown: shipping is on schedule, the invoice cleared, support queue is quiet. The one thing I can't move without you \u2014 do we go with vendor A or B? I need that call this week to lock the rate.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Esme! Sorting out the group thing \u2014 your share works out to about $3,839. Pay me back this week or just cover the next round, whatever's easier. Miss you, let's actually hang soon.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "before Friday's launch",
+  "text": "Quick note from the team at Ridgeway Consulting before Friday: we could use your take \u2014 reply and tell us which tagline you'd run with, A or B. We publish the results in next week's issue either way, so no wrong answer.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "status + one ask",
+  "text": "Everything's on track at Cedarline Studio \u2014 design signed off, copy is in review. The only blocker is you: I need the final headcount this afternoon or the caterer won't hold our slot. Can you send it over?",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "one thing before I book this",
+  "text": "Before I book the freight slot I need a yes or no on the pallet count \u2014 24 or 32? The vendor holds the rate until 5pm before month end, after that it resets and we lose the discount, so whenever you get a sec.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "This week at Bluepeak Logistics: two quick things",
+  "text": "Hi \u2014 this week's rundown from the studio: the mockups are attached and we shipped the new brand kit. One thing before Friday though: I do need you to confirm the print run number, otherwise the press slot slips.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "owe you for gas",
+  "text": "Hey! Can you send me $2,115 whenever for the gas we split on the drive back? Venmo's fine, or just get me today next time you're over. No rush at all.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Noor! Sorting out the group thing \u2014 your share works out to about $1,065. Pay me back by Friday or just cover the next round, whatever's easier. Miss you, let's actually hang soon.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "status + one ask",
+  "text": "Everything's on track at Fenwick Cloud \u2014 design signed off, copy is in review. The only blocker is you: I need the final headcount today or the caterer won't hold our slot. Can you send it over?",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "did that ever go through?",
+  "text": "Hey Owen, quick check \u2014 did the transfer for last month's freight land yet? Should have been around $503, the reference was on the packing slip. No rush, just reconciling the books tomorrow.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "the transfer",
+  "text": "Hi Derek \u2014 can you confirm the $2,655 went out by Friday? The account on file changed last quarter and I want to be sure it landed in the right one before I close out the month.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "hey, free this weekend?",
+  "text": "Hey Ola, free this weekend? Also \u2014 still owe you for the concert tickets, want to say $2,828? Let me know what works, cash or Venmo when I see you.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Hana! Sorting out the group thing \u2014 your share works out to about $1,078. Pay me back by the 15th or just cover the next round, whatever's easier. Miss you, let's actually hang soon.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Noor! Sorting out the group thing \u2014 your share works out to about $3,985. Pay me back by Friday or just cover the next round, whatever's easier. Miss you, let's actually hang soon.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "the transfer",
+  "text": "Hi Mei \u2014 can you confirm the $1,647 went out tomorrow? The account on file changed last quarter and I want to be sure it landed in the right one before I close out the month.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "did that ever go through?",
+  "text": "Hey Mei, quick check \u2014 did the transfer for last month's freight land yet? Should have been around $1,435, the reference was on the packing slip. No rush, just reconciling the books this afternoon.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "what changed in the release",
+  "text": "Here's what changed this week at Ridgeway Consulting. Reading time about four minutes. Before you unsubscribe or archive \u2014 one question: did the new layout work for you on mobile? Reply yes or no, it genuinely helps.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "before Friday's launch",
+  "text": "Quick note from the team at Northwind Supply before Friday: we could use your take \u2014 reply and tell us which tagline you'd run with, A or B. We publish the results in next week's issue either way, so no wrong answer.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "what changed in the release",
+  "text": "Here's what changed this week at Marlowe Analytics. Reading time about four minutes. Before you unsubscribe or archive \u2014 one question: did the new layout work for you on mobile? Reply yes or no, it genuinely helps.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "did that ever go through?",
+  "text": "Hey Noor, quick check \u2014 did the transfer for last month's freight land yet? Should have been around $1,107, the reference was on the packing slip. No rush, just reconciling the books tomorrow.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "did that ever go through?",
+  "text": "Hey Priya, quick check \u2014 did the transfer for last month's freight land yet? Should have been around $1,753, the reference was on the packing slip. No rush, just reconciling the books this week.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Alex! Sorting out the group thing \u2014 your share works out to about $2,478. Pay me back before month end or just cover the next round, whatever's easier. Miss you, let's actually hang soon.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "before Friday's launch",
+  "text": "Quick note from the team at Cedarline Studio before Friday: we could use your take \u2014 reply and tell us which tagline you'd run with, A or B. We publish the results in next week's issue either way, so no wrong answer.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "weekly update",
+  "text": "Rundown: shipping is on schedule, the invoice cleared, support queue is quiet. The one thing I can't move without you \u2014 do we go with vendor A or B? I need that call today to lock the rate.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Tom\u00e1s! Sorting out the group thing \u2014 your share works out to about $967. Pay me back tomorrow or just cover the next round, whatever's easier. Miss you, let's actually hang soon.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "This week at Fenwick Cloud: two quick things",
+  "text": "Hi \u2014 this week's rundown from the studio: the mockups are attached and we shipped the new brand kit. One thing before Friday though: I do need you to confirm the print run number, otherwise the press slot slips.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "did that ever go through?",
+  "text": "Hey Ola, quick check \u2014 did the transfer for last month's freight land yet? Should have been around $3,384, the reference was on the packing slip. No rush, just reconciling the books this week.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "for the offsite",
+  "text": "Wrapping up the offsite numbers. Catering came to $4,375, venue was a bit more. Same split as always \u2014 tell accounting this week if your card wasn't the one charged so we can true it up.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "owe you for gas",
+  "text": "Hey! Can you send me $2,116 whenever for the gas we split on the drive back? Venmo's fine, or just get me by the 15th next time you're over. No rush at all.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Tom\u00e1s! Sorting out the group thing \u2014 your share works out to about $370. Pay me back today or just cover the next round, whatever's easier. Miss you, let's actually hang soon.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "one thing before I book this",
+  "text": "Before I book the freight slot I need a yes or no on the pallet count \u2014 24 or 32? The vendor holds the rate until 5pm by end of day, after that it resets and we lose the discount, so whenever you get a sec.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "before Friday's launch",
+  "text": "Quick note from the team at Marlowe Analytics before Friday: we could use your take \u2014 reply and tell us which tagline you'd run with, A or B. We publish the results in next week's issue either way, so no wrong answer.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "for the offsite",
+  "text": "Wrapping up the offsite numbers. Catering came to $2,420, venue was a bit more. Same split as always \u2014 tell accounting before month end if your card wasn't the one charged so we can true it up.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "status + one ask",
+  "text": "Everything's on track at Fenwick Cloud \u2014 design signed off, copy is in review. The only blocker is you: I need the final headcount by end of day or the caterer won't hold our slot. Can you send it over?",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend",
+  "text": "Was thinking we could grab dinner this weekend. Oh and I'll bring the $1,361 I owe you from the trip \u2014 completely forgot until now. No pressure either way, just wanted to catch up.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "one thing before I book this",
+  "text": "Before I book the freight slot I need a yes or no on the pallet count \u2014 24 or 32? The vendor holds the rate until 5pm by the 15th, after that it resets and we lose the discount, so whenever you get a sec.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "reconciling",
+  "text": "Going through the books before month end. I have $3,173 against the pallet job but no matching record on your side \u2014 did we ever settle that, or is it still open? Reference should be on the slip.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "status + one ask",
+  "text": "Everything's on track at Marlowe Analytics \u2014 design signed off, copy is in review. The only blocker is you: I need the final headcount this afternoon or the caterer won't hold our slot. Can you send it over?",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "hey, free this weekend?",
+  "text": "Hey Sara, free this weekend? Also \u2014 still owe you for the concert tickets, want to say $4,452? Let me know what works, cash or Venmo when I see you.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend",
+  "text": "Was thinking we could grab dinner this weekend. Oh and I'll bring the $3,969 I owe you from the trip \u2014 completely forgot until now. No pressure either way, just wanted to catch up.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend",
+  "text": "Was thinking we could grab dinner this weekend. Oh and I'll bring the $766 I owe you from the trip \u2014 completely forgot until now. No pressure either way, just wanted to catch up.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "status + one ask",
+  "text": "Everything's on track at Cedarline Studio \u2014 design signed off, copy is in review. The only blocker is you: I need the final headcount by Friday or the caterer won't hold our slot. Can you send it over?",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "what changed in the release",
+  "text": "Here's what changed this week at Fenwick Cloud. Reading time about four minutes. Before you unsubscribe or archive \u2014 one question: did the new layout work for you on mobile? Reply yes or no, it genuinely helps.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend",
+  "text": "Was thinking we could grab dinner this weekend. Oh and I'll bring the $4,699 I owe you from the trip \u2014 completely forgot until now. No pressure either way, just wanted to catch up.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "owe you for gas",
+  "text": "Hey! Can you send me $4,369 whenever for the gas we split on the drive back? Venmo's fine, or just get me by the 15th next time you're over. No rush at all.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "one thing before I book this",
+  "text": "Before I book the freight slot I need a yes or no on the pallet count \u2014 24 or 32? The vendor holds the rate until 5pm this afternoon, after that it resets and we lose the discount, so whenever you get a sec.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "weekly update",
+  "text": "Rundown: shipping is on schedule, the invoice cleared, support queue is quiet. The one thing I can't move without you \u2014 do we go with vendor A or B? I need that call this afternoon to lock the rate.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "before Friday's launch",
+  "text": "Quick note from the team at Voss & Rane before Friday: we could use your take \u2014 reply and tell us which tagline you'd run with, A or B. We publish the results in next week's issue either way, so no wrong answer.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "for the offsite",
+  "text": "Wrapping up the offsite numbers. Catering came to $2,126, venue was a bit more. Same split as always \u2014 tell accounting this afternoon if your card wasn't the one charged so we can true it up.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "This week at Greenfield Robotics: two quick things",
+  "text": "Hi \u2014 this week's rundown from the studio: the mockups are attached and we shipped the new brand kit. One thing before Friday though: I do need you to confirm the print run number, otherwise the press slot slips.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "This week at Harborline Freight: two quick things",
+  "text": "Hi \u2014 this week's rundown from the studio: the mockups are attached and we shipped the new brand kit. One thing before Friday though: I do need you to confirm the print run number, otherwise the press slot slips.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "this week at Atlas Facilities",
+  "text": "This week's digest: three things we shipped and a customer story worth reading. One ask before you go \u2014 which feature should we cover next issue? Just reply with a word. We read every response.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "reconciling",
+  "text": "Going through the books tomorrow. I have $1,408 against the pallet job but no matching record on your side \u2014 did we ever settle that, or is it still open? Reference should be on the slip.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "reconciling",
+  "text": "Going through the books tomorrow. I have $2,386 against the pallet job but no matching record on your side \u2014 did we ever settle that, or is it still open? Reference should be on the slip.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "reconciling",
+  "text": "Going through the books by the 15th. I have $1,588 against the pallet job but no matching record on your side \u2014 did we ever settle that, or is it still open? Reference should be on the slip.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "reconciling",
+  "text": "Going through the books this week. I have $3,070 against the pallet job but no matching record on your side \u2014 did we ever settle that, or is it still open? Reference should be on the slip.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "a customer story worth reading",
+  "text": "Our weekly from Cedarline Studio: the usual roundup, plus a short piece on how a customer cut their costs. Curious \u2014 would a deep-dive version be useful to you? Hit reply and let us know, it shapes what we write next.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "status + one ask",
+  "text": "Everything's on track at Harborline Freight \u2014 design signed off, copy is in review. The only blocker is you: I need the final headcount by Friday or the caterer won't hold our slot. Can you send it over?",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "quick one",
+  "text": "Sara! Sorting out the group thing \u2014 your share works out to about $3,155. Pay me back by end of day or just cover the next round, whatever's easier. Miss you, let's actually hang soon.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "did that ever go through?",
+  "text": "Hey Mei, quick check \u2014 did the transfer for last month's freight land yet? Should have been around $3,254, the reference was on the packing slip. No rush, just reconciling the books this week.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend",
+  "text": "Was thinking we could grab dinner this weekend. Oh and I'll bring the $750 I owe you from the trip \u2014 completely forgot until now. No pressure either way, just wanted to catch up.",
+  "split": "boundary"
+ },
+ {
+  "label": "invoice",
+  "subject": "did that ever go through?",
+  "text": "Hey Luca, quick check \u2014 did the transfer for last month's freight land yet? Should have been around $2,703, the reference was on the packing slip. No rush, just reconciling the books this week.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "status + one ask",
+  "text": "Everything's on track at Harborline Freight \u2014 design signed off, copy is in review. The only blocker is you: I need the final headcount tomorrow or the caterer won't hold our slot. Can you send it over?",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "a customer story worth reading",
+  "text": "Our weekly from Greenfield Robotics: the usual roundup, plus a short piece on how a customer cut their costs. Curious \u2014 would a deep-dive version be useful to you? Hit reply and let us know, it shapes what we write next.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "status + one ask",
+  "text": "Everything's on track at Voss & Rane \u2014 design signed off, copy is in review. The only blocker is you: I need the final headcount by end of day or the caterer won't hold our slot. Can you send it over?",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "a customer story worth reading",
+  "text": "Our weekly from Atlas Facilities: the usual roundup, plus a short piece on how a customer cut their costs. Curious \u2014 would a deep-dive version be useful to you? Hit reply and let us know, it shapes what we write next.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend",
+  "text": "Was thinking we could grab dinner this weekend. Oh and I'll bring the $3,383 I owe you from the trip \u2014 completely forgot until now. No pressure either way, just wanted to catch up.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "status + one ask",
+  "text": "Everything's on track at Greenfield Robotics \u2014 design signed off, copy is in review. The only blocker is you: I need the final headcount by end of day or the caterer won't hold our slot. Can you send it over?",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend",
+  "text": "Was thinking we could grab dinner this weekend. Oh and I'll bring the $385 I owe you from the trip \u2014 completely forgot until now. No pressure either way, just wanted to catch up.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "a customer story worth reading",
+  "text": "Our weekly from Marlowe Analytics: the usual roundup, plus a short piece on how a customer cut their costs. Curious \u2014 would a deep-dive version be useful to you? Hit reply and let us know, it shapes what we write next.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "this week at Marlowe Analytics",
+  "text": "This week's digest: three things we shipped and a customer story worth reading. One ask before you go \u2014 which feature should we cover next issue? Just reply with a word. We read every response.",
+  "split": "boundary"
+ },
+ {
+  "label": "newsletter",
+  "subject": "what changed in the release",
+  "text": "Here's what changed this week at Atlas Facilities. Reading time about four minutes. Before you unsubscribe or archive \u2014 one question: did the new layout work for you on mobile? Reply yes or no, it genuinely helps.",
+  "split": "boundary"
+ },
+ {
+  "label": "needs-reply",
+  "subject": "This week at Atlas Facilities: two quick things",
+  "text": "Hi \u2014 this week's rundown from the studio: the mockups are attached and we shipped the new brand kit. One thing before Friday though: I do need you to confirm the print run number, otherwise the press slot slips.",
+  "split": "boundary"
+ },
+ {
+  "label": "personal",
+  "subject": "this weekend",
+  "text": "Was thinking we could grab dinner this weekend. Oh and I'll bring the $3,439 I owe you from the trip \u2014 completely forgot until now. No pressure either way, just wanted to catch up.",
+  "split": "boundary"
+ }
+]

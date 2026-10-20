@@ -1,0 +1,22 @@
+{
+ "corpus": "pearlxcore--ps5pkgtool",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how pearlxcore/PS5PKGTool implements it: A Windows app for managing your PS5 dump and image collection, reading PS5 packages, and building or converting images (selected work: PS5PKGTool.Ffpfsc, PS5PKGTool.Core)",
+ "repos": [
+  {
+   "repo": "PS5PKGTool",
+   "url": "https://github.com/pearlxcore/PS5PKGTool",
+   "sha": "b520d370f6e136cc736a21a0ffd39e6ce19f3133",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit b520d370f6e1: \"Extract package content through the shared game file system\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

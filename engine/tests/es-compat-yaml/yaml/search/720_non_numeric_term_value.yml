@@ -1,0 +1,100 @@
+setup:
+  - do:
+      indices.create:
+          index: non_numeric_term
+          body:
+              mappings:
+                  properties:
+                      bytes:
+                          type: long
+                      h:
+                          type: keyword
+  - do:
+      bulk:
+          refresh: true
+          body:
+              - '{"index": {"_index": "non_numeric_term", "_id": "1"}}'
+              - '{"bytes": 1, "h": "a"}'
+
+---
+"non-numeric term-level value on a numeric field is a 400 (#1284)":
+  - do:
+      catch: bad_request
+      search:
+          index: non_numeric_term
+          body: { query: { term: { bytes: "abc" } } }
+  # This runner records a `catch` response without checking its status, so
+  # the 400 is asserted on the body (`status` is in ES's error envelope).
+  - match: { status: 400 }
+
+  - do:
+      catch: bad_request
+      search:
+          index: non_numeric_term
+          body: { query: { bool: { filter: [ { range: { bytes: { gte: "abc" } } } ] } } }
+  - match: { status: 400 }
+
+---
+"numeric strings and non-numeric fields stay valid (#1284)":
+  - do:
+      search:
+          index: non_numeric_term
+          body: { query: { term: { bytes: "1" } } }
+  - match: { hits.total.value: 1 }
+
+  - do:
+      search:
+          index: non_numeric_term
+          body: { query: { term: { h: "abc" } } }
+  - match: { hits.total.value: 0 }
+
+---
+"non-lenient full-text value on a numeric field is a 400 (#1284)":
+  - do:
+      catch: bad_request
+      search:
+          index: non_numeric_term
+          body: { query: { match: { bytes: "abc" } } }
+  - match: { status: 400 }
+
+  - do:
+      catch: bad_request
+      search:
+          index: non_numeric_term
+          body: { query: { query_string: { query: "bytes:abc", lenient: false } } }
+  - match: { status: 400 }
+
+  - do:
+      catch: bad_request
+      search:
+          index: non_numeric_term
+          body: { query: { multi_match: { query: "abc", fields: [ "bytes", "h" ] } } }
+  - match: { status: 400 }
+
+---
+"lenient full-text value on a numeric field stays a 200 (#1284)":
+  - do:
+      search:
+          index: non_numeric_term
+          body: { query: { match: { bytes: { query: "abc", lenient: true } } } }
+  - match: { hits.total.value: 0 }
+
+  # No `default_field`: the field set is every field, so ES defaults
+  # `lenient` to true even though the clause names `bytes` itself.
+  - do:
+      search:
+          index: non_numeric_term
+          body: { query: { query_string: { query: "bytes:abc" } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+          index: non_numeric_term
+          body: { query: { query_string: { query: "bytes:>abc" } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+          index: non_numeric_term
+          body: { query: { match: { bytes: "1" } } }
+  - match: { hits.total.value: 1 }

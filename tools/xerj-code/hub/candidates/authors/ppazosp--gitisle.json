@@ -1,0 +1,22 @@
+{
+ "corpus": "ppazosp--gitisle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Swift queries this for how ppazosp/gitisle implements it: Your agents and PRs, in one island. Native macOS GitHub, Codex and Claude Code companion (selected work: Sources, Tests)",
+ "repos": [
+  {
+   "repo": "gitisle",
+   "url": "https://github.com/ppazosp/gitisle",
+   "sha": "fb0d55d441b7e1c79dd983db2b04503611902c1b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit fb0d55d441b7: \"fix: merging follows the merge queue, with its checks, a real start t\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

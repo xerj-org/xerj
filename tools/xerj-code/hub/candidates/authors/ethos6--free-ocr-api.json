@@ -1,0 +1,22 @@
+{
+ "corpus": "ethos6--free-ocr-api",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bank-statement-parser, data-entry, data-extraction queries this for how Ethos6/free-ocr-api implements it: Free self-hosted OCR & document data extraction API. Turn PDFs, scans, invoices, receipts & bank statements into JSON, CSV or Excel. No API  (selected work: freeocr)",
+ "repos": [
+  {
+   "repo": "free-ocr-api",
+   "url": "https://github.com/Ethos6/free-ocr-api",
+   "sha": "27203709d130c54e5b01912c3a33f18df7cb6f29",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 27203709d130: \"Add freeocr package: OCR engine, extractors, API, CLI, MCP server\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

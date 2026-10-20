@@ -1,0 +1,22 @@
+{
+ "corpus": "blockedpath--pi-meta-oauth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on meta, muse-spark, oauth queries this for how BlockedPath/pi-meta-oauth implements it: BlockedPath/pi-meta-oauth (TypeScript) (selected work: tests, src/meta, extensions)",
+ "repos": [
+  {
+   "repo": "pi-meta-oauth",
+   "url": "https://github.com/BlockedPath/pi-meta-oauth",
+   "sha": "6bb87dcf7f90e25f3b71c0c843c2e75ec0351153",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 6bb87dcf7f90: \"refactor(meta): split provider into validated modules (#26)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

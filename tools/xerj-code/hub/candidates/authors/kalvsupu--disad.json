@@ -1,0 +1,22 @@
+{
+ "corpus": "kalvsupu--disad",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Kotlin queries this for how kalvsupu/disAD implements it: \u514d Root \u672c\u5730\u5e7f\u544a\u62e6\u622a \u00b7 Root-free local ad blocker \u2014 VpnService DNS \u8fc7\u6ee4 + \u65e0\u969c\u788d\u8f85\u52a9\u70b9\u6389\u300c\u8df3\u8fc7\u300d\uff0c\u4f53\u79ef <1 MB\uff0c\u7eaf\u672c\u5730\u3001\u4e0d\u8054\u7f51\u3001\u4e0d\u91c7\u96c6\u3002\u9644\u6280\u672f\u8fb9\u754c\u8bf4\u660e\uff1a\u4e3a\u4ec0\u4e48\u817e\u8baf\u7cfb\u548c\u5fae\u4fe1\u5185\u7684\u5e7f\u544a\u62e6\u4e0d\u4f4f\u3002 (selected work: app/src, the project root, app)",
+ "repos": [
+  {
+   "repo": "disAD",
+   "url": "https://github.com/kalvsupu/disAD",
+   "sha": "2aaf78c1a8e687e10e54c72a7d1b88fc04c320b9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 2aaf78c1a8e6: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

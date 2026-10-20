@@ -1,0 +1,22 @@
+{
+ "corpus": "magicapple123--resumeforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, anthropic, ats-resume queries this for how magicapple123/ResumeForge implements it: \u7b80\u5386\u901a ResumeForge \u2014\u2014 \u672c\u5730\u4f18\u5148\u7684 AI \u7b80\u5386\u5de5\u4f5c\u53f0\uff1a\u5c97\u4f4d\u7ba1\u7406\u3001\u4e8b\u5b9e\u53f0\u8d26\u9632\u865a\u6784\u3001AI \u5b9a\u5236/\u624b\u5199\u7b80\u5386\u3001\u591a\u683c\u5f0f\u5bfc\u51fa\u3001\u6a21\u62df\u9762\u8bd5\u4e0e\u9762\u8bd5\u6df1\u6316\u3001\u81ea\u52a8\u6295\u9012\u53f0\u3001\u6c42\u804c\u8fdb\u5ea6\u4e0e\u6570\u636e\u770b\u677f\u3002FastAPI + React + SQLite\uff0c\u5355\u673a\u8fd0\u884c\u3001\u6570\u636e\u4e0d\u51fa\u672c\u673a\u3002 | AI resume  (selected work: backend)",
+ "repos": [
+  {
+   "repo": "ResumeForge",
+   "url": "https://github.com/magicapple123/ResumeForge",
+   "sha": "cd714cdcfe9448747a428c6733359532b772aa8f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit cd714cdcfe94: \"feat(webform): \u653e\u5bbd\u6a21\u5f0f\u7b2c\u4e8c\u8f6e\u5b9a\u5411\u653e\u5bbd + UD \u5f39\u5c42\u4ee3\u9009\uff08\u5b57\u8282\u9875\u5b9e\u6d4b\uff09\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

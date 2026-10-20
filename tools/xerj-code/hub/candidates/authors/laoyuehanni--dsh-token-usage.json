@@ -1,0 +1,22 @@
+{
+ "corpus": "laoyuehanni--dsh-token-usage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dsh-plugin queries this for how LaoYueHanNi/dsh-token-usage implements it: \u8d34\u8fd1 DSH \u539f\u751f\u8bbe\u8ba1\u98ce\u683c\u7684 token \u7528\u91cf\u7edf\u8ba1\u63d2\u4ef6\uff1a\u5b9e\u65f6\u8bb0\u5f55\u6bcf\u6b21\u8bf7\u6c42\u7684\u7528\u91cf\u4e0e\u8d39\u7528\uff0c\u5728 Web UI \u4e2d\u63d0\u4f9b\u8d8b\u52bf\u56fe\u8868\u3001\u6309\u6a21\u578b\u5b9a\u4ef7\u660e\u7ec6\u548c\u4f9b\u5e94\u5546\u914d\u989d\u663e\u793a\u3002 (selected work: tests, src, src/client)",
+ "repos": [
+  {
+   "repo": "dsh-token-usage",
+   "url": "https://github.com/LaoYueHanNi/dsh-token-usage",
+   "sha": "c66c939bcf38c824cd55acb357d9ac8d289abf7e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit c66c939bcf38: \"refactor(pricing)!: \u7edf\u4e00\u6b63\u5219\u522b\u540d\u8bc6\u522b\u5e76\u517c\u5bb9\u65b0\u7248\u5b9a\u4ef7\u8868\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

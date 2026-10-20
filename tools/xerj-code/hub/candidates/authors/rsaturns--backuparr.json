@@ -1,0 +1,22 @@
+{
+ "corpus": "rsaturns--backuparr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on backup, bazarr, docker queries this for how rsaturns/backuparr implements it: Scheduled config/database backups and web-UI restore for Radarr, Sonarr, Prowlarr, Profilarr, Bazarr, Tdarr, SABnzbd and Tautulli, sent to L (selected work: tests, webui, the project root)",
+ "repos": [
+  {
+   "repo": "backuparr",
+   "url": "https://github.com/rsaturns/backuparr",
+   "sha": "2885a3da690d033cd6c8f4f324674731be375575",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 2885a3da690d: \"Add opt-in authentication bypass for reverse proxy deployments (#34)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

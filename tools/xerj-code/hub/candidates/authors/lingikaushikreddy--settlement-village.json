@@ -1,0 +1,22 @@
+{
+ "corpus": "lingikaushikreddy--settlement-village",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-based-modeling, autonomous-agents, browser-game queries this for how Lingikaushikreddy/Settlement-Village implements it: An illustrated multi-agent village strategy game. Set objectives; residents gather, build, upgrade and recruit. Battle, inspect decisions an (selected work: components)",
+ "repos": [
+  {
+   "repo": "Settlement-Village",
+   "url": "https://github.com/Lingikaushikreddy/Settlement-Village",
+   "sha": "427d9e6d496e0cd25a26220f797cc6947e8c418b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 427d9e6d496e: \"refactor(research): extract ActivityPanel, MetricsPanel and RunLibrar\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

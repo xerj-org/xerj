@@ -1,0 +1,22 @@
+{
+ "corpus": "sandbaseai--sandbase-harness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-observability, agent-runtime, ai-agents queries this for how sandbaseai/sandbase-harness implements it: Local-first, self-hosted AI agent runtime and MCP bridge with sandboxed sessions, memory, credentials, audit/replay, and a local Console (selected work: tests, src/core, src/types)",
+ "repos": [
+  {
+   "repo": "sandbase-harness",
+   "url": "https://github.com/sandbaseai/sandbase-harness",
+   "sha": "0cda12b033a7ce5827d0622dcfeddc19a3898668",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 0cda12b033a7: \"feat(sessions): pause a turn at its spending ceiling and resume on up\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,31 @@
+# cargo-audit configuration (read by `cargo audit` run from engine/, as CI does).
+#
+# Policy: every RUSTSEC *vulnerability* fails CI unless it is listed here with
+# a justification that says why it cannot reach us AND what removes the entry.
+# Keep this list as short as possible; delete an entry as soon as it is fixable.
+
+[advisories]
+ignore = [
+    # zip < 9.0.0 — RUSTSEC-2026-0367 (SUID/SGID bits preserved on extract),
+    # RUSTSEC-2026-0368 (extract creates symlinks pointing outside the dest dir),
+    # RUSTSEC-2026-0369 (extract applies Unix permissions through symlinks).
+    #
+    # Every zip we depend on directly or through autoindex (calamine 0.37,
+    # office_oxide 0.1.15, xerj-autoindex itself) is on the fixed zip 9.x line.
+    # The only remaining vulnerable copy is zip 7.2.0, pulled in by
+    # candle-core 0.9.2 (optional `neural` / `decide-local` features of
+    # xerj-ai). No candle-core release depends on zip >= 9 (latest 0.11.0 still
+    # requires zip ^8.6), so it cannot be upgraded yet.
+    #
+    # Not reachable: all three advisories are in `ZipArchive::extract` /
+    # `ZipStreamReader::extract` (writing archive entries to disk). candle-core
+    # only opens .npz/.pth files with `ZipArchive::new` and reads named entries
+    # into memory (src/npy.rs, src/pickle.rs); it never calls `extract`. XERJ
+    # itself only loads `model.safetensors` through candle (xerj-ai
+    # neural.rs), so even those zip readers are not on any code path we use.
+    #
+    # Remove these three entries when candle-core ships with zip >= 9.0.0.
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
+]

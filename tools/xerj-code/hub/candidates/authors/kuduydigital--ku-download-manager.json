@@ -1,0 +1,22 @@
+{
+ "corpus": "kuduydigital--ku-download-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how kuduyDigital/ku-download-manager implements it: kuduyDigital/ku-download-manager (TypeScript) (selected work: branding, android, app/src)",
+ "repos": [
+  {
+   "repo": "ku-download-manager",
+   "url": "https://github.com/kuduyDigital/ku-download-manager",
+   "sha": "823ba8e51a81dff5b6dcf9944cb62a3d8bb02694",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 823ba8e51a81: \"New logo everywhere\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

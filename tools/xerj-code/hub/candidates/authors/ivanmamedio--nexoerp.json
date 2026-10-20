@@ -1,0 +1,22 @@
+{
+ "corpus": "ivanmamedio--nexoerp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how ivanmamedio/NexoERP implements it: ERP desktop offline-first para pequenos com\u00e9rcios (selected work: src/erp, tests)",
+ "repos": [
+  {
+   "repo": "NexoERP",
+   "url": "https://github.com/ivanmamedio/NexoERP",
+   "sha": "ad3f499a71200d8e2cd05111642480a3b5c2e686",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ad3f499a7120: \"feat(identity): Tarefa 1.1 - completar dominio e persistencia do modu\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

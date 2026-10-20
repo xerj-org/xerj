@@ -1,0 +1,22 @@
+{
+ "corpus": "iamvisheshsrivastava--insightdesk-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on anomaly-detection, faiss, fastapi queries this for how iamvisheshsrivastava/insightdesk-ai implements it: AI-powered helpdesk platform: ticket classification, RAG retrieval, anomaly detection & model monitoring. FastAPI + React (selected work: tests, scripts, src/agentic)",
+ "repos": [
+  {
+   "repo": "insightdesk-ai",
+   "url": "https://github.com/iamvisheshsrivastava/insightdesk-ai",
+   "sha": "03031be2c216ad4a6025c6e68bef45996a223e75",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 03031be2c216: \"fix: correct retrain feedback length calc, routing map defaults, and \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

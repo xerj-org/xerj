@@ -1,0 +1,22 @@
+{
+ "corpus": "jzills--hmac-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on authentication, hmac, mvc queries this for how jzills/hmac-manager implements it: Secure HMAC request authentication for ASP.NET Core \u2014 as a NuGet library, or as an Istio ext-authz service with a Kubernetes operator for de (selected work: test, extensions)",
+ "repos": [
+  {
+   "repo": "hmac-manager",
+   "url": "https://github.com/jzills/hmac-manager",
+   "sha": "e981b5b3393c988b2402fb5bfb3250e2921c52d2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit e981b5b3393c: \"feat(redis): add the opt-in HmacManager.StackExchangeRedis package\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

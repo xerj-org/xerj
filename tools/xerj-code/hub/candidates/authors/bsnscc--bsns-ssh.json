@@ -1,0 +1,22 @@
+{
+ "corpus": "bsnscc--bsns-ssh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Swift queries this for how bsnscc/bsns-ssh implements it: Free iOS / Android SSH/Mosh/SFTP client from bsns.cc (selected work: android)",
+ "repos": [
+  {
+   "repo": "bsns-ssh",
+   "url": "https://github.com/bsnscc/bsns-ssh",
+   "sha": "92ff9f260fff32cb16928bbaf1db45770c77383e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 92ff9f260fff: \"Android: redesigned app, with a tablet layout\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

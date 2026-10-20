@@ -1,0 +1,22 @@
+{
+ "corpus": "opensearch-project--ml-commons",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on machine-learning-algorithms queries this for how opensearch-project/ml-commons implements it: ml-commons provides a set of common machine learning algorithms, e.g. k-means, or linear regression, to help developers build ML related fea (selected work: ml-algorithms, common, plugin)",
+ "repos": [
+  {
+   "repo": "ml-commons",
+   "url": "https://github.com/opensearch-project/ml-commons",
+   "sha": "42107fa7127b5720c5f74f1d1f9e5aa736eaf4e1",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 42107fa7127b: \"Fix google_cloud/Vertex AI trusted endpoints, grpc surface, and the b\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

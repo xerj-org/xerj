@@ -1,0 +1,22 @@
+{
+ "corpus": "mvschwarz--openrig",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-harness, agent-orchestration, agent-skills queries this for how mvschwarz/openrig implements it: Build your own network of agents from Claude Code, Codex and Pi: persistent teams with roles, shared context and owned work (selected work: packages/daemon, packages/ui)",
+ "repos": [
+  {
+   "repo": "openrig",
+   "url": "https://github.com/mvschwarz/openrig",
+   "sha": "93f8d4abba097dd02d5c3803f7a312882a7f0b85",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 93f8d4abba09: \"feat: add isolated Oh My Pi runtime adapter (#35)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

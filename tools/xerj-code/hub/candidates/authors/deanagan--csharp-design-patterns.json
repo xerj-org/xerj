@@ -1,0 +1,22 @@
+{
+ "corpus": "deanagan--csharp-design-patterns",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on moq, csharp, fluentassertions queries this for how deanagan/csharp-design-patterns implements it: A demo for design patterns written in C# with Moq, Xunit and FluentAssertions (selected work: Patterns)",
+ "repos": [
+  {
+   "repo": "csharp-design-patterns",
+   "url": "https://github.com/deanagan/csharp-design-patterns",
+   "sha": "a9f8e961099bf4a1782d89e50922b2deaa313cfe",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit a9f8e961099b: \"some updated\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

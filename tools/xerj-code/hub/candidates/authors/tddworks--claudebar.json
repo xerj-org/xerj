@@ -1,0 +1,22 @@
+{
+ "corpus": "tddworks--claudebar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, claude-code, codex queries this for how tddworks/ClaudeBar implements it: A macOS menu bar application that monitors AI coding assistant usage quotas. Keep track of your Claude, Codex, Antigravity ,and Gemini usage (selected work: design-concept, Sources, Tests)",
+ "repos": [
+  {
+   "repo": "ClaudeBar",
+   "url": "https://github.com/tddworks/ClaudeBar",
+   "sha": "d1bfbdcf8c73e93cdbac025e25756a12683eac7a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit d1bfbdcf8c73: \"feat(popover): All shows every provider on one page (#539)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

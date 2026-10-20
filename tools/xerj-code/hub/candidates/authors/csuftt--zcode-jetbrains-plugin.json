@@ -1,0 +1,22 @@
+{
+ "corpus": "csuftt--zcode-jetbrains-plugin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-coding-assistant, browser-use, coding-agent queries this for how csuftt/zcode-jetbrains-plugin implements it: ZCode\uff08Z.ai/GLM\uff09AI \u7f16\u7a0b\u52a9\u624b JetBrains \u63d2\u4ef6\uff1a\u591a\u6807\u7b7e\u5bf9\u8bdd\u3001\u6d41\u5f0f\u8f93\u51fa\u3001\u6a21\u578b\u4e0e\u6743\u9650\u5207\u6362\u3001\u4efb\u52a1/\u5b50\u4ee3\u7406\u53ef\u89c6\u5316\uff0cAI \u53ef\u7ecf browser-use \u9a71\u52a8\u5185\u5d4c JCEF \u6d4f\u89c8\u5668 | ZCode (Z.ai/GLM) AI coding assistant for  (selected work: webview, intellij-plugin)",
+ "repos": [
+  {
+   "repo": "zcode-jetbrains-plugin",
+   "url": "https://github.com/csuftt/zcode-jetbrains-plugin",
+   "sha": "f6a9919aa5dcf7f33eca38e56b4753165dbac72c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit f6a9919aa5dc: \"fix# \u5386\u53f2\u5217\u8868\u5bf9\u5df2\u5728\u6807\u7b7e\u6253\u5f00\u7684\u4f1a\u8bdd\u663e\u793a\u6807\u7b7e\u540d\u6807\u8bb0\uff0c\u70b9\u51fb\u5148\u786e\u8ba4\u518d\u8df3\u8f6c\uff1a\u6d88\u9664\u591a\u6807\u7b7e\u4e0b\u6807\u9898\u76f8\u4f3c\u8bef\u70b9\u9759\u9ed8\u5207\u8d70\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

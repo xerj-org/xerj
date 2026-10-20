@@ -1,0 +1,22 @@
+{
+ "corpus": "stoicdreams--taskproxyapp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on JavaScript queries this for how StoicDreams/TaskProxyApp implements it: StoicDreams/TaskProxyApp (JavaScript) (selected work: src-tauri, wc, root_files)",
+ "repos": [
+  {
+   "repo": "TaskProxyApp",
+   "url": "https://github.com/StoicDreams/TaskProxyApp",
+   "sha": "829ae67e0c976875d51383fe12209819d78a9695",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 829ae67e0c97: \"Feature: app-files component to load project file paths based on filter\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

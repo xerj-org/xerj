@@ -1,0 +1,22 @@
+{
+ "corpus": "ordewell--ordewell",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, cli queries this for how ordewell/ordewell implements it: Multi-agent task orchestration for coding agents. Turn one goal into an ordered plan of tasks (each with its own runner, model and mode), th (selected work: packages/core)",
+ "repos": [
+  {
+   "repo": "ordewell",
+   "url": "https://github.com/ordewell/ordewell",
+   "sha": "a408af38e23d258328ad2f06e8e2fe461dab168b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit a408af38e23d: \"G1: Fix command-policy regressions (heredoc and cmd paths)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

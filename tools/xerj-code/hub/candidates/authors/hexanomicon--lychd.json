@@ -1,0 +1,22 @@
+{
+ "corpus": "hexanomicon--lychd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, litestar, llm queries this for how hexanomicon/lychd implements it: An LLM-animated daemon bound to Systemd. Forges intelligent agents using Litestar, Pydantic AI, and the Dark Arts of xDDD (selected work: clients, tests, src/lychd)",
+ "repos": [
+  {
+   "repo": "lychd",
+   "url": "https://github.com/hexanomicon/lychd",
+   "sha": "d389a12dc721708a38d404ab3de5bffb97a7ac2c",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit d389a12dc721: \"feat(altar): admit public-source Creation investigations from Bridge\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

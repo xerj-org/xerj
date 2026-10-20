@@ -1,0 +1,22 @@
+{
+ "corpus": "kamalkimahek14--yolov3-camera-lidar-fusion",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on deep-learning, kalman-filter, lidar queries this for how kamalkimahek14/yolov3-camera-lidar-fusion implements it: MS thesis code: YOLOv3 transfer learning (test mAP@0.5 96.25%, 4 classes), stereo and camera-LiDAR calibration, LiDAR frustum clustering and (selected work: detection)",
+ "repos": [
+  {
+   "repo": "yolov3-camera-lidar-fusion",
+   "url": "https://github.com/kamalkimahek14/yolov3-camera-lidar-fusion",
+   "sha": "c119ac2dae4be1b6f40440c059907a8697ebb0df",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit c119ac2dae4b: \"Add YOLO v3 helper functions written in 2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "shoodoow--kuru",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-agents-automation, ai-agents-framework queries this for how shoodoow/kuru implements it: Your own Grok-style bot \u2014 self-hosted, with almost every feature. Chat from your phone. Agents team up, run workers, remember, schedule rout (selected work: apps/mobile, apps/core)",
+ "repos": [
+  {
+   "repo": "kuru",
+   "url": "https://github.com/shoodoow/kuru",
+   "sha": "1c823ef9937e88fd349deee5eb6a5f0215227b1c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 1c823ef9937e: \"Approval cards that say who asks and what it means, permissions you c\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

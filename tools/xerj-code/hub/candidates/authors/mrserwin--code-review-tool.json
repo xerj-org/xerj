@@ -1,0 +1,22 @@
+{
+ "corpus": "mrserwin--code-review-tool",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how MrSerWin/code-review-tool implements it: MrSerWin/code-review-tool (TypeScript) (selected work: web, src, src/trackers)",
+ "repos": [
+  {
+   "repo": "code-review-tool",
+   "url": "https://github.com/MrSerWin/code-review-tool",
+   "sha": "5b1b2af36ec23f9ab73df9385a9192fa3fb48bc5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 5b1b2af36ec2: \"added link to task. support task links\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

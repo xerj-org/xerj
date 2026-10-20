@@ -1,0 +1,22 @@
+{
+ "corpus": "dimitarvp--xqlite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Elixir queries this for how dimitarvp/xqlite implements it: An Elixir SQLite database library utilising the rusqlite Rust crate (selected work: native, test, lib/xqlite)",
+ "repos": [
+  {
+   "repo": "xqlite",
+   "url": "https://github.com/dimitarvp/xqlite",
+   "sha": "9e6db866a8584cdfb56a90a8c446c7d5589d7bde",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 9e6db866a858: \"destructors hand handles to a release thread\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

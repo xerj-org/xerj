@@ -1,0 +1,22 @@
+{
+ "corpus": "nyx-space--nyx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on space-mission, astrodynamics, orbital-mechanics queries this for how nyx-space/nyx implements it: Nyx is a high fidelity, fast, reliable and validated astrodynamics toolkit library written in Rust and available in Python (selected work: nyx-py, nyx-core, the project root)",
+ "repos": [
+  {
+   "repo": "nyx",
+   "url": "https://github.com/nyx-space/nyx",
+   "sha": "b9bec57270d4c1830734c65ac0d41fa197fd089e",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit b9bec57270d4: \"Parquet parsing allows reading manually modified Parquet files\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

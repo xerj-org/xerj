@@ -1,0 +1,22 @@
+{
+ "corpus": "buritica--sharpen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how buritica/sharpen implements it: Claude Code plugins that put an edge on your agent: an opinionated SDLC with one authoritative gate, and an adversarial reviewer that means  (selected work: plugins, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "sharpen",
+   "url": "https://github.com/buritica/sharpen",
+   "sha": "b9e7e48305cbad2802610fa039a53b1bf3f57052",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit b9e7e48305cb: \"feat(pi): port sdlc/grumpy/guardrails hooks as pi extensions (#49)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

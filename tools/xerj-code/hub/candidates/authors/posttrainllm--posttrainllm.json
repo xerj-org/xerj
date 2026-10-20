@@ -1,0 +1,22 @@
+{
+ "corpus": "posttrainllm--posttrainllm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on apple-silicon, fine-tuning, llm queries this for how PostTrainLLM/posttrainllm implements it: A Mac-local specialist-model factory for data, post-training, evaluation, packaging, and evidence-backed decisions (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "posttrainllm",
+   "url": "https://github.com/PostTrainLLM/posttrainllm",
+   "sha": "de502abc9d105d43dd77c9d7f05bdd9deac7c41c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit de502abc9d10: \"refactor static Astro qualification guards\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

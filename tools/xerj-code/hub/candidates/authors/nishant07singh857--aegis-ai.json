@@ -1,0 +1,22 @@
+{
+ "corpus": "nishant07singh857--aegis-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Nishant07singh857/aegis-ai implements it: Nishant07singh857/aegis-ai (Python) (selected work: backend, frontend, infrastructure)",
+ "repos": [
+  {
+   "repo": "aegis-ai",
+   "url": "https://github.com/Nishant07singh857/aegis-ai",
+   "sha": "daf8d590abca2848551073f944f0cb637a8c5f1c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit daf8d590abca: \"Phase 7: 3-mode director (full_auto/semi_auto/manual) + mobile-respon\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

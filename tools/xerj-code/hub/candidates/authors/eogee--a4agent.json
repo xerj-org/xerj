@@ -1,0 +1,22 @@
+{
+ "corpus": "eogee--a4agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-tools, claude-code, codex queries this for how eogee/a4agent implements it: a4agent \u662f\u4e00\u6b3e\u5f00\u6e90\u7684 Windows \u684c\u9762\u5e94\u7528\uff0c\u628a Claude Code\u3001Codex\u3001DeepSeek Harness\u3001Qoder \u7b49\u4e03\u6b3e AI \u7f16\u7a0b\u5de5\u5177\u88c5\u8fdb\u540c\u4e00\u4e2a\u7ba1\u7406\u53f0\uff1a\u6280\u80fd\u4e0e MCP \u8de8\u7aef\u8fc1\u79fb\u3001\u4e00\u952e\u540c\u6b65\uff0c\u65e0\u754c\u9762 CLI \u4e00\u952e\u5207\u6362 API \u670d\u52a1\u5546\uff1b\u5185\u7f6e llama.c (selected work: backend, resources, tools)",
+ "repos": [
+  {
+   "repo": "a4agent",
+   "url": "https://github.com/eogee/a4agent",
+   "sha": "af36d376b41e1e30961cebd1d0e1b3a40afed397",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit af36d376b41e: \"feat: dsh \u4f1a\u8bdd\u94a9\u5b50\u63a5\u5165\u4e0e\u5168\u7ad9\u4e0b\u62c9 layui \u6e32\u67d3\u7edf\u4e00\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

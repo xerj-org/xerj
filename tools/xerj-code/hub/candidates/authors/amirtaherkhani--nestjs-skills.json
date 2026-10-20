@@ -1,0 +1,22 @@
+{
+ "corpus": "amirtaherkhani--nestjs-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, backend-development queries this for how amirtaherkhani/nestjs-skills implements it: Seven Agent Skills for NestJS implementation, architecture, OOP, code and feature audits, runtime performance, and safe Git publication (selected work: evals, examples, skills)",
+ "repos": [
+  {
+   "repo": "nestjs-skills",
+   "url": "https://github.com/amirtaherkhani/nestjs-skills",
+   "sha": "7c6a41517b6d4bf6aad475d190311f04de697014",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 7c6a41517b6d: \"feat: add standalone audits and executable skill evaluations\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

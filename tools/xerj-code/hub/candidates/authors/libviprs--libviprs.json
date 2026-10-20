@@ -1,0 +1,22 @@
+{
+ "corpus": "libviprs--libviprs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how libviprs/libviprs implements it: Pure-Rust, thread-safe image pyramiding engine for the AEC/construction domain (selected work: src, tests, the project root)",
+ "repos": [
+  {
+   "repo": "libviprs",
+   "url": "https://github.com/libviprs/libviprs",
+   "sha": "6ec9570039a3af48afc44359dab367dc66394f60",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 6ec9570039a3: \"Bring page sizing and MSRV 1.99 onto main on the registry pdfium-rend\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "mgkvibez--mgkvibez",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how mgkvibez/mgkvibez implements it: mgkvibez/mgkvibez (Python) (selected work: cards)",
+ "repos": [
+  {
+   "repo": "mgkvibez",
+   "url": "https://github.com/mgkvibez/mgkvibez",
+   "sha": "6d2cffcc527352b1b0476d31d8dacf9667226e80",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 6d2cffcc5273: \"cards: add seven new cards, snapshot archive and README stats table\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

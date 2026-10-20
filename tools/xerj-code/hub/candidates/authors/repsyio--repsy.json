@@ -1,0 +1,22 @@
+{
+ "corpus": "repsyio--repsy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on docker, maven, npm queries this for how repsyio/repsy implements it: Next-generation universal package repository | docker | maven | gradle | npm | pypi | go | cargo | nuget | helm | ruby  (selected work: repsy-frontend, e2e, repsy-backend)",
+ "repos": [
+  {
+   "repo": "repsy",
+   "url": "https://github.com/repsyio/repsy",
+   "sha": "2c13f8d91a6027b5dd9e67ac83bae916c65e45b1",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 2c13f8d91a60: \"RPS-2039: turn /cli/auth into an approval screen that delivers the to\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

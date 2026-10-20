@@ -1,0 +1,22 @@
+{
+ "corpus": "mushroomsuprise--mycelian",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how mushroomsuprise/Mycelian implements it: Locally run platform for streamers to create events, alerts, chatbots, and more! (selected work: templates, modules, modules/uiwindows)",
+ "repos": [
+  {
+   "repo": "Mycelian",
+   "url": "https://github.com/mushroomsuprise/Mycelian",
+   "sha": "fb8d8e4424cc8bd272ed54b3b933bcea09610bef",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit fb8d8e4424cc: \"added chatbot polls\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

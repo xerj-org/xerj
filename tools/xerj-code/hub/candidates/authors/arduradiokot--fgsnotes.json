@@ -1,0 +1,22 @@
+{
+ "corpus": "arduradiokot--fgsnotes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on JavaScript queries this for how ArduRadioKot/FgSNotes implements it: Cross-platform application for creating, editing, and viewing markdown documents (selected work: src, the project root, tests)",
+ "repos": [
+  {
+   "repo": "FgSNotes",
+   "url": "https://github.com/ArduRadioKot/FgSNotes",
+   "sha": "53a130bfe03d01bfd4b21dcaca10f9cefdf5bb46",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 53a130bfe03d: \"added ai providers\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

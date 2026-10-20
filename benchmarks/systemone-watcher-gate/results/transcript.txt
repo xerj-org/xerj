@@ -1,0 +1,61 @@
+booting /tmp/xerj-build-1108/release/xerj on :9471
+server pid 276856
+cluster green after 1s
+boundary.json: 120 emails, {'personal': 30, 'newsletter': 30, 'needs-reply': 30, 'invoice': 30}
+XERJ_URL=http://localhost:9471  k=10  p_min=0.5  conf_gate>=0.8
+history 'email-history': 200 labelled emails
+creating one detection watch per label (one-vs-rest):
+  watch detect-invoice: positive_label='invoice' p_min=0.5 -> scheduled
+  watch detect-needs_reply: positive_label='needs-reply' p_min=0.5 -> scheduled
+  watch detect-newsletter: positive_label='newsletter' p_min=0.5 -> scheduled
+  watch detect-personal: positive_label='personal' p_min=0.5 -> scheduled
+watched 'mail-incoming': 120 boundary candidates indexed after baseline
+waiting for the watcher to evaluate (1s ticks)...
+  fires=120
+  fires stable at 120
+
+================================================================
+RESULT — wrong-and-confident gate via the _watcher path
+================================================================
+candidates evaluated : 120
+total fires          : 120 (a candidate fires when its vote argmax clears p_min=0.5)
+fired correctly      : 94/120 = 0.7833
+calibration present  : no — p_cal absent, reporting raw p
+
+confidence compared at >= 0.8: RAW p  (always present on a fire)
+  confident fires        : 98
+  wrong AND confident    : 24
+  WRONG-AND-CONFIDENT RATE: 0.2449  (FAIL vs <= 0.05 bar)
+
+wrong-and-confident fires (raw p >= 0.80):
+  doc= c13  gold=invoice      fired=personal     p=1.000 p_cal=None
+  doc= c16  gold=needs-reply  fired=newsletter   p=1.000 p_cal=None
+  doc= c22  gold=invoice      fired=personal     p=1.000 p_cal=None
+  doc= c29  gold=invoice      fired=personal     p=1.000 p_cal=None
+  doc= c32  gold=invoice      fired=needs-reply  p=1.000 p_cal=None
+  doc= c42  gold=invoice      fired=personal     p=1.000 p_cal=None
+  doc= c51  gold=needs-reply  fired=newsletter   p=1.000 p_cal=None
+  doc= c55  gold=invoice      fired=personal     p=1.000 p_cal=None
+  doc= c56  gold=invoice      fired=needs-reply  p=1.000 p_cal=None
+  doc= c60  gold=invoice      fired=needs-reply  p=1.000 p_cal=None
+  doc= c61  gold=invoice      fired=personal     p=1.000 p_cal=None
+  doc= c65  gold=invoice      fired=personal     p=1.000 p_cal=None
+  doc= c66  gold=invoice      fired=personal     p=1.000 p_cal=None
+  doc= c71  gold=needs-reply  fired=newsletter   p=1.000 p_cal=None
+  doc= c72  gold=invoice      fired=personal     p=1.000 p_cal=None
+  doc= c96  gold=needs-reply  fired=newsletter   p=1.000 p_cal=None
+  doc=c105  gold=invoice      fired=personal     p=1.000 p_cal=None
+  doc=c107  gold=invoice      fired=personal     p=1.000 p_cal=None
+  doc= c95  gold=needs-reply  fired=newsletter   p=0.957 p_cal=None
+  doc= c39  gold=invoice      fired=needs-reply  p=0.951 p_cal=None
+  doc=c118  gold=needs-reply  fired=newsletter   p=0.928 p_cal=None
+  doc= c46  gold=needs-reply  fired=newsletter   p=0.885 p_cal=None
+  doc= c26  gold=invoice      fired=needs-reply  p=0.871 p_cal=None
+  doc= c82  gold=invoice      fired=needs-reply  p=0.871 p_cal=None
+
+wrote results/run.json
+=== server banner ===
+version {'number': '8.13.0', 'build_flavor': 'default', 'build_type': 'tar', 'build_hash': '00000000', 'build_date': '2024-03-22T00:00:00.000Z', 'build_snapshot': False, 'lucene_version': '9.10.0', 'minimum_wire_compatibility_version': '7.17.0', 'minimum_index_compatibility_version': '7.0.0'}
+HARNESS_RC=0
+
+[exited with code 0]

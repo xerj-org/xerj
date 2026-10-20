@@ -1,0 +1,22 @@
+{
+ "corpus": "libexil--radarforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how LibexiL/RadarForge implements it: A multipurpose radar software including all of the QoL additions that no other radar offers together (selected work: radarforge, the project root)",
+ "repos": [
+  {
+   "repo": "RadarForge",
+   "url": "https://github.com/LibexiL/RadarForge",
+   "sha": "ece829de460e3b0d1c5300c654d3ba8b25b3e004",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ece829de460e: \"1.22.0: cleaner, slimmer interface \u2013 new theme, grouped toolbar, one \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

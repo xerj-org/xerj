@@ -1,0 +1,22 @@
+{
+ "corpus": "openwrt--packages",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on hacktoberfest queries this for how openwrt/packages implements it: Community maintained packages for OpenWrt. Documentation for submitting pull requests is in CONTRIBUTING.md (selected work: net)",
+ "repos": [
+  {
+   "repo": "packages",
+   "url": "https://github.com/openwrt/packages",
+   "sha": "36e35ddf4daa9679d3e94ba21b5397ba37d4559c",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 36e35ddf4daa: \"xtables-addons: update to 3.31\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "sedulustech--jint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how sedulustech/jint implements it: an extensible semantic linter (selected work: packages/sdk, packages/app, packages/cli)",
+ "repos": [
+  {
+   "repo": "jint",
+   "url": "https://github.com/sedulustech/jint",
+   "sha": "b56d64de626ff02fa476b896c4081b9c58184d67",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit b56d64de626f: \"refactor: extract helpers where jint flagged god functions\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "jenil0528--blitz-proxy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, aigateway, antropic-api queries this for how jenil0528/blitz-proxy implements it: \u26a1 Local-first multi-provider AI gateway for Claude Code, OpenCode, Cursor, Aider & any client. Real-time Anthropic \u21c4 OpenAI translation, mul (selected work: src, test, the project root)",
+ "repos": [
+  {
+   "repo": "blitz-proxy",
+   "url": "https://github.com/jenil0528/blitz-proxy",
+   "sha": "b2318c5610c15bfa06ff9cabf0db35af0e13d181",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit b2318c5610c1: \"Agent-attributed usage, request inspector, dashboard integration, for\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

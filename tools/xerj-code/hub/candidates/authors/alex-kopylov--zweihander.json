@@ -1,0 +1,22 @@
+{
+ "corpus": "alex-kopylov--zweihander",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Alex-Kopylov/zweihander implements it: An opinionated collection of proven skills and agents for Codex and Claude Code. Reuse the same workflows across AI harnesses, avoid lock-in (selected work: plugins, tests)",
+ "repos": [
+  {
+   "repo": "zweihander",
+   "url": "https://github.com/Alex-Kopylov/zweihander",
+   "sha": "f6bc015b661b0a65a9c2d394b8d0a4e1224a4cb6",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit f6bc015b661b: \"feat(md-bloat-hunter): detect redundancy per context closure\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

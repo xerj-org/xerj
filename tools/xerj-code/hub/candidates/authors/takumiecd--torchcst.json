@@ -1,0 +1,22 @@
+{
+ "corpus": "takumiecd--torchcst",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how takumiecd/torchcst implements it: Don't go dense. Don't fix. Stay fluid (selected work: src/torchcst, tests, the project root)",
+ "repos": [
+  {
+   "repo": "torchcst",
+   "url": "https://github.com/takumiecd/torchcst",
+   "sha": "cce39b22aedc51e87e5d7b76b30278908a568fdd",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit cce39b22aedc: \"kernel: define native Fourier profiles and Torch tile references\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "minidoracat--minidoracatautodrivefor42",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on autodrive, build-42, mod queries this for how Minidoracat/MinidoracatAutoDriveFor42 implements it: Project Zomboid B42 \u2014 item-driven GPS navigation & AutoDrive addon for Minidoracat MiniMap (selected work: scripts, MOD)",
+ "repos": [
+  {
+   "repo": "MinidoracatAutoDriveFor42",
+   "url": "https://github.com/Minidoracat/MinidoracatAutoDriveFor42",
+   "sha": "302d12faf352c8f56ed9e9791b6ea25048424e26",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 302d12faf352: \"1012h\uff1a\u81ea\u99d5\u4e2d\u64cb\u6389\u5176\u4ed6 MOD \u5c0d\u540c\u4e00\u53f0\u8eca\u7684 addImpulse\uff08GitHub issue #8\uff0cUltimate Towing \u62d6\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

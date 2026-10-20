@@ -1,0 +1,22 @@
+{
+ "corpus": "medinstech--cycloidgen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 3d-printing, cad, cnc queries this for how medinstech/cycloidgen implements it: Parametric cycloidal drive (gearbox) generator: exact conjugate geometry, live 2D and 3D, 56 self-explaining checks, a full engineering data (selected work: cycloidgen, tests)",
+ "repos": [
+  {
+   "repo": "cycloidgen",
+   "url": "https://github.com/medinstech/cycloidgen",
+   "sha": "3dc3d5653cda6c01c6a4a5ea29354c478ee661e2",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 3dc3d5653cda: \"Eighteen hundred vertices is a cloud in the shape of a disc\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "kandinskylab--kandinsky-6",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how kandinskylab/kandinsky-6 implements it: Kandinsky 6.0 Video: Foundation Models for Synchronized Video and Audio Generation (selected work: kandinsky, tests)",
+ "repos": [
+  {
+   "repo": "kandinsky-6",
+   "url": "https://github.com/kandinskylab/kandinsky-6",
+   "sha": "0d134f48059d692ae9ecb640e6575f9aca1b2ecc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 0d134f48059d: \"Some improvements for just generate\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

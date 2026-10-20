@@ -1,0 +1,22 @@
+{
+ "corpus": "lomchat--charon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Lomchat/charon implements it: Lomchat/charon (TypeScript) (selected work: app, lib/server, scripts)",
+ "repos": [
+  {
+   "repo": "charon",
+   "url": "https://github.com/Lomchat/charon",
+   "sha": "cfd7e0e5832da48a882bef5eb19d1236cbb83337",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit cfd7e0e5832d: \"Render Codex async questions as persistent transcript forms\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "slomr--pastepoint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on angular, chat, dtls queries this for how SloMR/PastePoint implements it: PastePoint is a secure, feature-rich file-sharing service designed for local networks, and private sessions (selected work: client)",
+ "repos": [
+  {
+   "repo": "PastePoint",
+   "url": "https://github.com/SloMR/PastePoint",
+   "sha": "44035906bb8b69ec93f8ff6975c324e6c9a75a81",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 44035906bb8b: \"iOS: Split FileTransferService file\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

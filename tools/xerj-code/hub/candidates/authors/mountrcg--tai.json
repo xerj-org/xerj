@@ -1,0 +1,22 @@
+{
+ "corpus": "mountrcg--tai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how mountrcg/Tai implements it: mountrcg/Tai (Swift) (selected work: TrioTests, Trio)",
+ "repos": [
+  {
+   "repo": "Tai",
+   "url": "https://github.com/mountrcg/Tai",
+   "sha": "8335f721e7874a29dd6b8da20dc7f52a935419ce",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 8335f721e787: \"Linearize watch command authorization with the side effects it guards\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

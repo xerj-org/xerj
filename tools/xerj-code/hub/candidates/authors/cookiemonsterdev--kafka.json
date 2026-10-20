@@ -1,0 +1,22 @@
+{
+ "corpus": "cookiemonsterdev--kafka",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on kafka, kafka-client, package queries this for how cookieMonsterDev/kafka implements it: A modern Apache Kafka client for node.js (selected work: packages/core)",
+ "repos": [
+  {
+   "repo": "kafka",
+   "url": "https://github.com/cookieMonsterDev/kafka",
+   "sha": "3cf25b3a135a64ccfde9074d6ea3427957795845",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 3cf25b3a135a: \"feat(core): deprecate sync config-file loading in new Kafka()\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

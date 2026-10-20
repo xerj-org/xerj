@@ -1,0 +1,22 @@
+{
+ "corpus": "kirillgrachev--phonebook",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on TypeScript queries this for how KirillGrachev/PhoneBook implements it: Corporate phone book in Active Directory: Tauri 2 + React 19 + Rust, offline SQLite cache with full-text search and background syncing (selected work: src-tauri, src/features, src/components)",
+ "repos": [
+  {
+   "repo": "PhoneBook",
+   "url": "https://github.com/KirillGrachev/PhoneBook",
+   "sha": "840e533d3d3f0309e8452b841b15ea6f6e6b99a3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 840e533d3d3f: \"feat: colleagues modal by card fields, Yealink IP phonebook source, s\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

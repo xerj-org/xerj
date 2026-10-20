@@ -1,0 +1,22 @@
+{
+ "corpus": "ronhombre--keccakkotlin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on keccak, kotlin, kotlin-library queries this for how ronhombre/KeccakKotlin implements it: Super Fast SHA-3 Hash Functions for Kotlin Multiplatform (selected work: src/commonMain, the project root, src/library)",
+ "repos": [
+  {
+   "repo": "KeccakKotlin",
+   "url": "https://github.com/ronhombre/KeccakKotlin",
+   "sha": "4a45bf2d2b9f162d8adadf3be7154ec9b30f9e7f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 4a45bf2d2b9f: \"Built-in first-class Rust support with KeccakRust\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

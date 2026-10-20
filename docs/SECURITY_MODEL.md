@@ -29,37 +29,37 @@ reasons.
 
 ### Layer 1: the authz middleware
 
-`authz_middleware` (`xerj-api/src/authz.rs:1224`) runs on both HTTP routers. It
+`authz_middleware` (`xerj-api/src/authz.rs:1300`) runs on both HTTP routers. It
 is added to the router before `auth_middleware`, so it runs after it
 (`xerj-api/src/router.rs:786-789`): authentication has already resolved the
 caller to a `Principal`, and this layer decides what that principal may reach.
 
 It does four things:
 
-1. Classifies the path (`classify`, `authz.rs:444`) into a brain, a memory
+1. Classifies the path (`classify`, `authz.rs:497`) into a brain, a memory
    namespace, one or more index expressions, a cluster endpoint, or exempt.
-   Path segments are percent-decoded first (`percent_decode`, `authz.rs:421`),
+   Path segments are percent-decoded first (`percent_decode`, `authz.rs:474`),
    so `%2Exerj-memory-alice` cannot slip past a check that
    `.xerj-memory-alice` would fail.
 2. Works out the privilege the request needs (`required_privilege`,
-   `authz.rs:505`). `GET`/`HEAD` need read. A `POST` whose operation segment is
+   `authz.rs:561`). `GET`/`HEAD` need read. A `POST` whose operation segment is
    in `POST_READ_OPS` (`_search`, `_count`, `_msearch`, `_mget`, `_sql` and
-   others, `authz.rs:349`) needs read. Operations in `ADMIN_OPS` (`_settings`,
-   `_mapping`, `_close`, `_alias`, `_forcemerge` and others, `authz.rs:388`)
+   others, `authz.rs:402`) needs read. Operations in `ADMIN_OPS` (`_settings`,
+   `_mapping`, `_close`, `_alias`, `_forcemerge` and others, `authz.rs:441`)
    need manage, as does a request with no operation segment at all, because that
    creates or destroys the index. Everything else is treated as a write.
-3. Extracts the indices the request body names (`body_targets`, `authz.rs:730`)
+3. Extracts the indices the request body names (`body_targets`, `authz.rs:786`)
    and authorizes each one. The shapes it parses are enumerated in `BodyShape`
-   (`authz.rs:578`): `_bulk` action lines, `_msearch` header lines, `_mget`
+   (`authz.rs:634`): `_bulk` action lines, `_msearch` header lines, `_mget`
    `docs[]._index`, `_aliases` actions, `_reindex` `source`/`dest`, snapshot
    `indices`, `PUT /{index}` `aliases`, index-template `index_patterns`, ML job
    and datafeed configs, the native `POST /v1/indices` body, and a `terms`
    lookup or `lookup` runtime field at any depth inside a search body. Aliases
    are resolved to their backing indices before the decision
-   (`authorize_expression`, `authz.rs:1168`).
+   (`authorize_expression`, `authz.rs:1224`).
 4. Installs the principal as the engine's visibility rule for the rest of the
    request and prunes reserved index names out of metadata responses
-   (`prune_response`, `authz.rs:1431`).
+   (`prune_response`, `authz.rs:1715`).
 
 A superuser short-circuits on the first line of the middleware
 (`authz.rs:1237`): no body buffering, no visibility guard, no response pruning.
@@ -68,12 +68,12 @@ index in it, bounded by `limits.max_body_bytes`; a body over that limit is
 refused with `413` rather than being authorized unread (`authz.rs:1251-1262`).
 
 A denial at this layer is an ES-shaped `403` with `type: security_exception`
-(`forbidden`, `authz.rs:242`; body shape in `xerj-api/src/error.rs:52`). It is
+(`forbidden`, `authz.rs:282`; body shape in `xerj-api/src/error.rs:52`). It is
 returned before any existence check, so `403` versus `404` cannot be used to
 enumerate what exists.
 
 A body that should have named its targets but cannot be parsed is refused, not
-ignored (`unresolvable`, `authz.rs:709`).
+ignored (`unresolvable`, `authz.rs:765`).
 
 ### Layer 2: the index_guard visibility funnel
 

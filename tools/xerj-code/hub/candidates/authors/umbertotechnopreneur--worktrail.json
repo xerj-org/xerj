@@ -1,0 +1,22 @@
+{
+ "corpus": "umbertotechnopreneur--worktrail",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on activity-tracker, csharp, dotnet queries this for how umbertotechnopreneur/WorkTrail implements it: Private, local-first workday memory for Windows with searchable activity, screenshots, on-device OCR, reports, and OPTIONAL AI-provider reca (selected work: WorkTrail.Core, WorkTrail, WorkTrail.Core.Tests)",
+ "repos": [
+  {
+   "repo": "WorkTrail",
+   "url": "https://github.com/umbertotechnopreneur/WorkTrail",
+   "sha": "c41139b40d95c71a88041d1d27b4a3f4045e90ad",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit c41139b40d95: \"Add Codex CLI screenshot analysis and consistent AI setup (#67)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

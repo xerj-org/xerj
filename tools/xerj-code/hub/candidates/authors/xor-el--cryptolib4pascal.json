@@ -1,0 +1,22 @@
+{
+ "corpus": "xor-el--cryptolib4pascal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on ecdsa, cryptography, delphi queries this for how Xor-el/CryptoLib4Pascal implements it: Crypto for Modern Object Pascal (selected work: CryptoLib.Tests, CryptoLib)",
+ "repos": [
+  {
+   "repo": "CryptoLib4Pascal",
+   "url": "https://github.com/Xor-el/CryptoLib4Pascal",
+   "sha": "1b5dd61e8746972ba6af72f967f9bcc663479af5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 1b5dd61e8746: \"Reject RSA signatures that are not exactly the modulus length (#211)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

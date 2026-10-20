@@ -1,0 +1,22 @@
+{
+ "corpus": "k-orc--openstack-resource-controller",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on controller, kubernetes, openstack queries this for how k-orc/openstack-resource-controller implements it: Declarative management of OpenStack resources from Kubernetes (selected work: pkg/clients, internal/controllers, cmd/models-schema)",
+ "repos": [
+  {
+   "repo": "openstack-resource-controller",
+   "url": "https://github.com/k-orc/openstack-resource-controller",
+   "sha": "3224f90f6fd0bb0e14be0bfd3089200eed578494",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 3224f90f6fd0: \"subnetpool: implement controller\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

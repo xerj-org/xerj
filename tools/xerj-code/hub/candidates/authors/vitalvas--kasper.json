@@ -1,0 +1,22 @@
+{
+ "corpus": "vitalvas--kasper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Go queries this for how vitalvas/kasper implements it: HTTP toolkit. Gorilla toolkit replacement (selected work: muxhandlers)",
+ "repos": [
+  {
+   "repo": "kasper",
+   "url": "https://github.com/vitalvas/kasper",
+   "sha": "67b1b49c3025156a75f6598150e299e685ac77cd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 67b1b49c3025: \"feat(muxhandlers): add connection ID middleware and tracking\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

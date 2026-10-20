@@ -1,0 +1,22 @@
+{
+ "corpus": "checkpoint-restore--checkpointctl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on checkpoint, containers, forensic-analysis queries this for how checkpoint-restore/checkpointctl implements it: A tool for in-depth analysis of container checkpoints (selected work: cmd, internal)",
+ "repos": [
+  {
+   "repo": "checkpointctl",
+   "url": "https://github.com/checkpoint-restore/checkpointctl",
+   "sha": "ac3080c00d601843cb20c69598434ffa5443aeb6",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit ac3080c00d60: \"diff: fix hangs when comparing checkpoints\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

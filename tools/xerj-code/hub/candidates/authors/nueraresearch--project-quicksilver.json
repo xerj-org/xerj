@@ -1,0 +1,22 @@
+{
+ "corpus": "nueraresearch--project-quicksilver",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-governance, audit-trail, deterministic-governance queries this for how nueraresearch/project-quicksilver implements it: Deterministic governance kernel (NQC) + governed agents. Agents propose; the kernel authorizes. Nuera RDL (selected work: packages/host, deploy)",
+ "repos": [
+  {
+   "repo": "project-quicksilver",
+   "url": "https://github.com/nueraresearch/project-quicksilver",
+   "sha": "07a4ed9f6573bae5e888eb324b8fc012c3ff42c6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 07a4ed9f6573: \"\ufefffeat(host): persist host trace spans to a durable JSONL sink (P-114)\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

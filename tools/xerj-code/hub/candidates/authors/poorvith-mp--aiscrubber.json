@@ -1,0 +1,22 @@
+{
+ "corpus": "poorvith-mp--aiscrubber",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, codex, metadata-extraction queries this for how poorvith-mp/aiscrubber implements it: Client-side AI privacy scrubber sanitize sensitive data before it reaches any LLM. No servers, no tracking, free forever (selected work: bin, src/lib, tests)",
+ "repos": [
+  {
+   "repo": "aiscrubber",
+   "url": "https://github.com/poorvith-mp/aiscrubber",
+   "sha": "7ffe9ab47c81887f175f52329ec05a3a39a963db",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 7ffe9ab47c81: \"feat: implement AIScrubber v3 local workflows and safety gates\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

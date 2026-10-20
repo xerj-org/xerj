@@ -1,0 +1,22 @@
+{
+ "corpus": "scarletmercy--chcode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how ScarletMercy/chcode implements it: Terminal-based AI coding agent \u2014 14 tools, session persistence, git-aware workflow. Built with LangChain + Typer + Rich (selected work: chcode, tests)",
+ "repos": [
+  {
+   "repo": "chcode",
+   "url": "https://github.com/ScarletMercy/chcode",
+   "sha": "b4a79d74d65bf47fe3c5eca0b901b5df506fe687",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b4a79d74d65b: \"refactor: move tool docs from system prompt to tool schemas\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

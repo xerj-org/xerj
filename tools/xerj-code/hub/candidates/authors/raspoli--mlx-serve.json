@@ -1,0 +1,22 @@
+{
+ "corpus": "raspoli--mlx-serve",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on apple-silicon, embeddings, fastapi queries this for how raspoli/mlx-serve implements it: Local inference server for Apple Silicon \u2014 hot-swaps MLX models (LLM, vision, embeddings, TTS, STT) via OpenAI API (selected work: src/mlx_serve, the project root)",
+ "repos": [
+  {
+   "repo": "mlx-serve",
+   "url": "https://github.com/raspoli/mlx-serve",
+   "sha": "cebdfc5dc24e614a63f36daf835d1805dc8986dd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit cebdfc5dc24e: \"v0.2.0: Add decision model type for Laya typed decision models\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

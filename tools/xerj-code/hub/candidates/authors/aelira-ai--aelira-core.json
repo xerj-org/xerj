@@ -1,0 +1,22 @@
+{
+ "corpus": "aelira-ai--aelira-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on a11y, accessibility, fastapi queries this for how Aelira-AI/aelira-core implements it: Open-source accessibility scanning and supported remediation for higher education, with saved-file evidence and human review (selected work: runtime-security)",
+ "repos": [
+  {
+   "repo": "aelira-core",
+   "url": "https://github.com/Aelira-AI/aelira-core",
+   "sha": "1c5664af07b72c7c607abfbfe074a501dc272cb0",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 1c5664af07b7: \"fix(runtime): prepare authenticated native Xrender repair component\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "devoldschool--conkers-bfd-decomp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on decompilation, n64, n64-development queries this for how DevOldSchool/conkers-bfd-decomp implements it: Decompilation of Conker's Bad Fur Day for Nintendo 64 (N64), with asset extraction tools, model-preview generation, and asset-format researc (selected work: src/game, progress)",
+ "repos": [
+  {
+   "repo": "conkers-bfd-decomp",
+   "url": "https://github.com/DevOldSchool/conkers-bfd-decomp",
+   "sha": "038769b0a30b171a596e11bc4f344a0373443a35",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 038769b0a30b: \"Match four deferred game functions and preserve candidate improvements\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

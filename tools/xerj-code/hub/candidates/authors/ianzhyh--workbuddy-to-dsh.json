@@ -1,0 +1,22 @@
+{
+ "corpus": "ianzhyh--workbuddy-to-dsh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on codebuddy, llm-proxy, openai-compatible queries this for how Ianzhyh/workbuddy-to-dsh implements it: \u628a\u672c\u673a WorkBuddy \u684c\u9762\u7aef\u5df2\u767b\u5f55\u7684\u6a21\u578b\uff08DeepSeek / GLM / Kimi / MiniMax \u7b49\uff09\u53d8\u6210\u672c\u5730\u7684 OpenAI \u4e0e Anthropic \u517c\u5bb9\u63a5\u53e3 \u2014\u2014 Claude Code / opencode / Cursor / Trae / Cherry S (selected work: tools, dsh-plugin, dashboard)",
+ "repos": [
+  {
+   "repo": "workbuddy-to-dsh",
+   "url": "https://github.com/Ianzhyh/workbuddy-to-dsh",
+   "sha": "f63ee367c4ec7d18b6177ff16a078bf49936b54e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit f63ee367c4ec: \"fix(i18n): \u6e90\u7801\u4fa7\u626b\u6f0f\u7ffb \u2014\u2014 \u63d2\u4ef6 8 \u5904 + \u63a7\u5236\u53f0 17 \u5904\uff08v1.4.2\uff09\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

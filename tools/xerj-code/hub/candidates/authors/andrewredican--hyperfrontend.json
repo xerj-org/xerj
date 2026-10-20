@@ -1,0 +1,22 @@
+{
+ "corpus": "andrewredican--hyperfrontend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on composition, isomorphic, layered-architecture queries this for how AndrewRedican/hyperfrontend implements it: MIT-licensed microfrontend runtime solution (selected work: apps/docs-site)",
+ "repos": [
+  {
+   "repo": "hyperfrontend",
+   "url": "https://github.com/AndrewRedican/hyperfrontend",
+   "sha": "a31e6eea6e50ff28c25fc8351846164f428293b4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit a31e6eea6e50: \"feat(docs-site): carry the api reference in every markdown counterpart\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

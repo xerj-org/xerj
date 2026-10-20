@@ -1,0 +1,22 @@
+{
+ "corpus": "magicsih--chda",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, codex, coding-agents queries this for how magicsih/chda implements it: A terminal that runs one coding agent per git worktree and shows which one needs you: Claude Code, Codex, Gemini CLI, Copilot CLI, OpenCode. (selected work: crates/chda-ui)",
+ "repos": [
+  {
+   "repo": "chda",
+   "url": "https://github.com/magicsih/chda",
+   "sha": "bd9088d52a7e846d2dbceba1802d370ce686036d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit bd9088d52a7e: \"fix(agents): keep usage updates and coordination working across windows\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "igorkorkin--desktopranger",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on access-control, cpp, sandboxing queries this for how IgorKorkin/DesktopRanger implements it: DesktopRanger: hardening Windows Desktop isolation for sensitive applications (selected work: check_app_container, zis_probe, the project root)",
+ "repos": [
+  {
+   "repo": "DesktopRanger",
+   "url": "https://github.com/IgorKorkin/DesktopRanger",
+   "sha": "082b555f2b838489bbb96b43d19344d31087ade8",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 082b555f2b83: \"add sandbox tech: Classic AppContainer; Experimental_CreateProcessInS\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "fiorix--chan",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on developer-tool, file-browser, graph-plotting queries this for how fiorix/chan implements it: Your new Terminal and Workspace manager. A new kind of IDE (selected work: web)",
+ "repos": [
+  {
+   "repo": "chan",
+   "url": "https://github.com/fiorix/chan",
+   "sha": "cfad65f26d3dd31821d43702f77394181c96d60c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit cfad65f26d3d: \"feat(marketing): credit workspace animations with live previews\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

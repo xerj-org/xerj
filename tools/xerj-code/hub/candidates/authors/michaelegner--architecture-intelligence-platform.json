@@ -1,0 +1,22 @@
+{
+ "corpus": "michaelegner--architecture-intelligence-platform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on architecture, architecture-drift, architecture-intelligence queries this for how michaelegner/architecture-intelligence-platform implements it: Trusted architecture context for AI agents: an evidence-backed architecture graph from OpenAPI, AsyncAPI and OpenTelemetry, served over MCP (selected work: evaluation, harness, tests)",
+ "repos": [
+  {
+   "repo": "architecture-intelligence-platform",
+   "url": "https://github.com/michaelegner/architecture-intelligence-platform",
+   "sha": "c5bc7cb58d4d6efef80b744347c51f36d14b6356",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit c5bc7cb58d4d: \"v0.6.0 I5.2: qualify the independent two-Workload capture (#431)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "momenkamalx--remember-me",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how momenkamalx/remember-me- implements it: momenkamalx/remember-me- (Rust) (selected work: ui, src-tauri, the project root)",
+ "repos": [
+  {
+   "repo": "remember-me-",
+   "url": "https://github.com/momenkamalx/remember-me-",
+   "sha": "7c89867a6b597a570ccc18d31ec061427dcaf5a3",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 7c89867a6b59: \"v0.1.4: Linux fix (notifications and sound, time picker,) UIfix also \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

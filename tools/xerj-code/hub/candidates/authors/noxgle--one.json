@@ -1,0 +1,22 @@
+{
+ "corpus": "noxgle--one",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, automation, autonomous-agent queries this for how noxgle/one implements it: one for everyone \u2014 autonomous terminal agent (Python): headless/REPL/TUI/RPC, cooperation mode, MCP, multimodal input (selected work: one, tests, scripts)",
+ "repos": [
+  {
+   "repo": "one",
+   "url": "https://github.com/noxgle/one",
+   "sha": "a04f14603920b1413162d26b39d1ced81b7babee",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a04f14603920: \"feat(context): use endpoint maximum budgets by default\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

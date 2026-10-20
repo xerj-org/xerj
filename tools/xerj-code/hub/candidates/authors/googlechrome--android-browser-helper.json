@@ -1,0 +1,22 @@
+{
+ "corpus": "googlechrome--android-browser-helper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Java queries this for how GoogleChrome/android-browser-helper implements it: The Android Browser Helper library helps developers use Custom Tabs and Trusted Web Activities on top of the AndroidX browser support librar (selected work: androidbrowserhelper)",
+ "repos": [
+  {
+   "repo": "android-browser-helper",
+   "url": "https://github.com/GoogleChrome/android-browser-helper",
+   "sha": "6f38f1c376bd7daaccef6503ffe970f2f5b174f3",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 6f38f1c376bd: \"Reuse TWA task id for ColdShortcutActivity\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

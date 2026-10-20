@@ -1,0 +1,22 @@
+{
+ "corpus": "flytachi--winter-kernel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on attributes, console, coroutines queries this for how Flytachi/winter-kernel implements it: The kernel of the Winter framework \u2014 a PHP 8.4 library that turns a directory of classes into a running application: routing, DI, validation (selected work: src/WebSocket, tests, src)",
+ "repos": [
+  {
+   "repo": "winter-kernel",
+   "url": "https://github.com/Flytachi/winter-kernel",
+   "sha": "1192ef7f44a7f83d39cb71ec425e01b704791b26",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 1192ef7f44a7: \"Websocket\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

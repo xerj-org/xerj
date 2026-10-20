@@ -1,0 +1,22 @@
+{
+ "corpus": "satoren--y-ex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on elixir, yjs queries this for how satoren/y_ex implements it: Yjs port for Elixir (selected work: test, native)",
+ "repos": [
+  {
+   "repo": "y_ex",
+   "url": "https://github.com/satoren/y_ex",
+   "sha": "43ae48a3a8cac397bcc15bf0cad7ba94298e69ec",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 43ae48a3a8ca: \"fix(subdoc): check the inserted document, not the target, before inte\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

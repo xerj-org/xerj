@@ -1,0 +1,22 @@
+{
+ "corpus": "michaeljclarkk--acunityfirstperson",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how michaeljclarkk/ACUnityFirstPerson implements it: First-person camera for Assassin's Creed Unity (ACUFixes Plugin Loader) (selected work: src, tests, the project root)",
+ "repos": [
+  {
+   "repo": "ACUnityFirstPerson",
+   "url": "https://github.com/michaeljclarkk/ACUnityFirstPerson",
+   "sha": "0bb019021f705fe00614a40a8a255780d60dfd14",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 0bb019021f70: \"map other parkour animations for camera to follow in 1.5.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

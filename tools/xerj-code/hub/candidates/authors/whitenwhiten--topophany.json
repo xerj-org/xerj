@@ -1,0 +1,22 @@
+{
+ "corpus": "whitenwhiten--topophany",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on go, homelab, monitoring queries this for how WhitenWhiten/topophany implements it: Self-hosted network topology and service availability monitoring with a terminal UI \u2014 single Go binary, zero dependencies (selected work: internal/tui)",
+ "repos": [
+  {
+   "repo": "topophany",
+   "url": "https://github.com/WhitenWhiten/topophany",
+   "sha": "0cdd03f5b0f813e34a2384c27f2203b1ed3d99d0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 0cdd03f5b0f8: \"feat: polish lists, evidence, forms and settings\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -40,7 +40,15 @@ XERJ node — is [benchmarks/systemone-gate](../benchmarks/systemone-gate).
 Both surfaces answer through one ordered ladder, per question (#1057):
 
 1. **History vote** — where `[decisions] index` returns labelled support, the
-   vote wins. It is the measured tier and it shows its evidence.
+   vote wins. It is the measured tier and it shows its evidence. One
+   exception, only when tier 2 is armed (#1094): a vote whose winning label
+   holds less than `decisions.escalate_below` of the vote weight (default
+   0.8) is handed to the local head instead, so split votes keep feeding the
+   flywheel below. Without tier 2 a split vote answers from history as
+   before; `escalate_below = 0.0` turns escalation off. The local head is
+   strongest on a binary `noul` over a trained label vocabulary (see below):
+   on an index whose `choice` labels it was not trained on, lower
+   `escalate_below` or set it to 0.0.
 2. **Local zero-shot head** (off by default; feature `decide-local` +
    `--decide-mode local --decide-model-dir <path>`, or the
    `XERJ_DECIDE_MODE=local` + `XERJ_DECIDE_MODEL_DIR` env pair) — a ModernBERT-class
@@ -87,6 +95,10 @@ computes become the history that answers the next request:
   cannot be created or written is a log line, not an error the caller sees.
   A configured-but-missing index is created by the write-back itself, which
   is how a node armed with the local tier bootstraps its own history.
+- **One cached answer per decided text**: the document id is a hash of the
+  text (`decide-<xxh3-128 hex>`), so a question that escalates again
+  overwrites its earlier cached answer instead of adding another vote for
+  the local head's label.
 - **What is not written**: history-tier answers (they are the index already —
   re-writing them would double their vote), and `/_decide` abstains (an
   abstain was not an answer; caching it would seed the history with a doubt).
@@ -192,6 +204,7 @@ label_field    = "label"
 text_field     = "text"
 positive_label = "true"         # the label whose share a noul answers
 min_confidence = 0.0            # /_decide abstains below this
+escalate_below = 0.8            # with the local tier armed, a vote whose winner holds less than this share escalates to it (0.0 = off; #1094)
 human_weight   = 2.0            # vote-weight multiplier for history docs carrying human: true
 calibration    = "none"         # none | isotonic | temperature — p_cal beside every p_raw (#1063)
 ```

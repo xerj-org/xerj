@@ -1,0 +1,22 @@
+{
+ "corpus": "wordpress--ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, plugin, wordpress queries this for how WordPress/ai implements it: AI features and experiments for WordPress. Modular framework for testing AI capabilities (selected work: tests, includes, src/experiments)",
+ "repos": [
+  {
+   "repo": "ai",
+   "url": "https://github.com/WordPress/ai",
+   "sha": "75027a39f07495ceb97837bf02c0cdf491c61e79",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 75027a39f074: \"Revision Change Summary: Add experiment to summarize changes between \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

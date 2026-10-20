@@ -1,0 +1,22 @@
+{
+ "corpus": "mughalhere--prompt-protection",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, artificial-intelligence, prompt-engineering queries this for how mughalhere/prompt-protection implements it: Tool-call guard for JavaScript agents: tainted tool results never reach a network, email, exec, file or payment sink. Pinned tools, budgets, (selected work: src/guard, tests, bench)",
+ "repos": [
+  {
+   "repo": "prompt-protection",
+   "url": "https://github.com/mughalhere/prompt-protection",
+   "sha": "9104c4d584b4fb3985c1760fe53cf422a7f4b640",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 9104c4d584b4: \"feat(guard): taint-correct guard, memory lineage, sub-agent handoff, \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

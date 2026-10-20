@@ -1,0 +1,22 @@
+{
+ "corpus": "dliedke--claudecodeextension",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, claude-code, code-assistant queries this for how dliedke/ClaudeCodeExtension implements it: Visual Studio .NET extension that provides a better interface for Claude Code, Codex, Cursor Agent, Open Code, Devin, PI, Antigravity and Re (selected work: Controls, Agents, Tests)",
+ "repos": [
+  {
+   "repo": "ClaudeCodeExtension",
+   "url": "https://github.com/dliedke/ClaudeCodeExtension",
+   "sha": "03b6f8f7f622a62f7236e450650851ecf358bf53",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 03b6f8f7f622: \"v233.0: Install latest OpenPets from Settings \u2192 Automation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

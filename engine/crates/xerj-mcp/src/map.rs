@@ -52,6 +52,13 @@ pub const MAX_INDEXES: usize = 100;
 /// published contract if that ever grows.
 pub const MAX_EXAMPLES: usize = 5;
 
+/// Past this many datasets, the default `xerj_map` answer is a summary page
+/// (index, records, field names) instead of a full field entry per index.
+/// A hundred 4 KB entries is what truncated the tool result.
+pub const SUMMARY_AT: usize = 8;
+/// Datasets in one default summary page.
+pub const SUMMARY_PAGE: usize = 25;
+
 /// Parsed, validated `xerj_map` arguments.
 #[derive(Debug, Clone)]
 pub(crate) struct MapArgs {
@@ -59,6 +66,15 @@ pub(crate) struct MapArgs {
     pub index: Option<String>,
     /// Per-index byte budget for the rendered entry.
     pub max_bytes: usize,
+    /// Skip this many datasets (record-count order) before rendering.
+    pub offset: usize,
+    /// How many datasets to return. `None` is the summary page when the
+    /// catalog is large, and every fetched dataset otherwise.
+    pub limit: Option<usize>,
+    /// `Some(true)` forces full field entries. `Some(false)` forces the
+    /// summary. `None` summarizes when no index filter is set and more than
+    /// [`SUMMARY_AT`] datasets matched.
+    pub detail: Option<bool>,
 }
 
 /// Parse and validate the tool arguments. Present-but-mistyped is an error,
@@ -85,21 +101,53 @@ pub(crate) fn parse_args(args: &Value) -> Result<MapArgs, String> {
                 )
             })?,
     };
-    Ok(MapArgs { index, max_bytes })
+    let offset = match args.get("offset") {
+        None | Some(Value::Null) => 0,
+        Some(v) => v
+            .as_u64()
+            .and_then(|n| usize::try_from(n).ok())
+            .ok_or_else(|| "`offset` must be an integer >= 0".to_string())?,
+    };
+    let limit = match args.get("limit") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            v.as_u64()
+                .and_then(|n| usize::try_from(n).ok())
+                .filter(|n| (1..=MAX_INDEXES).contains(n))
+                .ok_or_else(|| format!("`limit` must be an integer from 1 to {MAX_INDEXES}"))?,
+        ),
+    };
+    let detail = match args.get("detail") {
+        None | Some(Value::Null) => None,
+        Some(Value::Bool(b)) => Some(*b),
+        Some(_) => return Err("`detail` must be a boolean".into()),
+    };
+    Ok(MapArgs {
+        index,
+        max_bytes,
+        offset,
+        limit,
+        detail,
+    })
 }
 
-/// The `_search` body for the catalog read. A pattern without a `*` becomes
-/// an engine-side `term` on `index_name` (exact); a glob filters client-side
-/// — one less engine query behaviour for this proxy to assume, and index
-/// counts are small.
+/// The `_search` body for the catalog read. Filter exact names with `term`
+/// and globs with `wildcard` before the 100-result cap. Filtering a glob only
+/// after the fetch could hide a matching dataset behind 100 larger ones.
 pub(crate) fn catalog_body(args: &MapArgs) -> Value {
     let mut must = vec![json!({ "term": { "doc_kind": "dataset" } })];
-    if let Some(name) = args.index.as_deref().filter(|p| !p.contains('*')) {
-        must.push(json!({ "term": { "index_name": name } }));
+    if let Some(name) = args.index.as_deref() {
+        if name.contains('*') {
+            must.push(json!({ "wildcard": { "index_name": name } }));
+        } else {
+            must.push(json!({ "term": { "index_name": name } }));
+        }
     }
+    let size = args.limit.unwrap_or(MAX_INDEXES).clamp(1, MAX_INDEXES);
     json!({
         "query": { "bool": { "must": must } },
-        "size": MAX_INDEXES,
+        "from": args.offset,
+        "size": size,
         "sort": [{ "record_count": "desc" }],
         // The dataset doc also carries sample_queries_json (by far its
         // largest field); project it out rather than transfer it to drop it.
@@ -318,7 +366,8 @@ pub(crate) fn render_response(resp: &Value, args: &MapArgs) -> String {
         .and_then(Value::as_u64)
         .unwrap_or(hits.len() as u64);
 
-    // Pattern filtering (glob only; exact names were filtered engine-side).
+    // Keep the local glob check so only the tool's documented `*` syntax
+    // reaches the response even if the engine supports more wildcard syntax.
     let docs: Vec<Value> = hits
         .iter()
         .filter_map(|h| h.get("_source").cloned())
@@ -374,13 +423,46 @@ pub(crate) fn render_response(resp: &Value, args: &MapArgs) -> String {
         })
     });
 
+    let summarize = match args.detail {
+        Some(true) => false,
+        Some(false) => true,
+        None => args.index.is_none() && indexes.len() > SUMMARY_AT,
+    };
+    let page_limit = if summarize {
+        args.limit.unwrap_or(SUMMARY_PAGE)
+    } else {
+        args.limit.unwrap_or(indexes.len())
+    };
+    let shown: Vec<Value> = if summarize {
+        indexes.iter().take(page_limit).map(summary_entry).collect()
+    } else {
+        indexes.into_iter().take(page_limit).collect()
+    };
     let mut out = Map::new();
-    out.insert("matched".into(), json!(indexes.len()));
+    out.insert("matched".into(), json!(shown.len()));
+    if summarize {
+        out.insert("summary".into(), json!(true));
+        out.insert(
+            "hint".into(),
+            json!(
+                "summary page — pass `index` (name or glob) or `detail: true` with \
+                 `offset`/`limit` for full field entries"
+            ),
+        );
+    }
     if let Some(p) = &args.index {
         out.insert("pattern".into(), json!(p));
     }
-    out.insert("indexes".into(), Value::Array(indexes));
-    let omitted = total.saturating_sub(hits.len() as u64);
+    out.insert("indexes".into(), Value::Array(shown.clone()));
+    // `from` already applied `offset` on a live fetch. Counting from the
+    // rendered page (not the fetched page) is what makes a summary of 25
+    // out of 161 say so, and it matches the old `total - hits` figure when
+    // the whole fetch is rendered.
+    let omitted = if summarize || args.limit.is_some() || args.offset > 0 {
+        total.saturating_sub(args.offset as u64 + shown.len() as u64)
+    } else {
+        total.saturating_sub(hits.len() as u64)
+    };
     if omitted > 0 {
         out.insert("indexes_omitted".into(), json!(omitted));
     }
@@ -395,6 +477,27 @@ pub(crate) fn render_response(resp: &Value, args: &MapArgs) -> String {
         );
     }
     Value::Object(out).to_string()
+}
+
+/// One summary row: enough to pick an index, not the field tables that
+/// overflow the tool result.
+fn summary_entry(entry: &Value) -> Value {
+    let names: Vec<Value> = entry
+        .get("fields")
+        .and_then(Value::as_array)
+        .map(|fs| {
+            fs.iter()
+                .filter_map(|f| f.get("name").cloned())
+                .take(40)
+                .collect()
+        })
+        .unwrap_or_default();
+    json!({
+        "index": entry.get("index").cloned().unwrap_or(Value::Null),
+        "records": entry.get("records").cloned().unwrap_or(Value::Null),
+        "field_count": entry.get("field_count").cloned().unwrap_or(json!(0)),
+        "field_names": names,
+    })
 }
 
 /// `xerj_map` dispatch: read the catalog, render the map. A missing catalog
@@ -472,6 +575,9 @@ mod tests {
         MapArgs {
             index: index.map(str::to_string),
             max_bytes: DEFAULT_MAX_BYTES,
+            offset: 0,
+            limit: None,
+            detail: None,
         }
     }
 
@@ -647,6 +753,9 @@ mod tests {
         let huge = MapArgs {
             index: None,
             max_bytes: 1_000_000,
+            offset: 0,
+            limit: None,
+            detail: None,
         };
         let full_len = serde_json::to_string(
             &serde_json::from_str::<Value>(&render_response(&resp_full, &huge)).unwrap()["indexes"]
@@ -670,6 +779,9 @@ mod tests {
         let tight = MapArgs {
             index: None,
             max_bytes: budget,
+            offset: 0,
+            limit: None,
+            detail: None,
         };
         let out: Value = serde_json::from_str(&render_response(&resp_full, &tight)).unwrap();
         let idx = &out["indexes"][0];
@@ -705,6 +817,9 @@ mod tests {
         let tight = MapArgs {
             index: None,
             max_bytes: MIN_MAX_BYTES,
+            offset: 0,
+            limit: None,
+            detail: None,
         };
         let out: Value = serde_json::from_str(&render_response(&resp, &tight)).unwrap();
         let idx = &out["indexes"][0];
@@ -716,7 +831,7 @@ mod tests {
     }
 
     #[test]
-    fn exact_names_filter_engine_side_and_globs_client_side() {
+    fn exact_names_and_globs_filter_engine_side() {
         let f = r#"[{"name":"a","es_type":"keyword","cardinality_est":1,"coverage":1.0,"examples":["a"]}]"#;
         let hits = vec![
             dataset_doc("ax-logs", 10, f),
@@ -729,9 +844,13 @@ mod tests {
         let body = catalog_body(&args(Some("ax-logs")));
         assert_eq!(body["query"]["bool"]["must"].as_array().unwrap().len(), 2);
 
-        // Glob: no engine-side term; the client filter keeps only matches.
+        // A glob must filter before the 100-result cap: otherwise a matching
+        // low-record dataset can be omitted by unrelated larger datasets.
         let body = catalog_body(&args(Some("ax-*")));
-        assert_eq!(body["query"]["bool"]["must"].as_array().unwrap().len(), 1);
+        assert_eq!(
+            body["query"]["bool"]["must"][1],
+            json!({ "wildcard": { "index_name": "ax-*" } })
+        );
         let out: Value =
             serde_json::from_str(&render_response(&resp, &args(Some("ax-*")))).unwrap();
         assert_eq!(out["matched"], 2);
@@ -766,6 +885,26 @@ mod tests {
             out["indexes"][0]["notes"],
             json!(["dataset-level note from the run"])
         );
+    }
+
+    #[test]
+    fn many_datasets_render_as_a_summary_page() {
+        let f = r#"[{"name":"body","es_type":"text","cardinality_est":1,"coverage":1.0,"examples":["hello"]}]"#;
+        let hits: Vec<Value> = (0..12)
+            .map(|i| dataset_doc(&format!("ax-{i:02}"), 100 - i, f))
+            .collect();
+        let resp = catalog_response(hits);
+        let out: Value = serde_json::from_str(&render_response(&resp, &args(None))).unwrap();
+        assert_eq!(out["summary"], true);
+        assert_eq!(out["matched"], SUMMARY_PAGE.min(12));
+        assert!(out["indexes"][0].get("fields").is_none(), "{out}");
+        assert_eq!(out["indexes"][0]["field_names"][0], "body");
+        let mut full = args(None);
+        full.detail = Some(true);
+        let detailed: Value = serde_json::from_str(&render_response(&resp, &full)).unwrap();
+        assert!(detailed.get("summary").is_none(), "{detailed}");
+        assert_eq!(detailed["matched"], 12);
+        assert!(detailed["indexes"][0].get("fields").is_some());
     }
 
     #[test]

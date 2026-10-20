@@ -1,0 +1,22 @@
+{
+ "corpus": "iw4x--launcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how iw4x/launcher implements it: Cross-platform launcher and auto-updater for IW4x (selected work: launcher)",
+ "repos": [
+  {
+   "repo": "launcher",
+   "url": "https://github.com/iw4x/launcher",
+   "sha": "dfdb1566305a4c7d3de6d9e8d04b2d4186812678",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit dfdb1566305a: \"Fix spurious Asio config out of range exceptions\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

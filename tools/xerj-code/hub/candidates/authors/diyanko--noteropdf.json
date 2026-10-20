@@ -1,0 +1,22 @@
+{
+ "corpus": "diyanko--noteropdf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, notion, pdf queries this for how diyanko/NoteroPDF implements it: Deterministic local Zotero PDF to Notion files-property sync CLI (selected work: tests, noteropdf)",
+ "repos": [
+  {
+   "repo": "NoteroPDF",
+   "url": "https://github.com/diyanko/NoteroPDF",
+   "sha": "f8ffb000c2419927f465f2c743394db715f114c7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f8ffb000c241: \"Keep diagnostics private and require visible connection setup\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

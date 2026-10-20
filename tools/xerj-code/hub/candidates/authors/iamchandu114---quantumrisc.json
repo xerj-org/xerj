@@ -1,0 +1,22 @@
+{
+ "corpus": "iamchandu114---quantumrisc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how IamChandu114/-QuantumRISC implements it: IamChandu114/-QuantumRISC (TypeScript) (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "-QuantumRISC",
+   "url": "https://github.com/IamChandu114/-QuantumRISC",
+   "sha": "086c789ef321bed5d611f3142a389c9e7bdb4577",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 086c789ef321: \"feat(studio): integrate official QuantumRISC Studio frontend with bac\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

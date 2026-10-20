@@ -1,0 +1,22 @@
+{
+ "corpus": "brunnexo--gordeck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Brunnexo/gordeck implements it: Brunnexo/gordeck (C) (selected work: gui, lib/src, lib/include)",
+ "repos": [
+  {
+   "repo": "gordeck",
+   "url": "https://github.com/Brunnexo/gordeck",
+   "sha": "ff9427b0da872ab41402d221d45c50995b593dd1",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ff9427b0da87: \"Vibra\u00e7\u00e3o no PS5 via h\u00e1ptica, intensidade configur\u00e1vel e microfone\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

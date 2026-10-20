@@ -1,0 +1,22 @@
+{
+ "corpus": "vshulcz--deja-vu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, codex, mcp queries this for how vshulcz/deja-vu implements it: Coding agent memory for Claude Code, Codex, Cursor and 39 more, built from the session history already on your disk. Local search, MCP and h (selected work: internal/sources, cmd/deja, codebuddy-plugin)",
+ "repos": [
+  {
+   "repo": "deja-vu",
+   "url": "https://github.com/vshulcz/deja-vu",
+   "sha": "4d6713d6eb63a95cb79ee87e1bcbc5b4a93a96e0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 4d6713d6eb63: \"feat: read CodeBuddy Code, TRAE CLI and Muse Code sessions, and wire \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

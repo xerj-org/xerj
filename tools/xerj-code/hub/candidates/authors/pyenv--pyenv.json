@@ -1,0 +1,22 @@
+{
+ "corpus": "pyenv--pyenv",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on python, shell queries this for how pyenv/pyenv implements it: Simple Python version management (selected work: libexec, plugins, pyenv.d)",
+ "repos": [
+  {
+   "repo": "pyenv",
+   "url": "https://github.com/pyenv/pyenv",
+   "sha": "7c877e06a099e5647d2151e59365f953d6c29a5d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 7c877e06a099: \"Harden source scripts with `set -euo pipefail` and `set -f` (#3581)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

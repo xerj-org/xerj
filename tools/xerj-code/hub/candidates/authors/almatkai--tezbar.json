@@ -1,0 +1,22 @@
+{
+ "corpus": "almatkai--tezbar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how almatkai/Tezbar implements it: Tezbar is a high-performance, lightweight Spotlight alternative for macOS that blends the best of Raycast with the power of an integrated AI (selected work: src-tauri)",
+ "repos": [
+  {
+   "repo": "Tezbar",
+   "url": "https://github.com/almatkai/Tezbar",
+   "sha": "176f0880be61cdad7fd435f8812814b8f4f7cbba",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 176f0880be61: \"fix(updater): handle missing target platform using typed error matching\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

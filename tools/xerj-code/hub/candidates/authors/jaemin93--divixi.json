@@ -1,0 +1,22 @@
+{
+ "corpus": "jaemin93--divixi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on acp, agent-client-protocol, ai-agents queries this for how jaemin93/DIVIXI implements it: One conductor, many agents. A desktop app for directing coding agents (selected work: ui, src-tauri)",
+ "repos": [
+  {
+   "repo": "DIVIXI",
+   "url": "https://github.com/jaemin93/DIVIXI",
+   "sha": "5e69aa80f0367318c23dbc9ce6b2a883f816e007",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 5e69aa80f036: \"Check for a newer release every time the app starts (#79)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

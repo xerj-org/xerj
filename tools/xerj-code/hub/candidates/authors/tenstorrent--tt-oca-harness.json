@@ -1,0 +1,22 @@
+{
+ "corpus": "tenstorrent--tt-oca-harness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how tenstorrent/tt-oca-harness implements it: Tenstorrent reference design (harness) for the Open Chiplet Atlas (OCA) architecture (selected work: hw)",
+ "repos": [
+  {
+   "repo": "tt-oca-harness",
+   "url": "https://github.com/tenstorrent/tt-oca-harness",
+   "sha": "5080fff361cd47de74d337cb2fc73b73ab8828e7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 5080fff361cd: \"dv/smc: Add the pipelined lock-write SV-UVM scenario (#3053)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "alicelabs-llc--universal-trust-adapter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-trust-card, agents, alicelabs queries this for how alicelabs-llc/universal-trust-adapter implements it: ATC/1.0 \u2014 Agent Trust Card protocol: Ed25519-signed trust cards, RFC 8785 JCS, 10 verification controls. The USB-C of agent trust. LIVE x402 (selected work: x402-kit)",
+ "repos": [
+  {
+   "repo": "universal-trust-adapter",
+   "url": "https://github.com/alicelabs-llc/universal-trust-adapter",
+   "sha": "f7fe8e75e01e9787dc830028a019261c2daf46ef",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit f7fe8e75e01e: \"feat: x402 paywall kit \u2014 sell ATC/1.0 trust checks per-call in USDC (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

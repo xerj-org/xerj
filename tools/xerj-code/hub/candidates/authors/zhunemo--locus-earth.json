@@ -1,0 +1,22 @@
+{
+ "corpus": "zhunemo--locus-earth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on cesium, cesiumjs, earth queries this for how ZhuNemo/locus-earth implements it: Interactive 3D Earth powered by Cesium, with terrain, satellite imagery, OSM buildings, markers, day/night simulation, and so on. Lightweigh (selected work: androidapk)",
+ "repos": [
+  {
+   "repo": "locus-earth",
+   "url": "https://github.com/ZhuNemo/locus-earth",
+   "sha": "ea8860e0a950fdea6923e209c113e4d16d9f6931",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ea8860e0a950: \"Add Android WebView shell for Locus Earth\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

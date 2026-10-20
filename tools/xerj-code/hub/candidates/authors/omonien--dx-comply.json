@@ -1,0 +1,22 @@
+{
+ "corpus": "omonien--dx-comply",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on compliance, cybersecurity, cyclonedx queries this for how omonien/DX.Comply implements it: Generate CycloneDX SBOMs for Delphi projects \u2014 EU Cyber Resilience Act compliance in one click (selected work: src, tests, src/CLI)",
+ "repos": [
+  {
+   "repo": "DX.Comply",
+   "url": "https://github.com/omonien/DX.Comply",
+   "sha": "cbcf65e164294c8a02b47b917489fa52f5341ae8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit cbcf65e16429: \"Add a library mode for source releases (#65)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

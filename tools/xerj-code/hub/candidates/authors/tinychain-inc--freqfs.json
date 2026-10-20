@@ -1,0 +1,22 @@
+{
+ "corpus": "tinychain-inc--freqfs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Rust queries this for how TinyChain-Inc/freqfs implements it: An in-memory filesystem cache layer based on tokio::fs, with least-frequently-used eviction (selected work: src, tests, examples)",
+ "repos": [
+  {
+   "repo": "freqfs",
+   "url": "https://github.com/TinyChain-Inc/freqfs",
+   "sha": "0a9384b6590021e8f4b603dc1661ac0e77d2e762",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 0a9384b65900: \"enforce retained-memory admission and fix cache ownership\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

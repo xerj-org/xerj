@@ -1,0 +1,22 @@
+{
+ "corpus": "cremenescu--mremotenxt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on connection-manager, macos, mremoteng queries this for how cremenescu/mRemoteNXT implements it: Native macOS multi-protocol remote connection client \u2014 SSH, RDP, Telnet, SFTP, HTTP/HTTPS in tabs. Imports mRemoteNG confCons.xml byte-for-b (selected work: App)",
+ "repos": [
+  {
+   "repo": "mRemoteNXT",
+   "url": "https://github.com/cremenescu/mRemoteNXT",
+   "sha": "60913b8fafbb410d782076bf69b7c9dbb3c34d4f",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 60913b8fafbb: \"Full screen gives the session the screen (sidebar, toolbar and tab ba\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

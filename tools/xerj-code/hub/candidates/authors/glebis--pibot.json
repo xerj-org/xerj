@@ -1,0 +1,22 @@
+{
+ "corpus": "glebis--pibot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how glebis/pibot implements it: Personal agent companions built on the pi SDK \u2014 chat over Telegram, per-agent plugins, memory, calendar, scheduling heartbeat, self-evolutio (selected work: src/plugins, src/core)",
+ "repos": [
+  {
+   "repo": "pibot",
+   "url": "https://github.com/glebis/pibot",
+   "sha": "cac78475d94cc9a01a3fdd5434a54b16eb43252a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit cac78475d94c: \"fix(heartbeat): grant file tools (read/write/edit) to maintenance ticks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

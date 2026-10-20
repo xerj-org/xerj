@@ -761,35 +761,50 @@ impl FromRequestParts<AppState> for ClaimSource {
         let peer = parts
             .extensions
             .get::<ConnectInfo<SocketAddr>>()
-            .map(|c| xerj_common::net::canonical_ip(c.0.ip()));
-        let Some(peer) = peer else {
-            return Ok(ClaimSource("unknown".to_string()));
-        };
-        let trusted = xerj_common::net::TrustedProxies::parse(&state.config.server.trusted_proxies)
-            .unwrap_or_else(|_| xerj_common::net::TrustedProxies::none());
-        if !trusted.contains(&peer) {
-            return Ok(ClaimSource(peer.to_string()));
-        }
-        let elements: Vec<&str> = parts
+            .map(|c| c.0.ip());
+        let forwarded: Vec<&str> = parts
             .headers
             .get_all("x-forwarded-for")
             .iter()
             .filter_map(|v| v.to_str().ok())
-            .flat_map(|v| v.split(','))
             .collect();
-        for element in elements.iter().rev() {
-            match xerj_common::net::parse_forwarded_element(element) {
-                Some(ip) => {
-                    let ip: IpAddr = xerj_common::net::canonical_ip(ip);
-                    if !trusted.contains(&ip) {
-                        return Ok(ClaimSource(ip.to_string()));
-                    }
-                }
-                None => break,
-            }
-        }
-        Ok(ClaimSource(peer.to_string()))
+        Ok(ClaimSource(client_source(state, peer, &forwarded)))
     }
+}
+
+/// The reading behind [`ClaimSource`], for a transport that is not an axum
+/// request: the gRPC `XerjHub` service hands in its TCP peer and its
+/// `x-forwarded-for` metadata values, so one client is one address on both
+/// listeners.
+///
+/// `peer` is the TCP peer (`None`: every such caller shares `unknown`).
+/// `forwarded` are the raw `X-Forwarded-For` values in the order received;
+/// each may be a comma-separated list. They are consulted only when `peer` is
+/// a declared `server.trusted_proxies` entry, walking right-to-left to the
+/// first address that is not itself a declared proxy; an element that does
+/// not parse stops the walk and the peer is used.
+pub fn client_source(state: &AppState, peer: Option<IpAddr>, forwarded: &[&str]) -> String {
+    let Some(peer) = peer.map(xerj_common::net::canonical_ip) else {
+        return "unknown".to_string();
+    };
+    let trusted = xerj_common::net::TrustedProxies::parse(&state.config.server.trusted_proxies)
+        .unwrap_or_else(|_| xerj_common::net::TrustedProxies::none());
+    if !trusted.contains(&peer) {
+        return peer.to_string();
+    }
+    let elements: Vec<&str> = forwarded.iter().flat_map(|v| v.split(',')).collect();
+    for element in elements.iter().rev() {
+        match xerj_common::net::parse_forwarded_element(element) {
+            Some(ip) => {
+                let ip: IpAddr = xerj_common::net::canonical_ip(ip);
+                if !trusted.contains(&ip) {
+                    return ip.to_string();
+                }
+            }
+            None => break,
+        }
+    }
+    peer.to_string()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1397,6 +1412,56 @@ fn too_many(retry_after_secs: u64) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// `client_source` is the one reading of "who is this client" behind both
+    /// `ClaimSource` (HTTP) and the gRPC hub service's rate limit.
+    #[tokio::test]
+    async fn client_source_believes_forwarding_only_from_a_declared_proxy() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = xerj_common::config::Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        config.server.trusted_proxies = vec!["10.0.0.0/8".into()];
+        let metrics = xerj_common::metrics::Metrics::new().unwrap();
+        let engine = xerj_engine::Engine::new(config.clone()).unwrap();
+        let state = AppState::new(config, engine, metrics);
+        let ip = |s: &str| Some(s.parse::<IpAddr>().unwrap());
+
+        assert_eq!(client_source(&state, None, &["198.51.100.1"]), "unknown");
+        // Undeclared peer: its own address, whatever it forwards.
+        assert_eq!(
+            client_source(&state, ip("192.0.2.9"), &["198.51.100.1"]),
+            "192.0.2.9"
+        );
+        // Declared peer: the right-most address that is not a declared proxy,
+        // across repeated values and comma lists.
+        assert_eq!(
+            client_source(&state, ip("10.0.0.1"), &["198.51.100.1"]),
+            "198.51.100.1"
+        );
+        assert_eq!(
+            client_source(
+                &state,
+                ip("10.0.0.1"),
+                &["203.0.113.4, 198.51.100.1", "10.2.2.2"]
+            ),
+            "198.51.100.1"
+        );
+        // Nothing forwarded, all-proxy chain, or garbage: the peer.
+        assert_eq!(client_source(&state, ip("10.0.0.1"), &[]), "10.0.0.1");
+        assert_eq!(
+            client_source(&state, ip("10.0.0.1"), &["10.3.3.3"]),
+            "10.0.0.1"
+        );
+        assert_eq!(
+            client_source(&state, ip("10.0.0.1"), &["not-an-ip"]),
+            "10.0.0.1"
+        );
+        // An IPv4-mapped IPv6 peer is the IPv4 address (one bucket, one match).
+        assert_eq!(
+            client_source(&state, ip("::ffff:10.0.0.1"), &["198.51.100.1"]),
+            "198.51.100.1"
+        );
+    }
 
     #[test]
     fn expires_in_parses_units_and_rejects_bare_numbers() {

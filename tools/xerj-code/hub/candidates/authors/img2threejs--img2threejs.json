@@ -1,0 +1,22 @@
+{
+ "corpus": "img2threejs--img2threejs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on 3d, ai-agents, claude-code queries this for how img2threejs/img2threejs implements it: Rebuild the object in a reference image as a code-only, procedural, quality-gated, animation-ready Three.js model. Token-efficient image-to- (selected work: bin, the project root)",
+ "repos": [
+  {
+   "repo": "img2threejs",
+   "url": "https://github.com/img2threejs/img2threejs",
+   "sha": "809b72d048533ab196177ae3ba8762cad89167bd",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 809b72d04853: \"feat: release hardened npm installer with trusted publishing\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

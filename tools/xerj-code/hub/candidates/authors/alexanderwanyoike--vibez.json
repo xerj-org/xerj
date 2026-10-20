@@ -1,0 +1,22 @@
+{
+ "corpus": "alexanderwanyoike--vibez",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on audio, clap, daw queries this for how alexanderwanyoike/vibez implements it: An open-source DAW for electronic music, written in pure Rust (selected work: crates/vibez-ui, crates/vibez-engine)",
+ "repos": [
+  {
+   "repo": "vibez",
+   "url": "https://github.com/alexanderwanyoike/vibez",
+   "sha": "d709e25105c4112aa2064e5bcc44c45701def6e7",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit d709e25105c4: \"fix(perform): recover launcher state after dropped Clip events\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

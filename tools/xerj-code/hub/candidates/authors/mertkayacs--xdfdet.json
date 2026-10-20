@@ -1,0 +1,22 @@
+{
+ "corpus": "mertkayacs--xdfdet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on deepfake-detection, efficientnet, explainable-ai queries this for how mertkayacs/xdfdet implements it: Deepfake video detection with eight EfficientNet-B4 checkpoints, Grad-CAM heatmaps and facial-region analysis (selected work: src/xdfdet, tests, scripts)",
+ "repos": [
+  {
+   "repo": "xdfdet",
+   "url": "https://github.com/mertkayacs/xdfdet",
+   "sha": "f0b2521f1c57580c67a055cb1b593fef324b1642",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit f0b2521f1c57: \"Rebuild as a package with CLI, tests and released models\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

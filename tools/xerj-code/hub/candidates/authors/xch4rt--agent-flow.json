@@ -1,0 +1,22 @@
+{
+ "corpus": "xch4rt--agent-flow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Xch4rt/agent-flow implements it: Agent Flow helps Codex resume, execute, verify and remember work inside real software projects (selected work: test, src/core, src/adapters)",
+ "repos": [
+  {
+   "repo": "agent-flow",
+   "url": "https://github.com/Xch4rt/agent-flow",
+   "sha": "3bab7bad1fedcb60a24705872b63d86967427e84",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 3bab7bad1fed: \"feat(codex): Codex parity \u2014 skills, agent roles, hooks, usage; init c\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

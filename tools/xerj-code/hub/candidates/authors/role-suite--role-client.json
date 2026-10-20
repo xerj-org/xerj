@@ -1,0 +1,22 @@
+{
+ "corpus": "role-suite--role-client",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dart, flutter, open-source queries this for how role-suite/role-client implements it: R\u00f6le: a beautiful API client that stores everything in plain files, syncs with Git, and works fully offline \u2014 with optional team-synced work (selected work: test, lib/ui, lib/state)",
+ "repos": [
+  {
+   "repo": "role-client",
+   "url": "https://github.com/role-suite/role-client",
+   "sha": "8e72506d2398ece8400415de1fbd494ef42c2488",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8e72506d2398: \"feat(updates): add in-app release check with opt-in auto check\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

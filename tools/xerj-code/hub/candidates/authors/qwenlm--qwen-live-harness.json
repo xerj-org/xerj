@@ -1,0 +1,22 @@
+{
+ "corpus": "qwenlm--qwen-live-harness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how QwenLM/Qwen-Live-Harness implements it: An open-source agent harness powered by the Qwen Omni Realtime API\u2014see, hear, and act, with built-in memory (selected work: packages/qwen-live-harness, integration-tests)",
+ "repos": [
+  {
+   "repo": "Qwen-Live-Harness",
+   "url": "https://github.com/QwenLM/Qwen-Live-Harness",
+   "sha": "dbc72a1c79ffff0e2dbbc32b34517759935a80ea",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit dbc72a1c79ff: \"feat: compact long foreground conversations\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

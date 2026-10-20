@@ -1,0 +1,22 @@
+{
+ "corpus": "moton16--mortis-rag-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how moton16/Mortis-RAG-MCP implements it: Mortis'RAG MCP - registry-based Markdown KB RAG server (MCP over stdio, zero deps) (selected work: tests, mortis_rag_mcp)",
+ "repos": [
+  {
+   "repo": "Mortis-RAG-MCP",
+   "url": "https://github.com/moton16/Mortis-RAG-MCP",
+   "sha": "389dd6221a68172c2b0a7e442e90c154fa8b44d2",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 389dd6221a68: \"feat(read): resolve heading sections from current source text\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

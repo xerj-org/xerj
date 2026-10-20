@@ -1,0 +1,44 @@
+{"q": "lz4 block format and the decoder loop", "deps": ["lz4"], "expected": "lz4"}
+{"q": "fast block compression with lz4 decoder", "deps": ["lz4-sys"], "expected": "lz4"}
+{"q": "lz4 block format decoder loop", "deps": [], "expected": "lz4"}
+{"q": "zstd frame and block formats window level internals", "deps": ["zstd"], "expected": "zstd"}
+{"q": "tuning compression level and window size in zstd", "deps": ["zstd-sys"], "expected": "zstd"}
+{"q": "zstd frame window internals", "deps": [], "expected": "zstd"}
+{"q": "brotli static dictionary and transform handling", "deps": ["brotli"], "expected": "brotli"}
+{"q": "web content encoding with brotli transform", "deps": ["brotli"], "expected": "brotli"}
+{"q": "brotli static dictionary encoding", "deps": [], "expected": "brotli"}
+{"q": "rustls tls state machine cipher dispatch", "deps": ["rustls"], "expected": "rustls"}
+{"q": "certificate verification in rustls tls", "deps": ["tokio-rustls"], "expected": "rustls"}
+{"q": "rustls cipher dispatch certificate verification", "deps": [], "expected": "rustls"}
+{"q": "quinn quic congestion control and stream state", "deps": ["quinn"], "expected": "quinn"}
+{"q": "0-RTT handling and stream state in quinn quic", "deps": ["quinn-proto"], "expected": "quinn"}
+{"q": "quic congestion control stream internals", "deps": [], "expected": "quinn"}
+{"q": "blake3 tree-hash construction and simd lanes", "deps": ["blake3"], "expected": "blake3"}
+{"q": "keyed and derive-key modes in blake3 hashing", "deps": ["blake3"], "expected": "blake3"}
+{"q": "blake3 simd tree hash construction", "deps": [], "expected": "blake3"}
+{"q": "curve25519 ed25519 x25519 field arithmetic in dalek", "deps": ["curve25519-dalek"], "expected": "curve25519-dalek"}
+{"q": "dalek ristretto group operation code", "deps": ["ed25519-dalek"], "expected": "curve25519-dalek"}
+{"q": "ed25519 signature field arithmetic dalek", "deps": [], "expected": "curve25519-dalek"}
+{"q": "polars dataframe over columnar arrow memory", "deps": ["polars"], "expected": "polars"}
+{"q": "lazy and eager dataframe execution in polars", "deps": ["polars-lazy"], "expected": "polars"}
+{"q": "polars dataframe query engine", "deps": [], "expected": "polars"}
+{"q": "datafusion sql query engine over arrow", "deps": ["datafusion"], "expected": "datafusion"}
+{"q": "olap sql execution planner in datafusion", "deps": ["datafusion-expr"], "expected": "datafusion"}
+{"q": "datafusion sql olap planner", "deps": [], "expected": "datafusion"}
+{"q": "rocksdb lsm compaction wal and recovery", "deps": ["rocksdb"], "expected": "rocksdb"}
+{"q": "compaction and recovery internals in rocksdb lsm store", "deps": ["librocksdb-sys"], "expected": "rocksdb"}
+{"q": "rocksdb compaction wal recovery", "deps": [], "expected": "rocksdb"}
+{"q": "aiohttp async http client server and websocket upgrades", "deps": ["aiohttp"], "expected": "aiohttp"}
+{"q": "streaming bodies and connection reuse in aiohttp", "deps": ["aiohttp"], "expected": "aiohttp"}
+{"q": "aiohttp websocket streaming client", "deps": [], "expected": "aiohttp"}
+{"q": "miekg dns library dnssec records", "deps": ["github.com/miekg/dns"], "expected": "miekg-dns"}
+{"q": "miekg dns library dnssec zone and records", "deps": ["github.com/miekg/dns"], "expected": "miekg-dns"}
+{"q": "miekg dns dnssec resolver", "deps": [], "expected": "miekg-dns"}
+{"q": "candle rust tensor framework for model inference and embeddings", "deps": ["candle-core"], "expected": "candle"}
+{"q": "minimalist rust tensor ml framework embeddings", "deps": ["candle-nn"], "expected": "candle"}
+{"q": "candle tensor inference embeddings", "deps": [], "expected": "candle"}
+{"q": "raft log ready progress state machine", "deps": ["raft"], "expected": "raft-rs"}
+{"q": "implementing raft consensus log and progress", "deps": ["raft"], "expected": "raft-rs"}
+{"q": "arrow columnar arrays kernels and ipc paths", "deps": ["arrow"], "expected": "arrow-rs"}
+{"q": "columnar memory arrow arrays and kernels", "deps": ["arrow-array"], "expected": "arrow-rs"}
+{"q": "arrow ipc arrays kernels columnar", "deps": [], "expected": "arrow-rs"}

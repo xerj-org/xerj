@@ -1,0 +1,22 @@
+{
+ "corpus": "jonathan8520--flashnx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on devkitpro, emulator, flash queries this for how Jonathan8520/FlashNX implements it: Homebrew Flash player for Nintendo Switch (.nro). Play your .swf games from the SD card. Powered by Ruffle (selected work: cpp, rust)",
+ "repos": [
+  {
+   "repo": "FlashNX",
+   "url": "https://github.com/Jonathan8520/FlashNX",
+   "sha": "a0aefe26df503af389275b9df036ef64f911a189",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit a0aefe26df50: \"perf(sauvegardes): les sauvegardes s'\u00e9crivent en arri\u00e8re-plan, plus d\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

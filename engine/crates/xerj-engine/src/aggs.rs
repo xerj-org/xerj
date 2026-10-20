@@ -4031,7 +4031,7 @@ fn lookup_agg_metric(sub: Option<&Value>, path: &str) -> f64 {
     for seg in normalized.split('.').filter(|s| !s.is_empty()) {
         match cur.get(seg) {
             Some(v) => cur = v,
-            None => return f64::NEG_INFINITY,
+            None => return lookup_keyed_metric(root, path).unwrap_or(f64::NEG_INFINITY),
         }
     }
     if let Some(v) = cur.get("value") {
@@ -4039,7 +4039,52 @@ fn lookup_agg_metric(sub: Option<&Value>, path: &str) -> f64 {
             return f;
         }
     }
-    cur.as_f64().unwrap_or(f64::NEG_INFINITY)
+    cur.as_f64()
+        .or_else(|| lookup_keyed_metric(root, path))
+        .unwrap_or(f64::NEG_INFINITY)
+}
+
+/// ES's value-key form for a multi-value metric (#1282): `p.95` or `p[95.0]`
+/// on a `percentiles` sub-agg names the 95th percentile, which lives at
+/// `p.values["95.0"]` (or in a `{key, value}` array when `keyed: false`). The
+/// plain dotted walk above cannot reach it — `"95"` is not the stored key, and
+/// `[95.0]` is not a segment — so it ranked every bucket as equal and the
+/// terms order silently fell back to the key tiebreaker.
+fn lookup_keyed_metric(root: &Value, path: &str) -> Option<f64> {
+    let (chain, last) = match path.rsplit_once('>') {
+        Some((chain, last)) => (Some(chain), last),
+        None => (None, path),
+    };
+    let mut cur = root;
+    for name in chain.into_iter().flat_map(|c| c.split('>')) {
+        cur = cur.get(name)?;
+    }
+    let (name, key) = match last.split_once('[') {
+        Some((name, rest)) => (name, rest.strip_suffix(']')?),
+        None => last.split_once('.')?,
+    };
+    let agg = cur.get(name)?;
+    if let Some(f) = agg.get(key).and_then(Value::as_f64) {
+        return Some(f);
+    }
+    let want = key.parse::<f64>().ok();
+    let same_key = |k: &str| want.is_some() && k.parse::<f64>().ok() == want;
+    match agg.get("values")? {
+        Value::Object(values) => values
+            .get(key)
+            .or_else(|| values.iter().find(|(k, _)| same_key(k)).map(|(_, v)| v))
+            .and_then(Value::as_f64),
+        Value::Array(entries) => entries
+            .iter()
+            .find(|e| match e.get("key") {
+                Some(Value::String(k)) => same_key(k),
+                Some(k) => k.as_f64().is_some() && k.as_f64() == want,
+                None => false,
+            })
+            .and_then(|e| e.get("value"))
+            .and_then(Value::as_f64),
+        _ => None,
+    }
 }
 
 fn run_ip_prefix(
@@ -4936,11 +4981,11 @@ pub(crate) fn java_to_strftime(pattern: &str) -> String {
 /// Format a Unix epoch in milliseconds as the ISO-8601 UTC string with
 /// millisecond precision, matching Elasticsearch's default date format
 /// (`"yyyy-MM-dd'T'HH:mm:ss.SSSZ"` → `"2016-05-03T00:00:00.000Z"`).
-pub(crate) fn epoch_ms_to_iso8601_utc(ms: i64) -> String {
-    chrono::DateTime::<chrono::Utc>::from_timestamp_millis(ms)
-        .map(|dt| dt.to_rfc3339_opts(chrono::SecondsFormat::Millis, true))
-        .unwrap_or_default()
-}
+///
+/// Moved to `xerj_common::schema` (one definition: the autoindex catalog
+/// read-back renders raw-millis date fields with the same format, #1183) and
+/// re-exported here so this module's call sites keep the bare name.
+pub(crate) use xerj_common::schema::epoch_ms_to_iso8601_utc;
 
 /// Count fractional-second digits in an ISO-8601 string
 /// (e.g. "2021-08-12T00:00:00.000000000+02:00" → 9).
@@ -7090,7 +7135,16 @@ pub(crate) fn doc_matches_filter(doc: &Value, filter: &Value) -> bool {
             "exists" => {
                 // exists: {"field": "price"} — match docs that have the field.
                 if let Some(field) = query_body.get("field").and_then(Value::as_str) {
-                    let has_field = !extract_field_values(doc, field).is_empty();
+                    // #1260: a field whose value is directly an OBJECT counts
+                    // as present.  `extract_field_values` flattens objects to
+                    // `[]` while the query path's `value_present`
+                    // (`doc_matches_query_typed`'s Exists arm) treats an
+                    // object as present — the two disagreed, and the fast
+                    // aggs exists arm is built on them agreeing.  Scalars,
+                    // arrays and nulls are unchanged: `extract_field_values`
+                    // already mirrors `value_present` for them.
+                    let has_field = !extract_field_values(doc, field).is_empty()
+                        || matches!(get_nested_field(doc, field), Value::Object(_));
                     if !has_field {
                         return false;
                     }

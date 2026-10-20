@@ -1,0 +1,22 @@
+{
+ "corpus": "fakhruldeen--tasleemat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on artifacts, pmo, pmp queries this for how fakhruldeen/Tasleemat implements it: Bilingual (English & Arabic) PMO Operating System with 114 standardized deliverables, companion JSON schemas (Draft 2020-12), interactive Te (selected work: tools, tests)",
+ "repos": [
+  {
+   "repo": "Tasleemat",
+   "url": "https://github.com/fakhruldeen/Tasleemat",
+   "sha": "12532f22e3a649c259f8e177d93287e5fedf72ef",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 12532f22e3a6: \"feat(portal): redesign public website with modern bilingual architect\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

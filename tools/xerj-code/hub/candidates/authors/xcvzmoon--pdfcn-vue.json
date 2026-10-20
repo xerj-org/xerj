@@ -1,0 +1,22 @@
+{
+ "corpus": "xcvzmoon--pdfcn-vue",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on nuxt, pdf, shadcn-vue queries this for how xcvzmoon/pdfcn-vue implements it: Beautiful PDF components for Vue, built on Forme and Takumi. Free, zero config. Vue port of pdfcn (selected work: packages/registry, tools, the project root)",
+ "repos": [
+  {
+   "repo": "pdfcn-vue",
+   "url": "https://github.com/xcvzmoon/pdfcn-vue",
+   "sha": "c2d12036ee298a9aa51905e2925d683888699111",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit c2d12036ee29: \"feat(takumi): add HTML rendering base and browser preview\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

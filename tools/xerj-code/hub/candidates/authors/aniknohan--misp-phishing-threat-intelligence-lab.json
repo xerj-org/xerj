@@ -1,0 +1,22 @@
+{
+ "corpus": "aniknohan--misp-phishing-threat-intelligence-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on blue-team, cyber-threat-intelligence, cybersecurity queries this for how aniknohan/misp-phishing-threat-intelligence-lab implements it: Hands-on MISP threat intelligence lab demonstrating phishing IOC analysis, structured object modeling, IOC correlation, validation, and MITR (selected work: scripts, detections)",
+ "repos": [
+  {
+   "repo": "misp-phishing-threat-intelligence-lab",
+   "url": "https://github.com/aniknohan/misp-phishing-threat-intelligence-lab",
+   "sha": "89c9373c262d2e60502d7ab351a69bcd44effd80",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 89c9373c262d: \"Add MISP lookup script, Sigma/Splunk/Suricata detections, IOC file an\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "darckrovert--projectjaina-companion",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on azerothcore, social-hub, wotlk queries this for how DarckRovert/ProjectJaina_Companion implements it: Hub social meta-ligero para detecci\u00f3n de presencia, sincronizaci\u00f3n de modos de juego y avisos en grupo (Ecosistema Project Jaina) (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "ProjectJaina_Companion",
+   "url": "https://github.com/DarckRovert/ProjectJaina_Companion",
+   "sha": "21168182b444f7891109463ca137e6212bef0cad",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 21168182b444: \"feat(v2.0.0): add tactical playerbot bar, role recruitment, and nativ\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "meatyari--slideflare",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how MeatyAri/slideflare implements it: \u26a1Blazing fast, interactive presentation tool for developers, educators, and creators to build beautiful slides effortlessly (selected work: src-tauri, scripts, src/routes)",
+ "repos": [
+  {
+   "repo": "slideflare",
+   "url": "https://github.com/MeatyAri/slideflare",
+   "sha": "4db5eb277cbbf76415d061747cd0410e7d474d07",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4db5eb277cbb: \"feat(export): show no window on Windows and macOS either\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

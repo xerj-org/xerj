@@ -1,0 +1,22 @@
+{
+ "corpus": "brasth--dc-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on bubbletea, cli, colima queries this for how Brasth/dc-cli implements it: Dev containers from your terminal. No VS Code. Never edits .devcontainer (selected work: cmd/dc-tui, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "dc-cli",
+   "url": "https://github.com/Brasth/dc-cli",
+   "sha": "9966066c3e3ba03f7a162d726554cca2374b08f2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 9966066c3e3b: \"feat(tui): ship Phosphor Console redesign in v0.23.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

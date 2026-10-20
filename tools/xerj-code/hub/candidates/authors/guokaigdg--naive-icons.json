@@ -1,0 +1,22 @@
+{
+ "corpus": "guokaigdg--naive-icons",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on icons, naive, react queries this for how guokaigdg/naive-icons implements it: A library of hand-drawn SVG icons in a naive folk art style \u624b\u7ed8 naive folk art \u98ce\u683c\u7684 SVG \u56fe\u6807\u5e93 (selected work: skills, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "naive-icons",
+   "url": "https://github.com/guokaigdg/naive-icons",
+   "sha": "9473afb5e29500a052e97001367bf150d972316f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 9473afb5e295: \"feat(skill): add Agent Skill for AI coding agents\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

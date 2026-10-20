@@ -1,0 +1,22 @@
+{
+ "corpus": "gooeyai--gooeyai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how GooeyAI/GooeyAI implements it: The core orchestration logic behind Gooey.AI (selected work: tests, gooey-gui, daras_ai_v2)",
+ "repos": [
+  {
+   "repo": "GooeyAI",
+   "url": "https://github.com/GooeyAI/GooeyAI",
+   "sha": "a2fbf34bfb2fd043742aa4d0c75ce75102010f32",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit a2fbf34bfb2f: \"perf: defer the Debug pane's render until it is opened\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

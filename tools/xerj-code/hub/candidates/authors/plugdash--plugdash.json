@@ -1,0 +1,22 @@
+{
+ "corpus": "plugdash--plugdash",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how plugdash/plugdash implements it: Plugins for EmDash (selected work: packages/codeblock, packages/fromghost, packages/fromsubstack)",
+ "repos": [
+  {
+   "repo": "plugdash",
+   "url": "https://github.com/plugdash/plugdash",
+   "sha": "14cfc3006e296eb594e5aa409640e5160122dda8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 14cfc3006e29: \"Run oxfmt across the repo\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

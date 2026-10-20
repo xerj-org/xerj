@@ -1,0 +1,22 @@
+{
+ "corpus": "ruicore--codex-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-workflows, ai-agents, code-review queries this for how ruicore/codex-skills implements it: Reusable Codex engineering workflows for diagnosis, TDD, architecture review, PRD planning, and agent-assisted development (selected work: scripts, tests, evals)",
+ "repos": [
+  {
+   "repo": "codex-skills",
+   "url": "https://github.com/ruicore/codex-skills",
+   "sha": "a1cc0cc8c4c766ed9e14be98d1688f54f0f15f18",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit a1cc0cc8c4c7: \"Add verified skill installation and commit scope checks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

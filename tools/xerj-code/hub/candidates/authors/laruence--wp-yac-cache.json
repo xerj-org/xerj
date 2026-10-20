@@ -1,0 +1,22 @@
+{
+ "corpus": "laruence--wp-yac-cache",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on fastcache, objectcache, plugin queries this for how laruence/wp-yac-cache implements it: Fast WordPress object cache plugin that uses the Yac cache (selected work: tests, the project root)",
+ "repos": [
+  {
+   "repo": "wp-yac-cache",
+   "url": "https://github.com/laruence/wp-yac-cache",
+   "sha": "8cd8b24efb2b33143cdf4376025431aa7be2a4a6",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 8cd8b24efb2b: \"Isolate multisite blogs by per-blog Yac namespace\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

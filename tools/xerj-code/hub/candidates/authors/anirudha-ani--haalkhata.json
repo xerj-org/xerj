@@ -1,0 +1,22 @@
+{
+ "corpus": "anirudha-ani--haalkhata",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on artificial-intelligence, computer-vision, finance queries this for how anirudha-ani/HaalKhata implements it: An AI application to split bills effortlessly (selected work: apps/web, proto)",
+ "repos": [
+  {
+   "repo": "HaalKhata",
+   "url": "https://github.com/anirudha-ani/HaalKhata",
+   "sha": "756e792ab09a07673e2ac8b3f360811f1bdb24d2",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 756e792ab09a: \"feat(receipt): persist account-wide AI scanning consent\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "pavelblend--blender-xray",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on stalker, xray-engine, blender queries this for how PavelBlend/blender-xray implements it: STALKER (aka xray-engine) import/export plugin for Blender 3D (selected work: io_scene_xray, tests)",
+ "repos": [
+  {
+   "repo": "blender-xray",
+   "url": "https://github.com/PavelBlend/blender-xray",
+   "sha": "53dc1f1ed6294fea1574dcd79e6fb8ef7d065e51",
+   "licence": "hint only: BSD-2-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-2-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 53dc1f1ed629: \"#865: the code for working with F-curves has been adapted for Blender\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

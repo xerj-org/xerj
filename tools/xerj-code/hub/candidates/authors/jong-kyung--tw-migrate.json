@@ -1,0 +1,22 @@
+{
+ "corpus": "jong-kyung--tw-migrate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on esm, migration, react queries this for how jong-kyung/tw-migrate implements it: Migrate to Tailwind from an existing CSS/SCSS/SASS/LESS file (selected work: crates/tw_migrate_css)",
+ "repos": [
+  {
+   "repo": "tw-migrate",
+   "url": "https://github.com/jong-kyung/tw-migrate",
+   "sha": "f596e290485642e0318dc4795da086367883eae9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit f596e2904856: \"perf: replace pairwise CSS overlap checks with property counts (#179)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "programador-jr--king",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on discord-js, discord-bot, king-bot queries this for how Programador-jr/King implements it: Multi-function bot for discord using the official lib discord.js with fun commands and utilities (selected work: dashboard, tests, the project root)",
+ "repos": [
+  {
+   "repo": "King",
+   "url": "https://github.com/Programador-jr/King",
+   "sha": "c28710ec1d7faf1db3af192d994175fcde10db56",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit c28710ec1d7f: \"fix(security): harden dashboard requests\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

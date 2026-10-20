@@ -1,0 +1,22 @@
+{
+ "corpus": "krv-labs--pulsar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on graph-algorithms, multiverse-analysis, topological-data-analysis queries this for how Krv-Labs/pulsar implements it: Blazing-fast multiverse data exploration \ud83d\udca8 \u2014 based on our Nature Energy 2025 publication (selected work: tests, pulsar)",
+ "repos": [
+  {
+   "repo": "pulsar",
+   "url": "https://github.com/Krv-Labs/pulsar",
+   "sha": "7e7cb8d0d57d232686f69651527338d8e22d5faf",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 7e7cb8d0d57d: \"feat(mcp): add opt-in TaskConfig for run_topological_sweep and sessio\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

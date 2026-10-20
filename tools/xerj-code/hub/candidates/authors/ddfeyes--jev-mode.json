@@ -1,0 +1,22 @@
+{
+ "corpus": "ddfeyes--jev-mode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, ai, classification queries this for how ddfeyes/jev-mode implements it: I kept watching coding agents burn context on decisions that aren't hard - triage 400 tickets, tag 600 files, route to one of six teams. jev (selected work: src/jev_mode, tests, the project root)",
+ "repos": [
+  {
+   "repo": "jev-mode",
+   "url": "https://github.com/ddfeyes/jev-mode",
+   "sha": "6d4d8dcbd74c7163d4c7c45ddc504afc3a0508db",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 6d4d8dcbd74c: \"Step gate: filter every action through Jev; one-command classify\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

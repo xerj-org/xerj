@@ -1,0 +1,22 @@
+{
+ "corpus": "nagoloumdaniel--buildit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on developer-tools, docker, project-generator queries this for how nagoloumdaniel/BuildIt implements it: BuildIt (pr\u00e9-alpha) : g\u00e9n\u00e8re un projet pr\u00eat \u00e0 d\u00e9velopper \u00e0 partir d'une description et d'un choix de technologies (manifest, registry, compa (selected work: apps/web, packages/compatibility, packages/ui)",
+ "repos": [
+  {
+   "repo": "BuildIt",
+   "url": "https://github.com/nagoloumdaniel/BuildIt",
+   "sha": "8b0993baf8ae20f5e43fb94da8bf6ec14c13c5f9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 8b0993baf8ae: \"fix(web): mise a niveau qualite (popup clavier, hosting cumulatif, co\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

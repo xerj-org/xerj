@@ -1,0 +1,22 @@
+{
+ "corpus": "pooyanazad--yamlguard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on automation, devops, linux queries this for how pooyanazad/yamlguard implements it: yamlguard: a YAML validation CLI with syntax checks, yamllint linting, and optional Checkov security scans. Available via PyPI and Docker, w (selected work: yaml_validator, yamlguard, tests)",
+ "repos": [
+  {
+   "repo": "yamlguard",
+   "url": "https://github.com/pooyanazad/yamlguard",
+   "sha": "b4764bd09bde30cbce6bf4c83c2b6c14cfbf5dc2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit b4764bd09bde: \"refactor: align yamlguard branding after repository rename\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

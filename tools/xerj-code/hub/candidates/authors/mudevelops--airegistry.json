@@ -1,0 +1,22 @@
+{
+ "corpus": "mudevelops--airegistry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how MUdevelops/AIRegistry implements it: Open-source registry and CLI for reusable AI components, agents, tools, workflows, and templates (selected work: cloudflare, the project root, registry)",
+ "repos": [
+  {
+   "repo": "AIRegistry",
+   "url": "https://github.com/MUdevelops/AIRegistry",
+   "sha": "c1f271241d44b7ec352a41d4a4d3b1cec55be158",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit c1f271241d44: \"Polish AIRegistry for public launch\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

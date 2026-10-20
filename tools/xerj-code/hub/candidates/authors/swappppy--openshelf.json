@@ -1,0 +1,22 @@
+{
+ "corpus": "swappppy--openshelf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on library-app, library-management, library-management-system queries this for how Swappppy/Openshelf implements it: Openshelf is a free, open-source personal library manager. It functions as a comprehensive reading tracker, organizer (by category, collecti (selected work: lib/services, test, lib/views)",
+ "repos": [
+  {
+   "repo": "Openshelf",
+   "url": "https://github.com/Swappppy/Openshelf",
+   "sha": "8eb0d1bd2bfbb5b9fd1acea88057ef94537cbb55",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 8eb0d1bd2bfb: \"Enhance Google Books search, work edition fetching, and API resilience\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

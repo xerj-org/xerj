@@ -1,0 +1,22 @@
+{
+ "corpus": "gastownhall--gascity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how gastownhall/gascity implements it: Orchestration-builder SDK for multi-agent coding workflows (selected work: cmd/gc, internal/mail, internal/config)",
+ "repos": [
+  {
+   "repo": "gascity",
+   "url": "https://github.com/gastownhall/gascity",
+   "sha": "8ab110141fc44352635a8d61e5e6ad07c6903594",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8ab110141fc4: \"fix(mail): add unread-mail TTL so never-read mail wisps age out (#524\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

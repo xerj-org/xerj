@@ -1,0 +1,22 @@
+{
+ "corpus": "mrscauthd--sparkle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how MrScautHD/Sparkle implements it: A fast, Cross-platform .NET 10 C# 14 game engine (selected work: src/Sparkle, src/Sparkle.Test)",
+ "repos": [
+  {
+   "repo": "Sparkle",
+   "url": "https://github.com/MrScautHD/Sparkle",
+   "sha": "828850c8514df421fb7afe8729d7ee8cdb7512ff",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 828850c8514d: \"Working on PBR\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -20,6 +20,13 @@ use serde_json::{json, Value};
 
 use super::STALE_DAYS;
 
+/// The `source` value a Corpus-Hub-v2 pack writes into its state file
+/// ([`write_hubpack_state`]). A ledger carrying this came from a pulled,
+/// pre-indexed pack, not from a local clone-and-index — the distinction the
+/// staleness rule keys on (a hub pack is re-pinned by CI, so its freshness is
+/// the catalogue's job, not a 30-day local refusal).
+pub const SOURCE_HUBPACK: &str = "hubpack";
+
 /// One parsed state file. Every field optional; unknown fields ignored.
 #[derive(Debug, Clone, Default)]
 pub struct CorpusState {
@@ -34,6 +41,20 @@ pub struct CorpusState {
     pub build: Option<String>,
     pub index_prefix: Option<String>,
     pub state_dir: Option<String>,
+    /// `"hubpack"` when the index came from a Corpus-Hub-v2 pack
+    /// ([`write_hubpack_state`]); absent for a locally indexed corpus. Additive
+    /// field — older readers ignore it, older files leave it `None`.
+    pub source: Option<String>,
+    /// The pack's pinned commit (hub packs only). Carried so the `def`/`code`
+    /// answer can name the exact source revision without re-reading the pack.
+    pub pin_sha: Option<String>,
+    /// `YYYY-MM-DD` the pin was taken (hub packs only).
+    pub pin_date: Option<String>,
+    /// SPDX id of the pack's licence (hub packs only).
+    pub licence_spdx: Option<String>,
+    /// The pack's licence class, kebab-case (hub packs only) —
+    /// `adapt-with-attribution` / `approach-only` / `excluded`.
+    pub licence_class: Option<String>,
 }
 
 impl CorpusState {
@@ -49,12 +70,23 @@ impl CorpusState {
             build: s("build"),
             index_prefix: s("index_prefix"),
             state_dir: s("state_dir"),
+            source: s("source"),
+            pin_sha: s("pin_sha"),
+            pin_date: s("pin_date"),
+            licence_spdx: s("licence_spdx"),
+            licence_class: s("licence_class"),
         }
     }
 
     /// The corpus's own name for itself, falling back to the caller's.
     pub fn name(&self, fallback: &str) -> String {
         self.corpus.clone().unwrap_or_else(|| fallback.to_string())
+    }
+
+    /// True when this ledger came from a hub pack ([`SOURCE_HUBPACK`]). A hub
+    /// pack is never refused for age — its freshness is the catalogue's job.
+    pub fn is_hubpack(&self) -> bool {
+        self.source.as_deref() == Some(SOURCE_HUBPACK)
     }
 }
 
@@ -100,6 +132,13 @@ pub fn check_fresh(
         return Ok(None);
     };
     let age = Utc::now().signed_duration_since(dt).num_days();
+    // A hub pack is re-pinned by CI, not re-indexed locally, so a 30-day-old
+    // local copy is not a stale local index — its freshness is the catalogue's
+    // job (plan §2, the staleness-rule change). Report the age (the footer and
+    // a newer-pin warning still use it) but never refuse it.
+    if st.is_hubpack() {
+        return Ok(Some(age));
+    }
     if age > STALE_DAYS && !stale_ok {
         let corpus = st.name("");
         return Err(format!(
@@ -209,11 +248,70 @@ pub fn write_state(
         obj.insert("index_prefix".into(), json!(ip));
         obj.insert("state_dir".into(), json!(sd));
     }
+    persist_state(root, corpus, &state)
+}
+
+/// Write the ledger for a corpus restored from a Corpus-Hub-v2 pack
+/// (plan §2, `xerj hub pull`). It reuses the same atomic writer and the same
+/// base schema as [`write_state`] so `xerj code <corpus>` finds it unchanged,
+/// and adds the hub fields: `source: "hubpack"` (never refused for age — see
+/// [`check_fresh`]), the pack's `pin_sha`/`pin_date` and its licence, so a
+/// `def`/`code` answer can name the exact pinned source and its licence
+/// without re-reading the pack.
+///
+/// `index_prefix` is the pack's `xc-<slug>-b<build>`; the verified-build token
+/// is derived from it so the query path pins that one build (no
+/// "no verified build recorded" widening). `autoindex_exit: 0` /
+/// `salvaged: false` mark the pack complete (a CI-built pack is verified), so
+/// no incomplete-coverage warning fires.
+#[allow(clippy::too_many_arguments)]
+pub fn write_hubpack_state(
+    root: &Path,
+    corpus: &str,
+    url: &str,
+    index_prefix: &str,
+    pin_sha: &str,
+    pin_date: &str,
+    licence_spdx: &str,
+    licence_class: &str,
+) -> std::io::Result<()> {
+    let mut state = json!({
+        "corpus": corpus,
+        "indexed_at": Utc::now().format(STAMP_FORMAT).to_string(),
+        "prefix": format!("xc-{corpus}"),
+        "url": url,
+        "autoindex_exit": 0,
+        "salvaged": false,
+        "index_prefix": index_prefix,
+        "source": SOURCE_HUBPACK,
+        "pin_sha": pin_sha,
+        "pin_date": pin_date,
+        "licence_spdx": licence_spdx,
+        "licence_class": licence_class,
+    });
+    // The verified-build token is the part of the prefix after `xc-<corpus>-`
+    // (e.g. `xc-lz4-b1` -> `b1`); recording it keeps parity with a locally
+    // indexed corpus's ledger. Absent only if the prefix is not the usual
+    // shape — the query still pins the exact `index_prefix` either way.
+    if let Some(build) = index_prefix.strip_prefix(&format!("xc-{corpus}-")) {
+        if !build.is_empty() {
+            state
+                .as_object_mut()
+                .unwrap()
+                .insert("build".into(), json!(build));
+        }
+    }
+    persist_state(root, corpus, &state)
+}
+
+/// Atomic write of a ledger `Value` to `{root}/state/{corpus}.json` (tmp +
+/// rename): a reader sees the old build or the new one, never half. Compact
+/// separators, trailing newline — the script's exact bytes.
+fn persist_state(root: &Path, corpus: &str, state: &Value) -> std::io::Result<()> {
     let dir = root.join("state");
     std::fs::create_dir_all(&dir)?;
     let path = dir.join(format!("{corpus}.json"));
     let tmp = dir.join(format!(".{corpus}.json.tmp"));
-    // Compact separators, trailing newline — the script's exact bytes.
     std::fs::write(&tmp, format!("{state}\n"))?;
     std::fs::rename(&tmp, &path)
 }
@@ -452,5 +550,58 @@ mod tests {
         // Round-trips through the tolerant reader.
         let st = load_state(root.path(), "kv").unwrap();
         assert_eq!(st.index_prefix.as_deref(), Some("xc-kv-b20260921"));
+    }
+
+    #[test]
+    fn hubpack_state_carries_source_pin_and_licence_and_pins_the_build() {
+        let root = tempfile::tempdir().unwrap();
+        write_hubpack_state(
+            root.path(),
+            "lz4",
+            "http://localhost:9400",
+            "xc-lz4-b1",
+            "0774d05537f9762f838f7ab541b7765f1a729cb5",
+            "2026-10-02",
+            "BSD-2-Clause",
+            "adapt-with-attribution",
+        )
+        .unwrap();
+        let st = load_state(root.path(), "lz4").unwrap();
+        assert!(st.is_hubpack(), "source must be hubpack: {:?}", st.source);
+        assert_eq!(st.source.as_deref(), Some("hubpack"));
+        assert_eq!(st.index_prefix.as_deref(), Some("xc-lz4-b1"));
+        // The verified build is pinned (no namespace widening at query time).
+        assert_eq!(query_prefix(&st), "xc-lz4-b1");
+        assert_eq!(st.build.as_deref(), Some("b1"));
+        assert_eq!(
+            st.pin_sha.as_deref(),
+            Some("0774d05537f9762f838f7ab541b7765f1a729cb5")
+        );
+        assert_eq!(st.pin_date.as_deref(), Some("2026-10-02"));
+        assert_eq!(st.licence_spdx.as_deref(), Some("BSD-2-Clause"));
+        assert_eq!(st.licence_class.as_deref(), Some("adapt-with-attribution"));
+        // A verified pack must not trip the incomplete-coverage warning.
+        assert!(incomplete_coverage(&st).is_none());
+        // Atomic write leaves no tmp file.
+        assert!(!root.path().join("state/.lz4.json.tmp").exists());
+    }
+
+    #[test]
+    fn a_hub_pack_is_never_refused_for_age() {
+        // The staleness-rule change: a 400-day-old hub pack still answers
+        // (freshness is the catalogue's job), while a locally indexed corpus of
+        // the same age is refused.
+        let root = tempfile::tempdir().unwrap();
+        let mut st = aged(root.path(), "lz4", 400);
+        assert!(
+            check_fresh(&st, false, "`--stale-ok`").is_err(),
+            "a local index this old is refused"
+        );
+        st.source = Some(SOURCE_HUBPACK.to_string());
+        assert_eq!(
+            check_fresh(&st, false, "`--stale-ok`").unwrap(),
+            Some(400),
+            "a hub pack reports its age but is never refused"
+        );
     }
 }

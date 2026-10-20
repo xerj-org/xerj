@@ -1,0 +1,22 @@
+{
+ "corpus": "piousp--llm-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how piousp/llm-skills implements it: LLM and harness agnostic skills (selected work: pi-simple-agents)",
+ "repos": [
+  {
+   "repo": "llm-skills",
+   "url": "https://github.com/piousp/llm-skills",
+   "sha": "2d4652bc3f7f0c15ab4dfd535da0275605fa57d4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 2d4652bc3f7f: \"fix failed/missing MCP tools in subagents: pattern-aware bind gate, p\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

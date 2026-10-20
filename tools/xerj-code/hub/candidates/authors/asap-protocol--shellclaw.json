@@ -1,0 +1,22 @@
+{
+ "corpus": "asap-protocol--shellclaw",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, c, iot queries this for how asap-protocol/shellclaw implements it: \ud83e\udd9e The first physical agentic harness that participates in a global marketplace, using ASAP protocol (selected work: tests, src/tools, src/core)",
+ "repos": [
+  {
+   "repo": "shellclaw",
+   "url": "https://github.com/asap-protocol/shellclaw",
+   "sha": "e09b2e94ae856f1879a587d6aed509d1f32342cd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit e09b2e94ae85: \"fix(cron): keep the re-offer wait when the offer table is full\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

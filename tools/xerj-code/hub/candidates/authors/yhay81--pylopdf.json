@@ -1,0 +1,22 @@
+{
+ "corpus": "yhay81--pylopdf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on pdf, pdf-editing, pdf-library queries this for how yhay81/pylopdf implements it: PDF editing, rendering, text extraction, and generation for Python, powered by Rust. pymupdf-style API without the AGPL \u2014 MIT, zero dependen (selected work: tests, rust, src/pylopdf)",
+ "repos": [
+  {
+   "repo": "pylopdf",
+   "url": "https://github.com/yhay81/pylopdf",
+   "sha": "b22cf63f2efb1c392176dad2b0cf0cda8e6fafa2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b22cf63f2efb: \"Expose glyph positions through rawdict text extraction (#195)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

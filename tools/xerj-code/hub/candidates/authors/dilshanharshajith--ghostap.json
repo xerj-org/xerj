@@ -1,0 +1,22 @@
+{
+ "corpus": "dilshanharshajith--ghostap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on iot-analytics, iot-pentesting, man-in-the-middle queries this for how DilshanHarshajith/GhostAP implements it: A Bash script for creating wireless access points with advanced features including internet sharing, packet capture, DNS spoofing, proxy rou (selected work: gui, src, the project root)",
+ "repos": [
+  {
+   "repo": "GhostAP",
+   "url": "https://github.com/DilshanHarshajith/GhostAP",
+   "sha": "cfc07461067686e5a9ad856f8e06580a2e1a68db",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit cfc074610676: \"feat(web-ui): add a web ui\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

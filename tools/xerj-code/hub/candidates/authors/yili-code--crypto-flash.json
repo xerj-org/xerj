@@ -1,0 +1,22 @@
+{
+ "corpus": "yili-code--crypto-flash",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on ai-summarization, crypto-news, gemini-api queries this for how Yili-code/Crypto-Flash implements it: Self-hosted Python crypto and macro news monitor with Gemini summaries, real-time alerts, and daily Telegram digests (selected work: src, tests, the project root)",
+ "repos": [
+  {
+   "repo": "Crypto-Flash",
+   "url": "https://github.com/Yili-code/Crypto-Flash",
+   "sha": "aab87eb5ca62cbbc7ba9a5025847a95823c075a2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit aab87eb5ca62: \"Harden operational recovery and service boundaries\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

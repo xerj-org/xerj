@@ -1,0 +1,22 @@
+{
+ "corpus": "bobdyn--boblib",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on modelica, vehicle-dynamics queries this for how BobDyn/BobLib implements it: Modelica vehicle dynamics library for BobDyn (selected work: BobLib, Tests)",
+ "repos": [
+  {
+   "repo": "BobLib",
+   "url": "https://github.com/BobDyn/BobLib",
+   "sha": "543ffa656e520c6045b465421f22acf07de04afc",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 543ffa656e52: \"Derive the universal joint fixed reference frame as a parameter\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

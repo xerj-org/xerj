@@ -1,0 +1,22 @@
+{
+ "corpus": "xieyinch--xauat-swjw-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how xieyinch/xauat-swjw-app implements it: \u201c\u672c\u9879\u76ee\u4e3a\u4e2a\u4eba/\u5b66\u751f\u72ec\u7acb\u5f00\u6e90\u9879\u76ee\uff0c\u4e0e\u897f\u5b89\u5efa\u7b51\u79d1\u6280\u5927\u5b66\u5b98\u65b9\u65e0\u4ece\u5c5e\u5173\u7cfb\uff0c\u4ec5\u4f9b\u5b66\u4e60\u4ea4\u6d41\u4f7f\u7528\u3002\u201d (selected work: modules/course-widget, src/widget, src/api)",
+ "repos": [
+  {
+   "repo": "xauat-swjw-app",
+   "url": "https://github.com/xieyinch/xauat-swjw-app",
+   "sha": "689f6432fa572e14cfcdc368e70d6c7a18cb4f5e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 689f6432fa57: \"Show class times and rotate upcoming widget courses\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

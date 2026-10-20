@@ -416,7 +416,8 @@ Every long step is a phase of its own, in this order: `walk`, `hash`, `scan`,
 `prepare` (install mappings, counted in datasets), `snapshot` (seal and extract
 every file, counted in source bytes), `index` (send the sealed bulk bytes, the
 in-flight file named in `waiting_on`), `finalize-catalog`, `finalize-refresh`
-(one refresh per dataset), `finalize-verify` (one read-back per file). A
+(one refresh per dataset), `finalize-verify` (read-backs batched into
+per-index digest windows, one search per window). A
 resumed run starts at `replay`, and its `index` phase counts only the
 operations still to apply, so it starts at 0% of what remains rather than
 crediting this run with an earlier one's writes.
@@ -456,7 +457,14 @@ outside the indexed folder is refused, and one inside a hidden directory is
 skipped like any dotfile, however visible the link's own name;
 `--follow-symlinks-outside-root` waives the folder boundary and nothing else),
 `--sample N`
-records per file for inference (default 500).
+records per file for inference (default 500), `--code-analyzer code` to analyze
+newly created datasets that hold source code with the built-in identifier-aware
+`code` analyzer instead of today's election (`standard`, or the stemmer when the
+sample reads as prose) — `get_connection_pool` then also matches `connection`
+and `pool`. It costs about 15% more index size and ~2.4× text-analysis time;
+measured +0.11 file-localization acc@5 on a held-out SWE-bench Lite sample
+([#1198](https://github.com/xerj-org/xerj/issues/1198)). Existing indexes keep
+the analyzer they were created with; rebuild under a new `--prefix` to switch.
 
 Build output never reaches the index in the first place. The walk honours
 `.xerjignore`, `.gitignore` (nested files and `!negation` included) and

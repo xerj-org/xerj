@@ -1,0 +1,22 @@
+{
+ "corpus": "tame-gg--flavor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on desktop-app, golang, headscale queries this for how tame-gg/Flavor implements it: Desktop app and CLI for Linux, macOS and Windows that keeps several Tailscale and Headscale networks connected at once: one embedded tsnet n (selected work: internal/session, cmd/flavorctl, internal/service)",
+ "repos": [
+  {
+   "repo": "Flavor",
+   "url": "https://github.com/tame-gg/Flavor",
+   "sha": "bd3e2d2384e19534a6eb72db5fcc73f187cdcdb0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit bd3e2d2384e1: \"feat: advertise subnet routes per network (#53)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

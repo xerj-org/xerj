@@ -1,0 +1,22 @@
+{
+ "corpus": "jeetrex17--tdrive",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how jeetrex17/TDrive implements it: Go + Wails desktop app I built as my first Go project. It uses a private Telegram channel like a \u201ccloud drive\u201d so you can upload, download,  (selected work: scripts, internal/app, frontend)",
+ "repos": [
+  {
+   "repo": "TDrive",
+   "url": "https://github.com/jeetrex17/TDrive",
+   "sha": "0e8ef55620db8f62d9b5e85e7f78cec8bfe72dd0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 0e8ef55620db: \"Prepare TDrive for Microsoft Store distribution (#146)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

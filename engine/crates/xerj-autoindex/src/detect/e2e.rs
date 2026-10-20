@@ -362,9 +362,10 @@ pub(super) fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         follow_symlinks_outside_root: false,
         stub_globs: Vec::new(),
         ignore: crate::ignore_rules::IgnoreOptions::default(),
-        max_file_gb: 1,
+        max_file_bytes: 1 << 30,
         sample: 50,
         no_semantic: true,
+        code_analyzer: Default::default(),
         brain: Some("notes".into()),
         no_graph: false,
         // The gate is switched off in these fixtures on purpose: they assert
@@ -381,6 +382,7 @@ pub(super) fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         watch: false,
         label: None,
         debounce: std::time::Duration::from_millis(0),
+        exclude_rels: Vec::new(),
     }
 }
 

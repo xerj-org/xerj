@@ -140,8 +140,12 @@ GENERIC_ANCHORS = {"click here", "here", "read more", "this", "link", "more"}
 #: too, but they are the repository's permanent trunk and survive a merge; a
 #: tag and a commit SHA are immutable.  Anything else — ``feat/agentic-seo``,
 #: ``fix/x``, a personal branch — is deleted after merge and the link 404s.
+#: ``corpus-hub`` is the one further exception: a long-lived registry branch
+#: the corpus-hub launch (2026-10-01) points consumers and contributors at.
+#: It is never merged-and-deleted — moving it IS the release mechanism — so
+#: pinning to it is the intended behaviour, like a moving "latest" channel.
 _PERMANENT_GITHUB_REF_RE = re.compile(
-    r"^(?:main|master|HEAD"
+    r"^(?:main|master|HEAD|corpus-hub"
     r"|[0-9a-f]{7,40}"
     r"|v?\d+(?:\.\d+)*(?:[-.][0-9A-Za-z.]+)*)$")
 

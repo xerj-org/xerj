@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Search .ipynb notebooks and the .py files beside them</title>
-<meta name="description" content="A captured run indexed one document per notebook cell, with cell_type, execution_count and the nbformat cell id, so a hit names the exact cell.">
+<meta name="description" content="A captured run indexed 2 notebooks by heading section, with the heading path and starting cell, and the .py beside them, all in one index.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -17,7 +17,7 @@
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Search .ipynb notebooks and the .py files beside them">
-<meta property="og:description" content="A captured run indexed one document per notebook cell, with cell_type, execution_count and the nbformat cell id, so a hit names the exact cell.">
+<meta property="og:description" content="A captured run indexed 2 notebooks by heading section, with the heading path and starting cell, and the .py beside them, all in one index.">
 <meta property="og:url" content="https://xerj.org/answers/search-jupyter-notebook-cells">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
 <meta property="og:image:width" content="1200">
@@ -26,7 +26,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Search .ipynb notebooks and the .py files beside them">
-<meta name="twitter:description" content="A captured run indexed one document per notebook cell, with cell_type, execution_count and the nbformat cell id, so a hit names the exact cell.">
+<meta name="twitter:description" content="A captured run indexed 2 notebooks by heading section, with the heading path and starting cell, and the .py beside them, all in one index.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
 {
@@ -60,12 +60,12 @@
   "@context": "https://schema.org",
   "@type": "TechArticle",
   "headline": "Search .ipynb notebooks and the .py files beside them",
-  "description": "A captured run indexed one document per notebook cell, with cell_type, execution_count and the nbformat cell id, so a hit names the exact cell.",
+  "description": "A captured run indexed 2 notebooks by heading section, with the heading path and starting cell, and the .py beside them, all in one index.",
   "url": "https://xerj.org/answers/search-jupyter-notebook-cells",
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-21",
-  "dateModified": "2026-08-21",
+  "dateModified": "2026-10-05",
   "author": {
     "@type": "Person",
     "name": "XERJ documentation team"
@@ -128,7 +128,10 @@
   <a href="/docs/" class="active">DOCS</a>
   <a href="/docs/recipes/">RECIPES</a>
   <a href="/playground">DASHBOARDS</a>
+  <a href="https://hub.xerj.org" rel="external">HUB</a>
   <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
+  <a href="https://x.com/xerj_org" rel="external" title="XERJ on X" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+  <a href="https://discord.com/invite/yetXFusXfs" rel="external" title="XERJ on Discord" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.79 19.79 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.74 19.74 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.1 13.1 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.3 12.3 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.84 19.84 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
   <span class="spacer"></span>
   <span class="theme">
     <button type="button" data-theme="day" class="active">DAY</button>
@@ -243,96 +246,99 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>I NEED TO FIND A FUNCTION I WROTE IN A NOTEBOOK MONTHS AGO. HOW DO I SEARCH ALL .IPYNB FILES AND THE .PY NEXT TO THEM?</div>
   <div class="kicker"><span>ANSWERS · FILES AND FORMATS</span></div>
   <h1>I need to find a function I wrote in a notebook months ago. How do I search all .ipynb files and the .py next to them?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-08-21</div>
-  <p><strong>TL;DR</strong> — XERJ writes 1 document per notebook cell. In a captured run, a hit returned <code class="inline">ax_locator</code> <code class="inline">cells:e3</code>, the nbformat cell <code class="inline">id</code> <code class="inline">cell-abcd0004</code>, <code class="inline">cell_type</code> <code class="inline">code</code> and <code class="inline">execution_count</code> 2. Markdown text, code symbols and executed cell output are each queryable on their own field.</p>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-10-05</div>
+  <p><strong>TL;DR</strong> — XERJ writes 1 document per Markdown-heading section of a notebook. In a captured run, the printed accuracy <code class="inline">okapi accuracy 0.9137</code> came back from the section <code class="inline">Okapi retrieval sweep &gt; Run the sweep</code>, starting at cell 3, and a query for <code class="inline">okapi_transform</code> found both notebooks and the <code class="inline">.py</code> that defines it.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
-    <code>Act as a coding agent. Read https://xerj.org/llms.txt, start a local XERJ node, run `xerj autoindex ./notebooks --url http://127.0.0.1:9200 --prefix jp --progress plain`, then POST a match_phrase on source for text that exists only in a markdown cell, a match on source for a symbol defined only in a code cell, and a match on outputs for text printed only by an executed cell, and report ax_path, ax_locator, cell_type, id and execution_count for every hit.</code>
-    <button type="button" class="prompt-copy" data-copy="Act as a coding agent. Read https://xerj.org/llms.txt, start a local XERJ node, run `xerj autoindex ./notebooks --url http://127.0.0.1:9200 --prefix jp --progress plain`, then POST a match_phrase on source for text that exists only in a markdown cell, a match on source for a symbol defined only in a code cell, and a match on outputs for text printed only by an executed cell, and report ax_path, ax_locator, cell_type, id and execution_count for every hit.">COPY THE PROMPT</button>
+    <code>Act as a coding agent. Read https://xerj.org/llms.txt, start a local XERJ node, run `xerj autoindex ./notebooks --url http://127.0.0.1:9200 --prefix jp --progress plain`, then POST a match on body for a function name, a match_phrase on body for text printed only by an executed cell, and report ax_path, ax_locator, heading, heading_path and cell for every hit.</code>
+    <button type="button" class="prompt-copy" data-copy="Act as a coding agent. Read https://xerj.org/llms.txt, start a local XERJ node, run `xerj autoindex ./notebooks --url http://127.0.0.1:9200 --prefix jp --progress plain`, then POST a match on body for a function name, a match_phrase on body for text printed only by an executed cell, and report ax_path, ax_locator, heading, heading_path and cell for every hit.">COPY THE PROMPT</button>
   </div>
   <div class="prompt-card">
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
     <code>xerj autoindex ./notebooks --url http://127.0.0.1:9200 --prefix jp --progress plain</code>
     <button type="button" class="prompt-copy" data-copy="xerj autoindex ./notebooks --url http://127.0.0.1:9200 --prefix jp --progress plain">COPY COMMAND</button>
-    <span class="hero-proof">Index a folder of .ipynb files from local disk.</span>
+    <span class="hero-proof">Index a folder of .ipynb files, and the .py files beside them, from local disk.</span>
   </div>
   <div class="prompt-card">
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
-    <code>curl -s -XPOST http://127.0.0.1:9200/jp-*/_search -H 'content-type: application/json' -d '{"query":{"match":{"source":"okapi_transform"}},"size":10,"_source":["ax_path","ax_locator","cell_type","id","execution_count"],"track_total_hits":true}'</code>
-    <button type="button" class="prompt-copy" data-copy="curl -s -XPOST http://127.0.0.1:9200/jp-*/_search -H &#x27;content-type: application/json&#x27; -d &#x27;{&quot;query&quot;:{&quot;match&quot;:{&quot;source&quot;:&quot;okapi_transform&quot;}},&quot;size&quot;:10,&quot;_source&quot;:[&quot;ax_path&quot;,&quot;ax_locator&quot;,&quot;cell_type&quot;,&quot;id&quot;,&quot;execution_count&quot;],&quot;track_total_hits&quot;:true}&#x27;">COPY COMMAND</button>
-    <span class="hero-proof">Find a symbol that exists only in a code cell, and get the cell locator back.</span>
+    <code>curl -s -XPOST http://127.0.0.1:9200/jp-*/_search -H 'content-type: application/json' -d '{"query":{"match":{"body":"okapi_transform"}},"size":10,"_source":["ax_path","ax_locator","heading","heading_path","cell"],"track_total_hits":true}'</code>
+    <button type="button" class="prompt-copy" data-copy="curl -s -XPOST http://127.0.0.1:9200/jp-*/_search -H &#x27;content-type: application/json&#x27; -d &#x27;{&quot;query&quot;:{&quot;match&quot;:{&quot;body&quot;:&quot;okapi_transform&quot;}},&quot;size&quot;:10,&quot;_source&quot;:[&quot;ax_path&quot;,&quot;ax_locator&quot;,&quot;heading&quot;,&quot;heading_path&quot;,&quot;cell&quot;],&quot;track_total_hits&quot;:true}&#x27;">COPY COMMAND</button>
+    <span class="hero-proof">Find a function in notebook sections and in the .py that defines it, and get the section and cell back.</span>
   </div>
   <div class="prompt-card">
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
-    <code>curl -s -XPOST http://127.0.0.1:9200/jp-*/_search -H 'content-type: application/json' -d '{"query":{"match":{"outputs":"okapi accuracy 0.9137"}},"size":5,"_source":["ax_path","ax_locator","cell_type","id","execution_count","outputs"],"track_total_hits":true}'</code>
-    <button type="button" class="prompt-copy" data-copy="curl -s -XPOST http://127.0.0.1:9200/jp-*/_search -H &#x27;content-type: application/json&#x27; -d &#x27;{&quot;query&quot;:{&quot;match&quot;:{&quot;outputs&quot;:&quot;okapi accuracy 0.9137&quot;}},&quot;size&quot;:5,&quot;_source&quot;:[&quot;ax_path&quot;,&quot;ax_locator&quot;,&quot;cell_type&quot;,&quot;id&quot;,&quot;execution_count&quot;,&quot;outputs&quot;],&quot;track_total_hits&quot;:true}&#x27;">COPY COMMAND</button>
+    <code>curl -s -XPOST http://127.0.0.1:9200/jp-*/_search -H 'content-type: application/json' -d '{"query":{"match_phrase":{"body":"okapi accuracy 0.9137"}},"size":5,"_source":["ax_path","ax_locator","heading_path","cell"],"track_total_hits":true}'</code>
+    <button type="button" class="prompt-copy" data-copy="curl -s -XPOST http://127.0.0.1:9200/jp-*/_search -H &#x27;content-type: application/json&#x27; -d &#x27;{&quot;query&quot;:{&quot;match_phrase&quot;:{&quot;body&quot;:&quot;okapi accuracy 0.9137&quot;}},&quot;size&quot;:5,&quot;_source&quot;:[&quot;ax_path&quot;,&quot;ax_locator&quot;,&quot;heading_path&quot;,&quot;cell&quot;],&quot;track_total_hits&quot;:true}&#x27;">COPY COMMAND</button>
     <span class="hero-proof">Find text that exists only in an executed cell's stored output.</span>
   </div>
   <div class="prompt-card">
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
-    <code>curl -s -XGET http://127.0.0.1:9200/jp-json/_mapping</code>
-    <button type="button" class="prompt-copy" data-copy="curl -s -XGET http://127.0.0.1:9200/jp-json/_mapping">COPY COMMAND</button>
-    <span class="hero-proof">Read the 25 fields a notebook cell produces, with the type of each.</span>
+    <code>curl -s -XGET http://127.0.0.1:9200/jp-docs/_mapping</code>
+    <button type="button" class="prompt-copy" data-copy="curl -s -XGET http://127.0.0.1:9200/jp-docs/_mapping">COPY COMMAND</button>
+    <span class="hero-proof">Read the fields a notebook section produces, with the type of each.</span>
   </div>
   <h2>Index the notebook folder</h2>
-  <p><code class="inline">xerj autoindex &lt;folder&gt;</code> reads each <code class="inline">.ipynb</code> file as JSON. The captured run read 2 notebooks into 1 dataset and 11 documents live in <code class="inline">jp-json</code>, with 0 junk files.</p>
+  <p><code class="inline">xerj autoindex &lt;folder&gt;</code> recognizes each <code class="inline">.ipynb</code> file by its content. The captured run read 2 notebooks and 1 <code class="inline">.py</code> file into 1 dataset, <code class="inline">jp-docs</code>, with 11 documents and 0 junk files.</p>
   <pre class="code"><code class="language-sh">xerj autoindex ./notebooks --url http://127.0.0.1:9200 --prefix jp --progress plain
 </code></pre>
-  <p>The 2 notebooks came from the fixture generator, written to nbformat 4.5 with markdown cells, code cells and executed output cells. No notebook server ran on the host.</p>
-  <h2>The unit of extraction is the cell</h2>
-  <p>Each cell became its own document. A hit therefore names the notebook, the cell position and the cell identity. That is enough to open the right place.</p>
+  <p>The 2 notebooks came from a fixture generator, written to nbformat 4.5 with Markdown cells, code cells, a printed output, an image output and an error. No notebook server ran on the host.</p>
+  <h2>The unit of extraction is the heading section</h2>
+  <p>A section starts at each Markdown heading and holds every cell up to the next heading. A hit therefore names the notebook, the section and the cell where the section starts.</p>
   <table>
     <thead><tr><th>field</th><th>example value</th><th>type</th></tr></thead>
     <tbody>
       <tr><td><code class="inline">ax_path</code></td><td><code class="inline">okapi-retrieval-sweep.ipynb</code></td><td><code class="inline">keyword</code></td></tr>
-      <tr><td><code class="inline">ax_locator</code></td><td><code class="inline">cells:e3</code></td><td><code class="inline">keyword</code></td></tr>
-      <tr><td><code class="inline">id</code></td><td><code class="inline">cell-abcd0004</code></td><td><code class="inline">keyword</code></td></tr>
-      <tr><td><code class="inline">cell_type</code></td><td><code class="inline">code</code></td><td><code class="inline">keyword</code></td></tr>
-      <tr><td><code class="inline">execution_count</code></td><td><code class="inline">2</code></td><td><code class="inline">long</code></td></tr>
+      <tr><td><code class="inline">ax_locator</code></td><td><code class="inline">c3-s0</code></td><td><code class="inline">keyword</code></td></tr>
+      <tr><td><code class="inline">heading</code></td><td><code class="inline">Run the sweep</code></td><td><code class="inline">keyword</code></td></tr>
+      <tr><td><code class="inline">heading_path</code></td><td><code class="inline">Okapi retrieval sweep &gt; Run the sweep</code></td><td><code class="inline">text</code></td></tr>
+      <tr><td><code class="inline">cell</code></td><td><code class="inline">3</code></td><td><code class="inline">long</code></td></tr>
+      <tr><td><code class="inline">language</code></td><td><code class="inline">python</code></td><td><code class="inline">keyword</code></td></tr>
     </tbody>
   </table>
-  <p>The <code class="inline">id</code> value is the nbformat cell id from the file itself. Use it to jump to the cell, because it does not move when a neighboring cell grows.</p>
-  <h2>Markdown, code and output are separately queryable</h2>
-  <p>Three queries ran against the same index, and each one matched a different kind of cell content.</p>
+  <p><code class="inline">title</code> comes from the notebook's first top-level heading. <code class="inline">language</code> comes from the kernel, so an R or Julia notebook says so.</p>
+  <p>A heading in the middle of a cell starts a section too. The second notebook opens with <code class="inline"># Evaluation notes</code> and has <code class="inline">## Findings</code> inside the same cell, so the captured run gave <code class="inline">Findings</code> the locator <code class="inline">c1.2-s0</code>.</p>
+  <h2>Markdown, code and output are in one body</h2>
+  <p>The <code class="inline">Run the sweep</code> section holds 2 cells. Its <code class="inline">body</code> keeps the Markdown as written, then the code inside a <code class="inline">python</code> code fence, then the printed output in a plain code fence after the cell:</p>
+  <pre class="code"><code class="language-text">okapi accuracy 0.9137
+corpus labelled-20
+</code></pre>
+  <p>Four queries ran against the same index:</p>
   <table>
     <thead><tr><th>query</th><th>hits</th><th>what matched</th></tr></thead>
     <tbody>
-      <tr><td><code class="inline">match_phrase</code> on <code class="inline">source</code> for <code class="inline">okapi experiment notes</code></td><td>2</td><td>markdown cells <code class="inline">cells:e0</code> and <code class="inline">cells:e6</code></td></tr>
-      <tr><td><code class="inline">match</code> on <code class="inline">source</code> for <code class="inline">okapi_transform</code></td><td>4</td><td>code cells with <code class="inline">execution_count</code> 2, 3 and 4, plus 1 markdown cell</td></tr>
-      <tr><td><code class="inline">match</code> on <code class="inline">outputs</code> for <code class="inline">okapi accuracy 0.9137</code></td><td>1</td><td>code cell <code class="inline">cells:e3</code>, from stored output only</td></tr>
+      <tr><td><code class="inline">match</code> on <code class="inline">body</code> for <code class="inline">okapi_transform</code></td><td>4</td><td>3 notebook sections, and the code document of <code class="inline">okapi_utils.py</code></td></tr>
+      <tr><td><code class="inline">match_phrase</code> on <code class="inline">body</code> for <code class="inline">okapi experiment notes</code></td><td>2</td><td>the opening section of each notebook</td></tr>
+      <tr><td><code class="inline">match_phrase</code> on <code class="inline">body</code> for <code class="inline">okapi accuracy 0.9137</code></td><td>1</td><td><code class="inline">Run the sweep</code>, cell 3, from the stored output only</td></tr>
+      <tr><td><code class="inline">match_phrase</code> on <code class="inline">body</code> for <code class="inline">KeyError q-404</code></td><td>1</td><td><code class="inline">Okapi retrieval sweep &gt; Plot the curve &gt; A failing run</code>, cell 7</td></tr>
     </tbody>
   </table>
   <pre class="code"><code class="language-sh">curl -s -XPOST 'http://127.0.0.1:9200/jp-*/_search' \
   -H 'content-type: application/json' \
-  -d '{"query":{"match":{"outputs":"okapi accuracy 0.9137"}},"size":5,"_source":["ax_path","ax_locator","cell_type","id","execution_count","outputs"],"track_total_hits":true}'
+  -d '{"query":{"match_phrase":{"body":"okapi accuracy 0.9137"}},"size":5,"_source":["ax_path","ax_locator","heading_path","cell"],"track_total_hits":true}'
 </code></pre>
-  <p>The output hit matters most. A printed accuracy number lives only in the stored output of an executed cell. A plain file search finds that string inside the raw JSON, but it cannot name the cell that produced it.</p>
-  <h2>XERJ is not notebook-aware</h2>
-  <p>The <code class="inline">autoindex-catalog</code> gave both <code class="inline">.ipynb</code> files the <code class="inline">json</code> family. There is no notebook extractor, no kernel, and no execution.</p>
-  <p>The per-cell result follows from the file format. The nbformat schema stores cells as a JSON array. The JSON family splits on that array and carries each cell's own keys through as fields.</p>
-  <p>Notebook metadata comes through the same way. The captured mapping holds <code class="inline">nbformat</code> and <code class="inline">nbformat_minor</code>. It also holds 10 flattened <code class="inline">metadata_kernelspec_*</code> and <code class="inline">metadata_language_info_*</code> keyword fields.</p>
-  <h2>The <code class="inline">outputs</code> field holds serialized JSON</h2>
-  <p><code class="inline">outputs</code> is a <code class="inline">text</code> field that carries the whole output list as a string. The captured value was <code class="inline">[{"name":"stdout","output_type":"stream","text":["okapi accuracy 0.9137\n","corpus labelled-20\n"]}]</code>.</p>
-  <p>Full-text queries work on that string. A structured filter, for example on <code class="inline">output_type</code>, needs a client-side parse of the field.</p>
+  <p>The output hit matters most. A printed accuracy number lives only in the stored output of an executed cell, and the hit names the section and the cell that produced it.</p>
+  <h2>What is not indexed</h2>
+  <p>Image outputs are skipped, and so is the <code class="inline">text/plain</code> stand-in beside them, such as <code class="inline">&lt;Figure size 640x480 with 1 Axes&gt;</code>. HTML-only outputs are skipped too. In the captured run, queries for the figure stand-in, the image data and the HTML table each returned 0 hits.</p>
+  <p>Each text output is capped at 40 lines, so a long training log does not become the notebook. Terminal colors are stripped, and a progress bar keeps only its final state.</p>
   <h2>What this capture does not show</h2>
-  <p>Only 2 notebooks were indexed, so this run demonstrates the extraction unit and the locator rather than notebook-scale behavior. XERJ does not run, render or convert a notebook, and it fetched nothing over the network.</p>
+  <p>Only 2 notebooks were indexed, so this run demonstrates the extraction unit and the locator rather than notebook-scale behavior. XERJ does not run, render or convert a notebook, and it fetched nothing over the network. R Markdown (<code class="inline">.Rmd</code>), Quarto (<code class="inline">.qmd</code>) and Jupytext or marimo <code class="inline">.py</code> notebooks are not read as notebooks.</p>
   <p>XERJ runs single-node here, with no replication and no failover. The default embedder in XERJ is lexical feature hashing, so a query and a paraphrase that share no words do not match. Neural embeddings are opt-in through <code class="inline">--embed-mode neural</code>.</p>
-  <p>Every number above comes from RUN-B, captured on 2026-08-21. The binary was a <code class="inline">ci-test</code> profile build, so no wall-clock figure from this run is published as a performance number.</p>
+  <p>Every number above comes from RUN-C, captured on 2026-10-05 on a build of <code class="inline">main</code> after v1.0.0-rc.82 (commit <code class="inline">06185966</code>); notebook extraction is not in the v1.0.0-rc.82 release itself. The binary was a <code class="inline">quick</code> profile build, so no wall-clock figure from this run is published as a performance number.</p>
   <h2>FAQ</h2>
   <h3>I need to find a function I wrote in a notebook months ago. How do I search all .ipynb files?</h3>
-  <p>Index the folder and query <code class="inline">source</code> for the function name. XERJ writes 1 document per cell, so a hit returns <code class="inline">ax_locator</code> such as <code class="inline">cells:e3</code> and the nbformat cell <code class="inline">id</code>.</p>
+  <p>Index the folder and query <code class="inline">body</code> for the function name. XERJ writes 1 document per Markdown-heading section, so a hit returns the <code class="inline">heading</code>, the <code class="inline">heading_path</code> and the <code class="inline">cell</code> where the section starts.</p>
   <h3>How do I search text inside Jupyter notebooks and jump to the cell?</h3>
-  <p>Query <code class="inline">source</code> for the text and read the returned <code class="inline">id</code>. The nbformat cell id, for example <code class="inline">cell-abcd0001</code>, is stable inside the file and identifies the cell without a line number.</p>
+  <p>Query <code class="inline">body</code> and read <code class="inline">cell</code> from the hit. In the captured run, the printed accuracy came back from the section <code class="inline">Okapi retrieval sweep &gt; Run the sweep</code>, which starts at cell 3.</p>
   <h3>How do I search notebooks and scripts as one project?</h3>
-  <p>Point one <code class="inline">autoindex</code> run at the folder that holds both. Notebook cells are parsed as JSON and <code class="inline">.py</code> files are parsed as source code, so one index pattern covers both, with cells matched on <code class="inline">source</code> and scripts on <code class="inline">defs</code>.</p>
+  <p>Point one <code class="inline">autoindex</code> run at the folder that holds both. In the captured run, the 2 notebooks and the <code class="inline">.py</code> beside them landed in 1 index, <code class="inline">jp-docs</code>, and one query for <code class="inline">okapi_transform</code> returned both notebooks and the <code class="inline">.py</code> file.</p>
   <h3>Does XERJ search executed cell output as well as code?</h3>
-  <p>Yes. Text printed only by an executed cell returned 1 hit from the <code class="inline">outputs</code> field, at <code class="inline">ax_locator</code> <code class="inline">cells:e3</code> with <code class="inline">execution_count</code> 2.</p>
+  <p>Yes, for text output. Printed text, <code class="inline">text/plain</code> results and errors are written into the section body after their cell. Image outputs and HTML-only outputs are not indexed.</p>
   <h3>Is XERJ notebook-aware?</h3>
-  <p>No. XERJ gives an <code class="inline">.ipynb</code> file the <code class="inline">json</code> family. The per-cell result follows from nbformat storing cells as a JSON array, not from a notebook extractor.</p>
+  <p>Yes, from the release after v1.0.0-rc.82. XERJ recognizes a notebook by its content, not its extension, and groups cells by their Markdown headings. It reads any kernel and records the kernel language. It never executes a notebook.</p>
   <h3>Which notebook fields can I filter on?</h3>
-  <p>A cell produces 25 fields, including <code class="inline">cell_type</code> as <code class="inline">keyword</code>, <code class="inline">execution_count</code> as <code class="inline">long</code>, <code class="inline">id</code> as <code class="inline">keyword</code>, and <code class="inline">source</code> and <code class="inline">outputs</code> as <code class="inline">text</code>.</p>
-  <h3>Do markdown cells and code cells end up in the same index?</h3>
-  <p>Yes. Both live in the same index and are separated by the <code class="inline">cell_type</code> keyword. The captured run put 11 documents from 2 notebooks into <code class="inline">jp-json</code>.</p>
+  <p><code class="inline">heading</code> and <code class="inline">language</code> are <code class="inline">keyword</code>, <code class="inline">cell</code> is <code class="inline">long</code>, and <code class="inline">heading_path</code> and <code class="inline">title</code> are <code class="inline">text</code>. <code class="inline">body</code> holds the Markdown, the code and the text outputs.</p>
+  <h3>Do markdown cells and code cells end up in the same document?</h3>
+  <p>Yes. A section holds every cell from its heading to the next heading, Markdown and code together, with the code fenced in the kernel language and each text output after its cell.</p>
   <h2>Related</h2>
   <ul>
     <li><a href="/answers/search-json-and-jsonl-logs">What's the easiest way to search JSON logs plus some old gzip text logs in the same folder?</a></li>

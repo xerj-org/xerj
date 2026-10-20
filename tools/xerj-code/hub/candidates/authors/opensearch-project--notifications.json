@@ -1,0 +1,22 @@
+{
+ "corpus": "opensearch-project--notifications",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how opensearch-project/notifications implements it: Notifications plugin for OpenSearch enables other plugins to send notifications via Email, Slack, Amazon Chime, Custom web-hook etc channels (selected work: notifications)",
+ "repos": [
+  {
+   "repo": "notifications",
+   "url": "https://github.com/opensearch-project/notifications",
+   "sha": "bde7d2edc73421382c30a45b4cca8cb7565ab3b1",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit bde7d2edc734: \"Add a REST API to send a message to a notification channel (#1280)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -49,6 +49,19 @@ fi
 
 cd "$REPO_ROOT/engine"
 
+# The fuzz crate is its own workspace with no committed lockfile, so every
+# run used to resolve its dependency graph fresh from crates.io. When upstream
+# yanked every `zip 8.x` release (2026-10-16), that fresh resolve failed with
+# "failed to select a version for the requirement `zip = "^8"`" on every
+# branch, while the engine itself still built from its locked `zip 8.6.0`.
+# Start the fuzz workspace from the engine's lockfile instead: the fuzz build
+# then uses exactly the versions the engine ships and tests (a locked yanked
+# version stays usable), and cargo only adds the fuzz-only crates on top.
+# A contributor's own fuzz/Cargo.lock is left alone.
+if [ ! -f fuzz/Cargo.lock ]; then
+    cp Cargo.lock fuzz/Cargo.lock
+fi
+
 echo "==> building fuzz targets (ASan + libFuzzer)"
 cargo +nightly fuzz build
 

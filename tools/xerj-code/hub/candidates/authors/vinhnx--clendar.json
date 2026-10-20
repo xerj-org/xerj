@@ -1,0 +1,22 @@
+{
+ "corpus": "vinhnx--clendar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on swift, swiftui, github-actions queries this for how vinhnx/Clendar implements it: Clendar - Minimal Calendar app. Written in SwiftUI (selected work: Pods, ClendarWidget, the project root)",
+ "repos": [
+  {
+   "repo": "Clendar",
+   "url": "https://github.com/vinhnx/Clendar",
+   "sha": "883c2ddbf5032de8384eeaa85794778cb258b1c1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 883c2ddbf503: \"Adopt iOS 17 StandBy nightstand landscape mode (#255)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

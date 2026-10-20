@@ -1,0 +1,22 @@
+{
+ "corpus": "jjtseng93--buninu-linux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how jjtseng93/buninu-linux implements it: A Linux distribution running Bun as PID 1 with the Buninu userspace (selected work: initramfs, scripts, test)",
+ "repos": [
+  {
+   "repo": "buninu-linux",
+   "url": "https://github.com/jjtseng93/buninu-linux",
+   "sha": "c3d6cae175467d6c908d4824bbe217b842bd952d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit c3d6cae17546: \"pure js build 1st iteration\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

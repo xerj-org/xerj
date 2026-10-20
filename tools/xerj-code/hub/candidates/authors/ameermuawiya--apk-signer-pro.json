@@ -1,0 +1,22 @@
+{
+ "corpus": "ameermuawiya--apk-signer-pro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Java queries this for how ameermuawiya/apk-signer-pro implements it: Open-source Android tool built with Kotlin and Jetpack Compose for signing, verifying, extracting, and managing APK, APKS, and XAPK files (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "apk-signer-pro",
+   "url": "https://github.com/ameermuawiya/apk-signer-pro",
+   "sha": "5420cf5be44de86448747406fe33ad7d77e58f8c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 5420cf5be44d: \"New features v3\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

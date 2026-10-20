@@ -1,0 +1,22 @@
+{
+ "corpus": "copse-dev--agent-pane",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, coding-assistant, developer-tools queries this for how copse-dev/agent-pane implements it: Open-source desktop AI coding assistant with agents, editor, terminal, git tools, and browser (selected work: scripts, the project root, ci-runners)",
+ "repos": [
+  {
+   "repo": "agent-pane",
+   "url": "https://github.com/copse-dev/agent-pane",
+   "sha": "cf2ccce60f13371af4a369f3685288f5ff8a24e6",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit cf2ccce60f13: \"Move screenshot baselines and review to R2 (#3739)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

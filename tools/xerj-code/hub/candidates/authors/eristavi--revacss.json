@@ -1,0 +1,22 @@
+{
+ "corpus": "eristavi--revacss",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on HTML queries this for how eristavi/RevaCSS implements it: A modern, native-web framework. HTML and CSS first (selected work: scripts, integrations, tests)",
+ "repos": [
+  {
+   "repo": "RevaCSS",
+   "url": "https://github.com/eristavi/RevaCSS",
+   "sha": "4347ba98c4f4d9f3a17ebcb9e83ef1a916eec826",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 4347ba98c4f4: \"Prepare stable 2.0 adapter archives and verified publication selectio\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

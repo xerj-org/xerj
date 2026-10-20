@@ -1,0 +1,22 @@
+{
+ "corpus": "ericksonreyes--serviq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cqrs, docker-compose, domain-driven-design queries this for how ericksonreyes/serviq implements it: Intelligent service operations, from request to completion. ServIQ is an open-source, multi-tenant service operations platform built to conn (selected work: services, tests, scripts)",
+ "repos": [
+  {
+   "repo": "serviq",
+   "url": "https://github.com/ericksonreyes/serviq",
+   "sha": "841ae17751e4e2a03c9e6d2624987facc8f44b07",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 841ae17751e4: \"feat: provider-agnostic AI agent, transfer remittance rails, billing \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

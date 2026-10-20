@@ -1,0 +1,22 @@
+{
+ "corpus": "jason-uxui--gray-ui-csm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how Jason-uxui/gray-ui-csm implements it: Jason-uxui/gray-ui-csm (TypeScript) (selected work: components, lib/tickets, tests)",
+ "repos": [
+  {
+   "repo": "gray-ui-csm",
+   "url": "https://github.com/Jason-uxui/gray-ui-csm",
+   "sha": "72bd189b8105ec93fa496d493b9b90892b03c6d9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 72bd189b8105: \"feat(tickets): add Remote Assist and Phone Support demo flows (#29)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

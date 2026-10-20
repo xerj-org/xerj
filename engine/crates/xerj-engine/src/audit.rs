@@ -112,6 +112,16 @@ pub struct AuditEntry {
     pub resource: String,
     /// Outcome: "ok", "denied", "error".
     pub outcome: String,
+    /// Who the traffic served: `"user"` or `"machine"` (#1109). Derived at
+    /// append time by the SERVER from what the request itself is (a counting
+    /// probe, a sweep of a maintenance index) — never from anything a client
+    /// can set, so no principal can mark its own traffic machine to dodge
+    /// the `xerj gain` hit-rate stat. Stability: the field is part of the
+    /// record shape and of the hash input for new entries; entries written
+    /// before it existed deserialize with `"user"`, which is what every
+    /// such entry was.
+    #[serde(default = "default_actor")]
+    pub actor: String,
     /// Optional short context (e.g. "took=12ms hits=3").
     pub note: String,
     /// SHA-256 hex digest over: prev_hash || serialised(this_entry_minus_hash).
@@ -119,6 +129,13 @@ pub struct AuditEntry {
     /// after a truncation it is the hash of the last dropped entry, recorded
     /// in the `chain_seed` line of the persisted log.
     pub hash: String,
+}
+
+/// Entries persisted before the `actor` field existed (#1109) carry no
+/// actor; they were all user-path traffic by construction (machine traffic
+/// only became distinguishable when this field did).
+fn default_actor() -> String {
+    "user".to_string()
 }
 
 /// The first line of a persisted log: the hash the first retained entry
@@ -208,6 +225,22 @@ impl AuditLog {
     /// alternative is a chain that is silently wrong under load, which is the
     /// worst possible failure mode for evidence.
     pub fn append(&self, op: &str, subject: &str, resource: &str, outcome: &str, note: &str) {
+        self.append_as("user", op, subject, resource, outcome, note);
+    }
+
+    /// Append with an explicit actor class (#1109). `append` is the
+    /// every-call-site default (`"user"`); only the sites that can derive
+    /// machine traffic from the request itself may pass `"machine"` —
+    /// see the search handler, which owns the only such derivation today.
+    pub fn append_as(
+        &self,
+        actor: &str,
+        op: &str,
+        subject: &str,
+        resource: &str,
+        outcome: &str,
+        note: &str,
+    ) {
         let seq = self.next_seq.fetch_add(1, Ordering::Relaxed);
         let at_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -220,6 +253,7 @@ impl AuditLog {
             subject: subject.to_string(),
             resource: resource.to_string(),
             outcome: outcome.to_string(),
+            actor: actor.to_string(),
             note: note.to_string(),
             hash: String::new(),
         };
@@ -476,6 +510,13 @@ fn compute_hash(prev_hash: &str, entry: &AuditEntry) -> String {
     h.update(b"\0");
     h.update(entry.outcome.as_bytes());
     h.update(b"\0");
+    // #1109: the actor class is part of the evidence — flipping an entry
+    // from user to machine (the dodge `xerj gain` exists to prevent) must
+    // break the chain like any other edit. Entries restored from a log
+    // written before the field existed hash with the deserialized default
+    // ("user"), which is what they were, so mixed-version logs still verify.
+    h.update(entry.actor.as_bytes());
+    h.update(b"\0");
     h.update(entry.note.as_bytes());
     let bytes = h.finalize();
     bytes.iter().map(|b| format!("{:02x}", b)).collect()
@@ -680,5 +721,112 @@ mod tests {
         let log = AuditLog::open(8, &path);
         assert_eq!(log.snapshot().len(), 2);
         assert!(log.verify().is_ok());
+    }
+
+    /// #1109: entries persisted before the `actor` field existed deserialize
+    /// as `"user"` — which is what every such entry was, machine traffic not
+    /// being distinguishable before the field — and a log mixing pre-field
+    /// and post-field entries still verifies, because the deserialized
+    /// default is exactly what the recomputed hash uses.
+    #[test]
+    fn pre_actor_entries_load_as_user_and_mixed_logs_verify() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("audit.jsonl");
+        {
+            let log = AuditLog::open(8, &path);
+            log.append(
+                "search",
+                "alice",
+                "ax-docs",
+                "ok",
+                "took=1ms hits=2 size=10",
+            );
+            log.append_as(
+                "machine",
+                "search",
+                "superuser",
+                "ax-docs",
+                "ok",
+                "took=0ms hits=0 size=0",
+            );
+            log.append_as(
+                "user",
+                "search",
+                "bob",
+                "ax-docs",
+                "ok",
+                "took=3ms hits=1 size=10",
+            );
+        }
+        // Strip the actor field from the FIRST entry only — the exact shape a
+        // pre-#1109 binary leaves on disk — then reopen over the mixed file.
+        let text = std::fs::read_to_string(&path).expect("read");
+        let mut lines = text.lines();
+        let seed = lines.next().expect("seed line");
+        let mut entries: Vec<String> = lines.map(str::to_string).collect();
+        assert!(
+            entries[0].contains("\"actor\":\"user\""),
+            "new entries persist the field: {}",
+            entries[0]
+        );
+        entries[0] = entries[0].replace(",\"actor\":\"user\"", "");
+        let mixed = format!("{seed}\n{}\n", entries.join("\n"));
+        std::fs::write(&path, mixed).expect("write");
+
+        let log = AuditLog::open(8, &path);
+        let snap = log.snapshot();
+        assert_eq!(snap.len(), 3);
+        assert_eq!(snap[0].actor, "user", "a fieldless entry loads as user");
+        assert_eq!(snap[1].actor, "machine");
+        assert!(
+            log.verify().is_ok(),
+            "a mixed-version log must still verify end to end"
+        );
+        // And the chain keeps extending from the mixed state.
+        log.append_as(
+            "user",
+            "search",
+            "carol",
+            "ax-docs",
+            "ok",
+            "took=1ms hits=1 size=5",
+        );
+        assert!(log.verify().is_ok());
+    }
+
+    /// #1109: the actor class is inside the hash input — flipping an entry
+    /// from user to machine (the dodge `xerj gain` exists to prevent: marking
+    /// your own traffic machine removes it from the hit-rate denominator)
+    /// must break the chain exactly like any other edit.
+    #[test]
+    fn flipping_the_actor_breaks_the_chain() {
+        let log = AuditLog::new(8);
+        log.append(
+            "search",
+            "alice",
+            "ax-docs",
+            "ok",
+            "took=1ms hits=2 size=10",
+        );
+        log.append_as(
+            "machine",
+            "search",
+            "auto",
+            "ax-docs",
+            "ok",
+            "took=0ms hits=0 size=0",
+        );
+        assert!(log.verify().is_ok());
+        {
+            let mut buf = log.buf.write();
+            buf[0].actor = "machine".into();
+        }
+        let r = log.verify();
+        assert!(
+            r.is_err(),
+            "an actor flip is a tamper, not a reclassification"
+        );
+        let (seq, _, _) = r.unwrap_err();
+        assert_eq!(seq, 1);
     }
 }

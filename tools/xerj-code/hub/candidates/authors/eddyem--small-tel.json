@@ -1,0 +1,22 @@
+{
+ "corpus": "eddyem--small-tel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on astronomy, automation, c queries this for how eddyem/small_tel implements it: Different utilities for SAO RAS comples \u00abAstro-M\u00bb (selected work: Daemons)",
+ "repos": [
+  {
+   "repo": "small_tel",
+   "url": "https://github.com/eddyem/small_tel",
+   "sha": "98a84fb7df2452ce2cc6e340eb407e7553f5cb4f",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 98a84fb7df24: \"more fixes, not all yet\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

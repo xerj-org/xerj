@@ -1,0 +1,22 @@
+{
+ "corpus": "decksplayer--currency-widget",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how DecksPlayer/currency_widget implements it: DecksPlayer/currency_widget (Dart) (selected work: lib/src, example, lib)",
+ "repos": [
+  {
+   "repo": "currency_widget",
+   "url": "https://github.com/DecksPlayer/currency_widget",
+   "sha": "971fde21081d861e44da88f32caef99b2741fb7f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 971fde21081d: \"feat: implement currency widget library with multi-selector, picker c\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

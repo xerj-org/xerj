@@ -1,0 +1,22 @@
+{
+ "corpus": "takora-dev--bentomux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how takora-dev/bentomux implements it: puts your project terminals and local AI agent runtimes in one place like a bento (selected work: src-tauri, src/src)",
+ "repos": [
+  {
+   "repo": "bentomux",
+   "url": "https://github.com/takora-dev/bentomux",
+   "sha": "27ea6914a2029c86efed663723e61cdc7ee94f4c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 27ea6914a202: \"fix(plugins): stop mixed-version installs and stale sibling modules\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

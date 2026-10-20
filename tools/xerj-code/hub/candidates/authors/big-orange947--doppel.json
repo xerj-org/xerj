@@ -1,0 +1,22 @@
+{
+ "corpus": "big-orange947--doppel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how big-orange947/Doppel implements it: A persona memory framework for AI chat agents: remembers conversation events per session, learns the owner's speaking style, and keeps memor (selected work: benchmarks, tests)",
+ "repos": [
+  {
+   "repo": "Doppel",
+   "url": "https://github.com/big-orange947/Doppel",
+   "sha": "76e86b897e93dff2358bf2b9bc5c2c09b77f3135",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 76e86b897e93: \"test: separate literal reading from surface review contracts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

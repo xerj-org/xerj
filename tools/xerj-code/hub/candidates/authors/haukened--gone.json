@@ -1,0 +1,22 @@
+{
+ "corpus": "haukened--gone",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on cli, docker, encryption queries this for how haukened/gone implements it: Share once, then it's gone. Zero-knowledge, self-hosted, and free, because security shouldn't live behind paywalls (selected work: internal/auth, test, internal/httpx)",
+ "repos": [
+  {
+   "repo": "gone",
+   "url": "https://github.com/haukened/gone",
+   "sha": "394089bb11529c65cf2d0592c68ab70f39ce7a37",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 394089bb1152: \"feat: sign-in for private instances\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

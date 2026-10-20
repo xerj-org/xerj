@@ -1,0 +1,22 @@
+{
+ "corpus": "evermind-ai--raven",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, anthropic queries this for how EverMind-AI/Raven implements it: The Harness of Harnesses \u2022 built for RSI: a trusted, persistent, self-evolving multi-agent ecosystem for all-domain collaboration (selected work: ui-web)",
+ "repos": [
+  {
+   "repo": "Raven",
+   "url": "https://github.com/EverMind-AI/Raven",
+   "sha": "146bba8d8a8a2b429d742192b71e701d2886caa3",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 146bba8d8a8a: \"fix(ui-web): refresh pictures and deck pages on reopen or redelivery \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "nodepassproject--nowhere",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on networking, proxy, quic queries this for how NodePassProject/Nowhere implements it: TCP and UDP relay over TLS and QUIC (selected work: src/tests, src/protocol, src)",
+ "repos": [
+  {
+   "repo": "Nowhere",
+   "url": "https://github.com/NodePassProject/Nowhere",
+   "sha": "e71cade917ca8c6f2b21221737ed5ca1666a5f50",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e71cade917ca: \"Require generated keys for Portal endpoints\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

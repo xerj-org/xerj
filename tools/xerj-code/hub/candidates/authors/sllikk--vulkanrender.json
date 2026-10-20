@@ -1,0 +1,22 @@
+{
+ "corpus": "sllikk--vulkanrender",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how sllikk/VulkanRender implements it: Vulkan1.3 & C++ (selected work: src)",
+ "repos": [
+  {
+   "repo": "VulkanRender",
+   "url": "https://github.com/sllikk/VulkanRender",
+   "sha": "6acb9f0f18582f7818b616d03f19b80544bd2a8e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 6acb9f0f1858: \"rewrite base architecture\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

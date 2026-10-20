@@ -1,0 +1,22 @@
+{
+ "corpus": "katrielmoses--apiaxess",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on android, api, api-testing queries this for how KatrielMoses/apiaxess implements it: APIaxess points at a web app or an Android APK and recovers its real, reachable API surface, from the traffic it makes and the code it ships (selected work: apps/gui, crates/workbench-store, crates/local-api)",
+ "repos": [
+  {
+   "repo": "apiaxess",
+   "url": "https://github.com/KatrielMoses/apiaxess",
+   "sha": "2fcb496e5b64b80ae32c699838d8fbfe6fa5e574",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 2fcb496e5b64: \"Launch-blocker fixes B1\u2013B8: scope port fidelity, in-scope HAR export,\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

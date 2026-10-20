@@ -1,0 +1,22 @@
+{
+ "corpus": "agentscope-ai--qwenpaw",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, llm-tools, llms queries this for how agentscope-ai/QwenPaw implements it: Your Personal AI Assistant; easy to install, deploy on your own machine or on the cloud; supports multiple chat apps with easily extensible  (selected work: tests, src/qwenpaw)",
+ "repos": [
+  {
+   "repo": "QwenPaw",
+   "url": "https://github.com/agentscope-ai/QwenPaw",
+   "sha": "a211f474f7423a794de8b915c9a58efaa780970f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit a211f474f742: \"fix(skills): offload pool download copy and sweep orphan stages (#8055)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

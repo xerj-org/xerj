@@ -1,0 +1,22 @@
+{
+ "corpus": "deosha--osie",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cgroups, cpp20, intent-classification queries this for how deosha/osie implements it: Local, read-only OS intelligence engine in C++20: native macOS/Linux observations, a typed OS knowledge graph and evidence-backed diagnosis, (selected work: ml, models)",
+ "repos": [
+  {
+   "repo": "osie",
+   "url": "https://github.com/deosha/osie",
+   "sha": "52a1ec9a21aca5d9212d546e1436e9b08383aa8d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 52a1ec9a21ac: \"Ship model C: confirmatory round 2 met the pre-registered rule\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

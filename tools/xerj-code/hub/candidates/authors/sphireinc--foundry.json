@@ -1,0 +1,22 @@
+{
+ "corpus": "sphireinc--foundry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on cms, content-management-system, markdown queries this for how sphireinc/Foundry implements it: A Markdown-first CMS written in Go with themes, plugins, and an integrated admin UI (selected work: internal/theme, internal/commands, internal/admin)",
+ "repos": [
+  {
+   "repo": "Foundry",
+   "url": "https://github.com/sphireinc/Foundry",
+   "sha": "59badff8e8753f5556f69f244a55c0bf076cd7bc",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 59badff8e875: \"make security validation remediation actionable (#135)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

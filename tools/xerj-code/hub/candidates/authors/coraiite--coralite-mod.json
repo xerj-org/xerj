@@ -1,0 +1,22 @@
+{
+ "corpus": "coraiite--coralite-mod",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how CoraIite/Coralite-Mod implements it: CoraIite/Coralite-Mod (C#) (selected work: Content, Helpers)",
+ "repos": [
+  {
+   "repo": "Coralite-Mod",
+   "url": "https://github.com/CoraIite/Coralite-Mod",
+   "sha": "78c1877f142b706366cc1668a66a61ace7a17824",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit 78c1877f142b: \"\u5e38\u89c4\u540c\u6b65\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "altinity--terraform-provider-altinitycloud",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how Altinity/terraform-provider-altinitycloud implements it: Terraform provider for Altinity.Cloud \u2601\ufe0f (selected work: internal/provider)",
+ "repos": [
+  {
+   "repo": "terraform-provider-altinitycloud",
+   "url": "https://github.com/Altinity/terraform-provider-altinitycloud",
+   "sha": "b9e31efd7df9c4eb50bf0c6588cdce685dbd38b5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit b9e31efd7df9: \"refactor: share the env status read across providers (#273)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "prathamsimgh--q-solver",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai, desktop-app, go queries this for how Prathamsimgh/Q-solver implements it: AI-powered quiz solver desktop app (Wails, Go backend, Vue frontend) (selected work: frontend, the project root, pkg/resume)",
+ "repos": [
+  {
+   "repo": "Q-solver",
+   "url": "https://github.com/Prathamsimgh/Q-solver",
+   "sha": "3b3caf7725d5258d73c397f9e9fdc1d2142977d3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 3b3caf7725d5: \"Update Q-Solver with custom AI providers, UI fixes, and documentation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

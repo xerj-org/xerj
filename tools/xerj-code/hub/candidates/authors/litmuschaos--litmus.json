@@ -1,0 +1,22 @@
+{
+ "corpus": "litmuschaos--litmus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on chaos-engineering, kubernetes, chaos-experiments queries this for how litmuschaos/litmus implements it: Litmus helps SREs and developers practice chaos engineering in a Cloud-native way. Chaos experiments are published at the ChaosHub (https:// (selected work: chaoscenter)",
+ "repos": [
+  {
+   "repo": "litmus",
+   "url": "https://github.com/litmuschaos/litmus",
+   "sha": "d848e23e23a59741adceee764682c7c880de98ec",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d848e23e23a5: \"fix(subscriber): resolve adminModeNamespace for chaos engine probe ch\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "ripe-lang--ripe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on compiler, programming-language, systems-programming queries this for how ripe-lang/ripe implements it: The Ripe programming language (selected work: lib, test)",
+ "repos": [
+  {
+   "repo": "ripe",
+   "url": "https://github.com/ripe-lang/ripe",
+   "sha": "64502c6f24203138cdd6f06010429730a5031b52",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 64502c6f2420: \"Report a bad operand once at the operator\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

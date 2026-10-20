@@ -1,0 +1,22 @@
+{
+ "corpus": "ngx-print--ngx-print",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on angular, angular-2, angular4 queries this for how ngx-print/ngx-print implements it: :printer: A plug n' play Angular (2++) library to print your stuff (selected work: projects)",
+ "repos": [
+  {
+   "repo": "ngx-print",
+   "url": "https://github.com/ngx-print/ngx-print",
+   "sha": "a89dfb8596c269089dc3dd988859ab55d2aefbcf",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit a89dfb8596c2: \"feat: enhance demo component layout and functionality with new print \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

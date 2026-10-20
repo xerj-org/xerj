@@ -1,0 +1,22 @@
+{
+ "corpus": "huginnshammer--cloudsentry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how HuginnsHammer/CloudSentry implements it: Lightweight static security auditor for Terraform, Dockerfiles and Docker Compose. Detect misconfigurations, assess risk and get actionable  (selected work: scanner, tests, the project root)",
+ "repos": [
+  {
+   "repo": "CloudSentry",
+   "url": "https://github.com/HuginnsHammer/CloudSentry",
+   "sha": "1646b266316b9b75e294f58c3eadbb66f26fd1a6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 1646b266316b: \"feat: add local IaC security scanner foundation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

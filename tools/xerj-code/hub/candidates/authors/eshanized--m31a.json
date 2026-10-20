@@ -1,0 +1,22 @@
+{
+ "corpus": "eshanized--m31a",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, cli, coding-agent queries this for how eshanized/M31A implements it: M31 Autonomous \u2014 Rust-native autonomous software-engineering runtime with non-bypassable policy gates and verifiable execution (selected work: src/tui, tests, src/interaction)",
+ "repos": [
+  {
+   "repo": "M31A",
+   "url": "https://github.com/eshanized/M31A",
+   "sha": "75d7c8fd619fe7b8eb877dff6cb0aaf1315842f3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 75d7c8fd619f: \"feat(tui): enhance task detail rendering with additional fields and i\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

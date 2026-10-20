@@ -1,0 +1,22 @@
+{
+ "corpus": "jbunds--coverage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on ci, ci-cd, cicd queries this for how jbunds/coverage implements it: Go coverage HTML report generator (selected work: the project root, css)",
+ "repos": [
+  {
+   "repo": "coverage",
+   "url": "https://github.com/jbunds/coverage",
+   "sha": "e468a9cdb2d904348288a11248de4ed9a395f9a2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e468a9cdb2d9: \"unify keyword CSS class, and add a new tree-sitter oracle test\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

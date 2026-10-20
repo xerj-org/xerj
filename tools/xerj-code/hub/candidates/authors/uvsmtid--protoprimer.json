@@ -1,0 +1,22 @@
+{
+ "corpus": "uvsmtid--protoprimer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bootstrapper, pure-python, dag queries this for how uvsmtid/protoprimer implements it: Escape the fragile mess of pre-venv shell scripts with a pure Python bootstrap script: :rocket: :fast_forward: single-touch, zero-args, self (selected work: src/proto_code, src/protoprimer)",
+ "repos": [
+  {
+   "repo": "protoprimer",
+   "url": "https://github.com/uvsmtid/protoprimer",
+   "sha": "a33aced1f1d6d7b50196efa586bcbba9db520e1d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit a33aced1f1d6: \"Update docs: add Config page, share diagrams, tag TODO-s (#142)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

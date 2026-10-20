@@ -1,0 +1,22 @@
+{
+ "corpus": "larsboes--sjel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, bazel queries this for how larsboes/Sjel implements it: Your life's data on your own devices, with one assistant that can act on it (selected work: capabilities, dashboard)",
+ "repos": [
+  {
+   "repo": "Sjel",
+   "url": "https://github.com/larsboes/Sjel",
+   "sha": "6ce454dbc1bccf8d609f8fcbdbaf038c84148e38",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 6ce454dbc1bc: \"feat(storage): per-class growth curve tracking and dashboard feed sou\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

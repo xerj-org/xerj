@@ -1,0 +1,22 @@
+{
+ "corpus": "jtahai--maine-family-law-llm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on maine, maine-law, family-law queries this for how JTAHAI/maine-family-law-llm implements it: Local-first Maine family-law research, record review, exact-source verification, and review-required drafting workbench (selected work: legal, tests, maine_family_law_llm)",
+ "repos": [
+  {
+   "repo": "maine-family-law-llm",
+   "url": "https://github.com/JTAHAI/maine-family-law-llm",
+   "sha": "19321fdbaac3af54797108fc9ef6f023c6005a6d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 19321fdbaac3: \"Harden source-bound local AI workflows\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

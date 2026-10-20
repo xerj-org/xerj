@@ -1,0 +1,22 @@
+{
+ "corpus": "moov-io--watchman",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on ofac, kyc, cip queries this for how moov-io/watchman implements it: AML/CTF/KYC/OFAC Search of global watchlist and sanctions (selected work: research)",
+ "repos": [
+  {
+   "repo": "watchman",
+   "url": "https://github.com/moov-io/watchman",
+   "sha": "21aa37427a7b6501c2f6e3a51d00a1d419aa3924",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 21aa37427a7b: \"research: add Cascade embedding comparison with EmbeddingGemma 2 (#943)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

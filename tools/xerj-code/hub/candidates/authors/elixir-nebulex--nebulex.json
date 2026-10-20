@@ -1,0 +1,22 @@
+{
+ "corpus": "elixir-nebulex--nebulex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cache, distributed, ecto queries this for how elixir-nebulex/nebulex implements it: In-memory and distributed caching toolkit for Elixir (selected work: lib/nebulex, test, the project root)",
+ "repos": [
+  {
+   "repo": "nebulex",
+   "url": "https://github.com/elixir-nebulex/nebulex",
+   "sha": "306221384c64236f2f341be7511de922b4a20e8b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 306221384c64: \"feat(cache): add Nebulex.Adapter.CompositeKV behaviour\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

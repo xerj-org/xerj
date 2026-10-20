@@ -1,0 +1,22 @@
+{
+ "corpus": "kaajjo--libresudoku",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, jetpack-compose, kotlin queries this for how kaajjo/LibreSudoku implements it: LibreSudoku - Sudoku app for android built with Kotlin + Jetpack Compose + Material3 (selected work: app/src, gradle, app)",
+ "repos": [
+  {
+   "repo": "LibreSudoku",
+   "url": "https://github.com/kaajjo/LibreSudoku",
+   "sha": "ee6d31ac08938636114f447524593dee04045a38",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ee6d31ac0893: \"Fix OpenSudoku v3 imports and refactor file parsers\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

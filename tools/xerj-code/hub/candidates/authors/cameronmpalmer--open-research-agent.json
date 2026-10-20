@@ -1,0 +1,22 @@
+{
+ "corpus": "cameronmpalmer--open-research-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cli, deepseek, firecrawl queries this for how cameronmpalmer/open-research-agent implements it: Multi-agent research CLI. Plan, search, scrape, synthesize, review -- all from your terminal (selected work: tests, ora, the project root)",
+ "repos": [
+  {
+   "repo": "open-research-agent",
+   "url": "https://github.com/cameronmpalmer/open-research-agent",
+   "sha": "b6d7931542b524479249f5b863473236373c7ceb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b6d7931542b5: \"fix: reliable search, concurrent research, bounded LLM latency, conve\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

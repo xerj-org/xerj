@@ -86,8 +86,11 @@ Assertions:
 ## Phase 3 — connect AI (P1 sets up, P2 verifies)
 
 - P1: `xerj init` in a project dir → `.mcp.json` (binary path + `xerj mcp`),
-  `.claude/skills/xerj/SKILL.md`, `.cursor/rules/xerj.mdc` when the dirs
+  `.claude/skills/xerj/SKILL.md` and `.claude/skills/xerj-hub/SKILL.md`,
+  `.cursor/rules/xerj.mdc` and `.cursor/rules/xerj-hub.mdc` when the dirs
   exist, `AGENTS.md` append. `.bak` for anything edited. No secrets written.
+  It ends by printing the MCP registration for the clients `.mcp.json` does
+  not cover (`claude mcp add`, `mcpServers`, VS Code's `servers`).
 - P2: drive `xerj mcp` over stdio JSON-RPC — `tools/list` (13 tools),
   `xerj_search`, `xerj_map`, `xerj_plan` — with a scripted client:
   ```sh
@@ -101,6 +104,12 @@ Assertions:
   and the CLI-only boundary (autoindex, gain, init) is what `llms.txt` says.
   rc.80: MCP `xerj_search` returns the same top-3 as the CLI for the same
   question, and the response carries the same honest hints.
+- Hub (Corpus Hub v2, plan section 9; run it on a build whose `tools/list`
+  names `xerj_hub_ask`): P2 asks one public-material question through
+  `xerj_hub_ask` and reaches the answer in ONE tool call — no `corpus add`,
+  no `corpus index`, no shell. Assert the result is the three lines the
+  llms.txt section prints (corpus, pin date and licence on the first line;
+  the passage; `answered from:`). P1 does the same with `xerj "<question>"`.
 
 ## Phase 4 — measure impact on the AI, in tokens and values
 

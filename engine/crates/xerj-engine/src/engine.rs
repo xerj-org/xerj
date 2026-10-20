@@ -41,6 +41,64 @@ const MEMORY_DRAIN_MIN_INTERVAL: std::time::Duration = std::time::Duration::from
 static MEMORY_DRAIN_TX: std::sync::OnceLock<std::sync::mpsc::SyncSender<()>> =
     std::sync::OnceLock::new();
 
+/// Spawn attempts (and the first back-off) for the governor's sampler and
+/// drain threads. They are started once, at boot; losing one disables the
+/// parent memory breaker for the life of the process, so a transient
+/// `EAGAIN` is worth riding out.
+const GOVERNOR_THREAD_SPAWN_ATTEMPTS: u32 = 3;
+const GOVERNOR_THREAD_SPAWN_BACKOFF: std::time::Duration = std::time::Duration::from_millis(50);
+
+/// Start one of the governor's background threads (#1122).
+///
+/// These used to be `let _ = Builder::spawn(..)`: a failed spawn was dropped
+/// on the floor, and the node silently ran with no memory breaker. Now the
+/// spawn is retried with back-off through `xerj_common::thread_spawn` (which
+/// never panics), and a final failure is logged at ERROR naming the thread
+/// and what the node loses. Returns whether the thread is running.
+///
+/// These threads deliberately do NOT consult the governor's spawn gate
+/// (`thread_spawn_safe`). The gate is a soft RSS watermark, not an OS
+/// allocation failure, and these are the threads that sample RSS, engage the
+/// breaker and drain memory. A node that boots above its watermark (a large
+/// WAL replay under a low `XERJ_MAX_PROCESS_MEMORY_MB`) would otherwise have
+/// every attempt refused and run with no breaker for the life of the process,
+/// which is exactly when the breaker is needed. A real spawn failure still
+/// comes back as an `Err` and is logged, not aborted.
+fn spawn_governor_thread<F>(name: &str, f: F) -> bool
+where
+    F: FnOnce() + Send + 'static,
+{
+    spawn_governor_thread_using(&xerj_common::thread_spawn::StdSpawn, || true, name, f)
+}
+
+fn spawn_governor_thread_using<S, G, F>(spawner: &S, gate: G, name: &str, f: F) -> bool
+where
+    S: xerj_common::thread_spawn::Spawn,
+    G: Fn() -> bool,
+    F: FnOnce() + Send + 'static,
+{
+    match xerj_common::thread_spawn::spawn_with_retry_using(
+        spawner,
+        gate,
+        name,
+        GOVERNOR_THREAD_SPAWN_ATTEMPTS,
+        GOVERNOR_THREAD_SPAWN_BACKOFF,
+        f,
+    ) {
+        Ok(_detached) => true,
+        Err(failure) => {
+            tracing::error!(
+                thread = name,
+                attempts = GOVERNOR_THREAD_SPAWN_ATTEMPTS,
+                error = %failure.error,
+                "could not start a resource-governor thread; the parent memory/disk \
+                 breaker is degraded until restart"
+            );
+            false
+        }
+    }
+}
+
 /// Allocator page purge hook, installed by the binary that owns the global
 /// allocator (xerj-server installs a jemalloc epoch+purge closure). Freeing
 /// heap is not enough: the RSS breaker keys on resident pages, and jemalloc
@@ -3437,6 +3495,13 @@ impl Engine {
             .collect()
     }
 
+    /// Cheap O(1) sync check whether an open index with `name` exists and is
+    /// visible to the current request (issue #79), avoiding `list_indices()`
+    /// or full-map enumeration on single-index operations (#1226).
+    pub fn has_open_index(&self, name: &str) -> bool {
+        crate::index_guard::visible(name) && self.indices.contains_key(name)
+    }
+
     /// The WAL-consumer retention floor the tap is currently configured with.
     ///
     /// Read from the tap, never from `self.config`: the tap's copy is the one
@@ -3901,7 +3966,7 @@ impl Engine {
     /// released.
     pub async fn release_rebuildable_memory(&self, indices: &[Arc<Index>]) -> usize {
         for idx in indices {
-            if idx.flush().await.is_err() {
+            if idx.memtable_bytes() > 0 && idx.flush().await.is_err() {
                 tracing::warn!("memory release: flush failed, releasing caches anyway");
             }
             idx.release_memory();
@@ -3945,28 +4010,30 @@ impl Engine {
         // instead of dying with this thread's runtime.
         let drain_handle = tokio::runtime::Handle::try_current().ok();
         let (drain_tx, drain_rx) = std::sync::mpsc::sync_channel::<()>(1);
-        let _ = MEMORY_DRAIN_TX.set(drain_tx);
         let weak_c = Arc::downgrade(self);
-        let _ = std::thread::Builder::new()
-            .name("xerj-mem-drain".to_string())
-            .spawn(move || {
-                let Some(handle) = drain_handle else {
-                    // Spawned outside a runtime (unit tests): the drain
-                    // method stays directly callable; only the sampler's
-                    // automatic wiring is inert.
-                    return;
+        let drain_worker = spawn_governor_thread("xerj-mem-drain", move || {
+            let Some(handle) = drain_handle else {
+                // Spawned outside a runtime (unit tests): the drain
+                // method stays directly callable; only the sampler's
+                // automatic wiring is inert.
+                return;
+            };
+            while let Ok(()) = drain_rx.recv() {
+                let Some(engine) = weak_c.upgrade() else {
+                    return; // engine dropped
                 };
-                while let Ok(()) = drain_rx.recv() {
-                    let Some(engine) = weak_c.upgrade() else {
-                        return; // engine dropped
-                    };
-                    let drained = handle.block_on(engine.drain_rebuildable_memory());
-                    tracing::info!(
+                let drained = handle.block_on(engine.drain_rebuildable_memory());
+                tracing::info!(
                         indexes = drained,
                         "memory breaker engaged — drained rebuildable state (flush + cache release + purge)"
                     );
-                }
-            });
+            }
+        });
+        // Publish the request channel only once a worker is draining it: with
+        // no worker, the sampler's requests have nowhere to go.
+        if drain_worker {
+            let _ = MEMORY_DRAIN_TX.set(drain_tx);
+        }
 
         // ── Thread A: memory + disk ──────────────────────────────────────
         // Touches NO engine lock — just `/proc/self/statm` + `statvfs`. Kept
@@ -3979,92 +4046,123 @@ impl Engine {
         let data_dir = self.data_dir.to_string_lossy().to_string();
         let cluster_settings = self.cluster_settings.clone();
         const FLOOD_STAGE_SETTING: &str = "cluster.routing.allocation.disk.watermark.flood_stage";
-        let _ = std::thread::Builder::new()
-            .name("xerj-mem-sampler".to_string())
-            .spawn(move || {
-                tracing::info!(
-                    period_ms = crate::governor::SAMPLE_INTERVAL_MS,
-                    "memory/disk sampler thread started (parent circuit breaker)"
-                );
-                // #948 drain bookkeeping: None while the breaker is
-                // disengaged (so the next engage edge fires immediately),
-                // Some(last-drain) while engaged (rate-limited repeats).
-                let mut last_drain_at: Option<std::time::Instant> = None;
-                loop {
-                    std::thread::sleep(period);
-                    if weak_a.strong_count() == 0 {
-                        return; // engine dropped
-                    }
-                    let governor = match crate::governor::global() {
-                        Some(g) => g,
-                        None => return,
-                    };
-                    let rss = crate::governor::current_rss_bytes();
-                    let (disk_pct, disk_avail) =
-                        crate::governor::disk_used_pct_and_avail(&data_dir);
-                    governor.refresh_memory_disk(rss, disk_pct, disk_avail);
-
-                    // Issue #948 — a breaker that only rejects never lets a
-                    // memory-pinned workload finish: caches hold gigabytes
-                    // of re-hydratable state and the memtable holds raw
-                    // write payloads, and 429s free none of it. Request a
-                    // drain on the engage edge and at most once per window
-                    // while engaged. try_send never blocks, so Thread A's
-                    // no-lock/no-block contract above still holds.
-                    if governor.memory_breaker_engaged() {
-                        let fire = match last_drain_at {
-                            None => true,
-                            Some(at) => at.elapsed() >= MEMORY_DRAIN_MIN_INTERVAL,
-                        };
-                        if fire {
-                            last_drain_at = Some(std::time::Instant::now());
-                            if let Some(tx) = MEMORY_DRAIN_TX.get() {
-                                let _ = tx.try_send(());
-                            }
-                        }
-                    } else {
-                        last_drain_at = None;
-                    }
-
-                    // Runtime disk flood-stage override, matching ES's
-                    // `PUT _cluster/settings` unblock without a restart. A
-                    // non-blocking read: on contention we just keep last
-                    // tick's threshold and retry next sample, never stall
-                    // the memory/disk breaker on this lock.
-                    if let Ok(settings) = cluster_settings.try_read() {
-                        let flood_override = settings
-                            .get("persistent")
-                            .and_then(|p| p.get(FLOOD_STAGE_SETTING))
-                            .or_else(|| {
-                                settings
-                                    .get("transient")
-                                    .and_then(|t| t.get(FLOOD_STAGE_SETTING))
-                            })
-                            .and_then(crate::governor::parse_flood_stage_pct);
-                        governor.set_disk_flood_pct_override(flood_override);
-                    }
+        const BREAKER_LIMIT_SETTING: &str = "indices.breaker.total.limit";
+        const DISK_THRESHOLD_SETTING: &str = "cluster.routing.allocation.disk.threshold_enabled";
+        // Snapshot the uncapped machine memory once: a percentage override is
+        // resolved against it, and it is the hard clamp for an absolute one.
+        let machine_memory_bytes = crate::governor::effective_memory_limit_bytes();
+        spawn_governor_thread("xerj-mem-sampler", move || {
+            tracing::info!(
+                period_ms = crate::governor::SAMPLE_INTERVAL_MS,
+                "memory/disk sampler thread started (parent circuit breaker)"
+            );
+            // #948 drain bookkeeping: None while the breaker is
+            // disengaged (so the next engage edge fires immediately),
+            // Some(last-drain) while engaged (rate-limited repeats).
+            let mut last_drain_at: Option<std::time::Instant> = None;
+            loop {
+                std::thread::sleep(period);
+                if weak_a.strong_count() == 0 {
+                    return; // engine dropped
                 }
-            });
+                let governor = match crate::governor::global() {
+                    Some(g) => g,
+                    None => return,
+                };
+                let rss = crate::governor::current_rss_bytes();
+                let (disk_pct, disk_avail) = crate::governor::disk_used_pct_and_avail(&data_dir);
+                governor.refresh_memory_disk(rss, disk_pct, disk_avail);
+
+                // Issue #948 — a breaker that only rejects never lets a
+                // memory-pinned workload finish: caches hold gigabytes
+                // of re-hydratable state and the memtable holds raw
+                // write payloads, and 429s free none of it. Request a
+                // drain on the engage edge and at most once per window
+                // while engaged. try_send never blocks, so Thread A's
+                // no-lock/no-block contract above still holds.
+                if governor.memory_breaker_engaged() {
+                    let fire = match last_drain_at {
+                        None => true,
+                        Some(at) => at.elapsed() >= MEMORY_DRAIN_MIN_INTERVAL,
+                    };
+                    if fire {
+                        last_drain_at = Some(std::time::Instant::now());
+                        if let Some(tx) = MEMORY_DRAIN_TX.get() {
+                            let _ = tx.try_send(());
+                        }
+                    }
+                } else {
+                    last_drain_at = None;
+                }
+
+                // Runtime disk flood-stage override, matching ES's
+                // `PUT _cluster/settings` unblock without a restart. A
+                // non-blocking read: on contention we just keep last
+                // tick's threshold and retry next sample, never stall
+                // the memory/disk breaker on this lock.
+                if let Ok(settings) = cluster_settings.try_read() {
+                    let flood_override = settings
+                        .get("persistent")
+                        .and_then(|p| p.get(FLOOD_STAGE_SETTING))
+                        .or_else(|| {
+                            settings
+                                .get("transient")
+                                .and_then(|t| t.get(FLOOD_STAGE_SETTING))
+                        })
+                        .and_then(crate::governor::parse_flood_stage_pct);
+                    governor.set_disk_flood_pct_override(flood_override);
+
+                    // `threshold_enabled: false` turns the flood stage
+                    // off and releases an engaged block, as in ES.
+                    let threshold_enabled = settings
+                        .get("persistent")
+                        .and_then(|p| p.get(DISK_THRESHOLD_SETTING))
+                        .or_else(|| {
+                            settings
+                                .get("transient")
+                                .and_then(|t| t.get(DISK_THRESHOLD_SETTING))
+                        })
+                        .and_then(crate::governor::parse_setting_bool);
+                    governor.set_disk_threshold_enabled(threshold_enabled);
+
+                    // Runtime parent-memory-breaker watermark override
+                    // (#1250): raise the watermark on a big box live via
+                    // `PUT _cluster/settings {indices.breaker.total.limit}`,
+                    // no restart — the live equivalent of the boot-only
+                    // XERJ_MAX_PROCESS_MEMORY_MB cap.
+                    let breaker_override = settings
+                        .get("persistent")
+                        .and_then(|p| p.get(BREAKER_LIMIT_SETTING))
+                        .or_else(|| {
+                            settings
+                                .get("transient")
+                                .and_then(|t| t.get(BREAKER_LIMIT_SETTING))
+                        })
+                        .and_then(|v| {
+                            crate::governor::parse_breaker_total_limit(v, machine_memory_bytes)
+                        });
+                    governor.set_memory_watermark_override(breaker_override);
+                }
+            }
+        });
 
         // ── Thread B: summed memtable budget ─────────────────────────────
         // Each per-index `size_bytes()` is one relaxed atomic load of the
         // aggregate the shards maintain incrementally — no shard locks, so
         // this never blocks under a turbo batch (#872).
         let weak_b = Arc::downgrade(self);
-        let _ = std::thread::Builder::new()
-            .name("xerj-memtable-sampler".to_string())
-            .spawn(move || loop {
-                std::thread::sleep(period);
-                let engine = match weak_b.upgrade() {
-                    Some(e) => e,
-                    None => return, // engine dropped
-                };
-                let governor = match crate::governor::global() {
-                    Some(g) => g,
-                    None => return,
-                };
-                governor.refresh_memtable(engine.total_memtable_bytes());
-            });
+        spawn_governor_thread("xerj-memtable-sampler", move || loop {
+            std::thread::sleep(period);
+            let engine = match weak_b.upgrade() {
+                Some(e) => e,
+                None => return, // engine dropped
+            };
+            let governor = match crate::governor::global() {
+                Some(g) => g,
+                None => return,
+            };
+            governor.refresh_memtable(engine.total_memtable_bytes());
+        });
     }
 
     // ── Transform pipeline methods ────────────────────────────────────────────
@@ -5048,5 +5146,68 @@ mod api_key_record_migration_tests {
             );
             assert!(!rec.verify_secret("anything"));
         }
+    }
+
+    #[tokio::test]
+    async fn has_open_index_tracks_created_and_deleted_indices() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = xerj_common::config::Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        assert!(!engine.has_open_index("alpha"));
+        engine.get_or_create_index("alpha").unwrap();
+        assert!(engine.has_open_index("alpha"));
+        engine.delete_index("alpha").await.unwrap();
+        assert!(!engine.has_open_index("alpha"));
+    }
+}
+
+#[cfg(test)]
+mod governor_thread_spawn_tests {
+    use super::spawn_governor_thread_using;
+    use xerj_common::thread_spawn::{BoxedJob, Spawn};
+
+    /// A spawner that always fails the way `pthread_create` does at a
+    /// thread or memory limit.
+    struct AlwaysEagain;
+
+    impl Spawn for AlwaysEagain {
+        fn spawn(
+            &self,
+            _name: &str,
+            _job: BoxedJob,
+        ) -> std::io::Result<std::thread::JoinHandle<()>> {
+            Err(std::io::Error::from_raw_os_error(libc::EAGAIN))
+        }
+    }
+
+    #[test]
+    fn a_governor_thread_that_cannot_spawn_reports_false_instead_of_aborting() {
+        let ran = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let job_ran = std::sync::Arc::clone(&ran);
+        let started = spawn_governor_thread_using(
+            &AlwaysEagain,
+            || true,
+            "xerj-test",
+            move || {
+                job_ran.store(true, std::sync::atomic::Ordering::SeqCst);
+            },
+        );
+        assert!(!started);
+        assert!(!ran.load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    #[test]
+    fn a_closed_spawn_gate_is_respected() {
+        // A working spawner, but the gate is closed. Production passes an
+        // always-open gate for these threads (see `spawn_governor_thread`);
+        // this pins the plumbing for a caller that does gate.
+        let started = spawn_governor_thread_using(
+            &xerj_common::thread_spawn::StdSpawn,
+            || false,
+            "xerj-test",
+            || {},
+        );
+        assert!(!started);
     }
 }

@@ -1,0 +1,22 @@
+{
+ "corpus": "abhiksark--swage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how abhiksark/swage implements it: Turn variable-sized dense segments into efficient GPU tile tasks. Python-embedded MLIR/LLVM GPU compiler (selected work: tests, python)",
+ "repos": [
+  {
+   "repo": "swage",
+   "url": "https://github.com/abhiksark/swage",
+   "sha": "d8d270a6f788bf4412db38e5cfb8e5f75ee3ec1e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d8d270a6f788: \"Preserve launch cleanup and reset compile flights after fork\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

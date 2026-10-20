@@ -1,0 +1,22 @@
+{
+ "corpus": "henrynugraha--hestia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on egui, gamebanana, rust queries this for how HenryNugraha/Hestia implements it: A feature-rich mod manager for organizing, discovering, installing, and updating mods across supported XXMI and Unreal Engine games (selected work: src/app, src/overlay_preview)",
+ "repos": [
+  {
+   "repo": "Hestia",
+   "url": "https://github.com/HenryNugraha/Hestia",
+   "sha": "acbb5240ee47cac4d614f154bfda289108793921",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit acbb5240ee47: \"Preview build 1.10.0-alpha.25\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

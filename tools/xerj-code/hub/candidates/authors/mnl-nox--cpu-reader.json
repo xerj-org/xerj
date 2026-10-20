@@ -1,0 +1,22 @@
+{
+ "corpus": "mnl-nox--cpu-reader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on c, critical, criticality-3 queries this for how mnl-nox/cpu-reader implements it: um leitor de cpu e tempo real escrito em C, para Linux/Unix (selected work: src, tests, bench)",
+ "repos": [
+  {
+   "repo": "cpu-reader",
+   "url": "https://github.com/mnl-nox/cpu-reader",
+   "sha": "3d9424ff4bbd0ca47d901f5c8119841b8845a8ca",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 3d9424ff4bbd: \"refactor: separate telemetry, harden topology and align architecture \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

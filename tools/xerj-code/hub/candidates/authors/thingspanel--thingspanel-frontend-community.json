@@ -1,0 +1,22 @@
+{
+ "corpus": "thingspanel--thingspanel-frontend-community",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on vue queries this for how ThingsPanel/thingspanel-frontend-community implements it: Frontend for ThingsPanel (selected work: src/views, src/utils, src/__tests__)",
+ "repos": [
+  {
+   "repo": "thingspanel-frontend-community",
+   "url": "https://github.com/ThingsPanel/thingspanel-frontend-community",
+   "sha": "7a3c7ddfe0f3a9476de8e60fa3623f4a7183514f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 7a3c7ddfe0f3: \"fix: match dense switches to device model contracts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "heyjunpenn--egresskit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on clash, docker, http-proxy queries this for how heyjunpenn/EgressKit implements it: \u5c06 Clash / VLESS \u8282\u70b9\u805a\u5408\u4e3a\u4e00\u4e2a\u53ef\u7f16\u7a0b\u7684 HTTP \u4ee3\u7406\u5165\u53e3\u3002Self-hosted gateway that aggregates Clash / VLESS nodes behind one programmable HTTP proxy (selected work: apps/egressd, apps/web)",
+ "repos": [
+  {
+   "repo": "EgressKit",
+   "url": "https://github.com/heyjunpenn/EgressKit",
+   "sha": "5fa023cdf8612affd5d286fd189abb038fe3040c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 5fa023cdf861: \"feat: add single-core Mihomo runtime and URL relay access\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

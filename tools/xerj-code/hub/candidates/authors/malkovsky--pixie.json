@@ -1,0 +1,22 @@
+{
+ "corpus": "malkovsky--pixie",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how Malkovsky/pixie implements it: Succint data structures library (selected work: include, src/tests, academic)",
+ "repos": [
+  {
+   "repo": "pixie",
+   "url": "https://github.com/Malkovsky/pixie",
+   "sha": "f8de6ee9d9e726f2af34f86fdc076e1ebea31187",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f8de6ee9d9e7: \"Feature/packed select (#71)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

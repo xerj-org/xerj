@@ -1,0 +1,22 @@
+{
+ "corpus": "jacklandrin--onlyswitch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on macos, swiftui, statusbar queries this for how jacklandrin/OnlySwitch implements it: \ud83d\udc51 The all-in-one macOS menu bar companion: customizable controls, system monitor, AI Agent, Shortcuts, widgets, remote control, and more (selected work: OnlySwitch, Localization)",
+ "repos": [
+  {
+   "repo": "OnlySwitch",
+   "url": "https://github.com/jacklandrin/OnlySwitch",
+   "sha": "42c02587c1b7acd2da6a3865e1a6b1ac7c2ed992",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 42c02587c1b7: \"Add Backup section to export and import all settings\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

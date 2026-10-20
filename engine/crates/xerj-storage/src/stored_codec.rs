@@ -1315,6 +1315,32 @@ fn parse_v2_directory(body: &[u8]) -> Result<V2Directory<'_>> {
     Ok(V2Directory { num_docs, columns })
 }
 
+/// The `_source` column names of a columnar stored section (ZBS2, ZBS3 or
+/// ZBS4), in directory order, without decoding any payload; `None` for a
+/// legacy section. The identity columns `__id` and `__seq_no` are not
+/// `_source` fields and are left out. A caller that wants every field but a
+/// few can turn this into the include list
+/// [`decode_stored_v2_rows_projected`] takes.
+pub fn stored_v2_source_column_names(bytes: &[u8]) -> Result<Option<Vec<String>>> {
+    let bytes = if bytes.len() >= 4 && &bytes[..4] == STORED_V3_MAGIC {
+        split_stored_v3(bytes)?.1
+    } else {
+        bytes
+    };
+    if !is_columnar_stored_magic(bytes) {
+        return Ok(None);
+    }
+    let directory = parse_v2_directory(&bytes[4..])?;
+    Ok(Some(
+        directory
+            .columns
+            .iter()
+            .filter(|column| column.name != "__id" && column.name != "__seq_no")
+            .map(|column| column.name.to_string())
+            .collect(),
+    ))
+}
+
 /// Decode only named columns from a V2 stored section.
 ///
 /// This API does not change `decode_stored` or any engine behavior. It is the
@@ -3714,6 +3740,30 @@ mod tests {
         for (row, expected) in docs.iter().enumerate() {
             assert_eq!(seq_projection.columns["__seq_no"][row], expected["_seq_no"]);
         }
+    }
+
+    #[test]
+    fn source_column_names_list_the_directory_without_identity_columns() {
+        let (_, encoded) = projection_fixture();
+        assert_eq!(
+            stored_v2_source_column_names(&encoded).unwrap(),
+            Some(vec![
+                "category".to_string(),
+                "embedding".to_string(),
+                "embedding_chunks".to_string(),
+                "large_unrequested".to_string(),
+            ])
+        );
+        let wrapped = wrap_stored_v3(encoded, vec![(0, 2)]);
+        assert_eq!(&wrapped[..4], STORED_V3_MAGIC);
+        assert_eq!(
+            stored_v2_source_column_names(&wrapped)
+                .unwrap()
+                .map(|names| names.len()),
+            Some(4)
+        );
+        let legacy = encode_stored_lz4(br#"[{"_id":"a","_seq_no":0,"_source":{}}]"#);
+        assert_eq!(stored_v2_source_column_names(&legacy).unwrap(), None);
     }
 
     #[test]

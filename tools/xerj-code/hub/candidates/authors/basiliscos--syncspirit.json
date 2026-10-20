@@ -1,0 +1,22 @@
+{
+ "corpus": "basiliscos--syncspirit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on C++ queries this for how basiliscos/syncspirit implements it: continuous file synchronization program (BEP protocol implementation) (selected work: src/ui-fltk)",
+ "repos": [
+  {
+   "repo": "syncspirit",
+   "url": "https://github.com/basiliscos/syncspirit",
+   "sha": "777170b375519fddbd108e182f8661af24e5c2c8",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 777170b37551: \"fltk: add mac os tray\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

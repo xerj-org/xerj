@@ -1,0 +1,22 @@
+{
+ "corpus": "lamitaone--tinysoundfont4delphi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on delphi, game-development, radstudio queries this for how LaMitaOne/TinySoundFont4Delphi implements it: A complete Delphi wrapper for Bernhard Schelling's TinySoundFont (v0.9) library. TinySoundFont is a software synthesizer for playing SoundFo (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "TinySoundFont4Delphi",
+   "url": "https://github.com/LaMitaOne/TinySoundFont4Delphi",
+   "sha": "1991e55ebb824c051bfc1142d4409ac1ab3dcff8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 1991e55ebb82: \"Piano update\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

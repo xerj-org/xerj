@@ -1,0 +1,22 @@
+{
+ "corpus": "eddiethedean--robin-sparkless",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how eddiethedean/robin-sparkless implements it: PySpark-compatible DataFrames without the JVM\u2014fast local pipelines and unit tests powered by Rust (selected work: scripts, the project root, tests)",
+ "repos": [
+  {
+   "repo": "robin-sparkless",
+   "url": "https://github.com/eddiethedean/robin-sparkless",
+   "sha": "e033bd4ca63308e1e4c0496bba1e664758bc04e1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit e033bd4ca633: \"Prepare integrated 4.13.3 release and non-publishing validation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "clajiness--qbop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on opnsense, opnsense-firewall, protonvpn queries this for how clajiness/qbop implements it: Keep qBittorrent and OPNsense synchronized with a forwarded port from ProtonVPN or Gluetun (selected work: spec, service, framework)",
+ "repos": [
+  {
+   "repo": "qbop",
+   "url": "https://github.com/clajiness/qbop",
+   "sha": "560171a4871da38978f5ef6a14fda1e62ebaaedb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 560171a4871d: \"Simplify settings resolution and configuration handling\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

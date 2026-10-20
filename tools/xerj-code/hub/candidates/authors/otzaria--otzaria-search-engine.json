@@ -1,0 +1,22 @@
+{
+ "corpus": "otzaria--otzaria-search-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on otzaria queries this for how Otzaria/otzaria_search_engine implements it: Otzaria/otzaria_search_engine (Rust) (selected work: rust, test, lib/src)",
+ "repos": [
+  {
+   "repo": "otzaria_search_engine",
+   "url": "https://github.com/Otzaria/otzaria_search_engine",
+   "sha": "38ce984668d4e5cca1aad7725bcb99e25672e78a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 38ce984668d4: \"Fix lost smart-search continuations and literal partial quotations\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

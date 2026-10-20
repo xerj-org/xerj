@@ -1,0 +1,22 @@
+{
+ "corpus": "kcl-lang--kcl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on record, configuration, functional queries this for how kcl-lang/kcl implements it: KCL Language Core and API (selected work: crates/runner, crates/lib, crates/api)",
+ "repos": [
+  {
+   "repo": "kcl",
+   "url": "https://github.com/kcl-lang/kcl",
+   "sha": "ee6cfba959796f2213611147a51774a4dc6d8f4f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ee6cfba95979: \"fix(runner): install the panic hook once instead of swapping it per r\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "flesler--scip-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, cli queries this for how flesler/scip-cli implements it: Python CLI for AI agents. Queries SCIP indexes for precise refs, definitions, and repo health analysis (selected work: tests, scip_cli, scripts)",
+ "repos": [
+  {
+   "repo": "scip-cli",
+   "url": "https://github.com/flesler/scip-cli",
+   "sha": "37eda9d675fa68159d1bb26fe43656217fd0db7f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 37eda9d675fa: \"Make incremental reindex the default and drop SCIP_CLI_FILE_INCREMENTAL.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

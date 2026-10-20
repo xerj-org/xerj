@@ -9,8 +9,9 @@
 //!
 //! It speaks the MCP **stdio transport**: newline-delimited
 //! JSON-RPC 2.0 messages on stdin/stdout. It exposes XERJ to any MCP-capable
-//! agent host (Claude Desktop, IDE agents, custom orchestrators) as thirteen
-//! tools that map 1:1 onto XERJ's real, verified REST surface. Every tool is
+//! agent host (Claude Desktop, IDE agents, custom orchestrators) as sixteen
+//! tools: thirteen that map 1:1 onto XERJ's real, verified REST surface, and
+//! three Corpus Hub tools (`xerj_hub_*`) that run the `xerj ask` flow itself. Every tool is
 //! a *thin proxy*: it constructs exactly the request the running engine
 //! already accepts and forwards it to a configurable base URL.
 //!
@@ -30,6 +31,7 @@
 //! | `xerj_brain_overview`  | `GET /_graph/{brain}/overview`        | whole-brain orientation: counts, hubs, detectors, timeline |
 //! | `xerj_plan`            | `POST /_ask`                          | natural-language prompt in, VALIDATED query DSL out (deterministic planner, not an LLM) |
 //! | `xerj_map`             | `POST /autoindex-catalog/_search`     | per-index field map from the autoindex catalog (#1055) |
+//! | `xerj_hub_find` / `xerj_hub_def` / `xerj_hub_ask` | the `xerj ask` flow (`src/hub.rs`) | which hub corpus answers; one definition; one question — from local packs, never downloading |
 //!
 //! ## Honesty notes (must match the engine, never oversell)
 //!
@@ -87,6 +89,7 @@
 //! words), with overlapping file:line passages deduped before budgeting and
 //! over-budget hits reduced to locators.
 
+mod hub;
 mod map;
 mod token_budget;
 
@@ -115,14 +118,7 @@ USAGE:
     xerj mcp [OPTIONS]              (or the standalone binary: xerj-mcp [OPTIONS])
 
 Speaks MCP over stdio (newline-delimited JSON-RPC 2.0 on stdin/stdout) and
-proxies thirteen tools — xerj_search, xerj_semantic_search, xerj_vector_search,
-xerj_hybrid_search, xerj_memory_store, xerj_memory_recall, xerj_brain_ego,
-xerj_brain_link, xerj_brain_unlink, xerj_brain_overview, xerj_code_search,
-xerj_map, xerj_plan — to a
-XERJ node that
-is ALREADY RUNNING. This command does not start a node; start one first with
-`xerj --data-dir ./data`.
-
+@@TOOLS@@
 OPTIONS:
     --url <URL>     Base URL of the XERJ ES-compatible listener.
                     Overrides XERJ_URL. Default: http://localhost:9200
@@ -177,6 +173,57 @@ pub fn help_text(feedback: bool) -> String {
         "{first}\n{}USAGE:{rest}",
         xerj_common::feedback::block(feedback)
     )
+    .replace("@@TOOLS@@", &tools_paragraph(hub_tools_served()))
+}
+
+/// Whether this process serves the `xerj_hub_*` tools. A build with no hub
+/// signing key cannot verify a pack, so those tools are omitted from
+/// `tools/list` and from this help — advertising them only produced a call
+/// that exits with the no-key message.
+fn hub_tools_served() -> bool {
+    xerj_common::hub::hub_key_configured()
+}
+
+/// The tool sentence in `--help`. The count and the names are `tool_specs()`,
+/// the same list `tools/list` returns, so this screen cannot say "thirteen"
+/// while the root help says however many tools are actually served.
+fn tools_paragraph(include_hub: bool) -> String {
+    let specs = tool_specs_with(include_hub);
+    let names: Vec<&str> = specs
+        .as_array()
+        .map(|tools| {
+            tools
+                .iter()
+                .filter_map(|t| t.get("name").and_then(Value::as_str))
+                .collect()
+        })
+        .unwrap_or_default();
+    let list = names.join(", ");
+    let mut para = format!(
+        "proxies {n} tools — {list} — to a\n\
+         XERJ node that\n\
+         is ALREADY RUNNING. This command does not start a node; start one first with\n\
+         `xerj --insecure --data-dir ~/xerj-data`.\n",
+        n = names.len(),
+    );
+    let hub: Vec<&str> = names
+        .iter()
+        .copied()
+        .filter(|n| n.starts_with("xerj_hub_"))
+        .collect();
+    if !hub.is_empty() {
+        para.push_str(&format!(
+            "\nIt also serves {n} Corpus Hub tools — {list} — which run the `xerj ask` flow: \
+             answered from packs already on\n\
+             this machine (a tool call never downloads one; it names the `xerj hub pull`\n\
+             line instead), from the catalogue already cached (never fetched; with none\n\
+             cached they say to run `xerj hub sync`). Like `xerj ask`, they use the node above when it answers and\n\
+             otherwise the automatic hub node.\n",
+            n = hub.len(),
+            list = hub.join(", "),
+        ));
+    }
+    para
 }
 
 /// Resolve the `Authorization` header value every proxied request will carry.
@@ -211,7 +258,7 @@ fn resolve_auth(
     if !xerj_common::localauth::url_is_loopback(base_url) {
         return (None, None);
     }
-    match xerj_common::localauth::discover_local_admin_key() {
+    match xerj_common::localauth::discover_local_admin_key_for_url(base_url) {
         // `XERJ_AUTH` is a complete header value ("ApiKey <token>"), so the
         // discovered bare key is formatted to the same documented shape.
         Some((key, path)) => (Some(format!("ApiKey {key}")), Some(path)),
@@ -387,6 +434,23 @@ async fn handle_message(ctx: &Ctx, msg: Value) -> Option<Value> {
             }
         }
     }
+}
+
+/// Handle one JSON-RPC message exactly as the stdio loop does, against the node
+/// at `base_url` — for the end-to-end tests in `tests/`, which cannot reach the
+/// private dispatch. Not part of the supported API.
+#[doc(hidden)]
+pub async fn handle_message_for_test(
+    base_url: &str,
+    auth: Option<String>,
+    msg: Value,
+) -> Option<Value> {
+    let ctx = Ctx {
+        client: reqwest::Client::new(),
+        base_url: base_url.trim_end_matches('/').to_string(),
+        auth,
+    };
+    handle_message(&ctx, msg).await
 }
 
 /// Build the `initialize` result, echoing the client's requested protocol
@@ -603,8 +667,11 @@ fn max_tokens_arg_schema() -> Value {
     })
 }
 
-/// The thirteen tool specifications advertised via `tools/list`. Input schemas
-/// are plain JSON Schema; every property maps onto a field the engine accepts.
+/// The tool specifications advertised via `tools/list`. The three `xerj_hub_*`
+/// specs (`hub::specs`, appended last) are included only when this process
+/// has a hub signing key; without one they cannot answer and are not listed.
+/// Input schemas are plain JSON Schema; every property maps onto a field the
+/// engine accepts.
 ///
 /// Public because this is the single source of truth for the published
 /// agent-facing schema at `landing/docs/agents/schemas/mcp-tools.json`, which
@@ -612,7 +679,13 @@ fn max_tokens_arg_schema() -> Value {
 /// once advertised six tools while the binary served ten — nobody noticed,
 /// because nothing compared them.
 pub fn tool_specs() -> Value {
-    json!([
+    tool_specs_with(hub_tools_served())
+}
+
+/// [`tool_specs`] with the hub tools forced in or out. Tests use this so they
+/// do not have to mutate `XERJ_HUB_PUBKEY`, which is process-global.
+pub fn tool_specs_with(include_hub: bool) -> Value {
+    let mut specs = json!([
         {
             "name": "xerj_search",
             "description":
@@ -959,7 +1032,9 @@ pub fn tool_specs() -> Value {
                 "cardinality is an estimate (with `cardinality_overflow:true` it means ",
                 "AT LEAST that many), and min/max/coverage describe the sample, not ",
                 "the whole index. Up to 100 indexes per call (`indexes_omitted` ",
-                "reports more)."
+                "reports more). When more than 8 indexes match and you did not pass ",
+                "`index`, the answer is a SUMMARY page (index, records, field names) ",
+                "— pass `index` or `detail: true` with `offset`/`limit` for full fields."
             ),
             "inputSchema": {
                 "type": "object",
@@ -968,7 +1043,25 @@ pub fn tool_specs() -> Value {
                         "type": "string",
                         "description": "Index name or `*`-glob (e.g. `ax-logs`, `ax-*`). Default: every \
                          catalogued index. An exact name filters engine-side; a glob filters \
-                         client-side over the catalog's index names."
+                         against the catalog before the 100-index limit."
+                    },
+                    "offset": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Skip this many datasets (largest record count first) before rendering. Default 0."
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": map::MAX_INDEXES,
+                        "description": format!(
+                            "How many datasets to return (1..={}). Default: {} on a summary page, otherwise every dataset this call fetched (up to {}).",
+                            map::MAX_INDEXES, map::SUMMARY_PAGE, map::MAX_INDEXES
+                        )
+                    },
+                    "detail": {
+                        "type": "boolean",
+                        "description": "true = full field entries. false = summary rows (index, records, field names). Default: summary when more than 8 indexes match and `index` was not passed; full entries otherwise."
                     },
                     "max_bytes": {
                         "type": "integer",
@@ -1055,7 +1148,13 @@ pub fn tool_specs() -> Value {
                 "required": ["prompt"]
             }
         }
-    ])
+    ]);
+    if include_hub {
+        if let Value::Array(tools) = &mut specs {
+            tools.extend(hub::specs());
+        }
+    }
+    specs
 }
 
 /// Dispatch a `tools/call` to the matching proxy. Any bad-argument or transport
@@ -1110,6 +1209,19 @@ async fn call_tool(ctx: &Ctx, msg: &Value) -> Value {
         // returns a tool result directly instead of a BuiltRequest.
         "xerj_map" => return map::run(ctx, &args).await,
         "xerj_code_search" => return run_code_search(ctx, &args).await,
+        // Corpus Hub v2 (plan §7): the `xerj ask` flow itself, not a proxy.
+        hub_tool if hub_tool.starts_with("xerj_hub_") => {
+            // Hidden from tools/list when there is no key. A client that still
+            // calls one (a cached tool list) gets the same sentence `xerj ask`
+            // prints, not a catalogue fetch that cannot be verified.
+            if !hub_tools_served() {
+                return tool_text(xerj_common::hub::NO_HUB_KEY_MESSAGE.to_string(), true);
+            }
+            return match hub::call(ctx, hub_tool, &args).await {
+                Some(result) => result,
+                None => tool_text(format!("unknown tool: {hub_tool}"), true),
+            };
+        }
         other => return tool_text(format!("unknown tool: {other}"), true),
     };
 
@@ -1360,16 +1472,17 @@ fn build_search(args: &Value) -> Result<BuiltRequest, String> {
         // untouched for structured queries.
         Some(Value::String(q)) if !q.trim().is_empty() => {
             plain_string = true;
+            let shaped = xerj_common::code_query::normalize_code_search_query(q);
             body.insert(
                 "query".into(),
                 json!({ "bool": { "should": [
                     { "multi_match": {
-                        "query": q,
-                        "fields": ["name^4", "defs^3", "code^2", "body", "title"],
+                        "query": shaped,
+                        "fields": ["name^4", "code^2", "body", "defs^3", "title"],
                         "type": "most_fields"
                     }},
-                    { "match_phrase": { "defs": { "query": q, "boost": 8 } } },
-                    { "term": { "name": { "value": q, "boost": 10 } } }
+                    { "match_phrase": { "defs": { "query": shaped, "boost": 8 } } },
+                    { "term": { "name": { "value": q.trim(), "boost": 10 } } }
                 ]}}),
             );
         }
@@ -1843,8 +1956,9 @@ fn code_root() -> std::path::PathBuf {
             return std::path::PathBuf::from(home);
         }
     }
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    std::path::Path::new(&home).join(".xerj-code")
+    xerj_common::home::home_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join(".xerj-code")
 }
 
 // ── Engine transport ─────────────────────────────────────────────────────────
@@ -1942,6 +2056,39 @@ mod tests {
         assert_eq!(path, "/ax-*/_search");
         let (_, path, _) = built(build_search(&json!({ "index": "docs" })));
         assert_eq!(path, "/docs/_search");
+    }
+
+    #[test]
+    fn search_plain_string_strips_multiword_glue_tokens_and_preserves_single_word() {
+        let (_, _, body) = built(build_search(&json!({
+            "query": "factor de calibracion de margen de seguridad"
+        })));
+        assert_eq!(
+            body["query"]["bool"]["should"][0]["multi_match"]["query"],
+            "factor calibracion margen seguridad"
+        );
+        assert_eq!(
+            body["query"]["bool"]["should"][0]["multi_match"]["fields"],
+            json!(["name^4", "code^2", "body", "defs^3", "title"])
+        );
+
+        let (_, _, single) = built(build_search(&json!({ "query": "de" })));
+        assert_eq!(
+            single["query"]["bool"]["should"][0]["multi_match"]["query"],
+            "de"
+        );
+
+        // A short identifier lookup keeps its punctuation, and the exact-name
+        // term clause always sees the caller's identifier, never a shaped one.
+        let (_, _, dotted) = built(build_search(&json!({ "query": ".mensaje_motor" })));
+        assert_eq!(
+            dotted["query"]["bool"]["should"][0]["multi_match"]["query"],
+            ".mensaje_motor"
+        );
+        assert_eq!(
+            dotted["query"]["bool"]["should"][2]["term"]["name"]["value"],
+            ".mensaje_motor"
+        );
     }
 
     #[test]
@@ -2391,6 +2538,14 @@ mod tests {
                         .unwrap_or(false),
                     "{name}: `max_tokens` is optional"
                 );
+            } else if name == "xerj_hub_ask" {
+                // The hub's own budget (docs/hub-v2-grpc-mcp-notes.md): the
+                // `xerj ask --max-tokens` cap, a SOFT ~4-chars-a-token trim of
+                // the rendered answer — not #1058's never-exceeded budget, and
+                // its description must not claim to be.
+                let d = prop["description"].as_str().expect("described");
+                assert!(d.starts_with("Soft"), "{name}: {d}");
+                assert!(!d.contains("NEVER exceeds"), "{name}: {d}");
             } else {
                 assert!(
                     prop.is_null(),
@@ -2710,15 +2865,15 @@ mod tests {
     }
 
     #[test]
-    fn tools_list_has_all_thirteen() {
-        let specs = tool_specs();
+    fn tools_list_has_all_sixteen() {
+        let specs = tool_specs_with(true);
         let names: Vec<&str> = specs
             .as_array()
             .unwrap()
             .iter()
             .map(|t| t["name"].as_str().unwrap())
             .collect();
-        assert_eq!(names.len(), 13);
+        assert_eq!(names.len(), 16);
         for n in [
             "xerj_search",
             "xerj_semantic_search",
@@ -2735,8 +2890,12 @@ mod tests {
             // #977: reference-coding retrieval, served by the same pipeline
             // as `xerj code`.
             "xerj_code_search",
-            // #1056: prompt in, validated DSL out (LAST in the list).
+            // #1056: prompt in, validated DSL out.
             "xerj_plan",
+            // Corpus Hub v2 (plan §7), appended after the thirteen.
+            "xerj_hub_find",
+            "xerj_hub_def",
+            "xerj_hub_ask",
         ] {
             assert!(names.contains(&n), "missing tool {n}");
         }
@@ -2747,6 +2906,41 @@ mod tests {
                 "must not expose {forbidden}"
             );
         }
+    }
+
+    /// A process with no hub signing key must not advertise tools that can
+    /// only answer with the no-key message. The count `--help` prints is that
+    /// same list, so the two cannot disagree.
+    #[test]
+    fn hub_tools_are_hidden_without_a_hub_key_and_help_counts_them() {
+        let names = |include_hub: bool| -> Vec<String> {
+            tool_specs_with(include_hub)
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|t| t["name"].as_str().unwrap().to_string())
+                .collect()
+        };
+        let without = names(false);
+        assert_eq!(without.len(), 13, "{without:?}");
+        assert!(
+            without.iter().all(|n| !n.starts_with("xerj_hub_")),
+            "{without:?}"
+        );
+        let with = names(true);
+        assert_eq!(with.len(), 16, "{with:?}");
+        for n in ["xerj_hub_find", "xerj_hub_def", "xerj_hub_ask"] {
+            assert!(with.iter().any(|name| name == n), "missing {n}");
+        }
+
+        let help = tools_paragraph(false);
+        assert!(help.contains("proxies 13 tools"), "{help}");
+        assert!(!help.contains("xerj_hub_"), "{help}");
+        assert!(help.contains("~/xerj-data"), "{help}");
+        let help = tools_paragraph(true);
+        assert!(help.contains("proxies 16 tools"), "{help}");
+        assert!(help.contains("xerj_hub_ask"), "{help}");
+        assert!(help.contains("serves 3 Corpus Hub tools"), "{help}");
     }
 
     /// #1055: the field map is an orientation tool an agent calls before it

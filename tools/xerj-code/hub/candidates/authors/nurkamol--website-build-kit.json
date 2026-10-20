@@ -1,0 +1,22 @@
+{
+ "corpus": "nurkamol--website-build-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, astro, claude-code queries this for how nurkamol/website-build-kit implements it: Build production marketing sites with Claude Code \u2014 an Astro + Cloudflare Workers template, a WordPress\u2192Astro migration playbook, and 36 sil (selected work: template, scripts)",
+ "repos": [
+  {
+   "repo": "website-build-kit",
+   "url": "https://github.com/nurkamol/website-build-kit",
+   "sha": "5dc688f485060fb9058b5bde7f4f036051b69259",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 5dc688f48506: \"Read alt text as text\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

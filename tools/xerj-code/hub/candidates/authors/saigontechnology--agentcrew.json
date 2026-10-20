@@ -1,0 +1,22 @@
+{
+ "corpus": "saigontechnology--agentcrew",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-assistant, anthropic-claude queries this for how saigontechnology/AgentCrew implements it: Chat application with multi-agents system supports multi-models and MCP (selected work: tests, AgentCrew)",
+ "repos": [
+  {
+   "repo": "AgentCrew",
+   "url": "https://github.com/saigontechnology/AgentCrew",
+   "sha": "34059cda3d31dc1bdb9d234d0cdf8885a280296b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 34059cda3d31: \"feat(console): improved the stop and cancellation during long task\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

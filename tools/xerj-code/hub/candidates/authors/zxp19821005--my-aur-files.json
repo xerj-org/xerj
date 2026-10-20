@@ -1,0 +1,22 @@
+{
+ "corpus": "zxp19821005--my-aur-files",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on archlinux, aur, endeavouros queries this for how zxp19821005/My_AUR_Files implements it: Store My AUR Files Only (selected work: gitify, gitify-bin)",
+ "repos": [
+  {
+   "repo": "My_AUR_Files",
+   "url": "https://github.com/zxp19821005/My_AUR_Files",
+   "sha": "86e32acb288f92b65b1a99b921d0dc028b0b2bfa",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit 86e32acb288f: \"update to 7.9.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

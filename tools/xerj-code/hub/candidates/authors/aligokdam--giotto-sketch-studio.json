@@ -1,0 +1,22 @@
+{
+ "corpus": "aligokdam--giotto-sketch-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how aligokdam/giotto.sketch.studio implements it: Giotto Sketch Studio, Turn any photo into a live drawing reference directly in your browser (selected work: assets, the project root)",
+ "repos": [
+  {
+   "repo": "giotto.sketch.studio",
+   "url": "https://github.com/aligokdam/giotto.sketch.studio",
+   "sha": "0ce67d33b7d553c10866179a3c21247f3bc09933",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 0ce67d33b7d5: \"new files and index html ;)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

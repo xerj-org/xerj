@@ -1,0 +1,22 @@
+{
+ "corpus": "cipher208--a-memory",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, knowledge-graph, llm queries this for how Cipher208/a-memory implements it: a-memory: 4-tier AI agent memory in plain SQLite \u2014 5 MCP primitives, hybrid FTS5+binary search, knowledge graphs, envelope encryption. Local (selected work: tests, shared, lifecycle)",
+ "repos": [
+  {
+   "repo": "a-memory",
+   "url": "https://github.com/Cipher208/a-memory",
+   "sha": "b18877a7cdf110bb4bddc72b43b34abbee43e842",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b18877a7cdf1: \"fix(maintenance): one writer per base, and a migration that writes no\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

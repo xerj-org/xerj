@@ -1,0 +1,22 @@
+{
+ "corpus": "itsalt--pepperskills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ITSalt/PepperSkills implements it: Cool skills that increase work efficiency and add some spice to your results ;) (selected work: plugins, scripts)",
+ "repos": [
+  {
+   "repo": "PepperSkills",
+   "url": "https://github.com/ITSalt/PepperSkills",
+   "sha": "dac9053f4c280b4cace3e7263e64a5f38f2607e6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit dac9053f4c28: \"feat(orchestrator): add Codex CLI adapter and atomic local coordination\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

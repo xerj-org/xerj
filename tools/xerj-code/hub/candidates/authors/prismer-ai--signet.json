@@ -1,0 +1,22 @@
+{
+ "corpus": "prismer-ai--signet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-security, ai-agents, audit-trail queries this for how Prismer-AI/signet implements it: Cryptographic trust and authorization evidence for AI agents. Every action a receipt, every grant a proof (selected work: crates/signet-core, signet-cli, bindings)",
+ "repos": [
+  {
+   "repo": "signet",
+   "url": "https://github.com/Prismer-AI/signet",
+   "sha": "f97c3281f96d19636e11426e4c0a467eb01e3015",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit f97c3281f96d: \"feat(core): constraint wiring \u2014 budgets, narrowing, replay gates (v0.\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

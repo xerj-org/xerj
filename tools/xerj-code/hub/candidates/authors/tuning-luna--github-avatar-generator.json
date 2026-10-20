@@ -1,0 +1,22 @@
+{
+ "corpus": "tuning-luna--github-avatar-generator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on html-css-javascript, website, avatar-generator queries this for how Tuning-Luna/github-avatar-generator implements it: [Unofficial] Generate GitHub-style identicon avatars from any string\u2764\ufe0f | [\u975e\u5b98\u65b9\u5b9e\u73b0] Github\u6837\u5f0f\u5934\u50cf\u751f\u6210\u5668 (selected work: ui, tests, the project root)",
+ "repos": [
+  {
+   "repo": "github-avatar-generator",
+   "url": "https://github.com/Tuning-Luna/github-avatar-generator",
+   "sha": "d8702456cfa89218d6f01b25ef6d5b932a849007",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit d8702456cfa8: \"feat\uff1aadd the adjustable border-width slider\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

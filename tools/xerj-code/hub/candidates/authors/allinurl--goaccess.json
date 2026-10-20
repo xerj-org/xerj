@@ -1,0 +1,22 @@
+{
+ "corpus": "allinurl--goaccess",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on goaccess, c, real-time queries this for how allinurl/goaccess implements it: GoAccess is a real-time web log analyzer and interactive viewer that runs in a terminal in *nix systems or through your browser (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "goaccess",
+   "url": "https://github.com/allinurl/goaccess",
+   "sha": "62a35cc23d2978fff3841e20af69e9089b598ec0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 62a35cc23d29: \"Fixed geolocation city grouping and persisted report restoration.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

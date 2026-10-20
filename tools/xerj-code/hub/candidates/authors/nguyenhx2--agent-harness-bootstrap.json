@@ -1,0 +1,22 @@
+{
+ "corpus": "nguyenhx2--agent-harness-bootstrap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-harness, ai-agents, claude queries this for how nguyenhx2/agent-harness-bootstrap implements it: spec-builder + harness-bootstrap. Specs both you and the AI understand. An agent team tailored to your repo, derived from your contract and  (selected work: plugins, tools, harness-bootstrap)",
+ "repos": [
+  {
+   "repo": "agent-harness-bootstrap",
+   "url": "https://github.com/nguyenhx2/agent-harness-bootstrap",
+   "sha": "ce97de55a11c1461c8ea3550dae9e4dafa456858",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit ce97de55a11c: \"harness-view: read the wiring out of the files, not out of a table (#41)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

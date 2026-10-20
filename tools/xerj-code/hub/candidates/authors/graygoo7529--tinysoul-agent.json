@@ -1,0 +1,22 @@
+{
+ "corpus": "graygoo7529--tinysoul-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Graygoo7529/TinySoul-Agent implements it: A lightweight LLM Agent, looping in daily session, skill, and memory (selected work: visualization)",
+ "repos": [
+  {
+   "repo": "TinySoul-Agent",
+   "url": "https://github.com/Graygoo7529/TinySoul-Agent",
+   "sha": "a3d5c58f39b5465c5e1425deab945d343ad8f96b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit a3d5c58f39b5: \"fix(trace): unify archive root and add turn narrative\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

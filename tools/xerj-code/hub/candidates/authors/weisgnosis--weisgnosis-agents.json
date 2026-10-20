@@ -1,0 +1,22 @@
+{
+ "corpus": "weisgnosis--weisgnosis-agents",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-framework, ai-agents, functional-programming queries this for how weisgnosis/weisgnosis-agents implements it: Build tool-using AI agents and collaborating teams in Scala 3 and ZIO 2. Typed tools, scoped execution, explicit application control (selected work: modules/core, verification)",
+ "repos": [
+  {
+   "repo": "weisgnosis-agents",
+   "url": "https://github.com/weisgnosis/weisgnosis-agents",
+   "sha": "e0381490a38ec3952df6d46a84e36d19af256025",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit e0381490a38e: \"fix(core): preserve tool cleanup causes with scoped execution\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "hakuimaku--hakuspace",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on hyprland-dotfiles, dotfiles, niri-dotfiles queries this for how hakuimaku/hakuspace implements it: This is just a personal dotfiles. Multi-WM support: Hyprland, Niri, MangoWM and Labwc (selected work: src/core, scripts)",
+ "repos": [
+  {
+   "repo": "hakuspace",
+   "url": "https://github.com/hakuimaku/hakuspace",
+   "sha": "45a1adaab716c38fe221152deaa75d8662c43cdd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 45a1adaab716: \"feat (niri): add script niri_animation_switcher.sh to change niri win\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

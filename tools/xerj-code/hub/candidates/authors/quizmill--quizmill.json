@@ -1,0 +1,22 @@
+{
+ "corpus": "quizmill--quizmill",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, flashcards, learning queries this for how quizmill/quizmill implements it: Turn a folder of JSON into an installable, offline-first practice app. The mill that grinds questions into knowledge (selected work: tests, the project root, src/app)",
+ "repos": [
+  {
+   "repo": "quizmill",
+   "url": "https://github.com/quizmill/quizmill",
+   "sha": "77b84630ad94bb6091d3097af75c2f3aec1edea8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 77b84630ad94: \"E2E: adopt Playwright Test in place of Puppeteer (#179) (#181)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

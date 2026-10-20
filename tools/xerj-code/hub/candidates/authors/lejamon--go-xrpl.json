@@ -1,0 +1,22 @@
+{
+ "corpus": "lejamon--go-xrpl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Go queries this for how LeJamon/go-xrpl implements it: Golang implementation of XRPL protocol (selected work: internal/consensus)",
+ "repos": [
+  {
+   "repo": "go-xrpl",
+   "url": "https://github.com/LeJamon/go-xrpl",
+   "sha": "0e07260087db5058a4d63e47a0223a81164415b1",
+   "licence": "hint only: ISC (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "ISC",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 0e07260087db: \"consensus: preserve prepared switch notification state\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "rex-9--rexone-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on clean-architecture, deepseek-ai, devise-jwt queries this for how rex-9/rexone-core implements it: Battle-hardened Rails 8 API foundation with Devise JWT, IAM/RBAC, Stripe subscriptions, Solid Queue workers, Action Cable WebSockets, DeepSe (selected work: app/services, config, app/controllers)",
+ "repos": [
+  {
+   "repo": "rexone-core",
+   "url": "https://github.com/rex-9/rexone-core",
+   "sha": "1f0ebeb16129b801a41a06268af1ff6734e65261",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 1f0ebeb16129: \"security for server admin dashboards\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

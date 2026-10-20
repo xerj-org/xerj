@@ -1,0 +1,22 @@
+{
+ "corpus": "puntoycomatech--hermes-agent-squads",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestration, ai-agents, hermes-agent queries this for how PuntoyComaTech/hermes-agent-squads implements it: AI agent teams for Hermes Agent: build websites, run marketing, find jobs. Install one builder bot, pick the squads you want, chat in plain  (selected work: tests, scripts, squads)",
+ "repos": [
+  {
+   "repo": "hermes-agent-squads",
+   "url": "https://github.com/PuntoyComaTech/hermes-agent-squads",
+   "sha": "e003020602b171f3c198eab523535f35c2f4a1a3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e003020602b1: \"feat(squads)!: manager naming, visible bots with Desktop sections, we\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

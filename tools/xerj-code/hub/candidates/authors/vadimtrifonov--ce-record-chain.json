@@ -1,0 +1,22 @@
+{
+ "corpus": "vadimtrifonov--ce-record-chain",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how vadimtrifonov/ce-record-chain implements it: List the plugins defining a record, from origin to winner, in Skyrim SE/AE, Skyrim VR and Starfield MO2 profiles (selected work: src/CreationEngine.RecordChain, tests, src/Skyrim.RecordChain)",
+ "repos": [
+  {
+   "repo": "ce-record-chain",
+   "url": "https://github.com/vadimtrifonov/ce-record-chain",
+   "sha": "6d1133956e576b3bc05e43a3c71773c8e5637277",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 6d1133956e57: \"Add Starfield support\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

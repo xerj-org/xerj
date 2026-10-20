@@ -1,0 +1,22 @@
+{
+ "corpus": "alexeygrigorev--cloudflare-agent-git",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how alexeygrigorev/cloudflare-agent-git implements it: Research and prototypes for an agent-native Git platform on Cloudflare Workers and Artifacts (selected work: prototype)",
+ "repos": [
+  {
+   "repo": "cloudflare-agent-git",
+   "url": "https://github.com/alexeygrigorev/cloudflare-agent-git",
+   "sha": "30e47986336cdff20917d8ac42eb34dba2066fb3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 30e47986336c: \"feat(cloudflare): cap Artifacts operations and secure the Git gateway\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

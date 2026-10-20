@@ -1,0 +1,22 @@
+{
+ "corpus": "rmamonts--nfs-mamont",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on nfs-server, nfsv3, rust queries this for how RMamonts/nfs-mamont implements it: NFS server that runs in userspace (selected work: nfs-mamont)",
+ "repos": [
+  {
+   "repo": "nfs-mamont",
+   "url": "https://github.com/RMamonts/nfs-mamont",
+   "sha": "0007594ed0a026147a6059d65094e535aa030326",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 0007594ed0a0: \"refactoring(nlm): Separate the main module from the implementation (#\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

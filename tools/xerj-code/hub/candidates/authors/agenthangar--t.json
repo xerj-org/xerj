@@ -1,0 +1,22 @@
+{
+ "corpus": "agenthangar--t",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how agenthangar/t implements it: Coding-agent sessions across terminals, Git worktrees, and machines (selected work: tests, libexec, ui)",
+ "repos": [
+  {
+   "repo": "t",
+   "url": "https://github.com/agenthangar/t",
+   "sha": "6b4c9c4bf5ff9509178ee81fc4938c68c12bb531",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 6b4c9c4bf5ff: \"Make t share a guided handoff into a new agent session (#126)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

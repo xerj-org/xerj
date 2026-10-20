@@ -1,0 +1,22 @@
+{
+ "corpus": "sapelyuk--ai-sdlc-factory",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on PLpgSQL queries this for how sapelyuk/ai-sdlc-factory implements it: Platform for assembling and orchestrating end-to-end product teams made entirely of AI agents. Declarative roles, multi-model agents, semant (selected work: deploy, the project root)",
+ "repos": [
+  {
+   "repo": "ai-sdlc-factory",
+   "url": "https://github.com/sapelyuk/ai-sdlc-factory",
+   "sha": "256ce89a0db482e794ba11d110a70c58626c2d4a",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 256ce89a0db4: \"build: add Makefile and Compose deployment profiles\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

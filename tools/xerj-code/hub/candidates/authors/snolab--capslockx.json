@@ -1,0 +1,22 @@
+{
+ "corpus": "snolab--capslockx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ahk-scripts, capslock-enhancement, capslockx queries this for how snolab/CapsLockX implements it: Manipulate your computer like a hacker! \u50cf\u9ed1\u5ba2\u4e00\u6837\u64cd\u4f5c\u7535\u8111\uff01 (selected work: rs)",
+ "repos": [
+  {
+   "repo": "CapsLockX",
+   "url": "https://github.com/snolab/CapsLockX",
+   "sha": "c3e7349af176094b1834632c31c057cfe4cf72db",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit c3e7349af176: \"feat: bind gestures and typed triggers to plugins and scripts\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

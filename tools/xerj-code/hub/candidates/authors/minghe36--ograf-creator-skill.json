@@ -1,0 +1,22 @@
+{
+ "corpus": "minghe36--ograf-creator-skill",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how minghe36/ograf-creator-skill implements it: ograf.app \u521b\u5efa ograf \u52a8\u753b\u7684 skill (selected work: scripts, assets, agents)",
+ "repos": [
+  {
+   "repo": "ograf-creator-skill",
+   "url": "https://github.com/minghe36/ograf-creator-skill",
+   "sha": "d70e30d7dca705f6ce417a41204a41d50f398f81",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d70e30d7dca7: \"Add portable OGRAF creator workflow and publication review\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

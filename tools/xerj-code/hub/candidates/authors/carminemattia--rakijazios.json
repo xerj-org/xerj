@@ -1,0 +1,22 @@
+{
+ "corpus": "carminemattia--rakijazios",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how CarmineMattia/rakijazios implements it: CarmineMattia/rakijazios (TypeScript) (selected work: patches, e2e, runner)",
+ "repos": [
+  {
+   "repo": "rakijazios",
+   "url": "https://github.com/CarmineMattia/rakijazios",
+   "sha": "6d2537f88547009a99e49dcb932519fa1615a21d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 6d2537f88547: \"Runner health: health/health.check frames (runner 0.2.3), device heal\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -42,7 +42,7 @@ pub enum QueryError {
 pub enum ParseError {
     #[error("{0}")]
     Invalid(String),
-    #[error("unknown query type `{0}` — see https://xerj.io/docs/query-dsl for supported types")]
+    #[error("unknown query type `{0}` — see https://xerj.org/docs/queries for supported types")]
     UnknownQueryType(String),
 }
 
@@ -68,3 +68,18 @@ impl ParseError {
 
 /// Convenience alias — every public function in this crate returns this.
 pub type Result<T> = std::result::Result<T, QueryError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unknown_query_type_points_at_the_live_query_list() {
+        let msg = ParseError::unknown_query_type("nope").to_string();
+        assert!(msg.contains("https://xerj.org/docs/queries"), "{msg}");
+        assert!(
+            !msg.contains("xerj.io"),
+            "the error must not link a host that does not resolve: {msg}"
+        );
+    }
+}

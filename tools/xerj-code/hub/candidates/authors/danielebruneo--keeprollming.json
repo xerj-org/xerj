@@ -1,0 +1,22 @@
+{
+ "corpus": "danielebruneo--keeprollming",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how danielebruneo/KeepRoLLMing implements it: OpenAI-compatible proxy that makes local LLMs serving easy and reliable. Sits between your client and any OpenAI-compatible backend, adding  (selected work: keeprollming, tests, the project root)",
+ "repos": [
+  {
+   "repo": "KeepRoLLMing",
+   "url": "https://github.com/danielebruneo/KeepRoLLMing",
+   "sha": "41b139d8583b718c4756ba9d9f991e8a1fa915d5",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 41b139d8583b: \"v0.9.4 \u2014 streamable tool calls and route resilience\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "yuezk--globalprotect-openconnect",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on openconnect, gui, linux queries this for how yuezk/GlobalProtect-openconnect implements it: A GlobalProtect VPN client for Linux and macOS, written in Rust, based on OpenConnect and Tauri, supports SSO with MFA, YubiKey, and client  (selected work: apps/gpclient, apps/gpservice, the project root)",
+ "repos": [
+  {
+   "repo": "GlobalProtect-openconnect",
+   "url": "https://github.com/yuezk/GlobalProtect-openconnect",
+   "sha": "ff1ea259d9e79bd470d3d7a63a24b8b89e8ce1d8",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit ff1ea259d9e7: \"feat: release 3.0.4 with background connections and service startup i\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "inferhaven--agent-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-tutor, claude-code queries this for how InferHaven/agent-skills implements it: CodeTrain: an open-source Socratic coding tutor that runs as an Agent Skill in your coding agent. Tested in Claude Code and OpenCode. The le (selected work: tests, codetrain)",
+ "repos": [
+  {
+   "repo": "agent-skills",
+   "url": "https://github.com/InferHaven/agent-skills",
+   "sha": "620a8398ff35f54f7f14de2cb32072a43c0839f2",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 620a8398ff35: \"feat(codetrain): open the files a lesson cites, never a secret, and d\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

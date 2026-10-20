@@ -1,0 +1,22 @@
+{
+ "corpus": "agentvivekkumar--dontbemichael",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic, ai queries this for how agentvivekkumar/dontbemichael implements it: A local multi-agent harness that works with your existing Claude Code, Codex subscriptions, allows you to run an office of agents (selected work: src/main, test)",
+ "repos": [
+  {
+   "repo": "dontbemichael",
+   "url": "https://github.com/agentvivekkumar/dontbemichael",
+   "sha": "3892ff924c7580699d3dc7c3fe03bada742e34dd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 3892ff924c75: \"test(schedules): run Michael's schedule request decisions for real\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

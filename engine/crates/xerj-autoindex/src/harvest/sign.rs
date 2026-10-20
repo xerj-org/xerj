@@ -116,6 +116,36 @@ pub fn pack_is_signed(pack_dir: &Path) -> bool {
     pack_dir.join(SIG_NAME).is_file()
 }
 
+/// Raw ed25519 signature (64 bytes, hex) of `bytes`, for the hub pack archive
+/// where the signature is a separate file next to the archive. Same key format
+/// and primitive as `sign_pack`; the only difference is the message is the
+/// caller's buffer (the archive bytes) rather than a SHA256SUMS file, and the
+/// output is hex so it can ride in a sibling text file.
+pub fn sign_bytes(bytes: &[u8], seed_hex: &str) -> Result<String> {
+    let seed = parse_key(seed_hex, 32, "seed")?;
+    let pair = Ed25519KeyPair::from_seed_unchecked(&seed)
+        .map_err(|_| anyhow::anyhow!("seed is not a valid ed25519 key"))?;
+    let sig = pair.sign(bytes);
+    Ok(hex(sig.as_ref()))
+}
+
+/// Verify a hex ed25519 signature of `bytes` against a hex public key. Mirrors
+/// `verify_sig_at`'s `UnparsedPublicKey` check; returns `Ok(())` on a good
+/// signature and an `Err` otherwise. The signature is the 64 raw bytes as hex
+/// (128 chars) that `sign_bytes` produced.
+pub fn verify_bytes(bytes: &[u8], sig_hex: &str, public_hex: &str) -> Result<()> {
+    let sig = parse_key(sig_hex, 64, "signature")?;
+    let public = parse_key(public_hex, 32, "public key")?;
+    let key = UnparsedPublicKey::new(&ring::signature::ED25519, &public);
+    key.verify(bytes, &sig).map_err(|_| {
+        anyhow::anyhow!(
+            "signature does not verify — the archive is not from the holder of the expected key, \
+             or the bytes changed after signing"
+        )
+    })?;
+    Ok(())
+}
+
 // ── CLI: `xerj corpus keygen`, `xerj corpus sign` ───────────────────────────
 
 const KEYGEN_USAGE: &str = "usage: xerj corpus keygen --out <prefix>
@@ -443,5 +473,46 @@ mod tests {
             assert!(parse_key(bad, 32, "seed").is_err(), "{bad:?}");
         }
         assert!(parse_key(&"a".repeat(64), 32, "seed").is_ok());
+    }
+
+    #[test]
+    fn sign_bytes_round_trips_over_a_raw_buffer() {
+        // the hub-pack case: the signature is over the archive bytes, not a
+        // SHA256SUMS file. A fresh key signs a buffer and the matching public
+        // key verifies it — including embedded NULs, which an archive has.
+        let (seed, public) = generate_keypair().unwrap();
+        let data = b"hub pack archive bytes \x00\x01\x02 not a SHA256SUMS file";
+        let sig = sign_bytes(data, &seed).unwrap();
+        // raw 64-byte signature as lower-case hex (128 chars)
+        assert_eq!(sig.len(), 128);
+        assert!(sig
+            .chars()
+            .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase()));
+        verify_bytes(data, &sig, &public).unwrap();
+    }
+
+    #[test]
+    fn sign_bytes_rejects_a_flipped_byte() {
+        // flipping one byte of the signed buffer must fail — this is the whole
+        // reason the archive is signed rather than just checksummed.
+        let (seed, public) = generate_keypair().unwrap();
+        let data = b"hub pack archive bytes";
+        let sig = sign_bytes(data, &seed).unwrap();
+        let mut tampered = data.to_vec();
+        tampered[0] ^= 0x01;
+        let err = verify_bytes(&tampered, &sig, &public)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("does not verify"), "{err}");
+    }
+
+    #[test]
+    fn sign_bytes_rejects_a_foreign_public_key() {
+        // a signature made by one key must not verify under an unrelated key.
+        let (seed, _public) = generate_keypair().unwrap();
+        let data = b"hub pack archive bytes";
+        let sig = sign_bytes(data, &seed).unwrap();
+        let (_, other) = generate_keypair().unwrap();
+        assert!(verify_bytes(data, &sig, &other).is_err());
     }
 }

@@ -1,0 +1,22 @@
+{
+ "corpus": "jyje--pilot-typesafeai-jev",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Jupyter Notebook queries this for how jyje/pilot-typesafeai-jev implements it: \ud83d\udc69\u200d\ud83d\udd2c Pilot of the decision model 'jev' from TypeSafe AI (selected work: src/tests, src/experiments, src/pilot_jev)",
+ "repos": [
+  {
+   "repo": "pilot-typesafeai-jev",
+   "url": "https://github.com/jyje/pilot-typesafeai-jev",
+   "sha": "564fc5c444a7dd7d1b52cea33f811348e7771ad5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 564fc5c444a7: \"\ud83d\udc1b bug(experiments): apply the second review round\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

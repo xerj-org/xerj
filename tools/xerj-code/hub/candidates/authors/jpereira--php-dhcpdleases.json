@@ -1,0 +1,22 @@
+{
+ "corpus": "jpereira--php-dhcpdleases",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on captive, captive-portal, captiveportal queries this for how jpereira/php-dhcpdleases implements it: \ud83d\udd0c PHP parser for ISC DHCP dhcpd.leases files. Reads the leases, then filters, sorts and de-duplicates them, returning an array or JSON (selected work: examples, the project root)",
+ "repos": [
+  {
+   "repo": "php-dhcpdleases",
+   "url": "https://github.com/jpereira/php-dhcpdleases",
+   "sha": "0be3e60e9f81bc4c440d33b38f393c0a8b863aa8",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 0be3e60e9f81: \"Replace old examples with examples/json.php and html.php\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

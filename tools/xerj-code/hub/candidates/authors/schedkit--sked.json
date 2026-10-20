@@ -1,0 +1,22 @@
+{
+ "corpus": "schedkit--sked",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how schedkit/sked implements it: Sked is a controller designed to manage the execution of sched_ext schedulers on Kubernetes nodes (selected work: charts, test, hack)",
+ "repos": [
+  {
+   "repo": "sked",
+   "url": "https://github.com/schedkit/sked",
+   "sha": "fb4b5863d4f56045502623e187345a30be287274",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit fb4b5863d4f5: \"feat(deploy): add Helm chart for Sked (#61)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

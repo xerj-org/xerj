@@ -1,0 +1,22 @@
+{
+ "corpus": "ryacub--rayniyomi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how ryacub/rayniyomi implements it: Free and Open source anime/manga/light novel reader. Based of aniyomi (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "rayniyomi",
+   "url": "https://github.com/ryacub/rayniyomi",
+   "sha": "a94c02c535fa06fce9945fc5862bc8d48675a15a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit a94c02c535fa: \"refactor: complete app-wide MetroX ViewModel construction (R1137) (#1\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

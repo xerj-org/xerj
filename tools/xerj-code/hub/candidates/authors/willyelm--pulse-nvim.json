@@ -1,0 +1,22 @@
+{
+ "corpus": "willyelm--pulse-nvim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on command-palette, neovim, plugin queries this for how willyelm/pulse.nvim implements it: A single command palette with prefix based pickers for Neovim (selected work: lua)",
+ "repos": [
+  {
+   "repo": "pulse.nvim",
+   "url": "https://github.com/willyelm/pulse.nvim",
+   "sha": "1300d031fa3b62d755f59ca73584999ae302df0f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit 1300d031fa3b: \"feat(live_grep): replace in its own context with rg's --replace, grou\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

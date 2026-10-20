@@ -1,0 +1,22 @@
+{
+ "corpus": "thunder-blaze--anilist-moe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how Thunder-Blaze/anilist_moe implements it: Anilist_Moe is a Rust Wrapper for the Anilist API. This library allows you to seamlessly interact with Anilist's Public API with and without (selected work: src, tests, the project root)",
+ "repos": [
+  {
+   "repo": "anilist_moe",
+   "url": "https://github.com/Thunder-Blaze/anilist_moe",
+   "sha": "529ef954732423b6240d716c9136536791eabd48",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 529ef9547324: \"feat!: best-in-class error handling (v0.7.0)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

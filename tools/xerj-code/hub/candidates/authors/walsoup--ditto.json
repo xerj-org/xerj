@@ -1,0 +1,22 @@
+{
+ "corpus": "walsoup--ditto",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how walsoup/ditto implements it: Record voice notes and paste them directly into your chats on Android (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "ditto",
+   "url": "https://github.com/walsoup/ditto",
+   "sha": "81596bd7527526dec83e63a5d6205049d98ef871",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 81596bd75275: \"feat: in-flight recording pause/resume, volume key haptics, and histo\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

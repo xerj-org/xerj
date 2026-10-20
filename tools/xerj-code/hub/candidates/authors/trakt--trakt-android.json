@@ -1,0 +1,22 @@
+{
+ "corpus": "trakt--trakt-android",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how trakt/trakt-android implements it: Open source official native Trakt client for Android / Android TV (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "trakt-android",
+   "url": "https://github.com/trakt/trakt-android",
+   "sha": "b4b91ac7a5590584efcea6984ce8a56a6906e6af",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit b4b91ac7a559: \"feat(app): offer watched until here when a check skips episodes (#360)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

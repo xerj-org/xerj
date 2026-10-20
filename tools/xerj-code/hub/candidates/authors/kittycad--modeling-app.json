@@ -1,0 +1,22 @@
+{
+ "corpus": "kittycad--modeling-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on electron, playwright, react queries this for how KittyCAD/modeling-app implements it: The Zoo Design Studio app (selected work: rust)",
+ "repos": [
+  {
+   "repo": "modeling-app",
+   "url": "https://github.com/KittyCAD/modeling-app",
+   "sha": "e898ec43b4cf4173891a6c7e795587d97e3268d9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e898ec43b4cf: \"KCL: Move cache out of static, into owned struct (#14540)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

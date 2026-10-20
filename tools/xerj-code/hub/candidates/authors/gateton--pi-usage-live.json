@@ -1,0 +1,22 @@
+{
+ "corpus": "gateton--pi-usage-live",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, anthropic, chatgpt queries this for how Gateton/pi-usage-live implements it: Always-on subscription usage card for Pi: see how much of your Claude, ChatGPT Codex, OpenCode Zen, DeepSeek, Kimi, MiniMax, Moonshot, Z.AI  (selected work: test, src/providers, src)",
+ "repos": [
+  {
+   "repo": "pi-usage-live",
+   "url": "https://github.com/Gateton/pi-usage-live",
+   "sha": "7e06e4e8f1ec09cd93482eafd7883779ebe59ecd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 7e06e4e8f1ec: \"Poll Claude actively and add CI\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

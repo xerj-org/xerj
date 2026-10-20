@@ -1,0 +1,22 @@
+{
+ "corpus": "heyaftab--national-healthcare-record-exchange",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on PHP queries this for how heyaftab/national-healthcare-record-exchange implements it: A centralized healthcare record exchange platform for securely managing and sharing patient medical information (selected work: config, auth, the project root)",
+ "repos": [
+  {
+   "repo": "national-healthcare-record-exchange",
+   "url": "https://github.com/heyaftab/national-healthcare-record-exchange",
+   "sha": "9aa75281bb0d26eeb221bd820d4b8d7ccbc7a381",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 9aa75281bb0d: \"Prepare PHP app for Vercel deployment\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

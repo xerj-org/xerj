@@ -1,0 +1,22 @@
+{
+ "corpus": "clash-projects--lastwave-native",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on foss, kotlin, lastfm queries this for how Clash-Projects/LastWave-Native implements it: Next-Gen YouTube Music Client with Liquid Glass UI , Algorithmic Smart Playlist Generator, Real-Time Synced Lyrics & Universal Last.fm Scrob (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "LastWave-Native",
+   "url": "https://github.com/Clash-Projects/LastWave-Native",
+   "sha": "8335ccb7b14ed68422c8bf8b431cc656894f3657",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 8335ccb7b14e: \"Improve home music discovery recommendations\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

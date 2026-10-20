@@ -1,0 +1,22 @@
+{
+ "corpus": "antomanc--aginit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, agents-md, ai-agents queries this for how antomanc/aginit implements it: Bootstrap new or existing Web, Mobile & CLI repos for AI coding agents: AGENTS.md task routing, skills, Graft codebase graph, Impeccable des (selected work: src/cli, tests, the project root)",
+ "repos": [
+  {
+   "repo": "aginit",
+   "url": "https://github.com/antomanc/aginit",
+   "sha": "cc764c47d1a5a6b8071de3473a5f36c2e1e3f6e8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit cc764c47d1a5: \"Polish v2 wizard defaults and portable Claude helpers\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

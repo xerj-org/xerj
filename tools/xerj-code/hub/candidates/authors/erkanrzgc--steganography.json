@@ -1,0 +1,22 @@
+{
+ "corpus": "erkanrzgc--steganography",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on python, steganalysis, steganography queries this for how erkanrzgc/steganography implements it: Local-first steganography toolkit for file analysis, bounded CTF recovery, and encrypted evidence workflows (selected work: tests, core, steganography)",
+ "repos": [
+  {
+   "repo": "steganography",
+   "url": "https://github.com/erkanrzgc/steganography",
+   "sha": "fd2b0a4e6f3a94762f61d542fb2a00dee37bfb0a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit fd2b0a4e6f3a: \"Add fixed five-view JPEG study representation and matched inference\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

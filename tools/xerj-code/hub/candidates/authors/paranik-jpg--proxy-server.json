@@ -1,0 +1,22 @@
+{
+ "corpus": "paranik-jpg--proxy-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on cpp17, http-proxy, networking queries this for how paranik-jpg/proxy_server implements it: A high-performance, multi-threaded HTTP proxy server built from scratch in C++17. The project demonstrates low-level network programming usi (selected work: src, include)",
+ "repos": [
+  {
+   "repo": "proxy_server",
+   "url": "https://github.com/paranik-jpg/proxy_server",
+   "sha": "7f7dee696e509752189e164576d2e8d0fa66e866",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 7f7dee696e50: \"refactor(core): harden socket lifecycle, bounded threading, and RFC H\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

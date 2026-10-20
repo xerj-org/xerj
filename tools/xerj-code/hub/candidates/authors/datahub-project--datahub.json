@@ -1,0 +1,22 @@
+{
+ "corpus": "datahub-project--datahub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on metadata, datahub, data-catalog queries this for how datahub-project/datahub implements it: The Context Platform for your Data and AI Stack (selected work: metadata-ingestion)",
+ "repos": [
+  {
+   "repo": "datahub",
+   "url": "https://github.com/datahub-project/datahub",
+   "sha": "a334bf025518c3dd64e464c1f469472abf67565e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit a334bf025518: \"fix(ingest/looker): preserve cross-project view project assignment in\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

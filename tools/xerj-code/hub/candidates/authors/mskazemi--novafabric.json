@@ -1,0 +1,22 @@
+{
+ "corpus": "mskazemi--novafabric",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-governance, auditability queries this for how MSKazemi/novafabric implements it: Open-source replay and evidence infrastructure for AI agents. Capture runs as portable Run Capsules for replay, diff, lineage, provenance, a (selected work: src/novafabric, tests, ui)",
+ "repos": [
+  {
+   "repo": "novafabric",
+   "url": "https://github.com/MSKazemi/novafabric",
+   "sha": "8e02a0ad7e64427a3ee24007e2a893dfe3116ab5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 8e02a0ad7e64: \"feat(replay): record.tool \u2014 declared Python tools are captured and se\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

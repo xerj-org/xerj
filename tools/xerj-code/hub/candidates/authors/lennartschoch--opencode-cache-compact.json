@@ -1,0 +1,22 @@
+{
+ "corpus": "lennartschoch--opencode-cache-compact",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on context-compaction, llamacpp, local-llm queries this for how lennartschoch/opencode-cache-compact implements it: Cache-friendly context compaction for OpenCode: summarize by append, then cut the outgoing context (selected work: src, test, the project root)",
+ "repos": [
+  {
+   "repo": "opencode-cache-compact",
+   "url": "https://github.com/lennartschoch/opencode-cache-compact",
+   "sha": "7b6ceddf1cd7df30572c0e584dffd6e7301931e0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 7b6ceddf1cd7: \"feat: support opencode v2 and fix abortOnTrip re-summary loop\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

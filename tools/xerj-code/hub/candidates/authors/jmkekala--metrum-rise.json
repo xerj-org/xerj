@@ -1,0 +1,22 @@
+{
+ "corpus": "jmkekala--metrum-rise",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on city-builder-game, city-building queries this for how jmkekala/metrum_rise implements it: Open Source City Building with Godot and Rust (selected work: rust)",
+ "repos": [
+  {
+   "repo": "metrum_rise",
+   "url": "https://github.com/jmkekala/metrum_rise",
+   "sha": "03c1cf4549ff8ac026f9bf6887aea1ac8d4bf9f6",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 03c1cf4549ff: \"\u001b[200~perf(economy): hourly frontage prices, profit proof\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

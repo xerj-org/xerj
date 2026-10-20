@@ -1,0 +1,22 @@
+{
+ "corpus": "robbin360--reins-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Robbin360/reins-mcp implements it: MCP server that gives AI agents a governed wallet: spend limits, policy checks, human-in-the-loop approvals and immutable audit trails for a (selected work: src/tools, src, the project root)",
+ "repos": [
+  {
+   "repo": "reins-mcp",
+   "url": "https://github.com/Robbin360/reins-mcp",
+   "sha": "7dfb0bcb8e76d85a97c1cc450e5a8e96ef7382b6",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 7dfb0bcb8e76: \"feat: MCP server with policy engine (auto-approve + human approval ro\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

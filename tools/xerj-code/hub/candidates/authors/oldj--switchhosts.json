@@ -1,0 +1,22 @@
+{
+ "corpus": "oldj--switchhosts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on electron, hosts, hostsfile queries this for how oldj/SwitchHosts implements it: Switch hosts quickly! (selected work: src-tauri, the project root)",
+ "repos": [
+  {
+   "repo": "SwitchHosts",
+   "url": "https://github.com/oldj/SwitchHosts",
+   "sha": "7a2cba255293996e0d6eab4c5c7c4a05dd5ee27f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 7a2cba255293: \"fix: \u5f15\u5165nspanel\u4fee\u590d macos \u6258\u76d8\u5f39\u7a97\u95ee\u9898\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

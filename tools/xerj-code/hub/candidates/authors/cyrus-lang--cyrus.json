@@ -1,0 +1,22 @@
+{
+ "corpus": "cyrus-lang--cyrus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on compiler, programming-language, cyrus-lang queries this for how cyrus-lang/Cyrus implements it: Cyrus is a high-performance systems programming language with explicit syntax and semantics, minimal abstraction and runtime, and manual mem (selected work: toolchain)",
+ "repos": [
+  {
+   "repo": "Cyrus",
+   "url": "https://github.com/cyrus-lang/Cyrus",
+   "sha": "4a17d508724a17c22ec449db48b61962f0c2028b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 4a17d508724a: \"fix: now all switch statements used in cyrus sources are exhaustive\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

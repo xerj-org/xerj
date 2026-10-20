@@ -1,0 +1,22 @@
+{
+ "corpus": "digi-uw--openelis-global-2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on carbon-design-system, clinical-laboratory, digital-public-goods queries this for how DIGI-UW/OpenELIS-Global-2 implements it: OpenELIS Global \u2014 open-source Laboratory Information System (LIS/LIMS) for clinical and public-health labs in 25+ countries. Java/Spring + R (selected work: src/test, frontend, src/main)",
+ "repos": [
+  {
+   "repo": "OpenELIS-Global-2",
+   "url": "https://github.com/DIGI-UW/OpenELIS-Global-2",
+   "sha": "9344653aa184999058acd70f0c0da662a23aba3f",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 9344653aa184: \"Make the inventory lot barcode findable (#4026)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

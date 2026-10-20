@@ -1,0 +1,22 @@
+{
+ "corpus": "arianshayestehfard--f1-race-strategy-decision-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ArianShayestehfard/F1-Race-Strategy-Decision-System implements it: ArianShayestehfard/F1-Race-Strategy-Decision-System (Python) (selected work: javafx, python-engine, tests)",
+ "repos": [
+  {
+   "repo": "F1-Race-Strategy-Decision-System",
+   "url": "https://github.com/ArianShayestehfard/F1-Race-Strategy-Decision-System",
+   "sha": "a884eb0307211534a4efb1f4c98666ceff1897df",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a884eb030721: \"Professional upgrade: ML prediction UI, pit duel (undercut/overcut), \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

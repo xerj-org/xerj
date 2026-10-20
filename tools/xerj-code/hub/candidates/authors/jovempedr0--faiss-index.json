@@ -1,0 +1,22 @@
+{
+ "corpus": "jovempedr0--faiss-index",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on bm25, embeddings, faiss queries this for how jovempedr0/faiss_index implements it: FAISS-based semantic search over any document type \u2014 LLM-calibrated section extraction, and pluggable embedding/chat providers (OpenAI-compa (selected work: src/faiss_index, tests)",
+ "repos": [
+  {
+   "repo": "faiss_index",
+   "url": "https://github.com/jovempedr0/faiss_index",
+   "sha": "134d1babd18511ff40ce0af45fe993c7aa001a75",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 134d1babd185: \"Rerank long texts by their best passage, not their first page\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

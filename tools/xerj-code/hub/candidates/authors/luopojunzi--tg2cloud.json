@@ -1,0 +1,22 @@
+{
+ "corpus": "luopojunzi--tg2cloud",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on clouddrive2, docker, openlist queries this for how LuoPoJunZi/TG2Cloud implements it: \u81ea\u6258\u7ba1\u7684 Telegram \u5230\u4e91\u7aef\u4f20\u8f93\u5de5\u5177\uff0c\u652f\u6301 Windows \u90e8\u7f72\u7a0b\u5e8f\u3001CloudDrive2/OpenList \u7f51\u5173\u3001Docker\u3001rclone \u548c WebDAV\u3002 (selected work: tests, the project root, scripts)",
+ "repos": [
+  {
+   "repo": "TG2Cloud",
+   "url": "https://github.com/LuoPoJunZi/TG2Cloud",
+   "sha": "eabfa140f5d116d3e1eb4c69c6d16d09a264ed59",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit eabfa140f5d1: \"fix: harden HTTPS recovery and VPS installer compatibility\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

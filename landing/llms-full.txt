@@ -84,6 +84,8 @@ CONTENTS — search for a section number (e.g. "3.4", "10.") to jump
        `--max-minutes` / `--approve` gate, ask instead of deciding, the ignore rules,
        the progress stream, polling from outside, stopping safely, work order, exit
        codes, closing the loop
+ 11. REFERENCE CORPORA ........ hub corpus or local corpus: which to use, the exact
+       commands for a hub corpus with what success looks like, the no-shell routes
 
 Canonical domain: xerj.org
 Source: https://github.com/xerj-org/xerj
@@ -376,7 +378,8 @@ For a complete disconnected deployment procedure, including current GitHub relea
   (`PUT /_xerj/wal_tap`, every write on tapped indices to an external `_bulk`
   endpoint). The node's other outbound connections carry no document or query text:
   the one-time HuggingFace model download for `--embed-mode neural`, and cluster-mode
-  Raft messages (index names, mappings) to your own peers. A `_search` body carrying `"rerank": {...}` POSTs the question and the text
+  Raft control messages (elections and heartbeats — never document text, and no
+  metadata command is proposed over them yet) to your own peers. A `_search` body carrying `"rerank": {...}` POSTs the question and the text
   of up to `window` hits (default 30, max 300) to a third-party relevance judge
   (TypeSafe AI's Jev, `POST /v1/systemone`). Three controls: it is inert until the
   node's OPERATOR sets a provider key (`[rerank] api_key`, or `TYPESAFE_API_KEY`; a
@@ -538,7 +541,19 @@ catalog → verify.
     trusted (a JSON file wearing a `.pdf` extension is indexed as JSON; verified).
     Streaming extractors cover: JSON/JSONL, CSV (dialect detection: comma/semicolon/
     tab, decimal comma, quoted multiline fields, BOM), structured logs, SQL dumps,
-    SQLite, PDF, DOCX, HTML, XML, YAML, plain text, mail (`.eml` and mbox mailboxes —
+    SQLite, PDF, DOCX, PPTX (one record per slide, speaker notes included), XLSX (one
+    dataset per sheet, one record per row under the detected header row, cell types
+    kept; one table per sheet; vertical merges filled down, a two-row grouped header
+    combined into the column names (Q1_Jan), merges across columns not expanded),
+    EPUB (one record per chapter in reading order: spine documents cut at their
+    table-of-contents anchors, chapter_title from the toc, book title/author/
+    language/date from the package; DRM-encrypted chapters skipped), Jupyter
+    notebooks (any kernel; one record per Markdown-heading section with heading
+    and heading_path, code fenced in the kernel language, text outputs capped at
+    40 lines; images and HTML-only outputs skipped; nothing executed),
+    man pages (roff man(7), plain or gzipped; one record per section, titled
+    NAME(SECT); mdoc(7) pages stay plain text), HTML, XML, YAML, plain
+    text, mail (`.eml` and mbox mailboxes —
     a Google Takeout `All mail Including Spam and Trash.mbox` is detected by content and
     streamed one message at a time; attachments become their own records, PDFs per
     page; `In-Reply-To`/`References` become `replies_to` edges via the `email-thread@1`
@@ -1579,3 +1594,56 @@ apply; if it does not, YOU are the gate — estimate, ask, and only then run.
   field of the `xerj-done` line is the measured number, so quote that rather than your own
   estimate — how many records landed, and what they can now ask; `xerj autoindex map` is
   the briefing to summarize from.
+
+=====================================================================
+11. REFERENCE CORPORA — HUB CORPUS OR LOCAL CORPUS
+=====================================================================
+
+WHICH ONE
+- HUB CORPUS: the answer is in public material you cannot quote exactly from memory —
+  a library's source at a pinned commit, a standard, a regulation, an advisory feed.
+  The catalogue, one line per corpus, is https://hub.xerj.org/llms.txt (browse:
+  https://hub.xerj.org).
+- LOCAL CORPUS: the answer is in files only this machine has — the project you are
+  working in, private documents, exports. `xerj autoindex <folder>` indexes them and
+  `xerj search "<words>"` queries them (sections 3 and 10). Nothing is uploaded.
+- BOTH live on the same local node. Use each for its own questions.
+- NEITHER: a fact you can already state exactly. Retrieving memorised content only
+  adds cost (measured in the reference-coding study, section 9).
+
+USE A HUB CORPUS (shell). A node must be running (section 1). If
+`curl -s localhost:9200/_cluster/health` already answers, use that node as it is.
+If you start one, keep its PID so you can stop exactly that one later:
+     nohup xerj --insecure --data-dir ~/xerj-data > ~/xerj-node.log 2>&1 &
+     echo $! > ~/xerj-node.pid
+     kill $(cat ~/xerj-node.pid)      # when you are done
+Never `pkill xerj` or `killall xerj`: other XERJ nodes may be running on the machine
+and you would stop them too. Each step below names what success looks like; all of
+it was run on v1.0.0-rc.95 from a clean install.
+
+  1. curl -fsSLO https://raw.githubusercontent.com/xerj-org/xerj/corpus-hub/tools/xerj-code/hub/<slug>.json
+     xerj corpus add --from ./<slug>.json
+     success: the last line is `next: xerj corpus index <slug>`
+     `--from` reads a local file. v1.0.0-rc.95 does not fetch a URL: passing one
+     answers `no such manifest … No such file or directory`.
+  2. xerj corpus index <slug>
+     success: `corpus '<slug>' searchable: <N> records`
+     (lz4, 138 files, indexed in under 10 seconds; time grows with size)
+  3. xerj code <slug> "<your question>"
+     success: passages headed by a file path and line. Cite them. A no-match means
+     the corpus does not hold the answer — say so rather than answering from memory.
+
+  Clones live under ~/.xerj-code/corpora/. The index lives in the data directory of
+  the node you indexed into. `xerj corpus list` shows which corpora that node has.
+  An index older than 30 days is refused; re-run `xerj corpus index <slug>`.
+
+NO SHELL
+- MCP: once the corpus is indexed on the node, call `xerj_code_search` with
+  {"corpus": "<slug>", "query": "<your question>"}.
+- HTTP: POST /xc-<slug>-*/_search with
+  {"query":{"multi_match":{"query":"<words>","fields":["body","defs"]}}}
+- Adding and indexing a corpus is CLI-only. Ask the person operating the node.
+
+IF INDEXING SITS AT 0%: check free disk space. A node whose disk is 95% full blocks
+writes (`read_only_allow_delete`), and the indexer retries for ten minutes before it
+gives up.

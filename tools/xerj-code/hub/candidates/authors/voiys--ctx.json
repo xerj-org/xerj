@@ -1,0 +1,22 @@
+{
+ "corpus": "voiys--ctx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how voiys/ctx implements it: ctx is a local-first context manager for coding agents. It pins source repositories, documentation snapshots, and notes globally, stores exp (selected work: src, tests)",
+ "repos": [
+  {
+   "repo": "ctx",
+   "url": "https://github.com/voiys/ctx",
+   "sha": "07a7bca1d31cc2b49a0ea7aaa0bead43fa41d1f2",
+   "licence": "hint only: Unlicense (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Unlicense",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 07a7bca1d31c: \"refactor: use global cache with idempotent add and snapshot-scoped query\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

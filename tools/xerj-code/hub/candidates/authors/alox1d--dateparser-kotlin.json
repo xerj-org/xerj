@@ -1,0 +1,22 @@
+{
+ "corpus": "alox1d--dateparser-kotlin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, date-parser, kotlin queries this for how Alox1d/dateparser-kotlin implements it: Offline English and Russian date/time parsing for Kotlin Multiplatform: dates, ranges and recurrence on Android, JVM and iOS (selected work: app/src, dateparser, integration)",
+ "repos": [
+  {
+   "repo": "dateparser-kotlin",
+   "url": "https://github.com/Alox1d/dateparser-kotlin",
+   "sha": "d84e824b05b9cb95b5a8f1f1c79df0a724f7d0da",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit d84e824b05b9: \"Improve reminder parsing and add Compose demo (#7)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

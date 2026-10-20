@@ -11,7 +11,7 @@ use std::time::Duration;
 // are pinned by the `local admin-key discovery` tests at the bottom of this
 // file: they stayed here when the helpers moved to `xerj-common`, so they
 // are the shared helpers' tests wherever the helpers live.
-use xerj_common::localauth::{discover_local_admin_key, url_is_loopback};
+use xerj_common::localauth::{discover_local_admin_key_for_url, url_is_loopback};
 
 /// Largest `--max-minutes` accepted: one week. Past that the flag is a typo,
 /// and `--max-minutes 0` already exists to mean "never ask".
@@ -79,9 +79,18 @@ pub struct IndexCfg {
     /// `.gitignore` / `.xerjignore` / built-in build-output rules (#276).
     /// `deep_count` is set from `--dry-run`.
     pub ignore: IgnoreOptions,
-    pub max_file_gb: u64,
+    /// Whole-file size cap in BYTES for non-streaming families (JSON, HTML,
+    /// prose, PDF, …). Streaming families are never capped. Set on the CLI by
+    /// any one of `--max-file-gb` / `--max-file-mb` / `--max-file-bytes`
+    /// (mutually exclusive), all normalised to bytes here so a sub-GB cap —
+    /// e.g. a 10 MB source-watcher budget (#1233) — is expressible. Default
+    /// 2 GB.
+    pub max_file_bytes: u64,
     pub sample: usize,
     pub no_semantic: bool,
+    /// `--code-analyzer` (#1198): `code` declares the built-in identifier-aware
+    /// analyzer on newly created datasets that hold source code.
+    pub code_analyzer: crate::infer::CodeAnalyzer,
     /// Second-brain name; None derives it from the root folder basename.
     pub brain: Option<String>,
     /// Disable edge detection entirely (no `.xerj-memory-*-edges` writes).
@@ -111,15 +120,27 @@ pub struct IndexCfg {
     /// `--watch`'s quiet period. One editor save is several filesystem events,
     /// so a pass waits for the tree to go quiet for this long before running.
     pub debounce: Duration,
+    /// Root-relative paths dropped after the walk. Empty for a normal
+    /// `xerj autoindex <folder>`. `xerj corpus index` sets `corpus.json` so
+    /// the hub manifest is not indexed as a document dataset.
+    pub exclude_rels: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
 pub struct MapCfg {
     pub url: String,
     pub api_key: Option<String>,
-    pub prefix: String,
+    /// Explicit `--prefix` filter (`None` when the user did not pass `--prefix`,
+    /// preserving the #971 multi-corpus view on a bare `autoindex map`).
+    pub prefix: Option<String>,
     pub json: bool,
     pub dataset: Option<String>,
+    /// `--offset` for the map's per-dataset field detail. The summary table
+    /// always lists every dataset.
+    pub detail_offset: usize,
+    /// `--limit` for that detail page. `None` uses the default page when
+    /// there are more datasets than [`crate::catalog::MAP_DETAIL_PAGE`].
+    pub detail_limit: Option<usize>,
     /// A startup note when `XERJ_URL` was set but ignored (endpoint comes from
     /// `--url` only). `map` reads the catalog, so a stale var shows the wrong
     /// node's map without a word — same trap as the index path, read side.
@@ -202,9 +223,9 @@ pub const MAX_POLL_INTERVAL_SECS: u64 = 86_400;
 
 const FRESH_HELP: &str =
     "ignore an existing resume journal and restart, rebuild the plan in place\n\
-                                  (ids stay idempotent); it never resets destination records,\n\
-                                  and is refused on a durable corpus generation — see\n\
-                                  RESUME POLICY";
+     \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(ids stay idempotent); it never resets destination records,\n\
+     \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20and is refused on a durable corpus generation — see\n\
+     \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20RESUME POLICY";
 const RESUME_POLICY_HELP: &str =
     "generated --no-graph journals reconcile add, change, delete, rename, and no-op runs; \
 a --no-graph state directory written before the generation format must be rebuilt into a new \
@@ -228,374 +249,394 @@ pub fn help_text_with(feedback: bool) -> String {
          \n\
          {feedback_block}\
          USAGE:\n\
-             xerj autoindex <folder> [OPTIONS]     discover + index a folder\n\
-             xerj autoindex s3://<bucket>/<prefix> [OPTIONS]\n\
-                                                   discover + index objects in a bucket\n\
-                                                   (r2:// too; see OBJECT STORAGE)\n\
-             xerj autoindex map [OPTIONS]          print the discovered data map\n\
-             xerj autoindex status [OPTIONS]       resume-journal + index progress view\n\
-             xerj autoindex s3://bucket/prefix --watch [OPTIONS]\n\
-                                                   poll object storage and emit a change feed\n\
+         \x20\x20\x20\x20xerj autoindex <folder> [OPTIONS]     discover + index a folder\n\
+         \x20\x20\x20\x20xerj autoindex s3://<bucket>/<prefix> [OPTIONS]\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20discover + index objects in a bucket\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(r2:// too; see OBJECT STORAGE)\n\
+         \x20\x20\x20\x20xerj autoindex map [OPTIONS]          print the discovered data map\n\
+         \x20\x20\x20\x20xerj autoindex status [OPTIONS]       resume-journal + index progress view\n\
+         \x20\x20\x20\x20xerj autoindex s3://bucket/prefix --watch [OPTIONS]\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20poll object storage and emit a change feed\n\
          \n\
          OPTIONS:\n\
-             --url <U>            ES-compat endpoint (default http://localhost:9200)\n\
-             --api-key <K>        Authorization header (or env XERJ_API_KEY)\n\
-             --workers <N>        workers for BOTH phases — content hashing/sniffing and\n\
-                                  indexing (default: every core, reduced if the memory\n\
-                                  safe zone cannot pay for that many bulk buffers; a\n\
-                                  value you pass is honoured and only warned about;\n\
-                                  valid range 1..=1024)\n\
-             --pdf-workers <N>    concurrent PDF parser processes (default min(cores,4); max 4,\n\
-                                  the default reduced further on a machine with little\n\
-                                  free memory)\n\
-             --pdf-timeout-secs <N> per-PDF parser timeout (default 120; max 3600)\n\
-             --bulk-mb <N>        bulk cut size in MB (default 8)\n\
-             --bulk-timeout-secs <N>\n\
-                                  bulk HTTP request timeout in seconds (default 300;\n\
-                                  valid range 1..=3600)\n\
-             --prefix <P>         index prefix (default ax)\n\
-             --state-dir <PATH>   resume journal location (default ~/.xerj/autoindex/<hash>/);\n\
-                                  for an s3:// source this is also where the local\n\
-                                  object mirror lives, so point it at a disk with room\n\
-             --endpoint-url <URL> S3-compatible endpoint for an s3:// source (MinIO,\n\
-                                  Ceph, R2, localstack). Defaults to\n\
-                                  $AWS_ENDPOINT_URL_S3, then $AWS_ENDPOINT_URL.\n\
-                                  Refused for a folder rather than ignored\n\
-             --snapshot-max-gb <N> logical payload cap for sealed source+prepared records\n\
-                                  bytes (default 64); excludes filesystem/manifest overhead\n\
-             --fresh              {fresh_help}\n\
-             --follow-symlinks    follow symlinks (loop-safe); off by default.\n\
-                                  A link is judged by what it RESOLVES to: a\n\
-                                  target outside the folder is refused, and one\n\
-                                  inside a hidden directory is skipped like any\n\
-                                  dotfile, whatever the link itself is called\n\
-             --follow-symlinks-outside-root\n\
-                                  also follow links that resolve OUTSIDE the\n\
-                                  folder. Requires --follow-symlinks. Off by\n\
-                                  default; pointing at a folder is not consent\n\
-                                  to index whatever it links to. The hidden-file\n\
-                                  rule still applies to the target, judged from\n\
-                                  where it diverges from your folder — so a\n\
-                                  dotted directory the two paths SHARE does not\n\
-                                  refuse anything, because your folder is\n\
-                                  already inside it\n\
-             --stub <GLOB>        index matching files as ONE existence-only name\n\
-                                  card (title + provenance); contents are never\n\
-                                  opened. Repeatable. A pattern without '/'\n\
-                                  matches file names anywhere ('*.bvh'); with '/'\n\
-                                  it matches the root-relative path\n\
-                                  ('unity/**/*.csv'). '**' crosses directories\n\
-             --no-ignore          index everything: no .gitignore, no .xerjignore, no\n\
-                                  .git/info/exclude, no built-in defaults. Hidden files\n\
-                                  (.env, .git/, .ssh) stay skipped either way — that is\n\
-                                  not an ignore rule, it is what keeps secrets out.\n\
-             --no-default-ignores keep the ignore files, drop only the built-in list\n\
-                                  ({defaults})\n\
-             --max-file-gb <N>    skip+record oversized non-streamable files (default 2)\n\
-             --sample <N>         records sampled per file for inference (default 500)\n\
-             --no-semantic        skip semantic_text on body fields (pure BM25+keyword)\n\
-             --brain <NAME>       second-brain name; relationship edges land in\n\
-                                  .xerj-memory-<NAME>-edges (default: folder name slug)\n\
-             --no-graph           skip relationship detection (wikilinks, local links,\n\
-                                  section order, directory chains) — no edges are written\n\
-             --watch              index once, then stay resident and reindex what changes.\n\
-                                  Needs --no-graph: the graph route refuses an ADDED file\n\
-                                  (exit 3, skipped until --fresh) and ABORTS on a deletion\n\
-                                  (exit 1, and every later re-run aborts too). It does\n\
-                                  reindex a MODIFIED file. One OS watch per indexed\n\
-                                  directory, no polling; respects the same ignore rules as\n\
-                                  a re-run. docs/LIVE_REINDEXING.md has the measurements.\n\
-             --debounce <MS>      --watch quiet period before a pass (default 400, max\n\
-                                  60000). One editor save is several filesystem events.\n\
-             --max-minutes <N>    stop and ask before indexing if phase A's MEASURED estimate\n\
-                                  is longer than this (default 10; 0 disables the gate;\n\
-                                  max 10080). See ESTIMATE + DECISION GATE below.\n\
-             --approve <ID>       answer a decision request: proceed | fast | cancel.\n\
-                                  `fast` also applies --no-semantic --no-graph. `narrower`\n\
-                                  is NOT accepted here — it means re-running against a\n\
-                                  subdirectory, which this flag cannot do.\n\
-             --yes, -y            alias for --approve proceed\n\
-             --dry-run            walk+sniff+infer, print the plan, index nothing\n\
-             --label <FILE>       label each document at ingest through POST /_decide\n\
-                                  (#1062): the question-set file's noul/choice questions\n\
-                                  are rendered against each record's fields and the vote\n\
-                                  stamped on as label + label_p (and label_<id> +\n\
-                                  label_<id>_p per question). p is the RAW decide\n\
-                                  confidence - calibration is #1063. One /_decide call\n\
-                                  per noul (per option, for a choice) per document.\n\
-             --json               machine-readable RESULT on stdout (map: raw catalog docs).\n\
-                                  Orthogonal to --progress, which owns stderr.\n\
-             --progress <MODE>    liveness on stderr: auto|plain|json|none (default auto).\n\
-                                  auto = live redrawn line when stderr is a terminal,\n\
-                                  otherwise one parseable line per interval. plain and\n\
-                                  json force that shape everywhere (CI, pipes, agents).\n\
-             --progress-interval <SECS>\n\
-                                  progress cadence, 1..=3600 (default 1 on a terminal,\n\
-                                  5 otherwise). This is the guaranteed upper bound on\n\
-                                  silence between phases.\n\
-             --quiet              errors only (implies --progress none). The decision gate\n\
-                                  NEVER prompts under this flag, even at a terminal — the\n\
-                                  question would be silenced with everything else. It emits\n\
-                                  the JSON decision request on stdout and exits 4 instead,\n\
-                                  exactly like an agent-driven run. See ESTIMATE + DECISION\n\
-                                  GATE.\n\
-             --dataset <SLUG>     (map) show a single dataset\n\
-             --disable-feedback   do not print the feedback invitation above; honoured in\n\
-                                  any position, including after --help (env\n\
-                                  XERJ_DISABLE_FEEDBACK=true)\n\
-             --help, -h           this help\n\
+         \x20\x20\x20\x20--url <U>            ES-compat endpoint (default http://localhost:9200)\n\
+         \x20\x20\x20\x20--api-key <K>        Authorization header (or env XERJ_API_KEY)\n\
+         \x20\x20\x20\x20--workers <N>        workers for BOTH phases — content hashing/sniffing and\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20indexing (default: every core, reduced if the memory\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20safe zone cannot pay for that many bulk buffers; a\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20value you pass is honoured and only warned about;\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20valid range 1..=1024)\n\
+         \x20\x20\x20\x20--pdf-workers <N>    concurrent PDF parser processes (default min(cores,4); max 4,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20the default reduced further on a machine with little\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20free memory)\n\
+         \x20\x20\x20\x20--pdf-timeout-secs <N> per-PDF parser timeout (default 120; max 3600)\n\
+         \x20\x20\x20\x20--bulk-mb <N>        bulk cut size in MB (default 8)\n\
+         \x20\x20\x20\x20--bulk-timeout-secs <N>\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20bulk HTTP request timeout in seconds (default 300;\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20valid range 1..=3600)\n\
+         \x20\x20\x20\x20--prefix <P>         index prefix (default ax)\n\
+         \x20\x20\x20\x20--state-dir <PATH>   resume journal location (default ~/.xerj/autoindex/<hash>/);\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20for an s3:// source this is also where the local\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20object mirror lives, so point it at a disk with room\n\
+         \x20\x20\x20\x20--endpoint-url <URL> S3-compatible endpoint for an s3:// source (MinIO,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Ceph, R2, localstack). Defaults to\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20$AWS_ENDPOINT_URL_S3, then $AWS_ENDPOINT_URL.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Refused for a folder rather than ignored\n\
+         \x20\x20\x20\x20--snapshot-max-gb <N> logical payload cap for sealed source+prepared records\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20bytes (default 64); excludes filesystem/manifest overhead\n\
+         \x20\x20\x20\x20--fresh              {fresh_help}\n\
+         \x20\x20\x20\x20--follow-symlinks    follow symlinks (loop-safe); off by default.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20A link is judged by what it RESOLVES to: a\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20target outside the folder is refused, and one\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20inside a hidden directory is skipped like any\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20dotfile, whatever the link itself is called\n\
+         \x20\x20\x20\x20--follow-symlinks-outside-root\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20also follow links that resolve OUTSIDE the\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20folder. Requires --follow-symlinks. Off by\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20default; pointing at a folder is not consent\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20to index whatever it links to. The hidden-file\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20rule still applies to the target, judged from\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20where it diverges from your folder — so a\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20dotted directory the two paths SHARE does not\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20refuse anything, because your folder is\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20already inside it\n\
+         \x20\x20\x20\x20--stub <GLOB>        index matching files as ONE existence-only name\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20card (title + provenance); contents are never\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20opened. Repeatable. A pattern without '/'\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20matches file names anywhere ('*.bvh'); with '/'\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20it matches the root-relative path\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20('unity/**/*.csv'). '**' crosses directories\n\
+         \x20\x20\x20\x20--no-ignore          index everything: no .gitignore, no .xerjignore, no\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20.git/info/exclude, no built-in defaults. Hidden files\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(.env, .git/, .ssh) stay skipped either way — that is\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20not an ignore rule, it is what keeps secrets out.\n\
+         \x20\x20\x20\x20--no-default-ignores keep the ignore files, drop only the built-in list\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20({defaults})\n\
+         \x20\x20\x20\x20--max-file-gb <N>    skip+record oversized non-streamable files, cap in whole\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20GB (default 2). Use --max-file-mb/--max-file-bytes for a\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20smaller cap; the three are mutually exclusive\n\
+         \x20\x20\x20\x20--max-file-mb <N>    same cap expressed in whole MB (e.g. 10 for a source\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20watcher); mutually exclusive with --max-file-gb/-bytes\n\
+         \x20\x20\x20\x20--max-file-bytes <N> same cap expressed in whole bytes; mutually exclusive\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20with --max-file-gb/--max-file-mb\n\
+         \x20\x20\x20\x20--sample <N>         records sampled per file for inference (default 500)\n\
+         \x20\x20\x20\x20--no-semantic        skip semantic_text on body fields (pure BM25+keyword)\n\
+         \x20\x20\x20\x20--code-analyzer <A>  standard (default) or code: `code` declares the built-in\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20identifier-aware analyzer (splits snake_case/camelCase,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20keeps the original token) on NEWLY created datasets\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20holding source code; existing indexes keep theirs.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Measured +0.11 file-localization acc@5 (#1198); costs\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20~15% index size and ~2.4x text-analysis time\n\
+         \x20\x20\x20\x20--brain <NAME>       second-brain name; relationship edges land in\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20.xerj-memory-<NAME>-edges (default: folder name slug)\n\
+         \x20\x20\x20\x20--no-graph           skip relationship detection (wikilinks, local links,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20section order, directory chains) — no edges are written\n\
+         \x20\x20\x20\x20--watch              index once, then stay resident and reindex what changes.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Needs --no-graph: the graph route refuses an ADDED file\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(exit 3, skipped until --fresh) and ABORTS on a deletion\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(exit 1, and every later re-run aborts too). It does\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20reindex a MODIFIED file. One OS watch per indexed\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20directory, no polling; respects the same ignore rules as\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20a re-run. docs/LIVE_REINDEXING.md has the measurements.\n\
+         \x20\x20\x20\x20--debounce <MS>      --watch quiet period before a pass (default 400, max\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x2060000). One editor save is several filesystem events.\n\
+         \x20\x20\x20\x20--max-minutes <N>    stop and ask before indexing if phase A's MEASURED estimate\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20is longer than this (default 10; 0 disables the gate;\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20max 10080). See ESTIMATE + DECISION GATE below.\n\
+         \x20\x20\x20\x20--approve <ID>       answer a decision request: proceed | fast | cancel.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20`fast` also applies --no-semantic --no-graph. `narrower`\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20is NOT accepted here — it means re-running against a\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20subdirectory, which this flag cannot do.\n\
+         \x20\x20\x20\x20--yes, -y            alias for --approve proceed\n\
+         \x20\x20\x20\x20--dry-run            walk+sniff+infer, print the plan, index nothing\n\
+         \x20\x20\x20\x20--label <FILE>       label each document at ingest through POST /_decide\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(#1062): the question-set file's noul/choice questions\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20are rendered against each record's fields and the vote\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20stamped on as label + label_p (and label_<id> +\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20label_<id>_p per question). p is the RAW decide\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20confidence - calibration is #1063. One /_decide call\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20per noul (per option, for a choice) per document.\n\
+         \x20\x20\x20\x20--json               machine-readable RESULT on stdout (map: raw catalog docs).\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Orthogonal to --progress, which owns stderr.\n\
+         \x20\x20\x20\x20--progress <MODE>    liveness on stderr: auto|plain|json|none (default auto).\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20auto = live redrawn line when stderr is a terminal,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20otherwise one parseable line per interval. plain and\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20json force that shape everywhere (CI, pipes, agents).\n\
+         \x20\x20\x20\x20--progress-interval <SECS>\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20progress cadence, 1..=3600 (default 1 on a terminal,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x205 otherwise). This is the guaranteed upper bound on\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20silence between phases.\n\
+         \x20\x20\x20\x20--quiet              errors only (implies --progress none). The decision gate\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20NEVER prompts under this flag, even at a terminal — the\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20question would be silenced with everything else. It emits\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20the JSON decision request on stdout and exits 4 instead,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20exactly like an agent-driven run. See ESTIMATE + DECISION\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20GATE.\n\
+         \x20\x20\x20\x20--dataset <SLUG>     (map) show a single dataset\n\
+         \x20\x20\x20\x20--offset <N>         (map) skip the first N dataset detail sections\n\
+         \x20\x20\x20\x20--limit <N>          (map) how many dataset detail sections to print\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(default: all of them when there are few, otherwise\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20the first page — the summary table always lists every\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20dataset)\n\
+         \x20\x20\x20\x20--disable-feedback   do not print the feedback invitation above; honoured in\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20any position, including after --help (env\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20XERJ_DISABLE_FEEDBACK=true)\n\
+         \x20\x20\x20\x20--help, -h           this help\n\
          \n\
          IGNORE RULES:\n\
-             The fastest file is the one that is never read, so junk is dropped during\n\
-             the walk, not after it. Honoured, highest precedence first:\n\
-               .xerjignore  same syntax as .gitignore, XERJ-only. Use it to exclude\n\
-                            something git tracks, or to re-include (!pattern) something\n\
-                            git ignores. Outranks .gitignore at any depth.\n\
-               .gitignore   including nested ones and negation; the closest file wins.\n\
-               .git/info/exclude  per-checkout excludes, including nested checkouts.\n\
-               built-in     {defaults}\n\
-             Both git-owned kinds stop at a repository boundary, exactly as git does:\n\
-             a .gitignore above a nested checkout does not judge files inside it, so\n\
-             vendored and submoduled trees keep their own rules. .xerjignore and the\n\
-             built-in list are XERJ's, not git's, and apply throughout the folder.\n\
-             Your global gitignore (core.excludesFile) is NOT read: a machine-wide\n\
-             preference should not silently decide what is in your index.\n\
-             A directory the rules reject is never descended, so nothing inside it is\n\
-             stat-ed, hashed or sent. Every run prints what was dropped and by which\n\
-             rule; --dry-run additionally counts the non-hidden files inside each\n\
-             pruned directory (bounded — past the budget the count is reported as\n\
-             `at least N`, and xerj-done carries\n\
-             ignored_files_in_pruned_dirs_exact=false to say so).\n\
-             The folder you name is never rejected: if it is itself ignored, it is\n\
-             indexed anyway and the run says which rule it would have matched.\n\
+         \x20\x20\x20\x20The fastest file is the one that is never read, so junk is dropped during\n\
+         \x20\x20\x20\x20the walk, not after it. Honoured, highest precedence first:\n\
+         \x20\x20\x20\x20\x20\x20.xerjignore  same syntax as .gitignore, XERJ-only. Use it to exclude\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20something git tracks, or to re-include (!pattern) something\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20git ignores. Outranks .gitignore at any depth.\n\
+         \x20\x20\x20\x20\x20\x20.gitignore   including nested ones and negation; the closest file wins.\n\
+         \x20\x20\x20\x20\x20\x20.git/info/exclude  per-checkout excludes, including nested checkouts.\n\
+         \x20\x20\x20\x20\x20\x20built-in     {defaults}\n\
+         \x20\x20\x20\x20Both git-owned kinds stop at a repository boundary, exactly as git does:\n\
+         \x20\x20\x20\x20a .gitignore above a nested checkout does not judge files inside it, so\n\
+         \x20\x20\x20\x20vendored and submoduled trees keep their own rules. .xerjignore and the\n\
+         \x20\x20\x20\x20built-in list are XERJ's, not git's, and apply throughout the folder.\n\
+         \x20\x20\x20\x20Your global gitignore (core.excludesFile) is NOT read: a machine-wide\n\
+         \x20\x20\x20\x20preference should not silently decide what is in your index.\n\
+         \x20\x20\x20\x20A directory the rules reject is never descended, so nothing inside it is\n\
+         \x20\x20\x20\x20stat-ed, hashed or sent. Every run prints what was dropped and by which\n\
+         \x20\x20\x20\x20rule; --dry-run additionally counts the non-hidden files inside each\n\
+         \x20\x20\x20\x20pruned directory (bounded — past the budget the count is reported as\n\
+         \x20\x20\x20\x20`at least N`, and xerj-done carries\n\
+         \x20\x20\x20\x20ignored_files_in_pruned_dirs_exact=false to say so).\n\
+         \x20\x20\x20\x20The folder you name is never rejected: if it is itself ignored, it is\n\
+         \x20\x20\x20\x20indexed anyway and the run says which rule it would have matched.\n\
          \n\
          OBJECT STORAGE:\n\
-             `xerj autoindex s3://bucket/prefix` indexes objects instead of files.\n\
-             `r2://bucket/prefix` is the same thing and needs --endpoint-url with the\n\
-             account host. Credentials come from AWS_ACCESS_KEY_ID /\n\
-             AWS_SECRET_ACCESS_KEY (+ AWS_SESSION_TOKEN) in the ENVIRONMENT ONLY — no\n\
-             profile files, no instance metadata, no SSO — and never from the URL.\n\
-             A non-empty prefix is treated as a FOLDER: s3://b/docs lists docs/ and not\n\
-             docs-old/. The effective prefix is printed at the start of the run.\n\
-             CHANGE DETECTION is the object's ETag plus its size, recorded in\n\
-             <state-dir>/object-source.json. The ETag is treated as an opaque token, so\n\
-             a multipart upload's `-N` form is fine and nothing is compared to an MD5.\n\
-             A re-run downloads only what changed; an unchanged prefix downloads nothing.\n\
-             THE BYTES ARE MIRRORED to <state-dir>/object-cache/<bucket-prefix>/ and the\n\
-             ordinary walk runs over that mirror, so extraction sees exactly the bytes it\n\
-             sees for a folder. Budget local disk for the prefix you index. The INDEX\n\
-             still lives on the XERJ node at --url; nothing is written to the bucket.\n\
-             Objects whose keys cannot be a safe local path are skipped and named:\n\
-             `..`, an empty component, a backslash, a control character, a trailing dot\n\
-             or space, a Windows reserved name, and any dot-prefixed component (so a\n\
-             bucket's .env and .git/ stay out of the index, exactly as in a folder).\n\
-             COST: one run costs ceil(objects/1000) class-A LIST requests plus one\n\
-             class-B GET per changed object, and never writes. Counts are BILLED WIRE\n\
-             ATTEMPTS: a request the store throttled and the client retried counts once\n\
-             per attempt, because that is what the store bills. Every run prints what it\n\
-             spent and what running it hourly or every 5 minutes would spend against a\n\
-             1,000,000/month class-A allowance — read that line before adding a cron.\n\
-             A run that fails mid-transfer records the objects it already fetched, so a\n\
-             re-run pays for the rest only — but it re-lists, so the LIST cost recurs.\n\
+         \x20\x20\x20\x20`xerj autoindex s3://bucket/prefix` indexes objects instead of files.\n\
+         \x20\x20\x20\x20`r2://bucket/prefix` is the same thing and needs --endpoint-url with the\n\
+         \x20\x20\x20\x20account host. Credentials come from AWS_ACCESS_KEY_ID /\n\
+         \x20\x20\x20\x20AWS_SECRET_ACCESS_KEY (+ AWS_SESSION_TOKEN) in the ENVIRONMENT ONLY — no\n\
+         \x20\x20\x20\x20profile files, no instance metadata, no SSO — and never from the URL.\n\
+         \x20\x20\x20\x20A non-empty prefix is treated as a FOLDER: s3://b/docs lists docs/ and not\n\
+         \x20\x20\x20\x20docs-old/. The effective prefix is printed at the start of the run.\n\
+         \x20\x20\x20\x20CHANGE DETECTION is the object's ETag plus its size, recorded in\n\
+         \x20\x20\x20\x20<state-dir>/object-source.json. The ETag is treated as an opaque token, so\n\
+         \x20\x20\x20\x20a multipart upload's `-N` form is fine and nothing is compared to an MD5.\n\
+         \x20\x20\x20\x20A re-run downloads only what changed; an unchanged prefix downloads nothing.\n\
+         \x20\x20\x20\x20THE BYTES ARE MIRRORED to <state-dir>/object-cache/<bucket-prefix>/ and the\n\
+         \x20\x20\x20\x20ordinary walk runs over that mirror, so extraction sees exactly the bytes it\n\
+         \x20\x20\x20\x20sees for a folder. Budget local disk for the prefix you index. The INDEX\n\
+         \x20\x20\x20\x20still lives on the XERJ node at --url; nothing is written to the bucket.\n\
+         \x20\x20\x20\x20Objects whose keys cannot be a safe local path are skipped and named:\n\
+         \x20\x20\x20\x20`..`, an empty component, a backslash, a control character, a trailing dot\n\
+         \x20\x20\x20\x20or space, a Windows reserved name, and any dot-prefixed component (so a\n\
+         \x20\x20\x20\x20bucket's .env and .git/ stay out of the index, exactly as in a folder).\n\
+         \x20\x20\x20\x20COST: one run costs ceil(objects/1000) class-A LIST requests plus one\n\
+         \x20\x20\x20\x20class-B GET per changed object, and never writes. Counts are BILLED WIRE\n\
+         \x20\x20\x20\x20ATTEMPTS: a request the store throttled and the client retried counts once\n\
+         \x20\x20\x20\x20per attempt, because that is what the store bills. Every run prints what it\n\
+         \x20\x20\x20\x20spent and what running it hourly or every 5 minutes would spend against a\n\
+         \x20\x20\x20\x201,000,000/month class-A allowance — read that line before adding a cron.\n\
+         \x20\x20\x20\x20A run that fails mid-transfer records the objects it already fetched, so a\n\
+         \x20\x20\x20\x20re-run pays for the rest only — but it re-lists, so the LIST cost recurs.\n\
          \n\
          PDF EXTRACTION:\n\
-             Each PDF uses a fresh process. Limits: 512 MiB input, 32 MiB worker output,\n\
-             100,000 pages, and 1.5 GiB address space on Unix. This is crash/resource\n\
-             isolation, not a security sandbox; non-Unix platforms have no OS memory cap.\n\
-             Image-only pages need OCR. Page parse failures reject the whole PDF instead\n\
-             of silently creating a partial index. XERJ_PDF_WORKER_BIN is a trusted,\n\
-             developer-only executable override.\n\
-             On Linux, fresh runs attempt to retain each validated PDF extraction in\n\
-             bounded anonymous storage under --state-dir. Live admission-time checks\n\
-             attempt to preserve disk and descriptor headroom; refused artifacts are\n\
-             parsed again in phase B and reported under pdf_extraction_reuse. Other\n\
-             platforms currently disable this optimization. Frozen-plan resumes skip\n\
-             phase A and parse unfinished PDFs once.\n\
-             --pdf-workers bounds both phase-A parser processes and phase-B replay\n\
-             materialization; --workers does not widen that PDF memory gate.\n\
+         \x20\x20\x20\x20Each PDF uses a fresh process. Limits: 512 MiB input, 32 MiB worker output,\n\
+         \x20\x20\x20\x20100,000 pages, and 1.5 GiB address space on Unix. This is crash/resource\n\
+         \x20\x20\x20\x20isolation, not a security sandbox; non-Unix platforms have no OS memory cap.\n\
+         \x20\x20\x20\x20Image-only pages need OCR. Page parse failures reject the whole PDF instead\n\
+         \x20\x20\x20\x20of silently creating a partial index. XERJ_PDF_WORKER_BIN is a trusted,\n\
+         \x20\x20\x20\x20developer-only executable override.\n\
+         \x20\x20\x20\x20On Linux, fresh runs attempt to retain each validated PDF extraction in\n\
+         \x20\x20\x20\x20bounded anonymous storage under --state-dir. Live admission-time checks\n\
+         \x20\x20\x20\x20attempt to preserve disk and descriptor headroom; refused artifacts are\n\
+         \x20\x20\x20\x20parsed again in phase B and reported under pdf_extraction_reuse. Other\n\
+         \x20\x20\x20\x20platforms currently disable this optimization. Frozen-plan resumes skip\n\
+         \x20\x20\x20\x20phase A and parse unfinished PDFs once.\n\
+         \x20\x20\x20\x20--pdf-workers bounds both phase-A parser processes and phase-B replay\n\
+         \x20\x20\x20\x20materialization; --workers does not widen that PDF memory gate.\n\
          \n\
          INCREMENTAL RECONCILIATION:\n\
-             Generated journals with --no-graph reconcile added, removed, moved, and changed\n\
-             files. Legacy journals and graph-enabled generations remain fail-closed. Each\n\
-             changed generation currently copies and prepares the full corpus (O(N)); the\n\
-             latest full snapshot remains retained, and cleanup re-reads protected artifacts\n\
-             to verify them. --snapshot-max-gb limits logical staged payload bytes before each\n\
-             write; it is not a physical disk-space or peak-allocation guarantee.\n\
+         \x20\x20\x20\x20Generated journals with --no-graph reconcile added, removed, moved, and changed\n\
+         \x20\x20\x20\x20files. Legacy journals and graph-enabled generations remain fail-closed. Each\n\
+         \x20\x20\x20\x20changed generation currently copies and prepares the full corpus (O(N)); the\n\
+         \x20\x20\x20\x20latest full snapshot remains retained, and cleanup re-reads protected artifacts\n\
+         \x20\x20\x20\x20to verify them. --snapshot-max-gb limits logical staged payload bytes before each\n\
+         \x20\x20\x20\x20write; it is not a physical disk-space or peak-allocation guarantee.\n\
          \n\
          EMBEDDINGS:\n\
-             autoindex sends semantic_text to the running server; it does not choose the\n\
-             server's embedding backend. The default is lexical (not neural). For the\n\
-             experimental ONNX backend, start xerj with `--embed-mode onnx-experimental\n\
-             --onnx-model MODEL.onnx --onnx-tokenizer tokenizer.json`, then run autoindex.\n\
-             ONNX runs only for fields inferred as semantic_text (normally long body text;\n\
-             short/structured datasets may infer none). Use --dry-run or `autoindex map` to\n\
-             confirm a semantic field before attributing an indexing result to embeddings.\n\
+         \x20\x20\x20\x20autoindex sends semantic_text to the running server; it does not choose the\n\
+         \x20\x20\x20\x20server's embedding backend. The default is lexical (not neural). For the\n\
+         \x20\x20\x20\x20experimental ONNX backend, start xerj with `--embed-mode onnx-experimental\n\
+         \x20\x20\x20\x20--onnx-model MODEL.onnx --onnx-tokenizer tokenizer.json`, then run autoindex.\n\
+         \x20\x20\x20\x20ONNX runs only for fields inferred as semantic_text (normally long body text;\n\
+         \x20\x20\x20\x20short/structured datasets may infer none). Use --dry-run or `autoindex map` to\n\
+         \x20\x20\x20\x20confirm a semantic field before attributing an indexing result to embeddings.\n\
          \n\
          PROGRESS STREAM:\n\
-             stdout is the RESULT, stderr is PROGRESS — pipe them separately.\n\
-             Every run that reaches an exit — success OR error — ends with one\n\
-             terminal line, in every progress mode EXCEPT `none` (which --quiet\n\
-             selects), so an outcome never has to be guessed from silence:\n\
-               xerj-done ok=true exit=3 reason=completed-with-junk wall=57.6s …\n\
-             The terminal line also carries code coverage — code_files=N\n\
-             code_files_indexed=M code_files_junked=K — so a corpus whose\n\
-             source files were ALL dropped cannot print the same line as a\n\
-             healthy one. code_files>0 with code_files_indexed=0 is always a\n\
-             defect, and the run says so in words as well.\n\
-             --quiet/--progress none prints no progress and NO terminal line\n\
-             (only a fatal `error:` line, if any) — poll `autoindex status\n\
-             --state-dir <dir>` or read the exit code instead of waiting for\n\
-             output that never comes.\n\
-             (A run killed by a signal cannot print one either; a missing\n\
-             terminal line after the process is gone means it died, not that it\n\
-             finished.)\n\
-             --progress plain writes TWO lines per tick, in one write:\n\
-             xerj-bar [######################--] 93.4% | index | 8082/8083 items | eta 7s\n\
-             xerj-progress phase=index basis=bytes pct=93.4 items=8082/8083 eta_s=7.2 …\n\
-             `xerj-bar` is the DISPLAY line — self-contained, meant to be shown\n\
-             to a person verbatim by whatever is relaying the run. It is spaced\n\
-             at most one per 15s, plus one per phase change and never two closer\n\
-             than 2s, so it does not flood a transcript. Short phases therefore\n\
-             draw fewer bars than transitions — read the machine line for those.\n\
-             `xerj-progress` is the MACHINE line and keeps\n\
-             the --progress-interval cadence; parse that one. --progress json\n\
-             stays one object per line and carries the same rendered string in\n\
-             a `bar` field on the same schedule: a string on the ticks that owe\n\
-             a bar, null in between.\n\
-             Every record is identified by its leading token, and that is\n\
-             enforced: paths and other outside text are stripped of control\n\
-             characters and bounded before they reach any line, so a crafted\n\
-             filename cannot forge a record or repaint your terminal.\n\
-             `pct`/`eta_s` are the literal word `unknown` (JSON null) whenever they\n\
-             cannot be computed honestly, never a filler number — and the drawn\n\
-             bar obeys the same rule: `[????…]` when there is no denominator,\n\
-             and a full bar only at a real 100%.\n\
-             PHASES, in order. Every long step is a phase of its own, so a line\n\
-             that still says `scan` at 100% means scan — not indexing:\n\
-               default (graph) path: walk, hash, scan, prepare, graph, index,\n\
-                 graph-corpus, finalize-refresh, finalize-count,\n\
-                 finalize-correlate, finalize-histogram, finalize-catalog\n\
-               --no-graph path:      walk, hash, scan, prepare (install mappings),\n\
-                 snapshot (seal + extract, bytes), index (sealed bulk bytes, the\n\
-                 in-flight file named), finalize-catalog, finalize-refresh (one\n\
-                 refresh per dataset), finalize-verify (one read-back per\n\
-                 file). A resumed run starts at `replay` and its `index` phase\n\
-                 counts only the operations still to apply.\n\
+         \x20\x20\x20\x20stdout is the RESULT, stderr is PROGRESS — pipe them separately.\n\
+         \x20\x20\x20\x20Every run that reaches an exit — success OR error — ends with one\n\
+         \x20\x20\x20\x20terminal line, in every progress mode EXCEPT `none` (which --quiet\n\
+         \x20\x20\x20\x20selects), so an outcome never has to be guessed from silence:\n\
+         \x20\x20\x20\x20\x20\x20xerj-done ok=true exit=3 reason=completed-with-junk wall=57.6s …\n\
+         \x20\x20\x20\x20The terminal line also carries code coverage — code_files=N\n\
+         \x20\x20\x20\x20code_files_indexed=M code_files_junked=K — so a corpus whose\n\
+         \x20\x20\x20\x20source files were ALL dropped cannot print the same line as a\n\
+         \x20\x20\x20\x20healthy one. code_files>0 with code_files_indexed=0 is always a\n\
+         \x20\x20\x20\x20defect, and the run says so in words as well.\n\
+         \x20\x20\x20\x20--quiet/--progress none prints no progress and NO terminal line\n\
+         \x20\x20\x20\x20(only a fatal `error:` line, if any) — poll `autoindex status\n\
+         \x20\x20\x20\x20--state-dir <dir>` or read the exit code instead of waiting for\n\
+         \x20\x20\x20\x20output that never comes.\n\
+         \x20\x20\x20\x20(A run killed by a signal cannot print one either; a missing\n\
+         \x20\x20\x20\x20terminal line after the process is gone means it died, not that it\n\
+         \x20\x20\x20\x20finished.)\n\
+         \x20\x20\x20\x20--progress plain writes TWO lines per tick, in one write:\n\
+         \x20\x20\x20\x20xerj-bar [######################--] 93.4% | index | 8082/8083 items | eta 7s\n\
+         \x20\x20\x20\x20xerj-progress phase=index basis=bytes pct=93.4 items=8082/8083 eta_s=7.2 …\n\
+         \x20\x20\x20\x20`xerj-bar` is the DISPLAY line — self-contained, meant to be shown\n\
+         \x20\x20\x20\x20to a person verbatim by whatever is relaying the run. It is spaced\n\
+         \x20\x20\x20\x20at most one per 15s, plus one per phase change and never two closer\n\
+         \x20\x20\x20\x20than 2s, so it does not flood a transcript. Short phases therefore\n\
+         \x20\x20\x20\x20draw fewer bars than transitions — read the machine line for those.\n\
+         \x20\x20\x20\x20`xerj-progress` is the MACHINE line and keeps\n\
+         \x20\x20\x20\x20the --progress-interval cadence; parse that one. --progress json\n\
+         \x20\x20\x20\x20stays one object per line and carries the same rendered string in\n\
+         \x20\x20\x20\x20a `bar` field on the same schedule: a string on the ticks that owe\n\
+         \x20\x20\x20\x20a bar, null in between.\n\
+         \x20\x20\x20\x20Every record is identified by its leading token, and that is\n\
+         \x20\x20\x20\x20enforced: paths and other outside text are stripped of control\n\
+         \x20\x20\x20\x20characters and bounded before they reach any line, so a crafted\n\
+         \x20\x20\x20\x20filename cannot forge a record or repaint your terminal.\n\
+         \x20\x20\x20\x20`pct`/`eta_s` are the literal word `unknown` (JSON null) whenever they\n\
+         \x20\x20\x20\x20cannot be computed honestly, never a filler number — and the drawn\n\
+         \x20\x20\x20\x20bar obeys the same rule: `[????…]` when there is no denominator,\n\
+         \x20\x20\x20\x20and a full bar only at a real 100%.\n\
+         \x20\x20\x20\x20PHASES, in order. Every long step is a phase of its own, so a line\n\
+         \x20\x20\x20\x20that still says `scan` at 100% means scan — not indexing:\n\
+         \x20\x20\x20\x20\x20\x20default (graph) path: walk, hash, scan, prepare, graph, index,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20graph-corpus, finalize-refresh, finalize-count,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20finalize-correlate, finalize-histogram, finalize-catalog\n\
+         \x20\x20\x20\x20\x20\x20--no-graph path:      walk, hash, scan, prepare (install mappings),\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20snapshot (seal + extract, bytes), index (sealed bulk bytes, the\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20in-flight file named), finalize-catalog, finalize-refresh (one\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20refresh per dataset), finalize-verify (read-backs batched\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20into per-index digest windows, one search per window). A\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20resumed run starts at `replay` and its `index` phase\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20counts only the operations still to apply.\n\
          \n\
          ESTIMATE + DECISION GATE:\n\
-             Phase A already reads and parses every file to sniff and sample it, so it\n\
-             measures throughput per format family ON THIS MACHINE. autoindex turns that\n\
-             into a RANGE (never one confident number) for the indexing phase and prints\n\
-             the basis with it. Families phase A never read end to end are named and left\n\
-             OUT of the arithmetic instead of being priced at some other family's rate;\n\
-             if nothing could be measured, it says so and does not gate.\n\
-             The range covers CLIENT-SIDE EXTRACTION only — server indexing, embedding\n\
-             and network time are not in it, which is why the gate compares the upper end.\n\
-             If that upper end is longer than --max-minutes and no --approve/--yes was\n\
-             given, nothing is indexed: a JSON decision request goes to stdout and the\n\
-             process exits 4 (a code of its own — 1 is the catch-all for real failures).\n\
-             Answer by re-running the same command with --approve proceed|fast|cancel.\n\
-             A person at a terminal is prompted instead — but ONLY when the question can\n\
-             actually be seen. All three must hold: stdin is a terminal, stderr is a\n\
-             terminal, and the progress surface is on. --quiet / --progress none silences\n\
-             the question, so those runs are never prompted and never wait on stdin; a\n\
-             piped or agent-driven run is not prompted either. Every un-prompted run\n\
-             behaves identically: the JSON decision request goes to stdout (which --quiet\n\
-             does NOT silence) and the process exits 4. The payload's\n\
-             `prompt_not_offered_because` says which of the three was missing.\n\
-             autoindex never waits on stdin for a question it did not print.\n\
+         \x20\x20\x20\x20Phase A already reads and parses every file to sniff and sample it, so it\n\
+         \x20\x20\x20\x20measures throughput per format family ON THIS MACHINE. autoindex turns that\n\
+         \x20\x20\x20\x20into a RANGE (never one confident number) for the indexing phase and prints\n\
+         \x20\x20\x20\x20the basis with it. Families phase A never read end to end are named and left\n\
+         \x20\x20\x20\x20OUT of the arithmetic instead of being priced at some other family's rate;\n\
+         \x20\x20\x20\x20if nothing could be measured, it says so and does not gate.\n\
+         \x20\x20\x20\x20The range covers CLIENT-SIDE EXTRACTION only — server indexing, embedding\n\
+         \x20\x20\x20\x20and network time are not in it, which is why the gate compares the upper end.\n\
+         \x20\x20\x20\x20If that upper end is longer than --max-minutes and no --approve/--yes was\n\
+         \x20\x20\x20\x20given, nothing is indexed: a JSON decision request goes to stdout and the\n\
+         \x20\x20\x20\x20process exits 4 (a code of its own — 1 is the catch-all for real failures).\n\
+         \x20\x20\x20\x20Answer by re-running the same command with --approve proceed|fast|cancel.\n\
+         \x20\x20\x20\x20A person at a terminal is prompted instead — but ONLY when the question can\n\
+         \x20\x20\x20\x20actually be seen. All three must hold: stdin is a terminal, stderr is a\n\
+         \x20\x20\x20\x20terminal, and the progress surface is on. --quiet / --progress none silences\n\
+         \x20\x20\x20\x20the question, so those runs are never prompted and never wait on stdin; a\n\
+         \x20\x20\x20\x20piped or agent-driven run is not prompted either. Every un-prompted run\n\
+         \x20\x20\x20\x20behaves identically: the JSON decision request goes to stdout (which --quiet\n\
+         \x20\x20\x20\x20does NOT silence) and the process exits 4. The payload's\n\
+         \x20\x20\x20\x20`prompt_not_offered_because` says which of the three was missing.\n\
+         \x20\x20\x20\x20autoindex never waits on stdin for a question it did not print.\n\
          \n\
          WORK ORDER:\n\
-             Phase B drains source and documents first, then configuration, then\n\
-             structured data, then logs and line files, and vendored/generated/minified\n\
-             paths last — so stopping early, or searching while it runs, still gives you\n\
-             the files you cared about. Inside a band the biggest file starts first (with\n\
-             several workers it then runs alongside the rest instead of becoming the\n\
-             tail); a single-worker run goes smallest-first instead. One exception: a file\n\
-             so large that it outlasts everything ranked above it starts first whatever\n\
-             band it is in. The full breakdown is printed with the plan.\n\
+         \x20\x20\x20\x20Phase B drains source and documents first, then configuration, then\n\
+         \x20\x20\x20\x20structured data, then logs and line files, and vendored/generated/minified\n\
+         \x20\x20\x20\x20paths last — so stopping early, or searching while it runs, still gives you\n\
+         \x20\x20\x20\x20the files you cared about. Inside a band the biggest file starts first (with\n\
+         \x20\x20\x20\x20several workers it then runs alongside the rest instead of becoming the\n\
+         \x20\x20\x20\x20tail); a single-worker run goes smallest-first instead. One exception: a file\n\
+         \x20\x20\x20\x20so large that it outlasts everything ranked above it starts first whatever\n\
+         \x20\x20\x20\x20band it is in. The full breakdown is printed with the plan.\n\
          \n\
          RESUME POLICY:\n\
-             {resume_policy_help}.\n\
-             On a graph-enabled or pre-generation journal the durable plan supports no-op\n\
-             resume and same-path content replacement. Files added after that plan was frozen\n\
-             are reported as skipped and are not indexed; --fresh rebuilds the plan in place\n\
-             and picks them up. Removing an indexed file is refused there before any remote\n\
-             mutation: its documents are already live and nothing on that path deletes them.\n\
-             Restore the file and rerun, or rebuild — in place by deleting the published\n\
-             indices and the state directory, or isolated under a new --state-dir, --prefix\n\
-             and --brain (or --no-graph), validated before you switch readers.\n\
-             --fresh is not cleanup and is not destination reconciliation: it never removes\n\
-             stale records from the destination, and it is refused outright once a durable\n\
-             corpus generation exists (re-run without it — the generated path reconciles the\n\
-             change incrementally). For an independent rebuild use a new --state-dir and a\n\
-             new --prefix, plus a new --brain when graph is enabled (or --no-graph).\n\
-             Validate before switching readers; explicitly clean the shared\n\
-             autoindex-catalog and old target only after validation.\n\
+         \x20\x20\x20\x20{resume_policy_help}.\n\
+         \x20\x20\x20\x20On a graph-enabled or pre-generation journal the durable plan supports no-op\n\
+         \x20\x20\x20\x20resume and same-path content replacement. Files added after that plan was frozen\n\
+         \x20\x20\x20\x20are reported as skipped and are not indexed; --fresh rebuilds the plan in place\n\
+         \x20\x20\x20\x20and picks them up. Removing an indexed file is refused there before any remote\n\
+         \x20\x20\x20\x20mutation: its documents are already live and nothing on that path deletes them.\n\
+         \x20\x20\x20\x20Restore the file and rerun, or rebuild — in place by deleting the published\n\
+         \x20\x20\x20\x20indices and the state directory, or isolated under a new --state-dir, --prefix\n\
+         \x20\x20\x20\x20and --brain (or --no-graph), validated before you switch readers.\n\
+         \x20\x20\x20\x20--fresh is not cleanup and is not destination reconciliation: it never removes\n\
+         \x20\x20\x20\x20stale records from the destination, and it is refused outright once a durable\n\
+         \x20\x20\x20\x20corpus generation exists (re-run without it — the generated path reconciles the\n\
+         \x20\x20\x20\x20change incrementally). For an independent rebuild use a new --state-dir and a\n\
+         \x20\x20\x20\x20new --prefix, plus a new --brain when graph is enabled (or --no-graph).\n\
+         \x20\x20\x20\x20Validate before switching readers; explicitly clean the shared\n\
+         \x20\x20\x20\x20autoindex-catalog and old target only after validation.\n\
          \n\
          WATCH (OBJECT STORAGE):\n\
-             `xerj autoindex s3://<bucket>/<prefix> --watch` polls the bucket with\n\
-             ListObjectsV2 and emits one JSON event per changed object (added / changed /\n\
-             deleted) on stdout, or to --events-out. It does NOT index: pipe the feed into\n\
-             the indexer. Deletes are detected only by a full scan (not --append-only).\n\
-             A bucket has no inotify, so this is polling, and polling costs money:\n\
-             ListObjectsV2 is a CLASS A operation, one call per page (--page-size keys,\n\
-             1,000 by default and at most), EVERY cycle,\n\
-             whether anything changed or not. Cloudflare R2's free tier is 1,000,000\n\
-             Class A operations a month, which is ~23 per minute for the whole account:\n\
-                 objects   list calls/cycle   every 60s      every 300s (default)\n\
-                 1,000     1                  43,200/mo      8,640/mo\n\
-                 10,000    10                 432,000/mo     86,400/mo\n\
-                 100,000   100                4,320,000/mo   864,000/mo\n\
-                 1,000,000 1,000              43,200,000/mo  8,640,000/mo\n\
-             The default interval is {default_poll}s and the default budget is\n\
-             {default_budget} Class A and {default_gets} Class B operations a month (20% of each\n\
-             free tier, because the rest of the account spends from it too). The budget is a\n\
-             CIRCUIT BREAKER, checked on every cycle: a projection over budget (also when the\n\
-             bucket grows mid-watch), or a month whose budget is spent (counted across\n\
-             restarts in <state-dir>/objwatch-spend.json), STOPS the watch with exit 4 and a\n\
-             decision request. --allow-cost accepts the spend, --append-only makes a growing\n\
-             key space cost one call per cycle, and a narrower prefix is free.\n\
-             --poll-interval <secs>   seconds between cycles (default {default_poll}, max {max_poll})\n\
-             --once / --max-cycles N  stop after one / N cycles\n\
-             --no-fetch               metadata-only: compare ETag+size+mtime, never GET\n\
-             --append-only            list only keys above the highest one seen (start-after):\n\
-                                      one list call per cycle, and NO delete or older-key\n\
-                                      change detection — opt in only for an append-only\n\
-                                      key space such as date-partitioned logs\n\
-             --dry-run                one cycle, no GETs, nothing emitted, no journal: price\n\
-                                      the poll. The listing itself is real and IS billed\n\
-                                      (ceil(keys/page-size) Class A ops, on the ledger)\n\
-             --endpoint-url <URL>     S3 endpoint (else AWS_ENDPOINT_URL). R2:\n\
-                                      https://<account>.r2.cloudflarestorage.com\n\
-             --region <R>             signing region (else AWS_REGION, else auto)\n\
-             --max-object-mb <N>      byte cap per fetched object (default 64)\n\
-             --max-monthly-ops <N>    Class A budget per month (default {default_budget})\n\
-             --max-monthly-gets <N>   Class B (GET) budget per month (default {default_gets})\n\
-             --allow-cost             proceed although the projection is over budget\n\
-             --page-size <N>          keys per list call (default 1000, the API maximum)\n\
-             --events-out <PATH>      write the JSONL change feed here instead of stdout\n\
-             --status-file <PATH>     running counts an operator can read (default\n\
-                                      <state-dir>/objwatch-status.json)\n\
-             Credentials come from the environment only: AWS_ACCESS_KEY_ID,\n\
-             AWS_SECRET_ACCESS_KEY, optionally AWS_SESSION_TOKEN. Never from a flag.\n\
+         \x20\x20\x20\x20`xerj autoindex s3://<bucket>/<prefix> --watch` polls the bucket with\n\
+         \x20\x20\x20\x20ListObjectsV2 and emits one JSON event per changed object (added / changed /\n\
+         \x20\x20\x20\x20deleted) on stdout, or to --events-out. It does NOT index: pipe the feed into\n\
+         \x20\x20\x20\x20the indexer. Deletes are detected only by a full scan (not --append-only).\n\
+         \x20\x20\x20\x20A bucket has no inotify, so this is polling, and polling costs money:\n\
+         \x20\x20\x20\x20ListObjectsV2 is a CLASS A operation, one call per page (--page-size keys,\n\
+         \x20\x20\x20\x201,000 by default and at most), EVERY cycle,\n\
+         \x20\x20\x20\x20whether anything changed or not. Cloudflare R2's free tier is 1,000,000\n\
+         \x20\x20\x20\x20Class A operations a month, which is ~23 per minute for the whole account:\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20objects   list calls/cycle   every 60s      every 300s (default)\n\
+         \x20\x20\x20\x20\x20\x20\x20\x201,000     1                  43,200/mo      8,640/mo\n\
+         \x20\x20\x20\x20\x20\x20\x20\x2010,000    10                 432,000/mo     86,400/mo\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20100,000   100                4,320,000/mo   864,000/mo\n\
+         \x20\x20\x20\x20\x20\x20\x20\x201,000,000 1,000              43,200,000/mo  8,640,000/mo\n\
+         \x20\x20\x20\x20The default interval is {default_poll}s and the default budget is\n\
+         \x20\x20\x20\x20{default_budget} Class A and {default_gets} Class B operations a month (20% of each\n\
+         \x20\x20\x20\x20free tier, because the rest of the account spends from it too). The budget is a\n\
+         \x20\x20\x20\x20CIRCUIT BREAKER, checked on every cycle: a projection over budget (also when the\n\
+         \x20\x20\x20\x20bucket grows mid-watch), or a month whose budget is spent (counted across\n\
+         \x20\x20\x20\x20restarts in <state-dir>/objwatch-spend.json), STOPS the watch with exit 4 and a\n\
+         \x20\x20\x20\x20decision request. --allow-cost accepts the spend, --append-only makes a growing\n\
+         \x20\x20\x20\x20key space cost one call per cycle, and a narrower prefix is free.\n\
+         \x20\x20\x20\x20--poll-interval <secs>   seconds between cycles (default {default_poll}, max {max_poll})\n\
+         \x20\x20\x20\x20--once / --max-cycles N  stop after one / N cycles\n\
+         \x20\x20\x20\x20--no-fetch               metadata-only: compare ETag+size+mtime, never GET\n\
+         \x20\x20\x20\x20--append-only            list only keys above the highest one seen (start-after):\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20one list call per cycle, and NO delete or older-key\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20change detection — opt in only for an append-only\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20key space such as date-partitioned logs\n\
+         \x20\x20\x20\x20--dry-run                one cycle, no GETs, nothing emitted, no journal: price\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20the poll. The listing itself is real and IS billed\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(ceil(keys/page-size) Class A ops, on the ledger)\n\
+         \x20\x20\x20\x20--endpoint-url <URL>     S3 endpoint (else AWS_ENDPOINT_URL). R2:\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20https://<account>.r2.cloudflarestorage.com\n\
+         \x20\x20\x20\x20--region <R>             signing region (else AWS_REGION, else auto)\n\
+         \x20\x20\x20\x20--max-object-mb <N>      byte cap per fetched object (default 64)\n\
+         \x20\x20\x20\x20--max-monthly-ops <N>    Class A budget per month (default {default_budget})\n\
+         \x20\x20\x20\x20--max-monthly-gets <N>   Class B (GET) budget per month (default {default_gets})\n\
+         \x20\x20\x20\x20--allow-cost             proceed although the projection is over budget\n\
+         \x20\x20\x20\x20--page-size <N>          keys per list call (default 1000, the API maximum)\n\
+         \x20\x20\x20\x20--events-out <PATH>      write the JSONL change feed here instead of stdout\n\
+         \x20\x20\x20\x20--status-file <PATH>     running counts an operator can read (default\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20<state-dir>/objwatch-status.json)\n\
+         \x20\x20\x20\x20Credentials come from the environment only: AWS_ACCESS_KEY_ID,\n\
+         \x20\x20\x20\x20AWS_SECRET_ACCESS_KEY, optionally AWS_SESSION_TOKEN. Never from a flag.\n\
          \n\
          EXIT CODES: 0 complete (also: gate answered with --approve cancel);\n\
-                     3 completed-with-junk (junk recorded, never fatal) — this\n\
-                       includes a dataset whose mapping the server REFUSED: its\n\
-                       files are recorded as junk with the server's reason, the\n\
-                       xerj-done line carries datasets_refused / files_refused,\n\
-                       and every other dataset is indexed; or\n\
-                       catalog-alias-sweep-failed — the corpus IS indexed and the\n\
-                       journal committed; only the catalog's duplicate-alias cleanup\n\
-                       could not run. Read `reason` on the xerj-done line to tell the\n\
-                       two apart, and rerun the same command once the reported server\n\
-                       condition clears;\n\
-                     4 NEEDS A DECISION — the estimate exceeded --max-minutes, or a\n\
-                       --watch poll cost more than --max-monthly-ops; nothing was\n\
-                       indexed and a JSON decision request is on stdout;\n\
-                     2 usage; 1 endpoint/journal failure, a refused corpus removal, or a\n\
-                     refused unsafe state transition\n",
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x203 completed-with-junk (junk recorded, never fatal) — this\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20includes a dataset whose mapping the server REFUSED: its\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20files are recorded as junk with the server's reason, the\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20xerj-done line carries datasets_refused / files_refused,\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20and every other dataset is indexed; or\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20catalog-alias-sweep-failed — the corpus IS indexed and the\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20journal committed; only the catalog's duplicate-alias cleanup\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20could not run. Read `reason` on the xerj-done line to tell the\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20two apart, and rerun the same command once the reported server\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20condition clears. ok=true with exit=3 is success: the next\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20line is a xerj-note that says so (--progress json sets\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20exit_meaning on the done object);\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x204 NEEDS A DECISION — the estimate exceeded --max-minutes, or a\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20--watch poll cost more than --max-monthly-ops; nothing was\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20indexed and a JSON decision request is on stdout;\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x202 usage; 1 endpoint/journal failure, a refused corpus removal, or a\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20refused unsafe state transition\n",
         feedback_block = xerj_common::feedback::block(feedback),
         default_poll = crate::objwatch::cost::DEFAULT_POLL_INTERVAL_SECS,
         default_budget = crate::objwatch::cost::DEFAULT_MAX_MONTHLY_CLASS_A,
@@ -627,6 +668,34 @@ pub(crate) fn xerj_url_ignored_note(xerj_url: Option<&str>, url_explicit: bool) 
     ))
 }
 
+/// Normalise one of the mutually-exclusive `--max-file-{gb,mb,bytes}` flags
+/// into the shared byte cap (#1233). `unit` is bytes-per-unit (1<<30 for GB,
+/// 1<<20 for MB, 1 for bytes). The flags are mutually exclusive: a second one
+/// is a hard usage error, not last-wins, so a resumed generation can never
+/// disagree with itself about the cap. Parsing as `u64` rejects negatives and
+/// non-numbers with the actionable exit-2 error the reporter saw; the multiply
+/// is overflow-checked.
+fn set_max_file_bytes(
+    slot: &mut Option<u64>,
+    flag: &str,
+    raw: Option<String>,
+    unit: u64,
+) -> Result<(), String> {
+    if slot.is_some() {
+        return Err(
+            "specify only one of --max-file-gb / --max-file-mb / --max-file-bytes".to_owned(),
+        );
+    }
+    let n: u64 = raw
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(|| format!("{flag} needs a non-negative integer"))?;
+    let bytes = n
+        .checked_mul(unit)
+        .ok_or_else(|| format!("{flag} value is too large"))?;
+    *slot = Some(bytes);
+    Ok(())
+}
+
 pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut it = args.into_iter().peekable();
     let mut folder: Option<PathBuf> = None;
@@ -654,6 +723,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut snapshot_max_bytes = 64u64 << 30;
     let mut bulk_timeout_explicit = false;
     let mut prefix = "ax".to_string();
+    let mut prefix_explicit = false;
     let mut state_dir: Option<PathBuf> = None;
     let mut endpoint_url: Option<String> = None;
     let mut endpoint_explicit = false;
@@ -663,9 +733,13 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut stub_globs: Vec<String> = Vec::new();
     let mut no_ignore = false;
     let mut no_default_ignores = false;
-    let mut max_file_gb = 2u64;
+    // One of --max-file-gb / --max-file-mb / --max-file-bytes sets this, all
+    // normalised to bytes; `None` until one is seen so a second size flag is a
+    // hard error and the default (2 GB) applies only when none is given (#1233).
+    let mut max_file_bytes: Option<u64> = None;
     let mut sample = 500usize;
     let mut no_semantic = false;
+    let mut code_analyzer = crate::infer::CodeAnalyzer::default();
     let mut brain: Option<String> = None;
     let mut no_graph = false;
     let mut watch = false;
@@ -680,6 +754,8 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut progress: Option<ProgressMode> = None;
     let mut progress_interval: Option<Duration> = None;
     let mut dataset: Option<String> = None;
+    let mut detail_offset: Option<usize> = None;
+    let mut detail_limit: Option<usize> = None;
     // Object-storage watch (`--watch` on an s3:// root). Kept in their own
     // variables so the watch route can refuse an index-only flag instead of
     // accepting it and doing nothing with it (#204's class).
@@ -778,7 +854,10 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             "--in-flight" => {
                 let _ = it.next(); // reserved (bulks are worker-synchronous in v1)
             }
-            "--prefix" => prefix = it.next().ok_or("--prefix needs a value")?,
+            "--prefix" => {
+                prefix = it.next().ok_or("--prefix needs a value")?;
+                prefix_explicit = true;
+            }
             "--state-dir" => state_dir = it.next().map(PathBuf::from),
             "--endpoint-url" => {
                 let value = it.next().ok_or(
@@ -811,10 +890,13 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             "--no-ignore" => no_ignore = true,
             "--no-default-ignores" => no_default_ignores = true,
             "--max-file-gb" => {
-                max_file_gb = it
-                    .next()
-                    .and_then(|s| s.parse().ok())
-                    .ok_or("--max-file-gb needs a number")?
+                set_max_file_bytes(&mut max_file_bytes, "--max-file-gb", it.next(), 1u64 << 30)?
+            }
+            "--max-file-mb" => {
+                set_max_file_bytes(&mut max_file_bytes, "--max-file-mb", it.next(), 1u64 << 20)?
+            }
+            "--max-file-bytes" => {
+                set_max_file_bytes(&mut max_file_bytes, "--max-file-bytes", it.next(), 1)?
             }
             "--sample" => {
                 sample = it
@@ -898,6 +980,12 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             "--dry-run" => dry_run = true,
             "--json" => json = true,
             "--md" => json = false,
+            "--code-analyzer" => {
+                let raw = it
+                    .next()
+                    .ok_or("--code-analyzer needs a value: standard or code")?;
+                code_analyzer = crate::infer::CodeAnalyzer::parse(&raw)?;
+            }
             "--progress" => {
                 let raw = it
                     .next()
@@ -918,7 +1006,31 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 progress_interval = Some(Duration::from_secs(secs));
             }
             "--quiet" => quiet = true,
-            "--dataset" => dataset = it.next(),
+            "--dataset" => {
+                dataset =
+                    Some(it.next().ok_or(
+                        "--dataset needs a dataset slug: `autoindex map --dataset <SLUG>`",
+                    )?);
+            }
+            "--offset" => {
+                let n: usize = it
+                    .next()
+                    .ok_or("--offset needs a non-negative integer: `autoindex map --offset <N>`")?
+                    .parse()
+                    .map_err(|_| "--offset needs a non-negative integer".to_string())?;
+                detail_offset = Some(n);
+            }
+            "--limit" => {
+                let n: usize = it
+                    .next()
+                    .ok_or("--limit needs an integer from 1 to 100: `autoindex map --limit <N>`")?
+                    .parse()
+                    .map_err(|_| "--limit needs an integer from 1 to 100".to_string())?;
+                if !(1..=100).contains(&n) {
+                    return Err("--limit must be from 1 to 100".into());
+                }
+                detail_limit = Some(n);
+            }
             "--poll-interval" => {
                 watch_flags_used.push("--poll-interval");
                 let secs: u64 = it
@@ -1014,6 +1126,21 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             other if !other.starts_with('-') && folder.is_none() && sub.is_none() => {
                 root_raw = Some(other.to_string());
                 folder = Some(PathBuf::from(other))
+            }
+            // #1586: a second positional folder is not an "unknown argument".
+            // Say what the command does (one folder per run) and show the
+            // two-run form with a distinct --prefix, so an agent that read
+            // "unknown argument: repoB" does not conclude repoA was refused.
+            other if !other.starts_with('-') && folder.is_some() && sub.is_none() => {
+                let first = folder
+                    .as_ref()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_default();
+                return Err(format!(
+                    "takes one folder per run, got two: `{first}` and `{other}`; index each \
+                     folder in its own run with a distinct --prefix, e.g. `xerj autoindex \
+                     {first} --prefix <name-a>` then `xerj autoindex {other} --prefix <name-b>`"
+                ));
             }
             other => return Err(format!("unknown argument: {other}")),
         }
@@ -1181,7 +1308,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     // we are talking to a server on this machine, and sending it anywhere else
     // would leak a credential to a host it does not belong to.
     if api_key.is_none() && url_is_loopback(&url) {
-        if let Some((key, path)) = discover_local_admin_key() {
+        if let Some((key, path)) = discover_local_admin_key_for_url(&url) {
             // Announced, never silent: a blind onboarding run found this
             // fallback made success depend on the working directory, because
             // `./data/admin.key` is resolved relative to cwd. Saying which
@@ -1234,16 +1361,42 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     // `all_four_routes_through_the_positional_argument_stay_open` in this
     // file's tests is the guard. It is one test on purpose: three separate
     // ones would each keep passing while a merge broke the other two.
+    let used_watch_flags = || {
+        let mut u = watch_flags_used.clone();
+        u.sort_unstable();
+        u.dedup();
+        u.join(" ")
+    };
     if !watch && !watch_flags_used.is_empty() {
-        let used = {
-            let mut u = watch_flags_used.clone();
-            u.sort_unstable();
-            u.dedup();
-            u.join(" ")
-        };
+        let used = used_watch_flags();
         return Err(format!(
             "{used} only apply to a watch. Add --watch, or drop them"
         ));
+    }
+    // These flags configure the object-storage poll (`WatchCfg`); the folder
+    // watcher (#967) has no field for any of them, so accepting them on a
+    // folder root was the accept-and-ignore class (#279): `<folder> --watch
+    // --no-graph --once` committed a generation and then kept watching. A
+    // subcommand, or a missing root, keeps the refusal its own route gives.
+    if watch
+        && !watch_flags_used.is_empty()
+        && sub.is_none()
+        && root_raw.is_some()
+        && !root_is_object_url
+    {
+        let used = used_watch_flags();
+        return Err(format!(
+            "{used} configure an object-storage watch (`s3://…` or `r2://…` with --watch); a \
+             folder --watch reindexes on change until it is stopped, and its only knob is \
+             --debounce. Drop them"
+        ));
+    }
+    if watch && root_is_object_url && debounce_ms.is_some() {
+        return Err(
+            "--debounce is the folder watcher's quiet period; an object-storage watch polls on \
+             a schedule instead. Use --poll-interval"
+                .into(),
+        );
     }
     // `--watch` on a LOCAL root is #967's live-reindexing route, which landed
     // on main while this branch was open. This is where the branch used to
@@ -1304,6 +1457,16 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             return Err(
                 "--label labels documents at ingest time; an object-storage watch indexes nothing \
                  and never reads document bytes. Drop --label"
+                    .into(),
+            );
+        }
+        if dataset.is_some() {
+            // #1231: same accept-and-ignore class — --dataset only selects which
+            // dataset `autoindex map` prints and has no meaning for a watch.
+            return Err(
+                "--dataset selects a single dataset to show and is only supported with `autoindex \
+                 map`; an object-storage watch produces a change feed and reads no catalog. Drop \
+                 --dataset"
                     .into(),
             );
         }
@@ -1398,11 +1561,31 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
         (Some("map"), _) => Ok(Cmd::Map(MapCfg {
             url,
             api_key,
-            prefix,
+            prefix: prefix_explicit.then_some(prefix),
             json,
             dataset,
+            detail_offset: detail_offset.unwrap_or(0),
+            detail_limit,
             xerj_url_note,
         })),
+        (_, _) if detail_offset.is_some() || detail_limit.is_some() => Err(format!(
+            "--offset and --limit page the data map and are only supported with \
+             `autoindex map`, not `autoindex {}`",
+            sub.as_deref().unwrap_or("<root>")
+        )),
+        // #1231: --dataset only selects which dataset `autoindex map` prints;
+        // it is NOT an indexing destination filter. Accepting it on the
+        // indexing/status routes and then dropping it is the silent no-op this
+        // repo refuses (#204, #279): the operator reads it as an explicit
+        // destination restriction and gets an unrestricted run instead. Only
+        // `map` reaches here with dataset still unconsumed.
+        (_, _) if dataset.is_some() => Err(format!(
+            "--dataset selects a single dataset to show and is only supported with \
+             `autoindex map`, not `autoindex {}`: it does not restrict where indexing \
+             writes. To inspect one dataset run `autoindex map --dataset <SLUG>`; to \
+             index, drop --dataset",
+            sub.as_deref().unwrap_or("<root>")
+        )),
         (Some("status"), _) if bulk_timeout_explicit => {
             Err("--bulk-timeout-secs applies only to indexing, not `autoindex status`".into())
         }
@@ -1464,9 +1647,10 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                     // directory; a real run's whole point is not touching it.
                     deep_count: dry_run,
                 },
-                max_file_gb,
+                max_file_bytes: max_file_bytes.unwrap_or(2u64 << 30),
                 sample: sample.max(50),
                 no_semantic,
+                code_analyzer,
                 brain,
                 no_graph,
                 dry_run,
@@ -1481,6 +1665,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 debounce: Duration::from_millis(
                     debounce_ms.unwrap_or(crate::watch::DEFAULT_DEBOUNCE_MS),
                 ),
+                exclude_rels: Vec::new(),
             })))
         }
         _ => Ok(Cmd::Help),
@@ -1748,6 +1933,41 @@ mod tests {
         assert!(err(&["s3://logs/", "--watch", "--endpoint-url", "ftp://x"]).contains("http://"));
     }
 
+    /// Each watch route takes only the flags it reads. The object poll's knobs
+    /// have no field on the folder watcher, and `--debounce` has none on the
+    /// poll, so either one on the wrong route is refused rather than accepted
+    /// and ignored (#279). Before this, `data --watch --no-graph --once`
+    /// indexed once and then kept watching until it was killed.
+    #[test]
+    fn watch_flags_are_refused_on_the_route_that_cannot_read_them() {
+        for flags in [
+            &["--once"][..],
+            &["--max-cycles", "3"],
+            &["--poll-interval", "60"],
+            &["--events-out", "events.jsonl"],
+            &["--status-file", "status.json"],
+            &["--no-fetch"],
+        ] {
+            let mut args = vec!["data", "--watch", "--no-graph"];
+            args.extend_from_slice(flags);
+            let e = err(&args);
+            assert!(e.contains(flags[0]), "{flags:?}: {e}");
+            assert!(e.contains("object-storage watch"), "{flags:?}: {e}");
+        }
+        let e = err(&["s3://logs/", "--watch", "--debounce", "500"]);
+        assert!(e.contains("--poll-interval"), "{e}");
+
+        // The flags still reach the route that reads them.
+        assert_eq!(
+            watch(&["s3://logs/", "--watch", "--once"]).max_cycles,
+            Some(1)
+        );
+        let local = index(&["data", "--watch", "--no-graph", "--debounce", "500"]);
+        assert_eq!(local.debounce, std::time::Duration::from_millis(500));
+        // And without --watch, the existing refusal still names --watch.
+        assert!(err(&["data", "--once"]).contains("Add --watch"));
+    }
+
     #[test]
     fn contradictory_and_out_of_range_watch_flags_are_refused() {
         assert!(err(&["s3://b/", "--watch", "--once", "--max-cycles", "3"]).contains("contradict"));
@@ -1920,6 +2140,50 @@ mod tests {
             )
             .is_err());
         }
+    }
+
+    /// #1233: the whole-file cap must be expressible below 1 GB. `--max-file-gb`
+    /// stays the whole-GB flag (default 2 GB), and `--max-file-mb` /
+    /// `--max-file-bytes` reach the sub-GB range a source watcher needs. All
+    /// three normalise to the same `max_file_bytes`.
+    #[test]
+    fn max_file_cap_defaults_to_2gb_and_accepts_mb_and_bytes() {
+        assert_eq!(index(&["data"]).max_file_bytes, 2u64 << 30);
+        assert_eq!(
+            index(&["data", "--max-file-gb", "5"]).max_file_bytes,
+            5u64 << 30
+        );
+        // The exact case the reporter could not express: a 10 MB source budget.
+        assert_eq!(
+            index(&["data", "--max-file-mb", "10"]).max_file_bytes,
+            10u64 << 20
+        );
+        assert_eq!(
+            index(&["data", "--max-file-bytes", "4096"]).max_file_bytes,
+            4096
+        );
+    }
+
+    /// Malformed, negative and overflowing values are refused with an
+    /// actionable usage error (#1233); the three size flags are mutually
+    /// exclusive so a resumed generation can never disagree with itself.
+    #[test]
+    fn max_file_cap_rejects_bad_values_and_double_specification() {
+        // Non-numeric and negative both fail the u64 parse with the actionable
+        // message (negatives are the exit-2 the reporter saw, kept actionable).
+        assert!(err(&["data", "--max-file-mb", "ten"])
+            .contains("--max-file-mb needs a non-negative integer"));
+        assert!(err(&["data", "--max-file-gb", "-1"])
+            .contains("--max-file-gb needs a non-negative integer"));
+        assert!(
+            err(&["data", "--max-file-gb"]).contains("--max-file-gb needs a non-negative integer")
+        );
+        // Overflow of the unit multiply is caught, not wrapped.
+        assert!(err(&["data", "--max-file-gb", "18446744073709551615"])
+            .contains("--max-file-gb value is too large"));
+        // Mutually exclusive: a second size flag is a hard error, not last-wins.
+        assert!(err(&["data", "--max-file-gb", "1", "--max-file-mb", "10"])
+            .contains("specify only one of --max-file-gb / --max-file-mb / --max-file-bytes"));
     }
 
     #[test]
@@ -2096,6 +2360,33 @@ mod tests {
         );
     }
 
+    /// #1198: `--code-analyzer` defaults to `standard`, takes `code`, and
+    /// refuses anything else by name instead of silently falling back.
+    #[test]
+    fn code_analyzer_flag_parses_and_refuses_unknown_values() {
+        assert_eq!(
+            index(&["data"]).code_analyzer,
+            crate::infer::CodeAnalyzer::Standard
+        );
+        assert_eq!(
+            index(&["data", "--code-analyzer", "code"]).code_analyzer,
+            crate::infer::CodeAnalyzer::Code
+        );
+        assert_eq!(
+            index(&["data", "--code-analyzer", "standard"]).code_analyzer,
+            crate::infer::CodeAnalyzer::Standard
+        );
+        for args in [
+            vec!["data", "--code-analyzer"],
+            vec!["data", "--code-analyzer", "stemmer"],
+        ] {
+            let rendered = args.join(" ");
+            let err = parse(args.into_iter().map(str::to_string).collect())
+                .expect_err(&format!("`{rendered}` must be refused"));
+            assert!(err.contains("--code-analyzer"), "{err}");
+        }
+    }
+
     /// `--approve fast` is an instruction, not a label: the run must really
     /// drop semantic fields and edges. Accepting it and indexing everything
     /// anyway is the #204 defect class.
@@ -2214,6 +2505,34 @@ mod tests {
         ] {
             assert!(help.contains(expected), "help is missing {expected:?}");
         }
+    }
+
+    /// A `\` at the end of a help line used to eat the next line's indent, so
+    /// `--limit`'s wrap started at column 0. The wrap stays under the
+    /// description.
+    #[test]
+    fn help_keeps_the_indent_of_a_wrapped_flag_line() {
+        let help = super::help_text_with(false);
+        let lines: Vec<&str> = help.lines().collect();
+        let limit = lines
+            .iter()
+            .position(|l| l.contains("--limit <N>"))
+            .expect("--limit must be documented");
+        let wrap = lines[limit + 1];
+        assert!(
+            wrap.starts_with(' '),
+            "the --limit wrap lost its indent: {wrap:?}"
+        );
+        assert!(
+            wrap.contains("default: all of them"),
+            "expected the --limit description wrap, got {wrap:?}"
+        );
+        let flag_col = lines[limit].find("--limit").unwrap();
+        let wrap_col = wrap.find("default:").unwrap();
+        assert!(
+            wrap_col > flag_col,
+            "wrap column {wrap_col} should sit past the flag at {flag_col}"
+        );
     }
 
     /// The invitation is on by default and near the top — at the bottom of a
@@ -2352,6 +2671,31 @@ mod tests {
         }
     }
 
+    /// #1586: a second positional folder used to fall through to
+    /// `unknown argument: repoB`, which reads as if the first folder were
+    /// refused and says nothing about how to index both. The refusal must
+    /// name both folders and show the one-run-per-folder form with `--prefix`.
+    #[test]
+    fn a_second_folder_says_one_folder_per_run_and_shows_the_two_run_form() {
+        let text = err(&["repoA", "repoB"]);
+        assert!(
+            text.contains("takes one folder per run"),
+            "the refusal must say the constraint: {text}"
+        );
+        assert!(
+            text.contains("`repoA`") && text.contains("`repoB`"),
+            "the refusal must name both folders: {text}"
+        );
+        assert!(
+            text.contains("--prefix"),
+            "the refusal must show the one-run-per-folder form: {text}"
+        );
+        assert!(
+            !text.contains("unknown argument"),
+            "a folder is not an unknown argument: {text}"
+        );
+    }
+
     /// A flag that cannot change anything is refused rather than accepted and
     /// quietly dropped (#204's class).
     #[test]
@@ -2407,6 +2751,8 @@ mod tests {
     }
 
     // ─── local admin-key discovery ──────────────────────────────────────
+
+    use xerj_common::localauth::{discover_local_admin_key, discover_local_admin_key_for_url};
 
     /// `url_is_loopback` decides whether a credential read off this machine's
     /// disk is put on the wire, so a false positive is a credential leak, not
@@ -2555,32 +2901,46 @@ mod tests {
     #[test]
     fn discovery_walks_the_candidates_in_order_and_trims_the_key() {
         let sandbox = Sandbox::new();
-        assert_eq!(super::discover_local_admin_key(), None, "nothing to find");
+        assert_eq!(discover_local_admin_key(), None, "nothing to find");
 
         // Weakest candidate first, then override it one rung at a time.
         sandbox.write("home/.xerj/admin.key", "home-key\n");
         assert_eq!(
-            super::discover_local_admin_key().map(|(k, _)| k).as_deref(),
+            discover_local_admin_key().map(|(k, _)| k).as_deref(),
             Some("home-key")
+        );
+
+        sandbox.write("home/xerj-data/admin.key", "llms-home-key\n");
+        assert_eq!(
+            discover_local_admin_key().map(|(k, _)| k).as_deref(),
+            Some("llms-home-key"),
+            "~/xerj-data is the data dir llms.txt tells an agent to start"
         );
 
         sandbox.write("home/.xerj/brain/admin.key", "  brain-key \t\r\n");
         assert_eq!(
-            super::discover_local_admin_key().map(|(k, _)| k).as_deref(),
+            discover_local_admin_key().map(|(k, _)| k).as_deref(),
             Some("brain-key"),
             "the brain data dir outranks the bare ~/.xerj key, and is trimmed"
         );
 
         sandbox.write("xerj-data/admin.key", "xerj-data-key\n");
         assert_eq!(
-            super::discover_local_admin_key().map(|(k, _)| k).as_deref(),
+            discover_local_admin_key().map(|(k, _)| k).as_deref(),
             Some("xerj-data-key"),
             "a data dir in the working directory outranks anything in $HOME"
         );
 
+        sandbox.write(".xerj-data/admin.key", "dot-data-key\n");
+        assert_eq!(
+            discover_local_admin_key().map(|(k, _)| k).as_deref(),
+            Some("dot-data-key"),
+            "./.xerj-data is the directory the search/def start hint names"
+        );
+
         sandbox.write("data/admin.key", "\ndata-key\n");
         assert_eq!(
-            super::discover_local_admin_key().map(|(k, _)| k).as_deref(),
+            discover_local_admin_key().map(|(k, _)| k).as_deref(),
             Some("data-key"),
             "./data is the quickstart's own path and wins outright"
         );
@@ -2595,17 +2955,59 @@ mod tests {
         sandbox.write("data/admin.key", "   \n\t\n");
         sandbox.write("xerj-data/admin.key", "");
         assert_eq!(
-            super::discover_local_admin_key(),
+            discover_local_admin_key(),
             None,
             "whitespace-only and zero-byte files are not credentials"
         );
 
         sandbox.write("home/.xerj/admin.key", "real-key\n");
         assert_eq!(
-            super::discover_local_admin_key().map(|(k, _)| k).as_deref(),
+            discover_local_admin_key().map(|(k, _)| k).as_deref(),
             Some("real-key"),
             "an empty candidate must be skipped over, not stop the search"
         );
+    }
+
+    /// The server writes `~/.xerj/by-port/<port>` with the path of that
+    /// listener's admin.key. That pointer outranks a leftover `./data` key,
+    /// and a different port does not read it.
+    #[test]
+    fn a_port_pointer_names_the_key_for_that_listener() {
+        let sandbox = Sandbox::new();
+        sandbox.write("data/admin.key", "cwd-key\n");
+        sandbox.write("elsewhere/admin.key", "port-key\n");
+        let abs = sandbox.dir.path().join("elsewhere/admin.key");
+        xerj_common::localauth::publish_admin_key_for_port(9200, &abs).unwrap();
+        let (key, _) = discover_local_admin_key_for_url("http://localhost:9200").unwrap();
+        assert_eq!(key, "port-key");
+        let (key, _) = discover_local_admin_key_for_url("http://127.0.0.1:9201").unwrap();
+        assert_eq!(
+            key, "cwd-key",
+            "another port must not reuse the 9200 pointer"
+        );
+        assert_eq!(
+            discover_local_admin_key().map(|(k, _)| k).as_deref(),
+            Some("cwd-key"),
+            "discovery without a URL does not guess a port"
+        );
+        assert_eq!(
+            xerj_common::localauth::xerj_url_port("localhost:9207"),
+            9207
+        );
+        assert_eq!(
+            xerj_common::localauth::xerj_url_port("http://localhost"),
+            9200
+        );
+    }
+
+    #[test]
+    fn an_auth_rejection_is_not_reported_as_an_unreachable_node() {
+        let auth = anyhow::anyhow!(
+            "the server at http://localhost:9200 requires authentication and no API key was supplied (HTTP 401)."
+        );
+        assert!(crate::esclient::Es::ping_failure_is_auth(&auth));
+        let down = anyhow::anyhow!("endpoint unreachable: http://localhost:9200");
+        assert!(!crate::esclient::Es::ping_failure_is_auth(&down));
     }
 
     /// The wiring: discovery only ever fires when the run has no credential of
@@ -2662,5 +3064,86 @@ mod tests {
             Some("from-env"),
             "the environment is also never overwritten by discovery"
         );
+    }
+
+    /// #1231: `--dataset` only picks which dataset `autoindex map` prints. On
+    /// the indexing and status routes it used to parse and then be dropped, so
+    /// `autoindex <root> ... --dataset repository-docs` read like an explicit
+    /// destination restriction and silently ran an unrestricted pass instead.
+    /// It must be refused there, naming the flag and the only command it works
+    /// with — and existence of the slug cannot matter, or a nonexistent one
+    /// would still start indexing.
+    #[test]
+    fn dataset_is_refused_on_indexing_and_status_but_kept_for_map() {
+        // The report's two invocations: the second only differs by --dataset,
+        // and an existing slug and a made-up one must both be refused the same
+        // way, since neither may start an indexing pass.
+        for slug in ["repository-docs", "no-such-dataset-xyz"] {
+            let text = err(&[
+                "/path/to/root",
+                "--no-graph",
+                "--no-semantic",
+                "--yes",
+                "--prefix",
+                "example",
+                "--dataset",
+                slug,
+            ]);
+            assert!(
+                text.contains("--dataset") && text.contains("autoindex map"),
+                "the refusal must name the flag and the command it belongs to: {text}"
+            );
+            assert!(
+                text.contains("does not restrict where indexing writes"),
+                "the message must correct the destination-restriction misread: {text}"
+            );
+        }
+
+        // Status reads a node and never indexes, so --dataset is equally inapt.
+        let text = err(&["status", "--dataset", "repository-docs"]);
+        assert!(
+            text.contains("--dataset") && text.contains("autoindex status"),
+            "status must refuse --dataset and name itself: {text}"
+        );
+
+        // The one route it is valid on still carries the selection through.
+        match parse(
+            ["map", "--dataset", "repository-docs"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+        )
+        .expect("map --dataset must parse")
+        {
+            Cmd::Map(cfg) => assert_eq!(cfg.dataset.as_deref(), Some("repository-docs")),
+            other => panic!("expected a map config, got {other:?}"),
+        }
+
+        // And a bare --dataset with no slug is a usage error, not a silent all.
+        let text = err(&["map", "--dataset"]);
+        assert!(
+            text.contains("--dataset needs a dataset slug"),
+            "a valueless --dataset must be refused: {text}"
+        );
+    }
+
+    #[test]
+    fn map_records_explicit_prefix_and_leaves_unscoped_map_none() {
+        match parse(["map"].iter().map(|s| s.to_string()).collect()).expect("bare map must parse") {
+            Cmd::Map(cfg) => assert_eq!(cfg.prefix, None),
+            other => panic!("expected a map config, got {other:?}"),
+        }
+
+        match parse(
+            ["map", "--prefix", "xc-tantivy"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+        )
+        .expect("map --prefix must parse")
+        {
+            Cmd::Map(cfg) => assert_eq!(cfg.prefix.as_deref(), Some("xc-tantivy")),
+            other => panic!("expected a map config, got {other:?}"),
+        }
     }
 }

@@ -1,0 +1,22 @@
+{
+ "corpus": "mistworks--mist",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on drivers, idt, memory queries this for how MistWorks/Mist implements it: Light x86_64 OS (selected work: msc, mistic, the project root)",
+ "repos": [
+  {
+   "repo": "Mist",
+   "url": "https://github.com/MistWorks/Mist",
+   "sha": "a085746840738a8ec1662fc0540bc84030755f86",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit a08574684073: \"Mistic became saparated project. Fixed headers umbrella dependency\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

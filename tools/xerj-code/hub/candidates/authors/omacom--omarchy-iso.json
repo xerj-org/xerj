@@ -1,0 +1,22 @@
+{
+ "corpus": "omacom--omarchy-iso",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how omacom/omarchy-iso implements it: omacom/omarchy-iso (Shell) (selected work: builder, test, configs)",
+ "repos": [
+  {
+   "repo": "omarchy-iso",
+   "url": "https://github.com/omacom/omarchy-iso",
+   "sha": "72773f63ef292aed4c0d1335d8672bc9c1b8b899",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 72773f63ef29: \"Build one aarch64 image for every board\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

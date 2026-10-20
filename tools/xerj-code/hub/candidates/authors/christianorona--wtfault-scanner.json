@@ -1,0 +1,22 @@
+{
+ "corpus": "christianorona--wtfault-scanner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on anthropic, automotive, can-bus queries this for how christianOrona/wtfault-scanner implements it: An agentic OBD-II scanner that never makes anything up. Bring your own model, read every module on the bus, and click any number to see the  (selected work: apps/desktop)",
+ "repos": [
+  {
+   "repo": "wtfault-scanner",
+   "url": "https://github.com/christianOrona/wtfault-scanner",
+   "sha": "12431d09eaf2fa985a9b94dc965565908e880b6d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 12431d09eaf2: \"feat: the vehicle is drawn in 3D, with the part of it a fault is in l\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

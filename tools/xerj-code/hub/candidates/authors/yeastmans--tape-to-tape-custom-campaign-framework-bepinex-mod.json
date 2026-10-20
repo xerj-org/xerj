@@ -1,0 +1,22 @@
+{
+ "corpus": "yeastmans--tape-to-tape-custom-campaign-framework-bepinex-mod",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how Yeastmans/Tape-To-Tape-custom-Campaign-Framework-BepinEX-Mod implements it: This is a mod for tape to tape that allows you to create and customize a bunch of things in the campaign (selected work: src/CustomCampaignFramework, src/ModCompatibility, src/CampaignCreator)",
+ "repos": [
+  {
+   "repo": "Tape-To-Tape-custom-Campaign-Framework-BepinEX-Mod",
+   "url": "https://github.com/Yeastmans/Tape-To-Tape-custom-Campaign-Framework-BepinEX-Mod",
+   "sha": "84b6fdf14278f23f29239ce91547fc234e8126b6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 84b6fdf14278: \"Preserve authored recruit stats and repair opponent lineup substitutions\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

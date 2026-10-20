@@ -1,0 +1,22 @@
+{
+ "corpus": "hoc081098--dart-either",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dart, either-monad, either queries this for how hoc081098/dart_either implements it: Type-safe, lightweight Either monad for Dart and Flutter with railway-oriented error handling, sync/async monad comprehensions, and async ma (selected work: test, lib/src, example)",
+ "repos": [
+  {
+   "repo": "dart_either",
+   "url": "https://github.com/hoc081098/dart_either",
+   "sha": "f7d9a4127aa20575edff6138b5ac4edec558322d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f7d9a4127aa2: \"feat(either): add selective error capture with `ErrorMappers.only<E, \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

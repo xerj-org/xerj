@@ -1,0 +1,22 @@
+{
+ "corpus": "dnwwdwd--miaomiao-search",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how dnwwdwd/miaomiao-search implements it: Self-hosted multi-engine web search and Remote MCP service (selected work: packages/server, src/components)",
+ "repos": [
+  {
+   "repo": "miaomiao-search",
+   "url": "https://github.com/dnwwdwd/miaomiao-search",
+   "sha": "0fbb98f77fbcbc44a8726a467fd2eb447281777e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 0fbb98f77fbc: \"fix: unify portal reader routing and extend codefather URL shapes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

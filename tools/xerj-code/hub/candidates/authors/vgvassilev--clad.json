@@ -1,0 +1,22 @@
+{
+ "corpus": "vgvassilev--clad",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on clang-compiler, differentiation, gradient queries this for how vgvassilev/clad implements it: clad -- automatic differentiation for C/C++ (selected work: lib/Differentiator, test, include)",
+ "repos": [
+  {
+   "repo": "clad",
+   "url": "https://github.com/vgvassilev/clad",
+   "sha": "6493bba139dea1417efe8a05eb144c57a983a632",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 6493bba139de: \"Fix adjoint shape for objects (#2212)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "osscontainertools--kaniko",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how osscontainertools/kaniko implements it: Build Container Images In Kubernetes (selected work: pkg/warmer, golden, cmd/warmer)",
+ "repos": [
+  {
+   "repo": "kaniko",
+   "url": "https://github.com/osscontainertools/kaniko",
+   "sha": "38e917dfe6da03f58cf22778cc79e0320d201bac",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 38e917dfe6da: \"warmer --dryrun with golden tests\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

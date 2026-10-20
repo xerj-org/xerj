@@ -1,0 +1,22 @@
+{
+ "corpus": "gnacho--netgrip",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on aarch64, dashboard, dns queries this for how gnacho/netgrip implements it: Lightweight companion panel for OpenWrt routers: a clean dashboard that complements LuCI, not a replacement. Service toggles, WiFi, VPN, VLA (selected work: internal/modules, app/src, internal/server)",
+ "repos": [
+  {
+   "repo": "netgrip",
+   "url": "https://github.com/gnacho/netgrip",
+   "sha": "332d44763e1ac343f7800b1b4f897e6af7c836d2",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 332d44763e1a: \"feat(adguard): provision and manage the web UI credentials (#427)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

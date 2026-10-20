@@ -1,0 +1,22 @@
+{
+ "corpus": "codefusion-cc--peerly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on collaboration, decentralized, end-to-end-encryption queries this for how codefusion-cc/peerly implements it: Serverless P2P team collaboration \u2014 invite-only workspaces, verified OIDC identity, channels, chat, files, and video over WebRTC. No app bac (selected work: packages/core, src/hooks, src/utils)",
+ "repos": [
+  {
+   "repo": "peerly",
+   "url": "https://github.com/codefusion-cc/peerly",
+   "sha": "d581e3ac6bd8655bddcf51cb250dd96d8f0d001d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit d581e3ac6bd8: \"fix: address realtime security and persistence review findings (#102)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "nvidia--cuda-rust",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on compiler-backend, async, cuda queries this for how NVIDIA/cuda-rust implements it: NVIDIA's CUDA platform for Rust. Host runtime crates plus Tile (cutile-rs) and SIMT (cuda-oxide) kernel programming models in idiomatic Rust (selected work: crates/rustc-codegen-cuda)",
+ "repos": [
+  {
+   "repo": "cuda-rust",
+   "url": "https://github.com/NVIDIA/cuda-rust",
+   "sha": "803a77d56664a4ae55f24a691257ff4bfda14f34",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 803a77d56664: \"feat(examples): add image convolution example\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

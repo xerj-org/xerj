@@ -1,0 +1,22 @@
+{
+ "corpus": "yahorbarkouski--screencap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on activity-tracker, mcp, macos queries this for how yahorbarkouski/screencap implements it: A lightweight, macOS-native activity memory for you and your agents (selected work: electron)",
+ "repos": [
+  {
+   "repo": "screencap",
+   "url": "https://github.com/yahorbarkouski/screencap",
+   "sha": "c796a5404bc94933e4f6fb527fd21f4817071f97",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c796a5404bc9: \"feat: point users to Screencap 2 once it is released\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

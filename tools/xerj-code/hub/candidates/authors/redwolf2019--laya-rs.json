@@ -1,0 +1,22 @@
+{
+ "corpus": "redwolf2019--laya-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Rust queries this for how redwolf2019/laya-rs implements it: Pure Rust runtime + HTTP server for Laya System-1 models\uff0cLinux / CPU-first / multilingual / ONNX Runtime (selected work: src/api, src, tests)",
+ "repos": [
+  {
+   "repo": "laya-rs",
+   "url": "https://github.com/redwolf2019/laya-rs",
+   "sha": "669b87ac89993e2b96204f2bf9989d1a0fa660d0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 669b87ac8999: \"feat(api)!: Require Bearer tokens for inference and metrics\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

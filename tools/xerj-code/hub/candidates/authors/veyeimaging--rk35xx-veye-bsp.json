@@ -1,0 +1,22 @@
+{
+ "corpus": "veyeimaging--rk35xx-veye-bsp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how veyeimaging/rk35xx_veye_bsp implements it: Board-independent parts (including drivers,apps,i2c_cmd) of VEYE and MV series camera on platforms rk356x rk358x rk3576 (selected work: linux)",
+ "repos": [
+  {
+   "repo": "rk35xx_veye_bsp",
+   "url": "https://github.com/veyeimaging/rk35xx_veye_bsp",
+   "sha": "e4516077e1fe5d3d7b7844019ed18ab22978540e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e4516077e1fe: \"support roi mode for gxcam\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

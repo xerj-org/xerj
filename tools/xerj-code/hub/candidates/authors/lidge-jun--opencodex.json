@@ -1,0 +1,22 @@
+{
+ "corpus": "lidge-jun--opencodex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-tools, claude, codex queries this for how lidge-jun/opencodex implements it: Universal provider proxy for OpenAI Codex & Claude Code \u2014 use any LLM (Claude, Gemini, Grok, DeepSeek, Ollama\u2026) with Codex CLI, App, SDK, an (selected work: tests, src/server)",
+ "repos": [
+  {
+   "repo": "opencodex",
+   "url": "https://github.com/lidge-jun/opencodex",
+   "sha": "7e3e37a6512c9c3bc843a2d46b7db649bf118287",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 7e3e37a6512c: \"fix(responses): redact terminal reset-replacement errors (#6616)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

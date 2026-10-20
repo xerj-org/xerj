@@ -1,0 +1,22 @@
+{
+ "corpus": "shivansh-upreti--structuralens",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on JavaScript queries this for how Shivansh-Upreti/StructuraLens implements it: An interactive educational platform that solves the challenge of visualizing recursive call stacks and tree execution for computer science s (selected work: src/engine, src/platform, src/components)",
+ "repos": [
+  {
+   "repo": "StructuraLens",
+   "url": "https://github.com/Shivansh-Upreti/StructuraLens",
+   "sha": "5f053d5665eeedac7a8729edbf1936379f8b821c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 5f053d5665ee: \"refactor(core): brutalist slate/cyan UI overhaul and custom code expa\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "inaciogu--go-sqs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on aws, aws-sqs, golang queries this for how inaciogu/go-sqs implements it: Easy-to-use Golang package for consuming messages from AWS SQS (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "go-sqs",
+   "url": "https://github.com/inaciogu/go-sqs",
+   "sha": "de5220ea86d38c3362909eeba9b2bb1006a68788",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit de5220ea86d3: \"feat!: add concurrent receivers and process each message independently\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

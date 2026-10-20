@@ -1,0 +1,22 @@
+{
+ "corpus": "mountaser--agy-foreman",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agy, ai-agents, antigravity queries this for how mountaser/agy-foreman implements it: Hand plan tasks from Claude Code to Gemini 3.8 Flash through the Antigravity CLI, and merge only what passes your tests (selected work: src, test)",
+ "repos": [
+  {
+   "repo": "agy-foreman",
+   "url": "https://github.com/mountaser/agy-foreman",
+   "sha": "73e4fe6ce5de28c6ee2ec62cf270c1ee6962d4db",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 73e4fe6ce5de: \"MCP tool inputs defined once\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

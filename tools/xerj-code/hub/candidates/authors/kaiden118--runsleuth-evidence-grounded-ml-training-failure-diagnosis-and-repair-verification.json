@@ -1,0 +1,22 @@
+{
+ "corpus": "kaiden118--runsleuth-evidence-grounded-ml-training-failure-diagnosis-and-repair-verification",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, chatgpt-api, gemini queries this for how Kaiden118/RunSleuth-Evidence-Grounded-ML-Training-Failure-Diagnosis-and-Repair-Verification implements it: An evidence-grounded LLM agent for diagnosing PyTorch training failures and verifying proposed repairs through bounded retraining (selected work: tests, src/runsleuth)",
+ "repos": [
+  {
+   "repo": "RunSleuth-Evidence-Grounded-ML-Training-Failure-Diagnosis-and-Repair-Verification",
+   "url": "https://github.com/Kaiden118/RunSleuth-Evidence-Grounded-ML-Training-Failure-Diagnosis-and-Repair-Verification",
+   "sha": "43c26fcba47e97a476557ecf3cfecb40ae3404d7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 43c26fcba47e: \"feat: bounded replay check and the parts of repair verification\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

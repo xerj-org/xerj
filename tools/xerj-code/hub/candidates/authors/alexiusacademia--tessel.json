@@ -1,0 +1,22 @@
+{
+ "corpus": "alexiusacademia--tessel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how alexiusacademia/tessel implements it: alexiusacademia/tessel (Rust) (selected work: crates/tessel-runtime, tests, crates/tessel-compiler)",
+ "repos": [
+  {
+   "repo": "tessel",
+   "url": "https://github.com/alexiusacademia/tessel",
+   "sha": "737b45a66e82da5b26727c99e7d4e82dcbd50ca7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 737b45a66e82: \"Table and Tree\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

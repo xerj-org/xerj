@@ -1,0 +1,22 @@
+{
+ "corpus": "otf-kit--sdk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-coding, claude-code, cursor queries this for how otf-kit/sdk implements it: One component set for web, iOS and Android. 240+ free MIT components your AI agent builds on (selected work: packages/ui, apps/storybook-web)",
+ "repos": [
+  {
+   "repo": "sdk",
+   "url": "https://github.com/otf-kit/sdk",
+   "sha": "73c5058f156584583b842b892aa8cef8b96667e0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 73c5058f1565: \"feat(ui): export the Button variants and the advanced data grid the S\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

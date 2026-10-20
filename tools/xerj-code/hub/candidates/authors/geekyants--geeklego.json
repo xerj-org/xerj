@@ -1,0 +1,22 @@
+{
+ "corpus": "geekyants--geeklego",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how GeekyAnts/geeklego implements it: geeklego.io - AI Powered Design System by GeekyAnts Team (selected work: components, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "geeklego",
+   "url": "https://github.com/GeekyAnts/geeklego",
+   "sha": "5eb3d17700e13db76648d58d02a734af7e9ae5c9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 5eb3d17700e1: \"Commit 1 \u2014 .nvmrc, .node-version, package.json, pnpm-lock.yaml,\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

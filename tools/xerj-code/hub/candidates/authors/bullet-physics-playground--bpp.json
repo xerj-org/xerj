@@ -1,0 +1,22 @@
+{
+ "corpus": "bullet-physics-playground--bpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on physics-simulation, povray, lua queries this for how bullet-physics-playground/bpp implements it: Physics simulation experiments (selected work: demo, src, src/objects)",
+ "repos": [
+  {
+   "repo": "bpp",
+   "url": "https://github.com/bullet-physics-playground/bpp",
+   "sha": "945dd811424eb20463402525a13f7d310a588fcb",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 945dd811424e: \"Adding to Euler's Gallery\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

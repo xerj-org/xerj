@@ -1,0 +1,22 @@
+{
+ "corpus": "khudayarovich--onflip-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agent, automation queries this for how khudayarovich/onflip-agent implements it: An agent for coding and everyday tasks, powered by your own ChatGPT or DeepSeek account. No API key, no per-token billing (selected work: test, src/chatgpt, src/agent)",
+ "repos": [
+  {
+   "repo": "onflip-agent",
+   "url": "https://github.com/khudayarovich/onflip-agent",
+   "sha": "53190b53d651a56e3229e84ea0937c81a6862186",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 53190b53d651: \"OnFlip Desktop 0.10.76: avoid duplicate greeting and answer retries\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

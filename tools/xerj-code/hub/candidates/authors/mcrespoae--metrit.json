@@ -1,0 +1,22 @@
+{
+ "corpus": "mcrespoae--metrit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on benchmarking, cpu-monitoring, measurements queries this for how mcrespoae/metrit implements it: Python decorator for comprehensive monitoring of CPU, RAM, and I/O usage of functions (selected work: metrit, tests, the project root)",
+ "repos": [
+  {
+   "repo": "metrit",
+   "url": "https://github.com/mcrespoae/metrit",
+   "sha": "53994eccae5a3688cd2cf59e83259226d4141ac7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 53994eccae5a: \"Refactor StatCollector for improved performance and accuracy\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "yughias--obentou",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on emudev, emulators, gameboy queries this for how yughias/Obentou implements it: Multi System Emulator written in C (selected work: src/cores, include, src/utils)",
+ "repos": [
+  {
+   "repo": "Obentou",
+   "url": "https://github.com/yughias/Obentou",
+   "sha": "83907992519189bab1ae19305c052e850fc3008e",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 839079925191: \"gb core: added sgb core\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "cyanxxy--transcription-agent-go",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, agentic, ai-agents queries this for how cyanxxy/transcription-agent-go implements it: Agentic audio transcription in Go: fast speech-to-text with parallel chunking, an LLM judge agent that compares and merges candidate transcr (selected work: internal/agents, internal/gemini, internal/workflow)",
+ "repos": [
+  {
+   "repo": "transcription-agent-go",
+   "url": "https://github.com/cyanxxy/transcription-agent-go",
+   "sha": "9ce225f82c5566e3251460d3dfc27556e771dc25",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 9ce225f82c55: \"Fix Windows support for the job store, retries, and sidecar paths\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

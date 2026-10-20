@@ -1,0 +1,22 @@
+{
+ "corpus": "chenghit--aws-waf-rules-reviewer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Python queries this for how chenghit/aws-waf-rules-reviewer implements it: An Agent Skill that reviews AWS WAF Web ACL configurations for security issues, misconfigurations, and optimization opportunities (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "aws-waf-rules-reviewer",
+   "url": "https://github.com/chenghit/aws-waf-rules-reviewer",
+   "sha": "70a98edf665eee5ea9d0810cc0057cac7b888b35",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 70a98edf665e: \"fix(v0.7.5): Bot Control version against the latest, severity-ordered\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

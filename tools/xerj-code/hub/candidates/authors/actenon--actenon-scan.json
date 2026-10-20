@@ -1,0 +1,22 @@
+{
+ "corpus": "actenon--actenon-scan",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-security, ai-agents, ai-safety queries this for how Actenon/actenon-scan implements it: Find where agent-controlled intent reaches consequential actions without an authority check. Python + TypeScript + Go. Zero-dependency SAST  (selected work: actenon_scan, tests)",
+ "repos": [
+  {
+   "repo": "actenon-scan",
+   "url": "https://github.com/Actenon/actenon-scan",
+   "sha": "b8a6a62308fb2d569b6530f6ecf250e6e4ef6e16",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit b8a6a62308fb: \"Feat/cross language reachability (#95)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

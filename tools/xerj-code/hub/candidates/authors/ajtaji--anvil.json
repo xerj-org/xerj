@@ -1,0 +1,22 @@
+{
+ "corpus": "ajtaji--anvil",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on aarch64, arduino-uno-q, bare-metal queries this for how ajtaji/Anvil implements it: Bare-metal mini-kernel, bootloader and recovery monitor in PureMetal. Raspberry Pi 3/4 support, with experimental UNO Q and ROCK Pi 4C ports (selected work: tools, RaspberryPi4, Anvil)",
+ "repos": [
+  {
+   "repo": "Anvil",
+   "url": "https://github.com/ajtaji/Anvil",
+   "sha": "6540e4358169b333741ec0c8eba06796e7529cd1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 6540e4358169: \"TLS reaches P-384/P-521 and SHA-384/SHA-512 chains: sha512.pbi, ecp.p\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

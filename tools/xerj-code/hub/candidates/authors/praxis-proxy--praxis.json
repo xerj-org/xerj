@@ -1,0 +1,22 @@
+{
+ "corpus": "praxis-proxy--praxis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on ai, cloud, networking queries this for how praxis-proxy/praxis implements it: AI and cloud-native proxy server and framework (selected work: crates/filter, tests, examples)",
+ "repos": [
+  {
+   "repo": "praxis",
+   "url": "https://github.com/praxis-proxy/praxis",
+   "sha": "2cd4c663dc0f6d9308729dd13a695e2433c1eed3",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 2cd4c663dc0f: \"feat(filter): add syslog sink to access_log filter (#1360)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

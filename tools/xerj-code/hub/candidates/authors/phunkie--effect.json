@@ -1,0 +1,22 @@
+{
+ "corpus": "phunkie--effect",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how phunkie/effect implements it: A functional effect system for PHP inspired by Cats Effect (selected work: tests, src/IO, src/Ops)",
+ "repos": [
+  {
+   "repo": "effect",
+   "url": "https://github.com/phunkie/effect",
+   "sha": "eb338925fcb60e170a74fa783931fdc2808ea8ea",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit eb338925fcb6: \"Add Resource, bracketCase, bracketE, sequence, traverse, productR, de\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

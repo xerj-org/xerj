@@ -1,0 +1,22 @@
+{
+ "corpus": "oguzhankir--phyra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cae, computational-mechanics, engineering-simulation queries this for how oguzhankir/phyra implements it: Open-source engineering workbench combining numerical simulation, Physics ML, and accelerated scientific computing (selected work: engine, scripts)",
+ "repos": [
+  {
+   "repo": "phyra",
+   "url": "https://github.com/oguzhankir/phyra",
+   "sha": "5096fcdc0cf74e376b19688bc09791e32154f3ae",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 5096fcdc0cf7: \"fix(cad): isolate native output in packaged workers\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

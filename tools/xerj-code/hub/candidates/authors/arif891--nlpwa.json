@@ -1,0 +1,22 @@
+{
+ "corpus": "arif891--nlpwa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on javascript, pwa, service-worker queries this for how arif891/nlpwa implements it: A zero-dependency Service Worker framework for native-like PWAs with atomic OTA delta updates and background sync (selected work: src/sw, test, src/client)",
+ "repos": [
+  {
+   "repo": "nlpwa",
+   "url": "https://github.com/arif891/nlpwa",
+   "sha": "90b331fee168b5f0d34beb3d5201f27e378132c2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 90b331fee168: \"feat(sw, client, cli): complete prototype code review and production \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

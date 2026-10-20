@@ -1,0 +1,22 @@
+{
+ "corpus": "h1lbert-kt--primordia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-based-modeling, artificial-life, evolution queries this for how H1lbert-kt/primordia implements it: 2D ecosystem simulation where neural creatures evolve by natural selection \u2014 no fitness function, just energy. Numba + NumPy + pygame-ce, re (selected work: experiments, tests, primordia)",
+ "repos": [
+  {
+   "repo": "primordia",
+   "url": "https://github.com/H1lbert-kt/primordia",
+   "sha": "3552e4eeaef0f7be6be31b14a6f820aa1dcb6068",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 3552e4eeaef0: \"feat: pheromone diffusion \u2014 Jacobi signal spread, trail-area stats (s\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

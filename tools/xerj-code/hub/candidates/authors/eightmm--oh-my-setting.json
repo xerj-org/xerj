@@ -1,0 +1,22 @@
+{
+ "corpus": "eightmm--oh-my-setting",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how eightmm/oh-my-setting implements it: oh-my-setting (selected work: scripts, tests)",
+ "repos": [
+  {
+   "repo": "oh-my-setting",
+   "url": "https://github.com/eightmm/oh-my-setting",
+   "sha": "950402f1f267de56ae7dbb922481d2117c63996e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 950402f1f267: \"feat: oms land --handoff-receipt-to hands a passed land's genuine rec\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

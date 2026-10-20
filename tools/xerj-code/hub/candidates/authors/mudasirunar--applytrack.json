@@ -1,0 +1,22 @@
+{
+ "corpus": "mudasirunar--applytrack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on firebase, html5, jetpack-compose queries this for how mudasirunar/ApplyTrack implements it: Open-source, cross-platform job application tracker for Android & Web. Features offline-first storage, real-time sync, resume management, fu (selected work: WebApp)",
+ "repos": [
+  {
+   "repo": "ApplyTrack",
+   "url": "https://github.com/mudasirunar/ApplyTrack",
+   "sha": "9157680816cd2885031bdc5890482c2854492b2d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 9157680816cd: \"refactor: improve google auth handling, parallelize supabase uploads,\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

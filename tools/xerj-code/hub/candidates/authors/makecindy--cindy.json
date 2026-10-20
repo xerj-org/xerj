@@ -1,0 +1,22 @@
+{
+ "corpus": "makecindy--cindy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai-agent, ai-assistant queries this for how makecindy/cindy implements it: Consider it done. The open-source AI agent that works out of the box \u00b7 \u60f3\u5230\uff0c\u5c31\u80fd\u505a\u5230\u3002\u5f00\u6e90\u3001\u5f00\u7bb1\u5373\u7528\u7684 AI Agent\u3002 (selected work: apps/desktop)",
+ "repos": [
+  {
+   "repo": "cindy",
+   "url": "https://github.com/makecindy/cindy",
+   "sha": "c85ed799055c6f3114725bc9f84cffb2f0442acb",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit c85ed799055c: \"fix(provider-group): \u8001\u4efb\u52a1\u542f\u52a8\u5931\u8d25\u7ee7\u7eed\u517c\u5bb9\u4f9b\u5e94\u5546\u7ec4\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

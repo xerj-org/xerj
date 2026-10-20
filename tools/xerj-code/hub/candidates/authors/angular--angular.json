@@ -1,0 +1,22 @@
+{
+ "corpus": "angular--angular",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on angular, typescript, web queries this for how angular/angular implements it: Deliver web apps with confidence \ud83d\ude80 (selected work: devtools)",
+ "repos": [
+  {
+   "repo": "angular",
+   "url": "https://github.com/angular/angular",
+   "sha": "d60ee5e27be123aeda17f97cfebbf0f98fcfa24c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit d60ee5e27be1: \"refactor(devtools): replace deprecated tree APIs in the component tree\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

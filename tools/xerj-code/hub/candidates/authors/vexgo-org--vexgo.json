@@ -1,0 +1,22 @@
+{
+ "corpus": "vexgo-org--vexgo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on blog, blog-cms, blog-engine queries this for how vexgo-org/vexgo implements it: VexGo is a lightweight, self-hosted blog content management system designed for developers and writers who value simplicity, performance, an (selected work: backend)",
+ "repos": [
+  {
+   "repo": "vexgo",
+   "url": "https://github.com/vexgo-org/vexgo",
+   "sha": "9db69822a3c5a98642e46b84ea336db2dfea7151",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 9db69822a3c5: \"refactor(auth): move email verification to `email.go`\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

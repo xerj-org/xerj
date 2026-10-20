@@ -1,0 +1,115 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "title": "Stack-overflow abort via ?force_synthetic_source=true on a stored dotted field name (read-privilege, persistent)",
+      "severity": "high",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 16473,
+      "description": "insert_nested() recurses once per '.' in a document's _source key with no depth cap, and expand_dotted_keys() is invoked on every hit whenever the caller passes ?force_synthetic_source=true (es_compat.rs:16260). serde_json's 128-level parse limit bounds JSON *nesting* but not the number of dots in one flat key, and ingest never expands dotted keys, so a document indexed with a single ~50,000-dot field name (a ~100 KB write) survives ingestion and then kills the process on search. panic=abort (engine/Cargo.toml:165), so this is a whole-node abort, not a per-request 500. The poisoned document is durable, so the node can be re-killed indefinitely and the only remediation is deleting the document. The route POST/GET /{index}/_search needs only Privilege::ReadIndex (authz.rs POST_READ_OPS), and _search is on the share-guest allow-list (authz.rs GUEST_INDEX_OPS), so the *trigger* is available to the least-privileged principals on the node.",
+      "attack_scenario": "Anyone with write on any one index (or a malicious corpus / autoindex source) plants one document with a 50,000-dot field name. Thereafter any read-scoped API key — or an external untrusted share-link guest, who is allow-listed to _search — kills the entire node with a 40-byte GET. On a node started with --insecure (the documented quick-start) the same request is unauthenticated.",
+      "exploit_sketch": "1) PUT /idx/_doc/1 with body {\"a.a.a....a\":\"x\"} (~50,000 dots, 100 KB). 2) GET /idx/_search?force_synthetic_source=true&size=1 → connection reset; server log: \"thread 'xerj-rt' has overflowed its stack / fatal runtime error: stack overflow, aborting\". Verified against the prebuilt binary: node died at 50,000 dots, survived at 40,000.",
+      "confidence": "high"
+    },
+    {
+      "id": "F2",
+      "title": "Exponential pipeline-DAG expansion in /_ingest/pipeline/_simulate — unbounded memory (49+ GB measured)",
+      "severity": "high",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 29654,
+      "description": "expand_pipeline_processors() walks stored pipelines referenced by {\"pipeline\":{\"name\":X}}. Its cycle guard `seen.insert(target)` is undone by `seen.remove(target)` on the way out (line 29654), so the reference graph is treated as a DAG and every shared descendant is re-expanded once per distinct path, with each expansion cloned into the `out` Vec. There is no cap on out.len(), recursion depth, or total processor count. A diamond chain P_i -> {P_(i-1), P_(i-1)} costs 2^N. put_ingest_pipeline stores the raw ES body verbatim (register_unrunnable_pipeline, engine.rs:4221) even for processors it cannot run, so the DAG is trivially constructible, and it persists across restarts. Authz: PUT /_ingest/pipeline/:id is a cluster mutation allowed to any Principal::Unscoped key (authz.rs:1673); POST /_ingest/pipeline/_simulate is classified a cluster *read* (\"_ingest\" is in POST_READ_OPS, authz.rs:427), so even a read-scoped key can fire it.",
+      "attack_scenario": "A non-superuser operator key (any key minted without role_descriptors — the default shape) builds the DAG over 27 cheap PUTs; then any read-scoped key — or the same key — sends one ~120-byte POST that exhausts host memory. This is host-level OOM, not merely process-level: it competes with every other workload on the machine.",
+      "exploit_sketch": "for i in 1..=26: PUT /_ingest/pipeline/pl{i} {\"processors\":[{\"pipeline\":{\"name\":\"pl{i-1}\"}},{\"pipeline\":{\"name\":\"pl{i-1}\"}}]}; then POST /_ingest/pipeline/_simulate {\"pipeline\":{\"processors\":[{\"pipeline\":{\"name\":\"pl26\"}}]},\"docs\":[{\"_source\":{\"x\":\"y\"}}]}. Measured on the prebuilt binary: request never completes; node RSS climbed past 49.6 GB (VmSize 84 GB) at ~70% CPU and was still growing when killed. Adding one more level doubles it again.",
+      "confidence": "high"
+    },
+    {
+      "id": "F3",
+      "title": "Unbounded CPU/memory amplification in the term suggester — 85 s for one 1 MB read request",
+      "severity": "high",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 25458,
+      "description": "suggest_edit_distance() allocates a full (m+1)x(n+1) usize DP matrix and runs the O(m*n) Levenshtein loop with no cap on either operand and no band/early-exit. process_suggest() calls it from inside a .filter() closure over every distinct term in the field (line 25589) and then again in the .map() (line 25593) — twice per term, per input token. `m` is the attacker's suggest text (whitespace-delimited, so one run can be tens of MB under the 100 MB default body limit) and `n` is a term harvested from the index, and term_counts is rebuilt from *all* matching documents on every request. There is no length guard anywhere on this path.",
+      "attack_scenario": "Any principal holding read on an index — including an external share-link guest, for whom _search is explicitly allow-listed. Cost scales with (attacker token length) x (distinct terms in the field), so a modest real index makes a single small request cost hours of CPU, and the request is uninterruptible and trivially parallelizable.",
+      "exploit_sketch": "POST /idx/_search {\"size\":0,\"suggest\":{\"s\":{\"text\":\"<1 MB, no whitespace>\",\"term\":{\"field\":\"body\"}}}}. Measured on the prebuilt binary against an index holding ONE document with 2,000 distinct tokens: 200 KB token -> 24.9 s, 1 MB token -> 84.9 s. Extrapolating to a realistic 1M-term index gives ~12 CPU-hours per request; the only bound is the number of concurrent connections.",
+      "confidence": "high"
+    },
+    {
+      "id": "F4",
+      "title": "Doc-values .dv sidecar: unvalidated file-derived lengths and unchecked null-bitmap indexing abort the node",
+      "severity": "high",
+      "file": "engine/crates/xerj-storage/src/doc_values.rs",
+      "line": 1022,
+      "description": "decode_columns() trusts every length field in the sidecar: `name_len` (u32) and `payload_len` (u64) feed `vec![0u8; n]` with no cap, no remaining-bytes cross-check and no try_reserve (lines 1016-1022); the payload is then inflated with an uncapped `zstd::decode_all` (line 1025). Separately, decode_znv2() grows `data` to exactly `doc_count` entries and then writes `data[doc_id as usize] = 0` for every member of a RoaringBitmap deserialized straight from the same attacker bytes (line 516) — roaring validates only its own container framing, not that members are < doc_count. The sibling keyword decoder has the same shape: ords are read raw (line 818-826) and later indexed directly by fast_aggs.rs:3990. read_doc_values_sidecar() (xerj-engine/src/index.rs:25753) calls this with `.unwrap_or_default()`, i.e. parse *errors* are handled — but these are panics and allocation failures, which panic=abort turns into a full-process kill. There is no checksum on this sidecar at all.",
+      "attack_scenario": "An attacker with data-dir write access (or anyone who supplies a crafted/restored snapshot or a tampered backup) flips one u64 in a .dv file. The node boots fine and then aborts on the first query touching that column, with no error the operator can catch — and it aborts again after every restart. A restored malicious snapshot reaches the same code from an entirely network-delivered artifact.",
+      "exploit_sketch": "Take an existing <segment>.dv, locate any column header, and set the u64 payload_len to 1<<48 while leaving the payload short. Verified on the prebuilt binary: the node started cleanly, then `POST /.xerj_magic_links/_search {\"sort\":[{\"created_at\":\"asc\"}],\"size\":1}` produced `memory allocation of 281474976710656 bytes failed` and the process died. The `data[doc_id]` variant needs only a roaring bitmap whose member exceeds the declared doc_count (~40-byte file).",
+      "confidence": "high"
+    },
+    {
+      "id": "F5",
+      "title": "Stack-overflow abort via a dotted field name in PUT /{index}/_mapping",
+      "severity": "high",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 2467,
+      "description": "merge_dotted_property() recurses once per '.' in a mapping property name, re-allocating a Vec<&str> and a joined String per frame (fat frames, so the limit is reached near ~50k dots). The property-name key is taken verbatim from the request body; validate_properties() (line 1173) recurses into `properties`/`fields` structures but never inspects field *names* — no dot count, no length cap. The body limit defaults to 100 MB, so a ~120 KB request is well inside it. This is the same defect class the project already fixed once for `profile.shard_count` (es_compat.rs:7273, \"a single unauthenticated POST ... kills the node\").",
+      "attack_scenario": "A single ~120 KB request from any principal holding the admin-index (manage) privilege on an index — including a scoped key granted manage on its own index, and unauthenticated on an --insecure node. One request, whole-node abort.",
+      "exploit_sketch": "PUT /idx (create), then PUT /idx/_mapping {\"properties\":{\"<60000-dot key>\":{\"type\":\"keyword\"}}}. Verified on the prebuilt binary: HTTP 000, \"thread 'xerj-rt' has overflowed its stack / fatal runtime error: stack overflow, aborting\". The mapping is not published (the crash happens during the merge), so this one is repeatable but not self-persisting.",
+      "confidence": "high"
+    },
+    {
+      "id": "F6",
+      "title": "git `rev` from a corpus recipe is spliced into argv unvalidated — arbitrary command execution",
+      "severity": "high",
+      "file": "engine/crates/xerj-autoindex/src/harvest/source.rs",
+      "line": 128,
+      "description": "harvest builds `git -C <dir> fetch --depth 1 origin <rev>` with `rev` taken verbatim from the recipe/manifest. The only validation is `rev.len() == 40 && all ascii_hexdigit`, which routes full SHAs elsewhere; everything else — including a string beginning with '-' — is passed as a positional that git's option parser is free to interpret as an option. `--upload-pack <path>` is a real `git fetch` option that git executes as the transport helper. The adjacent `url` field is deliberately unrestricted (recipe.rs:475 checks only emptiness, and the type doc notes local paths are accepted), so the attacker controls both the option and where it runs. checkout_at_sha (xc.rs:277) shares the shape but is reachable only with a 40-hex rev.",
+      "attack_scenario": "A malicious document/corpus provider hands the operator a recipe.toml or corpus manifest. The operator runs the documented `xerj corpus build --recipe <file>` / `xerj corpus add`, and arbitrary code runs as the operator. The existing comment at xc.rs:264 (\"Never a shell string: Command passes it as ONE argv element\") defends against shell metacharacters, not against a leading dash.",
+      "exploit_sketch": "recipe.toml with rev = \"--upload-pack=/tmp/x\" and url = \"/path/to/repo\". Verified with git 2.39.5: `git fetch --depth 1 origin --upload-pack=/tmp/pwn` executed /tmp/pwn (wrote a marker file receiving the repo path as argv). Over ssh:// URLs the same value becomes the remote command string.",
+      "confidence": "high"
+    },
+    {
+      "id": "F7",
+      "title": "Corpus-pack source slug is joined into filesystem paths unvalidated — arbitrary directory write and recursive delete",
+      "severity": "high",
+      "file": "engine/crates/xerj-autoindex/src/harvest/pack.rs",
+      "line": 426,
+      "description": "read_manifest() rigorously validates every *file* name in a pack with plain_file_name() (pack.rs:450: no '/', '\\\\', ':', leading '.', no \"..\"), but a source `slug` is checked only for emptiness (line 426). add_pack_materialize() then does `dest.join(&slug)` (xc.rs:918) with dest = ~/.xerj-code/corpora/<name>, writes attacker-controlled JSONL lines into it verbatim (xc.rs:925), and on a re-add runs `std::fs::remove_dir_all(dest.join(&r.repo))` (xc.rs:871) where `r.repo` is the same attacker-chosen string persisted by the first add — with the error deliberately discarded (`let _ =`). Signature verification of packs is opt-in via --verify-sig; without it the pack's internal SHA256SUMS chain is attacker-consistent and nothing else catches this.",
+      "attack_scenario": "A malicious corpus provider distributes a pack (directory or zip). The operator runs `xerj corpus add --from <pack>`, which writes attacker-chosen JSONL content to an arbitrary path relative to the corpus root (e.g. ~/.xerj-code/corpora/x/../../.config/autostart/records.jsonl), and on the next add recursively deletes an arbitrary directory reachable by relative path — with failures silent.",
+      "exploit_sketch": "Pack manifest: {\"sources\":[{\"slug\":\"../../../../.config/autostart\", ...}]} plus one record line whose \"source\" field matches. `xerj corpus add --from pack` materializes <corpora>/<name>/../../../../.config/autostart/records.jsonl. Re-running the same add executes remove_dir_all on that directory.",
+      "confidence": "high"
+    },
+    {
+      "id": "F8",
+      "title": "Console data-sources proxy has no role or tenant scoping — any console session, including 'viewer', reads every user index",
+      "severity": "medium",
+      "file": "engine/crates/xerj-console-api/src/data_sources.rs",
+      "line": 248,
+      "description": "The /_xerj-console/api/v1/data-sources/... handlers take `_sess: AuthSession` (underscore: never consulted) and gate only on conn_id == builtin, no wildcard/_all, and is_hidden_index(). is_hidden_index() (line 46) refuses only `.xerj_*` system indices and the reserved `.xerj-memory-*` namespace — every ordinary user index is fully readable, and list_indices() (line 123) enumerates the complete inventory with doc counts, segment counts and on-disk sizes. This is not an oversight the codebase is unaware of: the crate's own test (tests/console_cannot_read_a_brain.rs) documents that the Console router is merged after the engine routers' layers, so authz_middleware never runs on /_xerj-console/* — the fix that test pins covers only the reserved namespace. Every other handler in the crate does enforce tiers (graph.rs may_read_brains requires owner|admin; dashboards.rs has per-resource enforce_read/enforce_write), so this surface is the outlier.",
+      "attack_scenario": "On any node where the console has more than one user, an invited 'viewer' (mintable by an admin via POST /_xerj-console/api/v1/auth/magic/issue, which accepts role \"viewer\") can enumerate and read the full contents of every other user's index, including indices the operator never exposed to them. The same session can use list_fields to map schemas.",
+      "exploit_sketch": "As a viewer session: GET /_xerj-console/api/v1/data-sources/built-in/indices (full inventory), then POST /_xerj-console/api/v1/data-sources/built-in/indices/<any-user-index>/search with an ES body — full _source documents returned.",
+      "confidence": "high"
+    },
+    {
+      "id": "F9",
+      "title": "autoindex ES client unconditionally disables TLS certificate validation while sending the admin API key",
+      "severity": "medium",
+      "file": "engine/crates/xerj-autoindex/src/esclient.rs",
+      "line": 857,
+      "description": "The blocking reqwest client is built with `.danger_accept_invalid_certs(true)` with no flag, config key or warning gating it. Every request this client makes carries credentials (esclient.rs:936: `Authorization: ApiKey <key>`), so any on-path attacker can impersonate the engine's HTTPS endpoint, capture the admin API key, and feed arbitrary bytes into the indexing pipeline (mappings, bulk responses, _cat/indices, embedding identity). The asymmetry is telling: the *download* side of the same crate is carefully bounded and streamed, but the response side of this client is both unauthenticated-by-CERT and unbounded (resp.text()/resp.json() with no size cap at esclient.rs:767, 953, 1015, 1073, 1284, 1686), so a MITM can also OOM the run.",
+      "attack_scenario": "An operator points `xerj autoindex` at an https:// engine URL over a network the attacker can observe. The attacker presents any self-signed certificate, receives the admin key in the Authorization header, and thereafter owns the node — while also controlling every byte the indexer trusts.",
+      "exploit_sketch": "ARP/DNS-spoof the engine hostname, terminate TLS with a self-signed cert for it, read `Authorization: ApiKey ...` off the first request. No pinning, no verification failure, no warning is emitted by the client.",
+      "confidence": "high"
+    },
+    {
+      "id": "F10",
+      "title": "Segment / stored-field / postings readers slice with file-derived offsets and lengths without bounds checks",
+      "severity": "medium",
+      "file": "engine/crates/xerj-storage/src/segment.rs",
+      "line": 588,
+      "description": "Same defect class as F4, different files. (a) segment.rs: from_mmap slices `&data[section_table_offset..]` where the u64 comes straight from the 32-byte footer, and section()/section_checked compute `&self.mmap[start..end]` from raw SectionEntry offset/length u64s — none are compared against mmap.len(). from_mmap_arc (line 578) re-parses the table with no CRC at all and no minimum-length guard. These run for every segment named in snapshot.json during startup's rebuild_version_map_from_segments, so the node cannot be brought back up. (b) stored_codec.rs:2013: decode_stored_v2 does `Vec::with_capacity(num_cols)` on a raw u32 with no cap — 0xFFFFFFFF asks for ~206 GB from a 12-byte body; the same file's parse_v2_directory (line 1241) already implements the correct cap + try_reserve_exact, so this is an outlier. (c) xerj-fts/postings.rs:555: unpack_u32_block_v1 passes an unvalidated u8 num_bits (33..=255) to bitpacking, which panics (\"Num bits must be <= 32\"), and does not enforce the 64-byte minimum block the crate asserts; the V2 decoder 37 lines above does both. (d) postings.rs:727 and :1022 do `Vec::with_capacity(vbyte_count)` on a u32 — ~16 GB from a 5-byte prefix, on the query path. All integrity envelopes here are unkeyed CRC32/CRC32C, which an active data-dir attacker recomputes for free, so the checks that do exist buy nothing against this threat model.",
+      "attack_scenario": "An attacker with data-dir write access, or a maliciously crafted snapshot/backup that the operator restores. Outcome ranges from a boot-time abort the operator cannot diagnose (segment footer) to a per-query OOM (postings). Combined with F4 this means essentially every persistence reader trusts file-derived integers.",
+      "exploit_sketch": "Segment: set the footer's section_table_offset to 0xFFFFFFFFFFFFFFFF and recompute the whole-file CRC32C over everything before the footer (from_mmap validates only that CRC). Stored: write a ZBS2 body with num_cols = 0xFFFFFFFF. Postings: a ZPS1 block with num_bits = 0xFF.",
+      "confidence": "high"
+    }
+  ],
+  "method_note": "Static reading of the attack-facing surface (router/auth/authz/share/es_compat, xerj-wasm, xerj-autoindex, xerj-storage, xerj-console-api) with parallel subagent sweeps per area, then dynamic confirmation of the top candidates against the prebuilt release binary on scratch ports/data dirs. Dynamically reproduced: the force_synthetic_source stack overflow (node abort at 50k dots), the PUT _mapping stack overflow, the pipeline-DAG expansion (49+ GB RSS, host-threatening), the suggest edit-distance amplification (85 s for 1 MB x 2000 terms), and a .dv sidecar abort from a single u64 tamper; the git --upload-pack injection was confirmed against local git 2.39.5. Findings I could not confirm at runtime are marked with static evidence only. Checked and cleared rather than reported: CORS (restrictive by default), share claim rate limiting and key hashing, console session signing/CSRF, zip-slip and XML entity expansion in autoindex, path traversal in SPA serving, and the painless interpreter's resource limits."
+}

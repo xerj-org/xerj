@@ -1,0 +1,22 @@
+{
+ "corpus": "uslanozan--tidyorg",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on devops, docker, github queries this for how uslanozan/Tidyorg implements it: Config-driven GitHub organization management with Terraform and a web dashboard (selected work: terraform, dashboard, config.example)",
+ "repos": [
+  {
+   "repo": "Tidyorg",
+   "url": "https://github.com/uslanozan/Tidyorg",
+   "sha": "65aa1f7123b264b4464817ed7e3bb2fc0e061736",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 65aa1f7123b2: \"fix: align dashboard access with branch protection\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

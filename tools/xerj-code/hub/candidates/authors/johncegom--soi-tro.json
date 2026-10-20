@@ -1,0 +1,22 @@
+{
+ "corpus": "johncegom--soi-tro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how johncegom/soi-tro implements it: D\u1ef1 \u00e1n d\u00f9ng full AI \u0111\u1ec3 tri\u1ec3n khai. M\u1ee5c \u0111\u00edch ch\u00ednh l\u00e0 \u0111\u1ec3 c\u00f3 1 ch\u01b0\u01a1ng tr\u00ecnh nhanh nh\u1ea5t c\u00f3 th\u1ec3 \u0111\u1ec3 h\u1ed7 tr\u1ee3 vi\u1ec7c t\u00ecm tr\u1ecd. No English support (selected work: internal/preferences, internal/ui, internal/logger)",
+ "repos": [
+  {
+   "repo": "soi-tro",
+   "url": "https://github.com/johncegom/soi-tro",
+   "sha": "c4b5970330c8f781b50f20522bb46b4c8839582e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit c4b5970330c8: \"feat: add configurable rental search profile\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

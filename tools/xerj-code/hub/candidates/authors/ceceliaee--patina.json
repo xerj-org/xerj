@@ -1,0 +1,22 @@
+{
+ "corpus": "ceceliaee--patina",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how Ceceliaee/patina implements it: A beautiful Windows desktop time tracking app built with Tauri & React (selected work: tests, src/shared, src/features)",
+ "repos": [
+  {
+   "repo": "patina",
+   "url": "https://github.com/Ceceliaee/patina",
+   "sha": "5884b678c41bb9ab8b5da86d5b5c6223246c452d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 5884b678c41b: \"feat: share automatic website identity and historical icons\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

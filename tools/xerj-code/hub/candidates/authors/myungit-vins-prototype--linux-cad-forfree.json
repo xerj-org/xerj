@@ -1,0 +1,22 @@
+{
+ "corpus": "myungit-vins-prototype--linux-cad-forfree",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how myungit-Vins-Prototype/Linux_CAD_forFree implements it: Un cad 3D che punta a competere con i big, kernel riscritto e in pieno sviluppo su qt6 e opengl 3.3. INSTALLABILE SU LINUX E MACOS (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "Linux_CAD_forFree",
+   "url": "https://github.com/myungit-Vins-Prototype/Linux_CAD_forFree",
+   "sha": "445527a6f0d80fde534c821d6075b310ba22188e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 445527a6f0d8: \"Implementato:\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

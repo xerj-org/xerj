@@ -1,0 +1,22 @@
+{
+ "corpus": "salcyberaware--soctriage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Python queries this for how SalCyberAware/SOCTriage implements it: AI-powered SOC alert triage assistant, enrichment, MITRE ATT&CK mapping, incident reports, case management, and playbooks for cybersecurity  (selected work: ops)",
+ "repos": [
+  {
+   "repo": "SOCTriage",
+   "url": "https://github.com/SalCyberAware/SOCTriage",
+   "sha": "cea24e41a12196b289a442ec16a63cb5c9c519b4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit cea24e41a121: \"ops: restore test for the nightly backup\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

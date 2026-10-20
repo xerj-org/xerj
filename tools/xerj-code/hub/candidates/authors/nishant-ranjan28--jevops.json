@@ -1,0 +1,22 @@
+{
+ "corpus": "nishant-ranjan28--jevops",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-safety, decision-engine, devops queries this for how nishant-ranjan28/jevops implements it: Engineering decision cockpit: an LLM extracts facts, a deterministic policy engine decides, and conflicts are shown (selected work: tests, src/lib)",
+ "repos": [
+  {
+   "repo": "jevops",
+   "url": "https://github.com/nishant-ranjan28/jevops",
+   "sha": "3342abeebc3b81773ad7ea4de3d3a91f246352aa",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 3342abeebc3b: \"fix: read live PRs from the description and file paths, not patches (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

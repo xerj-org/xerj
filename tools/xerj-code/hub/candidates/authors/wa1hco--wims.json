@@ -1,0 +1,22 @@
+{
+ "corpus": "wa1hco--wims",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how wa1hco/WIMS implements it: wa1hco/WIMS (Python) (selected work: src/wims, hardware, tests)",
+ "repos": [
+  {
+   "repo": "WIMS",
+   "url": "https://github.com/wa1hco/WIMS",
+   "sha": "064713195ea1d1b7263603ebacad485000c7726c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 064713195ea1: \"Add H2 seat profile (TX-capable / decode-only marks), Keyline EEPROM \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

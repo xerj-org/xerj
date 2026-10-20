@@ -1,0 +1,22 @@
+{
+ "corpus": "surendra2304--friday",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-assistant, automation, computer-vision queries this for how surendra2304/FRIDAY implements it: Multi-agent personal AI assistant with voice, screen awareness, memory, and safety-gated automation (selected work: src/friday, tests)",
+ "repos": [
+  {
+   "repo": "FRIDAY",
+   "url": "https://github.com/surendra2304/FRIDAY",
+   "sha": "f422d607a652cff3a5e434a7092ac766a7de92b4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f422d607a652: \"feat: elevate service architecture, async resilience, telemetry, and \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

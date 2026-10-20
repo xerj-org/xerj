@@ -1,0 +1,22 @@
+{
+ "corpus": "pingapi--apigo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Java queries this for how pingapi/apigo implements it: ApiGo\u662f\u4f4e\u4ee3\u7801\u5f00\u53d1\u5e73\u53f0\uff0c\u591a\u6570\u636e\u5e93\u63d2\u4ef6\u5316\u6570\u636e\u6e90\u6846\u67b6\uff0c\u6df1\u5ea6\u6574\u5408SpringBoot\u548cMybatis\u5b9e\u73b0\u52a8\u6001\u6570\u636e\u6e90\u548c\u52a8\u6001SQL\uff0c\u53ef\u89c6\u5316\u7f16\u5199SQL\u5feb\u901f\u53d1\u5e03\u63a5\u53e3 (selected work: crabc-api, db)",
+ "repos": [
+  {
+   "repo": "apigo",
+   "url": "https://github.com/pingapi/apigo",
+   "sha": "f40c28fea69338675f7db71e784915e255d9f3f6",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit f40c28fea693: \"\u6570\u636e\u63d2\u4ef6\u4f18\u5316\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

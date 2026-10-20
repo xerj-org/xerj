@@ -1,0 +1,22 @@
+{
+ "corpus": "jbinder--sprawlrun",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, audio-drama, cyberpunk queries this for how jbinder/sprawlrun implements it: A gamified cyberpunk running tracker for Android. Twenty GPS-tracked story missions across two campaigns, cutting into your music, with purs (selected work: assets, lib/widgets, lib/theme)",
+ "repos": [
+  {
+   "repo": "sprawlrun",
+   "url": "https://github.com/jbinder/sprawlrun",
+   "sha": "175756a6e0452074fa85f352232f7cb6878a21d6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 175756a6e045: \"Add seasonal events, starting with a Samhain story pack\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

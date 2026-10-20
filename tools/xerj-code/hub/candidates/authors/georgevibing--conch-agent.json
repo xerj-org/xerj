@@ -1,0 +1,22 @@
+{
+ "corpus": "georgevibing--conch-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, chat, claude-code queries this for how georgevibing/conch-agent implements it: \ud83d\udc1a The AI assistant that just works. One self-hosted app for every model you already pay for: Claude Code, Codex, Copilot, Gemini, Ollama and (selected work: apps/server, packages/nacre, packages/protocol)",
+ "repos": [
+  {
+   "repo": "conch-agent",
+   "url": "https://github.com/georgevibing/conch-agent",
+   "sha": "adfa553606813e8ef766c6e46268ded1567f84e0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit adfa55360681: \"fix: honor permission modes and keep empty chat checks quiet\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

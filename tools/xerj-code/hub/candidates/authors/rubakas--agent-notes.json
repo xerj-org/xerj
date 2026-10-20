@@ -1,0 +1,22 @@
+{
+ "corpus": "rubakas--agent-notes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how rubakas/agent-notes implements it: Modular configuration files and best practices for AI coding agents across different technologies and frameworks (selected work: tests, agent_notes)",
+ "repos": [
+  {
+   "repo": "agent-notes",
+   "url": "https://github.com/rubakas/agent-notes",
+   "sha": "f990b3a1b08eb48fb3bc22e9ae84cc4426123c6a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit f990b3a1b08e: \"feat(install): reinstall renders fresh, counts removals, names the fix\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

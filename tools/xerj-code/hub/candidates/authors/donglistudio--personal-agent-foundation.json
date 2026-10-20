@@ -1,0 +1,22 @@
+{
+ "corpus": "donglistudio--personal-agent-foundation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on tools queries this for how DongLiStudio/personal-agent-foundation implements it: DongLiStudio/personal-agent-foundation (Python) (selected work: skills, tests, the project root)",
+ "repos": [
+  {
+   "repo": "personal-agent-foundation",
+   "url": "https://github.com/DongLiStudio/personal-agent-foundation",
+   "sha": "e6962d28c81b8899eb82b611fd0b29a79bc16b61",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e6962d28c81b: \"\u540c\u6b65\u6700\u65b0 GLOBAL \u901a\u7528\u80fd\u529b\u4e0e\u6062\u590d\u4fdd\u62a4\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

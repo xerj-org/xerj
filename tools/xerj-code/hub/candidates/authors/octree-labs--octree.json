@@ -1,0 +1,22 @@
+{
+ "corpus": "octree-labs--octree",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, latex queries this for how octree-labs/octree implements it: Octree - Open Source AI LaTeX Editor (selected work: tests, supabase, components)",
+ "repos": [
+  {
+   "repo": "octree",
+   "url": "https://github.com/octree-labs/octree",
+   "sha": "8dc80cadee0baebe45a756d64a354380e8bb952e",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8dc80cadee0b: \"feat(billing): annual + semester plans, AI edit credit packs, retire \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

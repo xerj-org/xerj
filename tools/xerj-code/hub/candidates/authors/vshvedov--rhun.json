@@ -1,0 +1,22 @@
+{
+ "corpus": "vshvedov--rhun",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on assembly, code-editor, editor queries this for how vshvedov/rhun implements it: A small and fast code editor written in Assembly (selected work: tests, src/ui, src/app)",
+ "repos": [
+  {
+   "repo": "rhun",
+   "url": "https://github.com/vshvedov/rhun",
+   "sha": "bbd553fd22b5c3d88678d099af66d8042f0ec903",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit bbd553fd22b5: \"Fix input-claim bugs and add missing interaction affordances\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

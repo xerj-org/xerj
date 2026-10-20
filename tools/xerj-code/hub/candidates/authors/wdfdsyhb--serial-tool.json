@@ -1,0 +1,22 @@
+{
+ "corpus": "wdfdsyhb--serial-tool",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on embedded, serial-port, tools queries this for how wdfdsyhb/serial-tool implements it: C \u8bed\u8a00\u4e32\u53e3\u8c03\u8bd5\u52a9\u624b \u2014\u2014 \u5d4c\u5165\u5f0f\u8def\u7ebf\u7b2c\u4e00\u4e2a\u9879\u76ee (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "serial-tool",
+   "url": "https://github.com/wdfdsyhb/serial-tool",
+   "sha": "27d4d263d8f96e69097df9f88bb526f310791615",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 27d4d263d8f9: \"v0.1: serial port listing + USB chip detection (SetupDi + VID/PID table)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

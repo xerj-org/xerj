@@ -1,0 +1,39 @@
+setup:
+  - do:
+      indices.create:
+          index: highlight_patterns
+          body:
+              mappings:
+                  properties:
+                      message:
+                          type: text
+                      title:
+                          type: text
+  - do:
+      bulk:
+          refresh: true
+          body:
+              - '{"index": {"_index": "highlight_patterns", "_id": "1"}}'
+              - '{"message": "upstream timeout contacting backend", "title": "timeout report"}'
+
+---
+"highlight field patterns are expanded against the mapping (#1281)":
+  - do:
+      search:
+          index: highlight_patterns
+          body:
+              query: { match: { message: timeout } }
+              highlight: { fields: { "*": {} } }
+
+  - match: { hits.hits.0.highlight.message.0: "upstream <em>timeout</em> contacting backend" }
+  - is_false: hits.hits.0.highlight.title
+
+  - do:
+      search:
+          index: highlight_patterns
+          body:
+              query: { match: { message: timeout } }
+              highlight: { require_field_match: false, fields: { "t*": {} } }
+
+  - match: { hits.hits.0.highlight.title.0: "<em>timeout</em> report" }
+  - is_false: hits.hits.0.highlight.message

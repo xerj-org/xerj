@@ -1,0 +1,22 @@
+{
+ "corpus": "keyflow-me--keyflow-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how KeyFlow-me/keyflow-cli implements it: KeyFlow-me/keyflow-cli (TypeScript) (selected work: tests, src/commands, src/post)",
+ "repos": [
+  {
+   "repo": "keyflow-cli",
+   "url": "https://github.com/KeyFlow-me/keyflow-cli",
+   "sha": "ffe8daff2b22a5f0c3052e49c32d13012eb8b311",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ffe8daff2b22: \"feat(publishing): schedule bilingual drafts with verified server support\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

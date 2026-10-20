@@ -1,0 +1,22 @@
+{
+ "corpus": "bynanci--open-film",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how bynanci/open-film implements it: bynanci/open-film (TypeScript) (selected work: tests, packages/application, scripts)",
+ "repos": [
+  {
+   "repo": "open-film",
+   "url": "https://github.com/bynanci/open-film",
+   "sha": "34b6ff093294f97061dfb0ecb270413a52b6b7ee",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 34b6ff093294: \"OpenFilm 0.3.3 \u2014 Workstation QA Evidence & Safe Review Recovery (#6)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

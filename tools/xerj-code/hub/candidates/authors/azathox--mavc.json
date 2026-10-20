@@ -1,0 +1,22 @@
+{
+ "corpus": "azathox--mavc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how AzathoX/mavc implements it: mutiple audio version collection-controller (selected work: src, src/core, src/cli)",
+ "repos": [
+  {
+   "repo": "mavc",
+   "url": "https://github.com/AzathoX/mavc",
+   "sha": "c970da5d590d7145b6b1c4a988beb51b1612556b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit c970da5d590d: \"overwrite\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

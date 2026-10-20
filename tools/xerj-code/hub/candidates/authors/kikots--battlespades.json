@@ -1,0 +1,22 @@
+{
+ "corpus": "kikots--battlespades",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on aceofspades, pyckaxe queries this for how KikoTs/BattleSpades implements it: Working protocol 168 server for Ace of Spades Battle Builders (selected work: tests, server_gui, server)",
+ "repos": [
+  {
+   "repo": "BattleSpades",
+   "url": "https://github.com/KikoTs/BattleSpades",
+   "sha": "76e0f1291b5823158c688cae1ffc4ffa34f6e2a3",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 76e0f1291b58: \"Expand server map, Workshop, and LAN support\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "melgarafael--deskcommcrm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, crm, ecommerce queries this for how melgarafael/DeskcommCRM implements it: Open-source AI sales OS \u2014 self-hosted CRM with native AI agents + WhatsApp (WAHA). Open alternative to Kommo, Octadesk & Intercom for any bu (selected work: supabase, tests, lib/escalacao)",
+ "repos": [
+  {
+   "repo": "DeskcommCRM",
+   "url": "https://github.com/melgarafael/DeskcommCRM",
+   "sha": "f305845c11a4ce7581d94b0b7868155490124440",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f305845c11a4: \"feat(ai): habilita opt-in de resposta pelo WhatsApp\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

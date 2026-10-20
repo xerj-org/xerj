@@ -1,0 +1,22 @@
+{
+ "corpus": "rice-dog--code-codex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Rice-dog/code-codex implements it: Local project file tree and preview companion for Codex Desktop (selected work: releases, packages/explorer-ui, scripts)",
+ "repos": [
+  {
+   "repo": "code-codex",
+   "url": "https://github.com/Rice-dog/code-codex",
+   "sha": "7dd6bbba7b5f38a44654a829b07b142a30f182d3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 7dd6bbba7b5f: \"fix: add subdued update arrow and prepare v0.4.18\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

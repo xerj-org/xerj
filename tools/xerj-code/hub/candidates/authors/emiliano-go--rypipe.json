@@ -1,0 +1,22 @@
+{
+ "corpus": "emiliano-go--rypipe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on apache-arrow, columnar, data-engineering queries this for how emiliano-go/rypipe implements it: Format- and source-agnostic ingestion framework: a common execution runtime for turning record-oriented data sources into typed columnar dat (selected work: crates/rypipe-python, rypipe, crates/rypipe-core)",
+ "repos": [
+  {
+   "repo": "rypipe",
+   "url": "https://github.com/emiliano-go/rypipe",
+   "sha": "52a8f171f33f321885a692e68e3fb557fde11872",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 52a8f171f33f: \"core: stage profiler for execution reads\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

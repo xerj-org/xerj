@@ -1,0 +1,22 @@
+{
+ "corpus": "jamshids--aiset",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, code-intelligence queries this for how JamshidS/aiset implements it: Turn your repos into a team of Claude Code agents with persistent memory, coordinated tasks, and a live dashboard (selected work: src/aiset, tests)",
+ "repos": [
+  {
+   "repo": "aiset",
+   "url": "https://github.com/JamshidS/aiset",
+   "sha": "23afb0541345ca6b21a6bfe0be9454bcd1781ff7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 23afb0541345: \"feat: add settings page for agent configuration and team management\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

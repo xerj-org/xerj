@@ -1,0 +1,22 @@
+{
+ "corpus": "agentteams-group--agentteams-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how agentteams-group/agentteams-dashboard implements it: agentteams-group/agentteams-dashboard (TypeScript) (selected work: src/components, src/lib, src/app)",
+ "repos": [
+  {
+   "repo": "agentteams-dashboard",
+   "url": "https://github.com/agentteams-group/agentteams-dashboard",
+   "sha": "b502f978630a1429b2458dbebce1f8adfa19e6d8",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b502f978630a: \"fix(dashboard): \u8865\u9f50 #146 \u7f3a\u53e3 2/3\uff08\u7f16\u7801\u6267\u884c\u8bb0\u5f55 + LLM \u8c03\u4f18\uff09 (#148)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

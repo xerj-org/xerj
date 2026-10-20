@@ -1,0 +1,22 @@
+{
+ "corpus": "sysprog21--codetrial",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-aided-interview, mock-interview-platform queries this for how sysprog21/codetrial implements it: A live technical interview simulator (selected work: web, tests)",
+ "repos": [
+  {
+   "repo": "codetrial",
+   "url": "https://github.com/sysprog21/codetrial",
+   "sha": "db85e87dec3700a2299fe04dd9e7364c58502f57",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit db85e87dec37: \"Walk a whiteboard report through the board\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

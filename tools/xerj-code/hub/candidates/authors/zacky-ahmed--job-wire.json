@@ -1,0 +1,22 @@
+{
+ "corpus": "zacky-ahmed--job-wire",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ejs, email-automation, express queries this for how Zacky-Ahmed/Job-Wire implements it: An always-on job alert system for catching new roles early (selected work: src/services, src/config, src/models)",
+ "repos": [
+  {
+   "repo": "Job-Wire",
+   "url": "https://github.com/Zacky-Ahmed/Job-Wire",
+   "sha": "9caf078c7852a439018c9265b91f0a735cc31d4b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 9caf078c7852: \"Mail: automatically fall back from Brevo to Gmail\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "fmflurry--settings-opencode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how fmflurry/settings-opencode implements it: Custom OpenCode settings (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "settings-opencode",
+   "url": "https://github.com/fmflurry/settings-opencode",
+   "sha": "4bd9260405eff0fd58110820b2cb90323dab8ff7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 4bd9260405ef: \"feat(cursor): add plugin generator\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

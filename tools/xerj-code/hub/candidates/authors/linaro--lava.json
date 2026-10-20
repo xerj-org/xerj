@@ -1,0 +1,22 @@
+{
+ "corpus": "linaro--lava",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on automation-framework, kernel, ci queries this for how Linaro/lava implements it: Read only mirror https://gitlab.com/lava/lava (selected work: tests, lava_results_app, lava_scheduler_app)",
+ "repos": [
+  {
+   "repo": "lava",
+   "url": "https://github.com/Linaro/lava",
+   "sha": "79a9aa280c892b0fc047402149d7b3866702fa15",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 79a9aa280c89: \"security: make state-changing endpoints POST-only\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

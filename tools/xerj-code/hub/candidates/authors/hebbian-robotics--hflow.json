@@ -1,0 +1,22 @@
+{
+ "corpus": "hebbian-robotics--hflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on airflow, data-pipeline, data-quality queries this for how Hebbian-Robotics/hflow implements it: SDK for robotics teams to verify the quality of their data used for AI model training (selected work: tests, src/hflow, packages/hflow-server)",
+ "repos": [
+  {
+   "repo": "hflow",
+   "url": "https://github.com/Hebbian-Robotics/hflow",
+   "sha": "f1d82539ef2068809b554f5c71ff4b53eec1eba9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit f1d82539ef20: \"Migrate Airflow REST client to httpx2 (#578)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

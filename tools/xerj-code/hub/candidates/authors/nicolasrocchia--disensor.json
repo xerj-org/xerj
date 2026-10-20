@@ -1,0 +1,22 @@
+{
+ "corpus": "nicolasrocchia--disensor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-code-review, ci queries this for how NicolasRocchia/disensor implements it: Adversarial AI code review that declares what the round could not close. Python CLI + GitHub Action, MIT (selected work: tests, src/disensor)",
+ "repos": [
+  {
+   "repo": "disensor",
+   "url": "https://github.com/NicolasRocchia/disensor",
+   "sha": "56edef3be30963fbcc551fe4112c051d13c8d2f8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 56edef3be309: \"feat(round): la receta codex corre desde un CODEX_HOME aislado (#108)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

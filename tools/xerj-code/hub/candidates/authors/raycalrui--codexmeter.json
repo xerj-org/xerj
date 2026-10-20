@@ -1,0 +1,22 @@
+{
+ "corpus": "raycalrui--codexmeter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Swift queries this for how raycalrui/CodexMeter implements it: A native macOS menu bar app for monitoring Codex usage limits (selected work: CodexMeter, Tests, Scripts)",
+ "repos": [
+  {
+   "repo": "CodexMeter",
+   "url": "https://github.com/raycalrui/CodexMeter",
+   "sha": "3d28cab30e4e63c41c3ca65f361834d823a52980",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 3d28cab30e4e: \"feat: add secure Telegram and Discord quota notifications\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

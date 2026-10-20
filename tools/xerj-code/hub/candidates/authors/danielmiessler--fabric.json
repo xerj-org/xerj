@@ -1,0 +1,22 @@
+{
+ "corpus": "danielmiessler--fabric",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, augmentation, flourishing queries this for how danielmiessler/Fabric implements it: Fabric is an open-source framework for augmenting humans using AI. It provides a modular system for solving specific problems using a crowds (selected work: internal/plugins, internal/server, internal/core)",
+ "repos": [
+  {
+   "repo": "Fabric",
+   "url": "https://github.com/danielmiessler/Fabric",
+   "sha": "aa3e1727b7dfc62e54d5623e2f92ae355319320a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit aa3e1727b7df: \"fix: correct SSE streaming behavior and restore native Azure routing\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

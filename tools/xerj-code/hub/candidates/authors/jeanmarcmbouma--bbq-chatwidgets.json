@@ -1,0 +1,22 @@
+{
+ "corpus": "jeanmarcmbouma--bbq-chatwidgets",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C# queries this for how JeanMarcMbouma/BbQ.ChatWidgets implements it: Framework-agnostic widgets for AI chat UIs, powered by Microsoft.Extensions.AI (selected work: Sample, js, BbQ.ChatWidgets)",
+ "repos": [
+  {
+   "repo": "BbQ.ChatWidgets",
+   "url": "https://github.com/JeanMarcMbouma/BbQ.ChatWidgets",
+   "sha": "89e15caeaf9998858c424cdb1c11b9af9c14a2de",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 89e15caeaf99: \"Revive ChatWidgets with a local playground and production safeguards\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--airflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on airflow, apache, apache-airflow queries this for how apache/airflow implements it: Apache Airflow - A platform to programmatically author, schedule, and monitor workflows (selected work: providers)",
+ "repos": [
+  {
+   "repo": "airflow",
+   "url": "https://github.com/apache/airflow",
+   "sha": "04e285b1eace65eca24cd68cb9c5af014391a7a7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 04e285b1eace: \"Cancel the agent run when a common.ai LLM or agent task is killed (#7\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

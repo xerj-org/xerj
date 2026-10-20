@@ -1,0 +1,22 @@
+{
+ "corpus": "microsoft--vcpkg",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on vcpkg, visual-studio, libraries queries this for how microsoft/vcpkg implements it: C++ Library Manager for Windows, Linux, and MacOS (selected work: ports, versions)",
+ "repos": [
+  {
+   "repo": "vcpkg",
+   "url": "https://github.com/microsoft/vcpkg",
+   "sha": "2750401336fb7c95f6619657a46a7e798661341c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 2750401336fb: \"[vst3sdk] Update to 3.8.1 (#54347)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

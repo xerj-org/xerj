@@ -1,0 +1,22 @@
+{
+ "corpus": "vprashar2929--ops-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how vprashar2929/ops-skills implements it: vprashar2929/ops-skills (Python) (selected work: tests, scripts, packaging)",
+ "repos": [
+  {
+   "repo": "ops-skills",
+   "url": "https://github.com/vprashar2929/ops-skills",
+   "sha": "d22af6ba5854132a9471ff84f8c15dc4eae50379",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit d22af6ba5854: \"feat: add shared marketplace plugin for Codex and Claude code\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

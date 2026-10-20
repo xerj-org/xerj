@@ -1,0 +1,22 @@
+{
+ "corpus": "cardboardcode--virtual-camera",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how cardboardcode/virtual_camera implements it: A ROS2 package that simulates a camera, providing ROS messages from playing a static video (selected work: src, tests, src/bin)",
+ "repos": [
+  {
+   "repo": "virtual_camera",
+   "url": "https://github.com/cardboardcode/virtual_camera",
+   "sha": "738cf0c8fdefcdd459aa57acde34ba8036153753",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 738cf0c8fdef: \":heavy_plus_sign: :fire: :hammer: Extract CLI into testable module an\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

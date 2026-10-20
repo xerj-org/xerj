@@ -1,0 +1,22 @@
+{
+ "corpus": "yanpgwang--mango",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-api, durable-execution, managed-agents queries this for how yanpgwang/mango implements it: Open-source implementation of the core Claude Managed Agents (CMA) in Go, with Temporal-backed durable sessions and pluggable sandboxes (selected work: internal/pg, internal/app, internal/httpapi)",
+ "repos": [
+  {
+   "repo": "mango",
+   "url": "https://github.com/yanpgwang/mango",
+   "sha": "7867cac149126d849e91e9f6d9de41113332ecd5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 7867cac14912: \"fix(storage): fence generated MCP File publication attempts (#248)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

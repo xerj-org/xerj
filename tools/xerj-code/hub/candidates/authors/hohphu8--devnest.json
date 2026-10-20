@@ -1,0 +1,22 @@
+{
+ "corpus": "hohphu8--devnest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on desktop-app, rust, tauri-app queries this for how hohphu8/devnest implements it: Project-first local PHP workspace for Windows (selected work: src-tauri, the project root)",
+ "repos": [
+  {
+   "repo": "devnest",
+   "url": "https://github.com/hohphu8/devnest",
+   "sha": "ba5085c7b54249e8a4e6e856b3a8361584c93416",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit ba5085c7b542: \"fix(php): avoid reserved FastCGI ports\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

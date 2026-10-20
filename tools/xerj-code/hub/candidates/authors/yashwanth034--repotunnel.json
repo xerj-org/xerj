@@ -1,0 +1,22 @@
+{
+ "corpus": "yashwanth034--repotunnel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, automation, chatgptweb queries this for how Yashwanth034/RepoTunnel implements it: RepoTunnel is a secure local AI workspace bridge that connects ChatGPT Web and MCP-compatible AI clients to approved local projects, files,  (selected work: extensions)",
+ "repos": [
+  {
+   "repo": "RepoTunnel",
+   "url": "https://github.com/Yashwanth034/RepoTunnel",
+   "sha": "a3409aa7d94987793619e074a77718ef52e7baa0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit a3409aa7d949: \"feat: add RepoTunnel continuation extension\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

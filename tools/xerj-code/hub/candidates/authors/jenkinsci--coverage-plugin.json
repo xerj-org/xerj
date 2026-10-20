@@ -1,0 +1,22 @@
+{
+ "corpus": "jenkinsci--coverage-plugin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cobertura, coverage, coverage-report queries this for how jenkinsci/coverage-plugin implements it: Jenkins coverage plugin (code and mutation coverage with Cobertura, JaCoCo and PIT) (selected work: plugin)",
+ "repos": [
+  {
+   "repo": "coverage-plugin",
+   "url": "https://github.com/jenkinsci/coverage-plugin",
+   "sha": "85342398afd604805166318b177e97967d04c943",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 85342398afd6: \"Replace O(n\u00b2) CSS hover highlighting with O(n) JS in source view\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

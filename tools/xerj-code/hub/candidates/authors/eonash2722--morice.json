@@ -1,0 +1,22 @@
+{
+ "corpus": "eonash2722--morice",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how EONASH2722/MORICE implements it: A sleek local AI assistant with glass UI, offline GGUF support, and smart notes (selected work: morice, tests, scripts)",
+ "repos": [
+  {
+   "repo": "MORICE",
+   "url": "https://github.com/EONASH2722/MORICE",
+   "sha": "45ebbe9e0e27d6a2d81c13c632591aff67444702",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 45ebbe9e0e27: \"Fix chat visibility and input flow; publish 0.9.1 desktop preview\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "hihol-labs--idea-to-deploy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how hihol-labs/idea-to-deploy implements it: hihol-labs/idea-to-deploy (Python) (selected work: skills, tests)",
+ "repos": [
+  {
+   "repo": "idea-to-deploy",
+   "url": "https://github.com/hihol-labs/idea-to-deploy",
+   "sha": "c1d2910f437c8c450b9e26d31ab7f97540f4bdc2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit c1d2910f437c: \"fix(review): render oversized JSONL as a lossless bounded view\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

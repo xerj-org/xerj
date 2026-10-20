@@ -1,0 +1,22 @@
+{
+ "corpus": "asifverse4--100-days-of-computational-chemistry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on 100-days-of-code, cheminformatics, computational-chemistry queries this for how asifverse4/100-days-of-computational-chemistry implements it: A 100-day Python journey exploring computational chemistry through practical projects, simulations, molecular modeling, data analysis, and s (selected work: days)",
+ "repos": [
+  {
+   "repo": "100-days-of-computational-chemistry",
+   "url": "https://github.com/asifverse4/100-days-of-computational-chemistry",
+   "sha": "37d86ead9563f7784bcd934790d138b0cc25579c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 37d86ead9563: \"Day 12: Tauc plot and optical band gap calculator with automatic line\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

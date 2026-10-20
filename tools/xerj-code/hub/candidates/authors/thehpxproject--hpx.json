@@ -1,0 +1,22 @@
+{
+ "corpus": "thehpxproject--hpx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on c-plus-plus, distributed, cross-platform queries this for how TheHPXProject/hpx implements it: The C++ Standard Library for Parallelism and Concurrency (selected work: libs)",
+ "repos": [
+  {
+   "repo": "hpx",
+   "url": "https://github.com/TheHPXProject/hpx",
+   "sha": "beb81a6d149218e270b2738bb263594549485165",
+   "licence": "hint only: BSL-1.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSL-1.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit beb81a6d1492: \"Scope early staged stealing to the local priority queue scheduler\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

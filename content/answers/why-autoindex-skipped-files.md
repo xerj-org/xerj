@@ -7,7 +7,7 @@ cluster: "Operations: exclusions"
 question: "Why would a folder search miss files that I can see on disk?"
 intent: "troubleshooting"
 published: "2026-08-21"
-updated: "2026-08-23"
+updated: "2026-10-05"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -49,7 +49,7 @@ A missing file was either never walked or was opened and refused, and the 2 case
 | Cause | Where the evidence is | Captured example |
 | --- | --- | --- |
 | Ignore rule | stderr, one line per rule | `.gitignore:*.tmp — 1 file` |
-| Extractor refusal | `autoindex-catalog`, `reason` field | `binary content (zip)` |
+| Extractor refusal | `autoindex-catalog`, `reason` field | `binary content (unknown)` |
 
 ## Read the ignore accounting first
 
@@ -85,9 +85,9 @@ The capture returned 3 files that reached the catalog, and 2 of them carry a rea
 | --- | --- | --- | --- |
 | `README.txt` | `txt-prose` | `indexed` | none |
 | `assets/logo.bin` | `binary` | `junk` | `binary content (unknown)` |
-| `books/manual.epub` | `binary` | `junk` | `binary content (zip)` |
+| `data/events.parquet` | `binary` | `junk` | `unsupported data format (Parquet): autoindex has no reader for it — export it to CSV or JSON Lines to index it now` |
 
-An unsupported format is refused as binary rather than partially extracted. The EPUB above has no extractor, so XERJ detects a zip container and stops.
+Nothing is partially extracted. A format XERJ recognizes but cannot read is refused with a reason that names the fix: the Parquet file above says which export makes it indexable. A file XERJ cannot identify at all is refused as `binary content (unknown)`.
 
 ## The arithmetic that closes the gap
 
@@ -106,7 +106,9 @@ Treat that as a default, not as a guarantee. Ignore rules are a content filter, 
 The captured run ended with a terminal line that names both the outcome and the refusal count.
 
 ```text
-xerj-done ok=true exit=3 reason=completed-with-junk wall=0.8s files=1 records=2 datasets=1 junk_files=2
+xerj-done ok=true exit=3 reason=completed-with-junk wall=3.1s files=1 records=2 datasets=1 junk_files=2 code_files=0 code_files_indexed=0 code_files_junked=0
 ```
 
 Exit 0 with `reason=completed` means nothing was refused. Exit 3 with `reason=completed-with-junk` means the catalog holds at least one reason worth reading.
+
+Every number above comes from a capture on 2026-10-05, on a build of `main` after v1.0.0-rc.82 (commit `06185966`). The Parquet hint is not in the v1.0.0-rc.82 release itself: that release reports such a file as `binary content (unknown)`. The binary was a `quick` profile build, so the `wall` figure is not a performance number.

@@ -1,0 +1,22 @@
+{
+ "corpus": "secutils-dev--secutils",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on api, developer-tools, rust queries this for how secutils-dev/secutils implements it: Secutils.dev is an open-source, versatile, yet simple security toolbox for engineers and researchers (selected work: components, src/utils, e2e)",
+ "repos": [
+  {
+   "repo": "secutils",
+   "url": "https://github.com/secutils-dev/secutils",
+   "sha": "84d45c54a217d3c7451264c9a15f98e75b9ec651",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 84d45c54a217: \"feat(webhooks): open responder editor instantly from summary data\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

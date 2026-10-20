@@ -1,0 +1,22 @@
+{
+ "corpus": "spectra010s--dotcfg",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, config, configuration queries this for how Spectra010s/dotcfg implements it: Flexible config management for Rust applications (selected work: src, tests)",
+ "repos": [
+  {
+   "repo": "dotcfg",
+   "url": "https://github.com/Spectra010s/dotcfg",
+   "sha": "a4b7e19b509d3627f4c82badb8e49ebedf865e06",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit a4b7e19b509d: \"feat(env): unify DotCfg env mapping on __ nesting convention\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

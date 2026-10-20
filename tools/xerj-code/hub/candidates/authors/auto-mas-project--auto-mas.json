@@ -1,0 +1,22 @@
+{
+ "corpus": "auto-mas-project--auto-mas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on arknights, maa, arknights-endfield queries this for how AUTO-MAS-Project/AUTO-MAS implements it: \u591a\u811a\u672c\u591a\u914d\u7f6e\u7edf\u4e00\u7ba1\u7406\u4e0e\u81ea\u52a8\u5316\u5de5\u5177 | \u8f7b\u677e\u7ba1\u7406\u5927\u91cf\u811a\u672c\u5e76\u5b58\u50a8\u591a\u4e2a\u7528\u6237\u914d\u7f6e\u3001\u8bbe\u8ba1\u81ea\u52a8\u5316\u4efb\u52a1\u6d41\u3001\u76d1\u770b\u811a\u672c\u65e5\u5fd7\uff0c\u5927\u5e45\u63d0\u9ad8\u81ea\u52a8\u5316\u4ee3\u7406\u6548\u7387\u4e0e\u7a33\u5b9a\u6027\uff01 (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "AUTO-MAS",
+   "url": "https://github.com/AUTO-MAS-Project/AUTO-MAS",
+   "sha": "016d082ac035a28f80b89470984d9cb28148f41b",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 016d082ac035: \"feat(mystery): \u5c06 Token \u83b7\u53d6\u7edf\u4e00\u79fb\u81f3\u72ec\u7acb\u9875\u9762\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

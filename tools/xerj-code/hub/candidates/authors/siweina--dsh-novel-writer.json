@@ -1,0 +1,22 @@
+{
+ "corpus": "siweina--dsh-novel-writer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on ai-writing, cordis, deepseek-harness queries this for how siweina/dsh-novel-writer implements it: \u7ed9\u4e2d\u6587\u7f51\u6587\u4f5c\u8005\u7684\u672c\u5730\u5199\u4f5c\u5de5\u4f5c\u53f0\uff0820 \u4e2a\u5de5\u5177\uff09\uff1a\u52a8\u7b14\u524d\u53d6\u9f50\u4e0a\u4e00\u7ae0\u627f\u63a5\u53e3/\u5927\u7eb2/\u4eba\u7269\u5361/\u5f85\u56de\u6536\u4f0f\u7b14/\u7528\u8bed\u89c4\u8303\uff1b\u5199\u5b8c\u540e\u6309\u516d\u7ef4\u6587\u7b14\u57fa\u7ebf\u5bf9\u7167\u539f\u8457\u6ce2\u52a8\u5e26\u81ea\u68c0\uff0c\u6392\u51fa\u5e26\u539f\u53e5\u884c\u53f7\u7684\u6539\u7a3f\u5f85\u529e\uff1b\u8de8\u7ae0\u67e5\u4f0f\u7b14\u57cb\u8bbe\u8de8\u5ea6\u3001\u4eba\u7269\u8fde\u7eed\u7f3a\u5e2d\u4e0e\u5927\u7eb2\u504f\u79bb\uff1b\u51fa\u9519\u65f6\u53ef\u751f\u6210\u53ea\u542b\u5143\u6570\u636e\u3001\u53ef\u5b89\u5168\u5206\u4eab\u7684\u8bca\u65ad\u62a5\u544a\u300224MB \u4e2d\u6587\u6a21 (selected work: lib, tools, test)",
+ "repos": [
+  {
+   "repo": "dsh-novel-writer",
+   "url": "https://github.com/siweina/dsh-novel-writer",
+   "sha": "ad66c5af3b77469aff5038ef5dc38dbac6ed34cb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit ad66c5af3b77: \"v6.0.0 \u754c\u9762\u5168\u9762\u91cd\u6784\uff1aMIU\u2168 \u4fe1\u606f\u67b6\u6784 \u00d7 DSH token\uff08\u65b9\u6848A \u6e90\u7801\u5206\u5757+\u6784\u5efa\u94fe\uff09\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "kubescape--node-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on ebpf, kubernetes, kubescape queries this for how kubescape/node-agent implements it: Kubescape eBPF agent \ud83e\udd77\ud83c\udffb (selected work: pkg/containerprofilemanager, pkg/objectcache, pkg/otelsetup)",
+ "repos": [
+  {
+   "repo": "node-agent",
+   "url": "https://github.com/kubescape/node-agent",
+   "sha": "67e455e040520a3f1f5a4ac20fbf5fe25f676d43",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 67e455e04052: \"fix: stop retrying permanent container profile rejections (#994)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

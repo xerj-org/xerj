@@ -1,0 +1,22 @@
+{
+ "corpus": "iknizzz1807--the-estimator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on conformal-prediction, effort-estimation, fastapi queries this for how iknizzz1807/the-estimator implements it: From RFP to range \u2014 calibrated effort estimates (Ridge + conformal P10/P50/P90), ranked clarifying questions, budget-fit quotes, codebase ri (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "the-estimator",
+   "url": "https://github.com/iknizzz1807/the-estimator",
+   "sha": "894ff5d04eff4a8e3291ef3ebb18a730635ec9f4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 894ff5d04eff: \"feat(frontend): feature overrides + show all lower-impact unknowns (D29)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

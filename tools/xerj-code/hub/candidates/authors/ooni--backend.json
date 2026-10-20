@@ -1,0 +1,22 @@
+{
+ "corpus": "ooni--backend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how ooni/backend implements it: Everything related to OONI backend infrastructure: ooni/api, ooni/pipeline, ooni/sysadmin, collector, bouncers and test-helpers (selected work: ooniapi, fastpath, api)",
+ "repos": [
+  {
+   "repo": "backend",
+   "url": "https://github.com/ooni/backend",
+   "sha": "5e21f85515fd95ba6a9ecc9488a95f39e04e9ced",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 5e21f85515fd: \"Add synthetic benchmarking to CI (#1274)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "osmanhadzic--agronode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on agriculture, esp32, iot queries this for how osmanhadzic/agronode implements it: ESP32 IoT monitoring platform with MQTT, real-time telemetry, and dynamic sensors (selected work: agronode)",
+ "repos": [
+  {
+   "repo": "agronode",
+   "url": "https://github.com/osmanhadzic/agronode",
+   "sha": "be3bfe921964a42519374b5b1020449a97e48c15",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit be3bfe921964: \"feat: add telemetry aggregation and trigger event handling\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

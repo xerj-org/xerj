@@ -1,0 +1,22 @@
+{
+ "corpus": "anaydhawan--openvidstudio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, demo-video queries this for how AnayDhawan/openvidstudio implements it: Code-based video generation. An open-source video pipeline for AI coding agents: a real browser captures your real product, and your agent d (selected work: packages/mcp-server, packages/core)",
+ "repos": [
+  {
+   "repo": "openvidstudio",
+   "url": "https://github.com/AnayDhawan/openvidstudio",
+   "sha": "67b9cd5e632ef7ed6b29c6a6ea3c3d1ab345ce92",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 67b9cd5e632e: \"audio: CC0 sounds in the built-in pack, CC0 music catalogs behind two\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

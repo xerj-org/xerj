@@ -1,0 +1,22 @@
+{
+ "corpus": "bistoyek21-ric--strikeforce",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, computer-science, computer-vision queries this for how bistoyek21-ric/StrikeForce implements it: A research-oriented multiplayer battle game where you train AI agents to compete in a zombie-infested arena! (selected work: StrikeForce-client)",
+ "repos": [
+  {
+   "repo": "StrikeForce",
+   "url": "https://github.com/bistoyek21-ric/StrikeForce",
+   "sha": "fb87ec527f53d6ad34d3e18aad4da241203eca5b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit fb87ec527f53: \"benchmarked easily\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "shapak-apps--kust",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on chess, flutter, learning queries this for how Shapak-Apps/kust implements it: K\u00fc\u015ft - App where you can learn, practice moreover improve your chess! (selected work: lib/features, lib/core, assets)",
+ "repos": [
+  {
+   "repo": "kust",
+   "url": "https://github.com/Shapak-Apps/kust",
+   "sha": "ee6d17984553c434bbc5e2d22e084ffd28f7da54",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ee6d17984553: \"feat(puzzles): add puzzle game feature with routing, data storage, an\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

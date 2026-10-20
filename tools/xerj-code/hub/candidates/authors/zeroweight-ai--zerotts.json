@@ -1,0 +1,22 @@
+{
+ "corpus": "zeroweight-ai--zerotts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how zeroweight-ai/ZeroTTS implements it: Fast, lightweight zero-shot Vietnamese text-to-speech (TTS) that runs in real time on CPU (selected work: js, tests, src/zerotts)",
+ "repos": [
+  {
+   "repo": "ZeroTTS",
+   "url": "https://github.com/zeroweight-ai/ZeroTTS",
+   "sha": "3d7feb0b74e559d630096661cb7184f2f6ece494",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 3d7feb0b74e5: \"add voice clone\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

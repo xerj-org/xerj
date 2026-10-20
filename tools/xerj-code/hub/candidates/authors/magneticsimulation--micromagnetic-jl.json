@@ -1,0 +1,22 @@
+{
+ "corpus": "magneticsimulation--micromagnetic-jl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Julia queries this for how MagneticSimulation/MicroMagnetic.jl implements it: A Julia package for classical spin dynamics and micromagnetic simulations with GPU support (selected work: src/integrator, src, test)",
+ "repos": [
+  {
+   "repo": "MicroMagnetic.jl",
+   "url": "https://github.com/MagneticSimulation/MicroMagnetic.jl",
+   "sha": "0d2bd686e0c3a13a3eb5f85ca6495a700a65ac3e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 0d2bd686e0c3: \"relax: remove sim.prespin and use per-driver max_dmdt\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

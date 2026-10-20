@@ -1,0 +1,22 @@
+{
+ "corpus": "qvantor--waveform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on audio-processing, synth, synthesizer queries this for how qvantor/waveform implements it: Experimental wavetable synth written on TS and Web Audio (selected work: apps/waveform, libs)",
+ "repos": [
+  {
+   "repo": "waveform",
+   "url": "https://github.com/qvantor/waveform",
+   "sha": "80c7504521f1f448b6ae5dbd589fc451c11dd4aa",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 80c7504521f1: \"CascadeSelect skips the only folder itself, arrows find a path withou\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "pantoyt--termwall",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on fastfetch, lively-wallpaper, ricing queries this for how PantoYT/termwall implements it: Live fastfetch-style system-stats wallpaper for Wallpaper Engine and Lively: seven layouts, 14 themes, distro or GIF logos, CRT effects, one (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "termwall",
+   "url": "https://github.com/PantoYT/termwall",
+   "sha": "b6f4674866143f180871a0995f24d5d8f00aed8a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit b6f467486614: \"logo = image: a picture or animated GIF (logo.gif/png/jpg/webp) as ha\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

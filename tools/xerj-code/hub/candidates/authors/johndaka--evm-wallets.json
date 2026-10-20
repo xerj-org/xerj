@@ -1,0 +1,22 @@
+{
+ "corpus": "johndaka--evm-wallets",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on TypeScript queries this for how JohnDaka/evm-wallets implements it: Tells which browser wallet is really installed (MetaMask, Coinbase Wallet, or both), then connects, switches networks, reads balances and se (selected work: src, src/testing, the project root)",
+ "repos": [
+  {
+   "repo": "evm-wallets",
+   "url": "https://github.com/JohnDaka/evm-wallets",
+   "sha": "0e49602f2b405c5d1d962b90bfac4e0256ce9825",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 0e49602f2b40: \"publish: no registry-url, so npm authenticates as the workflow, not w\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

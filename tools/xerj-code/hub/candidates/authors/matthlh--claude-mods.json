@@ -1,0 +1,22 @@
+{
+ "corpus": "matthlh--claude-mods",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, claude-code-mod, pixel-art queries this for how matthlh/claude-mods implements it: Claude Code mods: a pixel cat with a Terraria-style Adventurer pack, the Token Tycoon idle game, and a purple theme (selected work: plugins)",
+ "repos": [
+  {
+   "repo": "claude-mods",
+   "url": "https://github.com/matthlh/claude-mods",
+   "sha": "c1266cf5afea984a8c75aae619738883d0f79a10",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit c1266cf5afea: \"Add a \u21bb switcher that cycles Cat, Adventurer, Token Tycoon and off\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

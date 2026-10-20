@@ -1,0 +1,22 @@
+{
+ "corpus": "solacianallie--interstellarpilot-openfrontier",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how SolacianAllie/InterstellarPilot-OpenFrontier implements it: open-source project dedicated to preserving and modernizing InterstellarPilot 2 (selected work: Assets, tools)",
+ "repos": [
+  {
+   "repo": "InterstellarPilot-OpenFrontier",
+   "url": "https://github.com/SolacianAllie/InterstellarPilot-OpenFrontier",
+   "sha": "c44162e2f29d5ec20460360f800d1677e3904e5c",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit c44162e2f29d: \"Docking crossfades; everything else still cuts\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

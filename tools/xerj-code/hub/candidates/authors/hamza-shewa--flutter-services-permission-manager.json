@@ -1,0 +1,22 @@
+{
+ "corpus": "hamza-shewa--flutter-services-permission-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how Hamza-Shewa/flutter-services-permission-manager implements it: Hamza-Shewa/flutter-services-permission-manager (TypeScript) (selected work: scripts, mcp-server, src/test)",
+ "repos": [
+  {
+   "repo": "flutter-services-permission-manager",
+   "url": "https://github.com/Hamza-Shewa/flutter-services-permission-manager",
+   "sha": "1ef291010a72947328f57cc3f27a0c507ff4577a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 1ef291010a72: \"compress images\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -186,10 +186,20 @@ pub fn band(rel: &str, family: Family) -> Band {
         | Family::Html
         | Family::Pdf
         | Family::Docx
+        | Family::Doc
+        | Family::Pptx
+        | Family::Epub
+        | Family::Ipynb
+        | Family::Man
         | Family::Eml
         | Family::Mbox => Band::SourceAndDocs,
         Family::Yaml | Family::Json | Family::Xml => Band::Config,
-        Family::Csv | Family::Jsonl | Family::Sqlite | Family::SqlDump => Band::Data,
+        Family::Csv
+        | Family::Jsonl
+        | Family::Sqlite
+        | Family::SqlDump
+        | Family::Xlsx
+        | Family::Xls => Band::Data,
         Family::Logs | Family::TxtLines => Band::Bulk,
         // Unity assets are the project's own authored content — scenes,
         // prefabs and materials are to a Unity repo what source files are to
@@ -223,11 +233,10 @@ pub fn band_from_family_str(rel: &str, family: &str) -> Band {
         // docs, so a RESUMED run queued every email behind the bulk data the
         // planning run had put it ahead of. The agreement test did not catch it
         // because its family list was written by hand and omitted `Eml` too.
-        "code" | "txt-prose" | "html" | "pdf" | "docx" | "unity" | "eml" | "mbox" => {
-            Band::SourceAndDocs
-        }
+        "code" | "txt-prose" | "html" | "pdf" | "docx" | "doc" | "pptx" | "epub" | "ipynb"
+        | "man" | "unity" | "eml" | "mbox" => Band::SourceAndDocs,
         "yaml" | "json" | "xml" | "unity-meta" => Band::Config,
-        "csv" | "jsonl" | "sqlite" | "sqldump" | "bvh" => Band::Data,
+        "csv" | "jsonl" | "sqlite" | "sqldump" | "xlsx" | "xls" | "bvh" => Band::Data,
         // Pre-existing drift, caught by
         // `estimate::tests::the_two_band_functions_agree_for_every_family`:
         // `band` ranks Binary `Vendored`, but the catch-all below ranked the

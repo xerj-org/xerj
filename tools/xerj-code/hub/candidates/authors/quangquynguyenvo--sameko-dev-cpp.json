@@ -1,0 +1,22 @@
+{
+ "corpus": "quangquynguyenvo--sameko-dev-cpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on c-plus-plus, code-editor, competitive-programming queries this for how QuangquyNguyenvo/Sameko-Dev-CPP implements it: Sameko Dev C++ IDE - A lightweight, fast, and beautiful C++ IDE for competitive programming. Bundled with MinGW-w64 GCC 16, clangd IntelliSe (selected work: src/renderer, app/services, src/features)",
+ "repos": [
+  {
+   "repo": "Sameko-Dev-CPP",
+   "url": "https://github.com/QuangquyNguyenvo/Sameko-Dev-CPP",
+   "sha": "07a45561db075a4b3b890b216f4044ff9e1e92dd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 07a45561db07: \"feat(io): read test input from a file (#49)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

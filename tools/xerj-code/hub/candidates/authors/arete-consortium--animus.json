@@ -1,0 +1,22 @@
+{
+ "corpus": "arete-consortium--animus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, local-first, python queries this for how Arete-Consortium/animus implements it: Personal AI operating environment with evidence-graded maturity, local-first control, and autonomous improvement (selected work: scripts, packages/core, tools)",
+ "repos": [
+  {
+   "repo": "animus",
+   "url": "https://github.com/Arete-Consortium/animus",
+   "sha": "e339041b8330295cd5b8dd50d8f5331acbada556",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e339041b8330: \"fix(core): retire vulnerable Chroma runtime\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

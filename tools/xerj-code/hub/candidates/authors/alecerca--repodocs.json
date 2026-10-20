@@ -1,0 +1,22 @@
+{
+ "corpus": "alecerca--repodocs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on TypeScript queries this for how alecerca/repoDocs implements it: Read, edit and export Markdown docs from any folder of repos \u2014 Figma-like board (selected work: test, server)",
+ "repos": [
+  {
+   "repo": "repoDocs",
+   "url": "https://github.com/alecerca/repoDocs",
+   "sha": "d1e2fa61abfdec18eb3a09db19e85a81b2df689a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d1e2fa61abfd: \"feat(adr): webhook handles GitHub Sponsors (X-Hub-Signature-256, spon\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

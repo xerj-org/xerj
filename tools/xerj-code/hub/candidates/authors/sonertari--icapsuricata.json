@@ -1,0 +1,22 @@
+{
+ "corpus": "sonertari--icapsuricata",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how sonertari/icapsuricata implements it: Suricata ICAP service: c-icap service module using libsuricata (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "icapsuricata",
+   "url": "https://github.com/sonertari/icapsuricata",
+   "sha": "fb118b2439b15eb5f719f4838a5d79ea6deee44d",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit fb118b2439b1: \"Save conn state in global service storage\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

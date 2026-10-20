@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--shenyu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on api-gateway, http-proxy, dubbo-proxy queries this for how apache/shenyu implements it: Apache ShenYu is a Java native API Gateway for service proxy, protocol conversion and API governance (selected work: shenyu-plugin, shenyu-common, shenyu-admin)",
+ "repos": [
+  {
+   "repo": "shenyu",
+   "url": "https://github.com/apache/shenyu",
+   "sha": "1fc1dfb771c18895f7897e641df5b04dce16812c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 1fc1dfb771c1: \"OSPP2: Aggregate remote MCP tools in Agent Gateway (#7512)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

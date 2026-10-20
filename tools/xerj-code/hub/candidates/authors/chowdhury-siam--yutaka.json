@@ -1,0 +1,22 @@
+{
+ "corpus": "chowdhury-siam--yutaka",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Dart queries this for how Chowdhury-Siam/Yutaka implements it: A private, local-first personal finance app for Android, Windows, Linux, and macOS. Use it completely offline, or connect your own Cloudflar (selected work: lib, test, lib/loans)",
+ "repos": [
+  {
+   "repo": "Yutaka",
+   "url": "https://github.com/Chowdhury-Siam/Yutaka",
+   "sha": "c145ca2edde52d70954b93c5120c6a5e5552ee92",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit c145ca2edde5: \"Small bug fixes\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

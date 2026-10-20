@@ -1,0 +1,22 @@
+{
+ "corpus": "daironpf--socialseed-tasker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, automation, automation-tools queries this for how daironpf/socialseed-tasker implements it: An AI-native, graph-based task management framework for autonomous software engineering (selected work: frontend, src/socialseed_tasker, tests)",
+ "repos": [
+  {
+   "repo": "socialseed-tasker",
+   "url": "https://github.com/daironpf/socialseed-tasker",
+   "sha": "b2bcfefd48b4ced483d676a4150984a2c40a4dc4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b2bcfefd48b4: \"feat(workflows): biblioteca de definiciones en postgres con importaci\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

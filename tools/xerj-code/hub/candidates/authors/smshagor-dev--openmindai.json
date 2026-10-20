@@ -1,0 +1,22 @@
+{
+ "corpus": "smshagor-dev--openmindai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on llama-cpp, llama-cpp-agent, local-ai queries this for how smshagor-dev/OpenMindAI implements it: OpenMindAI is an open-source, local-first AI desktop assistant with offline chat, GPU acceleration, persistent local memory, portable deploy (selected work: src-tauri, src/components, src/lib)",
+ "repos": [
+  {
+   "repo": "OpenMindAI",
+   "url": "https://github.com/smshagor-dev/OpenMindAI",
+   "sha": "8df2f3caa2b7db7b64481859543ca31730a09a9f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 8df2f3caa2b7: \"Add advanced Web Search and Deep Research with safe provider fallback\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

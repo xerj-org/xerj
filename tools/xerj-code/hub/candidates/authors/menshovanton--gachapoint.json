@@ -1,0 +1,22 @@
+{
+ "corpus": "menshovanton--gachapoint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, android-application, calendar queries this for how MenshovAnton/GachaPoint implements it: GachaPoint helps you organize in-game progress, track wish histories, and manage daily subscriptions across your favorite HoYoverse titles w (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "GachaPoint",
+   "url": "https://github.com/MenshovAnton/GachaPoint",
+   "sha": "cb965d60d451cd3ee6cb452fd6dc2c7da96bcc36",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit cb965d60d451: \"feat(feedback): redesign Feedback screen with Community Hub and nativ\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

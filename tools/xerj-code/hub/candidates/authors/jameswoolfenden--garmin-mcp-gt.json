@@ -1,0 +1,22 @@
+{
+ "corpus": "jameswoolfenden--garmin-mcp-gt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how JamesWoolfenden/garmin-mcp-gt implements it: Garmin Connect MCP server \u2014 exposes health and activity data as tools for Claude (selected work: tests, backend, ui)",
+ "repos": [
+  {
+   "repo": "garmin-mcp-gt",
+   "url": "https://github.com/JamesWoolfenden/garmin-mcp-gt",
+   "sha": "f23c958e646e3fcd99eeb5952d6ca5c104ab4b5c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f23c958e646e: \"Add logging-bias calibration against real weight trend\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "ishekkhal--bitrun",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on 1-bit, arm-neon, avx2 queries this for how IshekKhal/bitrun implements it: Zero-compile runner and terminal Cockpit for 1-bit / 1.58-bit ternary LLMs on CPU. Real-time wattage telemetry, 70+ t/s on laptops, and 8B m (selected work: scripts, the project root, pkg/hardware)",
+ "repos": [
+  {
+   "repo": "bitrun",
+   "url": "https://github.com/IshekKhal/bitrun",
+   "sha": "d467745524fba2c3d4a1ddd7ed825bd35f8f423b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit d467745524fb: \"feat(windows): add native Windows amd64 support, installer script, an\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "federicospada--custom2kinter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how FedericoSpada/Custom2kinter implements it: A modern and customizable python UI-library based on Tkinter (selected work: customtkinter, the project root)",
+ "repos": [
+  {
+   "repo": "Custom2kinter",
+   "url": "https://github.com/FedericoSpada/Custom2kinter",
+   "sha": "f47555cb53b2004bf585ae52ce488247e1168d6b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit f47555cb53b2: \"Changed folder structure and improved docstrings\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

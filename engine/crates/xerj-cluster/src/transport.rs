@@ -75,6 +75,28 @@ const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(10);
 /// post-connect exchange is bounded instead.
 const SEND_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Outbound messages buffered per peer before new ones are dropped (#1168).
+///
+/// A peer that has not drained its queue in this many messages (hours of
+/// heartbeats at the 50 ms rate) is down; Raft retransmits by design — the
+/// leader's next AppendEntries resends everything from `next_index` — so
+/// dropping is safe where buffering is not.
+const OUTBOUND_QUEUE_CAPACITY: usize = 256;
+
+/// Backoff before the next attempt to a peer after `failures` consecutive
+/// failed sends: 100 ms, 200, 400, … capped at 6.4 s (#1168).
+///
+/// Public so the policy is testable from the integration tests: a dead peer
+/// costs one immediate attempt, a handful in the first second, then at most
+/// one per 6.4 s — never the 20 attempts/s of the pre-fix per-tick retry,
+/// and never a `WARN` per tick.
+pub fn backoff_after_failures(failures: u32) -> Duration {
+    const BASE_MS: u64 = 100;
+    const CAP_MS: u64 = 6_400;
+    let shift = failures.saturating_sub(1).min(6);
+    Duration::from_millis((BASE_MS << shift).min(CAP_MS))
+}
+
 /// Length of the receiver's handshake: magic ‖ version ‖ challenge.
 const HANDSHAKE_LEN: usize = WIRE_MAGIC.len() + 1 + CHALLENGE_LEN;
 
@@ -255,8 +277,21 @@ async fn read_frame(
 /// TCP-based transport for inter-node communication.
 ///
 /// Incoming messages arrive via a background listener task and are delivered
-/// through an mpsc channel. Outgoing messages open a fresh TCP connection per
-/// send (connection pooling is a future optimisation).
+/// through an mpsc channel. Outgoing messages are **enqueued** per peer — one
+/// bounded queue and one long-lived sender task per peer — so the Raft tick
+/// loop never awaits a peer's TCP I/O (#1168). Each attempt still opens a
+/// fresh connection (connection pooling is a future optimisation).
+///
+/// Failure semantics of the outbound path, by design: a send that fails or a
+/// queue that is full **drops the message** and backs off
+/// ([`backoff_after_failures`]); it never blocks, retries synchronously, or
+/// buffers unboundedly. Raft tolerates the drops — heartbeats and log
+/// replication are retransmitted from `next_index` on the next tick, and a
+/// vote that arrives late is simply ignored. The pre-fix behaviour (inline
+/// `await` per send, bounded only by [`SEND_TIMEOUT`]) let one dead peer
+/// consume the full 5 s of every heartbeat round while the election timeout
+/// is 150–300 ms: the live peers starved, and a 3-node ring killed at its
+/// leader churned through a new election every 1.5–11 s indefinitely.
 ///
 /// Every connection is authenticated in both directions of setup: the receiver
 /// proves nothing (it holds no identity beyond the secret) but issues a
@@ -273,6 +308,11 @@ pub struct TcpTransport {
     secret: ClusterSecret,
     /// Receives `(sender_node_id, msg)` from the background listener.
     incoming: Arc<Mutex<mpsc::Receiver<(String, RaftMessage)>>>,
+    /// One outbound queue per peer, drained by [`peer_sender_task`]. Built
+    /// once in [`TcpTransport::new`] — the peer set is fixed for the
+    /// transport's lifetime (membership changes arrive via the Raft log and
+    /// will rebuild the transport, #1170).
+    outbound: HashMap<String, mpsc::Sender<RaftMessage>>,
     // The sender half is kept alive so the channel is not closed when the
     // background listener task terminates.
     #[allow(dead_code)]
@@ -292,12 +332,54 @@ impl TcpTransport {
     ) -> Result<Self> {
         let (tx, rx) = mpsc::channel::<(String, RaftMessage)>(1024);
 
+        // A peer entry naming this node's own address is excluded (#1168).
+        // The documented config convention lists the full membership on every
+        // node, so a self entry is expected in the input — but a node that
+        // sends its own RequestVote back to itself over loopback TCP counts
+        // its own vote twice and inflates the wire message rate for nothing.
+        let mut self_entry_removed = false;
+        let peers: HashMap<String, SocketAddr> = peers
+            .into_iter()
+            .filter(|(_id, addr)| {
+                if *addr == listen_addr {
+                    self_entry_removed = true;
+                    false
+                } else {
+                    true
+                }
+            })
+            .collect();
+        if self_entry_removed {
+            warn!(
+                node = %node_id,
+                %listen_addr,
+                "peer list included this node's own address — excluded (a node sending to \
+                 itself double-counts its own vote)"
+            );
+        }
+
+        // One sender task per peer (#1168). Spawned here, before the listener
+        // binds, so a send can be enqueued the moment the transport exists.
+        let mut outbound = HashMap::with_capacity(peers.len());
+        for (peer_id, addr) in peers.iter() {
+            let (peer_tx, peer_rx) = mpsc::channel::<RaftMessage>(OUTBOUND_QUEUE_CAPACITY);
+            tokio::spawn(peer_sender_task(
+                node_id.clone(),
+                peer_id.clone(),
+                *addr,
+                secret.clone(),
+                peer_rx,
+            ));
+            outbound.insert(peer_id.clone(), peer_tx);
+        }
+
         let transport = TcpTransport {
             node_id: node_id.clone(),
             listen_addr,
             peers: Arc::new(peers),
             secret,
             incoming: Arc::new(Mutex::new(rx)),
+            outbound,
             sender: tx.clone(),
         };
 
@@ -341,37 +423,133 @@ impl TcpTransport {
         Ok(())
     }
 
-    /// Send a message to a specific peer by node ID.
+    /// Send a message to a specific peer by node ID, awaiting the full TCP
+    /// exchange.
     ///
     /// Opens a fresh TCP connection, completes the authenticated handshake,
-    /// writes the frame, then closes.
+    /// writes the frame, then closes. This is the **one-shot** path, bounded
+    /// by [`SEND_TIMEOUT`] — used by tests and anywhere a synchronous
+    /// delivery result is genuinely needed. The Raft loop does NOT use it:
+    /// [`ClusterTransport::send`] enqueues instead (see the struct doc).
     pub async fn send_to(&self, peer_id: &str, msg: &RaftMessage) -> Result<()> {
         let addr = self
             .peers
             .get(peer_id)
             .ok_or_else(|| anyhow::anyhow!("unknown peer: {peer_id}"))?;
+        send_frame(&self.node_id, peer_id, *addr, &self.secret, msg).await
+    }
+}
 
-        let mut stream = TcpStream::connect(addr)
-            .await
-            .with_context(|| format!("connect to peer {peer_id} at {addr}"))?;
-
-        // The receiver speaks first: magic, version, challenge. Bound the whole
-        // exchange so an accepting-but-silent peer cannot stall the Raft loop.
-        tokio::time::timeout(SEND_TIMEOUT, async {
-            let challenge = read_handshake(&mut stream).await?;
-            write_hello(&mut stream, &self.secret, &challenge, &self.node_id).await?;
-            write_frame(&mut stream, &self.secret, &challenge, &self.node_id, 0, msg).await
-        })
+/// Open a connection to `addr` and deliver one authenticated frame.
+///
+/// The receiver speaks first: magic, version, challenge. The whole
+/// post-connect exchange is bounded by [`SEND_TIMEOUT`] so an
+/// accepting-but-silent peer cannot hold the caller indefinitely.
+async fn send_frame(
+    node_id: &str,
+    peer_id: &str,
+    addr: SocketAddr,
+    secret: &ClusterSecret,
+    msg: &RaftMessage,
+) -> Result<()> {
+    let mut stream = TcpStream::connect(addr)
         .await
-        .with_context(|| format!("send to peer {peer_id} at {addr} timed out"))?
-        .with_context(|| format!("send to peer {peer_id} at {addr}"))
+        .with_context(|| format!("connect to peer {peer_id} at {addr}"))?;
+
+    tokio::time::timeout(SEND_TIMEOUT, async {
+        let challenge = read_handshake(&mut stream).await?;
+        write_hello(&mut stream, secret, &challenge, node_id).await?;
+        write_frame(&mut stream, secret, &challenge, node_id, 0, msg).await
+    })
+    .await
+    .with_context(|| format!("send to peer {peer_id} at {addr} timed out"))?
+    .with_context(|| format!("send to peer {peer_id} at {addr}"))
+}
+
+/// Drain one peer's outbound queue, one message per connection attempt,
+/// off the Raft loop's critical path (#1168).
+///
+/// On failure the message is dropped and the next attempt waits
+/// [`backoff_after_failures`] — Raft retransmits, so a dropped heartbeat or
+/// vote response costs nothing but a tick. Logging is per **state change**
+/// (`WARN` when a peer that was up goes down, `INFO` when it answers again),
+/// never per attempt: the pre-fix code logged a `WARN` every tick for every
+/// dead peer, which is how a 4-minute outage produced thousands of identical
+/// lines. The task exits when the queue's sender half is dropped with the
+/// transport.
+async fn peer_sender_task(
+    node_id: String,
+    peer_id: String,
+    addr: SocketAddr,
+    secret: ClusterSecret,
+    mut rx: mpsc::Receiver<RaftMessage>,
+) {
+    let mut failures: u32 = 0;
+    let mut down = false;
+    let mut retry_at: Option<std::time::Instant> = None;
+
+    while let Some(msg) = rx.recv().await {
+        if let Some(deadline) = retry_at {
+            if std::time::Instant::now() < deadline {
+                continue; // in backoff — drop, the next heartbeat replaces it
+            }
+        }
+        match send_frame(&node_id, &peer_id, addr, &secret, &msg).await {
+            Ok(()) => {
+                failures = 0;
+                retry_at = None;
+                if down {
+                    down = false;
+                    info!(node = %node_id, peer = %peer_id, %addr, "peer reachable again");
+                }
+            }
+            Err(e) => {
+                failures += 1;
+                retry_at = Some(std::time::Instant::now() + backoff_after_failures(failures));
+                if !down {
+                    down = true;
+                    warn!(
+                        node = %node_id,
+                        peer = %peer_id,
+                        %addr,
+                        error = %e,
+                        backoff_ms = backoff_after_failures(failures).as_millis() as u64,
+                        "peer unreachable — Raft messages to it are dropped until it answers"
+                    );
+                } else {
+                    debug!(node = %node_id, peer = %peer_id, %addr, error = %e, "send still failing");
+                }
+            }
+        }
     }
 }
 
 #[async_trait]
 impl ClusterTransport for TcpTransport {
+    /// Enqueue `msg` on the peer's outbound queue — returns as soon as the
+    /// message is accepted for delivery, never after the TCP exchange.
+    ///
+    /// Errors only for an unknown peer or a full queue (the message is
+    /// dropped — see the struct doc for why that is the safe failure mode).
+    /// Delivery failures are logged by the per-peer task, not returned here.
     async fn send(&self, to: &str, msg: RaftMessage) -> Result<()> {
-        self.send_to(to, &msg).await
+        let tx = self
+            .outbound
+            .get(to)
+            .ok_or_else(|| anyhow::anyhow!("unknown peer: {to}"))?;
+        match tx.try_send(msg) {
+            Ok(()) => Ok(()),
+            Err(mpsc::error::TrySendError::Full(_)) => {
+                // The peer has not drained OUTBOUND_QUEUE_CAPACITY messages —
+                // it is down with the queue still backing up before the
+                // backoff deadline. Drop and let retransmission cover it.
+                debug!(node = %self.node_id, peer = %to, "outbound queue full — dropping Raft message");
+                Ok(())
+            }
+            Err(mpsc::error::TrySendError::Closed(_)) => {
+                anyhow::bail!("peer {to} sender task is gone")
+            }
+        }
     }
 
     async fn recv(&self) -> Result<(String, RaftMessage)> {
@@ -426,4 +604,30 @@ async fn handle_connection(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The ladder documented on [`backoff_after_failures`]: 100 ms doubling to
+    /// a 6.4 s cap. Pinned here because the #1168 churn window (an election
+    /// every 1.5–11 s) brackets a 5 s synchronous send timeout — the ladder's
+    /// job is to make a dead peer cost ~1 attempt per 6.4 s instead of one
+    /// per tick, so a change to these numbers changes the failure story.
+    #[test]
+    fn backoff_ladder_doubles_then_caps() {
+        assert_eq!(backoff_after_failures(1), Duration::from_millis(100));
+        assert_eq!(backoff_after_failures(2), Duration::from_millis(200));
+        assert_eq!(backoff_after_failures(3), Duration::from_millis(400));
+        assert_eq!(backoff_after_failures(4), Duration::from_millis(800));
+        assert_eq!(backoff_after_failures(5), Duration::from_millis(1_600));
+        assert_eq!(backoff_after_failures(6), Duration::from_millis(3_200));
+        assert_eq!(backoff_after_failures(7), Duration::from_millis(6_400));
+        assert_eq!(backoff_after_failures(8), Duration::from_millis(6_400));
+        assert_eq!(backoff_after_failures(1_000), Duration::from_millis(6_400));
+        // failures = 0 is not a state the task reaches (the first failure
+        // counts as 1), but saturate rather than panic if it ever does.
+        assert_eq!(backoff_after_failures(0), Duration::from_millis(100));
+    }
 }

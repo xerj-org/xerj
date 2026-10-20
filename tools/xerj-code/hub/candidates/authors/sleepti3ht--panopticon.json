@@ -1,0 +1,22 @@
+{
+ "corpus": "sleepti3ht--panopticon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on cve, cybersecurity, desktop-app queries this for how sleepti3ht/Panopticon implements it: Interactive CVE intelligence map for desktop: force-directed Vendor\u2194CVE graph plus a local AI agent (MCP + OpenRouter) that drafts mitigatio (selected work: panopticon-python, src-tauri, src)",
+ "repos": [
+  {
+   "repo": "Panopticon",
+   "url": "https://github.com/sleepti3ht/Panopticon",
+   "sha": "1b6db8bda5926dfe1c511ebcabaf99e8ecba4991",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 1b6db8bda592: \"feat: stdin, Export directory, Rolling lookback window, stable models\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

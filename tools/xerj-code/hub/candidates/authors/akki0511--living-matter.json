@@ -1,0 +1,22 @@
+{
+ "corpus": "akki0511--living-matter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai, browser-game, jev queries this for how AKKI0511/living-matter implements it: A 3D world that understands your intent and adapts in real time (selected work: src/app, tests, src/game)",
+ "repos": [
+  {
+   "repo": "living-matter",
+   "url": "https://github.com/AKKI0511/living-matter",
+   "sha": "089d56fff2e2d2043d4e0865262725cf43c17e6e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 089d56fff2e2: \"Polish dark controls, continuous matter assembly, and release media\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

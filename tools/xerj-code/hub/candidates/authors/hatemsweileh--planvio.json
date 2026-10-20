@@ -1,0 +1,22 @@
+{
+ "corpus": "hatemsweileh--planvio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agpl, ai-agents, ai-agents-automation queries this for how hatemsweileh/planvio implements it: Plan the work. Let AI run it. An open-source, self-hosted project management platform for real businesses, installed from your browser, runn (selected work: tests, resources, app/Actions)",
+ "repos": [
+  {
+   "repo": "planvio",
+   "url": "https://github.com/hatemsweileh/planvio",
+   "sha": "9a91f103feffc3d5031f3cd2c0196385b908adbf",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 9a91f103feff: \"Sanitise task descriptions and fix the board and editor (#40)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

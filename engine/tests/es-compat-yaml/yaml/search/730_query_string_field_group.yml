@@ -1,0 +1,67 @@
+setup:
+  - do:
+      indices.create:
+          index: qs_field_group
+          body:
+              mappings:
+                  properties:
+                      title:
+                          type: text
+                      body:
+                          type: text
+                      n:
+                          type: long
+  - do:
+      bulk:
+          refresh: true
+          body:
+              - '{"index": {"_index": "qs_field_group", "_id": "1"}}'
+              - '{"title": "alpha", "body": "beta", "n": 1}'
+              - '{"index": {"_index": "qs_field_group", "_id": "2"}}'
+              - '{"title": "beta", "body": "gamma", "n": 5}'
+              - '{"index": {"_index": "qs_field_group", "_id": "3"}}'
+              - '{"title": "gamma", "body": "alpha", "n": 9}'
+              - '{"index": {"_index": "qs_field_group", "_id": "4"}}'
+              - '{"title": "alpha beta", "body": "delta", "n": 7}'
+
+---
+"field:( ... ) is scoped to the field (#1298)":
+  # Doc 1 has `beta` only in `body`: a group that searched every field
+  # matched it too.
+  - do:
+      search:
+          index: qs_field_group
+          body: { query: { query_string: { query: "title:(beta)" } }, sort: [ "n" ] }
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._id: "2" }
+  - match: { hits.hits.1._id: "4" }
+
+  - do:
+      search:
+          index: qs_field_group
+          body: { query: { query_string: { query: "title:(alpha AND gamma)" } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+          index: qs_field_group
+          body: { query: { query_string: { query: "-title:(alpha OR beta)" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "3" }
+
+---
+"a range inside n:( ... ) targets the field (#1298)":
+  - do:
+      search:
+          index: qs_field_group
+          body: { query: { query_string: { query: "n:(>4)" } } }
+  - match: { hits.total.value: 3 }
+
+---
+"default_operator applies inside a group (#1298)":
+  - do:
+      search:
+          index: qs_field_group
+          body: { query: { query_string: { query: "title:(alpha beta)", default_operator: "AND" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "4" }

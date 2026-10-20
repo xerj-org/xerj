@@ -1,0 +1,22 @@
+{
+ "corpus": "eladhirsh--callprobe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, evaluation, llm queries this for how Eladhirsh/callprobe implements it: Test agent tool decisions and whether their accounts match recorded actions. Unified home of Callprobe and Didyoureally (selected work: tests, src/callprobe)",
+ "repos": [
+  {
+   "repo": "callprobe",
+   "url": "https://github.com/Eladhirsh/callprobe",
+   "sha": "38e0b24d9689bca2a7396701c18ac9aa5512b385",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 38e0b24d9689: \"fix(callprobe): reject incomplete completion evidence across replay\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "sumiretomori93-create--claude-capability-pack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on local-memory, memory-management, operit queries this for how sumiretomori93-create/Claude-Capability-Pack implements it: Local long-term memory ToolPkg for Operit (selected work: packages/memory-toolpkg, packages/memory-core)",
+ "repos": [
+  {
+   "repo": "Claude-Capability-Pack",
+   "url": "https://github.com/sumiretomori93-create/Claude-Capability-Pack",
+   "sha": "e865829c1e0e2af66461261d6947cda7541ceda5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit e865829c1e0e: \"Update local memory plugin to 0.1.57 with app storage and role recovery\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "rosakodu--omarchy-dock",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on hyprland, omarchy, quickshell queries this for how rosakodu/omarchy-dock implements it: Plugin Dock for Omarchy (selected work: the project root, tests, components)",
+ "repos": [
+  {
+   "repo": "omarchy-dock",
+   "url": "https://github.com/rosakodu/omarchy-dock",
+   "sha": "5d39dfa32f8ef73c53c114dd610ce82ec817b126",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 5d39dfa32f8e: \"fix(dock): sharpen icons on scale-1 displays and isolate PWAs / Offic\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

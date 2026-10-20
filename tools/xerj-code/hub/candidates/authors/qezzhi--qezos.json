@@ -1,0 +1,22 @@
+{
+ "corpus": "qezzhi--qezos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how QeZzhi/QezOS implements it: QeZzhi/QezOS (C++) (selected work: src/utils, src/m5_shim, src/drivers)",
+ "repos": [
+  {
+   "repo": "QezOS",
+   "url": "https://github.com/QeZzhi/QezOS",
+   "sha": "7aa68610315b94eb648399d5a361b6b6ed8f3fcc",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 7aa68610315b: \"\u041f\u0435\u0440\u0435\u043f\u0438\u0441\u0430\u043b \u043f\u0440\u043e\u0448\u0438\u0432\u043a\u0443 \u043d\u0430 C | Rewrote the firmware to C\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

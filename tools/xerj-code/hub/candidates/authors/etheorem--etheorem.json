@@ -1,0 +1,22 @@
+{
+ "corpus": "etheorem--etheorem",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Lean queries this for how etheorem/etheorem implements it: A Lean 4 implementation of the Ethereum consensus specification for the Fulu, Gloas, Heze forks (selected work: packages/EthCLSpecs, packages/EthCLLib)",
+ "repos": [
+  {
+   "repo": "etheorem",
+   "url": "https://github.com/etheorem/etheorem",
+   "sha": "a7bd1718a241b622cefc6264c7fc61c8e3aaa5d6",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit a7bd1718a241: \"feat(heze-focil): characterize FOCIL reads and add LawfulFcMap (#102)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "abelmaro--memorepo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on code-intelligence, codebase-indexing, coding-agents queries this for how abelmaro/MemoRepo implements it: Multi-repo code intelligence for coding agents, indexed spaces served over read-only MCP (selected work: apps/web, apps/api, apps/landing)",
+ "repos": [
+  {
+   "repo": "MemoRepo",
+   "url": "https://github.com/abelmaro/MemoRepo",
+   "sha": "f1f1818c9bab87a0b34432bbe3f6975b40a42df1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f1f1818c9bab: \"0.3.5 - simplify first-run onboarding\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

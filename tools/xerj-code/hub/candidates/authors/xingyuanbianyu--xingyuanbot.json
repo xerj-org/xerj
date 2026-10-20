@@ -1,0 +1,22 @@
+{
+ "corpus": "xingyuanbianyu--xingyuanbot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how xingyuanbianyu/XingYuanBot implements it: \u624b\u6413\u7684\u8f7b\u91cfQ\u7fa4\u673a\u5668\u4ebaBot (selected work: xy-bot, adapter, xy-plugins)",
+ "repos": [
+  {
+   "repo": "XingYuanBot",
+   "url": "https://github.com/xingyuanbianyu/XingYuanBot",
+   "sha": "3e00c5b1108e4af8a31d1d3c036d23bac7f30149",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 3e00c5b1108e: \"\u4f18\u5316\u5904\u7406\u903b\u8f91\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

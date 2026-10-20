@@ -308,6 +308,47 @@ pub struct PendingSync {
     pub operation_states: BTreeMap<String, SyncOperationState>,
     #[serde(default)]
     pub validated: bool,
+    /// Lazily-derived membership index over `operations`; never serialized.
+    /// See [`OperationIdIndex`] for why it exists.
+    #[serde(skip)]
+    operation_id_index: std::sync::OnceLock<OperationIdIndex>,
+}
+
+/// Derived, never-serialized membership index over
+/// [`PendingSync::operations`] (#1224).
+///
+/// Every journaled operation state event validates that its operation id
+/// belongs to the sync's plan, and a resumed run replays all of those events
+/// again on load. A linear scan per event makes both quadratic in the
+/// operation count; the index makes them O(1) after one build. `len` is the
+/// `operations` length the set was built from — nothing in production
+/// mutates the list after `PendingSync::new`, but the guard keeps a
+/// restructured struct answering correctly instead of trusting a stale set.
+#[derive(Debug, Clone, Default)]
+struct OperationIdIndex {
+    len: usize,
+    ids: std::collections::HashSet<String>,
+}
+
+impl OperationIdIndex {
+    fn build(operations: &[SyncOperation]) -> Self {
+        Self {
+            len: operations.len(),
+            ids: operations
+                .iter()
+                .map(|operation| operation.operation_id.clone())
+                .collect(),
+        }
+    }
+
+    fn contains(&self, operations: &[SyncOperation], operation_id: &str) -> bool {
+        if self.len != operations.len() {
+            return operations
+                .iter()
+                .any(|operation| operation.operation_id == operation_id);
+        }
+        self.ids.contains(operation_id)
+    }
 }
 
 impl PendingSync {
@@ -330,6 +371,7 @@ impl PendingSync {
             operations,
             operation_states: BTreeMap::new(),
             validated: false,
+            operation_id_index: std::sync::OnceLock::new(),
         };
         pending.validate_against(base)?;
         Ok(pending)
@@ -379,22 +421,36 @@ impl PendingSync {
         operation_id: &str,
         state: SyncOperationState,
     ) -> Result<()> {
+        self.validate_operation_state(tx_id, operation_id, &state)?;
+        self.record_operation_state(operation_id, state);
+        Ok(())
+    }
+
+    /// The pure half of [`Self::apply_operation_state`]: every rejection, no
+    /// mutation. The journal checks a state write here before making it
+    /// durable, then records in place only after the append succeeded, so a
+    /// failed append leaves memory exactly as it was without cloning the
+    /// whole pending sync per event (#1224).
+    pub fn validate_operation_state(
+        &self,
+        tx_id: &str,
+        operation_id: &str,
+        state: &SyncOperationState,
+    ) -> Result<()> {
         anyhow::ensure!(
             self.tx_id == tx_id,
             "operation state belongs to another sync"
         );
         anyhow::ensure!(
-            self.operations
-                .iter()
-                .any(|operation| operation.operation_id == operation_id),
+            self.known_operation(operation_id),
             "operation state references unknown operation {operation_id}"
         );
         let legal = match self.operation_states.get(operation_id) {
-            None => state == SyncOperationState::Started,
+            None => *state == SyncOperationState::Started,
             Some(previous) => {
-                previous == &state
+                previous == state
                     || previous == &SyncOperationState::Started
-                        && state == SyncOperationState::Committed
+                        && state == &SyncOperationState::Committed
             }
         };
         anyhow::ensure!(
@@ -402,9 +458,26 @@ impl PendingSync {
             "illegal operation transition {:?} -> {state:?}",
             self.operation_states.get(operation_id)
         );
+        Ok(())
+    }
+
+    /// The mutating half of [`Self::apply_operation_state`]. Only meaningful
+    /// after [`Self::validate_operation_state`] accepted the same
+    /// transition.
+    pub fn record_operation_state(&mut self, operation_id: &str, state: SyncOperationState) {
         self.operation_states
             .insert(operation_id.to_string(), state);
-        Ok(())
+    }
+
+    /// Membership of `operation_id` in this sync's plan. A corpus run
+    /// journals two state events per operation and replays every event
+    /// again on resume, so the linear scan this replaces is quadratic in
+    /// the run size — on the 402,744-operation cve-records build that scan
+    /// alone is minutes of client CPU (#1224).
+    fn known_operation(&self, operation_id: &str) -> bool {
+        self.operation_id_index
+            .get_or_init(|| OperationIdIndex::build(&self.operations))
+            .contains(&self.operations, operation_id)
     }
 
     pub fn all_operations_committed(&self) -> bool {
@@ -1402,6 +1475,94 @@ mod tests {
     }
 
     #[test]
+    fn operation_state_split_semantics_and_membership_index_hold() {
+        // #1224: the journal records Started/Committed per operation through
+        // validate-then-record, and a resumed run replays every state event
+        // again on load. Pin the split's semantics — validate is pure,
+        // apply is validate+record — and the derived membership index,
+        // including across Clone and across a restructured operations list.
+        let operations: Vec<SyncOperation> = (0..1000)
+            .map(|n| SyncOperation {
+                operation_id: format!("op-{n}"),
+                kind: SyncOperationKind::Upsert,
+                group_id: format!("g{n}"),
+                desired_content_id: Some(format!("content-{n}")),
+            })
+            .collect();
+        let mut pending = PendingSync {
+            tx_id: "tx".into(),
+            base_generation: 0,
+            base_manifest_digest: "base".into(),
+            desired_manifest_digest: "desired".into(),
+            operation_hash: "hash".into(),
+            desired: GenerationManifest {
+                generation: 1,
+                execution: None,
+                plan: Plan::default(),
+                groups: Vec::new(),
+            },
+            operations,
+            operation_states: BTreeMap::new(),
+            validated: false,
+            operation_id_index: std::sync::OnceLock::new(),
+        };
+
+        // Known ids validate, unknown ids stay rejected — through the index
+        // once built, and on a clone that inherited the built index.
+        assert!(pending
+            .validate_operation_state("tx", "op-0", &SyncOperationState::Started)
+            .is_ok());
+        assert!(pending
+            .validate_operation_state("tx", "missing", &SyncOperationState::Started)
+            .is_err());
+        let cloned = pending.clone();
+        assert!(cloned
+            .validate_operation_state("tx", "op-1", &SyncOperationState::Started)
+            .is_ok());
+        assert!(cloned
+            .validate_operation_state("tx", "missing", &SyncOperationState::Started)
+            .is_err());
+
+        // Transitions keep their pre-split rules: Committed without Started
+        // is illegal, Started then Committed is legal, a repeated Committed
+        // is accepted, and a step back to Started is not.
+        assert!(pending
+            .validate_operation_state("tx", "op-0", &SyncOperationState::Committed)
+            .is_err());
+        pending
+            .apply_operation_state("tx", "op-0", SyncOperationState::Started)
+            .unwrap();
+        pending
+            .apply_operation_state("tx", "op-0", SyncOperationState::Committed)
+            .unwrap();
+        pending
+            .apply_operation_state("tx", "op-0", SyncOperationState::Committed)
+            .unwrap();
+        assert!(pending
+            .validate_operation_state("tx", "op-0", &SyncOperationState::Started)
+            .is_err());
+
+        // A wrong tx is rejected and records nothing; validate alone never
+        // mutates.
+        assert!(pending
+            .apply_operation_state("other", "op-1", SyncOperationState::Started)
+            .is_err());
+        assert!(!pending.operation_states.contains_key("op-1"));
+        assert!(pending
+            .validate_operation_state("tx", "op-2", &SyncOperationState::Committed)
+            .is_err());
+        assert!(!pending.operation_states.contains_key("op-2"));
+
+        // A restructured operations list must not be answered from a stale
+        // index built for the old shape.
+        let mut shrunk = pending.clone();
+        shrunk.operations.clear();
+        assert!(shrunk
+            .validate_operation_state("tx", "op-3", &SyncOperationState::Started)
+            .is_err());
+    }
+
+    #[test]
     fn durable_sync_begin_decoder_preserves_inferred_float_bits() {
         let original = 245.44444444444446_f64;
         let replayed = decode_durable_sync_begin(include_bytes!(
@@ -1828,6 +1989,7 @@ mod tests {
             time_field: None,
             semantic_field: None,
             text_analyzer: None,
+            scope: None,
             sampled_records: 0,
             file_count: 0,
         });

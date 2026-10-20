@@ -1,0 +1,22 @@
+{
+ "corpus": "emu-russia--pureikyubu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on gamecube, emulator, gekko queries this for how emu-russia/pureikyubu implements it: Nintendo GameCube Emulator (WIP) (selected work: src, src/gba, src/res)",
+ "repos": [
+  {
+   "repo": "pureikyubu",
+   "url": "https://github.com/emu-russia/pureikyubu",
+   "sha": "7d71d75dd8ea6ef5b3c4a0f2ac9857e04ff51b7d",
+   "licence": "hint only: CC0-1.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "CC0-1.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 7d71d75dd8ea: \"Interface: the game selector runs the DMG/CGB/GBA cartridges (issue #\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

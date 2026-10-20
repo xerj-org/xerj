@@ -1,0 +1,22 @@
+{
+ "corpus": "yasik--agentlane",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, ai, ai-agents queries this for how yasik/agentlane implements it: AgentLane is the open runtime and harness for persistent, addressable AI agents for building autonomous organizations (selected work: tests, src/agentlane, examples)",
+ "repos": [
+  {
+   "repo": "agentlane",
+   "url": "https://github.com/yasik/agentlane",
+   "sha": "eadfedb8fe8237f7c536613c1b3e4c38b6268dd4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit eadfedb8fe82: \"fix(harness): resolve mounted tool paths from a stable cwd (#59)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

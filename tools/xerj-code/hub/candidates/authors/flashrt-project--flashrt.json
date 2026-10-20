@@ -1,0 +1,22 @@
+{
+ "corpus": "flashrt-project--flashrt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cuda, cuda-kernels, realtime-inference queries this for how flashrt-project/FlashRT implements it: FlashRT is a high-performance realtime inference engine for small-batch, latency-sensitive AI workloads. The flagship integration is product (selected work: csrc, flash_rt, tests)",
+ "repos": [
+  {
+   "repo": "FlashRT",
+   "url": "https://github.com/flashrt-project/FlashRT",
+   "sha": "ab6bd7272fa4e032a7b609a2013cf20447cfd3d3",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit ab6bd7272fa4: \"feat(rtx-sm120): NVFP4 tiers for Pi0.5 and GR00T N1.7 with fused prod\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

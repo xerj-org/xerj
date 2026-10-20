@@ -1,0 +1,22 @@
+{
+ "corpus": "lacker--penta",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how lacker/penta implements it: A deterministic engine for Eternal Central Old School 93/94 Magic (selected work: src/formats, web, src/decks)",
+ "repos": [
+  {
+   "repo": "penta",
+   "url": "https://github.com/lacker/penta",
+   "sha": "269b3be6dec12d8439c8ddb473ebfeb74e39901d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 269b3be6dec1: \"Make WOE-HOB Standard a playable format (#328)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

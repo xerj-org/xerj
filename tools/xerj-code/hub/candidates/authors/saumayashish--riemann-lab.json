@@ -1,0 +1,22 @@
+{
+ "corpus": "saumayashish--riemann-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on complex-analysis, data-visualization, java queries this for how SaumayAshish/riemann-lab implements it: A Java platform for numerically evaluating the Riemann zeta function and investigating its non-trivial zeros. Not a proof of the Riemann Hyp (selected work: src/main, src/test)",
+ "repos": [
+  {
+   "repo": "riemann-lab",
+   "url": "https://github.com/SaumayAshish/riemann-lab",
+   "sha": "827297fc7939a6c908c19210ccc83be08cb59ffc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 827297fc7939: \"Add ScanMetricsReporter to consume scan metrics (Phase 7 Step 3)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

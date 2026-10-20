@@ -1,0 +1,22 @@
+{
+ "corpus": "franciscoluna-28--scrapecat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, assistant, documentation queries this for how franciscoluna-28/Scrapecat implements it: Allows developers and engineering teams to translate their work. Every VC or executive can know about the changes built by engineering (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "Scrapecat",
+   "url": "https://github.com/franciscoluna-28/Scrapecat",
+   "sha": "3870629115a12eff06dc6f2e498d62182907cc8e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 3870629115a1: \"refactor: rename report settings to chat and drop legacy tables\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

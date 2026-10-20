@@ -1,0 +1,22 @@
+{
+ "corpus": "motifjs-community--motifjs-devtools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how motifjs-community/motifjs-devtools implements it: motifjs-community/motifjs-devtools (TypeScript) (selected work: src/panel, tests, src/bridge)",
+ "repos": [
+  {
+   "repo": "motifjs-devtools",
+   "url": "https://github.com/motifjs-community/motifjs-devtools",
+   "sha": "a3a8a36282b99fbde8ff39895b4bb10a37d31b51",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit a3a8a36282b9: \"Add the Performance screen with memory, cleanup, a timeline and the s\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

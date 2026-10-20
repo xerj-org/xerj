@@ -1,0 +1,22 @@
+{
+ "corpus": "nessli420--aurora",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, android-app, audio-player queries this for how nessli420/aurora implements it: A highly advanced and customizable native Android, Windows and Linux music player that supports playback from Navidrome, Jellyfin, Plex, Loc (selected work: desktop, core/src, gradle)",
+ "repos": [
+  {
+   "repo": "aurora",
+   "url": "https://github.com/nessli420/aurora",
+   "sha": "ff3e8e5a57805bc617ae4402e4102aa00b44e22b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ff3e8e5a5780: \"brought the desktop app up to date with the latest android features, \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

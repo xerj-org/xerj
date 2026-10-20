@@ -1,0 +1,22 @@
+{
+ "corpus": "ogshrug--yemu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Python queries this for how ogshrug/YEMU implements it: A yara based malware detection sandbox (selected work: yemu, tests)",
+ "repos": [
+  {
+   "repo": "YEMU",
+   "url": "https://github.com/ogshrug/YEMU",
+   "sha": "65deb6e52a7dcd53917c6c58a345dbae77802496",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 65deb6e52a7d: \"Fail loudly on bad config, crashes, stale runs and bad samples\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

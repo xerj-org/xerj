@@ -1,0 +1,22 @@
+{
+ "corpus": "caulagi--rust-k8s-demo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on rust, kubernetes, grpc queries this for how caulagi/rust-k8s-demo implements it: A modern take on microservices in a cloud native world (selected work: manifests, quotationservice, scripts)",
+ "repos": [
+  {
+   "repo": "rust-k8s-demo",
+   "url": "https://github.com/caulagi/rust-k8s-demo",
+   "sha": "0dbcd438fe13686d8f7efd2b883ed55ee1bf56ed",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 0dbcd438fe13: \"Authenticate to Postgres with TLS client certificates instead of a pa\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

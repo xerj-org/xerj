@@ -1,0 +1,22 @@
+{
+ "corpus": "io-gui--io",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on custom-elements, framework, javascript queries this for how io-gui/io implements it: UI Framework for Three.js (selected work: packages/three)",
+ "repos": [
+  {
+   "repo": "io",
+   "url": "https://github.com/io-gui/io",
+   "sha": "65b37e7b9955e7073f1c4a8958ced9996284cdd0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 65b37e7b9955: \"Converted more examples\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

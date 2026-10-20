@@ -1,0 +1,22 @@
+{
+ "corpus": "jimprosser--obsidian-web-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how jimprosser/obsidian-web-mcp implements it: Secure remote MCP server for Obsidian vaults -- access your notes from Claude, your phone, or any MCP client, anywhere. OAuth 2.0 auth, Clou (selected work: tests, src/obsidian_vault_mcp, the project root)",
+ "repos": [
+  {
+   "repo": "obsidian-web-mcp",
+   "url": "https://github.com/jimprosser/obsidian-web-mcp",
+   "sha": "ce39d2096dfa5343219c37003f617a1356faa64f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit ce39d2096dfa: \"Per-client OAuth tokens with refresh (#108)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

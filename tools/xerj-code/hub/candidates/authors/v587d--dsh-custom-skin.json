@@ -1,0 +1,22 @@
+{
+ "corpus": "v587d--dsh-custom-skin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dsh-plugin, dsh-web-ui, dsh-desktop queries this for how v587d/dsh-custom-skin implements it: Theme, fonts settings for DSH web and desktop (selected work: lib, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-custom-skin",
+   "url": "https://github.com/v587d/dsh-custom-skin",
+   "sha": "414b5fc321055a0dbe1e55d4c59072f87e61899f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 414b5fc32105: \"feat: move config to DSH 0.2.0 plugin page and grow palettes 5 -> 15\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

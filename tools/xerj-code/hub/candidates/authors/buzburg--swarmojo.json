@@ -1,0 +1,22 @@
+{
+ "corpus": "buzburg--swarmojo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-harness, ai-agents, local-first queries this for how Buzburg/Swarmojo implements it: Build with your own AI team. A local-first workspace for projects, specialist agents, ROMS memory, and human-reviewed actions. Your models,  (selected work: app, tests, app/desktop_assets)",
+ "repos": [
+  {
+   "repo": "Swarmojo",
+   "url": "https://github.com/Buzburg/Swarmojo",
+   "sha": "9b1b05362148c1e36d8e0bc34911e698d63dcbb9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 9b1b05362148: \"feat: ship project desktop with portable teams and searchable memory\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

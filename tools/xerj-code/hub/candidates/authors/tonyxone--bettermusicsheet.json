@@ -1,0 +1,22 @@
+{
+ "corpus": "tonyxone--bettermusicsheet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how tonyxone/BetterMusicSheet implements it: tonyxone/BetterMusicSheet (Python) (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "BetterMusicSheet",
+   "url": "https://github.com/tonyxone/BetterMusicSheet",
+   "sha": "4cf0b4ef27ba23ccae76c2a84e29a579eee0366a",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 4cf0b4ef27ba: \"Place multimeasure rests on their printed bar and recover ones glued \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

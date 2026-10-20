@@ -1,0 +1,22 @@
+{
+ "corpus": "greigh--blockingmachine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on adblock, adguard, blockads queries this for how Greigh/Blockingmachine implements it: A modern network defense suite and filter list compiler for AdGuard, uBlock Origin & EasyList. Features an Electron desktop app, MV3 extensi (selected work: packages/electron-app, packages/core, packages/ai-training)",
+ "repos": [
+  {
+   "repo": "Blockingmachine",
+   "url": "https://github.com/Greigh/Blockingmachine",
+   "sha": "31913a18f61dc3e73f2f00cbe37c0dee406f1e40",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 31913a18f61d: \"feat: Mini-AI live observations, label corpus + hub UX pass\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "eft-library--eft-library-front",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how eft-library/eft-library-front implements it: EFT Library Frontend - NextJS (selected work: features, script, lib/websocket)",
+ "repos": [
+  {
+   "repo": "eft-library-front",
+   "url": "https://github.com/eft-library/eft-library-front",
+   "sha": "5b105580854f56759d645eacdda799548cb2fb7a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 5b105580854f: \"1\ucc28 \ub9c8\ubb34\ub9ac\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

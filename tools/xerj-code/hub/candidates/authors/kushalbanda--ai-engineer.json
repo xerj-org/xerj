@@ -1,0 +1,22 @@
+{
+ "corpus": "kushalbanda--ai-engineer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-rag, agents, ai-agents queries this for how kushalBanda/AI-Engineer implements it: Runnable AI engineering modules: agents, MCP, memory, RAG, voice, fine-tuning, MLOps, and security. One folder per module (selected work: Jev-and-clef)",
+ "repos": [
+  {
+   "repo": "AI-Engineer",
+   "url": "https://github.com/kushalBanda/AI-Engineer",
+   "sha": "c7287f63c886e6c5ddf3b7e31371fc8c19fa08fd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit c7287f63c886: \"feat: add Jev and Clef support ticket triage benchmark\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

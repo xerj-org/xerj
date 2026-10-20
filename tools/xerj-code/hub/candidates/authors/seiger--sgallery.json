@@ -1,0 +1,22 @@
+{
+ "corpus": "seiger--sgallery",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on evolution-cms, gallery, images queries this for how Seiger/sGallery implements it: Plugin for attaching images and YouTube videos to resources in the Evolution CMS admin panel (selected work: tests, src/Builders, src/Services)",
+ "repos": [
+  {
+   "repo": "sGallery",
+   "url": "https://github.com/Seiger/sGallery",
+   "sha": "b5c8759522eebf6ce11a6fe86694bc10480343a7",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b5c8759522ee: \"feat(sGallery): defer slow image optimization to optional sTask worker\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

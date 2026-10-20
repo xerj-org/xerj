@@ -1,0 +1,22 @@
+{
+ "corpus": "chainsafe--lodestar-z",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Zig queries this for how ChainSafe/lodestar-z implements it: Zig libraries for Lodestar (selected work: src/ssz)",
+ "repos": [
+  {
+   "repo": "lodestar-z",
+   "url": "https://github.com/ChainSafe/lodestar-z",
+   "sha": "1de4ebd92f9f2a79404be05dae0ca1d09d9d2cee",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 1de4ebd92f9f: \"feat: add struct progressive container (#777)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

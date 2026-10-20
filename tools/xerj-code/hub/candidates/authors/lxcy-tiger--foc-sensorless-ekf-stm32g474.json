@@ -1,0 +1,22 @@
+{
+ "corpus": "lxcy-tiger--foc-sensorless-ekf-stm32g474",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bldc, bldc-control, bldc-driver queries this for how lxcy-tiger/FOC-Sensorless-EKF-STM32G474 implements it: \u65e0\u611fFOC\u9879\u76ee\uff0c\u91c7\u7528EKF\u89c2\u6d4b\u5668\u6216\u975e\u7ebf\u6027\u78c1\u94fe\u89c2\u6d4b\u5668(Nonlinear Flux Observer)\u6216\u6ed1\u6a21\u89c2\u6d4b\u5668(SMO)\uff0cMCU\u91c7\u7528STM32G474RET6\uff0c\u677f\u5b50\u4f7f\u7528ST\u7684X-NUCLEO-IHM07M1\u8bc4\u4f30\u677f\uff0c\u9879\u76ee\u4e3aClion\u7684CMAKE\u9879\u76ee\uff0c\u53ef\u4ee5\u4f7f\u7528Clion\u6216VSCod (selected work: Drivers, the project root, Core/Src)",
+ "repos": [
+  {
+   "repo": "FOC-Sensorless-EKF-STM32G474",
+   "url": "https://github.com/lxcy-tiger/FOC-Sensorless-EKF-STM32G474",
+   "sha": "5a17053062a1d925c912f5a4f85794e8dc89f523",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 5a17053062a1: \"\u6539\u56de\u5355ADC\u91c7\u6837\uff0c\u9632\u6b62\u4e2d\u65ad\u89e6\u53d1\u9519\u8bef\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

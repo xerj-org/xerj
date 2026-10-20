@@ -1,0 +1,22 @@
+{
+ "corpus": "banzaicloud--jwt-to-rbac",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on kubernetes, rbac, jwt queries this for how banzaicloud/jwt-to-rbac implements it: JWT-to-RBAC lets you automatically generate RBAC resources based on JWT tokens (selected work: internal/tokenapi, pkg/rbachandler, the project root)",
+ "repos": [
+  {
+   "repo": "jwt-to-rbac",
+   "url": "https://github.com/banzaicloud/jwt-to-rbac",
+   "sha": "6fe6f207e9d10584d8be4c8b2d0651aeaf393928",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 6fe6f207e9d1: \"feat(tokenapi): validate ID token on SA token requests (#160)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

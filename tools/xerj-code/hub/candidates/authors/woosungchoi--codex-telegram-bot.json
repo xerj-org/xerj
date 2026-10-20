@@ -1,0 +1,22 @@
+{
+ "corpus": "woosungchoi--codex-telegram-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on codex, codex-cli, nodejs queries this for how woosungchoi/codex-telegram-bot implements it: Telegram bridge for Codex CLI using @openai/codex-sdk (selected work: test, src/maintenance, src/fs)",
+ "repos": [
+  {
+   "repo": "codex-telegram-bot",
+   "url": "https://github.com/woosungchoi/codex-telegram-bot",
+   "sha": "f9e9c7463cb898624834518ba89dd6e780c50031",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit f9e9c7463cb8: \"Fix seven follow-up security findings (#114)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

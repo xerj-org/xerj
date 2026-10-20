@@ -1,0 +1,22 @@
+{
+ "corpus": "metacontroller--metacontroller",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on kubernetes, metacontroller queries this for how metacontroller/metacontroller implements it: Writing kubernetes controllers can be simple (selected work: pkg/controller, test, the project root)",
+ "repos": [
+  {
+   "repo": "metacontroller",
+   "url": "https://github.com/metacontroller/metacontroller",
+   "sha": "06bc71894fe54c54ae3016521a26100cedc35a5e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 06bc71894fe5: \"fix(customize): #1253 - call customize hook only for parents that mat\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

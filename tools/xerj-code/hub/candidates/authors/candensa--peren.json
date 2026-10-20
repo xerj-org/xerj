@@ -1,0 +1,22 @@
+{
+ "corpus": "candensa--peren",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how candensa/peren implements it: Self-hosted Workers and Durable Objects runtime with bindings, cells, and fleet operations (selected work: crates/runtime)",
+ "repos": [
+  {
+   "repo": "peren",
+   "url": "https://github.com/candensa/peren",
+   "sha": "481d0b691cc86838997c687bd47754154176c024",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 481d0b691cc8: \"fix: make aggregate RPC results disposable\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

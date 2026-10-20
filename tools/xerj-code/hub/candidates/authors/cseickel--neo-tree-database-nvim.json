@@ -1,0 +1,22 @@
+{
+ "corpus": "cseickel--neo-tree-database-nvim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Lua queries this for how cseickel/neo-tree-database.nvim implements it: A database connections and schema browser, as an extension to neo-tree.nvim (selected work: lua)",
+ "repos": [
+  {
+   "repo": "neo-tree-database.nvim",
+   "url": "https://github.com/cseickel/neo-tree-database.nvim",
+   "sha": "abacc26fe76249b5e5a4d3b804cfc9372b46b0e8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit abacc26fe762: \"feat(routines): list functions by name, with overloads, args and return\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

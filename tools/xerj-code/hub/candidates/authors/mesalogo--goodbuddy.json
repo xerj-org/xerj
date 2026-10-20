@@ -1,0 +1,22 @@
+{
+ "corpus": "mesalogo--goodbuddy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how mesalogo/goodbuddy implements it: mesalogo/goodbuddy (TypeScript) (selected work: src/renderer, src/main, src/shared)",
+ "repos": [
+  {
+   "repo": "goodbuddy",
+   "url": "https://github.com/mesalogo/goodbuddy",
+   "sha": "c6a8455f8876db47e2dfd768b2d721a422d761bd",
+   "licence": "hint only: 0BSD (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "0BSD",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit c6a8455f8876: \"feat(composer): move role picker into the input and keep it per conve\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

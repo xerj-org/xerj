@@ -89,6 +89,16 @@ pub fn engine_metrics() -> Option<&'static std::sync::Arc<xerj_common::metrics::
 }
 
 // ── Ingest/flush/merge rayon pool ────────────────────────────────────────────
+//
+// A pool that cannot be started does not abort the process (#1122). Release
+// builds are `panic = "abort"`, and the old `.build().expect(..)` turned an
+// `EAGAIN` from `pthread_create` into a dead node at the moment the machine
+// was already out of threads. The call runs on the calling thread instead,
+// and the next call tries to start the pool again.
+
+static INGEST_POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
+static BACKGROUND_POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
+static MERGE_POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
 
 /// Dedicated rayon pool for ingest-side CPU work: bulk-body parse, P2.1
 /// per-batch doc parse/analyze/insert, flush FTS+DV side-car builds, and
@@ -107,12 +117,12 @@ pub fn engine_metrics() -> Option<&'static std::sync::Arc<xerj_common::metrics::
 /// Sized to all available cores (`crate::pools`, `Workload::Latency`): ingest
 /// throughput is unchanged when no searches run, and under mixed load the
 /// kernel — not the rayon job queue — arbitrates.
-pub(crate) fn ingest_pool() -> &'static rayon::ThreadPool {
-    static POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
-    POOL.get_or_init(|| {
-        let n = crate::pools::sizing().ingest;
+pub(crate) fn ingest_pool() -> pools::PoolCall {
+    fn build(
+        threads: usize,
+    ) -> std::result::Result<rayon::ThreadPool, rayon::ThreadPoolBuildError> {
         rayon::ThreadPoolBuilder::new()
-            .num_threads(n)
+            .num_threads(threads.max(1))
             .thread_name(|i| format!("xerj-ingest-{i}"))
             // nice(5): bulk parse/analyze/insert are request-latency
             // sensitive for the WRITER, but under mixed load they were
@@ -136,8 +146,13 @@ pub(crate) fn ingest_pool() -> &'static rayon::ThreadPool {
                 );
             })
             .build()
-            .expect("failed to build ingest rayon pool")
-    })
+    }
+    pools::PoolCall::new(
+        &INGEST_POOL,
+        "xerj-ingest",
+        || pools::sizing().ingest,
+        build,
+    )
 }
 
 /// Deprioritised rayon pool for BACKGROUND index maintenance: flush
@@ -151,12 +166,12 @@ pub(crate) fn ingest_pool() -> &'static rayon::ThreadPool {
 /// saturates every core for seconds per merged segment; with an idle
 /// foreground the pool still gets every core, so writer-only throughput
 /// is unchanged.
-pub(crate) fn background_pool() -> &'static rayon::ThreadPool {
-    static POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
-    POOL.get_or_init(|| {
-        let n = crate::pools::sizing().background;
+pub(crate) fn background_pool() -> pools::PoolCall {
+    fn build(
+        threads: usize,
+    ) -> std::result::Result<rayon::ThreadPool, rayon::ThreadPoolBuildError> {
         rayon::ThreadPoolBuilder::new()
-            .num_threads(n)
+            .num_threads(threads.max(1))
             .thread_name(|i| format!("xerj-bg-{i}"))
             .start_handler(|_| {
                 xerj_common::resource::deprioritize_current_thread(
@@ -164,8 +179,13 @@ pub(crate) fn background_pool() -> &'static rayon::ThreadPool {
                 );
             })
             .build()
-            .expect("failed to build background rayon pool")
-    })
+    }
+    pools::PoolCall::new(
+        &BACKGROUND_POOL,
+        "xerj-bg",
+        || pools::sizing().background,
+        build,
+    )
 }
 
 /// Dedicated rayon pool for **merge** encode work (byte-copy re-encode +
@@ -188,12 +208,12 @@ pub(crate) fn background_pool() -> &'static rayon::ThreadPool {
 /// pre-empt merge threads when cores are scarce.  Merges take a few times
 /// longer to converge — acceptable: the 5 s merge loop just picks up where
 /// it left off, and `merge_in_progress` already serialises passes.
-pub(crate) fn merge_pool() -> &'static rayon::ThreadPool {
-    static POOL: std::sync::OnceLock<rayon::ThreadPool> = std::sync::OnceLock::new();
-    POOL.get_or_init(|| {
-        let n = crate::pools::sizing().merge;
+pub(crate) fn merge_pool() -> pools::PoolCall {
+    fn build(
+        threads: usize,
+    ) -> std::result::Result<rayon::ThreadPool, rayon::ThreadPoolBuildError> {
         rayon::ThreadPoolBuilder::new()
-            .num_threads(n)
+            .num_threads(threads.max(1))
             .thread_name(|i| format!("xerj-merge-{i}"))
             .start_handler(|_| {
                 xerj_common::resource::deprioritize_current_thread(
@@ -201,8 +221,8 @@ pub(crate) fn merge_pool() -> &'static rayon::ThreadPool {
                 );
             })
             .build()
-            .expect("failed to build merge rayon pool")
-    })
+    }
+    pools::PoolCall::new(&MERGE_POOL, "xerj-merge", || pools::sizing().merge, build)
 }
 
 /// Global bound on how many shard flushes may run their (CPU-heavy,
@@ -243,7 +263,7 @@ use std::sync::Arc;
 // The create-time and settings-time gates drifted apart once already — one
 // refused four spellings, the other two — and one shared symbol is what stops
 // that (issue #204).
-pub use xerj_fts::analyzer::AnalyzerRegistry;
+pub use xerj_fts::analyzer::{AnalyzerRegistry, Token};
 use xerj_fts::analyzer::{
     LowercaseFilter, StandardTokenizer, StemmerFilter, StopwordsFilter, TokenFilter, Tokenizer,
 };

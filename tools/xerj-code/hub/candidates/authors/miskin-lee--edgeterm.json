@@ -1,0 +1,22 @@
+{
+ "corpus": "miskin-lee--edgeterm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how miskin-lee/EdgeTerm implements it: Lightweight terminal, SSH, (S)FTP and serial client built with Rust + Tauri. Installer under 5 MB, single native binary, fast startup (selected work: src-tauri, src, src/components)",
+ "repos": [
+  {
+   "repo": "EdgeTerm",
+   "url": "https://github.com/miskin-lee/EdgeTerm",
+   "sha": "5d5b980a53a5115922f709e3fe82f642f3459bd8",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 5d5b980a53a5: \"feat(telnet): type saved logins at the prompt, and a Backspace ^H opt\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "cloe-org--cloelib",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cosmology, euclid, large-scale-structure queries this for how cloe-org/cloelib implements it: Library of theoretical model predictions for photometric and spectroscopic large-scale structure observables (selected work: cloelib)",
+ "repos": [
+  {
+   "repo": "cloelib",
+   "url": "https://github.com/cloe-org/cloelib",
+   "sha": "dbe35c999795c027ca72763e1d79f5ec6047956c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit dbe35c999795: \"gh-23: Verify all internal docs (#629)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

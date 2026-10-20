@@ -1,0 +1,22 @@
+{
+ "corpus": "demrom--kinopoisk-to-imdb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, data-migration, data-portability queries this for how demrom/kinopoisk-to-imdb implements it: Migrate your Kinopoisk data (ratings, lists, people) to IMDb \u2014 a CLI export/import tool (selected work: imdb, tests)",
+ "repos": [
+  {
+   "repo": "kinopoisk-to-imdb",
+   "url": "https://github.com/demrom/kinopoisk-to-imdb",
+   "sha": "06698a6654bebb7cd7a31359ebfdda7f4eb2a50d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 06698a6654be: \"imdb.ratings/watched: keep what you set yourself, undo by report (#5)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

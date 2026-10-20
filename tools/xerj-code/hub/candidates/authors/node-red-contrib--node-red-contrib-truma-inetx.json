@@ -1,0 +1,22 @@
+{
+ "corpus": "node-red-contrib--node-red-contrib-truma-inetx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how node-red-contrib/node-red-contrib-truma-inetx implements it: TypeScript BLE library, CLI, and Node-RED nodes for reading and writing Truma iNet X settings (selected work: src, test, nodes)",
+ "repos": [
+  {
+   "repo": "node-red-contrib-truma-inetx",
+   "url": "https://github.com/node-red-contrib/node-red-contrib-truma-inetx",
+   "sha": "9caea3f93fc4128452023908333ba29360e4f01f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 9caea3f93fc4: \"Add selectable connection lifetime and simplify Bluetooth setup\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "soxtoby--slacknet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how soxtoby/SlackNet implements it: A comprehensive Slack API client for .NET (selected work: SlackNet, SlackNet.Tests)",
+ "repos": [
+  {
+   "repo": "SlackNet",
+   "url": "https://github.com/soxtoby/SlackNet",
+   "sha": "f3c78c8d3c91ed3a44574d870432e7dd0ba66dce",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f3c78c8d3c91: \"Adding chunks, taskDisplayMode, icon overrides and sessionStatus para\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "mertkaradayi--pando",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on cli, coding-agents, dev-server queries this for how mertkaradayi/pando implements it: pando, the worktree tool: one repo, every branch alive. A git worktree per branch, each with its own running dev server, database and sharea (selected work: src/actions, src/cli, tests)",
+ "repos": [
+  {
+   "repo": "pando",
+   "url": "https://github.com/mertkaradayi/pando",
+   "sha": "568386da592101b2c4fdff819bf70c519042519c",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 568386da5921: \"feat(update): pando update updates pando the way it was installed\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

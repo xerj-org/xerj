@@ -1,0 +1,22 @@
+{
+ "corpus": "prethink--prtelegrambot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on telegram, framework, telegram-bot queries this for how prethink/PRTelegramBot implements it: A .NET framework for building Telegram bots on top of Telegram.Bot: attribute-based command routing, menus, middleware, DI and background ta (selected work: PRTelegramBot.Tests, PRTelegramBot)",
+ "repos": [
+  {
+   "repo": "PRTelegramBot",
+   "url": "https://github.com/prethink/PRTelegramBot",
+   "sha": "50a4d52ff02f9d663d200be56a4b2ed0cfff8a69",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 50a4d52ff02f: \"Update Telegram.Bot 22.10.3.3\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

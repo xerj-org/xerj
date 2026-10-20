@@ -1,0 +1,22 @@
+{
+ "corpus": "bishare-project--bishare-flutter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on airdrop, android, cross-platform queries this for how BIShare-project/bishare-flutter implements it: Fast, private, cross-platform file sharing \u2014 like AirDrop, but for iPhone, Android, Mac, Windows & Linux. Direct device-to-device, end-to-en (selected work: lib/features, test, lib/core)",
+ "repos": [
+  {
+   "repo": "bishare-flutter",
+   "url": "https://github.com/BIShare-project/bishare-flutter",
+   "sha": "606339c936b3121805ed0e9eab52776c7aee9703",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 606339c936b3: \"home: ask once whether a paid storage feature is wanted\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

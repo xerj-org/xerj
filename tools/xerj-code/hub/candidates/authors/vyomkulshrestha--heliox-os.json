@@ -1,0 +1,22 @@
+{
+ "corpus": "vyomkulshrestha--heliox-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, automation, desktop-app queries this for how VyomKulshrestha/Heliox-OS implements it: Open-source, local-first desktop AI agent for voice, gesture, gaze, browser and system automation with permission gates and verification (selected work: tauri-app)",
+ "repos": [
+  {
+   "repo": "Heliox-OS",
+   "url": "https://github.com/VyomKulshrestha/Heliox-OS",
+   "sha": "64d242f12b05849291513bc62b9f40cc2fcbd7ce",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 64d242f12b05: \"Only approve by gesture on a dialog the person can see, and add the S\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "maciejziel--contrail",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on docker, flight-tracking, python queries this for how MaciejZiel/contrail implements it: Real-time flight tracker: WebGL map, full flight track, photos for every aircraft, self-hosted (selected work: backend)",
+ "repos": [
+  {
+   "repo": "live_flights_map",
+   "url": "https://github.com/MaciejZiel/live_flights_map",
+   "sha": "d7b3c2c28b17aea7ccfcee889681bdad55a158df",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit d7b3c2c28b17: \"Add DEMO_MODE: synthetic traffic, read-only API and rate limiting\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

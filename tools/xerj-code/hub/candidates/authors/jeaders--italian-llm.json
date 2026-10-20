@@ -1,0 +1,22 @@
+{
+ "corpus": "jeaders--italian-llm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how jeaders/Italian-LLM implements it: An open-source, Italian-first AI assistant stack: a FastAPI backend, a streaming chat UI, a RAG pipeline, tool use, and Pippo \u2014 an autonomou (selected work: api, frontend, the project root)",
+ "repos": [
+  {
+   "repo": "Italian-LLM",
+   "url": "https://github.com/jeaders/Italian-LLM",
+   "sha": "4a91b55998713db9ad0c90688fb0155aaab5907f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4a91b5599871: \"feat: trasforma Pippo in esperienza di sopravvivenza Automaton\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

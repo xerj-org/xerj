@@ -9,6 +9,35 @@
 #              until it exists the function serves the installer normally and
 #              simply does not count. Fail-open is deliberate.
 #
+#   HUB_STARS — functions/api/hub-stars.js keeps hub-native stars for
+#              contributors and corpora on hub.xerj.org (R2 bucket
+#              `xerj-hub-stars`, created once in the dashboard: R2 → Create
+#              bucket). Per-IP-hash rate limit + daily cap, raw IP never stored.
+#              Merge this binding only AFTER the bucket exists: a binding to a
+#              missing bucket can block the Pages deploy.
+#
+#   HUB_USAGE — functions/_lib/hub-usage.js counts requests to the hosted hub
+#              API (/api/v1/code|def|search) per corpus for the usage stats on
+#              hub.xerj.org corpus pages (functions/api/hub-usage.js). Stores a
+#              query template, route and user-agent family per request; no raw
+#              query, no IP, no user id. Also the corpus-page Traffic panel
+#              (functions/_lib/hub-traffic.js, /api/hub-traffic): page views
+#              with a daily-salted visitor hash, UA family and referrer host.
+#              Bucket `xerj-hub-usage` (exists; lifecycle: ev/ agg/ pv/ tagg/
+#              gh/ expire after 40 days, meta/ after 2).
+#
+#   CORPUS_FEEDBACK — functions/api/corpus-feedback.js keeps the structured
+#              reviews agents send for each hub corpus (the "Agent score",
+#              separate from hub stars). R2 bucket `xerj-corpus-feedback`
+#              (created 2026-10-19). Raw IP and raw install id never stored.
+#
+# Hub sign-in (hub.xerj.org only; functions/auth/*, functions/api/me.js, helpers
+# in functions/_lib/): no binding, only Pages SECRETS on the xerj-hub project:
+#   HUB_SESSION_SECRET (>= 32 chars; signs the session cookie),
+#   GITHUB_OAUTH_CLIENT_ID / GITHUB_OAUTH_CLIENT_SECRET,
+#   HF_OAUTH_CLIENT_ID / HF_OAUTH_CLIENT_SECRET.
+# Any missing → /api/me says enabled:false and the pages hide Sign in.
+#
 # Routing: landing/_routes.json pins Function invocation to /get, /get.ps1 and
 # /lead. A NEW FUNCTION ADDED UNDER functions/ WILL NOT BE ROUTED until its
 # path is added to that include list.
@@ -23,3 +52,20 @@ bucket_name = "xerj-leads"
 [[r2_buckets]]
 binding = "INSTALLS"
 bucket_name = "xerj-installs"
+
+# Hub-native stars (hub.xerj.org; functions/api/hub-stars.js). The hub deploy
+# (deploy-hub-pages.yml / hub-packs.yml) runs `wrangler pages deploy` from the
+# repo root, so this file is that project's configuration too.
+[[r2_buckets]]
+binding = "HUB_STARS"
+bucket_name = "xerj-hub-stars"
+
+# Hub usage counts (hub.xerj.org; functions/_lib/hub-usage.js, /api/hub-usage).
+[[r2_buckets]]
+binding = "HUB_USAGE"
+bucket_name = "xerj-hub-usage"
+
+# Agent reviews of hub corpora (hub.xerj.org; functions/api/corpus-feedback.js).
+[[r2_buckets]]
+binding = "CORPUS_FEEDBACK"
+bucket_name = "xerj-corpus-feedback"

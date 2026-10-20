@@ -1,0 +1,22 @@
+{
+ "corpus": "thatsme--tincture",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on acroform, beam, elixir queries this for how thatsme/tincture implements it: Typographic-quality PDF generation for Elixir. Zero dependencies \u2014 no Chrome, no wkhtmltopdf. TeX hyphenation, Knuth-Plass line breaking, Tr (selected work: lib/tincture, lib)",
+ "repos": [
+  {
+   "repo": "tincture",
+   "url": "https://github.com/thatsme/tincture",
+   "sha": "fed8a34f47b85baeb76f7fd3a3a86d749157c7ae",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit fed8a34f47b8: \"Document the public API that had no docs, and hide the internals that\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

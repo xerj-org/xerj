@@ -1,0 +1,22 @@
+{
+ "corpus": "missarii--web-pilot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how missarii/Web-Pilot implements it: WebPilot is a local-first AI browser agent that converts natural-language instructions into safe, structured browser actions, navigates webs (selected work: apps/api, apps/web, packages/ai-core)",
+ "repos": [
+  {
+   "repo": "Web-Pilot",
+   "url": "https://github.com/missarii/Web-Pilot",
+   "sha": "bbb2fd038da39fa080b0ab3d95d93d4a75849e59",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit bbb2fd038da3: \"fix: full vision working through real UI\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

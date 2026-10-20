@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--iceberg-rust",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on apache, hacktoberfest, iceberg queries this for how apache/iceberg-rust implements it: Apache Iceberg (selected work: crates/iceberg)",
+ "repos": [
+  {
+   "repo": "iceberg-rust",
+   "url": "https://github.com/apache/iceberg-rust",
+   "sha": "e4bec84bcca5ba4f3e19583e95b1de7c1fab2559",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e4bec84bcca5: \"feat(transaction): let a snapshot operation report removed files and \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

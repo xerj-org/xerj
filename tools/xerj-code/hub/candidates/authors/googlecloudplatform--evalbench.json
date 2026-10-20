@@ -1,0 +1,22 @@
+{
+ "corpus": "googlecloudplatform--evalbench",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on databases, eval, evaluation-framework queries this for how GoogleCloudPlatform/evalbench implements it: EvalBench is a flexible framework designed to measure the quality of generative AI (GenAI) workflows around database specific tasks (selected work: viewer, evalbench)",
+ "repos": [
+  {
+   "repo": "evalbench",
+   "url": "https://github.com/GoogleCloudPlatform/evalbench",
+   "sha": "b981a3b66465b66bcc574a65da250acb1eb1855e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b981a3b66465: \"Fixes `Fatal Error: time data \"### **Summary of Performance**\" doesn'\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

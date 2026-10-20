@@ -1,0 +1,22 @@
+{
+ "corpus": "mahmoud-emad--opennotebook",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, education, fastapi queries this for how mahmoud-emad/opennotebook implements it: Open-source study studio in the spirit of NotebookLM: turn your sources into narrated decks, video and audio overviews, mind maps and notes, (selected work: server, web)",
+ "repos": [
+  {
+   "repo": "opennotebook",
+   "url": "https://github.com/mahmoud-emad/opennotebook",
+   "sha": "f9c53b799c4025fc4f0d94d99e33288ad2104faa",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit f9c53b799c40: \"refactor(ai): tidy providers and fix review findings\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "datatables--datatablessrc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how DataTables/DataTablesSrc implements it: DataTables source repository (selected work: test, js)",
+ "repos": [
+  {
+   "repo": "DataTablesSrc",
+   "url": "https://github.com/DataTables/DataTablesSrc",
+   "sha": "a2878b40a07632e8a9954de503ba9e7501c647f6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit a2878b40a076: \"Fix: A column which was initially hidden wasn't then click orderable \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

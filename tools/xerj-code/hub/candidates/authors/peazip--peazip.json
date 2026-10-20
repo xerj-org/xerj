@@ -1,0 +1,22 @@
+{
+ "corpus": "peazip--peazip",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on peazip, rar, zip queries this for how peazip/PeaZip implements it: Free Zip / Unzip software and Rar file extractor. Cross-platform file and archive manager. Features volume spanning, compression, authentica (selected work: peazip-sources)",
+ "repos": [
+  {
+   "repo": "PeaZip",
+   "url": "https://github.com/peazip/PeaZip",
+   "sha": "8061e54a8b0cec04909ad2d2a457c13284e91b03",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8061e54a8b0c: \"Add files via upload\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

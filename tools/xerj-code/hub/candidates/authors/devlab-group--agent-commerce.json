@@ -1,0 +1,22 @@
+{
+ "corpus": "devlab-group--agent-commerce",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-commerce, ai-agents, api-gateway queries this for how devlab-group/agent-commerce implements it: Self-hosted, non-custodial gateway between the API you already run and the protocols AI agents use to discover, call and pay for it (selected work: tests, src/protocols)",
+ "repos": [
+  {
+   "repo": "agent-commerce",
+   "url": "https://github.com/devlab-group/agent-commerce",
+   "sha": "1e8c9d09ddc3d01c71df27ad5fbfe66d7d20d489",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 1e8c9d09ddc3: \"fix(a2a): describe the call on the Agent Card and close A2A 1.0.1 gaps\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

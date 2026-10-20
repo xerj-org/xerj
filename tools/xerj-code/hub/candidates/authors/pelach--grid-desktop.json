@@ -1,0 +1,22 @@
+{
+ "corpus": "pelach--grid-desktop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on customization, dektop-widgets, gjs queries this for how pelach/grid-desktop implements it: A powerful desktop widget ecosystem & native icon manager for GNOME Shell, built on a screen-adaptive canvas grid (selected work: widgets, prefs)",
+ "repos": [
+  {
+   "repo": "grid-desktop",
+   "url": "https://github.com/pelach/grid-desktop",
+   "sha": "946e174434ebb4e72a6e7229b88d33874af72ba9",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 946e174434eb: \"fix(music): refine compact layout, visualizer styling, and artwork cl\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

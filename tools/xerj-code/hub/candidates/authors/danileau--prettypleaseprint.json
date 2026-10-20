@@ -1,0 +1,22 @@
+{
+ "corpus": "danileau--prettypleaseprint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on 3d-printing, 3d-printer, agpl queries this for how danileau/prettypleaseprint implements it: Self-hosted, invite-only 3D print requests for a small office - upload a model, follow it through the print stages (selected work: src/app, src/lib, scripts)",
+ "repos": [
+  {
+   "repo": "prettypleaseprint",
+   "url": "https://github.com/danileau/prettypleaseprint",
+   "sha": "9539af6aad911cbd5b48c4f07db203b06714968d",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit 9539af6aad91: \"Give a print request a priority (#82)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

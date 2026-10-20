@@ -1,0 +1,22 @@
+{
+ "corpus": "supermedo--x360-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Supermedo/x360-manager implements it: X360 Manager - A modern Xbox 360 game manager with Xenia emulator integration (selected work: the project root, src/components)",
+ "repos": [
+  {
+   "repo": "x360-manager",
+   "url": "https://github.com/Supermedo/x360-manager",
+   "sha": "f28fa73de97d479227142c007214250563c6de59",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f28fa73de97d: \"Fix Canary download for renamed zip/7z assets and clarify FPS overlay\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

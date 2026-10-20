@@ -1,0 +1,22 @@
+{
+ "corpus": "sunme1977--diskraptor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on disk, disk-analyzer, disk-cleaner queries this for how SunMe1977/DiskRaptor implements it: Diskraptor is a high\u2011performance, cross\u2011platform build and disk analysis engine built with Rust and Tauri. It scans millions of files using  (selected work: frontend, tests, src-tauri)",
+ "repos": [
+  {
+   "repo": "DiskRaptor",
+   "url": "https://github.com/SunMe1977/DiskRaptor",
+   "sha": "2c8a360f5d748559dccdc3db98fec9abf51975eb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 2c8a360f5d74: \"feat: 10 growth improvements - trial mode, compare table, one-click u\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

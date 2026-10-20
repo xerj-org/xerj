@@ -729,6 +729,7 @@ mod tests {
             lte: None,
             lt: Some(serde_json::json!(65)),
             boost: None,
+            lenient: false,
         };
         let plan = plan_query(q, &empty_schema()).unwrap();
         assert!(matches!(plan, ExecutionPlan::RangeScan { .. }));

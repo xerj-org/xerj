@@ -1,0 +1,22 @@
+{
+ "corpus": "prgrmrwy--ohmydsh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on deepseek-harness, dsh, dsh-plugin queries this for how prgrmrwy/ohmydsh implements it: dsh \u96c6\u6210\u914d\u7f6e (selected work: packages/dsh-pet)",
+ "repos": [
+  {
+   "repo": "ohmydsh",
+   "url": "https://github.com/prgrmrwy/ohmydsh",
+   "sha": "2f70314b7fca2291e05f3b36455e34e368420015",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 2f70314b7fca: \"perf(pet): Locus \u7ba1\u7406\u5217\u8868\u4e0d\u518d\u9010\u4e2a\u5b8c\u6574\u51b7\u8bfb\u4e3b/\u5b50\u4f1a\u8bdd\u65e5\u5fd7\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

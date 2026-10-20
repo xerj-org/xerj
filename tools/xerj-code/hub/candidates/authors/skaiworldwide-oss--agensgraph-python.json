@@ -1,0 +1,22 @@
+{
+ "corpus": "skaiworldwide-oss--agensgraph-python",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on genai, graphdb, multi-model-database queries this for how skaiworldwide-oss/agensgraph-python implements it: A Python driver for AgensGraph Multi-Model Database (selected work: src/agensgraph, tests)",
+ "repos": [
+  {
+   "repo": "agensgraph-python",
+   "url": "https://github.com/skaiworldwide-oss/agensgraph-python",
+   "sha": "f497a2b085ce79ee9f8b5d7cf2c74d5de8a887cf",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit f497a2b085ce: \"feat: Declare a promoted column on a label, and read a vector index i\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

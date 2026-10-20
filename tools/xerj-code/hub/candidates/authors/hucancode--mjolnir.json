@@ -1,0 +1,22 @@
+{
+ "corpus": "hucancode--mjolnir",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on odin-lang, vulkan, game-engine queries this for how hucancode/mjolnir implements it: Minimalistic game engine (selected work: examples, mjolnir, the project root)",
+ "repos": [
+  {
+   "repo": "mjolnir",
+   "url": "https://github.com/hucancode/mjolnir",
+   "sha": "664f41e0e9f3e77510b487beb11e54adf5fab9e0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 664f41e0e9f3: \"simplify L3 engine code\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

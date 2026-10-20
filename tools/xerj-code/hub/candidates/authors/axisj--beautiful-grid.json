@@ -1,0 +1,22 @@
+{
+ "corpus": "axisj--beautiful-grid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on datagrid, react, data-grid queries this for how axisj/beautiful-grid implements it: BeautifulGrid is a high-performance, feature-packed, and beautifully designed open-source React Data Grid for data-heavy business applicatio (selected work: examples, beautiful-grid, test)",
+ "repos": [
+  {
+   "repo": "beautiful-grid",
+   "url": "https://github.com/axisj/beautiful-grid",
+   "sha": "8991691930b40db639ff4cce3f59698c6bea4a40",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 8991691930b4: \"feat: add editor plugin hub and unified empty state\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

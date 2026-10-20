@@ -1,0 +1,22 @@
+{
+ "corpus": "mhdimo--deepseek-code",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on deepseek, deepseek-api, deepseek-coder queries this for how mhdimo/deepseek-code implements it: claude code attempt but only for deepseek (selected work: src/cli, tests, src)",
+ "repos": [
+  {
+   "repo": "deepseek-code",
+   "url": "https://github.com/mhdimo/deepseek-code",
+   "sha": "8a86746f068f9cdd34665982da309062fe081e23",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 8a86746f068f: \"feat(acp): serve the Agent Client Protocol over stdio\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

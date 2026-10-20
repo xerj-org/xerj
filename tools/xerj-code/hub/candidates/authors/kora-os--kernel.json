@@ -1,0 +1,22 @@
+{
+ "corpus": "kora-os--kernel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how kora-os/kernel implements it: Kernel (selected work: tests, user, src/sys)",
+ "repos": [
+  {
+   "repo": "kernel",
+   "url": "https://github.com/kora-os/kernel",
+   "sha": "f7f898ed2ad42b57caf764a09f768c7ae5bb6af2",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit f7f898ed2ad4: \"Expose FAT32 writes and add file management commands\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

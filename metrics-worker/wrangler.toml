@@ -1,0 +1,16 @@
+# xerj-metrics — daily recorder + dashboard for GitHub traffic and /get installs.
+# GitHub's traffic API only keeps 14 days; this Worker's cron snapshots clones,
+# views and installs into R2 every day so the history accumulates. The dashboard
+# (the Worker's own fetch handler) renders it. Deploy: wrangler deploy.
+name = "xerj-metrics"
+main = "src/index.js"
+compatibility_date = "2024-09-01"
+
+[triggers]
+crons = ["0 6 * * *"]
+
+# Reuses the existing bucket the installer writes to; history lives under
+# metrics/dashboard.json, installs under installs/<date>/.
+[[r2_buckets]]
+binding = "INSTALLS"
+bucket_name = "xerj-installs"

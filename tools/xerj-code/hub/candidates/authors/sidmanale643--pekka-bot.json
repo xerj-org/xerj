@@ -1,0 +1,22 @@
+{
+ "corpus": "sidmanale643--pekka-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, ai-agents, ai-assistant queries this for how sidmanale643/pekka-bot implements it: Open-source AI workspace where bots do the work on their own cloud computers. A Chief of Staff bot delegates to specialist bots with memory, (selected work: src/tools, src, src/agent)",
+ "repos": [
+  {
+   "repo": "pekka-bot",
+   "url": "https://github.com/sidmanale643/pekka-bot",
+   "sha": "661d4bf4e1683b2209c1d2e4537235ce004d45e0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 661d4bf4e168: \"feat(tools): give bots a web browser once a Browser Run key is saved\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

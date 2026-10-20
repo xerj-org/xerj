@@ -1,0 +1,22 @@
+{
+ "corpus": "kudanilll--kupass",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on password-manager, android, kotlin queries this for how kudanilll/kupass implements it: Kupass, Open source password manager application (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "kupass",
+   "url": "https://github.com/kudanilll/kupass",
+   "sha": "ed943797607d9f1e2185519f3453477193342c75",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit ed943797607d: \"feat: opt-in site icons via Favget\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

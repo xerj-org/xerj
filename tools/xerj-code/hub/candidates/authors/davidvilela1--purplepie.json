@@ -1,0 +1,22 @@
+{
+ "corpus": "davidvilela1--purplepie",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 2d-game-engine, ecs, game-engine queries this for how DavidVilela1/purplepie implements it: [v0.2.0] PurplePie is a modular 2D game engine built in Rust, combining ECS architecture with wgpu-based rendering and winit for cross-platf (selected work: crates/purplepie-editor, src/scene)",
+ "repos": [
+  {
+   "repo": "purplepie",
+   "url": "https://github.com/DavidVilela1/purplepie",
+   "sha": "b7f7c5c532e9cd60f46d5bd4503908df8863b728",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit b7f7c5c532e9: \"feat(editor): edit quads, sprites, texts and game components in the i\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

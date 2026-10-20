@@ -1,0 +1,22 @@
+{
+ "corpus": "syncra-studio--brigadier-skill",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, claude, claude-code queries this for how syncra-studio/brigadier-skill implements it: Hand Claude Code a goal before bed: Brigadier runs a crew of Claude Code (and Codex) workers in cmux or tmux and leaves you a morning report (selected work: skills, tests)",
+ "repos": [
+  {
+   "repo": "brigadier-skill",
+   "url": "https://github.com/syncra-studio/brigadier-skill",
+   "sha": "21675c3d90069d4b1be16903eaedabc476f64ed1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 21675c3d9006: \"Support openwong2kim/wmux as the fallback Windows backend\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

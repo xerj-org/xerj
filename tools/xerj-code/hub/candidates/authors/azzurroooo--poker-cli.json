@@ -1,0 +1,22 @@
+{
+ "corpus": "azzurroooo--poker-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on asyncio, card-game, cli queries this for how Azzurroooo/poker-cli implements it: \u2660 Multiplayer Texas Hold'em for your terminal \u2014 one command hosts a LAN table, friends join with zero config. Flicker-free TUI with real car (selected work: src/rpoker, tests)",
+ "repos": [
+  {
+   "repo": "poker-cli",
+   "url": "https://github.com/Azzurroooo/poker-cli",
+   "sha": "9be91f8437af6abc1b0b6f8533cae8474ca0fb0c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 9be91f8437af: \"Fix compact raise interaction and polish rich UI\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

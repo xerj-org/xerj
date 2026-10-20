@@ -1,0 +1,22 @@
+{
+ "corpus": "360ghar--tidybyte",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on apple, cleanup, duplicate-photos queries this for how 360ghar/tidybyte implements it: \ud83d\udcf8 Tinder-style swipe UI to clean your iPhone photo library \u2014 find duplicates, blurry shots, old screenshots & compress videos. 100% on-devic (selected work: Tidybyte, TidybyteTests, TidybyteUITests)",
+ "repos": [
+  {
+   "repo": "tidybyte",
+   "url": "https://github.com/360ghar/tidybyte",
+   "sha": "27ed66a46b5948a08fcc7c56bc2723596b59e826",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 27ed66a46b59: \"Add cleanup tools, accurate reminders, and on-device AI (#3)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

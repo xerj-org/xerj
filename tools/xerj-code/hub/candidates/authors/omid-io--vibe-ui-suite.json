@@ -1,0 +1,22 @@
+{
+ "corpus": "omid-io--vibe-ui-suite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on accessibility, ai-agents, claude-code queries this for how omid-io/vibe-ui-suite implements it: Deterministic design contracts, component recipes, and WCAG AA evaluation gates for AI coding agents (Cursor, Claude Code, Windsurf, Antigra (selected work: assets, scripts, packages/tokens)",
+ "repos": [
+  {
+   "repo": "vibe-ui-suite",
+   "url": "https://github.com/omid-io/vibe-ui-suite",
+   "sha": "61692c748a12925cb967d034ebc47dd09d14943b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 61692c748a12: \"feat(v6.0.0): eliminate legacy tokens, add curated local webp vault, \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

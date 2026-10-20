@@ -1,0 +1,22 @@
+{
+ "corpus": "dagoste--squadra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how dagoSte/squadra implements it: Coordinate Claude, Codex and Cursor windows with shared tasks, acknowledgements, prechecks, parallel tests, source-bound proofs and independ (selected work: tests, scripts, assets)",
+ "repos": [
+  {
+   "repo": "squadra",
+   "url": "https://github.com/dagoSte/squadra",
+   "sha": "146b3a084852671dfa417325728c2df04d9fe9cb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 146b3a084852: \"Add read-only task forecasts and System skills directory\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

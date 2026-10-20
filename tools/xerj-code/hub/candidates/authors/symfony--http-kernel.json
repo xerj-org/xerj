@@ -1,0 +1,22 @@
+{
+ "corpus": "symfony--http-kernel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on php, symfony, component queries this for how symfony/http-kernel implements it: Provides a structured process for converting a Request into a Response (selected work: Tests, Controller, EventListener)",
+ "repos": [
+  {
+   "repo": "http-kernel",
+   "url": "https://github.com/symfony/http-kernel",
+   "sha": "8ebc27b84eb38859c80b8cc2ea2858bd3df2cff1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 8ebc27b84eb3: \"[FrameworkBundle][HttpKernel] Add `RateLimitValueResolver` to inject \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "marcussanchez--fancontrol-lianliwireless",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how MarcusSanchez/FanControl.LianLiWireless implements it: Lian Li wireless fans without L-Connect: a Rust engine with a C interface and a FanControl plugin (selected work: plugin, src)",
+ "repos": [
+  {
+   "repo": "FanControl.LianLiWireless",
+   "url": "https://github.com/MarcusSanchez/FanControl.LianLiWireless",
+   "sha": "ed55d840f6a17ce7d3d854e409f1b8a300a16cd4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit ed55d840f6a1: \"Remember every group seen and name the master of a foreign one\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

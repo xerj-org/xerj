@@ -1,0 +1,22 @@
+{
+ "corpus": "merginmaps--db-sync",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on geodiff, gis, postgis queries this for how MerginMaps/db-sync implements it: A tool for two-way synchronization between Mergin Maps and a PostGIS database (selected work: test, the project root)",
+ "repos": [
+  {
+   "repo": "db-sync",
+   "url": "https://github.com/MerginMaps/db-sync",
+   "sha": "14f85287e29a609582e581a0b5241bbd42e9167e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 14f85287e29a: \"Reuse stored Mergin Maps auth token after restart instead of new login\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

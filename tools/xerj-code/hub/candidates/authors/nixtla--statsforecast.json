@@ -1,0 +1,22 @@
+{
+ "corpus": "nixtla--statsforecast",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on time-series, statistics, forecasting queries this for how Nixtla/statsforecast implements it: Lightning \u26a1\ufe0f fast forecasting with statistical and econometric models (selected work: tests, python)",
+ "repos": [
+  {
+   "repo": "statsforecast",
+   "url": "https://github.com/Nixtla/statsforecast",
+   "sha": "4ea8a9fd359f289f5211c38413e78ccfc8500b27",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 4ea8a9fd359f: \"fix: use the finite-sample conformal quantile for conformal intervals\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

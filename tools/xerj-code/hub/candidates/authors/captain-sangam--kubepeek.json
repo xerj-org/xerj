@@ -1,0 +1,22 @@
+{
+ "corpus": "captain-sangam--kubepeek",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on aws, k8s, kubernetes queries this for how Captain-Sangam/KubePeek implements it: Real-time node group observability for AWS EKS (selected work: app/components, app/lib, app/hooks)",
+ "repos": [
+  {
+   "repo": "KubePeek",
+   "url": "https://github.com/Captain-Sangam/KubePeek",
+   "sha": "d45acd7624ac047dbd8ee03c53066aa4a5abf167",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit d45acd7624ac: \"Add live refresh and a compute map centered on pods\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

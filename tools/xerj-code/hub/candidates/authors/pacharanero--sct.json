@@ -1,0 +1,22 @@
+{
+ "corpus": "pacharanero--sct",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on fhir, health, nhs queries this for how pacharanero/sct implements it: SNOMED-CT tooling, brought into the 21stC. RF2 \u2192 NDJSON \u2192 SQLite | Vector | .arrow, | .parquet | .md | refsets | .codelist | MCP | CTV3 & Re (selected work: src/commands, tests, src)",
+ "repos": [
+  {
+   "repo": "sct",
+   "url": "https://github.com/pacharanero/sct",
+   "sha": "0f90bd4ae5b0f0329c3920ea563c948d877a4a89",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 0f90bd4ae5b0: \"feat(search): add `sct search lexical|semantic|fuzzy` as one front do\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

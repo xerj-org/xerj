@@ -1,0 +1,22 @@
+{
+ "corpus": "nickelsec--bough",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-coding, claude-code, cli queries this for how nickelsec/bough implements it: Claude Code, Codex and Pi write down everything you do. bough draws it and prices it: a day, the work inside it, every prompt, and what each (selected work: internal/server, cmd/bough)",
+ "repos": [
+  {
+   "repo": "bough",
+   "url": "https://github.com/nickelsec/bough",
+   "sha": "2f101adab6dad41473a35148d505923635947fc2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 2f101adab6da: \"Open on every project, and write down what 0.8.0 changed\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

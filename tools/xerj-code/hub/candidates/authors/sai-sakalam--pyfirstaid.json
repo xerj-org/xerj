@@ -1,0 +1,22 @@
+{
+ "corpus": "sai-sakalam--pyfirstaid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, developer-tools, diagnostics queries this for how sai-sakalam/pyfirstaid implements it: Diagnose broken Python environments (pip/python mismatch, SSL errors, failed C extensions, wrong venv) and get a copy-paste fix for each. Ze (selected work: src/pyfirstaid, tests)",
+ "repos": [
+  {
+   "repo": "pyfirstaid",
+   "url": "https://github.com/sai-sakalam/pyfirstaid",
+   "sha": "dbffb30a616c4877c3138b41147de617d01956c1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit dbffb30a616c: \"Fix pipx/uv tool installs; add --python option (v0.2.1)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

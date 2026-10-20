@@ -1,0 +1,22 @@
+{
+ "corpus": "junkdog--ada-md",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on kitty-graphics, markdown, markdown-viewer queries this for how junkdog/ada-md implements it: The fastest terminal markdown viewer, for one file or a whole vault of notes (selected work: src, src/ui)",
+ "repos": [
+  {
+   "repo": "ada-md",
+   "url": "https://github.com/junkdog/ada-md",
+   "sha": "55d35b2ddfa04b80a40926f9ed1e97c1b1c34bd3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 55d35b2ddfa0: \"perf(highlight): scan JSON with a tokenizer of ada's own instead of b\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

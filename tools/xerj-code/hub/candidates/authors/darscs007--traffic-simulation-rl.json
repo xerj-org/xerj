@@ -1,0 +1,22 @@
+{
+ "corpus": "darscs007--traffic-simulation-rl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on city-builder, machine-learning, reinforcement-learning queries this for how darscs007/traffic-simulation-rl implements it: Interactive urban traffic simulation for training and evaluating RL-based traffic optimization (selected work: rl, src, include)",
+ "repos": [
+  {
+   "repo": "traffic-simulation-rl",
+   "url": "https://github.com/darscs007/traffic-simulation-rl",
+   "sha": "d4d9673e294a6e6edd29a1b4321c9eb4bc37f98c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit d4d9673e294a: \"improved RL slightly\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

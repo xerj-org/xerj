@@ -1,0 +1,22 @@
+{
+ "corpus": "renepeuser--basta-autumn-2026",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how RenePeuser/basta-autumn-2026 implements it: RenePeuser/basta-autumn-2026 (C#) (selected work: src/Basta.CodeRules, src/Basta.Analyzer.Test, src/Basta.Analyzer)",
+ "repos": [
+  {
+   "repo": "basta-autumn-2026",
+   "url": "https://github.com/RenePeuser/basta-autumn-2026",
+   "sha": "495ff022b94aa04a749a79a2fd59ba8bb7b50079",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 495ff022b94a: \"update\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

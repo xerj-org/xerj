@@ -1,0 +1,22 @@
+{
+ "corpus": "agnuxo1--queryfoundry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on database-performance, disaster-recovery, kaggle queries this for how Agnuxo1/QueryFoundry implements it: QueryFoundry: verifiable performance and durable recovery for the Kaggle Python Database Performance Optimization challenge (selected work: reports, coordinacion, scripts)",
+ "repos": [
+  {
+   "repo": "QueryFoundry",
+   "url": "https://github.com/Agnuxo1/QueryFoundry",
+   "sha": "ffea4a5c3a33662b20719f51166ae937e86defe7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit ffea4a5c3a33: \"Integrate Claude recovery audit and fix concurrent receipt installation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "cattanisimone--gh-reloaded",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how cattanisimone/gh-reloaded implements it: Chrome extension with small, focused UI enhancements for GitHub: dependency graphs, quick-create, board dependency arrows, full-width boards (selected work: test, features, background)",
+ "repos": [
+  {
+   "repo": "gh-reloaded",
+   "url": "https://github.com/cattanisimone/gh-reloaded",
+   "sha": "e1686c69b3493c0bd9ee0551320a391c1c3a95f4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e1686c69b349: \"feat: add personal PR triage to repository pull request lists (#82)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

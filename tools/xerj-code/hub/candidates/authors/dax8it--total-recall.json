@@ -1,0 +1,22 @@
+{
+ "corpus": "dax8it--total-recall",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how dax8it/total-recall implements it: Standalone Total Recall local continuity framework for Hermes Agent (selected work: tests, src/total_recall_core, scripts)",
+ "repos": [
+  {
+   "repo": "total-recall",
+   "url": "https://github.com/dax8it/total-recall",
+   "sha": "57aaffaddc886b4873158bed5df169c57e08fe19",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 57aaffaddc88: \"fix: harden ledger parsing and isolate external index maintenance\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

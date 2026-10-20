@@ -1,0 +1,22 @@
+{
+ "corpus": "ksx-cz--khms-memory",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how ksx-cz/khms-memory implements it: Know-how management system - memory for agents (selected work: tools, tests)",
+ "repos": [
+  {
+   "repo": "khms-memory",
+   "url": "https://github.com/ksx-cz/khms-memory",
+   "sha": "52c8e13c09b0224c567894600f08b52c5b2ed833",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 52c8e13c09b0: \"Step 3 (part 2b): the triage stage (nightly_triage.sh, khms_contradic\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

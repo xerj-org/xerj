@@ -1,0 +1,22 @@
+{
+ "corpus": "agentprojectcontext--apx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-os, agents-md, ai-agents queries this for how agentprojectcontext/apx implements it: Meet your crew. APX is an open-source Agent OS for running AI agents on your own machine \u2014 memory in plain files, agents that work together, (selected work: tests, src/core, src/host)",
+ "repos": [
+  {
+   "repo": "apx",
+   "url": "https://github.com/agentprojectcontext/apx",
+   "sha": "af1e6e56d009d80e98de4a6070da2f8f93fdf1e8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit af1e6e56d009: \"fix(telegram): el markdown se muestra con formato, no con asteriscos \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

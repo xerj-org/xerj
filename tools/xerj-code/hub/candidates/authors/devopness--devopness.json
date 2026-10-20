@@ -1,0 +1,22 @@
+{
+ "corpus": "devopness--devopness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cloud-infrastructure, devops, devops-tools queries this for how devopness/devopness implements it: Devopness: AI DevOps on your cloud. Deploy apps, infra and CI/CD. Any cloud and any stack, one MCP. Deterministic API, opinionated and fully (selected work: packages/sdks)",
+ "repos": [
+  {
+   "repo": "devopness",
+   "url": "https://github.com/devopness/devopness",
+   "sha": "63f05b4ba1603f94d17e3325f51a59b75907f320",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 63f05b4ba160: \"fix: share Python SDK HTTP clients across services (#3605)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "blacklabelhq--recompone",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ps1, recompilation, mipsr3000a queries this for how BlackLabelHQ/RecompOne implements it: PSX Static Recompiler and Runtime, Not Affiliated With Sony or PlayStation (selected work: RecompOne.Runtime, RecompOne.Recompiler)",
+ "repos": [
+  {
+   "repo": "RecompOne",
+   "url": "https://github.com/BlackLabelHQ/RecompOne",
+   "sha": "1272fb80b1638efdae8f281ff6c6e90f93866ae6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 1272fb80b163: \"gpu and gte float support and interpolation by float support, added c\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

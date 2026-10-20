@@ -1,0 +1,22 @@
+{
+ "corpus": "senapk--tko",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how senapk/tko implements it: Test Kit Operations (selected work: src/tko, tests, the project root)",
+ "repos": [
+  {
+   "repo": "tko",
+   "url": "https://github.com/senapk/tko",
+   "sha": "5085784aad0aa860163c6173e010f51daa7ea298",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 5085784aad0a: \"Add student repository review and class overview\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

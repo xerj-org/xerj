@@ -1,0 +1,22 @@
+{
+ "corpus": "vix3l--vix3l-zcode-tools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on JavaScript queries this for how ViX3L/vix3l-zcode-tools implements it: Local performance and usage stats for ZCode Desktop: per-request TPS/TTFT in the composer, per-turn token chips beside each reply, and a sel (selected work: plugins, tests, the project root)",
+ "repos": [
+  {
+   "repo": "vix3l-zcode-tools",
+   "url": "https://github.com/ViX3L/vix3l-zcode-tools",
+   "sha": "f7233ed915ef70223cbc6935bd7874cede8b0cdb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f7233ed915ef: \"fix(injectors): a superseded generation adopts the page instead of bl\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

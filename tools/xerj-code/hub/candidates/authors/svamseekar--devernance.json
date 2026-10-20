@@ -1,0 +1,22 @@
+{
+ "corpus": "svamseekar--devernance",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-safety, audit, compliance queries this for how SVamseekar/devernance implements it: Devernance \u2014 release gates and signed evidence packs for AI features (Next.js 16 + Spring Boot 4.1) (selected work: infra, services, apps/dashboard)",
+ "repos": [
+  {
+   "repo": "eu-ai-assurance-os",
+   "url": "https://github.com/SVamseekar/eu-ai-assurance-os",
+   "sha": "ad38a0e2a2b4d160533f98834b5483441f6deb67",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ad38a0e2a2b4: \"feat: production compose stack, image pipeline, and backups (#104)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

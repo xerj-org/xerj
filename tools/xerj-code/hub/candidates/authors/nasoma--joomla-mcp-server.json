@@ -1,0 +1,22 @@
+{
+ "corpus": "nasoma--joomla-mcp-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on joomla, mcp, mcp-server queries this for how nasoma/joomla-mcp-server implements it: The Joomla MCP Server facilitates interaction between AI assistants (like Claude) and Joomla websites through the Joomla Web Services API. I (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "joomla-mcp-server",
+   "url": "https://github.com/nasoma/joomla-mcp-server",
+   "sha": "5741b5e4d2795af9466f7ff72a88ce5de468316b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 5741b5e4d279: \"Package console command, harden Docker and document approved behavior\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "daijro--camoufox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on antidetect, antidetect-browser, fingerprint queries this for how daijro/camoufox implements it: \ud83e\udd8a Anti-detect browser (selected work: typescript, python, browser)",
+ "repos": [
+  {
+   "repo": "camoufox",
+   "url": "https://github.com/daijro/camoufox",
+   "sha": "d9fa53e96bac055c0b8b4a09d8b2eb7bcc22a359",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit d9fa53e96bac: \"fix: ensuring documentation matches behavior for pinning\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

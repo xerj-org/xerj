@@ -1,0 +1,22 @@
+{
+ "corpus": "lfdt-nightstream--starstream",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how LFDT-Nightstream/Starstream implements it: Implementation experiments as part of the design process of Starstream VM (selected work: starstream-language-server, starstream-types, starstream-compiler)",
+ "repos": [
+  {
+   "repo": "Starstream",
+   "url": "https://github.com/LFDT-Nightstream/Starstream",
+   "sha": "804588b256cca68f4bc97af54de856902016ecff",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 804588b256cc: \"Multi-file web sandbox on a VS Code workbench (#244)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

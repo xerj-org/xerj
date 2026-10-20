@@ -1,0 +1,22 @@
+{
+ "corpus": "lom-lang--lom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, ai-agents, ai-coding queries this for how lom-lang/lom implements it: Lom (Language of Machine) \u2014 A programming language designed for the LLM repair loop \u2014 structured diagnostics, mechanical lom fix, self-hosti (selected work: src, tests, tools)",
+ "repos": [
+  {
+   "repo": "lom",
+   "url": "https://github.com/lom-lang/lom",
+   "sha": "b3bb9f5051326d980841f5ec34fc1992b58f0a73",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b3bb9f505132: \"feat(cli): v1.10.0 \u03b2-2 ACRI \u7b26\u5408\u6027\u5de5\u7a0b\u6279\u2014\u2014lom codes \u7801\u8868\u51fa\u53e3\uff08lom-codes/v1 \u4fe1\u5c01 46\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

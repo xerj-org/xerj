@@ -1,0 +1,22 @@
+{
+ "corpus": "hulkye--flutter-starter-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on clean-architecture, flutter, flutter-app queries this for how Hulkye/flutter_starter_app implements it: Flutter Starter with MVVM, Clean Architecture, Riverpod, GoRouter, Dio, Multi-Environment Setup, Theming, Localization, and Reusable Enterpr (selected work: test, lib/core, lib/app)",
+ "repos": [
+  {
+   "repo": "flutter_starter_app",
+   "url": "https://github.com/Hulkye/flutter_starter_app",
+   "sha": "79c69cbb99c6a754147e5f0137dd065d22656e16",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 79c69cbb99c6: \"feat: \u7edf\u4e00Feature\u5916\u90e8\u8def\u7531\u4e0eDeepLink\u6ce8\u518c\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "calmingstorm--odin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, automation, devops queries this for how Calmingstorm/Odin implements it: Self-hosted AI execution agent for Discord: runs shell commands and edits files on your hosts, drives browsers, schedules jobs and delegates (selected work: tests, src/llm)",
+ "repos": [
+  {
+   "repo": "Odin",
+   "url": "https://github.com/Calmingstorm/Odin",
+   "sha": "77ce0748b87ee0d44396e72ea80a39f2dd1b18f6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 77ce0748b87e: \"fix(codex): pin acquired account ownership across reloads\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

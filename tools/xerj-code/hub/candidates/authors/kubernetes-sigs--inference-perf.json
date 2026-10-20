@@ -1,0 +1,22 @@
+{
+ "corpus": "kubernetes-sigs--inference-perf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on k8s-sig-scalability queries this for how kubernetes-sigs/inference-perf implements it: GenAI inference performance benchmarking tool (selected work: tests, inference_perf)",
+ "repos": [
+  {
+   "repo": "inference-perf",
+   "url": "https://github.com/kubernetes-sigs/inference-perf",
+   "sha": "45af1d3c5f57de7cf43866539fd9d4d7a3591ad9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 45af1d3c5f57: \"fix(reportgen): flag ambiguous all-zero kv cache readings via validat\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

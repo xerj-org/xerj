@@ -1,0 +1,22 @@
+{
+ "corpus": "ferousco-dev--mailx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on golang, smtp, dkim queries this for how Ferousco-dev/Mailx implements it: The Developer Email Infrastructure Platform (selected work: internal/api, internal/ratelimit, cmd/mailx)",
+ "repos": [
+  {
+   "repo": "Mailx",
+   "url": "https://github.com/Ferousco-dev/Mailx",
+   "sha": "7a0e73928c04d5acb9ec3652b8d929edd2f01a03",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 7a0e73928c04: \"feat(api): org-owner API key management over HTTP (DEC-241..243)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

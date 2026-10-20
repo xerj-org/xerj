@@ -1,0 +1,22 @@
+{
+ "corpus": "aws-samples--sample-governed-agentic-companion",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, ai-governance, aws queries this for how aws-samples/sample-governed-agentic-companion implements it: A governed, orchestrator-driven multi-agent builder companion on Amazon Bedrock AgentCore. Safe by construction \u2014 never deploys, never leaks (selected work: agents, agentcore, frontdoor)",
+ "repos": [
+  {
+   "repo": "sample-governed-agentic-companion",
+   "url": "https://github.com/aws-samples/sample-governed-agentic-companion",
+   "sha": "435c2beee47568d0541ccb7331cfa5bc46841383",
+   "licence": "hint only: MIT-0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT-0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 435c2beee475: \"feat: import Governed Agentic Companion starter kit\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "gearpro17--codesys-industrial-machine-simulation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how Gearpro17/codesys-industrial-machine-simulation implements it: This repo houses a CODESYS project that simulates a control of multiple states in an industrial environment (selected work: runtime)",
+ "repos": [
+  {
+   "repo": "codesys-industrial-machine-simulation",
+   "url": "https://github.com/Gearpro17/codesys-industrial-machine-simulation",
+   "sha": "1e6f8c6a3ef80ada1f0179496487ed8958fcdd81",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 1e6f8c6a3ef8: \"Step 2c\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

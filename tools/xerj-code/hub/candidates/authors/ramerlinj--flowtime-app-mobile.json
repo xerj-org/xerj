@@ -1,0 +1,22 @@
+{
+ "corpus": "ramerlinj--flowtime-app-mobile",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how Ramerlinj/Flowtime-app-mobile implements it: Ramerlinj/Flowtime-app-mobile (TypeScript) (selected work: src/app, src/components, the project root)",
+ "repos": [
+  {
+   "repo": "Flowtime-app-mobile",
+   "url": "https://github.com/Ramerlinj/Flowtime-app-mobile",
+   "sha": "c157c121e919b68060b642de2e0ef89102e64071",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit c157c121e919: \"Update authentication flow and shared form components\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

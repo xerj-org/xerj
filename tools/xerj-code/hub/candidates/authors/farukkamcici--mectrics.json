@@ -1,0 +1,22 @@
+{
+ "corpus": "farukkamcici--mectrics",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on appkit, battery, cpu queries this for how farukkamcici/mectrics implements it: A lightweight, private system monitor that lives in your macOS menu bar. CPU, memory, battery, network, disk, GPU, temperature, fans. Zero t (selected work: Mectrics, the project root)",
+ "repos": [
+  {
+   "repo": "mectrics",
+   "url": "https://github.com/farukkamcici/mectrics",
+   "sha": "c383102ffc7767b0710c0f6a154cc65d3e5f4fed",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit c383102ffc77: \"Prepare 1.9.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "alesis-buzz--koskript",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on embedded, lenguage, python queries this for how alesis-buzz/koskript implements it: Koskript is a simple, embeddable, and lightweight scripting language designed to be used as a DSL inside Python applications. It features dy (selected work: src/koskript, tests, the project root)",
+ "repos": [
+  {
+   "repo": "koskript",
+   "url": "https://github.com/alesis-buzz/koskript",
+   "sha": "79630200ada6f1781a88e54b2f1ba2177bb3b523",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 79630200ada6: \"fix: a postfix operator at line start ends the statement\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

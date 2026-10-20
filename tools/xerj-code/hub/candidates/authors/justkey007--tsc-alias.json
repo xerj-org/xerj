@@ -1,0 +1,22 @@
+{
+ "corpus": "justkey007--tsc-alias",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on typescript, paths, alias queries this for how justkey007/tsc-alias implements it: Replace alias paths with relative paths after typescript compilation (selected work: src/utils, tests)",
+ "repos": [
+  {
+   "repo": "tsc-alias",
+   "url": "https://github.com/justkey007/tsc-alias",
+   "sha": "f97ad2cfbdf5028e4d8f0c5f5ae498ff42791172",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit f97ad2cfbdf5: \"fix: allow resolveFullPaths to add extension for module subpath imports\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

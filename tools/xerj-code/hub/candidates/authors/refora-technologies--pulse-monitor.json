@@ -1,0 +1,22 @@
+{
+ "corpus": "refora-technologies--pulse-monitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on hardware-monitor, librehardwaremonitor, refora-technologies queries this for how refora-technologies/pulse-monitor implements it: A lightweight hardware monitoring overlay for Windows: CPU, GPU, memory, FPS and more, with a compact in-game HUD (selected work: Services, ViewModels)",
+ "repos": [
+  {
+   "repo": "pulse-monitor",
+   "url": "https://github.com/refora-technologies/pulse-monitor",
+   "sha": "431570689487896bfab97b7e7cda4e7a5c653c8c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 431570689487: \"Leave a sleeping laptop graphics card alone, so Pulse stops keeping i\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

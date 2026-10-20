@@ -1,0 +1,22 @@
+{
+ "corpus": "shreyans-704--portfolio-website",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how Shreyans-704/Portfolio-Website- implements it: A premium, Awwwards-inspired personal portfolio built with Next.js, TypeScript, and Framer Motion. Features a clean, minimal UI with smooth  (selected work: src/components, src/app)",
+ "repos": [
+  {
+   "repo": "Portfolio-Website-",
+   "url": "https://github.com/Shreyans-704/Portfolio-Website-",
+   "sha": "a03bb07b39572e752bb6765b079404ccb2a2039d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a03bb07b3957: \"chnages in the mobile responsive of the website\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "lateincecer--edlc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how LateinCecer/edlc implements it: Compiler implementation for the EDL programming language (selected work: edlc_core, edlc_codegen_cranelift)",
+ "repos": [
+  {
+   "repo": "edlc",
+   "url": "https://github.com/LateinCecer/edlc",
+   "sha": "08018f7e0ebac7f6e4d5092e5e927e2c1da07d5f",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 08018f7e0eba: \"fixed impls for type alias\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

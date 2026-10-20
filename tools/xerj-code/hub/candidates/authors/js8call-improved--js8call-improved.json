@@ -1,0 +1,22 @@
+{
+ "corpus": "js8call-improved--js8call-improved",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how JS8Call-improved/JS8Call-improved implements it: Active development HEAD for the JS8Call project (selected work: tools, JS8_Mode)",
+ "repos": [
+  {
+   "repo": "JS8Call-improved",
+   "url": "https://github.com/JS8Call-improved/JS8Call-improved",
+   "sha": "fcf3b64ea43324a32d8f6923eef6902cf02ec77a",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit fcf3b64ea433: \"Fix strong signal decoder regression.\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

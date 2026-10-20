@@ -1,0 +1,22 @@
+{
+ "corpus": "forge-z--pte100",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on controlled-language, developer-tools, documentation queries this for how forge-z/pte100 implements it: Open controlled technical Portuguese for clearer, consistent and machine-readable technical documentation (selected work: agent-skills, reviewer-webapp, tools)",
+ "repos": [
+  {
+   "repo": "pte100",
+   "url": "https://github.com/forge-z/pte100",
+   "sha": "3f592bb7956b477b21430518b98e31537c5e7fcf",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 3f592bb7956b: \"feat: distribute portable skills and validate local reviewer\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

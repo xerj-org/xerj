@@ -1,0 +1,22 @@
+{
+ "corpus": "pineforge-4pass--pineforge-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on algorithmic-trading, backtesting, c-api queries this for how pineforge-4pass/pineforge-engine implements it: Open-source C++17 engine for backtesting and forward execution, with a versioned C ABI; Pine Script v6 runs through code generation. Against (selected work: tests, src)",
+ "repos": [
+  {
+   "repo": "pineforge-engine",
+   "url": "https://github.com/pineforge-4pass/pineforge-engine",
+   "sha": "288f189cc5dafbb986172510b3827eb45b5f6524",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 288f189cc5da: \"Exact tick-built bar volume and a genuine-tick equivalence harness (#\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

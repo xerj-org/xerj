@@ -1,0 +1,22 @@
+{
+ "corpus": "theodoreiulian--set-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how theodoreiulian/set-engine implements it: Download tracks and playlists as MP3s from an embedded browser. Built-in BPM/key detection, harmonic matching, and setlist builder turn your (selected work: scripts, src/main, src/renderer)",
+ "repos": [
+  {
+   "repo": "set-engine",
+   "url": "https://github.com/theodoreiulian/set-engine",
+   "sha": "871186319071effa327b289bd24b22dd68d0fd41",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 871186319071: \"Support SoundCloud set extraction and album downloads (#10)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

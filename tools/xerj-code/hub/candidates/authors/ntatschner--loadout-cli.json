@@ -1,0 +1,22 @@
+{
+ "corpus": "ntatschner--loadout-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, ai, claude-code queries this for how ntatschner/loadout-cli implements it: Launch AI coding agents with your instructions, memory and usage tracking in one central workspace \u2014 and nothing left behind in your reposit (selected work: tests, src/Loadout.Core, src/Loadout.Agents)",
+ "repos": [
+  {
+   "repo": "loadout-cli",
+   "url": "https://github.com/ntatschner/loadout-cli",
+   "sha": "4028bcaaa44a4c34baefc33d2d47cc5128eed3fc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 4028bcaaa44a: \"Close a run's open questions when it ends, and filter stale ones ever\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

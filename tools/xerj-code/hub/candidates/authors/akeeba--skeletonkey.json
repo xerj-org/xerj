@@ -1,0 +1,22 @@
+{
+ "corpus": "akeeba--skeletonkey",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how akeeba/skeletonkey implements it: Skeleton Key for Joomla. Allows administrator to login as another user (selected work: plugins, tests)",
+ "repos": [
+  {
+   "repo": "skeletonkey",
+   "url": "https://github.com/akeeba/skeletonkey",
+   "sha": "874e27a7112e957888ce6d06a6f764395ad354d6",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 874e27a7112e: \"Audit refused key requests and the redemption of the key\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

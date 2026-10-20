@@ -1,0 +1,22 @@
+{
+ "corpus": "storyloop0--storyloop-platform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how storyloop0/storyloop-platform implements it: Interactive narrative platform with player accounts, scenario management, billing, and StoryLoop Harness integration (selected work: tests, src/storyloop_platform, the project root)",
+ "repos": [
+  {
+   "repo": "storyloop-platform",
+   "url": "https://github.com/storyloop0/storyloop-platform",
+   "sha": "88ab9498923962035f651a332cbe0b3ac9f56f12",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 88ab94989239: \"feat: integrate effective scene budgets and safe overflow handling (#5)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "itsoltech--basal-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on apple-silicon, basal, cuda queries this for how itsoltech/basal-rs implements it: Rust inference engine for Basal models by Remek Kinas. GPU execution and HTTP serving with CUDA & Metal backends. Benchmarks against upstrea (selected work: crates/basal-gpu, crates/basal-cli, reports)",
+ "repos": [
+  {
+   "repo": "basal-rs",
+   "url": "https://github.com/itsoltech/basal-rs",
+   "sha": "4f68eb216ec3570f4e44c8262af566a0b0173ef7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4f68eb216ec3: \"feat(gpu): add Intel Arc Vulkan backend (#6)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

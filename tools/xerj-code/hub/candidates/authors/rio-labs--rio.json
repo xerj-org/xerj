@@ -1,0 +1,22 @@
+{
+ "corpus": "rio-labs--rio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on python, data-analysis, data-science queries this for how rio-labs/rio implements it: WebApps in pure Python. No JavaScript, HTML and CSS needed (selected work: tests, frontend, rio)",
+ "repos": [
+  {
+   "repo": "rio",
+   "url": "https://github.com/rio-labs/rio",
+   "sha": "237bfee6136a0b41e97ff418d67570c77077249f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 237bfee6136a: \"fix `rioSendMessage` being shared between Webviews\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

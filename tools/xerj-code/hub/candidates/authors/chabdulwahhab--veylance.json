@@ -1,0 +1,22 @@
+{
+ "corpus": "chabdulwahhab--veylance",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on audit, cli, developer-tools queries this for how ChAbdulWahhab/veylance implements it: An interactive CLI security auditing tool for identifying web misconfigurations and common vulnerabilities, with modular checks and multi-fo (selected work: veylance, tests)",
+ "repos": [
+  {
+   "repo": "veylance",
+   "url": "https://github.com/ChAbdulWahhab/veylance",
+   "sha": "9bd664544f5d22732115ee21b245a6a6bf9efdc1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 9bd664544f5d: \"fix(security): enforce domain-scoped consent gating and authorization\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

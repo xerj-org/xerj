@@ -1,0 +1,22 @@
+{
+ "corpus": "benjamindehli--overtonium",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on additive-synthesis, audio-plugin, instrument-plugin queries this for how benjamindehli/overtonium implements it: 32-partial additive synthesizer laid out like a 32-channel mixer. Every channel is one sine oscillator locked to a harmonic of the played no (selected work: Tools)",
+ "repos": [
+  {
+   "repo": "overtonium",
+   "url": "https://github.com/benjamindehli/overtonium",
+   "sha": "d64c72874a08c5b6a5d98ce7fd662cf86c84cd1b",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit d64c72874a08: \"Generate the sitemap, llms.txt and a full-site llms-full.txt, dating \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "hoophq--hoop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on databases, grpc, proxy queries this for how hoophq/hoop implements it: Open-source enforcement at runtime that masks sensitive data and blocks destructive commands from AI agents. You change one thing: your agen (selected work: sidecar, deploy, client)",
+ "repos": [
+  {
+   "repo": "hoop",
+   "url": "https://github.com/hoophq/hoop",
+   "sha": "f111d3e555283ae0eea1c7c7c9cd6938f5bba7a5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit f111d3e55528: \"DEP-262 sidecar: ssh.relay turns a listener into a terminating bastio\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

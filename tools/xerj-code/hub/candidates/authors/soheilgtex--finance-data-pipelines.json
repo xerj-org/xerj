@@ -1,0 +1,22 @@
+{
+ "corpus": "soheilgtex--finance-data-pipelines",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on data-engineering, docker, etl queries this for how SoheilGtex/finance-data-pipelines implements it: Correctness-first finance time-series ETL and SQLite benchmark with reproducible 100k/1m experiments, recovery testing, CI, and Docker (selected work: scripts, src/fdp, tests)",
+ "repos": [
+  {
+   "repo": "finance-data-pipelines",
+   "url": "https://github.com/SoheilGtex/finance-data-pipelines",
+   "sha": "bcfe625b1ee325df432ec325b50d60a4526850b4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit bcfe625b1ee3: \"Finalize Phase 3E benchmark study\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

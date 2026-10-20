@@ -1,0 +1,22 @@
+{
+ "corpus": "retroportingtoolkit--recomp-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C queries this for how RetroPortingToolKit/recomp-ui implements it: Shared launcher and in-game UI for static recompilation projects \u00b7 Part of the R.A.I.D. community (selected work: tests, src/common, src)",
+ "repos": [
+  {
+   "repo": "recomp-ui",
+   "url": "https://github.com/RetroPortingToolKit/recomp-ui",
+   "sha": "55af2f918831365b5b25c14cdc75876ca64f0343",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 55af2f918831: \"Prepare selected mod inputs before Play and reuse authoritative warm \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

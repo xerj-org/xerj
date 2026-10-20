@@ -27,12 +27,11 @@
 //! - `script_guid`      the `m_Script` reference's guid (MonoBehaviour → .cs)
 //! - flattened body fields
 //!
-//! KNOWN LIMITATION (engine-side, xerj-org/xerj#332): `ref_guids` is a
-//! multi-valued keyword array and the FTS writer joins array elements into
-//! ONE space-separated token, so a post-flush `term`/`match` on a single guid
-//! does not match. `script_guid`, `script_path` and `script_class` are
-//! single-valued and unaffected — the documented "which scenes use this
-//! script?" query goes through those, not through `ref_guids`.
+//! `ref_guids` is a multi-valued keyword array; each guid is indexed as its
+//! own term (xerj-org/xerj#332, fixed in #470), so a `term`/`match` on a
+//! single guid matches before and after a flush. The documented "which
+//! scenes use this script?" query still goes through the single-valued
+//! `script_guid`, `script_path` and `script_class`.
 //!
 //! `.meta` sidecars emit ONE record: `guid`, `asset_name`, `importer`, and
 //! flattened settings. The root-relative `asset_path` (and the

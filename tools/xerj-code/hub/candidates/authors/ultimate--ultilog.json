@@ -1,0 +1,22 @@
+{
+ "corpus": "ultimate--ultilog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how ultimate/ultilog implements it: ultimate/ultilog (TypeScript) (selected work: app/components, tests, app)",
+ "repos": [
+  {
+   "repo": "ultilog",
+   "url": "https://github.com/ultimate/ultilog",
+   "sha": "b54781f3cf70780eea7a00e75ca3fbbf2f8b7dd2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit b54781f3cf70: \"Improve logsheet labels, weather selection and line editing\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

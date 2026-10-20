@@ -1,0 +1,22 @@
+{
+ "corpus": "sapientpro--json-stream",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how sapientpro/json-stream implements it: Streaming JSON parser for Node.js (selected work: tests, src, scripts)",
+ "repos": [
+  {
+   "repo": "json-stream",
+   "url": "https://github.com/sapientpro/json-stream",
+   "sha": "77d76e5954d7faeeb5ade4a3a9197e2acdd2f585",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 77d76e5954d7: \"feat: align final input chunks and simplify developer documentation (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

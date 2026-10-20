@@ -1,0 +1,22 @@
+{
+ "corpus": "codemonstur--htmlcompiler",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on frontend, compiler queries this for how codemonstur/htmlcompiler implements it: A maven plugin for compiling of frontend code (selected work: src/main, src/test, the project root)",
+ "repos": [
+  {
+   "repo": "htmlcompiler",
+   "url": "https://github.com/codemonstur/htmlcompiler",
+   "sha": "42cac65e2f67b09abf5afab9c494ec19263a8e07",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 42cac65e2f67: \"Convert Gson-bound pojos to records, add coverage target, fix watcher\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

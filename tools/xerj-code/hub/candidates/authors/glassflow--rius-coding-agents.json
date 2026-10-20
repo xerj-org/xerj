@@ -1,0 +1,22 @@
+{
+ "corpus": "glassflow--rius-coding-agents",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-observability, claude-code, agent-observability queries this for how glassflow/rius-coding-agents implements it: Claude Code, Codex and Cursor plugin that streams your sessions to Rius as OpenTelemetry traces: prompts, model calls, tokens, tool calls an (selected work: tests, scripts)",
+ "repos": [
+  {
+   "repo": "rius-coding-agents",
+   "url": "https://github.com/glassflow/rius-coding-agents",
+   "sha": "28ba4aac8f533b8bc25742c4bcd458156c057e51",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 28ba4aac8f53: \"fix: a command end goes only to an exec call it can belong to, and an\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

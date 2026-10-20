@@ -1,0 +1,22 @@
+{
+ "corpus": "gaiya-puni--llm-based-campus-visual-question-answering-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how gaiya-puni/LLM-based-Campus-Visual-Question-Answering-System implements it: gaiya-puni/LLM-based-Campus-Visual-Question-Answering-System (Python) (selected work: webapp)",
+ "repos": [
+  {
+   "repo": "LLM-based-Campus-Visual-Question-Answering-System",
+   "url": "https://github.com/gaiya-puni/LLM-based-Campus-Visual-Question-Answering-System",
+   "sha": "0b5f6dac996ca7616b82cf639cbf2889eb9cb526",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 0b5f6dac996c: \"\u5220\u9664\u65e0\u5173\u6587\u4ef6\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

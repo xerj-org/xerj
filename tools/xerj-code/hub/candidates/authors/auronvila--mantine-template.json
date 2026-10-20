@@ -1,0 +1,22 @@
+{
+ "corpus": "auronvila--mantine-template",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on advanced, authentication, custom-components queries this for how auronvila/mantine-template implements it: Highly advanced admin dashboard template created using mantine (selected work: src/utils, src/components, src/pages)",
+ "repos": [
+  {
+   "repo": "mantine-template",
+   "url": "https://github.com/auronvila/mantine-template",
+   "sha": "28c65c318b564d7ae092168636b1cd98d06e4edd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 28c65c318b56: \"fix: versions and lint updates also close the mobile sidebar on navig\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

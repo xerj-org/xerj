@@ -1,0 +1,22 @@
+{
+ "corpus": "huseyinemretech--kampus-bildirim-sistemi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-assisted-development, android, campus queries this for how HuseyinEmreTech/kampus-bildirim-sistemi implements it: Campus Report: \u00f6\u011frencinin kamp\u00fcsteki sorunu foto\u011fraf ve konumla bildirdi\u011fi, g\u00f6revlinin \u00fcstlenip sonu\u00e7 foto\u011fraf\u0131yla \u00e7\u00f6zd\u00fc\u011f\u00fc sorun bildirim si (selected work: packages/application, packages/domain)",
+ "repos": [
+  {
+   "repo": "kampus-bildirim-sistemi",
+   "url": "https://github.com/HuseyinEmreTech/kampus-bildirim-sistemi",
+   "sha": "2bc35ed5bc9329c585d506e5680015cf329f05a2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 2bc35ed5bc93: \"feat: [Hafta 05] Application UseCase ler: Create, Assign, Resolve, Li\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "mondrubberduck--pharoslibrary",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how MondRubberduck/PharosLibrary implements it: Pharos is a MCP service that lets your agent work with your local 3D/Animation Assets and thus reducing Agentic-Building costs by up to 90% (selected work: service, tests, pipeline)",
+ "repos": [
+  {
+   "repo": "PharosLibrary",
+   "url": "https://github.com/MondRubberduck/PharosLibrary",
+   "sha": "9d42af181f461529e7edfd1fa8903e9e4a8bc5e5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 9d42af181f46: \"Fable_Review\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "lfdt-panurus--panurus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on hyperledger, hyperledger-fabric, blockchain queries this for how LFDT-Panurus/panurus implements it: Panurs provides a collection of APIs and services that streamline development for token-based distributed applications (selected work: token)",
+ "repos": [
+  {
+   "repo": "panurus",
+   "url": "https://github.com/LFDT-Panurus/panurus",
+   "sha": "23b63ff8a8361f52b81a68e6a357d47d187efffb",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 23b63ff8a836: \"perf(storage): index tokens.amount and offer a bounded spendable query\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

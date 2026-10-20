@@ -1,0 +1,22 @@
+{
+ "corpus": "keshon--server-domme",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on discord-bot, discord, discord-bots queries this for how keshon/server-domme implements it: Another general purpose Discord bot, because why not (selected work: internal/llm, internal/discord, docker)",
+ "repos": [
+  {
+   "repo": "server-domme",
+   "url": "https://github.com/keshon/server-domme",
+   "sha": "88e3d897e6688c10ac3bd44f69f0267cf6a4d96a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 88e3d897e668: \"added AI assistance\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

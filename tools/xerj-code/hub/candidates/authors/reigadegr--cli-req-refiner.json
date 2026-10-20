@@ -1,0 +1,22 @@
+{
+ "corpus": "reigadegr--cli-req-refiner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how reigadegr/cli_req_refiner implements it: reigadegr/cli_req_refiner (Rust) (selected work: crates/selector, crates/proxy, crates/config)",
+ "repos": [
+  {
+   "repo": "cli_req_refiner",
+   "url": "https://github.com/reigadegr/cli_req_refiner",
+   "sha": "dfcb7af72b3edb7efcebd9a1e4301541dfc5b0a6",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit dfcb7af72b3e: \"feat: \u652f\u6301 upstream \u914d\u7f6e\u591a model \u6570\u7ec4\u5e76\u5b9e\u73b0\u6a21\u578b\u7ea7\u6545\u969c\u8f6c\u79fb\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

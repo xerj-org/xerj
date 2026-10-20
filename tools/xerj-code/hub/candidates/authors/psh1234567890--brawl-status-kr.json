@@ -1,0 +1,22 @@
+{
+ "corpus": "psh1234567890--brawl-status-kr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on analytics, brawl-stars, korean queries this for how psh1234567890/brawl_status_kr implements it: Korean Brawl Stars player search and sample-based battle analytics (selected work: e2e, src/server, src/hooks)",
+ "repos": [
+  {
+   "repo": "brawl_status_kr",
+   "url": "https://github.com/psh1234567890/brawl_status_kr",
+   "sha": "c72e884775d1fca9a9402db826e90258015005ed",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit c72e884775d1: \"fix(accounts): ignore consumed deletion intent in other tabs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

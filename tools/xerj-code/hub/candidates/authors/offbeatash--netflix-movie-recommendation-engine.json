@@ -1,0 +1,22 @@
+{
+ "corpus": "offbeatash--netflix-movie-recommendation-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on artificial-intelligence, data-science, duckdb queries this for how offbeatash/Netflix-movie-recommendation-engine implements it: Production-oriented Netflix movie recommendation engine using SVD collaborative filtering, popularity-based cold start, MLflow, CI, Docker,  (selected work: src/inference, src/serving, scripts)",
+ "repos": [
+  {
+   "repo": "Netflix-movie-recommendation-engine",
+   "url": "https://github.com/offbeatash/Netflix-movie-recommendation-engine",
+   "sha": "434800fc3e06a97ce0369c362dc67a96d508b194",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 434800fc3e06: \"feat: add isolated Hugging Face deployment for Netflix recommender\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

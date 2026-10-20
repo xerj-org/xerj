@@ -1,0 +1,22 @@
+{
+ "corpus": "hidotu-labs--avoryos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on osdev, osdev-project, osdev-projects queries this for how Hidotu-Labs/AvoryOS implements it: 64 bit Open source Hobby Operating system https://discord.gg/2kdRMbjTfu (selected work: scripts, kernel)",
+ "repos": [
+  {
+   "repo": "AvoryOS",
+   "url": "https://github.com/Hidotu-Labs/AvoryOS",
+   "sha": "ff5370e556f1e70c9470d3a2067e0f4242d5163b",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ff5370e556f1: \"Fix LinuxKPI GPU mapping and fence races\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "sokoko-org--nonebot-plugin-parser-lite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on nonebot2, python, nonebot-plugin queries this for how sokoko-org/nonebot-plugin-parser-lite implements it: \u793e\u4ea4\u5a92\u4f53\u5206\u4eab\u94fe\u63a5\u89e3\u6790\u63d2\u4ef6-Lite\u7248 (selected work: src/nonebot_plugin_parser_lite, tests)",
+ "repos": [
+  {
+   "repo": "nonebot-plugin-parser-lite",
+   "url": "https://github.com/sokoko-org/nonebot-plugin-parser-lite",
+   "sha": "990fdbe05837693db7f4f9cefb40f88bcb2f18c2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 990fdbe05837: \"fix(render): \u7edf\u4e00\u5a92\u4f53\u56de\u9000\u4e0e\u666e\u901a\u8f6c\u53d1\u7684\u62c6\u5206\u6253\u5305\u903b\u8f91 (#352)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

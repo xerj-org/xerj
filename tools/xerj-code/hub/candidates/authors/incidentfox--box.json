@@ -1,0 +1,22 @@
+{
+ "corpus": "incidentfox--box",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, anthropic, chatops queries this for how incidentfox/box implements it: Box \u2014 self-hosted Claude Code in your pocket. Run real Claude Code & Codex sessions on your own server, driven from your phone (native chat  (selected work: scripts, server, public)",
+ "repos": [
+  {
+   "repo": "box",
+   "url": "https://github.com/incidentfox/box",
+   "sha": "62a7e7d40524bcef5d43a62bafbab2bd8cd04b6c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 62a7e7d40524: \"box: show Claude settings dialogs and navigation controls (#311)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

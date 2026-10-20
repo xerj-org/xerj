@@ -1,0 +1,22 @@
+{
+ "corpus": "jackotom--hongguo-drama",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on apple-silicon, electron, hongguo queries this for how jackotom/hongguo-drama implements it: \u7ea2\u679c\u77ed\u5267\u684c\u9762\u7248 \u00b7 \u652f\u6301 M \u7cfb\u5217 Mac\u3001Intel Mac \u548c Windows \u00b7 \u4e09\u6765\u6e90\u641c\u7d22\u3001\u64ad\u653e\u3001\u4e0b\u8f7d\u4e0e\u8ffd\u5267 \u00b7 GPL-3.0 \u5f00\u6e90 (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "hongguo-drama",
+   "url": "https://github.com/jackotom/hongguo-drama",
+   "sha": "11d22fd71afbd04aa8a77437216aa90bece61936",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 11d22fd71afb: \"Publish Windows x64 portable downloads and synchronized release workflow\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "jacobjoergensen--laravel-paper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on eloquent, flat-file, laravel queries this for how JacobJoergensen/laravel-paper implements it: A flat-file Eloquent driver for modern Laravel (selected work: tests, src, src/Drivers)",
+ "repos": [
+  {
+   "repo": "laravel-paper",
+   "url": "https://github.com/JacobJoergensen/laravel-paper",
+   "sha": "595cc63b2898e2d72b47c7d68c890eb9caea71e5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 595cc63b2898: \"Fix Markdown parsing, save and query bugs, drop spatie/yaml-front-matter\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

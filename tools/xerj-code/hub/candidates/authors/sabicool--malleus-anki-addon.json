@@ -1,0 +1,22 @@
+{
+ "corpus": "sabicool--malleus-anki-addon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on anki, medicine queries this for how Sabicool/Malleus-Anki-Addon implements it: Anki addon to help create and find cards related to the Malleus Clinical Medicine project (selected work: ui)",
+ "repos": [
+  {
+   "repo": "Malleus-Anki-Addon",
+   "url": "https://github.com/Sabicool/Malleus-Anki-Addon",
+   "sha": "c0b05874825a103760243ecb6b240f9b12367a83",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit c0b05874825a: \"Add \"apply to all\" to the bulk tagging prompts\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

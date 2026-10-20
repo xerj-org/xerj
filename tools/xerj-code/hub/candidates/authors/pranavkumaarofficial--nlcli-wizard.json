@@ -1,0 +1,22 @@
+{
+ "corpus": "pranavkumaarofficial--nlcli-wizard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cli-tools, fine-tuning, gemma queries this for how pranavkumaarofficial/nlcli-wizard implements it: Natural language control for Python CLI tools using locally-trained SLMs (CPU inference) (selected work: results, the project root)",
+ "repos": [
+  {
+   "repo": "nlcli-wizard",
+   "url": "https://github.com/pranavkumaarofficial/nlcli-wizard",
+   "sha": "a7c11bdb0f487dead6629c120ca6ef1d4ceb7acf",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit a7c11bdb0f48: \"updated public colab notebook\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

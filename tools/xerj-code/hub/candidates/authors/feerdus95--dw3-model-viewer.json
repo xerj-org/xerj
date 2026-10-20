@@ -1,0 +1,22 @@
+{
+ "corpus": "feerdus95--dw3-model-viewer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how Feerdus95/dw3-model-viewer implements it: A Half-Life Model Viewer-inspired viewer and mod tool for Digimon World 2003: battle models (meshes, textures, skeletons, motions), fight st (selected work: src/modules)",
+ "repos": [
+  {
+   "repo": "dw3-model-viewer",
+   "url": "https://github.com/Feerdus95/dw3-model-viewer",
+   "sha": "087626f38f4ff3f6c05763a7cdc167ee0cc4a278",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 087626f38f4f: \"feat: box select for groups of props\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

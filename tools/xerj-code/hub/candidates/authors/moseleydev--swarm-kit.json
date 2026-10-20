@@ -1,0 +1,22 @@
+{
+ "corpus": "moseleydev--swarm-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-framework, ai-agents, hacktoberfest queries this for how moseleydev/swarm-kit implements it: Minimal multi-agent orchestration for Python: handoffs, planner mode, shared state, any LLM via LiteLLM (selected work: tests, src/swarm_kit)",
+ "repos": [
+  {
+   "repo": "swarm-kit",
+   "url": "https://github.com/moseleydev/swarm-kit",
+   "sha": "82d0237584a74fd0dfb6ab642b22890b2a0d1edf",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 82d0237584a7: \"feat: add human-in-the-loop approval for sensitive tools (#28)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -32,6 +32,7 @@
 
 import { renderPanelBody } from '../ux/ego-ledger.js';
 import { sbAfterRender } from '../data/second-brain-api.js';
+import { vocabFor } from '../ux/sb-vocab.js';
 
 /** One panel body: renderPanelBody draws the inner HTML; the
  *  `data-sb-body` wrapper is the in-place re-render target the
@@ -45,6 +46,9 @@ export const secondBrain = {
     // Traces + the map mount need real layout; schedule a post-paint
     // measure+draw pass. No-op outside a browser.
     sbAfterRender();
+    // #1100: eyebrows speak the corpus's own frame — "notes / believed" for
+    // a note-like corpus, the neutral "records / active" frame otherwise.
+    const voc = vocabFor(!!(data && data.sb && data.sb.noteLike));
     return {
       title: 'SECOND BRAIN',
       // "EVERY LINK SHOWS ITS EVIDENCE", not "HAS A QUOTE": manual and
@@ -67,9 +71,9 @@ export const secondBrain = {
           render: () => body('controls', data) },
         { id: 'map', eyebrow: 'THE MAP · THE WHOLE BRAIN AT A GLANCE', cols: 12, type: 'map',
           render: () => body('map', data) },
-        { id: 'scrub', eyebrow: 'BELIEF TIME · ONE CARET DRIVES THE WHOLE PAGE', cols: 12, type: 'scrub',
+        { id: 'scrub', eyebrow: `${voc.timeAxis} · ONE CARET DRIVES THE WHOLE PAGE`, cols: 12, type: 'scrub',
           render: () => body('scrub', data) },
-        { id: 'edgesLive', eyebrow: 'BELIEVED AT THIS MOMENT', cols: 3, type: 'metric',
+        { id: 'edgesLive', eyebrow: voc.atMoment, cols: 3, type: 'metric',
           render: () => body('edgesLive', data) },
         { id: 'edgesTotal', eyebrow: 'EVER ASSERTED', cols: 3, type: 'metric',
           render: () => body('edgesTotal', data) },
@@ -77,7 +81,7 @@ export const secondBrain = {
           render: () => body('invalidated', data) },
         { id: 'detectors', eyebrow: 'WHAT TAUGHT THIS BRAIN', cols: 3, type: 'metric',
           render: () => body('detectors', data) },
-        { id: 'typeDist', eyebrow: 'HOW NOTES CONNECT', cols: 6, type: 'dist',
+        { id: 'typeDist', eyebrow: voc.typeDistEye, cols: 6, type: 'dist',
           render: () => body('typeDist', data) },
         { id: 'edgeTimeline', eyebrow: 'NEW LINKS PER DAY', cols: 6, type: 'series',
           render: () => body('edgeTimeline', data) },
@@ -87,7 +91,7 @@ export const secondBrain = {
           render: () => body('crossings', data) },
         { id: 'reads', eyebrow: 'WHAT THIS VIEW READ · AND WHY', cols: 4, type: 'reads',
           render: () => body('reads', data) },
-        { id: 'ego', eyebrow: 'THE LEDGER · ONE NOTE, EVERYTHING IT TOUCHES', cols: 12, type: 'ego',
+        { id: 'ego', eyebrow: voc.egoEye, cols: 12, type: 'ego',
           render: () => body('ego', data) },
         { id: 'hubs', eyebrow: 'CENTERS OF GRAVITY', cols: 6, type: 'topn',
           render: () => body('hubs', data) },

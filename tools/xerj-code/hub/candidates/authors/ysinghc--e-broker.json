@@ -1,0 +1,22 @@
+{
+ "corpus": "ysinghc--e-broker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how ysinghc/e-broker implements it: ysinghc/e-broker (TypeScript) (selected work: ml, models)",
+ "repos": [
+  {
+   "repo": "e-broker",
+   "url": "https://github.com/ysinghc/e-broker",
+   "sha": "ad377b2cc9a8ab8d68843665680bd1d80315eca3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ad377b2cc9a8: \"feat(ml): YOLO26m pipeline, trained weights, validation assets\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

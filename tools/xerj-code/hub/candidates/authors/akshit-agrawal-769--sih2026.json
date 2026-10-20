@@ -1,0 +1,22 @@
+{
+ "corpus": "akshit-agrawal-769--sih2026",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Akshit-Agrawal-769/SIH2026 implements it: Akshit-Agrawal-769/SIH2026 (TypeScript) (selected work: frontend, data-service, scripts)",
+ "repos": [
+  {
+   "repo": "SIH2026",
+   "url": "https://github.com/Akshit-Agrawal-769/SIH2026",
+   "sha": "8cdaf4b9f35ff44b46333574660143fc813cfebd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8cdaf4b9f35f: \"feat(hazards): Disaster Early Warning layers - monthly MHW index, war\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

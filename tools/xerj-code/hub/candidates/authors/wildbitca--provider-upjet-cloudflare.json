@@ -1,0 +1,22 @@
+{
+ "corpus": "wildbitca--provider-upjet-cloudflare",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how wildbitca/provider-upjet-cloudflare implements it: wildbitca/provider-upjet-cloudflare (Go) (selected work: config, the project root)",
+ "repos": [
+  {
+   "repo": "provider-upjet-cloudflare",
+   "url": "https://github.com/wildbitca/provider-upjet-cloudflare",
+   "sha": "3329922a733b1deb7b2cc6f1624a8ac231e5d5db",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 3329922a733b: \"fix(zone): canonicalize object-typed zone_setting values before dynam\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "sumantxd--shrike",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, debugger queries this for how SumantxD/shrike implements it: See what your app actually does. Click anything and watch the trip through your code, database and services, with real values. AI-native: yo (selected work: apps/desktop, packages/browser-agent, packages/schema)",
+ "repos": [
+  {
+   "repo": "shrike",
+   "url": "https://github.com/SumantxD/shrike",
+   "sha": "2aadeca9daddf7aba7fd3281263e2ef5b0ff6652",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 2aadeca9dadd: \"Make sign-in work on a live site: its own session, a plain user agent\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

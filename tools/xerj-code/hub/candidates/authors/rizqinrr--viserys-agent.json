@@ -1,0 +1,22 @@
+{
+ "corpus": "rizqinrr--viserys-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how rizqinrr/viserys-agent implements it: rizqinrr/viserys-agent (JavaScript) (selected work: scripts, commands, the project root)",
+ "repos": [
+  {
+   "repo": "viserys-agent",
+   "url": "https://github.com/rizqinrr/viserys-agent",
+   "sha": "d4fa7923a318116ad7110f1ac3653d98495cbe7f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit d4fa7923a318: \"feat: expand specialist persona workflows\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

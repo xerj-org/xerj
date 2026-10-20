@@ -1,0 +1,22 @@
+{
+ "corpus": "lodev09--react-native-true-sheet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, bottom-sheet, ios queries this for how lodev09/react-native-true-sheet implements it: The true native bottom sheet experience \ud83d\udca9 (selected work: example, src/navigation, src/fabric)",
+ "repos": [
+  {
+   "repo": "react-native-true-sheet",
+   "url": "https://github.com/lodev09/react-native-true-sheet",
+   "sha": "c72dc5fe87e216f3157db12b4da0eeb1ef6c2ef6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit c72dc5fe87e2: \"feat: support Expo SDK 58 and React Native 0.88 (#896)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

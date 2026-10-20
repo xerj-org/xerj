@@ -1,0 +1,22 @@
+{
+ "corpus": "meefik--neux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on frontend, ui, declarative queries this for how meefik/neux implements it: A lightweight frontend library for building dynamic user interfaces using declarative element definitions and reactive signals to modify the (selected work: src)",
+ "repos": [
+  {
+   "repo": "neux",
+   "url": "https://github.com/meefik/neux",
+   "sha": "b70e73c7055bf85c2ee3c78064f33ea4198922f0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit b70e73c7055b: \"fix(i18n): improve locale matching\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

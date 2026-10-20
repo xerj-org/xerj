@@ -1,0 +1,22 @@
+{
+ "corpus": "idisposable--jellyfin-plugin-mindthegaps",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how IDisposable/jellyfin-plugin-mindthegaps implements it: Jellyfin plugin that finds what's missing and related across your library and builds a todo list to fill the gaps: collections, series, cast (selected work: Jellyfin.Plugin.MindTheGaps, Jellyfin.Plugin.MindTheGaps.Tests)",
+ "repos": [
+  {
+   "repo": "jellyfin-plugin-mindthegaps",
+   "url": "https://github.com/IDisposable/jellyfin-plugin-mindthegaps",
+   "sha": "873690249943de3ba041efcb84cf6721adaeb5d8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 873690249943: \"Pace writes to the json store better\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

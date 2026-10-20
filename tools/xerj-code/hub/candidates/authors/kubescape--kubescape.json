@@ -1,0 +1,22 @@
+{
+ "corpus": "kubescape--kubescape",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on kubernetes, security, nsa queries this for how kubescape/kubescape implements it: Kubescape is an open-source Kubernetes security platform for your IDE, CI/CD pipelines, and clusters. It includes risk analysis, security, c (selected work: core/pkg, core/core, cmd/fix)",
+ "repos": [
+  {
+   "repo": "kubescape",
+   "url": "https://github.com/kubescape/kubescape",
+   "sha": "f476ba02707e84a73cd72c1b77416750cda546e3",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f476ba02707e: \"fix(fix): fix multi-input scans outside git and recreate their tree u\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

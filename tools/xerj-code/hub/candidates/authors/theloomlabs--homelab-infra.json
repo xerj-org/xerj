@@ -1,0 +1,22 @@
+{
+ "corpus": "theloomlabs--homelab-infra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how TheLoomLabs/homelab-infra implements it: TheLoomLabs/homelab-infra (Python) (selected work: ansible, logging, the project root)",
+ "repos": [
+  {
+   "repo": "homelab-infra",
+   "url": "https://github.com/TheLoomLabs/homelab-infra",
+   "sha": "4ba94533d03d2de47a1d2632ab5147eec5d72116",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 4ba94533d03d: \"feat(ansible): Alloy on the DNS and Swarm VMs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

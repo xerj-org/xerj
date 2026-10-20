@@ -1,0 +1,22 @@
+{
+ "corpus": "clip-rss--clip",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on cross-platform, golang, react queries this for how clip-rss/clip implements it: A simple, cross-platform RSS reader \u2014 for macOS / Windows, built for fast browsing and distraction-free reading. \u7b80\u5355\u597d\u7528\u7684\u8de8\u5e73\u53f0 RSS \u9605\u8bfb\u5668 \u2014\u2014 \u652f\u6301 macO (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "clip",
+   "url": "https://github.com/clip-rss/clip",
+   "sha": "eccc50d0fcc8d6bb2687e3f6f84a4b84ac3efff7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit eccc50d0fcc8: \"feat(reader): summary/full text toggle\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

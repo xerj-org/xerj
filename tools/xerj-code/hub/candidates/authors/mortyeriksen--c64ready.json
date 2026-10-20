@@ -1,0 +1,22 @@
+{
+ "corpus": "mortyeriksen--c64ready",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on c64, c64-emulator, commodore-64 queries this for how mortyeriksen/c64ready implements it: A cycle-exact Commodore 64 that runs entirely in your browser. Serious emulation, retro vibes (selected work: test, src/userport, cli)",
+ "repos": [
+  {
+   "repo": "c64ready",
+   "url": "https://github.com/mortyeriksen/c64ready",
+   "sha": "8d5c65886cd243bbcff343234051c5d6f53392d8",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 8d5c65886cd2: \"Add the User Port with a WiFi modem, installable devices with an inst\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

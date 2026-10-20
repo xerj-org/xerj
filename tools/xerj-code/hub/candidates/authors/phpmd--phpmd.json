@@ -1,0 +1,22 @@
+{
+ "corpus": "phpmd--phpmd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on mess-detector, php, pmd queries this for how phpmd/phpmd implements it: PHPMD is a spin-off project of PHP Depend and aims to be a PHP equivalent of the well known Java tool PMD. PHPMD can be seen as an user frie (selected work: tests, src/Utility, src/Rule)",
+ "repos": [
+  {
+   "repo": "phpmd",
+   "url": "https://github.com/phpmd/phpmd",
+   "sha": "b0f328de45f7af9a7355f794cf016779a763955c",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b0f328de45f7: \"Fix #991 UndefinedVariable false positives for static properties from\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

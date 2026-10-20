@@ -8,12 +8,12 @@ look up.
    --insecure`).
 2. Look at this project — its dependencies, the domains its code touches — and
    decide which well-known open-source libraries already solve those problems.
-   Clone them into a reference corpus with `tools/xerj-code/scripts/xc-corpus.sh`, grouped by
-   problem domain (async, parsers, storage, …), not by language.
-3. Index that corpus with `xc-index.sh` (it runs `xerj autoindex`).
+   Clone them into a reference corpus with `xerj corpus add <name> <git-url>...`,
+   grouped by problem domain (async, parsers, storage, …), not by language.
+3. Index that corpus with `xerj corpus index <name>` (it runs `xerj autoindex`).
 4. From now on, for **every** coding task this session: before you write
    non-trivial code against an unfamiliar, external, or internal-but-uncommon
-   API, first run `xc.py <corpus> "<what you need>"` to retrieve the real
+   API, first run `xerj code <corpus> "<what you need>"` to retrieve the real
    implementation, read the returned definition, and adapt it — cite `file:line`
    when you rely on it, and check the licence before copying. If retrieval
    returns nothing relevant, say so and fall back to normal work. If you've looped

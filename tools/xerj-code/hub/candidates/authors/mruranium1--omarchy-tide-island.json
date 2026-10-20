@@ -1,0 +1,22 @@
+{
+ "corpus": "mruranium1--omarchy-tide-island",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how MrUranium1/Omarchy-Tide-Island implements it: A Tide Island integration for Omarchy with native theme and wallpaper picking, configurable shortcuts, and desktop OSD/notification integrat (selected work: tests, the project root, scripts)",
+ "repos": [
+  {
+   "repo": "Omarchy-Tide-Island",
+   "url": "https://github.com/MrUranium1/Omarchy-Tide-Island",
+   "sha": "0aabceda94f5b2236198818ee863f9e39ccc9750",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 0aabceda94f5: \"Bound auto-setup retries and reset the budget on removal\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

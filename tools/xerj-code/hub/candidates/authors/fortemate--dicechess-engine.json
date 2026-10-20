@@ -1,0 +1,22 @@
+{
+ "corpus": "fortemate--dicechess-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on artificial-intelligence, bitboard, board-games queries this for how fortemate/dicechess-engine implements it: Cross-platform high-performance Dice Chess engine, move generator, and AI search targeting JVM, JavaScript, and WebAssembly (selected work: shared-rules, js, jvm)",
+ "repos": [
+  {
+   "repo": "dicechess-engine",
+   "url": "https://github.com/fortemate/dicechess-engine",
+   "sha": "03c2d6e0e7afcabb8de184e038462f1b255dd3f8",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 03c2d6e0e7af: \"feat(search): implement KingThreat search and expose threatWeight in \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,24 @@
+setup:
+  - do:
+      indices.create:
+          index: text_dv_terms
+          body:
+              mappings:
+                  properties:
+                      text:
+                          type: text
+                          doc_values: true
+  - do:
+      bulk:
+          refresh: true
+          body:
+              - '{"index": {"_index": "text_dv_terms", "_id": "1"}}'
+              - '{"text": "quick brown fox"}'
+
+---
+"terms on an analyzed text field with doc_values matches analyzed tokens after refresh":
+  - do:
+      search:
+          index: text_dv_terms
+          body: { query: { terms: { text: [ "brown" ] } } }
+  - match: { hits.total.value: 1 }

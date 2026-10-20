@@ -1,0 +1,22 @@
+{
+ "corpus": "yusheng-g--openagent-go",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how yusheng-g/openagent-go implements it: An AI agent runtime kernel in Go \u2014 pluggable, sandboxed, ACP-native (selected work: provider, cmd/cli, context)",
+ "repos": [
+  {
+   "repo": "openagent-go",
+   "url": "https://github.com/yusheng-g/openagent-go",
+   "sha": "b4c01b7abe13762cffc766aa3603ab7320ab5cfa",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b4c01b7abe13: \"fix(openviking): make the OV memory pipeline deliver memories; add co\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

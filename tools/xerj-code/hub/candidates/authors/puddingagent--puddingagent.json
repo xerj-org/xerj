@@ -1,0 +1,22 @@
+{
+ "corpus": "puddingagent--puddingagent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C# queries this for how PuddingAgent/PuddingAgent implements it: A harness Agent system for DeepSeek (selected work: Source, Tests, the project root)",
+ "repos": [
+  {
+   "repo": "PuddingAgent",
+   "url": "https://github.com/PuddingAgent/PuddingAgent",
+   "sha": "011e2408229707d12fd0cefe9edd6938475f153d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 011e24082297: \"feat(tools): \u63a5\u5165 DeepSeek Search/Fetch \u5de5\u5177\uff08\u72ec\u7acb\u7ec4\u4ef6 S1-S4 + \u5de5\u5177\u4f53\u7cfb S5\uff0c\u4f4e\u98ce\u9669\u514d\u6388\u6743\uff09\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

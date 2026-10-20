@@ -1,0 +1,22 @@
+{
+ "corpus": "trustifai--typed-evals",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, crewai queries this for how TrustifAI/typed_evals implements it: Fast, typed Python framework for Jev-as-a-Judge/Decision-model evaluation for LLMs, RAG, and AI agents along with human-label calibration (selected work: tests, typed_evals, examples)",
+ "repos": [
+  {
+   "repo": "typed_evals",
+   "url": "https://github.com/TrustifAI/typed_evals",
+   "sha": "27c614e2cff10cced1985fe51ccd858c5a04e1fd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 27c614e2cff1: \"feat: Introduce OpenAI Decisions API backend and image input support\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

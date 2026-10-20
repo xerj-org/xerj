@@ -1,0 +1,22 @@
+{
+ "corpus": "vmdeshpande--arcon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai, ai-assistants queries this for how vmDeshpande/Arcon implements it: A local-first cognitive architecture for building a persistent digital companion with memory, reasoning, personality, and long-term learning (selected work: packages/ai, apps/server, the project root)",
+ "repos": [
+  {
+   "repo": "Arcon",
+   "url": "https://github.com/vmDeshpande/Arcon",
+   "sha": "01491065901190b86a11cb12c235c5ba46e8c67d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 014910659011: \"fix: complete tool calling integration\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

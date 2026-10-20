@@ -1,0 +1,22 @@
+{
+ "corpus": "subschema-llc--aggregate-gtm-tag-template",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on analytics, google-tag-manager, gtm-tag queries this for how Subschema-LLC/aggregate-gtm-tag-template implements it: A web-container template for initializing the Aggregate browser SDK and sending named events through window.Aggregate.emit() (or your config (selected work: the project root, tests, scripts)",
+ "repos": [
+  {
+   "repo": "aggregate-gtm-tag-template",
+   "url": "https://github.com/Subschema-LLC/aggregate-gtm-tag-template",
+   "sha": "1e6fa09cc4c785875d41f76ab6846ea72f56f38a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 1e6fa09cc4c7: \"Fix CI/CD (#7)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

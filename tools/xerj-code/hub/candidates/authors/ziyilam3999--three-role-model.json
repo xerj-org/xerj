@@ -1,0 +1,22 @@
+{
+ "corpus": "ziyilam3999--three-role-model",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how ziyilam3999/three-role-model implements it: A Claude Code plugin that bundles the 3-role development model \u2014 planner, plan-review, executor, execution-review (never self-review) \u2014 as i (selected work: hooks, bin, config)",
+ "repos": [
+  {
+   "repo": "three-role-model",
+   "url": "https://github.com/ziyilam3999/three-role-model",
+   "sha": "cb2133dd9ea8fa984dcc677b052dd97da4db7853",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit cb2133dd9ea8: \"feat(ledger): size-aware planner tier, fable only for size-L (#3140 l\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

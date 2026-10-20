@@ -1,0 +1,22 @@
+{
+ "corpus": "musithang--sdrtop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on hackrf, portapack, radio queries this for how musithang/sdrtop implements it: Terminal monitor for SDR hardware - written in Rust. Early development (selected work: src/signal)",
+ "repos": [
+  {
+   "repo": "sdrtop",
+   "url": "https://github.com/musithang/sdrtop",
+   "sha": "e820201fe5ba9740a29bc7f7b75450f12827626e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit e820201fe5ba: \"fix(net): LE 1M and LE Coded SNR read as power over the noise before \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

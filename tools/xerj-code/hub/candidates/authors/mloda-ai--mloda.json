@@ -1,0 +1,22 @@
+{
+ "corpus": "mloda-ai--mloda",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on community-driven, context-engineering, data-engineering queries this for how mloda-ai/mloda implements it: mloda.ai - Open Data Access for AI and ML. Plugin-based. Traceable. Framework-agnostic (selected work: tests, mloda)",
+ "repos": [
+  {
+   "repo": "mloda",
+   "url": "https://github.com/mloda-ai/mloda",
+   "sha": "e8f8eae2d296f7957d3f94c266b051cd44d0c608",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit e8f8eae2d296: \"fix: data race in concurrent joins sharing destination\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

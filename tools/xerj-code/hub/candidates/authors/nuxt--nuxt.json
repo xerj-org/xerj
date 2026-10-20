@@ -1,0 +1,22 @@
+{
+ "corpus": "nuxt--nuxt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on csr, full-stack, hybrid queries this for how nuxt/nuxt implements it: The full-stack Vue framework (selected work: packages/kit, packages/vite, packages/webpack)",
+ "repos": [
+  {
+   "repo": "nuxt",
+   "url": "https://github.com/nuxt/nuxt",
+   "sha": "3f0943839407c4089bfdaba0c323bf24ff9047c3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 3f0943839407: \"fix(kit): install the package a missing subpath belongs to (#36507)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

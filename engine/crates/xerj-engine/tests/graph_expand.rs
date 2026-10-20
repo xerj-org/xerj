@@ -15,6 +15,7 @@
 use serde_json::{json, Value};
 use tempfile::TempDir;
 use xerj_common::config::Config;
+use xerj_common::types::{FieldConfig, FieldType, Schema};
 use xerj_engine::graph::{
     GraphDirection, GraphExpandRequest, GraphExpandResult, GRAPH_HOPS_CAP_REASON,
 };
@@ -176,9 +177,42 @@ fn fixture_edges() -> Vec<Value> {
     ]
 }
 
+/// The edges index with its §2.2 mapping DECLARED.
+///
+/// Both production writers declare it (`graph_api::edge_index_mapping`,
+/// `detect::edge_index_mapping`): keyword for the ids/type/detector/src_file,
+/// numeric/date for the rest. `Index::graph_expand` reads `src`/`dst`/
+/// `edge_id`/`type`/`weight`/`valid_at` exclusively from doc-values columns —
+/// a segment without them is SKIPPED and reported (`segments_without_columns`,
+/// graph.rs module docs: the hop never hydrates). This fixture used to pass
+/// `Schema::empty()` and let dynamic mapping stand in; since #1329 a
+/// dynamically inferred string is a `text` parent with NO doc-values (the ES
+/// default), so the stand-in lost its keyword columns and every expansion
+/// returned empty. Declare the mapping the contract actually specifies.
+fn edges_schema() -> Schema {
+    let mut schema = Schema::empty();
+    for name in ["edge_id", "src", "dst", "type", "detector", "src_file"] {
+        schema
+            .fields
+            .push(FieldConfig::new(name, FieldType::Keyword));
+    }
+    for name in ["weight", "confidence"] {
+        schema
+            .fields
+            .push(FieldConfig::new(name, FieldType::Double));
+    }
+    for name in ["valid_at", "invalid_at", "created_at", "expired_at"] {
+        schema.fields.push(FieldConfig::new(name, FieldType::Date));
+    }
+    schema
+        .fields
+        .push(FieldConfig::new("schema_version", FieldType::Long));
+    schema
+}
+
 async fn fixture_index(engine: &Engine) -> std::sync::Arc<Index> {
     engine
-        .create_index(EDGES_INDEX, xerj_common::types::Schema::empty())
+        .create_index(EDGES_INDEX, edges_schema())
         .expect("create edges index");
     let idx = engine.get_index(EDGES_INDEX).expect("get edges index");
     for doc in fixture_edges() {

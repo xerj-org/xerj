@@ -1,0 +1,22 @@
+{
+ "corpus": "diannedelchev--securedb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on database-client, go, mysql queries this for how diannedelchev/securedb implements it: Secure browser-based database client for PostgreSQL, MySQL/MariaDB and MSSQL \u2014 encrypted credentials, RBAC, per-environment query policies,  (selected work: internal/policies, internal/query, internal/connectors)",
+ "repos": [
+  {
+   "repo": "securedb",
+   "url": "https://github.com/diannedelchev/securedb",
+   "sha": "cfaf3218241a3e3692fe001e6caa5fed11b8d2d3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit cfaf3218241a: \"Harden query authorization, auditing, and security dependencies\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

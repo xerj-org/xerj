@@ -1,0 +1,22 @@
+{
+ "corpus": "hsaliak--std-slop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on C++ queries this for how hsaliak/std_slop implements it: STD::SLOP An Sqlite/C++ Code CLI (selected work: mcp)",
+ "repos": [
+  {
+   "repo": "std_slop",
+   "url": "https://github.com/hsaliak/std_slop",
+   "sha": "dff47a9dd37b564001138494adbd598b1bd8a834",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit dff47a9dd37b: \"Build the MCP composition gateway\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

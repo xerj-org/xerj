@@ -1,0 +1,22 @@
+{
+ "corpus": "rafaelreverberi--twitchy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ad-blocker, adblock, apple-tv queries this for how rafaelreverberi/Twitchy implements it: Native SwiftUI Twitch client for iPhone, iPad, Mac & Apple TV. HLS playback, chat, offline downloads & optional server-side adblock via self (selected work: Packages/TwitchyKit, Apps/Shared, Tests)",
+ "repos": [
+  {
+   "repo": "Twitchy",
+   "url": "https://github.com/rafaelreverberi/Twitchy",
+   "sha": "711f3885b508b00f382426ae5c4a7a6da56bb41d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 711f3885b508: \"Improve streaming source failover and settings UX\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

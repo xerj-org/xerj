@@ -1,0 +1,22 @@
+{
+ "corpus": "wangzitian0--finance-report",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how wangzitian0/finance_report implements it: wangzitian0/finance_report (Python) (selected work: apps/backend, common)",
+ "repos": [
+  {
+   "repo": "finance_report",
+   "url": "https://github.com/wangzitian0/finance_report",
+   "sha": "b890a068f78b8ac0cfabfa76570089c42a9881b9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b890a068f78b: \"[backend_ai_audit_hardening] fix(extraction): harden AI classificatio\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

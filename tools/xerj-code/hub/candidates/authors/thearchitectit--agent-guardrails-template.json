@@ -1,0 +1,22 @@
+{
+ "corpus": "thearchitectit--agent-guardrails-template",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude, gemini queries this for how TheArchitectit/agent-guardrails-template implements it: Template repository with AI agent guardrails, safety protocols, and sprint task framework. For Claude, GPT, Gemini, and all LLMs (selected work: mcp-server, scripts)",
+ "repos": [
+  {
+   "repo": "agent-guardrails-template",
+   "url": "https://github.com/TheArchitectit/agent-guardrails-template",
+   "sha": "9536b1ffb0e3a4661c832135e61d47f996f5a6f1",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 9536b1ffb0e3: \"test(mutationkill): kill auth, MCP authz, and secret-fixture bypasses\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

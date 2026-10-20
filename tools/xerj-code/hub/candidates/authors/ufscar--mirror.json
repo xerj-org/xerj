@@ -1,0 +1,22 @@
+{
+ "corpus": "ufscar--mirror",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Nix queries this for how ufscar/mirror implements it: Where Free Software Meets Free Infrastructure (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "mirror",
+   "url": "https://github.com/ufscar/mirror",
+   "sha": "ade41afabba568f34e04eaea65920523c79a23b9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit ade41afabba5: \"Executa implanta\u00e7\u00e3o e rollback em transa\u00e7\u00e3o independente do SSH\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

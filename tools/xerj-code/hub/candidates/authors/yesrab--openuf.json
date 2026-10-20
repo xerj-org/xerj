@@ -1,0 +1,22 @@
+{
+ "corpus": "yesrab--openuf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Lua queries this for how yesrab/openUF implements it: Ubiquiti UniFi device emulator for OpenWRT access points (selected work: openuf, tests)",
+ "repos": [
+  {
+   "repo": "openUF",
+   "url": "https://github.com/yesrab/openUF",
+   "sha": "ab5d22ec263fa308e2a081de8b3cabcb420d721c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ab5d22ec263f: \"Add support for TP-Link Deco M5 and implement UAP-AC-HD identity\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "borstwerk--ki-regeln",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, agentic-ai, ai-agents queries this for how Borstwerk/KI-Regeln implements it: Open-source, provider-agnostic AI agent skills, rules and workflows with security reviews, behavioral evaluations and evidence-based verific (selected work: Agentenarbeit, tools, Skill-Engineering)",
+ "repos": [
+  {
+   "repo": "KI-Regeln",
+   "url": "https://github.com/Borstwerk/KI-Regeln",
+   "sha": "e4edd6c9257b16148294410b3875209167e443c8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e4edd6c9257b: \"Add trustworthy runtime contracts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

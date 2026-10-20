@@ -1,0 +1,22 @@
+{
+ "corpus": "axiom-studio--memora",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how axiom-studio/memora implements it: Memora is the Memory-as-a-Service API for AI apps - durable, multi-tenant, versioned memory with vector + graph recall, callable from any MC (selected work: internal/ui, pkg/types, pkg/adapter)",
+ "repos": [
+  {
+   "repo": "memora",
+   "url": "https://github.com/axiom-studio/memora",
+   "sha": "8b207c81e4e054cb4698eeb0a5a09d9daf2a4812",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 8b207c81e4e0: \"Apply gofmt and goimports across the tree (no code changes)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

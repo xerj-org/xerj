@@ -1,0 +1,22 @@
+{
+ "corpus": "tsotchke--eshkol",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, autodiff, differential-geometry queries this for how tsotchke/eshkol implements it: High-Performance LISP-like language for Scientific Computing and AI written in C++ (selected work: tests, scripts)",
+ "repos": [
+  {
+   "repo": "eshkol",
+   "url": "https://github.com/tsotchke/eshkol",
+   "sha": "43242488af5845a9b851bb23a0c13f51e586acbb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 43242488af58: \"Preserve release gate evidence and add focused memory diagnostics (#739)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

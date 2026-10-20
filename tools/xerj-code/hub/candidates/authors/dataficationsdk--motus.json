@@ -1,0 +1,22 @@
+{
+ "corpus": "dataficationsdk--motus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on browser-automation, cdp, chrome-devtools-protocol queries this for how DataficationSDK/Motus implements it: Extensible browser automation and testing framework for .NET. Communicates directly with Chromium (CDP) and Firefox (WebDriver BiDi) over We (selected work: tests, src/Motus, samples)",
+ "repos": [
+  {
+   "repo": "Motus",
+   "url": "https://github.com/DataficationSDK/Motus",
+   "sha": "94b786b963ac7519c45b6e5cfa05306279d8d286",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 94b786b963ac: \"Fix tracing, routing, and role selector bugs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

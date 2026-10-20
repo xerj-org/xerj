@@ -1,0 +1,22 @@
+{
+ "corpus": "abhinavvarma02--room-for-both",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, cloudflare-workers, cultural-intelligence queries this for how AbhinavVarma02/Room-for-Both implements it: I built Room for Both to help brands and venues discover culturally aligned collaborations, compare partnership terms, and explore evidence- (selected work: src/client, tests)",
+ "repos": [
+  {
+   "repo": "Room-for-Both",
+   "url": "https://github.com/AbhinavVarma02/Room-for-Both",
+   "sha": "ec4e10541f476e2681c962418de71160d2e54fc7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ec4e10541f47: \"feat(ui): decision-first frontier, before-and-after reversal, and an \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "mythoscd--steamrogue",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on electron, game-manager, multiplayer queries this for how mythoscd/SteaMRogue implements it: \ud83c\udfae Hepsi Bir Arada Steam K\u00fct\u00fcphane Y\u00f6neticisi, OnlineFix Multiplayer Entegrasyonu & Otomatik G\u00fcncelleme Platformu (selected work: web, backend, the project root)",
+ "repos": [
+  {
+   "repo": "SteaMRogue",
+   "url": "https://github.com/mythoscd/SteaMRogue",
+   "sha": "958615d69db8b167b204da28cf25875294e91ce2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 958615d69db8: \"v1.1.8: Steam 0-Byte ve S\u00fcr\u00fcc\u00fc Se\u00e7imi D\u00fczeltildi, SteamTools Uyumlulu\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "kempnerinstitute--kempnerforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, distributed-training, gpu-computing queries this for how KempnerInstitute/KempnerForge implements it: PyTorch-native framework for fault-tolerant distributed training of foundation models on AI clusters (selected work: tests, kempnerforge)",
+ "repos": [
+  {
+   "repo": "KempnerForge",
+   "url": "https://github.com/KempnerInstitute/KempnerForge",
+   "sha": "55206f217aad8de0656c86e81d3844670a1ca37a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 55206f217aad: \"Add adapter.pre_norm: optional norm ahead of the mlp_2layer projection\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

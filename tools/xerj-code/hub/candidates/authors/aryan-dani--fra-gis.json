@@ -1,0 +1,22 @@
+{
+ "corpus": "aryan-dani--fra-gis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how aryan-dani/FRA_GIS implements it: aryan-dani/FRA_GIS (HTML) (selected work: frontend, the project root, backend)",
+ "repos": [
+  {
+   "repo": "FRA_GIS",
+   "url": "https://github.com/aryan-dani/FRA_GIS",
+   "sha": "3df1afd8f6ccae577c1ab88577423c7149d3a9ea",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 3df1afd8f6cc: \"feat: migrate from Leaflet to Google Maps for WebGIS functionality\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

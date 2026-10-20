@@ -1,0 +1,22 @@
+{
+ "corpus": "studyzy--imewlconverter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ime, c-sharp, converter queries this for how studyzy/imewlconverter implements it: \u201d\u6df1\u84dd\u8bcd\u5e93\u8f6c\u6362\u201c \u4e00\u6b3e\u5f00\u6e90\u514d\u8d39\u7684\u8f93\u5165\u6cd5\u8bcd\u5e93\u8f6c\u6362\u7a0b\u5e8f (selected work: src/ImeWlConverter.Formats, src/ImeWlConverterCoreTest)",
+ "repos": [
+  {
+   "repo": "imewlconverter",
+   "url": "https://github.com/studyzy/imewlconverter",
+   "sha": "501a1b77d46187e0b5072f8a27550fa77454c7d1",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 501a1b77d461: \"fix: libimebin \u5bfc\u51fa\u8865\u9f50 libime \u5c3e\u90e8\u7a7a zstd \u5e27\uff0c\u4e0e libime/Fcitx5 \u9010\u5b57\u8282\u4e00\u81f4\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "redhat-et--ripwire",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude, cli queries this for how redhat-et/ripwire implements it: The ripgrep of AI context: a zero-dependency C++23 CLI + MCP server for coding agents. Find what you want without reading the repo, then che (selected work: src/infra, test, src)",
+ "repos": [
+  {
+   "repo": "ripwire",
+   "url": "https://github.com/redhat-et/ripwire",
+   "sha": "892509646cb3d15165b20ca0b8baffaca48565d3",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 892509646cb3: \"fix(memguard): on Linux the guard read only the resident set the cgro\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

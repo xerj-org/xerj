@@ -1,0 +1,22 @@
+{
+ "corpus": "sloopstash--kickstart-docker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on container, docker, docker-compose queries this for how sloopstash/kickstart-docker implements it: Containerize and deploy popular fullstacks, microservices, and Big Data workloads using Containerd, Docker, Docker compose, and Docker swarm (selected work: workload, image, compose)",
+ "repos": [
+  {
+   "repo": "kickstart-docker",
+   "url": "https://github.com/sloopstash/kickstart-docker",
+   "sha": "571f1194b81469c879da801f415d0d261c020e5d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 571f1194b814: \"Upgrade Prometheus-Grafana stack\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

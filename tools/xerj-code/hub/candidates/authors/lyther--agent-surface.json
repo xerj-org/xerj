@@ -1,0 +1,22 @@
+{
+ "corpus": "lyther--agent-surface",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how Lyther/agent-surface implements it: Practical workflows and the prompts that can be used in the coding agent (Copilot, Cursor, Antigravity, etc) (selected work: mcps, tests)",
+ "repos": [
+  {
+   "repo": "agent-surface",
+   "url": "https://github.com/Lyther/agent-surface",
+   "sha": "aab50205ca292296f99527ee56aa1e7b551c4667",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit aab50205ca29: \"Match any query word in Grimoire search, not every one (#70)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "alfredosdpiii--ultron",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how alfredosdpiii/ultron implements it: Terminal coding agent whose only tool is a persistent Python REPL. A fork of Pi (selected work: packages/coding-agent, acceptance)",
+ "repos": [
+  {
+   "repo": "ultron",
+   "url": "https://github.com/alfredosdpiii/ultron",
+   "sha": "944c87dbb4433226a375bc4a2f1f1e81648c5a1e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 944c87dbb443: \"/autoreview on|off: automatic reviews as a picked gh account, with th\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

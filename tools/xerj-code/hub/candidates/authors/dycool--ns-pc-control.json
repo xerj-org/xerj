@@ -1,0 +1,22 @@
+{
+ "corpus": "dycool--ns-pc-control",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on linux, mac, raspberry queries this for how Dycool/NS-PC-Control implements it: Control your Switch 2 Console using any controllers with a single raspberry pi (selected work: server, scripts, client)",
+ "repos": [
+  {
+   "repo": "NS-PC-Control",
+   "url": "https://github.com/Dycool/NS-PC-Control",
+   "sha": "649b888c541774cbd934cb97839b457c0afbe02f",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 649b888c5417: \"amiibo scan fixes\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

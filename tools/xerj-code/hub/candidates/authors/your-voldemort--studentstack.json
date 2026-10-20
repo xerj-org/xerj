@@ -1,0 +1,22 @@
+{
+ "corpus": "your-voldemort--studentstack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Your-Voldemort/StudentStack implements it: Your-Voldemort/StudentStack (TypeScript) (selected work: src/lib, src/app)",
+ "repos": [
+  {
+   "repo": "StudentStack",
+   "url": "https://github.com/Your-Voldemort/StudentStack",
+   "sha": "edb8cc28be877912c515fe1675a193621e242a03",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit edb8cc28be87: \"feat: add server-side offset pagination for resources (API slice of #28)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

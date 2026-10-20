@@ -1,0 +1,22 @@
+{
+ "corpus": "gautamtalksdev--porchlight",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how GautamTalksDev/porchlight implements it: When the grid goes dark, the porch lights stay on. An offline-first emergency network for neighbourhoods (selected work: stage, the project root)",
+ "repos": [
+  {
+   "repo": "porchlight",
+   "url": "https://github.com/GautamTalksDev/porchlight",
+   "sha": "73dd4e0ee26382d6268b9c7cf7fd7ceabceea35a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 73dd4e0ee263: \"Stage autopilot\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

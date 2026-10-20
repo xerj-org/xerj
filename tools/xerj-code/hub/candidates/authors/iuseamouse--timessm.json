@@ -1,0 +1,22 @@
+{
+ "corpus": "iuseamouse--timessm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how IUseAMouse/TimeSSM implements it: Linear SSM training and evaluation for 0-shot forecasting (selected work: src/timessm)",
+ "repos": [
+  {
+   "repo": "TimeSSM",
+   "url": "https://github.com/IUseAMouse/TimeSSM",
+   "sha": "6e9a96456d2a5585336ef48dafeb397d9dad9fdd",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 6e9a96456d2a: \"SSMForecaster: per-step tokens, quantile head, the frequency rule, co\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

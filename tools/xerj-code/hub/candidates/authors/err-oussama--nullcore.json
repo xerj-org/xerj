@@ -1,0 +1,22 @@
+{
+ "corpus": "err-oussama--nullcore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on assembly, kernel, low-level queries this for how err-oussama/NullCore implements it: A minimal 32-bit x86 kernel built from scratch, focusing on low-level CPU behavior, memory management, and interrupt handling. No external d (selected work: kernel)",
+ "repos": [
+  {
+   "repo": "NullCore",
+   "url": "https://github.com/err-oussama/NullCore",
+   "sha": "19786b9827ca7e8e431f41692779e79ea3a62389",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 19786b9827ca: \"refac: rename to shorter names\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

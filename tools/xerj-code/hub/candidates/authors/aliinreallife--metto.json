@@ -1,0 +1,22 @@
+{
+ "corpus": "aliinreallife--metto",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on navigation, subway queries this for how aliinreallife/metto implements it: Metto is a free, fast, bilingual web app for navigating the Tehran Metro (selected work: app/(landing))",
+ "repos": [
+  {
+   "repo": "metto",
+   "url": "https://github.com/aliinreallife/metto",
+   "sha": "66f3cc2f20cb082ce11ea5666ab308895f083055",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 66f3cc2f20cb: \"landing: say outright when the PWA was already installed\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "ichwars--railkeeper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on dcc, ecos, esu queries this for how ichwars/RailKeeper implements it: Self-hosted local-first inventory, documentation and operations cockpit for model railway collections (selected work: tools, deploy, the project root)",
+ "repos": [
+  {
+   "repo": "RailKeeper",
+   "url": "https://github.com/ichwars/RailKeeper",
+   "sha": "71a576513e4b91aad0800a05ce39cd73e317127d",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 71a576513e4b: \"Isolierten manuellen Strix-Piloten vorbereiten / Add isolated manual \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "quantsingularity--quantumalpha",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on algorithmic-trading-quantitative, alternative-data, backtesting queries this for how QuantSingularity/QuantumAlpha implements it: Quantitative AI hedge fund platform: Flask backend, ML/RL trading models, React web and React Native mobile clients (selected work: code)",
+ "repos": [
+  {
+   "repo": "QuantumAlpha",
+   "url": "https://github.com/QuantSingularity/QuantumAlpha",
+   "sha": "eed14d5dac30dc1f39b5b9bc02d7e3bda59323d6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit eed14d5dac30: \"Refactor code and enhance maintainability.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

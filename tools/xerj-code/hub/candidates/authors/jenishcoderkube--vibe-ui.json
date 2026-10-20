@@ -1,0 +1,22 @@
+{
+ "corpus": "jenishcoderkube--vibe-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how jenishCoderkube/Vibe-uI implements it: jenishCoderkube/Vibe-uI (JavaScript) (selected work: packages/ui, the project root, packages/cli)",
+ "repos": [
+  {
+   "repo": "Vibe-uI",
+   "url": "https://github.com/jenishCoderkube/Vibe-uI",
+   "sha": "f94b8c7c6ed3cc0e6c6cfd5a66629e01338c862b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f94b8c7c6ed3: \"updated\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

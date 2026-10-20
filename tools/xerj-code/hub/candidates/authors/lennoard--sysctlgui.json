@@ -1,0 +1,22 @@
+{
+ "corpus": "lennoard--sysctlgui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on gui-application, linux-kernel, sysctl queries this for how Lennoard/SysctlGUI implements it: The user-friendly way to manage and tweak Android sysctl kernel variables (selected work: app/src, data, domain)",
+ "repos": [
+  {
+   "repo": "SysctlGUI",
+   "url": "https://github.com/Lennoard/SysctlGUI",
+   "sha": "3d360cc2daf33da8427c314356d91a9d755fa226",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 3d360cc2daf3: \"feat: add parameter change history and rollback feature\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

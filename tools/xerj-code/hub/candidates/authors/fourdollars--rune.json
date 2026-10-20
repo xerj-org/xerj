@@ -1,0 +1,22 @@
+{
+ "corpus": "fourdollars--rune",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ci-cd, concourse-ci, rust queries this for how fourdollars/rune implements it: A high-performance, zero-trust AI agent in Rust. Single binary featuring CLI assistant, Concourse CI, collaborative Markdown MCP hub with bu (selected work: src/sandbox)",
+ "repos": [
+  {
+   "repo": "rune",
+   "url": "https://github.com/fourdollars/rune",
+   "sha": "ab9e99438a90ce91098221bf3f1fced33b3f6108",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit ab9e99438a90: \"feat(sandbox): implement in-process pre_exec security enforcement\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

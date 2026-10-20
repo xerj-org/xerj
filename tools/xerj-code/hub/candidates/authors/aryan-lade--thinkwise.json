@@ -1,0 +1,22 @@
+{
+ "corpus": "aryan-lade--thinkwise",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Aryan-Lade/Thinkwise implements it: Aryan-Lade/Thinkwise (Python) (selected work: tests, public, static)",
+ "repos": [
+  {
+   "repo": "Thinkwise",
+   "url": "https://github.com/Aryan-Lade/Thinkwise",
+   "sha": "332cd50e3d04a6231a6066495def5479e5f4d58c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 332cd50e3d04: \":)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

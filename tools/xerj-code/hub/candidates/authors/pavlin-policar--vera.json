@@ -1,0 +1,22 @@
+{
+ "corpus": "pavlin-policar--vera",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how pavlin-policar/vera implements it: Your 2D embeddings, explained. Automatically (selected work: vera, tests)",
+ "repos": [
+  {
+   "repo": "vera",
+   "url": "https://github.com/pavlin-policar/vera",
+   "sha": "a2349f061e92408a3f8ce15ca1f522ac12ad28b6",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a2349f061e92: \"Let labels take the shape of their lines in label placement\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

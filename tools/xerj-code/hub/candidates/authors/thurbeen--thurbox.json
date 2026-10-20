@@ -1,0 +1,22 @@
+{
+ "corpus": "thurbeen--thurbox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on thurbox queries this for how Thurbeen/thurbox implements it: TUI for agentic code orchestration (selected work: src/storage, tests, src/kernel)",
+ "repos": [
+  {
+   "repo": "thurbox",
+   "url": "https://github.com/Thurbeen/thurbox",
+   "sha": "6660d1064f070f3db7fd60c64b04b334f460655f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 6660d1064f07: \"perf(core): skip snapshot reloads for telemetry and repeated hooks (#\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

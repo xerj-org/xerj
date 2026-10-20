@@ -1,0 +1,22 @@
+{
+ "corpus": "littlepyx--pi-zaya",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how LittlePyx/Pi_zaya implements it: LittlePyx/Pi_zaya (Python) (selected work: tests, kb, api)",
+ "repos": [
+  {
+   "repo": "Pi_zaya",
+   "url": "https://github.com/LittlePyx/Pi_zaya",
+   "sha": "3b1a43e485bab3c73b4dd3dd8b5fddff3d3955cc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 3b1a43e485ba: \"fix: bind N2N conditions to verified source passages\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "rmrdeveloper--sideroom-pi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, ai-agents, skills queries this for how RMRdeveloper/sideroom-pi implements it: Pi package that asks clarifying questions, keeps a live todo board, enforces coding guidelines before every edit, and won't call it done whi (selected work: extensions)",
+ "repos": [
+  {
+   "repo": "sideroom-pi",
+   "url": "https://github.com/RMRdeveloper/sideroom-pi",
+   "sha": "3bfb12d41f0eab51945a54bc0dd8eb766f719374",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 3bfb12d41f0e: \"feat: expand semantic review and coding workflows\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

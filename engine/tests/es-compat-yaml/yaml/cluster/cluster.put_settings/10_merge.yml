@@ -1,0 +1,46 @@
+---
+"Put settings merges into the stored settings":
+  - do:
+      cluster.put_settings:
+        body:
+          persistent:
+            cluster.routing.allocation.enable: "all"
+
+  - do:
+      cluster.put_settings:
+        body:
+          persistent:
+            search:
+              allow_expensive_queries: "true"
+
+  - do:
+      cluster.get_settings: {}
+
+  - match: { persistent.cluster.routing.allocation.enable: "all" }
+  - match: { persistent.search.allow_expensive_queries: "true" }
+
+  - do:
+      cluster.put_settings:
+        body:
+          persistent:
+            cluster:
+              routing:
+                allocation:
+                  enable: null
+
+  - do:
+      cluster.get_settings: {}
+
+  - is_false: persistent.cluster.routing.allocation.enable
+  - match: { persistent.search.allow_expensive_queries: "true" }
+
+  - do:
+      cluster.put_settings:
+        body:
+          persistent:
+            search.allow_expensive_queries: null
+
+  - do:
+      cluster.get_settings: {}
+
+  - is_false: persistent.search.allow_expensive_queries

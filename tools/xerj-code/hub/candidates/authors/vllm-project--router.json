@@ -1,0 +1,22 @@
+{
+ "corpus": "vllm-project--router",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Rust queries this for how vllm-project/router implements it: A high-performance and light-weight router for vLLM large scale deployment (selected work: tests, src/backend, src/tokenizer)",
+ "repos": [
+  {
+   "repo": "router",
+   "url": "https://github.com/vllm-project/router",
+   "sha": "399c3975ce9f9b55657d83b2de9ae0771413ec97",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 399c3975ce9f: \"[Feature] wire L0 encoding cache into the gRPC frontend (#340)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "borderless360--django-logic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on python, django, fsm queries this for how Borderless360/django-logic implements it: Django Logic - easy way to implement state-based business logic with pure functions (selected work: tests, django_logic)",
+ "repos": [
+  {
+   "repo": "django-logic",
+   "url": "https://github.com/Borderless360/django-logic",
+   "sha": "e518ebb0bf13e78269600eb5202e29e5be609bff",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit e518ebb0bf13: \"Preserve committed provider receipts in optional non-atomic backgroun\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

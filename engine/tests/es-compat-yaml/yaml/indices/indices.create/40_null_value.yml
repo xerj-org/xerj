@@ -1,0 +1,88 @@
+---
+# Mapping `null_value`: an explicit JSON `null` (and a `null` array element) is
+# indexed as the declared substitute, while `_source` keeps the `null` the
+# client sent. XERJ-authored case (ES semantics: docs `null-value.html`).
+"null_value substitutes explicit nulls at index time and leaves _source alone":
+  - skip:
+      awaits_fix: "XERJ ignores mapping null_value (fix follows in fix/es-mapping-null-value)"
+  - do:
+      indices.create:
+        index: test_null_value
+        body:
+          mappings:
+            properties:
+              s:
+                type: keyword
+                null_value: "NULL"
+              n:
+                type: long
+                null_value: -1
+              b:
+                type: boolean
+                null_value: false
+              tags:
+                type: keyword
+                null_value: "none"
+
+  - do:
+      index:
+        index: test_null_value
+        id: "1"
+        body: { "s": null, "n": null, "b": null, "tags": ["a", null] }
+
+  - do:
+      index:
+        index: test_null_value
+        id: "2"
+        body: { "s": "x", "n": 5, "b": true, "tags": [] }
+
+  - do:
+      index:
+        index: test_null_value
+        id: "3"
+        body: { "other": 1 }
+
+  - do:
+      indices.refresh: {}
+
+  - do:
+      search:
+        index: test_null_value
+        body: { "query": { "term": { "s": "NULL" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+  - match: { hits.hits.0._source.s: null }
+
+  - do:
+      search:
+        index: test_null_value
+        body: { "query": { "term": { "n": -1 } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+  - do:
+      search:
+        index: test_null_value
+        body: { "query": { "term": { "b": false } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+  - do:
+      search:
+        index: test_null_value
+        body: { "query": { "term": { "tags": "none" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+  # A missing field and an empty array are not `null`: nothing is substituted.
+  - do:
+      search:
+        index: test_null_value
+        body: { "query": { "exists": { "field": "s" } } }
+  - match: { hits.total.value: 2 }
+
+  - do:
+      get:
+        index: test_null_value
+        id: "1"
+  - match: { _source: { "s": null, "n": null, "b": null, "tags": ["a", null] } }

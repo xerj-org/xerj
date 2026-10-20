@@ -1,0 +1,22 @@
+{
+ "corpus": "dragonsterm--easyledger",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on assemblyai-hackathon, assemblyai-web-api, dashbaord queries this for how dragonsterm/EasyLedger implements it: Voice-powered sales tracking for small businesses. Record sales, fix mistakes, ask questions, and build clear dashboards with AssemblyAI (selected work: scripts, tests, apps/api)",
+ "repos": [
+  {
+   "repo": "EasyLedger",
+   "url": "https://github.com/dragonsterm/EasyLedger",
+   "sha": "ab6dbfef0c77214b1910c079b161df2fe71d6614",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit ab6dbfef0c77: \"feat(hardening): implement E2E Golden Journey, backup restore rehears\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

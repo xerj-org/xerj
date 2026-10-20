@@ -1,0 +1,22 @@
+{
+ "corpus": "ariffazil--arifos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, agi, ai queries this for how ariffazil/arifOS implements it: Independent policy kernel for AI agents: judge before execute. F1\u2013F13 floors, VAULT999 receipts. Not a model. Not a chatbot (selected work: arifosmcp, tests)",
+ "repos": [
+  {
+   "repo": "arifOS",
+   "url": "https://github.com/ariffazil/arifOS",
+   "sha": "6fcd9a023f800a8f62e00bc05e0ea291bb72bb91",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 6fcd9a023f80: \"feat(judge): Phase 0 \u2014 payload-wide decision reconciliation (PR 1 jud\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "redwakame--cmcp-time",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-memory, agent-skills, ai-agents queries this for how redwakame/CMCP-TIME implements it: Skill-first continuity for AI hosts: original words, images and timestamps, user controls, sequential handoff and optional MCP (selected work: scripts, the project root, src/cmcp-guard)",
+ "repos": [
+  {
+   "repo": "CMCP-TIME",
+   "url": "https://github.com/redwakame/CMCP-TIME",
+   "sha": "fb8890a83ae4a4d72ac2f9e1d9c2da014a4f7f91",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit fb8890a83ae4: \"Synchronize exact published npm rc.2 source\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "shrehs--cekp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how shrehs/cekp implements it: shrehs/cekp (Python) (selected work: tests, app/planner, app/api)",
+ "repos": [
+  {
+   "repo": "cekp",
+   "url": "https://github.com/shrehs/cekp",
+   "sha": "d79dfcdc4031c34f020e4a1a13d80b8b25826736",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit d79dfcdc4031: \"Harden strategy health monitoring and recovery\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

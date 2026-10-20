@@ -1,0 +1,22 @@
+{
+ "corpus": "gemron--termexo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, ai-agent, ai-coding-assistant queries this for how gemron/Termexo implements it: Windows workbench for Claude Code, Codex, OpenCode, Antigravity & Grok Build. See which agent needs you, resume sessions, and reconnect from (selected work: apps/desktop-ui)",
+ "repos": [
+  {
+   "repo": "Termexo",
+   "url": "https://github.com/gemron/Termexo",
+   "sha": "7f00c94a9da9cd5a963c4b17c163646ed662b34f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 7f00c94a9da9: \"feat: guide first-time users from project selection to agent launch\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

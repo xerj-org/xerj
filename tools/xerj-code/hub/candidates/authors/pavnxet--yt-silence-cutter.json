@@ -1,0 +1,22 @@
+{
+ "corpus": "pavnxet--yt-silence-cutter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how pavnxet/yt-silence-cutter implements it: Skip the silent and low-volume parts of any video, right in your browser. Browser extension by pavnxet (selected work: tests, chunks, the project root)",
+ "repos": [
+  {
+   "repo": "yt-silence-cutter",
+   "url": "https://github.com/pavnxet/yt-silence-cutter",
+   "sha": "8ac940c8a7ce50c7c0afea3e12669ce495ddf320",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8ac940c8a7ce: \"Add a speech guard so high skip speeds don't clip speech (v1.8.0)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

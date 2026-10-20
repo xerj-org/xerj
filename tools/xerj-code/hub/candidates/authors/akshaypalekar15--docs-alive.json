@@ -1,0 +1,22 @@
+{
+ "corpus": "akshaypalekar15--docs-alive",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how akshaypalekar15/docs-alive implements it: Drop in a .docx, .md or .txt file and read it with an auto-built table of contents, scroll-spy and scroll-reactive visuals. 100% client-side (selected work: lib, components, app)",
+ "repos": [
+  {
+   "repo": "docs-alive",
+   "url": "https://github.com/akshaypalekar15/docs-alive",
+   "sha": "ca829b530a716a84951c81130f465b0a5eef7971",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ca829b530a71: \"Edit section text and table cells without destroying what a section h\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "kkamji98--tracon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, cli queries this for how KKamJi98/tracon implements it: Terminal dashboard for your local AI coding agent sessions. See which Claude Code and Codex sessions are waiting on you, how much context th (selected work: src/collect)",
+ "repos": [
+  {
+   "repo": "tracon",
+   "url": "https://github.com/KKamJi98/tracon",
+   "sha": "ffc2df9225e8def5505af7f93b0c500e71bea5f8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit ffc2df9225e8: \"fix: widen the first transcript read until it holds a conversation entry\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

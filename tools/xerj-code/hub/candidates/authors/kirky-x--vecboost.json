@@ -1,0 +1,22 @@
+{
+ "corpus": "kirky-x--vecboost",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on candle, embeddings, onnx queries this for how Kirky-X/vecboost implements it: Production embedding & decision inference service in Rust \u2014 Candle/ONNX dual engine, CUDA/Metal acceleration, REST/gRPC/MCP/CLI generated vi (selected work: src/pipeline, src/service)",
+ "repos": [
+  {
+   "repo": "vecboost",
+   "url": "https://github.com/Kirky-X/vecboost",
+   "sha": "df37d712420eb3787b2f5c54452ebb2f6b6e8ba0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit df37d712420e: \"fix(service): warm_up_cache \u952e\u65b9\u6848\u6f02\u79fb\u81f4\u9884\u70ed\u6761\u76ee\u6c38\u4e0d\u53ef\u8bfb + service/pipeline \u8865 39 \u6d4b\u8bd5\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

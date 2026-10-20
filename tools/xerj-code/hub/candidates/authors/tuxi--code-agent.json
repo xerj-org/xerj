@@ -1,0 +1,22 @@
+{
+ "corpus": "tuxi--code-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how tuxi/code-agent implements it: CodeAgent is a lightweight Claude Code\u2013style coding agent written in Go (selected work: internal/session, internal/server, internal/conversation)",
+ "repos": [
+  {
+   "repo": "code-agent",
+   "url": "https://github.com/tuxi/code-agent",
+   "sha": "edfdbc0744526943179f78ebd496c47924661891",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit edfdbc074452: \"perf: optimize conversation history and startup\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

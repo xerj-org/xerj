@@ -1,0 +1,22 @@
+{
+ "corpus": "pedrolrm--mri-data-regimes-comparison",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how pedrolrm/mri-data-regimes-comparison implements it: pedrolrm/mri-data-regimes-comparison (Python) (selected work: src)",
+ "repos": [
+  {
+   "repo": "mri-data-regimes-comparison",
+   "url": "https://github.com/pedrolrm/mri-data-regimes-comparison",
+   "sha": "b2c45695626e656577f9034c9258f3918ea17fd6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit b2c45695626e: \"feat(i18n): padroniza todos os outputs e graficos em ingles e corrige\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

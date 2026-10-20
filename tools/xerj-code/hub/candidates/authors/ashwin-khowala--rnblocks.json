@@ -1,0 +1,22 @@
+{
+ "corpus": "ashwin-khowala--rnblocks",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on expo, mobile-ui, react-native queries this for how Ashwin-Khowala/rnblocks implements it: Open-source UI for React Native & Expo. Discover, preview, inspect, and install production-ready UI blocks and screens directly into your pr (selected work: apps/web)",
+ "repos": [
+  {
+   "repo": "rnblocks",
+   "url": "https://github.com/Ashwin-Khowala/rnblocks",
+   "sha": "0269f4128d5a0b03fcea5f2f189b51d615659fd8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 0269f4128d5a: \"feat(web): redesign blocks gallery, simplify cards, and optimize lazy\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

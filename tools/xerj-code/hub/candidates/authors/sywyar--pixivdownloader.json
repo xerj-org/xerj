@@ -1,0 +1,22 @@
+{
+ "corpus": "sywyar--pixivdownloader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on pixiv, tampermonkey, downloader queries this for how Sywyar/PixivDownloader implements it: \u4e00\u6b3e\u6ce8\u91cd\u4e0b\u8f7d\u540e\u4f53\u9a8c\u7684Pixiv\u4e0b\u8f7d\u5668\uff01\u9ad8\u96c6\u6210\u753b\u5eca\uff0c\u81ea\u52a8\u5316\u4efb\u52a1\uff0cAI\u7ffb\u8bd1\uff01A pixiv downloader that prioritizes the post-download experience! Features include a highly integrated g (selected work: pixivdownload-plugin-download-workbench, pixivdownload-app)",
+ "repos": [
+  {
+   "repo": "PixivDownloader",
+   "url": "https://github.com/Sywyar/PixivDownloader",
+   "sha": "c29108552a9c8cdb8750f8328174bad0d843b072",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit c29108552a9c: \"perf(ugoira): \u5e76\u884c\u7f16\u7801 WebP \u5e76\u8c03\u6574\u52a8\u56fe\u8d44\u6e90\u9650\u989d\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

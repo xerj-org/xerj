@@ -1,0 +1,22 @@
+{
+ "corpus": "pastukhov--iishnitsa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how pastukhov/iishnitsa implements it: Mobile AI agent (selected work: client)",
+ "repos": [
+  {
+   "repo": "iishnitsa",
+   "url": "https://github.com/pastukhov/iishnitsa",
+   "sha": "69b3982f248b3f0cdb5e438a4e90e78c3888dd71",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 69b3982f248b: \"fix: prevent offline replay after tool execution (#188)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

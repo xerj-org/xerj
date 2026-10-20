@@ -1,0 +1,22 @@
+{
+ "corpus": "etroimcasso--snaggletooth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 65816, assembly, disassembly queries this for how etroimcasso/Snaggletooth implements it: An embeddable, clean-room MIT-licensed SNES (5A22 + SPC700) virtual machine, with a source-recovery and decompilation toolchain and a hardwa (selected work: src, include, tests)",
+ "repos": [
+  {
+   "repo": "Snaggletooth",
+   "url": "https://github.com/etroimcasso/Snaggletooth",
+   "sha": "ad5aceb5d55b93680d0224856f905fabda7e933f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit ad5aceb5d55b: \"Make the tile reads once for the dots a cycle covers, and pass a span\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "junstinlee--scriptordb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on ai-agent, cli, data-analysis queries this for how JunstinLee/ScriptorDB implements it: Query SQLite and MySQL databases in plain English. Automatic schema understanding, SQL generation, Python analysis, charts, CSV/Excel import (selected work: browser, tools, runtime)",
+ "repos": [
+  {
+   "repo": "ScriptorDB",
+   "url": "https://github.com/JunstinLee/ScriptorDB",
+   "sha": "a3e7adc9250cd245e0a0ea10354390f4767bb834",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit a3e7adc9250c: \"feat(browser): Enhanced form detection capabilities and optimized too\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

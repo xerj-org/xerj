@@ -1,0 +1,22 @@
+{
+ "corpus": "rchrp--blame",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how rchrp/Blame implements it: An open source desktop IDE for AI coding agents, with a semantic harness, integrated backlog, isolated Git worktrees, live previews, and cod (selected work: tools)",
+ "repos": [
+  {
+   "repo": "Blame",
+   "url": "https://github.com/rchrp/Blame",
+   "sha": "7e2d9d0611672015bb069cdf17f1704fcd23f2ae",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 7e2d9d061167: \"test(research): preserve interrupted trial and partial usage\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

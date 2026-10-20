@@ -1,0 +1,22 @@
+{
+ "corpus": "libredb--libredb-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on database, sql, self-hosted queries this for how libredb/libredb-studio implements it: One browser tab for PostgreSQL, MySQL, Oracle, SQL Server, MongoDB, Redis, SQLite, Couchbase, ClickHouse, Druid, DuckDB, Turso and more. An  (selected work: tests, src/lib)",
+ "repos": [
+  {
+   "repo": "libredb-studio",
+   "url": "https://github.com/libredb/libredb-studio",
+   "sha": "9b370ee6d625ab2df37af9be3a345912764b84ea",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 9b370ee6d625: \"fix(redis): shape WITHSCORES, XRANGE and SCAN replies and read stream\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

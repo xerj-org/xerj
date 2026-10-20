@@ -1,0 +1,22 @@
+{
+ "corpus": "conorbronsdon--avoid-ai-writing",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-writing, claude, claude-code queries this for how conorbronsdon/avoid-ai-writing implements it: Skill that audits and rewrites content to remove AI writing patterns. Use it with your favorite agents including Claude Code, OpenClaw, Code (selected work: evals, scripts, cursor-rules)",
+ "repos": [
+  {
+   "repo": "avoid-ai-writing",
+   "url": "https://github.com/conorbronsdon/avoid-ai-writing",
+   "sha": "b0790baa32c15e635bfbfc19c31caff5d7b39c5b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit b0790baa32c1: \"fix: preserve audit report reproducibility and ground adverbial variants\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

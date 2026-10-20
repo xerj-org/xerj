@@ -1,0 +1,22 @@
+{
+ "corpus": "komi-store--komi-store",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, kotlin, kotlin-multiplatform queries this for how komi-store/komi-store implements it: \ud83e\ude75 A free, open-source app store for developers' releases on GitHub, Codeberg & Forgejo \u2014 browse, discover, and install apps with one click.  (selected work: feature, core/domain, core/presentation)",
+ "repos": [
+  {
+   "repo": "komi-store",
+   "url": "https://github.com/komi-store/komi-store",
+   "sha": "a628f6bfa01e8d2f8c19e64cee532ee93c607f2d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit a628f6bfa01e: \"feat(details): open on a release this device can install, show every \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

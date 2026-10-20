@@ -1,0 +1,22 @@
+{
+ "corpus": "storytold--vectorcraft",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on art, rust, rust-lang queries this for how storytold/vectorcraft implements it: VectorCraft: An open-source, vector art tool written by scratch in pure Rust (selected work: crates/mcp, apps/vectorcraft-cli)",
+ "repos": [
+  {
+   "repo": "vectorcraft",
+   "url": "https://github.com/storytold/vectorcraft",
+   "sha": "e80b7e383bcf7c8dab1abe363b1c72ee6b852025",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit e80b7e383bcf: \"MCP: prompts, resource templates, completions and logging\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

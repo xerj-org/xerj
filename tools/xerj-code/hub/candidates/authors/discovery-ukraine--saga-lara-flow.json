@@ -1,0 +1,22 @@
+{
+ "corpus": "discovery-ukraine--saga-lara-flow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how discovery-ukraine/saga-lara-flow implements it: Simple workflow management engine with an integrated Saga pattern using Laravel Queues (selected work: tests, src/Console, src/Runtime)",
+ "repos": [
+  {
+   "repo": "saga-lara-flow",
+   "url": "https://github.com/discovery-ukraine/saga-lara-flow",
+   "sha": "671e8458c08f684c94cf800da8d9767d6d1d71f2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 671e8458c08f: \"Wake a parked retry without naming its signal\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

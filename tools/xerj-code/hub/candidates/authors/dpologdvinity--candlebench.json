@@ -1,0 +1,22 @@
+{
+ "corpus": "dpologdvinity--candlebench",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on backtesting, bootstrap, candlestick-patterns queries this for how dpologdvinity/candlebench implements it: Does a trading signal have a real edge? Tests 66 candlestick patterns, or any signal you write, against stop-matched random entries with quo (selected work: candlebench, tests, the project root)",
+ "repos": [
+  {
+   "repo": "candlebench",
+   "url": "https://github.com/dpologdvinity/candlebench",
+   "sha": "9ab349d3483525c3d6e872e7869ab5411100e027",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 9ab349d34835: \"perf(engine): run the trade walk in C++ when a compiler is available\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

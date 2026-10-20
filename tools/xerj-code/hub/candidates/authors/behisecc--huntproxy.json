@@ -1,0 +1,22 @@
+{
+ "corpus": "behisecc--huntproxy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how BehiSecc/HuntProxy implements it: A web security workbench built for AI agents (selected work: tests, src/mcp, src/api)",
+ "repos": [
+  {
+   "repo": "HuntProxy",
+   "url": "https://github.com/BehiSecc/HuntProxy",
+   "sha": "19aa07329723b221e1893fa99f8ea024d44c16f3",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 19aa07329723: \"Refresh MCP tool catalogs across daemon upgrades\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "ferreiraas--ciencia-com-r",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on estatistica, estatistica-aplicada, metodos-estatisticos queries this for how FerreiraAS/Ciencia-com-R implements it: Ci\u00eancia com R (selected work: the project root, bib, rmd)",
+ "repos": [
+  {
+   "repo": "Ciencia-com-R",
+   "url": "https://github.com/FerreiraAS/Ciencia-com-R",
+   "sha": "97a0ed50c700f5ea801b3df22842492c393f9143",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 97a0ed50c700: \"Commit.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

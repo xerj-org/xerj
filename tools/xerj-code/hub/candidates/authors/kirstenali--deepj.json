@@ -1,0 +1,22 @@
+{
+ "corpus": "kirstenali--deepj",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Java queries this for how KirstenAli/DeepJ implements it: A lightweight Java transformer library for building and training language models based on GPT, Llama, and DeepSeek architectures (selected work: src/main, the project root)",
+ "repos": [
+  {
+   "repo": "DeepJ",
+   "url": "https://github.com/KirstenAli/DeepJ",
+   "sha": "0478db6675e70e0824f339890ca7b8b5145a2c65",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 0478db6675e7: \"Enforce chat UI code standards in Maven builds\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

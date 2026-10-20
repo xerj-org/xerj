@@ -1,0 +1,22 @@
+{
+ "corpus": "kaaval--kaaval",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on cis-benchmark, cloud-native, devsecops queries this for how kaaval/kaaval implements it: Self-hosted Kubernetes security scanner that ranks every CVE and RBAC finding by a Contextual Risk Score tied to your cluster \u2014 with remedia (selected work: control-plane, dashboard, examples)",
+ "repos": [
+  {
+   "repo": "kaaval",
+   "url": "https://github.com/kaaval/kaaval",
+   "sha": "75e76c4ffbfdbb6a582d6cc78758e14cb57932bd",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 75e76c4ffbfd: \"feat: expose image report ingestion and reconcile maintenance backlog\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

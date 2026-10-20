@@ -1,0 +1,22 @@
+{
+ "corpus": "sreejithchandra1--sentinel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how sreejithchandra1/sentinel implements it: Modern self-hosted infrastructure monitoring, alerting, incident management, performance monitoring, and status pages (selected work: internal/api, internal/alerter, internal/safehost)",
+ "repos": [
+  {
+   "repo": "sentinel",
+   "url": "https://github.com/sreejithchandra1/sentinel",
+   "sha": "a1d00142290245c5a0c75dfd896968bedd7e503a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit a1d001422902: \"Fix:Vulnerabilities\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

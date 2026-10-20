@@ -1,0 +1,22 @@
+{
+ "corpus": "ivan-magda--swift-claw",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, ai-assistant, llm queries this for how ivan-magda/swift-claw implements it: Your AI. Your machine. Always on. A personal assistant in one pure-Swift binary (selected work: Sources)",
+ "repos": [
+  {
+   "repo": "swift-claw",
+   "url": "https://github.com/ivan-magda/swift-claw",
+   "sha": "d77b26fbddf8057d974f6e8fdb1c8f35801fc909",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit d77b26fbddf8: \"refactor: improve readability across Sources (#248)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

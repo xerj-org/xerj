@@ -1,0 +1,22 @@
+{
+ "corpus": "deadmeme5441--arrodes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on clojure, coding-agent, llm queries this for how DeadMeme5441/arrodes implements it: A coding agent built around a persistent Clojure REPL. Self-contained macOS and Linux binaries (selected work: src/clj, test, src/cljs)",
+ "repos": [
+  {
+   "repo": "arrodes",
+   "url": "https://github.com/DeadMeme5441/arrodes",
+   "sha": "10aebf8d69e6ab72fd0313d670c396164b3a078f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 10aebf8d69e6: \"feat: prepare v0.1.7 with session agents and REPL workflows\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "suveshmoza--qora",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on database-agent, mcp, mcp-server queries this for how suveshmoza/Qora implements it: Qora lets AI assistants like Cursor and Claude safely explore your database and answer questions about your data (selected work: src/query, src/tools)",
+ "repos": [
+  {
+   "repo": "Qora",
+   "url": "https://github.com/suveshmoza/Qora",
+   "sha": "8c781dbae50c90beaa08a20415a1d20246713b20",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8c781dbae50c: \"test: add unit tests for describeTable and listSchemas\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

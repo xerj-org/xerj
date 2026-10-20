@@ -1,0 +1,22 @@
+{
+ "corpus": "kenn-io--agentsview",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how kenn-io/agentsview implements it: Local-first session search, analytics, insights, and token use statistics for coding agents, supporting Claude Code, Codex, and more than 20 (selected work: internal/parser, internal/sync, internal/rawderive)",
+ "repos": [
+  {
+   "repo": "agentsview",
+   "url": "https://github.com/kenn-io/agentsview",
+   "sha": "a22d9d1e33006b157746043e84ca5da0b75bcb48",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit a22d9d1e3300: \"fix(parser): read Codex rollouts compressed to .jsonl.zst (#2274)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

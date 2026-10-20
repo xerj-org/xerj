@@ -1,0 +1,22 @@
+{
+ "corpus": "musaais--ceedebooks",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how MusaAis/CeedeBooks implements it: Autonomous financial-ops agent for African SMEs on Arc. Invoices are paid only if a smart contract allows it: vendor registry, reasoning com (selected work: agent, scripts, backend)",
+ "repos": [
+  {
+   "repo": "CeedeBooks",
+   "url": "https://github.com/MusaAis/CeedeBooks",
+   "sha": "56c40520f05e8632afc7fff824cb0d705ccdf839",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 56c40520f05e: \"v1.2.9.4: return to agent, re-run, optional deployer key, red team (P\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

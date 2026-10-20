@@ -1,0 +1,22 @@
+{
+ "corpus": "dexisback--gheppo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bubbletea, github, leetcode queries this for how dexisback/gheppo implements it: beautiful terminal app to show github contribution graph on terminal bootup. one time setup. thats it (selected work: cmd, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "gheppo",
+   "url": "https://github.com/dexisback/gheppo",
+   "sha": "7f84fdcc5d42f91a19d357358b58b06bcd861850",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 7f84fdcc5d42: \"ft: modify install script to bootup gheppo on every session\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "sachinmandawi--cleanbar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, immersive-mode, jetpack-compose queries this for how sachinmandawi/CleanBar implements it: 1-Tap Status Bar & System Icon Hider for Android powered by Shizuku. Hide clock, battery, and icons with zero root (selected work: android-app, preview)",
+ "repos": [
+  {
+   "repo": "CleanBar",
+   "url": "https://github.com/sachinmandawi/CleanBar",
+   "sha": "5e81b0eaae7c68e965272974b6455adb76974b65",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 5e81b0eaae7c: \"feat: CleanBar v1.1.0 - dedicated About page, in-app update checker, \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

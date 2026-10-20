@@ -15,7 +15,7 @@ use std::process::Command;
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 
-use xerj_common::localauth::{discover_local_admin_key, url_is_loopback};
+use xerj_common::localauth::{discover_local_admin_key_for_url, url_is_loopback};
 use xerj_common::xccode::{self, manifest, state, CodeOutcome, CodeParams, Mode, XcHttp};
 
 use crate::esclient::{Count, Es};
@@ -30,8 +30,9 @@ pub fn code_root() -> PathBuf {
             return PathBuf::from(home);
         }
     }
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    Path::new(&home).join(".xerj-code")
+    xerj_common::home::home_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join(".xerj-code")
 }
 
 /// `--url` flag > `XERJ_URL` > `http://localhost:9200`. Unlike `autoindex`
@@ -54,7 +55,7 @@ fn build_es(url: &str, api_key: Option<String>) -> Result<Es> {
                 Some(k) => Some(k),
                 None => {
                     if url_is_loopback(url) {
-                        discover_local_admin_key().map(|(k, path)| {
+                        discover_local_admin_key_for_url(url).map(|(k, path)| {
                             eprintln!(
                                 "xerj code: no --api-key/XERJ_API_KEY given; using the admin \
                                  key at {}",
@@ -112,8 +113,8 @@ fn emit(out: &CodeOutcome) {
 
 const CODE_USAGE: &str =
     "usage: xerj code <corpus> \"<what you need>\" [-k N] [--mode bm25|semantic|hybrid]
-       [--hybrid] [--lang <lg>] [--full N] [--no-symbol] [--json] [--meatl] [--stale-ok]
-       [--url URL] [--api-key KEY]
+       [--hybrid] [--lang <lg>] [--full N] [--no-symbol] [--fuse-symbols]
+       [--json] [--meatl] [--stale-ok] [--url URL] [--api-key KEY]
 
 retrieval over a reference corpus (see `xerj corpus list`):
   -k N            passages to return (default 5)
@@ -122,6 +123,7 @@ retrieval over a reference corpus (see `xerj corpus list`):
   --lang LG       filter to one language field (e.g. rust, go)
   --full N        max chars per passage (default 800; 0 = file head only)
   --no-symbol     window selection instead of the matching definition
+  --fuse-symbols  fuse file-level BM25 with symbol-impl BM25 by RRF(k=60)
   --json          raw server response on stdout
   --meatl         machine-readable one-line-per-hit output
   --stale-ok      override the 30-day staleness refusal
@@ -183,6 +185,7 @@ pub fn run_code_cli(args: &[String]) -> i32 {
                 }
             }
             "--no-symbol" => p.no_symbol = true,
+            "--fuse-symbols" => p.fuse_symbols = true,
             "--json" => p.as_json = true,
             "--meatl" => p.meatl = true,
             "--stale-ok" => p.stale_ok = true,
@@ -231,6 +234,7 @@ const CORPUS_USAGE: &str =
        xerj corpus index <name> [--fresh] [--url URL]
        xerj corpus list [--url URL]
 
+a flag may precede the verb (xerj corpus --url URL index <name>);
 clone the repos, detect licences, write corpora/<name>/corpus.json;
 --from takes the corpus name from the manifest's 'corpus' field (or the
 pack's 'pack' field) unless <name> or --as overrides it; a harvested pack
@@ -464,7 +468,11 @@ fn run_corpus_add(args: &[String]) -> i32 {
     // The manifest is read BEFORE the name is finalised: with `--from` and
     // no explicit <name>/--as, the manifest's own 'corpus' field supplies
     // it. Everything downstream (dest, carry, entries) needs the resolved
-    // name, so resolution lives here and nowhere else.
+    // name, so resolution lives here and nowhere else. The pin's query
+    // hints (#1254) ride beside the tuple rather than inside it — a
+    // three-slot tuple tripped clippy's type_complexity on the pinned
+    // CI toolchain.
+    let mut pin_query: Option<manifest::QueryHints> = None;
     let (name, rows): (String, Vec<(String, String, String, String)>) = if let Some(path) = &from {
         let hub = match manifest::read_hub_manifest(Path::new(path)) {
             Ok(h) => h,
@@ -481,6 +489,7 @@ fn run_corpus_add(args: &[String]) -> i32 {
             }
         };
         println!("rebuilding corpus '{resolved}' from {path}");
+        pin_query = hub.query;
         (
             resolved,
             hub.rows
@@ -623,10 +632,21 @@ fn run_corpus_add(args: &[String]) -> i32 {
         return 1;
     }
 
-    // Regenerated FROM DISK, never copied through from the input.
+    // Regenerated FROM DISK, never copied through from the input — except
+    // the pin's query hints (#1254), which are author DECLARATION, not
+    // derived state: they travel from the hub pin into the corpus.json the
+    // clone writes, so a re-clone cannot silently drop the corpus's
+    // retrieval posture.
     let cloned_at = chrono_now_stamp();
     let manifest_path = dest.join("corpus.json");
-    manifest::write_corpus_manifest(&manifest_path, &name, &cloned_at, &entries);
+    manifest::write_corpus_manifest_kind(
+        &manifest_path,
+        &name,
+        None,
+        &cloned_at,
+        &entries,
+        pin_query.as_ref(),
+    );
     println!();
     println!(
         "corpus '{name}': {} repos at {}",
@@ -949,6 +969,7 @@ fn add_pack_materialize(
         Some("harvested"),
         &chrono_now_stamp(),
         &entries,
+        None,
     );
     Ok(())
 }
@@ -997,10 +1018,10 @@ fn chrono_now_stamp() -> String {
 /// The node operations the corpus lifecycle needs (#1004): one trait so the
 /// build/verify/swap flow can run against a fake in tests, re-pinning the
 /// destructive-operation contracts the retired `test_xc_index_fresh.py`
-/// pinned at the HTTP layer. The trait is deliberately the FOUR operations
-/// the flow performs against the node — listing, counting (tri-state), and
-/// the two scoped deletes — nothing more, so the fake cannot drift from what
-/// a real node is asked to do.
+/// pinned at the HTTP layer. The trait is deliberately the FIVE operations
+/// the flow performs against the node — listing, counting (tri-state), the
+/// queryability probe, and the two scoped deletes — nothing more, so the
+/// fake cannot drift from what a real node is asked to do.
 pub(crate) trait CorpusNode {
     /// `_cat/indices` under a glob, as index names. `Err` = unreachable.
     fn list_indices(&self, glob: &str) -> Result<Vec<String>, String>;
@@ -1008,6 +1029,11 @@ pub(crate) trait CorpusNode {
     fn count(&self, dash_glob: &str) -> Count;
     /// DELETE one index BY EXACT NAME. `false` = the node refused.
     fn delete_index(&self, name: &str) -> bool;
+    /// A size-0 `_search` under a `{prefix}-*` glob (DASH form): does the
+    /// store answer queries at all? `Err` carries the node's own reason.
+    /// This is the leg `_count` cannot provide — a count is metadata-only
+    /// and returns a number over a store whose every search 500s (#1183).
+    fn search_probe(&self, dash_glob: &str) -> Result<(), String>;
     /// `_delete_by_query` on the shared catalog for one corpus scope.
     fn delete_catalog_scope(&self, scope: &str) -> bool;
 }
@@ -1023,6 +1049,16 @@ impl CorpusNode for Es {
         self.request_json("DELETE", &format!("/{name}"), None)
             .map(|(s, _)| (200..300).contains(&s))
             .unwrap_or(false)
+    }
+    fn search_probe(&self, dash_glob: &str) -> Result<(), String> {
+        // One call, no outer retry: `Es::search` already carries the client's
+        // bounded 5xx budget, and a search that fails through it failed for a
+        // reason backoff does not address. size:0 keeps the probe out of the
+        // user's traffic in `xerj gain` — the server classifies size-0
+        // searches as machine itself (#1109).
+        self.search(dash_glob, &json!({"size": 0, "query": {"match_all": {}}}))
+            .map(|_| ())
+            .map_err(|e| format!("{e:#}"))
     }
     fn delete_catalog_scope(&self, scope: &str) -> bool {
         // The catalog is one global index shared by every corpus on the node,
@@ -1074,16 +1110,44 @@ fn count_under(node: &dyn CorpusNode, prefix: &str) -> Option<u64> {
     None
 }
 
+/// The third leg of verification (#1183): does the store answer a query?
+/// `_count` is metadata-only — over a store whose every `_search` 500s on a
+/// dangling segment it still returns a number, and a resume that ended that
+/// way printed "searchable: N records" over an index whose first query
+/// failed. One size-0 search over exactly the glob `xerj code` reads is the
+/// difference between "counted" and "searchable". Says why and returns
+/// `false` on failure; the caller must not report success over a `false`.
+fn queryable_store(node: &dyn CorpusNode, name: &str, prefix: &str) -> bool {
+    match node.search_probe(&format!("{prefix}-*")) {
+        Ok(()) => true,
+        Err(reason) => {
+            eprintln!("xerj corpus index: a verification search of {prefix}-* failed: {reason}");
+            eprintln!(
+                "xerj corpus index: `_count` is metadata-only — a store that cannot be searched"
+            );
+            eprintln!(
+                "xerj corpus index: can still be counted (#1183), so a count alone can never"
+            );
+            eprintln!("xerj corpus index: justify calling '{name}' searchable.");
+            false
+        }
+    }
+}
+
 /// Every index under `xc-<corpus>-` that belongs to THIS corpus. The bare
 /// glob is not enough: `xc-battle-*` also matches the sibling corpus
 /// `battle-terse`, and retiring a sibling's indices is not a mistake this
 /// command gets to make.
-fn corpus_indices(node: &dyn CorpusNode, name: &str, root: &Path) -> Vec<String> {
-    // Any error lists nothing, which errs toward KEEPING an index (nothing is
-    // retired that was not listed), never toward deleting one.
-    let rows = node
-        .list_indices(&format!("xc-{name}-*"))
-        .unwrap_or_default();
+/// The namespace listing plus whether the node actually answered. An error
+/// lists nothing — which errs toward KEEPING an index (nothing is retired
+/// that was not listed), never toward deleting one — but the caller now gets
+/// to SAY so instead of a silent empty list reading as "nothing to retire"
+/// (#1136: generations survived exactly that way).
+fn corpus_indices(node: &dyn CorpusNode, name: &str, root: &Path) -> (Vec<String>, bool) {
+    let rows = match node.list_indices(&format!("xc-{name}-*")) {
+        Ok(rows) => rows,
+        Err(_) => return (Vec::new(), false),
+    };
     let mut siblings: Vec<String> = Vec::new();
     for (folder, strip) in [(root.join("corpora"), ""), (root.join("state"), ".json")] {
         if let Ok(entries) = std::fs::read_dir(&folder) {
@@ -1100,12 +1164,94 @@ fn corpus_indices(node: &dyn CorpusNode, name: &str, root: &Path) -> Vec<String>
             }
         }
     }
-    rows.into_iter()
-        .filter(|idx| {
-            idx.starts_with(&format!("xc-{name}-"))
-                && !siblings.iter().any(|s| idx.starts_with(s.as_str()))
-        })
-        .collect()
+    (
+        rows.into_iter()
+            .filter(|idx| {
+                idx.starts_with(&format!("xc-{name}-"))
+                    && !siblings.iter().any(|s| idx.starts_with(s.as_str()))
+            })
+            .collect(),
+        true,
+    )
+}
+
+/// The generation prefix of a stamped index (`xc-<corpus>-b<stamp>` → itself),
+/// or `None` for an unstamped legacy index (`xc-<corpus>-<dataset>`), where
+/// the segment after the corpus name is a dataset name, not a build stamp.
+/// Digits-only between `b` and the next `-` is the stamp shape; a dataset
+/// named like a stamp has never been a shape the autoindex emits.
+fn stamped_prefix(name: &str, idx: &str) -> Option<String> {
+    let rest = idx.strip_prefix(&format!("xc-{name}-b"))?;
+    let stamp = rest.split('-').next()?;
+    (!stamp.is_empty() && stamp.bytes().all(|b| b.is_ascii_digit()))
+        .then(|| format!("xc-{name}-b{stamp}"))
+}
+
+/// Retire every index in `names` that belongs to a stamped generation, plus
+/// that generation's catalog scope. Returns how many indices were deleted.
+/// Used by the legacy arm: the ledger names no build there, so stamped
+/// generations are unreachable by construction — `xerj code` queries the bare
+/// namespace and mixes their documents into every answer (#1136).
+fn retire_stamped(node: &dyn CorpusNode, name: &str, names: &[String]) -> usize {
+    let doomed: Vec<String> = names
+        .iter()
+        .filter(|idx| stamped_prefix(name, idx).is_some())
+        .cloned()
+        .collect();
+    if doomed.is_empty() {
+        return 0;
+    }
+    let scopes: std::collections::BTreeSet<String> = doomed
+        .iter()
+        .filter_map(|idx| stamped_prefix(name, idx))
+        .collect();
+    println!(
+        "xerj corpus index: retiring {} stale-generation indices this corpus cannot reach \
+         (the ledger names no build):",
+        doomed.len()
+    );
+    for idx in &doomed {
+        println!("xerj corpus index:   {idx}");
+    }
+    let deleted = doomed.len() - delete_indices(node, &doomed);
+    for scope in scopes {
+        node.delete_catalog_scope(&scope);
+    }
+    deleted
+}
+
+/// Say what still sits under `xc-<name>-` outside the prefix readers are now
+/// pinned to — the visibility half of #1136: a retirement that half-failed
+/// (or a listing that came back empty at the wrong moment) is a poison the
+/// next G7-grade query would otherwise measure for us.
+fn report_leftovers(node: &dyn CorpusNode, name: &str, root: &Path, keep: &str) {
+    let (left, listed_ok) = corpus_indices(node, name, root);
+    if !listed_ok {
+        eprintln!(
+            "xerj corpus index: could not re-list this corpus's indices to check for stale \
+             generations — run `xerj corpus list` against the node when it answers."
+        );
+        return;
+    }
+    let left: Vec<String> = left.into_iter().filter(|i| !i.starts_with(keep)).collect();
+    if left.is_empty() {
+        return;
+    }
+    eprintln!(
+        "xerj corpus index: WARNING — {} stale indices remain under xc-{name}- outside \
+         what `xerj code` now reads ({keep}-*):",
+        left.len()
+    );
+    for idx in left.iter().take(5) {
+        eprintln!("xerj corpus index:   {idx}");
+    }
+    if left.len() > 5 {
+        eprintln!("xerj corpus index:   … and {} more", left.len() - 5);
+    }
+    eprintln!(
+        "xerj corpus index: delete them by exact name, or re-run `xerj corpus index {name} \
+         --fresh` when the node is reachable."
+    );
 }
 
 fn delete_indices(node: &dyn CorpusNode, names: &[String]) -> usize {
@@ -1120,14 +1266,53 @@ fn delete_indices(node: &dyn CorpusNode, names: &[String]) -> usize {
     failed
 }
 
-fn report(name: &str, rc: i32, docs: &str) {
+/// The terminal verdict lines, as a pure function so the footer can be
+/// asserted on (the live failures on this path were all about what the LAST
+/// line claims). `rc` is the autoindex exit the flow carried in:
+///
+/// - 0 / 3 are the clean outcomes (3 = some files skipped as junk, normal for
+///   real repos) — the store verified, so "searchable: N records" is earned.
+/// - any other `rc` only reaches here through a #367 salvage: autoindex
+///   aborted in finalisation but the written store passed the verification
+///   search, so it is kept and queryable. It is NOT a clean build. An aborted
+///   run that prints the plain `searchable: N records` success footer is the
+///   last live half of #1183's dishonest-resume item: the 2026-10-08 standing
+///   rebuild ended `xerj-done ok=false exit=1 reason=aborted` and still
+///   printed `corpus 'xerj-search' searchable: 1011181 records`, overstating
+///   the kept set by the 348 docs the re-walk had just dropped. A salvaged
+///   build says so, and never the word "searchable".
+fn report_footer(name: &str, rc: i32, docs: &str) -> Vec<String> {
     match rc {
-        0 => println!("indexed cleanly"),
-        3 => println!("indexed (exit 3: some files skipped as junk — normal for real repos)"),
-        _ => {}
+        0 | 3 => {
+            let head = if rc == 0 {
+                "indexed cleanly".to_string()
+            } else {
+                "indexed (exit 3: some files skipped as junk — normal for real repos)".to_string()
+            };
+            vec![
+                head,
+                format!("corpus '{name}' searchable: {docs} records"),
+                format!("next: xerj code {name} \"<what you need>\""),
+            ]
+        }
+        _ => vec![
+            format!(
+                "corpus '{name}' indexed with errors (autoindex exit {rc}): {docs} records \
+                 are present and queryable, but coverage is NOT guaranteed — read the error \
+                 above before relying on this corpus."
+            ),
+            format!(
+                "next: xerj code {name} \"<what you need>\"  (verify coverage first; a clean \
+                 rebuild is `xerj corpus index {name} --fresh`)"
+            ),
+        ],
     }
-    println!("corpus '{name}' searchable: {docs} records");
-    println!("next: xerj code {name} \"<what you need>\"");
+}
+
+fn report(name: &str, rc: i32, docs: &str) {
+    for line in report_footer(name, rc, docs) {
+        println!("{line}");
+    }
 }
 
 fn run_corpus_index(args: &[String]) -> i32 {
@@ -1255,6 +1440,33 @@ fn pack_record_gap(name: &str, root: &Path, docs: Option<u64>) -> Option<(u64, u
     (files > 0 && docs < lines).then_some((lines, files))
 }
 
+/// What a failed legacy-mode run can honestly claim about the records it
+/// wrote (#1173). The three cases are exclusive, and the whole point of the
+/// type is which one is forbidden when: "wrote no new records" asserted from
+/// a count the node never answered is an absence claim with no evidence —
+/// exactly the honest-claims rule the public docs are held to, applied to
+/// our own tooling. The node under a failed long build is precisely the node
+/// that answers counts with UNKNOWN.
+enum LegacyFailureVerdict {
+    /// The count grew: records from THIS run are queryable despite the exit.
+    Salvaged { before: u64, after: u64 },
+    /// The node could not be counted (before, after, or both). The honest
+    /// claim is "unknown" — never "absent".
+    CountUnknown,
+    /// Both counts are known and did not grow.
+    WroteNothing { before: u64, after: u64 },
+}
+
+fn legacy_failure_verdict(before: Option<u64>, after: Option<u64>) -> LegacyFailureVerdict {
+    match (before, after) {
+        (Some(before), Some(after)) if after > before => {
+            LegacyFailureVerdict::Salvaged { before, after }
+        }
+        (Some(before), Some(after)) => LegacyFailureVerdict::WroteNothing { before, after },
+        _ => LegacyFailureVerdict::CountUnknown,
+    }
+}
+
 /// The build/verify/swap flow over an injected node, autoindex runner and
 /// clock (#1004) — the destructive-operation contracts are pinned by the
 /// tests below against a [`FakeNode`](tests::FakeNode), which is why none of
@@ -1283,16 +1495,57 @@ fn corpus_index_flow(
     // node-does-not-hold), update (reconcile the recorded build in place), or
     // legacy (a corpus indexed before builds existed).
     let mut mode = "legacy";
-    let old_indices = corpus_indices(node, name, root);
+    let (old_indices, _listed_ok) = corpus_indices(node, name, root);
     if fresh {
         mode = "build";
-    } else if old_build.is_some()
-        && old_index_prefix.is_some()
-        && old_state_dir
+    } else if old_build.is_some() {
+        // A recorded build pins this corpus to one url, one prefix and one
+        // state dir. When any of those does not hold, the run CANNOT resume
+        // that build — and must not silently fall through to legacy mode:
+        // without --state-dir, autoindex opens its default hash-of-root
+        // journal, which can hold a stale pending sync from a retired
+        // attempt under the legacy prefix and start re-applying it beside
+        // the recorded build (#1214). Refuse, naming the recorded values.
+        let prefix_recorded = old_index_prefix.is_some();
+        let state_dir_usable = old_state_dir
             .as_deref()
-            .is_some_and(|d| Path::new(d).is_dir())
-        && old_url.as_deref() == Some(url)
-    {
+            .is_some_and(|d| Path::new(d).is_dir());
+        let url_matches = old_url.as_deref() == Some(url);
+        if !prefix_recorded || !state_dir_usable || !url_matches {
+            let build = old_build.as_deref().unwrap_or("?");
+            eprintln!(
+                "xerj corpus index: state/ records build {build} of '{name}', but this run \
+                 cannot resume it:"
+            );
+            if !url_matches {
+                eprintln!(
+                    "xerj corpus index:   recorded url is {} , this run resolved {url}",
+                    old_url.as_deref().unwrap_or("(none)")
+                );
+            }
+            if !state_dir_usable {
+                eprintln!(
+                    "xerj corpus index:   recorded state dir {} is not a usable directory",
+                    old_state_dir.as_deref().unwrap_or("(none)")
+                );
+            }
+            if !prefix_recorded {
+                eprintln!(
+                    "xerj corpus index:   recorded state has no index prefix for build {build}"
+                );
+            }
+            eprintln!(
+                "xerj corpus index: refusing to continue in legacy mode — that would open the \
+                 default state dir for this corpus, which may hold an abandoned generation \
+                 (#1214)."
+            );
+            eprintln!(
+                "xerj corpus index: resume the recorded build with the matching --url (and its \
+                 state dir in place), or build a verified replacement beside it with:"
+            );
+            eprintln!("xerj corpus index:   xerj corpus index {name} --fresh");
+            return 2;
+        }
         let live = count_under(node, old_index_prefix.as_deref().unwrap_or(""));
         match live {
             Some(n) if n > 0 => mode = "update",
@@ -1317,8 +1570,20 @@ fn corpus_index_flow(
     match mode {
         "build" => {
             // Listed BEFORE the build so "old" can never include what this
-            // run creates.
-            let old_indices = corpus_indices(node, name, root);
+            // run creates. A listing the node never answered is LOUD here:
+            // an empty list would read as "nothing to retire" and let stale
+            // generations survive the swap (#1136).
+            let (old_indices, listed_ok) = corpus_indices(node, name, root);
+            if !listed_ok {
+                eprintln!(
+                    "xerj corpus index: could not list this corpus's existing indices — the \
+                     swap will still build and verify, but NOTHING on the node will be retired;"
+                );
+                eprintln!(
+                    "xerj corpus index: stale generations may remain beside the new one. \
+                     Re-run `xerj corpus index {name} --fresh` when the node answers a listing."
+                );
+            }
             // One-second resolution: a second --fresh inside the same second
             // would reuse the prefix of the build it is replacing. The id
             // must be new — not the recorded build, not a state dir that
@@ -1397,14 +1662,22 @@ fn corpus_index_flow(
             };
             let mut salvaged = false;
             let mut verified = false;
+            // VERIFY needs a third leg (#1183): rc 0/3 plus a positive count
+            // certified a build whose store 500'd every search. The probe
+            // failing here makes the build "not verified" — its own indices
+            // are removed with the rest of a failed build (an unsearchable
+            // index left under the namespace is poison for every later
+            // wildcard read), and the existing index stays what `xerj code`
+            // serves.
+            let queryable = queryable_store(node, name, &new_prefix);
             match rc {
-                0 | 3 if docs > 0 => verified = true,
+                0 | 3 if docs > 0 && queryable => verified = true,
                 _ => {
                     // autoindex can abort in finalisation AFTER every document
                     // was written (#367). Keep a complete, queryable index
                     // when there is no working fallback — and never swap a
                     // verified one out for it.
-                    if docs > 0 && !has_working_index {
+                    if docs > 0 && !has_working_index && queryable {
                         verified = true;
                         salvaged = true;
                         eprintln!("xerj corpus index: WARNING — autoindex exited {rc}, but this build wrote {docs} records and");
@@ -1414,11 +1687,20 @@ fn corpus_index_flow(
                 }
             }
             if !verified {
-                eprintln!("xerj corpus index: build {build} did not verify (autoindex exit {rc}, {docs} records).");
+                eprintln!(
+                    "xerj corpus index: build {build} did not verify (autoindex exit {rc}, {docs} records{}).",
+                    if queryable { "" } else { ", verification search failed" }
+                );
                 // Remove only what THIS run created: the set-diff against the
                 // pre-run listing, intersected with this build's prefix, BY
                 // EXACT NAME — never a wildcard, never new_prefix itself.
-                let after = corpus_indices(node, name, root);
+                let (after, after_ok) = corpus_indices(node, name, root);
+                if !after_ok {
+                    eprintln!(
+                        "xerj corpus index: could not re-list indices after the failed build — \
+                         its indices (if any were written) are kept, not deleted blind."
+                    );
+                }
                 let doomed: Vec<String> = after
                     .into_iter()
                     .filter(|idx| !old_indices.contains(idx))
@@ -1463,6 +1745,10 @@ fn corpus_index_flow(
                     old_index_prefix.as_deref().unwrap_or(&format!("xc-{name}")),
                 );
             }
+            // Whatever the retirement above could not reach (a failed
+            // delete, or a listing that came back empty before the build) is
+            // named here instead of silently poisoning the namespace.
+            report_leftovers(node, name, root, &new_prefix);
             // Earlier builds' state directories are dead weight once their
             // indices are gone.
             if state_root.join(name).is_dir() {
@@ -1486,6 +1772,16 @@ fn corpus_index_flow(
                 eprintln!("xerj corpus index: re-run with --fresh to build a replacement beside it (the existing index");
                 eprintln!("xerj corpus index: stays live until the replacement verifies).");
                 return rc;
+            }
+            // The recorded build was just re-run in place, so this store IS
+            // what `xerj code` serves — a search that fails here means the
+            // live corpus is broken, and "searchable" would be the #1183 lie.
+            if !queryable_store(node, name, &prefix) {
+                eprintln!(
+                    "xerj corpus index: the updated build is NOT recorded over this. Build a"
+                );
+                eprintln!("xerj corpus index: verified replacement beside it with:  xerj corpus index {name} --fresh");
+                return 1;
             }
             let live = count_under(node, &prefix);
             warn_short_of_pack_records(name, root, live);
@@ -1511,23 +1807,49 @@ fn corpus_index_flow(
             // lying around" (salvaging the latter would date stale data to
             // now, which is worse than no index).
             let before_known = count_under(node, &format!("xc-{name}"));
-            let docs_before = before_known.unwrap_or(0);
             let rc = run_autoindex(&format!("xc-{name}"), None);
+            // Before ANY verdict is printed: the whole namespace `xerj code`
+            // reads is one wildcard, so one unsearchable index under it — a
+            // dangling segment from a killed finalize (#1183), even an old one
+            // this run never touched — makes "the corpus is queryable" and
+            // "searchable: N records" untrue no matter what the counts said.
+            if !queryable_store(node, name, &format!("xc-{name}")) {
+                eprintln!("xerj corpus index: records may still be counted, but they cannot be served. Build a");
+                eprintln!("xerj corpus index: verified replacement beside this with:  xerj corpus index {name} --fresh");
+                return if rc != 0 && rc != 3 { rc } else { 1 };
+            }
             let mut salvaged = false;
             let mut docs: Option<u64> = None;
             if rc != 0 && rc != 3 {
                 docs = count_under(node, &format!("xc-{name}"));
-                if before_known.is_some() && docs.is_some_and(|d| d > docs_before) {
-                    salvaged = true;
-                    eprintln!("xerj corpus index: WARNING — autoindex exited {rc}, but this run wrote records");
-                    eprintln!("xerj corpus index: ({docs_before} -> {}). The corpus is queryable and is being", docs.unwrap_or(0));
-                    eprintln!("xerj corpus index: recorded as indexed, with autoindex_exit={rc} in its state file.");
-                    eprintln!("xerj corpus index: Coverage is not guaranteed — please report the error above.");
-                } else {
-                    eprintln!("xerj corpus index: autoindex failed with exit {rc} and wrote no new records.");
-                    eprintln!("xerj corpus index: If the error above says the state directory cannot become generation");
-                    eprintln!("xerj corpus index: authority, or that --fresh is refused, run:  xerj corpus index {name} --fresh");
-                    return rc;
+                match legacy_failure_verdict(before_known, docs) {
+                    LegacyFailureVerdict::Salvaged { before, after } => {
+                        salvaged = true;
+                        eprintln!("xerj corpus index: WARNING — autoindex exited {rc}, but this run wrote records");
+                        eprintln!("xerj corpus index: ({before} -> {after}). The corpus is queryable and is being");
+                        eprintln!("xerj corpus index: recorded as indexed, with autoindex_exit={rc} in its state file.");
+                        eprintln!("xerj corpus index: Coverage is not guaranteed — please report the error above.");
+                    }
+                    // #1173: a node that cannot be counted cannot be reported
+                    // on. "Wrote no new records" was asserted here while the
+                    // count was UNKNOWN — the honest-claims rule applied to
+                    // our own tooling: say what is unknown, never claim an
+                    // absence the node never confirmed.
+                    LegacyFailureVerdict::CountUnknown => {
+                        eprintln!("xerj corpus index: autoindex exited {rc} and the node could not be counted");
+                        eprintln!("xerj corpus index: afterwards, so whether this run wrote records is UNKNOWN (not absent).");
+                        eprintln!("xerj corpus index: Count again once the node answers, or rebuild beside the old");
+                        eprintln!(
+                            "xerj corpus index: index with:  xerj corpus index {name} --fresh"
+                        );
+                        return rc;
+                    }
+                    LegacyFailureVerdict::WroteNothing { before, after } => {
+                        eprintln!("xerj corpus index: autoindex failed with exit {rc} and wrote no new records ({before} -> {after}).");
+                        eprintln!("xerj corpus index: If the error above says the state directory cannot become generation");
+                        eprintln!("xerj corpus index: authority, or that --fresh is refused, run:  xerj corpus index {name} --fresh");
+                        return rc;
+                    }
                 }
             }
             docs = docs.or_else(|| count_under(node, &format!("xc-{name}")));
@@ -1535,6 +1857,20 @@ fn corpus_index_flow(
                 .map(|n| n.to_string())
                 .unwrap_or_else(|| "?".to_string());
             let _ = state::write_state(root, name, url, rc as i64, salvaged, None, None, None);
+            // The ledger now names no build, so no stamped generation is
+            // reachable — retire any that are still live. This is the #1136
+            // leak in its measured shape: tldr-pages carried an unstamped
+            // 38,554-doc generation beside stamped ones because a legacy
+            // run never looked at what it was superseding.
+            let (now_live, live_ok) = corpus_indices(node, name, root);
+            if live_ok {
+                retire_stamped(node, name, &now_live);
+            } else {
+                eprintln!(
+                    "xerj corpus index: could not list this corpus's indices after the run — \
+                     stale generations (if any) were NOT retired; re-run when the node answers."
+                );
+            }
             report(name, rc, &docs_s);
             0
         }
@@ -1660,7 +1996,17 @@ fn run_corpus_list(args: &[String]) -> i32 {
 // ── dispatch ────────────────────────────────────────────────────────────────
 
 /// `xerj corpus <add|build|index|list> …` — returns the process exit code.
+fn corpus_verb(arg: &str) -> bool {
+    matches!(
+        arg,
+        "add" | "build" | "sign" | "keygen" | "index" | "list" | "help" | "-h" | "--help"
+    )
+}
+
 pub fn run_corpus_cli(args: &[String]) -> i32 {
+    // `xerj corpus --url URL index <name>`: the verb is not the first token.
+    let promoted = xerj_common::argv::reorder_flags_before_command(args, corpus_verb);
+    let args: &[String] = promoted.as_deref().unwrap_or(args);
     let Some(sub) = args.first() else {
         eprintln!("{CORPUS_USAGE}");
         return 2;
@@ -1691,6 +2037,14 @@ pub fn licence_map_for(root: &Path, corpus: &str) -> HashMap<String, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_flag_before_the_corpus_verb_is_not_an_unknown_subcommand() {
+        // Before the hoist, `--url` was the verb and this returned 2
+        // ("unknown subcommand"). `--help` is the verb; it must run.
+        let code = run_corpus_cli(&["--url".into(), "http://127.0.0.1:9".into(), "--help".into()]);
+        assert_eq!(code, 0);
+    }
 
     #[test]
     fn corpus_names_are_gated_before_any_path_is_built() {
@@ -1811,9 +2165,15 @@ mod tests {
     struct FakeNode {
         indices: std::cell::RefCell<Vec<String>>,
         counts: std::cell::RefCell<HashMap<String, Count>>,
+        /// Per dash-glob search verdicts; unseeded globs answer `Ok(())` —
+        /// a healthy node is the default, failures are the injected case.
+        searches: std::cell::RefCell<HashMap<String, Result<(), String>>>,
         /// This exact index name's DELETE fails (once — the flow warns and
         /// continues; a persistently failing node is the crash-between case).
         fail_delete: std::cell::RefCell<Option<String>>,
+        /// Every `list_indices` answers `Err` — an unreachable node (#1136:
+        /// a silent empty listing read as "nothing to retire").
+        fail_listing: std::cell::Cell<bool>,
         ops: std::cell::RefCell<Vec<String>>,
     }
 
@@ -1822,12 +2182,17 @@ mod tests {
             FakeNode {
                 indices: std::cell::RefCell::new(Vec::new()),
                 counts: std::cell::RefCell::new(HashMap::new()),
+                searches: std::cell::RefCell::new(HashMap::new()),
                 fail_delete: std::cell::RefCell::new(None),
+                fail_listing: std::cell::Cell::new(false),
                 ops: std::cell::RefCell::new(Vec::new()),
             }
         }
         fn seed_count(&self, dash_glob: &str, c: Count) {
             self.counts.borrow_mut().insert(dash_glob.into(), c);
+        }
+        fn seed_search(&self, dash_glob: &str, verdict: Result<(), String>) {
+            self.searches.borrow_mut().insert(dash_glob.into(), verdict);
         }
         fn live(&self, name: &str) -> bool {
             self.indices.borrow().iter().any(|i| i == name)
@@ -1865,6 +2230,9 @@ mod tests {
 
     impl CorpusNode for FakeNode {
         fn list_indices(&self, glob: &str) -> Result<Vec<String>, String> {
+            if self.fail_listing.get() {
+                return Err("node unreachable".into());
+            }
             Ok(glob_match(&self.indices.borrow(), glob))
         }
         fn count(&self, dash_glob: &str) -> Count {
@@ -1874,6 +2242,14 @@ mod tests {
                 .get(dash_glob)
                 .cloned()
                 .unwrap_or(Count::Zero)
+        }
+        fn search_probe(&self, dash_glob: &str) -> Result<(), String> {
+            self.ops.borrow_mut().push(format!("search:{dash_glob}"));
+            self.searches
+                .borrow()
+                .get(dash_glob)
+                .cloned()
+                .unwrap_or(Ok(()))
         }
         fn delete_index(&self, name: &str) -> bool {
             self.ops.borrow_mut().push(format!("delete:{name}"));
@@ -1983,8 +2359,22 @@ mod tests {
         name: &str,
         fresh: bool,
     ) -> i32 {
+        self::run_flow_url(node, auto, clock, root, name, fresh, "http://x")
+    }
+
+    /// [`run_flow`] with the URL the caller resolved — the recorded state's
+    /// URL is "http://x", so anything else models the #1214 mismatch.
+    fn run_flow_url(
+        node: &FakeNode,
+        auto: &FakeAuto<'_>,
+        clock: &dyn Fn() -> i64,
+        root: &Path,
+        name: &str,
+        fresh: bool,
+        url: &str,
+    ) -> i32 {
         with_fast_count_retries(|| {
-            corpus_index_flow(node, &auto.runner(), clock, root, "http://x", name, fresh)
+            corpus_index_flow(node, &auto.runner(), clock, root, url, name, fresh)
         })
     }
 
@@ -2198,6 +2588,311 @@ mod tests {
         assert_eq!(st.salvaged, Some(false));
     }
 
+    // ── #1214: a recorded build refuses a run it cannot resume ────────────
+    //
+    // The live failure: `xerj corpus index xerj-search` with no --url
+    // resolved http://localhost:9200 against a state recording
+    // http://127.0.0.1:9200. The update conjunct failed, the flow fell
+    // through to legacy mode, and without --state-dir autoindex opened its
+    // default hash-of-root journal — a stale pending sync from a retired
+    // attempt — and began re-applying 46,308 operations into the legacy
+    // namespace beside the recorded build. A recorded build pins url,
+    // prefix and state dir; a run that cannot present all three must stop,
+    // not switch journals.
+
+    #[test]
+    fn a_url_mismatch_against_a_recorded_build_refuses_instead_of_running_legacy() {
+        let root = corpus_root("kv");
+        let state_dir = root.join("autoindex-state/kv/b1");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        let old_prefix = record_build(&root, "kv", "b1", state_dir.to_str());
+        let node = FakeNode::new();
+        node.indices.borrow_mut().push(format!("{old_prefix}-000"));
+        node.seed_count(&format!("{old_prefix}-*"), Count::Number(500));
+
+        let auto = FakeAuto::ok(&node);
+        let rc = self::run_flow_url(&node, &auto, &|| T0, &root, "kv", false, "http://elsewhere");
+
+        assert_eq!(rc, 2, "a recorded build under another URL is a refusal");
+        assert!(
+            auto.calls.borrow().is_empty(),
+            "no autoindex invocation may run from the refusal path"
+        );
+        assert!(node.ops.borrow().iter().all(|o| !o.starts_with("delete:")));
+        let st = state::load_state(&root, "kv").unwrap();
+        assert_eq!(
+            st.index_prefix.as_deref(),
+            Some(old_prefix.as_str()),
+            "the recorded build stays recorded"
+        );
+    }
+
+    #[test]
+    fn a_missing_recorded_state_dir_refuses_instead_of_running_legacy() {
+        let root = corpus_root("kv");
+        // Recorded, but never created on disk.
+        let state_dir = root.join("autoindex-state/kv/b1");
+        let old_prefix = record_build(&root, "kv", "b1", state_dir.to_str());
+        let node = FakeNode::new();
+        node.indices.borrow_mut().push(format!("{old_prefix}-000"));
+        node.seed_count(&format!("{old_prefix}-*"), Count::Number(500));
+
+        let auto = FakeAuto::ok(&node);
+        let rc = run_flow(&node, &auto, &|| T0, &root, "kv", false);
+
+        assert_eq!(rc, 2, "a recorded build without its state dir is a refusal");
+        assert!(auto.calls.borrow().is_empty());
+        assert!(node.ops.borrow().iter().all(|o| !o.starts_with("delete:")));
+    }
+
+    // ── #1183: "searchable" is a claim about queries, not counts ───────────
+    //
+    // The live failure: a resume over an index with a dangling segment
+    // printed "corpus 'xerj-search' searchable: 642 records" and exited 0
+    // while the store answered every `_search` (and the salvage path's own
+    // `delete_by_query`) with `store_exception: Segment … not found`.
+    // `_count` is metadata-only and returned 642 over that same store, so
+    // every verification built on counts certified a corpus that could not
+    // be queried. Each arm below pins the probe that closes it.
+
+    /// The build arm: rc 0 and a positive count over a store that cannot be
+    /// searched is NOT verified — nothing is switched, the old index stays
+    /// live, and the unsearchable build's own indices are retired by exact
+    /// name (an unsearchable index left under the namespace is what poisoned
+    /// the live one).
+    #[test]
+    fn a_counted_build_the_node_cannot_search_is_not_verified_or_switched() {
+        let root = corpus_root("kv");
+        let old_prefix = record_build(&root, "kv", "b1", Some("/tmp/s1"));
+        let node = FakeNode::new();
+        node.indices.borrow_mut().push(format!("{old_prefix}-000"));
+        node.seed_count(&format!("{old_prefix}-*"), Count::Number(500));
+        // The #1183 shape: autoindex exit 0, `_count` answers records, and
+        // the store 500s the first search of the build — the reason server,
+        // quoted from the live failure.
+        node.seed_count(&format!("xc-kv-b{T0}-*"), Count::Number(500));
+        node.seed_search(
+            &format!("xc-kv-b{T0}-*"),
+            Err(
+                "HTTP 500 Internal Server Error: store_exception: storage error: Segment \
+                 ea12a22c-41ff-45fd-a400-78118af4dc80 not found"
+                    .into(),
+            ),
+        );
+
+        let auto = FakeAuto::ok(&node);
+        let rc = run_flow(&node, &auto, &|| T0, &root, "kv", true);
+
+        assert_eq!(
+            rc, 1,
+            "rc was 0 and records were counted — the store still cannot be searched"
+        );
+        // nothing switched: the ledger still names the old build…
+        let st = state::load_state(&root, "kv").unwrap();
+        assert_eq!(st.index_prefix.as_deref(), Some(old_prefix.as_str()));
+        // …the old index is untouched and still live…
+        assert!(node.live(&format!("{old_prefix}-000")));
+        assert!(!node
+            .ops
+            .borrow()
+            .iter()
+            .any(|o| *o == format!("delete:{old_prefix}-000")));
+        // …and the unsearchable build was removed by exact name, only after
+        // its verification search said no.
+        assert!(!node.live(&format!("xc-kv-b{T0}-000")));
+        let ops = node.ops.borrow();
+        let first_delete = ops.iter().position(|o| o.starts_with("delete:")).unwrap();
+        let probe = ops
+            .iter()
+            .position(|o| *o == format!("search:xc-kv-b{T0}-*"))
+            .unwrap();
+        assert!(probe < first_delete, "the probe gates the deletes: {ops:?}");
+    }
+
+    /// The update arm: the recorded build was just re-run in place, so an
+    /// unsearchable store means the LIVE corpus is broken. The run must not
+    /// rewrite state or print "searchable" over it.
+    #[test]
+    fn an_update_over_an_unsearchable_store_is_not_recorded_searchable() {
+        let root = corpus_root("kv");
+        let state_dir = root.join("autoindex-state/kv/b1");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        let old_prefix = record_build(&root, "kv", "b1", state_dir.to_str());
+        let node = FakeNode::new();
+        node.indices.borrow_mut().push(format!("{old_prefix}-000"));
+        node.seed_count(&format!("{old_prefix}-*"), Count::Number(500));
+        node.seed_search(
+            &format!("{old_prefix}-*"),
+            Err("HTTP 500: store_exception: Segment ea12a22c not found".into()),
+        );
+
+        let auto = FakeAuto::ok(&node);
+        let rc = run_flow(&node, &auto, &|| T0, &root, "kv", false);
+
+        assert_eq!(
+            rc, 1,
+            "autoindex exited 0; the store it wrote cannot be searched"
+        );
+        // the ledger was not rewritten over the broken store
+        let st = state::load_state(&root, "kv").unwrap();
+        assert_eq!(st.index_prefix.as_deref(), Some(old_prefix.as_str()));
+        assert_eq!(st.autoindex_exit, Some(serde_json::json!(0)));
+        assert!(node.live(&format!("{old_prefix}-000")));
+    }
+
+    /// The legacy arm — the exact live reproduction. A resume fails (rc 1)
+    /// but the namespace count grew, which used to print "The corpus is
+    /// queryable" and record it salvaged. One unsearchable index anywhere
+    /// under the wildcard makes that untrue, whatever the counts said.
+    #[test]
+    fn a_salvaged_legacy_resume_over_an_unsearchable_store_stays_unrecorded() {
+        // Control: the identical salvage shape over a store that answers —
+        // the salvage path itself must still work, so the gate is what
+        // changed, not the verdict.
+        let healthy_root = corpus_root("kv");
+        state::write_state(&healthy_root, "kv", "http://x", 0, false, None, None, None).unwrap();
+        let healthy = FakeNode::new();
+        let rc = with_fast_count_retries(|| {
+            corpus_index_flow(
+                &healthy,
+                &|prefix, _sd| {
+                    // the resume fails, but the namespace count grew 0 -> 500
+                    healthy.seed_count(&format!("{prefix}-*"), Count::Number(500));
+                    1
+                },
+                &|| T0,
+                &healthy_root,
+                "http://x",
+                "kv",
+                false,
+            )
+        });
+        assert_eq!(rc, 0, "control: a queryable salvage still succeeds");
+        let st = state::load_state(&healthy_root, "kv").unwrap();
+        assert_eq!(st.salvaged, Some(true));
+        assert_eq!(st.autoindex_exit, Some(serde_json::json!(1)));
+
+        // The #1183 case: same counts, same rc — and the wildcard search 500s.
+        let root = corpus_root("kv");
+        state::write_state(&root, "kv", "http://x", 0, false, None, None, None).unwrap();
+        let node = FakeNode::new();
+        node.seed_search(
+            "xc-kv-*",
+            Err("HTTP 500: store_exception: Segment ea12a22c not found".into()),
+        );
+        let rc = with_fast_count_retries(|| {
+            corpus_index_flow(
+                &node,
+                &|prefix, _sd| {
+                    node.seed_count(&format!("{prefix}-*"), Count::Number(500));
+                    1
+                },
+                &|| T0,
+                &root,
+                "http://x",
+                "kv",
+                false,
+            )
+        });
+        assert_eq!(
+            rc, 1,
+            "must not exit 0 over a store that cannot be searched"
+        );
+        // the salvage verdict was never recorded: the ledger still says what
+        // it said before the run
+        let st = state::load_state(&root, "kv").unwrap();
+        assert_eq!(st.salvaged, Some(false));
+        assert_ne!(st.autoindex_exit, Some(serde_json::json!(1)));
+        // and the probe ran, over exactly the glob `xerj code` reads
+        assert!(node.ops.borrow().iter().any(|o| *o == "search:xc-kv-*"));
+    }
+
+    /// #1183, the last live half of the dishonest-resume item: a run that
+    /// aborted (autoindex exit ∉ {0,3}) and was only KEPT by the #367 salvage
+    /// must not print the clean `searchable: N records` success footer. The
+    /// 2026-10-08 standing rebuild ended `xerj-done ok=false exit=1
+    /// reason=aborted` and still printed `corpus 'xerj-search' searchable:
+    /// 1011181 records`, overstating the kept set by the 348 docs the re-walk
+    /// had just dropped.
+    #[test]
+    fn the_searchable_footer_is_never_printed_after_an_aborted_run() {
+        // clean exits keep the earned "searchable" footer and the next-hint
+        for rc in [0, 3] {
+            let lines = report_footer("kv", rc, "500");
+            assert!(
+                lines
+                    .iter()
+                    .any(|l| l == "corpus 'kv' searchable: 500 records"),
+                "rc {rc} is clean and earns the searchable footer: {lines:?}"
+            );
+            assert!(lines.iter().any(|l| l.starts_with("next: xerj code kv")));
+        }
+        // a salvaged/aborted run (any other exit) says so and NEVER prints the
+        // word "searchable" — the whole defect in one assertion
+        for rc in [1, 2, 134] {
+            let lines = report_footer("kv", rc, "500");
+            assert!(
+                lines.iter().all(|l| !l.contains("searchable")),
+                "an aborted run (exit {rc}) must not print the searchable footer: {lines:?}"
+            );
+            // it still tells the operator the kept store exists, names the
+            // exit, and points at the clean rebuild — honest, not silent
+            assert!(
+                lines.iter().any(|l| l.contains("indexed with errors")
+                    && l.contains(&format!("autoindex exit {rc}"))
+                    && l.contains("coverage is NOT guaranteed")),
+                "the aborted footer must name the fault: {lines:?}"
+            );
+            assert!(
+                lines.iter().any(|l| l.contains("--fresh")),
+                "the aborted footer points at the clean rebuild: {lines:?}"
+            );
+        }
+    }
+
+    /// #1173: the three honest claims a failed legacy run can make. The one
+    /// this exists to pin is the middle: a count the node never answered is
+    /// UNKNOWN, and "wrote no new records" asserted from it is a fabricated
+    /// absence — exactly what the overnight resume failure printed while the
+    /// run had written records the node was too unhealthy to count.
+    #[test]
+    fn a_failed_run_the_node_cannot_count_is_unknown_not_wrote_nothing() {
+        use super::LegacyFailureVerdict::*;
+        // grew → salvaged, with the pair the message quotes
+        assert!(matches!(
+            legacy_failure_verdict(Some(100), Some(250)),
+            Salvaged {
+                before: 100,
+                after: 250
+            }
+        ));
+        // known and did not grow → the absence claim is EARNED
+        assert!(matches!(
+            legacy_failure_verdict(Some(100), Some(100)),
+            WroteNothing {
+                before: 100,
+                after: 100
+            }
+        ));
+        assert!(matches!(
+            legacy_failure_verdict(Some(100), Some(40)),
+            WroteNothing {
+                before: 100,
+                after: 40
+            }
+        ));
+        // any UNKNOWN side forbids the absence claim — before, after, or both
+        assert!(matches!(
+            legacy_failure_verdict(None, Some(250)),
+            CountUnknown
+        ));
+        assert!(matches!(
+            legacy_failure_verdict(Some(100), None),
+            CountUnknown
+        ));
+        assert!(matches!(legacy_failure_verdict(None, None), CountUnknown));
+    }
+
     #[test]
     fn sibling_corpus_indices_are_never_touched_by_a_rebuild() {
         let root = corpus_root("battle");
@@ -2312,6 +3007,91 @@ mod tests {
         assert_eq!(st.index_prefix, None, "legacy state records no build");
         assert!(node.live("xc-kv-000"));
         assert!(node.ops.borrow().iter().all(|o| !o.starts_with("delete:")));
+    }
+
+    #[test]
+    fn a_legacy_run_retires_stamped_generations_it_cannot_reach() {
+        let root = corpus_root("kv");
+        let node = FakeNode::new();
+        // the measured #1136 shape: an unstamped legacy index beside stamped
+        // generations from builds the (missing/legacy) ledger does not name
+        node.indices
+            .borrow_mut()
+            .extend(["xc-kv-000", "xc-kv-b111-000", "xc-kv-b222-001"].map(String::from));
+
+        let auto = FakeAuto::ok(&node);
+        let rc = run_flow(&node, &auto, &|| T0, &root, "kv", false);
+
+        assert_eq!(rc, 0);
+        assert!(node.live("xc-kv-000"), "the legacy run's own index stays");
+        assert!(
+            !node.live("xc-kv-b111-000") && !node.live("xc-kv-b222-001"),
+            "stamped generations the ledger cannot reach are retired"
+        );
+        let ops = node.ops.borrow();
+        assert!(ops.contains(&"delete:xc-kv-b111-000".to_string()));
+        assert!(ops.contains(&"delete:xc-kv-b222-001".to_string()));
+        // one catalog-scope delete per distinct generation, not per index
+        assert!(ops.contains(&"catalog:xc-kv-b111".to_string()));
+        assert!(ops.contains(&"catalog:xc-kv-b222".to_string()));
+        assert_eq!(
+            ops.iter().filter(|o| o.starts_with("catalog:")).count(),
+            2,
+            "no catalog delete for the kept unstamped index"
+        );
+    }
+
+    #[test]
+    fn a_build_run_deletes_nothing_blind_when_the_node_never_answered_a_listing() {
+        let root = corpus_root("kv");
+        let node = FakeNode::new();
+        // a live generation the flow will never see: every listing fails
+        node.indices.borrow_mut().push("xc-kv-b1-000".into());
+        node.fail_listing.set(true);
+
+        let auto = FakeAuto::ok(&node);
+        let rc = run_flow(&node, &auto, &|| T0, &root, "kv", true);
+
+        assert_eq!(rc, 0, "build + verify still succeed");
+        assert!(
+            node.ops.borrow().iter().all(|o| !o.starts_with("delete:")),
+            "an unanswerable listing retires nothing — never delete blind"
+        );
+        assert!(
+            node.live("xc-kv-b1-000"),
+            "the unseen generation is kept, named in the epilogue instead"
+        );
+    }
+
+    #[test]
+    fn a_generation_whose_delete_fails_is_named_in_the_epilogue() {
+        let root = corpus_root("kv");
+        let old_prefix = record_build(&root, "kv", "b1", Some("/tmp/s1"));
+        let node = FakeNode::new();
+        node.indices.borrow_mut().push(format!("{old_prefix}-000"));
+        node.seed_count(&format!("{old_prefix}-*"), Count::Number(500));
+        // the node refuses to delete exactly the old generation's index
+        node.fail_delete
+            .borrow_mut()
+            .replace(format!("{old_prefix}-000"));
+
+        let auto = FakeAuto::ok(&node);
+        let rc = run_flow(&node, &auto, &|| T0 + 10, &root, "kv", true);
+
+        assert_eq!(rc, 0, "a failed retire does not fail the swap");
+        assert!(
+            node.live(&format!("{old_prefix}-000")),
+            "the refused delete leaves the old generation on the node"
+        );
+        // and the leftovers report re-listed the namespace to name it
+        assert!(
+            node.ops
+                .borrow()
+                .iter()
+                .filter(|o| o.starts_with("delete:"))
+                .count()
+                >= 1
+        );
     }
 
     // ── corpus add --from <pack> (harvested consumption) ────────────────────
@@ -2619,6 +3399,7 @@ precedence = ["a", "b"]
                 bytes: None,
                 review: None,
             }],
+            None,
         );
         let _h = code_home(home.path());
         let rc = run_corpus_add(&[

@@ -1,0 +1,22 @@
+{
+ "corpus": "sagargupta16--claude-cost-optimizer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-coding, anthropic, best-practices queries this for how Sagargupta16/claude-cost-optimizer implements it: Cut Claude Code costs with sourced levers -- prompt caching, model routing, Batch -- plus an installable skill, CLI tools, a cost calculator (selected work: tools, hooks, templates)",
+ "repos": [
+  {
+   "repo": "claude-cost-optimizer",
+   "url": "https://github.com/Sagargupta16/claude-cost-optimizer",
+   "sha": "5fad7b8866e4d69bf3891838b87eb745bc7f8f34",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 5fad7b8866e4: \"feat: add haiku 5.5 with prompt-length pricing, plus the october upda\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

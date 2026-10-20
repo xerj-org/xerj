@@ -1,0 +1,22 @@
+{
+ "corpus": "extsoft--elegant-git",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on git, gitflow, bash queries this for how extsoft/elegant-git implements it: Elegant Git is an assistant who carefully automates routine work with Git (selected work: internal/cli)",
+ "repos": [
+  {
+   "repo": "elegant-git",
+   "url": "https://github.com/extsoft/elegant-git",
+   "sha": "2b69ae74db49326423e5cb1a7ed6313c74503155",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 2b69ae74db49: \"Run a command in every linked repository\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

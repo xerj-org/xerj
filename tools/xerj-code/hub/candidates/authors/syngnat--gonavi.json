@@ -1,0 +1,22 @@
+{
+ "corpus": "syngnat--gonavi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on ai, cross-platform, database-client queries this for how Syngnat/GoNavi implements it: High-performance multi-data-source database client \u2014 ~30MB, AI & MCP ready, zero Electron bloat. | \u9ad8\u6027\u80fd\u591a\u6570\u636e\u6e90\u6570\u636e\u5e93\u5ba2\u6237\u7aef\uff1a\u7ea6 30MB\uff0cAI \u4e0e MCP \u5c31\u7eea\uff0c\u544a\u522b Elect (selected work: internal/ai)",
+ "repos": [
+  {
+   "repo": "GoNavi",
+   "url": "https://github.com/Syngnat/GoNavi",
+   "sha": "2dbed25ddfe7bc76ded6ecdf16cfa7f7c6408aa0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit 2dbed25ddfe7: \"\ud83d\udc1b fix(ai-chat): \u5185\u7f6e AI \u89e3\u91ca\u548c\u4f18\u5316 SQL \u65f6\u4e0d\u518d\u53ea\u590d\u8ff0\u539f\u53e5\uff0c\u4e5f\u4e0d\u518d\u7f16\u9020\u67e5\u8be2\u7ed3\u679c\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "le-patrice--granite-template",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Python queries this for how le-patrice/granite-template implements it: Production-grade, high-throughput Python API boilerplate built on Litestar, Granian (Rust ASGI), Advanced-Alchemy, and Valkey. Features zero (selected work: go-baseline, bench)",
+ "repos": [
+  {
+   "repo": "granite-template",
+   "url": "https://github.com/le-patrice/granite-template",
+   "sha": "326ae7796157eb97640ae7f0936a45a09e3cec59",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 326ae7796157: \"feat(bench): Phase 6 Go baseline parity slice and benchmark results\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

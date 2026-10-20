@@ -1,0 +1,22 @@
+{
+ "corpus": "the-hidden-canopy--cartographer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how The-Hidden-Canopy/Cartographer implements it: The-Hidden-Canopy/Cartographer (C++) (selected work: libs, tests, apps/desktop)",
+ "repos": [
+  {
+   "repo": "Cartographer",
+   "url": "https://github.com/The-Hidden-Canopy/Cartographer",
+   "sha": "3cb4f2b9f3059fad50382511ab9034b75bdb797d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 3cb4f2b9f305: \"Add bounded agent plan repair flow\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

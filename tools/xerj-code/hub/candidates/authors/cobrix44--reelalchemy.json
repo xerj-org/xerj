@@ -1,0 +1,22 @@
+{
+ "corpus": "cobrix44--reelalchemy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how CoBrIX44/ReelAlchemy implements it: Local-first AI automation pipeline built with n8n, Python, and Playwright to identify Instagram Reel music, retrieve lyrics, and generate AI (selected work: brag-output, the project root)",
+ "repos": [
+  {
+   "repo": "ReelAlchemy",
+   "url": "https://github.com/CoBrIX44/ReelAlchemy",
+   "sha": "3c2083600ac9f88f6c786a87021215e19405d351",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 3c2083600ac9: \"feat: add video generation scripts for creating launch videos\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

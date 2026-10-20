@@ -1,0 +1,22 @@
+{
+ "corpus": "bimbok--fyzenor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on cpp, cpp17, file-manager queries this for how Bimbok/fyzenor implements it: Fyzenor - C++ Based Filemanager (selected work: src)",
+ "repos": [
+  {
+   "repo": "fyzenor",
+   "url": "https://github.com/Bimbok/fyzenor",
+   "sha": "e5e33cf7cd46b1636242c63164978c29726936ce",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit e5e33cf7cd46: \"feat(grid): polish card width, smart file type badges, breadcrumb pat\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

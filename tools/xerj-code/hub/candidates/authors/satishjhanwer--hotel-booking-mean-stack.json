@@ -1,0 +1,22 @@
+{
+ "corpus": "satishjhanwer--hotel-booking-mean-stack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on angular, angular18, expressjs queries this for how satishjhanwer/hotel-booking-mean-stack implements it: MEAN stack to implement a simple hotel booking application (selected work: packages/backend, packages/frontend, the project root)",
+ "repos": [
+  {
+   "repo": "hotel-booking-mean-stack",
+   "url": "https://github.com/satishjhanwer/hotel-booking-mean-stack",
+   "sha": "0164367ecfab03a067327b3be255fed8ba80a6b0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 0164367ecfab: \"feat: add seed script and enhance error handling in admin component\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

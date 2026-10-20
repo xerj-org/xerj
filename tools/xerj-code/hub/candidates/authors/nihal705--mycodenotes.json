@@ -1,0 +1,22 @@
+{
+ "corpus": "nihal705--mycodenotes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dsa, fastapi, full-stack-web-development queries this for how nihal705/MyCodeNotes implements it: Personal Coding Knowledge Base - LeetCode solutions, DSA concepts, and practice problems with detailed notes (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "MyCodeNotes",
+   "url": "https://github.com/nihal705/MyCodeNotes",
+   "sha": "69b140a36db8f3c310195119fefe295de7284027",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 69b140a36db8: \"feat(frontend): add solved checkboxes and circular progress header to\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

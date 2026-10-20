@@ -1,0 +1,22 @@
+{
+ "corpus": "google--perfetto",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on C++ queries this for how google/perfetto implements it: Production-grade client-side tracing, profiling, and analysis for complex software systems (selected work: src/trace_redaction, the project root)",
+ "repos": [
+  {
+   "repo": "perfetto",
+   "url": "https://github.com/google/perfetto",
+   "sha": "477c28ae0653e446a16ced4fc3b489bfb3e357fa",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 477c28ae0653: \"Redactor trace size optimization: Add synthetic process adjacent cpu \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

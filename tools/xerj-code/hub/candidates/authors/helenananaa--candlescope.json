@@ -1,0 +1,22 @@
+{
+ "corpus": "helenananaa--candlescope",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how helenananaa/CandleScope implements it: helenananaa/CandleScope (Python) (selected work: backend, frontend, packages/candlescope-external-provider)",
+ "repos": [
+  {
+   "repo": "CandleScope",
+   "url": "https://github.com/helenananaa/CandleScope",
+   "sha": "5a8725c1f14db34acf543538113acb35caefe427",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 5a8725c1f14d: \"feat(backtest): connect external models while retaining Host executio\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

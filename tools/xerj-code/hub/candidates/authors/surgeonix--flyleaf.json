@@ -1,0 +1,22 @@
+{
+ "corpus": "surgeonix--flyleaf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ffmpeg, media-player, mediaplayer queries this for how SuRGeoNix/Flyleaf implements it: Media Player .NET Library for WinUI 3/ WPF/WinForms (based on FFmpeg/DirectX) (selected work: FlyleafLib)",
+ "repos": [
+  {
+   "repo": "Flyleaf",
+   "url": "https://github.com/SuRGeoNix/Flyleaf",
+   "sha": "38c33a0c6949225413b00a20e249524a6a740bf9",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 38c33a0c6949: \"Solution: Shaders cleanup\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

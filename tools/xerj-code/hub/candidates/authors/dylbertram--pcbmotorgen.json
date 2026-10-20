@@ -1,0 +1,22 @@
+{
+ "corpus": "dylbertram--pcbmotorgen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how dylbertram/pcbmotorgen implements it: A standalone tool for PCB motor design. Configure the magnets and PCB constraints, set power targets, runs physics simulations, and export t (selected work: app/desktop, crates/pcbmotorgen-simulation, crates/pcbmotorgen-export)",
+ "repos": [
+  {
+   "repo": "pcbmotorgen",
+   "url": "https://github.com/dylbertram/pcbmotorgen",
+   "sha": "8a11915086e5c67e69687fe49a70268238e987d0",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 8a11915086e5: \"Support imported CAD geometry in KiCad export, DRC and simulation\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

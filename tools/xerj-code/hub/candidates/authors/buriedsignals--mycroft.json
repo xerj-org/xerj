@@ -1,0 +1,22 @@
+{
+ "corpus": "buriedsignals--mycroft",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how buriedsignals/mycroft implements it: Goose Extension Pack for investigative journalists \u2014 open-weight, ZDR, local-capable (selected work: tests, scripts, tools)",
+ "repos": [
+  {
+   "repo": "mycroft",
+   "url": "https://github.com/buriedsignals/mycroft",
+   "sha": "5b0bc4bd049ca0dabb74b090107fac953db66e08",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 5b0bc4bd049c: \"Mycroft: honor acquisition selection and preserve staged workflow upd\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

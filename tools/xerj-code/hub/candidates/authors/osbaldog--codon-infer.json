@@ -1,0 +1,22 @@
+{
+ "corpus": "osbaldog--codon-infer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how OsbaldoG/codon-infer implements it: OsbaldoG/codon-infer (Rust) (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "codon-infer",
+   "url": "https://github.com/OsbaldoG/codon-infer",
+   "sha": "0a68f33ac361485cee484d2f2ec1530a19abb94c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 0a68f33ac361: \"feat(v1.8.0): integrate Zero-Trunk 3D protein folding (STRUCT-2), PDB\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

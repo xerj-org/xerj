@@ -1,0 +1,22 @@
+{
+ "corpus": "raiken-mf--robrowser-docker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Shell queries this for how raiken-mf/robrowser_docker implements it: Complete Docker & Kubernetes orchestration for Ragnarok Online. Features rAthena, roBrowser (HTML5 Web Client), wsProxy, and MariaDB Operato (selected work: deploy, scripts)",
+ "repos": [
+  {
+   "repo": "robrowser_docker",
+   "url": "https://github.com/raiken-mf/robrowser_docker",
+   "sha": "843f833200ac9c9742a2367d313c61f571fc5e45",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 843f833200ac: \"fix(k8s): separate Kustomize manifests from env templates\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "raptortwentyone--anabolic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on dpc-latency, egui, etw queries this for how RaptorTwentyOne/Anabolic implements it: Task Manager on steroids: a Windows task manager that stays responsive under load and shows who is doing what, and why. Kernel tracing, stut (selected work: crates/anabolic, crates/anabolic-core)",
+ "repos": [
+  {
+   "repo": "Anabolic",
+   "url": "https://github.com/RaptorTwentyOne/Anabolic",
+   "sha": "42cae1f3525edd02bc93dbccb9cdad114fe49724",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 42cae1f3525e: \"MCP server: what Anabolic sees and does, for AI assistants\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

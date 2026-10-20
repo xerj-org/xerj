@@ -1,0 +1,22 @@
+{
+ "corpus": "1amsheldon--mail-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on codex, email, imap queries this for how 1amSheldon/mail-mcp implements it: Email MCP server for Codex and Claude with IMAP, SMTP, Apple Mail, Microsoft, and Mailtrap (selected work: src/security, src/providers, src/utils)",
+ "repos": [
+  {
+   "repo": "mail-mcp",
+   "url": "https://github.com/1amSheldon/mail-mcp",
+   "sha": "9444860f19f504ba32edb06ec4bdae95c65eb7b9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 9444860f19f5: \"fix(zimbra): address filter, credential cleanup and journal review fi\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "zumerlab--snapdom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on screenshot, dom, dom-manipulation queries this for how zumerlab/snapdom implements it: High-performance engine for capturing, modifying, and converting DOM elements into any format (selected work: src/core, packages/plugins, src/modules)",
+ "repos": [
+  {
+   "repo": "snapdom",
+   "url": "https://github.com/zumerlab/snapdom",
+   "sha": "bbde42f8dad31b523b64b2f6ca89adbb17b2245a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit bbde42f8dad3: \"fix: one [SnapDOM] prefix and plain-language console messages\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "galaxyhaze--zith-lang",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ast, compiler, cpp queries this for how GalaxyHaze/Zith-Lang implements it: Zith is a new system programming languages focused on expressiveness & readability (selected work: src/cli, tests, src/vm)",
+ "repos": [
+  {
+   "repo": "Zith-Lang",
+   "url": "https://github.com/GalaxyHaze/Zith-Lang",
+   "sha": "0ccc7639824f52ba99a1563161ebf959b20217a3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 0ccc7639824f: \"feat(cli): VM v2 fallback for --virtual-machine and no-LLVM builds\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

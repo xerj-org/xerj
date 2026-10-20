@@ -1,0 +1,22 @@
+{
+ "corpus": "devmando--mandocode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, blazor, cli-agents queries this for how DevMando/MandoCode implements it: A .NET C# CLI Coding Agent powered by Ollama + MAF (Agent Framework) and RazorConsole. Run locally or in the cloud. Refactors code, proposes (selected work: src/MandoCode, tests)",
+ "repos": [
+  {
+   "repo": "MandoCode",
+   "url": "https://github.com/DevMando/MandoCode",
+   "sha": "c41575602d042707f6d57e93d6fa4fdf5ba1dc28",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit c41575602d04: \"Improve CLI prompt editing, clipboard attachments, and agent navigation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

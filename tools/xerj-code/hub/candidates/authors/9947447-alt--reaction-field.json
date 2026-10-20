@@ -1,0 +1,22 @@
+{
+ "corpus": "9947447-alt--reaction-field",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on board-game, card-game, chemistry queries this for how 9947447-alt/reaction-field implements it: An open-source chemistry-themed local two-player card game with tactical reactions and emergent strategy (selected work: src/game)",
+ "repos": [
+  {
+   "repo": "reaction-field",
+   "url": "https://github.com/9947447-alt/reaction-field",
+   "sha": "0956f19aefdab9819be0dc35dacaaa21de87a641",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit 0956f19aefda: \"feat(b2r1): complete redox whitelist sections 3.8-3.9 (#72)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -324,7 +324,7 @@ pub(crate) fn reconcile_plan(
                 } else {
                     sniffed.family.as_str()
                 };
-                classify_new(group, family, fields, &classification_candidates)
+                classify_new(group, family, fields, &file.rel, &classification_candidates)
                     .with_context(|| format!("project new file {}", file.rel))?
             };
             assignments.push((group.clone(), slug));
@@ -479,6 +479,7 @@ fn classify_new(
     group: &Option<String>,
     family: &str,
     fields: &HashMap<String, FieldAcc>,
+    rel: &str,
     datasets: &[PlanDataset],
 ) -> Result<String> {
     let mut candidates = Vec::new();
@@ -489,6 +490,7 @@ fn classify_new(
         if ensure_compatible(fields, dataset).is_err() {
             continue;
         }
+        let affinity = scope_affinity(dataset.scope.as_deref(), rel);
         let (intersection, union) = field_overlap(fields, &dataset.specs);
         let threshold_met = if dataset.family == "docs" {
             // A `docs` dataset's specs are the UNION of every document/config
@@ -525,13 +527,24 @@ fn classify_new(
             intersection * 10 >= union * 7 // 0.7
         };
         if threshold_met {
-            candidates.push((dataset, intersection, union));
+            candidates.push((dataset, intersection, union, affinity));
         }
     }
-    candidates.sort_by(|(left, li, lu), (right, ri, ru)| {
-        ratio_cmp(*ri, *ru, *li, *lu).then_with(|| left.slug.cmp(&right.slug))
+    // #1230: field overlap is the primary key, then repository scope. Two
+    // sibling forks produce byte-identical `docs` schemas, so a newly added
+    // file overlaps both equally and the schema ratio alone is a genuine tie —
+    // the refusal this used to raise. The file's own path resolves it: a
+    // dataset whose frozen scope *contains* the file (nearest `.git` ancestor
+    // wins, hence longest match) is the one a fresh plan would have folded it
+    // into. Scope only ever breaks a ratio tie; it can never promote a
+    // worse-overlapping dataset over a better one.
+    candidates.sort_by(|(left, li, lu, la), (right, ri, ru, ra)| {
+        ratio_cmp(*ri, *ru, *li, *lu)
+            .then_with(|| ra.cmp(la))
+            .then_with(|| left.slug.cmp(&right.slug))
     });
-    let Some((winner, winner_intersection, winner_union)) = candidates.first() else {
+    let Some((winner, winner_intersection, winner_union, winner_affinity)) = candidates.first()
+    else {
         anyhow::bail!(
             "no frozen dataset accepts family {family}, group {:?}, and fields {:?}; \
              this requires unsupported dataset/schema evolution (use a new prefix)",
@@ -539,14 +552,21 @@ fn classify_new(
             sorted_field_names(fields)
         );
     };
-    if let Some((runner_up, runner_up_intersection, runner_up_union)) = candidates.get(1) {
+    if let Some((runner_up, runner_up_intersection, runner_up_union, runner_up_affinity)) =
+        candidates.get(1)
+    {
+        // Ambiguous only when neither field overlap NOR repository scope can
+        // separate the top two. A pre-#1230 plan carries no scope (`None` for
+        // every dataset), so both affinities are `None`, they compare equal,
+        // and this fails closed exactly as before.
         anyhow::ensure!(
             ratio_cmp(
                 *winner_intersection,
                 *winner_union,
                 *runner_up_intersection,
                 *runner_up_union
-            ) != Ordering::Equal,
+            ) != Ordering::Equal
+                || winner_affinity != runner_up_affinity,
             "new file matches frozen datasets {} and {} equally for family {family}, group {:?}, \
              and fields {:?}; refusing ambiguous assignment (use a new prefix)",
             winner.slug,
@@ -556,6 +576,29 @@ fn classify_new(
         );
     }
     Ok(winner.slug.clone())
+}
+
+/// How strongly a frozen dataset's repository scope lays claim to a file at
+/// `rel` (#1230). `None` means the scope does not contain the file (or the
+/// plan predates scope recording and carries no scope at all); a `Some` value
+/// is the matched scope's byte length, so the *nearest* enclosing repository —
+/// the longest owning scope, which is what `compute_scopes` picks at genesis —
+/// ranks highest. The autoindex root (`Some("")`) owns every file but at the
+/// lowest precedence, below any nested repository. `Option<usize>` already
+/// orders `None < Some(0) < Some(len)`, which is exactly that precedence.
+fn scope_affinity(scope: Option<&str>, rel: &str) -> Option<usize> {
+    let scope = scope?;
+    if scope.is_empty() {
+        Some(0)
+    } else if rel == scope
+        || rel
+            .strip_prefix(scope)
+            .is_some_and(|rest| rest.starts_with('/'))
+    {
+        Some(scope.len())
+    } else {
+        None
+    }
 }
 
 fn field_overlap(fields: &HashMap<String, FieldAcc>, specs: &[FieldSpec]) -> (usize, usize) {
@@ -593,8 +636,15 @@ fn ensure_compatible(fields: &HashMap<String, FieldAcc>, dataset: &PlanDataset) 
             // (#580), because `symbols` is observed on every generation but was
             // pruned from the frozen schema. A field that DOES carry scalar
             // values yet is absent is still a real incompatibility.
+            //
+            // #1237: `impl` and `end_line` on symbol records were added after
+            // #579 froze the five symbol scalar fields; tolerate their absence
+            // on pre-#1237 frozen `docs`/`code` datasets so incremental runs
+            // over existing state dirs do not abort.
+            let pre_1237_symbol_field = (name == "impl" || name == "end_line")
+                && (dataset.family == "docs" || dataset.family == "code");
             anyhow::ensure!(
-                acc.n == 0,
+                acc.n == 0 || pre_1237_symbol_field,
                 "field {name} is absent from frozen dataset {}",
                 dataset.slug
             );
@@ -686,6 +736,7 @@ mod tests {
             time_field: None,
             semantic_field: None,
             text_analyzer: None,
+            scope: None,
             sampled_records: 1,
             file_count: 1,
         }
@@ -1036,6 +1087,152 @@ mod tests {
         assert!(
             !plan.files["code"].as_document,
             "a code document indexes through its own extractor, not as_document"
+        );
+    }
+
+    /// Two frozen scope-keyed `docs` datasets (one per nested repository) whose
+    /// genesis schemas are byte-identical. A code document is a group-less,
+    /// empty-key-field shape, so it routes to the `docs` family (see
+    /// `new_document_file_joins_the_docs_dataset_on_incremental`) and classifies
+    /// as a document.
+    fn two_fork_docs_scopes() -> Plan {
+        let docs = |slug: &str, scope: &str| PlanDataset {
+            family: "docs".into(),
+            scope: Some(scope.into()),
+            ..dataset(slug, vec![spec("title", "text"), spec("body", "text")])
+        };
+        Plan {
+            datasets: vec![
+                docs("bitcoin-core-docs", "bitcoin-core"),
+                docs("bitcoin-knots-docs", "bitcoin-knots"),
+            ],
+            ..Plan::default()
+        }
+    }
+
+    fn fork_doc_scan() -> FileScan {
+        // `title`/`body`: the docs shape, present in both forks' identical
+        // specs, so field overlap is a genuine tie. Empty key_fields + no group
+        // + family code -> a NEW document that routes to the `docs` family.
+        let fields = HashMap::from([
+            ("title".into(), acc(&[json!("adjacent.ts")])),
+            (
+                "body".into(),
+                acc(&[json!("export const adjacent = true;")]),
+            ),
+        ]);
+        let mut scan = scan(fields);
+        scan.sniffed.as_mut().unwrap().family = Family::Code;
+        scan
+    }
+
+    /// #1230: adding a file inside one of several sibling repositories with
+    /// matching schemas must route to THAT repository's frozen `docs` dataset,
+    /// not abort the whole run as an ambiguous assignment. The file's path
+    /// lands it under exactly one frozen scope, which breaks the field-overlap
+    /// tie the identical fork schemas create.
+    #[test]
+    fn new_file_in_a_fork_joins_its_own_repository_scope_not_abort() {
+        let previous = two_fork_docs_scopes();
+        let plan = reconcile_plan(
+            &inventory("bitcoin-core/adjacent.ts", "unix:a1", "core-add"),
+            &previous,
+            vec![fork_doc_scan()],
+            50,
+        )
+        .expect("an adjacent file inside bitcoin-core must not abort the run");
+        assert_eq!(
+            plan.files["core-add"].assignments,
+            vec![(None, "bitcoin-core-docs".into())],
+            "a file under bitcoin-core/ must join bitcoin-core-docs, not its sibling fork"
+        );
+
+        // The sibling repository resolves symmetrically.
+        let plan = reconcile_plan(
+            &inventory("bitcoin-knots/adjacent.ts", "unix:a2", "knots-add"),
+            &previous,
+            vec![fork_doc_scan()],
+            50,
+        )
+        .expect("an adjacent file inside bitcoin-knots must not abort the run");
+        assert_eq!(
+            plan.files["knots-add"].assignments,
+            vec![(None, "bitcoin-knots-docs".into())],
+        );
+    }
+
+    /// The scope tiebreak only ever breaks a field-overlap TIE; it never
+    /// overrides a dataset that overlaps the file better. A file under
+    /// bitcoin-knots whose fields overlap bitcoin-core-docs strictly more still
+    /// joins bitcoin-core-docs.
+    #[test]
+    fn scope_never_overrides_a_strictly_better_field_overlap() {
+        let core = PlanDataset {
+            family: "jsonl".into(),
+            scope: Some("bitcoin-core".into()),
+            ..dataset(
+                "bitcoin-core-rows",
+                vec![spec("id", "long"), spec("body", "text")],
+            )
+        };
+        let knots = PlanDataset {
+            family: "jsonl".into(),
+            scope: Some("bitcoin-knots".into()),
+            ..dataset("bitcoin-knots-rows", vec![spec("id", "long")])
+        };
+        let previous = Plan {
+            datasets: vec![core, knots],
+            ..Plan::default()
+        };
+        // {id, body}: a perfect overlap with bitcoin-core-rows, a partial one
+        // with bitcoin-knots-rows — even though the file sits under knots.
+        let fields = HashMap::from([
+            ("id".into(), acc(&[json!(7)])),
+            ("body".into(), acc(&[json!("hello world")])),
+        ]);
+        let plan = reconcile_plan(
+            &inventory("bitcoin-knots/rows.jsonl", "unix:a3", "row-add"),
+            &previous,
+            vec![scan(fields)],
+            50,
+        )
+        .unwrap();
+        assert_eq!(
+            plan.files["row-add"].assignments,
+            vec![(None, "bitcoin-core-rows".into())],
+            "field overlap is primary; scope only breaks a genuine tie"
+        );
+    }
+
+    /// A plan frozen before #1230 carries no scope (`None` for every dataset),
+    /// so equal field overlap stays genuinely ambiguous and still fails closed —
+    /// the fix is additive, never a silent change for legacy state dirs.
+    #[test]
+    fn legacy_plan_without_scope_still_fails_closed_on_an_equal_tie() {
+        let previous = Plan {
+            datasets: vec![
+                PlanDataset {
+                    family: "docs".into(),
+                    ..dataset("z-docs", vec![spec("title", "text"), spec("body", "text")])
+                },
+                PlanDataset {
+                    family: "docs".into(),
+                    ..dataset("a-docs", vec![spec("title", "text"), spec("body", "text")])
+                },
+            ],
+            ..Plan::default()
+        };
+        let error = reconcile_plan(
+            &inventory("bitcoin-core/adjacent.ts", "unix:a4", "legacy-add"),
+            &previous,
+            vec![fork_doc_scan()],
+            50,
+        )
+        .unwrap_err();
+        let message = format!("{error:#}");
+        assert!(
+            message.contains("refusing ambiguous assignment"),
+            "{message}"
         );
     }
 

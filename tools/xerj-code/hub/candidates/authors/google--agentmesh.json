@@ -1,0 +1,22 @@
+{
+ "corpus": "google--agentmesh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, p2p-network, network-security queries this for how google/agentmesh implements it: Agent Mesh (selected work: sdk)",
+ "repos": [
+  {
+   "repo": "agentmesh",
+   "url": "https://github.com/google/agentmesh",
+   "sha": "5ad9e979d98130e120f2871ff775c2af783ce450",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 5ad9e979d981: \"sdk: rewrite the card of an agent behind a node for the mesh\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

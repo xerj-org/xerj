@@ -1,0 +1,22 @@
+{
+ "corpus": "coelhomarcus--linkord",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how coelhomarcus/linkord implements it: Self-hosted chat app for messaging, voice & video calls, and screen sharing (selected work: web)",
+ "repos": [
+  {
+   "repo": "linkord",
+   "url": "https://github.com/coelhomarcus/linkord",
+   "sha": "460a73a66331f3c86b3e32fd6fa9f533785f693a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 460a73a66331: \"refactor(web): replace the beUI sidebar and drawer with our own\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

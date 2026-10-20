@@ -1,0 +1,22 @@
+{
+ "corpus": "wuisabel-gif--memwhale",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cli, command-line, debugging queries this for how wuisabel-gif/MemWhale implements it: Persistent, local memory for developers and their coding agents. Records commands, output, errors, and the fixes that worked into SQLite and (selected work: crates/mw-cli, crates/memorywhale-core, src)",
+ "repos": [
+  {
+   "repo": "MemWhale",
+   "url": "https://github.com/wuisabel-gif/MemWhale",
+   "sha": "8233e56c9c28212c0dcf9c59203e9f4d03b21faa",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 8233e56c9c28: \"feat(integrations): capture Codex commands and add proactive recall (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

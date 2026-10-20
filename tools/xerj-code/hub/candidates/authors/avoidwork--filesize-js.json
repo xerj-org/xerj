@@ -1,0 +1,22 @@
+{
+ "corpus": "avoidwork--filesize-js",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on filesize, file, filesystem queries this for how avoidwork/filesize.js implements it: A lightweight, high-performance file size utility that converts bytes to human-readable strings. Zero dependencies. 100% test coverage (selected work: src, tests, openspec)",
+ "repos": [
+  {
+   "repo": "filesize.js",
+   "url": "https://github.com/avoidwork/filesize.js",
+   "sha": "ece1a832dd0514c3ecebcbcc27aa8e8505587b29",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit ece1a832dd05: \"fix: preserve BigInt precision above Number.MAX_SAFE_INTEGER (#355)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

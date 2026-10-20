@@ -1,0 +1,22 @@
+{
+ "corpus": "memengine--memory-api",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, ai-agents, ai-governance queries this for how memengine/memory-api implements it: The governed context layer for production AI agents (selected work: tests, api, sdk)",
+ "repos": [
+  {
+   "repo": "memory-api",
+   "url": "https://github.com/memengine/memory-api",
+   "sha": "480525b6fc5c3f237ce991eae1455b3de1b2dfdb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 480525b6fc5c: \"Discover declared preference keys without guessing application scope\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

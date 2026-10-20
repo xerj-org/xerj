@@ -1,0 +1,22 @@
+{
+ "corpus": "tejas-parjane--business-intelligent-rag-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on business-intelligence, fastapi, generative-ai queries this for how tejas-parjane/business-intelligent-rag-agent implements it: Applied-AI BI agent (complements core ML work): evidence-first RAG with LangChain, governed SQL, citations, evaluation, FastAPI (selected work: eval, app, tests)",
+ "repos": [
+  {
+   "repo": "business-intelligent-rag-agent",
+   "url": "https://github.com/tejas-parjane/business-intelligent-rag-agent",
+   "sha": "24dd48ec4623b3e6b1db8cc138ef15dc146f590f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 24dd48ec4623: \"RAG eval harness (12 QA cases, recall/coverage/abstention/latency) + \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

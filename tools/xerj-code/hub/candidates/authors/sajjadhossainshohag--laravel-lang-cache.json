@@ -1,0 +1,22 @@
+{
+ "corpus": "sajjadhossainshohag--laravel-lang-cache",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cache, i18n, laravel queries this for how sajjadhossainshohag/laravel-lang-cache implements it: Make your Laravel translations load faster by caching them, like config and routes. Up to 1,600 times faster with OPcache. Works with Larave (selected work: tests, src, benchmark)",
+ "repos": [
+  {
+   "repo": "laravel-lang-cache",
+   "url": "https://github.com/sajjadhossainshohag/laravel-lang-cache",
+   "sha": "7553c14c128511e2ab925a1488d97f953a35aad7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 7553c14c1285: \"Cache each locale in its own file, with a serialized copy for when OP\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

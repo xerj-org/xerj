@@ -1,0 +1,22 @@
+{
+ "corpus": "hiprel-group--vericontest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how HIPREL-Group/VeriContest implements it: [NeurIPS 2026 E&D] VeriContest is a large-scale competitive-programming benchmark for verifiable code generation in Rust. It provides expert (selected work: benchmark)",
+ "repos": [
+  {
+   "repo": "VeriContest",
+   "url": "https://github.com/HIPREL-Group/VeriContest",
+   "sha": "2578227514cdd625b1d3f8086c82b9f075ed5432",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 2578227514cd: \"fix code issues with lc377 and lc643\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

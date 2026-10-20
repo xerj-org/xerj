@@ -1,0 +1,22 @@
+{
+ "corpus": "kuddev--pebrel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-cli, claude-code, codex queries this for how Kuddev/pebrel implements it: AI-native, GPU-accelerated terminal emulator for Windows with SSH, persistent sessions, split panes, and first-class AI CLI workflows (selected work: nebula_app, the project root)",
+ "repos": [
+  {
+   "repo": "pebrel",
+   "url": "https://github.com/Kuddev/pebrel",
+   "sha": "33479963e285b25cc9d27ae418d2bb72c53ccc76",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 33479963e285: \"Connect terminal effects to native Windows, Vulkan and Metal backends\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

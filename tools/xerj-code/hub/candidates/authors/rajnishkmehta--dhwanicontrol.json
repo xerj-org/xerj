@@ -1,0 +1,22 @@
+{
+ "corpus": "rajnishkmehta--dhwanicontrol",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on accessibility, android, android-app queries this for how RajnishKMehta/DhwaniControl implements it: DhwaniControl is an Android utility designed to restore volume control functionality for devices with broken or unresponsive physical volume (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "DhwaniControl",
+   "url": "https://github.com/RajnishKMehta/DhwaniControl",
+   "sha": "ebf4c5b59f3a1a77bbeaea1fdb1224a3bb97eb80",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit ebf4c5b59f3a: \"fix: address floating button and edge swipe audit findings\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

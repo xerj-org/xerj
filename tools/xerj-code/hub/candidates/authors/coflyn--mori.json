@@ -1,0 +1,22 @@
+{
+ "corpus": "coflyn--mori",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on capacitor, downloader, mori queries this for how coflyn/Mori implements it: Client-side downloader app built with Capacitor and Tauri (selected work: public)",
+ "repos": [
+  {
+   "repo": "Mori",
+   "url": "https://github.com/coflyn/Mori",
+   "sha": "204af76d02765fee2251e0b604ba6512f7427868",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 204af76d0276: \"feat(gallery): add local media gallery page (#16)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

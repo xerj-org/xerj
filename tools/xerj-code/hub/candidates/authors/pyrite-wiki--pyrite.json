@@ -1,0 +1,22 @@
+{
+ "corpus": "pyrite-wiki--pyrite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, cli, git queries this for how pyrite-wiki/pyrite implements it: A second brain for you, your agents, and your teams. Knowledge-as-Code: markdown + YAML in git, schema-validated, with semantic search and a (selected work: extensions)",
+ "repos": [
+  {
+   "repo": "pyrite",
+   "url": "https://github.com/pyrite-wiki/pyrite",
+   "sha": "2817f28953334b434e4bb2d6e49438157f3521c2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 2817f2895333: \"feat(mcp): page cascade_network and investigation_network in both dir\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

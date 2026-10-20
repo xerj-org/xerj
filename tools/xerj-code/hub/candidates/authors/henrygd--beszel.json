@@ -1,0 +1,22 @@
+{
+ "corpus": "henrygd--beszel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on homelab, monitoring, self-hosted queries this for how henrygd/beszel implements it: Lightweight server monitoring with historical data, docker stats, and alerts (selected work: internal/alerts, internal/migrations, internal/hub)",
+ "repos": [
+  {
+   "repo": "beszel",
+   "url": "https://github.com/henrygd/beszel",
+   "sha": "e984ee12081f4e112601c3f718c9d81c112fe718",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit e984ee12081f: \"feat(alerts): add TLS certificate expiry alert for network monitors (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

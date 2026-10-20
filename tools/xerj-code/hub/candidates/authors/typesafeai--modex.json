@@ -1,0 +1,22 @@
+{
+ "corpus": "typesafeai--modex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how TypeSafeAI/modex implements it: Modex \u2014 an open, Codex-App-style desktop coding agent (Electron + React) with a CLI, on a shared TypeScript agent engine (selected work: apps/desktop)",
+ "repos": [
+  {
+   "repo": "modex",
+   "url": "https://github.com/TypeSafeAI/modex",
+   "sha": "f8f75125a6c0276b295fbab5ea591d59a403a716",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit f8f75125a6c0: \"Discover coding CLIs and validate executable overrides (#114)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

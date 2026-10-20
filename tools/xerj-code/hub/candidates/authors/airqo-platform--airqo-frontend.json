@@ -1,0 +1,22 @@
+{
+ "corpus": "airqo-platform--airqo-frontend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dashboard, frontend, hacktoberfest queries this for how airqo-platform/AirQo-frontend implements it: This repository contains the frontend applications for the AirQo platform (selected work: src/nexus)",
+ "repos": [
+  {
+   "repo": "AirQo-frontend",
+   "url": "https://github.com/airqo-platform/AirQo-frontend",
+   "sha": "fd585a8ecdb35c3184ed5591e93dbe9a65343bcf",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit fd585a8ecdb3: \"feat: implement scoped heatmap functionality and enhance map componen\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

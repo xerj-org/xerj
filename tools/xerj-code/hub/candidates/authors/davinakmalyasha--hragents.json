@@ -1,0 +1,22 @@
+{
+ "corpus": "davinakmalyasha--hragents",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, applicant-tracking-system, fastapi queries this for how davinakmalyasha/HRAgents implements it: Open-source virtual HR team: LLM agents extract, deterministic code decides, humans gate every consequential decision (Apache-2.0) (selected work: tests, src/hr_agents)",
+ "repos": [
+  {
+   "repo": "HRAgents",
+   "url": "https://github.com/davinakmalyasha/HRAgents",
+   "sha": "b7fcc45d64bc10cf773fbc7a089be9f00154b67e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit b7fcc45d64bc: \"feat(db): put the model's invariants under the database (migration 0023)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

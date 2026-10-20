@@ -1,0 +1,22 @@
+{
+ "corpus": "nyaomaru--changelog-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ai, changelog, typescript queries this for how nyaomaru/changelog-bot implements it: Automatic create changelog with AI. \ud83e\udd16 It provides CLI and github actions. \ud83d\ude80 https://www.npmjs.com/package/@nyaomaru/changelog-bot (selected work: src/providers, src/evaluation, tests)",
+ "repos": [
+  {
+   "repo": "changelog-bot",
+   "url": "https://github.com/nyaomaru/changelog-bot",
+   "sha": "a867301bc413a09e781d7ed055086c365ac56c2b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit a867301bc413: \"refactor(why): share evaluation usage accounting\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

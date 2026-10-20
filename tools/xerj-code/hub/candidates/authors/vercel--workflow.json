@@ -1,0 +1,22 @@
+{
+ "corpus": "vercel--workflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, durable-execution, orchestration queries this for how vercel/workflow implements it: Workflow SDK: Build durable, reliable, and observable apps and AI Agents in TypeScript (selected work: packages/world-vercel)",
+ "repos": [
+  {
+   "repo": "workflow",
+   "url": "https://github.com/vercel/workflow",
+   "sha": "02993a26cbabec8f00df1f8a3a758158d095008a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 02993a26cbab: \"[world-vercel] Fix HTTP stream append retries after 429 (#4828)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

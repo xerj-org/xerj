@@ -1,0 +1,22 @@
+{
+ "corpus": "avalonixplayer--avalonix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on audio-player, rust-lang, tauri queries this for how AvalonixPlayer/Avalonix implements it: Avalonix is a cross-platform player (selected work: src/src, src)",
+ "repos": [
+  {
+   "repo": "Avalonix",
+   "url": "https://github.com/AvalonixPlayer/Avalonix",
+   "sha": "452dec253284ab150fbbbe463fd3d8d751122a54",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 452dec253284: \"feat(playlsits, queue(just started))\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

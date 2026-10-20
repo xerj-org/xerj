@@ -1,0 +1,22 @@
+{
+ "corpus": "unnipv--pokemon-slowdown",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bubbletea, golang, pokemon queries this for how unnipv/pokemon-slowdown implements it: A calm, keyboard-first terminal client for Pok\u00e9mon Showdown (selected work: internal/battle, internal/tui)",
+ "repos": [
+  {
+   "repo": "pokemon-slowdown",
+   "url": "https://github.com/unnipv/pokemon-slowdown",
+   "sha": "8d0b958cfd0ad7a346a01c2e6a9f7d5b6393c622",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 8d0b958cfd0a: \"Show Substitute clearly in the field and log\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

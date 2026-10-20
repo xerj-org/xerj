@@ -1,0 +1,22 @@
+{
+ "corpus": "juliancoy--codecollective",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on HTML queries this for how juliancoy/CodeCollective implements it: Official CodeCollective HTML/CSS/JS site (selected work: baltimore, the project root, tests)",
+ "repos": [
+  {
+   "repo": "CodeCollective",
+   "url": "https://github.com/juliancoy/CodeCollective",
+   "sha": "c50938a4f1b4dfad6c6051654d1e43835bb28e87",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit c50938a4f1b4: \"Expand Baltimore tech event coverage after organizer web audit\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

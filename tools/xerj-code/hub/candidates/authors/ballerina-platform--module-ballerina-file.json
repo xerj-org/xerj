@@ -1,0 +1,22 @@
+{
+ "corpus": "ballerina-platform--module-ballerina-file",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on hacktoberfest, ballerina, directory queries this for how ballerina-platform/module-ballerina-file implements it: Ballerina File Module (selected work: compiler-plugin, native, compiler-plugin-test)",
+ "repos": [
+  {
+   "repo": "module-ballerina-file",
+   "url": "https://github.com/ballerina-platform/module-ballerina-file",
+   "sha": "095b198e2223b7fdc572639e17852dfacd2e354d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 095b198e2223: \"Address review findings on post-processing actions\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

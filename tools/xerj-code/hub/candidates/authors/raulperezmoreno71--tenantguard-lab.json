@@ -1,0 +1,22 @@
+{
+ "corpus": "raulperezmoreno71--tenantguard-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on docker-compose, java, jpa-hibernate queries this for how raulperezmoreno71/tenantguard-lab implements it: Java & Spring Boot multi-tenant API featuring OWASP security labs, vulnerable branches, Burp Suite exploits, and regression tests (selected work: src/main, src/test, the project root)",
+ "repos": [
+  {
+   "repo": "tenantguard-lab",
+   "url": "https://github.com/raulperezmoreno71/tenantguard-lab",
+   "sha": "0ad6019101233cba13c0039130f1e0f1a444e1d8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 0ad601910123: \"feat(lab): add a reproducible Docker security lab\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

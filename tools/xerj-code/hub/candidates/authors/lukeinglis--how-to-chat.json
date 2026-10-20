@@ -1,0 +1,22 @@
+{
+ "corpus": "lukeinglis--how-to-chat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how lukeinglis/How-To-Chat implements it: Tools to help non technical users use LLMs (selected work: eval, extension, data)",
+ "repos": [
+  {
+   "repo": "How-To-Chat",
+   "url": "https://github.com/lukeinglis/How-To-Chat",
+   "sha": "4c9577663d198e510ca11f46d91a2cb0a6a57771",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 4c9577663d19: \"Raise cue 7 precision with a claim guard on \"everyone knows\" (#41)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

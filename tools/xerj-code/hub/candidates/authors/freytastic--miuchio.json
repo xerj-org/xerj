@@ -1,0 +1,22 @@
+{
+ "corpus": "freytastic--miuchio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how freytastic/miuchio implements it: Fully e2ee collaborative album sharing app (selected work: client)",
+ "repos": [
+  {
+   "repo": "miuchio",
+   "url": "https://github.com/freytastic/miuchio",
+   "sha": "3b6e23e0c046e150f0a6c7611cb4cb5c1325d562",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 3b6e23e0c046: \"feat(album): select and delete photos, rename albums and manage people\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

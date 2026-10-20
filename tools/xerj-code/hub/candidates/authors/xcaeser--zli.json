@@ -1,0 +1,22 @@
+{
+ "corpus": "xcaeser--zli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, zig, zig-package queries this for how xcaeser/zli implements it: \ud83d\udcdf Build ergonomic, high-performance command-line tools (CLI) with zig (selected work: src, tests, src/lib)",
+ "repos": [
+  {
+   "repo": "zli",
+   "url": "https://github.com/xcaeser/zli",
+   "sha": "1093fddf1e5b3f806e4114b141f10179c6d1f094",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 1093fddf1e5b: \"Clean up the parser and help, fix 14 bugs, and simplify the spinner API\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

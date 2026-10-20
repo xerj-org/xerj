@@ -1,0 +1,22 @@
+{
+ "corpus": "0x0allenace--email-conversation-integrity-detection",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on bec-detection, blue-team, business-email-compromise queries this for how 0x0allenace/email-conversation-integrity-detection implements it: Detect suspicious business email impersonation, conversation hijacking, and behavioral anomalies with explainable Blue Team detection rules  (selected work: tests, src/ml, scripts)",
+ "repos": [
+  {
+   "repo": "email-conversation-integrity-detection",
+   "url": "https://github.com/0x0allenace/email-conversation-integrity-detection",
+   "sha": "ea7abf081fe6ca3b3684f78370fa2daa6a8defbb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ea7abf081fe6: \"feat(ml): add reproducible evaluation pipeline\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

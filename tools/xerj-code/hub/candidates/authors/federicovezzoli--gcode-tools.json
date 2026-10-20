@@ -1,0 +1,22 @@
+{
+ "corpus": "federicovezzoli--gcode-tools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on G-code queries this for how federicovezzoli/gcode-tools implements it: G-code Tools (selected work: src/lib, src/components)",
+ "repos": [
+  {
+   "repo": "gcode-tools",
+   "url": "https://github.com/federicovezzoli/gcode-tools",
+   "sha": "85d9fddf7f27eb966c74b770be042d0bf3d72bb5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 85d9fddf7f27: \"feat: add drill-grid mode with parameters and G-code generation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "kenneth-cho-infosec--solipsism",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android-application, android-package, browser queries this for how Kenneth-Cho-InfoSec/Solipsism implements it: Innovative Android browser. Built-in adblock, antivirus, servo & more (selected work: app/src, fdroid, app)",
+ "repos": [
+  {
+   "repo": "Solipsism",
+   "url": "https://github.com/Kenneth-Cho-InfoSec/Solipsism",
+   "sha": "ff82344988b3e783feddedaeb01d913c945fca85",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit ff82344988b3: \"Solipsism 9.3.1 (versionCode 160): self-updating adblock, in-app navi\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

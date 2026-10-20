@@ -1,0 +1,22 @@
+{
+ "corpus": "dymmond--ravyn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api, json, python queries this for how dymmond/ravyn implements it: Ravyn combines performance, type safety, and elegance. A next-generation async Python framework for APIs, microservices, and web application (selected work: tests, ravyn, the project root)",
+ "repos": [
+  {
+   "repo": "ravyn",
+   "url": "https://github.com/dymmond/ravyn",
+   "sha": "77c3ada0d13f7adce43667235eeffdb0575f5f10",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 77c3ada0d13f: \"fix: validate JWT audiences and preserve legacy async tests (#741)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

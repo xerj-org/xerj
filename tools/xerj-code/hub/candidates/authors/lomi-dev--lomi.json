@@ -1,0 +1,22 @@
+{
+ "corpus": "lomi-dev--lomi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, code-editor, desktop-app queries this for how lomi-dev/lomi implements it: Open-source desktop workspace for terminal-driven development (selected work: scripts, src/chat, src-tauri)",
+ "repos": [
+  {
+   "repo": "lomi",
+   "url": "https://github.com/lomi-dev/lomi",
+   "sha": "7b6c48a81bcbe9440dd0fe0845ff503830448410",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 7b6c48a81bcb: \"feat(chat): add custom api connections and platform checks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

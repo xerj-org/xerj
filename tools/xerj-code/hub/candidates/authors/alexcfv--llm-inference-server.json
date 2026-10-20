@@ -1,0 +1,22 @@
+{
+ "corpus": "alexcfv--llm-inference-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how alexcfv/llm-inference-server implements it: Self-hosted inference server for running multilingual text embeddings models locally (selected work: embedding_server, the project root)",
+ "repos": [
+  {
+   "repo": "llm-inference-server",
+   "url": "https://github.com/alexcfv/llm-inference-server",
+   "sha": "c18eaf83c44c64ea0bd16ccbe1636f6ce9d13e8a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit c18eaf83c44c: \"Add llm server\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "jakartaee--agentic-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, artificial-intelligence, jakartaee queries this for how jakartaee/agentic-ai implements it: Jakarta Agentic Artificial Intelligence (selected work: examples)",
+ "repos": [
+  {
+   "repo": "agentic-ai",
+   "url": "https://github.com/jakartaee/agentic-ai",
+   "sha": "b94c8787e983bae13162afde99a984b48818b88b",
+   "licence": "hint only: EPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "EPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b94c8787e983: \"Reshape customer-inquiry-intake as a single-agent pipeline\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

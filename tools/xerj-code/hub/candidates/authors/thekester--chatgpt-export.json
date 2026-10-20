@@ -1,0 +1,22 @@
+{
+ "corpus": "thekester--chatgpt-export",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how thekester/chatgpt-export implements it: Browser extension to export and archive ChatGPT conversations as Markdown, HTML, or ZIP, including images, files, sources, and conversation  (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "chatgpt-export",
+   "url": "https://github.com/thekester/chatgpt-export",
+   "sha": "c1906cabbd1bb2ada2499eed1a41ca7f84eeda41",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c1906cabbd1b: \"Fix citation source export and JEX rich content\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

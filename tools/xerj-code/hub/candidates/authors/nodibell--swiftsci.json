@@ -1,0 +1,22 @@
+{
+ "corpus": "nodibell--swiftsci",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on apple-silicon, data-science, dataframe queries this for how Nodibell/SwiftSci implements it: SwiftSci is a native, high-performance, modular data analysis and machine learning library for Swift (selected work: Sources, Tests)",
+ "repos": [
+  {
+   "repo": "SwiftSci",
+   "url": "https://github.com/Nodibell/SwiftSci",
+   "sha": "d839c7dd84cf1767c3ba1933d8a59ed25857b58c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit d839c7dd84cf: \"fix(ml,optimize): remediate DecisionTree, LinearRegression, GradientB\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

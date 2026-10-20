@@ -1,0 +1,22 @@
+{
+ "corpus": "agentmuxai--agentmux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how agentmuxai/agentmux implements it: Open-Source Agent Operating Environment Built for Getting Work Done (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "agentmux",
+   "url": "https://github.com/agentmuxai/agentmux",
+   "sha": "69702a43f6ee92ccf0d5c872484e9b125bb4f2d8",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 69702a43f6ee: \"feat(agent): right-click Paste in the Shell drawer + context-menu reg\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

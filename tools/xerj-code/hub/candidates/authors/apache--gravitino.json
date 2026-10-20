@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--gravitino",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on datalake, lakehouse, metadata queries this for how apache/gravitino implements it: World's most powerful open data catalog for building a high-performance, geo-distributed and federated metadata lake (selected work: server, core/src)",
+ "repos": [
+  {
+   "repo": "gravitino",
+   "url": "https://github.com/apache/gravitino",
+   "sha": "c732bfa5de7c1b58a21c086452a9f7cd83dccc4d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit c732bfa5de7c: \"[#12594] feat(server): Authorize Semantic Model REST and validate sou\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "paternogbc--cursos-swirl-br",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on R queries this for how paternogbc/cursos_swirl-Br implements it: Uma cole\u00e7\u00e3o de cursos interativos para o pacote do R swirl - Portugu\u00eas (selected work: Programacao_em_R)",
+ "repos": [
+  {
+   "repo": "cursos_swirl-Br",
+   "url": "https://github.com/paternogbc/cursos_swirl-Br",
+   "sha": "040102613e23b865d89145eb4371fca1f9c4f842",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 040102613e23: \"Tradu\u00e7\u00e3o: Programa\u00e7\u00e3o em R, li\u00e7\u00f5es lapply e sapply e vapply e tapply\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,59 @@
+setup:
+  - do:
+      indices.create:
+          index: qs_occur
+          body:
+              mappings:
+                  properties:
+                      t:
+                          type: text
+  - do:
+      bulk:
+          refresh: true
+          body:
+              - '{"index": {"_index": "qs_occur", "_id": "k"}}'
+              - '{"t": "kiwi"}'
+              - '{"index": {"_index": "qs_occur", "_id": "l"}}'
+              - '{"t": "lime"}'
+              - '{"index": {"_index": "qs_occur", "_id": "kl"}}'
+              - '{"t": "kiwi lime"}'
+              - '{"index": {"_index": "qs_occur", "_id": "lp"}}'
+              - '{"t": "lime plum"}'
+
+---
+"a negated clause excludes from the whole query under the default OR (#1299)":
+  # `kl` contains the excluded term; `l` and `lp` contain neither positive.
+  - do:
+      search:
+          index: qs_occur
+          body: { query: { query_string: { query: "kiwi -lime", default_field: "t" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "k" }
+
+  - do:
+      search:
+          index: qs_occur
+          body: { query: { query_string: { query: "kiwi NOT lime", default_field: "t" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "k" }
+
+---
+"+ makes a clause required under the default OR (#1299)":
+  - do:
+      search:
+          index: qs_occur
+          body: { query: { query_string: { query: "+kiwi lime", default_field: "t" } } }
+  # `lime` is optional: it does not admit `l` / `lp`, it only ranks `kl` first.
+  - match: { hits.total.value: 2 }
+  - match: { hits.hits.0._id: "kl" }
+  - match: { hits.hits.1._id: "k" }
+
+---
+"AND binds the clause before it, as in the classic parser (#1299)":
+  # `kiwi OR lime AND plum` is `kiwi +lime +plum` on ES 8.13.4.
+  - do:
+      search:
+          index: qs_occur
+          body: { query: { query_string: { query: "kiwi OR lime AND plum", default_field: "t" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "lp" }

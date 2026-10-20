@@ -1,0 +1,22 @@
+{
+ "corpus": "nocoldiz--hypernet-explorer-plugins",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how nocoldiz/hypernet-explorer-plugins implements it: nocoldiz/hypernet-explorer-plugins (JavaScript) (selected work: js, data)",
+ "repos": [
+  {
+   "repo": "hypernet-explorer-plugins",
+   "url": "https://github.com/nocoldiz/hypernet-explorer-plugins",
+   "sha": "19f2ea05b6dabad706b256ea27d768e1a0016601",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 19f2ea05b6da: \"0.8.4a\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

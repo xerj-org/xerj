@@ -1,0 +1,22 @@
+{
+ "corpus": "the-agenticflow--openflows",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, dev, lightning queries this for how The-AgenticFlow/openflows implements it: Autonomous AI Dev Team On Coder (selected work: crates/agent-nexus, crates/coder-client, crates/agent-vessel)",
+ "repos": [
+  {
+   "repo": "openflows",
+   "url": "https://github.com/The-AgenticFlow/openflows",
+   "sha": "f8e63ded6d72a8a632a8fe14ecbc491c8ff3f02f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit f8e63ded6d72: \"fix(controller): handle 410 gone and scan pr_opened tickets during re\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

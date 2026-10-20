@@ -1,0 +1,22 @@
+{
+ "corpus": "bahguta--bahguta-homelab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on esp32, esp32-c3, esp32-p4 queries this for how bahguta/bahguta-Homelab implements it: bahguta Homelab (selected work: spring, bahguta-display, the project root)",
+ "repos": [
+  {
+   "repo": "bahguta-Homelab",
+   "url": "https://github.com/bahguta/bahguta-Homelab",
+   "sha": "67a8f54b6c34f7b72d132f07fbec66ee27b56c5a",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 67a8f54b6c34: \"add token to doker commands\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

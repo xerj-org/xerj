@@ -1,0 +1,22 @@
+{
+ "corpus": "nikakogho--callerbridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C# queries this for how nikakogho/CallerBridge implements it: Two-way Linphone calls for Windows coding agents, with local speech recognition and agent setup guides (selected work: Caller, the project root)",
+ "repos": [
+  {
+   "repo": "CallerBridge",
+   "url": "https://github.com/nikakogho/CallerBridge",
+   "sha": "e60b54d183a6876e7eb382c7a84a52df363b64ec",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit e60b54d183a6: \"Support speech interruption and retain Whisper between call replies\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

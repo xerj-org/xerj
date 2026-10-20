@@ -1,0 +1,22 @@
+{
+ "corpus": "anos714--codevault",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on TypeScript queries this for how Anos714/CodeVault implements it: CodeVault is a centralized code vault built with the MERN stack. It helps developers stop rewriting the same logic by providing a secure pla (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "CodeVault",
+   "url": "https://github.com/Anos714/CodeVault",
+   "sha": "88bb61e45bcb3a9534caa3d8f292febefcdee8b8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 88bb61e45bcb: \"feat(frontend): public share and embeddable snippet routes with OG pr\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

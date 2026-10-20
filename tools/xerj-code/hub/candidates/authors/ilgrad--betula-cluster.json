@@ -1,0 +1,22 @@
+{
+ "corpus": "ilgrad--betula-cluster",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on birch, clustering, embeddings queries this for how ilgrad/betula-cluster implements it: Memory-bounded clustering for large embeddings and tabular streams: BETULA cluster features in a Rust core, then k-means / GMM / Ward / spec (selected work: src/clustering, src, tests)",
+ "repos": [
+  {
+   "repo": "betula-cluster",
+   "url": "https://github.com/ilgrad/betula-cluster",
+   "sha": "6847c12cc19974933a717c910afe297da329591b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 6847c12cc199: \"feat(community): Leiden passes via n_iterations and leiden_iterated\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

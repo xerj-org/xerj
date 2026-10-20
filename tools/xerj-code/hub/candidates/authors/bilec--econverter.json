@@ -1,0 +1,22 @@
+{
+ "corpus": "bilec--econverter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ebook-converter queries this for how bilec/econverter implements it: Android ebook converter \u2014 epub, mobi, azw3, docx and more formats. Wraps gryf/ebook-converter via Chaquopy. No Calibre GUI needed (selected work: app/src, the project root)",
+ "repos": [
+  {
+   "repo": "econverter",
+   "url": "https://github.com/bilec/econverter",
+   "sha": "36fdc1792aa3a0eacb0713f3e8ad7b86a8ff1fcb",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 36fdc1792aa3: \"feat: add conversion history and About dialog\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

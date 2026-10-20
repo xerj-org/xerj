@@ -1,0 +1,22 @@
+{
+ "corpus": "scau-computer-serving-team--cst-pilot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how SCAU-Computer-Serving-Team/cst-pilot implements it: SCAU-Computer-Serving-Team/cst-pilot (TypeScript) (selected work: agent)",
+ "repos": [
+  {
+   "repo": "cst-pilot",
+   "url": "https://github.com/SCAU-Computer-Serving-Team/cst-pilot",
+   "sha": "0230afb52af6828365be9b61b71ead94305442fa",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 0230afb52af6: \"python-environment-audit\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

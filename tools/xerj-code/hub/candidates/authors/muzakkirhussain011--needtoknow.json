@@ -1,0 +1,22 @@
+{
+ "corpus": "muzakkirhussain011--needtoknow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on access-control, authorization, langchain queries this for how muzakkirhussain011/needtoknow implements it: Permission-aware retrieval for RAG: every user gets only the chunks they are allowed to read. Works with any vector store, permission system (selected work: needtoknow, tests, the project root)",
+ "repos": [
+  {
+   "repo": "needtoknow",
+   "url": "https://github.com/muzakkirhussain011/needtoknow",
+   "sha": "3e5a52caf8989bca582d971529de33c6f07e2bd1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 3e5a52caf898: \"feat: permission-aware retriever core\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

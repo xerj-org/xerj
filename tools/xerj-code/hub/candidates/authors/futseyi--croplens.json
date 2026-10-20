@@ -1,0 +1,22 @@
+{
+ "corpus": "futseyi--croplens",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on agriculture, computer-vision, crop-disease queries this for how FuTseYi/CropLens implements it: AI-powered crop disease detection with YOLO and optional DeepSeek assistance, built with Vue 3, Spring Boot, and Flask (selected work: inference)",
+ "repos": [
+  {
+   "repo": "CropLens",
+   "url": "https://github.com/FuTseYi/CropLens",
+   "sha": "fefdad5d26d8d33b904b85a34b2626474621c3f4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit fefdad5d26d8: \"security: validate CropLens model paths and local media URLs (#7)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

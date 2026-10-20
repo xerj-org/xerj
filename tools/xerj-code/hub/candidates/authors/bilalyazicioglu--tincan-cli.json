@@ -1,0 +1,22 @@
+{
+ "corpus": "bilalyazicioglu--tincan-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on iroh, p2p, rust queries this for how bilalyazicioglu/tincan-cli implements it: Serverless peer-to-peer voice and text chat for your terminal. No accounts or central server. Peers connect directly over encrypted QUIC (selected work: src/ui)",
+ "repos": [
+  {
+   "repo": "tincan-cli",
+   "url": "https://github.com/bilalyazicioglu/tincan-cli",
+   "sha": "a3d9704b3845ff049932acfd88e325a4147005a0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit a3d9704b3845: \"feat(ui): the roster shows whose link is relayed or slow (#93)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

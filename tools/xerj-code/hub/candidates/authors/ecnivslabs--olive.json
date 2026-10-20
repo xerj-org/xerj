@@ -1,0 +1,22 @@
+{
+ "corpus": "ecnivslabs--olive",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on programming-language, olive, aot queries this for how ecnivslabs/olive implements it: The Dream Programming Language (selected work: std_lib)",
+ "repos": [
+  {
+   "repo": "olive",
+   "url": "https://github.com/ecnivslabs/olive",
+   "sha": "14e3cbf231501d0d9e32326bf7833929a83f24cc",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 14e3cbf23150: \"Harden runtime slabs, strings, async futures, and Python FFI\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

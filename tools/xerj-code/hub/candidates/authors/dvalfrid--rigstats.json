@@ -1,0 +1,22 @@
+{
+ "corpus": "dvalfrid--rigstats",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cpu, dashboard, gaming queries this for how dvalfrid/rigstats implements it: Hardware monitor & control center for Windows gaming PCs \u2014 live CPU/GPU telemetry on a second screen or game overlay, plus fan curves, power (selected work: sensor-sidecar, sensor-sidecar.Tests)",
+ "repos": [
+  {
+   "repo": "rigstats",
+   "url": "https://github.com/dvalfrid/rigstats",
+   "sha": "17f9236129a43e78a537428758354e5d1e651d67",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 17f9236129a4: \"feat(peripherals): battery of Logitech devices behind a Bolt or Unify\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "helixathu--agent-memory-and-coordination",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how HelixAthu/Agent-Memory-and-Coordination implements it: HelixAthu/Agent-Memory-and-Coordination (Python) (selected work: frontend, memory_core)",
+ "repos": [
+  {
+   "repo": "Agent-Memory-and-Coordination",
+   "url": "https://github.com/HelixAthu/Agent-Memory-and-Coordination",
+   "sha": "697984a13b744af549089c34b97a272d527881eb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 697984a13b74: \"feat(web): event reducer and sse hook with tests\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

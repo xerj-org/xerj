@@ -1,0 +1,22 @@
+{
+ "corpus": "michailremmele--dacha",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on game-engine, game, javascript queries this for how michailRemmele/dacha implements it: It is a data-driven game engine for web browsers. It allows you to develop your own game using web technologies (selected work: packages/dacha)",
+ "repos": [
+  {
+   "repo": "dacha",
+   "url": "https://github.com/michailRemmele/dacha",
+   "sha": "2301bab1287e662f72c0cd8aa4041f8237c7bfa9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 2301bab1287e: \"remove constructors for components where it's possible\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

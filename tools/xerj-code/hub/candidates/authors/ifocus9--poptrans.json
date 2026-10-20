@@ -1,0 +1,22 @@
+{
+ "corpus": "ifocus9--poptrans",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on llama-cpp, offline, translation queries this for how ifocus9/PopTrans implements it: PopTrans \u2014 Windows \u672c\u5730\u79bb\u7ebf\u7ffb\u8bd1\u5de5\u5177\u3002\u9009\u4e2d\u6587\u672c / OCR \u622a\u56fe\u540e\u4e00\u952e\u7ffb\u8bd1\uff0c\u57fa\u4e8e Go + Wails + llama.cpp \u7eaf CPU \u63a8\u7406\uff0c\u65e0\u9700 GPU\u3002 (selected work: internal/platform, internal/app, internal/config)",
+ "repos": [
+  {
+   "repo": "PopTrans",
+   "url": "https://github.com/ifocus9/PopTrans",
+   "sha": "8e1642cbfea6bc8de1dc63cafc0db8f1c1a4f9bc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8e1642cbfea6: \"feat\uff1a\u5f00\u673a\u81ea\u542f\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

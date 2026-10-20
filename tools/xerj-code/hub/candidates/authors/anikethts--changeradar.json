@@ -1,0 +1,22 @@
+{
+ "corpus": "anikethts--changeradar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Java queries this for how AnikethTS/ChangeRadar implements it: ChangeRadar reads a Git diff, traces what the change may touch, recommends relevant tests, and writes the evidence as a report you can run l (selected work: changeradar-analyzer-python, changeradar-cli, changeradar-core)",
+ "repos": [
+  {
+   "repo": "ChangeRadar",
+   "url": "https://github.com/AnikethTS/ChangeRadar",
+   "sha": "3c74d11226d45794382793cd3cfec78d1981dd92",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 3c74d11226d4: \"Add Python impact analysis next to Java and TypeScript.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

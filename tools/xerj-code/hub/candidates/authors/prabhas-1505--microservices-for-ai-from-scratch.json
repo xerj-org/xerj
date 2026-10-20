@@ -1,0 +1,22 @@
+{
+ "corpus": "prabhas-1505--microservices-for-ai-from-scratch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Prabhas-1505/microservices-for-ai-from-scratch implements it: Learn production microservices by building the systems AI, ML, and GenAI engineers actually deploy (selected work: lessons, services, tests)",
+ "repos": [
+  {
+   "repo": "microservices-for-ai-from-scratch",
+   "url": "https://github.com/Prabhas-1505/microservices-for-ai-from-scratch",
+   "sha": "aa1824b4f31ab2f37beb00e04497b0ea998f737c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit aa1824b4f31a: \"Deepen lessons 00-08 with verified demos, fix two real bugs found alo\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

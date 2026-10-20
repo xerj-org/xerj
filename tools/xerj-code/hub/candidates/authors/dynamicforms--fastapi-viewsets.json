@@ -1,0 +1,22 @@
+{
+ "corpus": "dynamicforms--fastapi-viewsets",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how dynamicforms/fastapi-viewsets implements it: CRUD endpoints made easy (selected work: fastapi_viewsets, the project root)",
+ "repos": [
+  {
+   "repo": "fastapi-viewsets",
+   "url": "https://github.com/dynamicforms/fastapi-viewsets",
+   "sha": "2f42e341511c904e3b8488d958d1e94ec6622b7e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 2f42e341511c: \"Keep Celery inside `celery_viewset` (0.11.0) (#50)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

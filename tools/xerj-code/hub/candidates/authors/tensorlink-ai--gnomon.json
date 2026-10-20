@@ -1,0 +1,22 @@
+{
+ "corpus": "tensorlink-ai--gnomon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, backtesting, forecasting queries this for how TensorLink-AI/Gnomon implements it: Inspect time series, forecast with your models, compare forecasts, and review observed outcomes (selected work: services)",
+ "repos": [
+  {
+   "repo": "Gnomon",
+   "url": "https://github.com/TensorLink-AI/Gnomon",
+   "sha": "abbe890681862c7a27c89b6608344ac1da177e2c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit abbe89068186: \"Add hosted action contracts and read-only lifecycle discovery\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "agrael1--wisdom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on directx12, linux, vulkan queries this for how Agrael1/Wisdom implements it: Low-level thin multiplatform Graphics API (selected work: src/include, cmake, generator)",
+ "repos": [
+  {
+   "repo": "Wisdom",
+   "url": "https://github.com/Agrael1/Wisdom",
+   "sha": "76f86be7be9d25cb404ee8f22601c44d894dbf32",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 76f86be7be9d: \"[Release] 0.7.1 (#269)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

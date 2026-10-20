@@ -1,0 +1,22 @@
+{
+ "corpus": "thisisnsh--cuecard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how thisisnsh/cuecard implements it: Teleprompter that stays on top. Read your script over the apps you film in on iPhone and iPad. On Mac and Windows, keep speaker notes visibl (selected work: cuecard-mobile)",
+ "repos": [
+  {
+   "repo": "cuecard",
+   "url": "https://github.com/thisisnsh/cuecard",
+   "sha": "a1182f224adf613ac644362de989dbf93afd72a8",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit a1182f224adf: \"Translate the Android app into nine languages\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

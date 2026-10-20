@@ -1,0 +1,22 @@
+{
+ "corpus": "thaseg--openvpn-container",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on docker, exporter, openvpn queries this for how ThaseG/openvpn-container implements it: Maintained OpenVPN community container with build-in exporter. Tested with vulnerability scanner and full e2e tests (selected work: scripts, the project root, server)",
+ "repos": [
+  {
+   "repo": "openvpn-container",
+   "url": "https://github.com/ThaseG/openvpn-container",
+   "sha": "3ac54468330cf5ed49e4ffbedf0d6ed21d859a33",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 3ac54468330c: \"Test updated\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

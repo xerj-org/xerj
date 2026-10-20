@@ -1,0 +1,22 @@
+{
+ "corpus": "foreachpartners--main-spex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how foreachpartners/main-spex implements it: The AI-first development framework that turns specifications into verified code \u2014 keeping AI running at full speed while ensuring slop-free  (selected work: src/commands, tests, src/support)",
+ "repos": [
+  {
+   "repo": "main-spex",
+   "url": "https://github.com/foreachpartners/main-spex",
+   "sha": "4cb0ead43120dfcf57a16e08c23d78c901d180f2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 4cb0ead43120: \"feat(spex.yaml): add package `exclude` to skip files and folders\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

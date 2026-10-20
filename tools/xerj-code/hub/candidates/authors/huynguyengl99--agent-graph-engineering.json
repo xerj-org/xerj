@@ -1,0 +1,22 @@
+{
+ "corpus": "huynguyengl99--agent-graph-engineering",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-architecture, agentic-ai, ai-agents queries this for how huynguyengl99/agent-graph-engineering implements it: A production-grade reference implementation for LLM agent systems: flow declared as a LangGraph graph, Pydantic AI for typed agents, generat (selected work: agent, web, backend)",
+ "repos": [
+  {
+   "repo": "agent-graph-engineering",
+   "url": "https://github.com/huynguyengl99/agent-graph-engineering",
+   "sha": "2d425b191f9f58a6692ab338fedc56d860ab111f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 2d425b191f9f: \"fix(agent): screen the message that started the run\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

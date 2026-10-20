@@ -1,0 +1,22 @@
+{
+ "corpus": "goncharik--hermes-mobile",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Swift queries this for how goncharik/hermes-mobile implements it: Mobile companion for Hermes Agent (selected work: HermesKit)",
+ "repos": [
+  {
+   "repo": "hermes-mobile",
+   "url": "https://github.com/goncharik/hermes-mobile",
+   "sha": "ae1d04dd644c30376d313ad3c075d58202cf99d8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit ae1d04dd644c: \"Scope pre-probe default seats and search to the literal profile\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

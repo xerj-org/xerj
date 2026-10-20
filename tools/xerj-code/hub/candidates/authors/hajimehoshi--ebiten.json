@@ -1,0 +1,22 @@
+{
+ "corpus": "hajimehoshi--ebiten",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on go, golang, golang-library queries this for how hajimehoshi/ebiten implements it: A dead simple 2D game engine for Go (selected work: internal/graphicsdriver, internal/graphicscommand, internal/ui)",
+ "repos": [
+  {
+   "repo": "ebiten",
+   "url": "https://github.com/hajimehoshi/ebiten",
+   "sha": "db1d60842e06eda6149fa9243b29b9fae402ff67",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit db1d60842e06: \"ebiten: add Image.ReadPixelsAsync (#3828)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

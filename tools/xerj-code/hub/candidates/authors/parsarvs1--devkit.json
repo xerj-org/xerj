@@ -1,0 +1,22 @@
+{
+ "corpus": "parsarvs1--devkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on developer-productivity, developer-tools, nextjs queries this for how parsarvs1/devkit implements it: Simple, fast and useful developer tools \u2014 all in one place (selected work: app/tools, public, components)",
+ "repos": [
+  {
+   "repo": "devkit",
+   "url": "https://github.com/parsarvs1/devkit",
+   "sha": "60c7d51059e5b0310348dc5708e3c0ba47ebb7a1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 60c7d51059e5: \"feat: add PWA support with offline capabilities\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "cypher-monarch--cyphergate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on desktop-application, linux, openvpn queries this for how Cypher-Monarch/CypherGate implements it: VPN tunneler that just works. Fetches, patches, connects. Powered by VPNGate (selected work: src/themes, src/ui, src/config)",
+ "repos": [
+  {
+   "repo": "CypherGate",
+   "url": "https://github.com/Cypher-Monarch/CypherGate",
+   "sha": "6eebd4265556240f6805e08c0c3efc50839f3d53",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 6eebd4265556: \"feat(tray): improve tray ux and add auto connect button\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "google-deepmind--concordia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-based-simulation, generative-agents, multi-agent queries this for how google-deepmind/concordia implements it: A library for generative social simulation (selected work: concordia, examples)",
+ "repos": [
+  {
+   "repo": "concordia",
+   "url": "https://github.com/google-deepmind/concordia",
+   "sha": "2d0c2a4355ffc82202161a0188d6041c584374aa",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 2d0c2a4355ff: \"Copybara import of the project:\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

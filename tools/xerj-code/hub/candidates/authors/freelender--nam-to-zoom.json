@@ -1,0 +1,22 @@
+{
+ "corpus": "freelender--nam-to-zoom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how freelender/nam-to-zoom implements it: Convert NAM profiles into custom effects for Zoom MS-50G+ and compatible MultiStomp pedals (selected work: tests, release)",
+ "repos": [
+  {
+   "repo": "nam-to-zoom",
+   "url": "https://github.com/freelender/nam-to-zoom",
+   "sha": "aa3e2ba5d8a9109ee07cd3245a020efedd25d7f6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit aa3e2ba5d8a9: \"Fix macOS universal library dependency audit v2\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

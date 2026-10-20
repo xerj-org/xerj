@@ -1,0 +1,22 @@
+{
+ "corpus": "woffluon--barepdf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on pdf-reader, rust, slint-ui queries this for how Woffluon/BarePDF implements it: An ultra-fast, lightweight, and modern native PDF reader for Windows built with Rust and Slint (selected work: apps/barepdf, crates/barepdf-ui, crates/barepdf-platform-linux)",
+ "repos": [
+  {
+   "repo": "BarePDF",
+   "url": "https://github.com/Woffluon/BarePDF",
+   "sha": "d6209cdc37d1f354aa34046cb42280ae5b7591f8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit d6209cdc37d1: \"fix: resolve Linux window dragging and update installation loop\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

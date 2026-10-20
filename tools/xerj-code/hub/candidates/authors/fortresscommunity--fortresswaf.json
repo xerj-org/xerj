@@ -1,0 +1,22 @@
+{
+ "corpus": "fortresscommunity--fortresswaf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on go, graphql-security, ml-security queries this for how FortressCommunity/FortressWAF implements it: FortressWAF - Self-Hosted WAF & API Security Gateway. Enterprise Web Application Firewall with ML-powered threat detection, GraphQL/WebSocke (selected work: rust)",
+ "repos": [
+  {
+   "repo": "FortressWAF",
+   "url": "https://github.com/FortressCommunity/FortressWAF",
+   "sha": "098372bf6518cd6da43f29266db5f525967a04b6",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 098372bf6518: \"feat(proxy): distinct, non-templated copy per block outcome (#84)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

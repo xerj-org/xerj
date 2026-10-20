@@ -1,0 +1,22 @@
+{
+ "corpus": "graphify-labs--graphify",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, graphrag, knowledge-graph queries this for how Graphify-Labs/graphify implements it: Turn any codebase, with its docs, SQL schemas, configs, and PDFs, into a queryable knowledge graph. A /graphify skill for Claude Code, Curso (selected work: tests, graphify)",
+ "repos": [
+  {
+   "repo": "graphify",
+   "url": "https://github.com/Graphify-Labs/graphify",
+   "sha": "daee93f78267bf349e2ef939ffe124ab7197d60b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit daee93f78267: \"fix(extract): refuse a dedup shrink unless the user accepts it\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

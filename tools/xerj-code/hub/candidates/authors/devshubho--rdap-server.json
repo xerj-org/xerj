@@ -1,0 +1,22 @@
+{
+ "corpus": "devshubho--rdap-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how devshubho/rdap-server implements it: Curated RDAP server directory \u2014 IANA's bootstrap plus hand-maintained ccTLD servers \u2014 served from one stable URL, with a Rust client for dom (selected work: data, scripts, src)",
+ "repos": [
+  {
+   "repo": "rdap-server",
+   "url": "https://github.com/devshubho/rdap-server",
+   "sha": "4e29127b6c447d631e1ca4eb1d087fb3dd6e12ac",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 4e29127b6c44: \"data: derive tlds.json from IANA and re-verify the ccTLD overlay\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

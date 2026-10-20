@@ -1,0 +1,22 @@
+{
+ "corpus": "nauraafii--ytrvx-module",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, github-actions, kernelsu queries this for how nauraafii/ytrvx-module implements it: Personal fork for automated Android patch builds and GitHub Releases (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "ytrvx-module",
+   "url": "https://github.com/nauraafii/ytrvx-module",
+   "sha": "323bebd3783979ef1dc056040b0bc1f1a39009bc",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 323bebd37839: \"fix: make release builds fail on incomplete targets\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

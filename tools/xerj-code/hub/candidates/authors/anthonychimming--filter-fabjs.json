@@ -1,0 +1,22 @@
+{
+ "corpus": "anthonychimming--filter-fabjs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on filter-factory, graphics, image-filters queries this for how anthonychimming/filter-fabjs implements it: Browser-native procedural image filter editor with WebGPU acceleration, CPU fallback, and Filter Factory-style expressions (selected work: src/presets, tests)",
+ "repos": [
+  {
+   "repo": "filter-fabjs",
+   "url": "https://github.com/anthonychimming/filter-fabjs",
+   "sha": "bf33476e269c25491d6217d8f69b4cace25caf24",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit bf33476e269c: \"Replace two built-in filters with Simple Blur and Watercolor\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

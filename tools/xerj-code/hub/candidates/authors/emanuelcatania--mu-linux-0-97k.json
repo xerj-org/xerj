@@ -1,0 +1,22 @@
+{
+ "corpus": "emanuelcatania--mu-linux-0-97k",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on C++ queries this for how EmanuelCatania/Mu-Linux-0.97k implements it: Servidor del mmorpg Mu Online 0.97k porteado a linux con soporte de docker basado en las sources de Kayito (selected work: Pterodactyl eggs, pterodactyl)",
+ "repos": [
+  {
+   "repo": "Mu-Linux-0.97k",
+   "url": "https://github.com/EmanuelCatania/Mu-Linux-0.97k",
+   "sha": "c26d6764061b89f539f7ddb765c78d946c951b80",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit c26d6764061b: \"Rebuild Pterodactyl eggs for release assets\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

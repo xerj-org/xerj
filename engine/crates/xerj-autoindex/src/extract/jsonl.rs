@@ -1,6 +1,8 @@
 //! JSONL (newline-delimited JSON) — streaming, byte-offset locators.
 
-use super::{flatten_object, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_LINE};
+use super::{
+    ensure_text_passage, flatten_object, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_LINE,
+};
 use anyhow::Result;
 use serde_json::Value;
 use std::path::Path;
@@ -33,9 +35,11 @@ pub fn extract(
         }
         match serde_json::from_slice::<Value>(trimmed) {
             Ok(Value::Object(m)) => {
+                let mut fields = flatten_object(m);
+                ensure_text_passage(&mut fields);
                 stats.records += 1;
                 if !sink(RawRecord {
-                    fields: flatten_object(m),
+                    fields,
                     locator: format!("b{start}"),
                     group: None,
                     origin: FieldOrigin::Data,
@@ -196,5 +200,20 @@ mod tests {
         assert_eq!(stats.junk, 1);
         assert_eq!(stats.records, 1, "the stream continues after the cap");
         assert_eq!(recs[0].fields["id"], serde_json::json!(2));
+    }
+
+    /// #1158: a JSONL record with no prose gains a `text` passage from its
+    /// own fields, same as the whole-file family — a `.jsonl` mirror is the
+    /// other raw-JSON corpus shape.
+    #[test]
+    fn a_prose_less_jsonl_record_gains_a_synthesized_text_passage() {
+        let (_, recs) = run(
+            b"{\"id\":\"OSV-1\",\"ecosystem\":\"crates.io\",\"count\":3}\n",
+            None,
+        );
+        let text = recs[0].fields["text"].as_str().unwrap();
+        assert!(text.contains("id: OSV-1"));
+        assert!(text.contains("ecosystem: crates.io"));
+        assert!(text.contains("count: 3"));
     }
 }

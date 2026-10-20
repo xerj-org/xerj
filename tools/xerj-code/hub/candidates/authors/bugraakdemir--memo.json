@@ -1,0 +1,22 @@
+{
+ "corpus": "bugraakdemir--memo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on golang, llm, local-llm queries this for how BugraAkdemir/memo implements it: Local-first AI assistant with real memory, agent tool use, and proactive habits \u2014 built with Go + Flutter. Runs fully offline via llama.cpp, (selected work: internal/cliproxy, frontend, internal/webserver)",
+ "repos": [
+  {
+   "repo": "memo",
+   "url": "https://github.com/BugraAkdemir/memo",
+   "sha": "edf81e2e6b6e81f015a91e9f6d5ae87e2edbaafb",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit edf81e2e6b6e: \"fix(subscriptions): a sign-in can be finished from another machine\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

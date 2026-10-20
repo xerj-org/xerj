@@ -1,0 +1,22 @@
+{
+ "corpus": "yash-4941692--earntime",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on chrome-extension, education, focus queries this for how Yash-4941692/EarnTime implements it: Earn screen time by studying. A free Chrome extension that rewards focus and blocks distractions (selected work: source, the project root)",
+ "repos": [
+  {
+   "repo": "EarnTime",
+   "url": "https://github.com/Yash-4941692/EarnTime",
+   "sha": "c0e39e9836b639b7926b787dd9e7fbedf946e801",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c0e39e9836b6: \"First-visit enforcement, YouTube play-time checks, WhatsApp trust mod\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "pedroqueirozr--qa-commerce-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how pedroqueirozr/qa-commerce-lab implements it: E-commerce laboratory for QA, test automation and software testing practice (selected work: backend)",
+ "repos": [
+  {
+   "repo": "qa-commerce-lab",
+   "url": "https://github.com/pedroqueirozr/qa-commerce-lab",
+   "sha": "3666f42572e650830b1e6e7d0b0609dc581e1644",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 3666f42572e6: \"refactor: separate product routes and controllers\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

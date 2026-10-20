@@ -1,0 +1,22 @@
+{
+ "corpus": "mrkus1--localrepomanagerrus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how MrKus1/LocalRepoManagerRus implements it: \u0412\u0435\u0431-\u043c\u0435\u043d\u0435\u0434\u0436\u0435\u0440 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u0445 \u0437\u0435\u0440\u043a\u0430\u043b deb \u0438 rpm \u0434\u043b\u044f \u0437\u0430\u043a\u0440\u044b\u0442\u043e\u0433\u043e \u043a\u043e\u043d\u0442\u0443\u0440\u0430 (selected work: app/templates, app/api, app/services)",
+ "repos": [
+  {
+   "repo": "LocalRepoManagerRus",
+   "url": "https://github.com/MrKus1/LocalRepoManagerRus",
+   "sha": "5e4965c05619b32d39f817e266a839c81f4688d2",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 5e4965c05619: \"Local Repo Manager V1.0\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -12,16 +12,10 @@
 //! `frames`, `frame_time_s`, `duration_s`. All extractor vocabulary
 //! (`FieldOrigin::Extractor`), so every BVH file clusters into one dataset.
 //!
-//! KNOWN LIMITATION (engine-side, xerj-org/xerj#332): `joints` is a
-//! multi-valued keyword array, and the FTS writer currently joins array
-//! elements into ONE space-separated token. So after a segment flush,
-//! `{"term": {"joints": "LeftHand"}}` does NOT match — there is no
-//! per-element posting. `terms` and other clauses that take the stored-scan
-//! path still match, and so does everything before the flush, which is why
-//! this is easy to miss. "Which clips animate LeftHand?" is only a reliable
-//! one-query answer once #332 lands; it is an engine API change (the FTS
-//! writer input is `HashMap<String, String>`), not something this extractor
-//! can work around.
+//! `joints` is a multi-valued keyword array. Each element is indexed as its
+//! own term (xerj-org/xerj#332, fixed in #470), so `{"term": {"joints":
+//! "LeftHand"}}` answers "which clips animate LeftHand?" both before and
+//! after a segment flush.
 
 use super::{ExtractStats, FieldOrigin, RawRecord, Sink};
 use anyhow::Result;

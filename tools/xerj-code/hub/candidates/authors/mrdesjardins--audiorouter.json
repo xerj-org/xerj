@@ -1,0 +1,22 @@
+{
+ "corpus": "mrdesjardins--audiorouter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Rust queries this for how MrDesjardins/audiorouter implements it: MrDesjardins/audiorouter (Rust) (selected work: drivers, tests)",
+ "repos": [
+  {
+   "repo": "audiorouter",
+   "url": "https://github.com/MrDesjardins/audiorouter",
+   "sha": "28b989f5d8d16f20e0d1996a335c01bd7203c342",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 28b989f5d8d1: \"Prevent uncommitted render DMA replay and count missing frames\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "egnake--anon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on bash, bash-script, bash-scripting queries this for how egnake/anon implements it: An advanced, all-in-one operational security (OPSEC) framework for Linux and WSL. Features transparent Tor routing, MAC spoofing, RAM wiping (selected work: assets)",
+ "repos": [
+  {
+   "repo": "anon",
+   "url": "https://github.com/egnake/anon",
+   "sha": "9f4ac627c298e2b6c9dcfb5d656f8780865dc83b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 9f4ac627c298: \"refactor: add strict error handling to all scripts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "bemuca--jaira",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how BeMuCa/jaira implements it: A git-native kanban board for the work you do with coding agents. Tickets are markdown files in your repo: no server, no accounts (selected work: core/mod, core/role)",
+ "repos": [
+  {
+   "repo": "jaira",
+   "url": "https://github.com/BeMuCa/jaira",
+   "sha": "f27ce95ea03e71ce6d8312ba5691784f572d3867",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f27ce95ea03e: \"feat(42C3RZ): cockpit Explain and Discuss without Herdr go through th\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

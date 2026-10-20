@@ -1,0 +1,22 @@
+{
+ "corpus": "dantro86--bookwright",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on allure, example-project, guice queries this for how dantro86/bookwright implements it: Production-grade example of a Java test automation framework: API (Retrofit) + UI (Playwright) + DB over SSH tunnel. Preconditions, LIFO tea (selected work: src/main, src/test)",
+ "repos": [
+  {
+   "repo": "bookwright",
+   "url": "https://github.com/dantro86/bookwright",
+   "sha": "af0f540d2af1985fc421492a3e76474178cb15ee",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit af0f540d2af1: \"Decentralize fixture construction\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

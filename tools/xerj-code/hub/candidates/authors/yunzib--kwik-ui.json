@@ -1,0 +1,22 @@
+{
+ "corpus": "yunzib--kwik-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C++ queries this for how yunzib/kwik-ui implements it: C++ \u58f0\u660e\u5f0fUI (selected work: src/platform, modules/platform, cmake)",
+ "repos": [
+  {
+   "repo": "kwik-ui",
+   "url": "https://github.com/yunzib/kwik-ui",
+   "sha": "7f299a8bd4b53f531daf0242c9018991dfd61601",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 7f299a8bd4b5: \"\u8865\u5145\u8de8\u5e73\u53f0\u57fa\u7840\u6846\u67b6\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

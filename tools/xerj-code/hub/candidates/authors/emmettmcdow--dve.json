@@ -1,0 +1,22 @@
+{
+ "corpus": "emmettmcdow--dve",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on apple, local-first, vector-search queries this for how emmettmcdow/dve implements it: dve is a vector search library for Apple devices (selected work: src, the project root, examples)",
+ "repos": [
+  {
+   "repo": "dve",
+   "url": "https://github.com/emmettmcdow/dve",
+   "sha": "0999661806ccee166398aebb352a557461a8f197",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 0999661806cc: \"Standardizes model install workflow\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

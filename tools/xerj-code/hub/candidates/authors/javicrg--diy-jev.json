@@ -1,0 +1,22 @@
+{
+ "corpus": "javicrg--diy-jev",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how javicrg/diy-jev implements it: javicrg/diy-jev (Python) (selected work: the project root, src/diy_jev)",
+ "repos": [
+  {
+   "repo": "diy-jev",
+   "url": "https://github.com/javicrg/diy-jev",
+   "sha": "fa2284f359ca57df89c0b70d99f49a8f8d8780cf",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit fa2284f359ca: \"refactor(pipeline): centralize ML workflow\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "volcengine--openviking",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on context-database, agentic-rag, agent-memory queries this for how volcengine/OpenViking implements it: Self-evolving Context Database for AI Agents. Unify Agent Memory, Knowledge RAG and Skills (selected work: tests, openviking)",
+ "repos": [
+  {
+   "repo": "OpenViking",
+   "url": "https://github.com/volcengine/OpenViking",
+   "sha": "2ef422561cecf80ba7654cb865fa0dddd52209d7",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 2ef422561cec: \"perf(session): skip content loading and vector cleanup during deletio\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

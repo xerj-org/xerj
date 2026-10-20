@@ -1,0 +1,22 @@
+{
+ "corpus": "frknaykc--dragon-threatresearchhq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on apt, cobalt-strike, cybersecurity queries this for how frknaykc/Dragon-ThreatResearchHQ implements it: A comprehensive repository for malware analysis and threat intelligence, including Cobalt Strike Beacon configurations, YARA rules, IOCs, Su (selected work: the project root, Ransomware, scripts)",
+ "repos": [
+  {
+   "repo": "Dragon-ThreatResearchHQ",
+   "url": "https://github.com/frknaykc/Dragon-ThreatResearchHQ",
+   "sha": "063eca4ae94025223bfcb7d4714a8406c36f1285",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 063eca4ae940: \"feat: restructure repository to include top-level Ransomware category\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

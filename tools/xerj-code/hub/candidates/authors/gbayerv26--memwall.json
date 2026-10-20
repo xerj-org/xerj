@@ -1,0 +1,22 @@
+{
+ "corpus": "gbayerv26--memwall",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude, llm-security queries this for how gbayerv26/memwall implements it: Antivirus for AI agent memory - scanner + MCP firewall for memory poisoning (OWASP ASI06) (selected work: tests, memwall, examples)",
+ "repos": [
+  {
+   "repo": "memwall",
+   "url": "https://github.com/gbayerv26/memwall",
+   "sha": "2bb1273f92a2c253b497ff4255d1de4cb50c8fff",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 2bb1273f92a2: \"v0.7.0: add offline memory trials and contract enforcement\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

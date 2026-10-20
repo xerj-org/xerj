@@ -1,0 +1,22 @@
+{
+ "corpus": "mohamed-elshesheny--sigstop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on break-reminder, developer-tools, macos queries this for how Mohamed-Elshesheny/sigstop implements it: You're a developer, not a server. A macOS menu bar app that works out what you're doing and interrupts at a defensible moment instead of on  (selected work: app/Sources, app/Tests)",
+ "repos": [
+  {
+   "repo": "sigstop",
+   "url": "https://github.com/Mohamed-Elshesheny/sigstop",
+   "sha": "530cc963901a7d1498485f9f5517f23c3433cc3f",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 530cc963901a: \"fix(core): say the break length you set instead of five minutes\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

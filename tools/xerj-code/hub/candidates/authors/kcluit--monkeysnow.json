@@ -1,0 +1,22 @@
+{
+ "corpus": "kcluit--monkeysnow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on forecasting, weather, monkeysnow queries this for how kcluit/monkeysnow implements it: The most customizable resort/snow forecast website for ski and board! (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "monkeysnow",
+   "url": "https://github.com/kcluit/monkeysnow",
+   "sha": "a4569040a726e1170142e885cf0cb50c4f8bf6b8",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit a4569040a726: \"feat: Snow quality and the monkeysnow estimate from each band's wet b\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

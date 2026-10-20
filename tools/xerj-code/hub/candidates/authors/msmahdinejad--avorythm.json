@@ -1,0 +1,22 @@
+{
+ "corpus": "msmahdinejad--avorythm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on accessibility, chrome-extension, dubbing queries this for how msmahdinejad/avorythm implements it: Avorythm \u2014 open-source live AI translation, dubbing, captions, and synchronized media for desktop and Chrome (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "avorythm",
+   "url": "https://github.com/msmahdinejad/avorythm",
+   "sha": "08f4d24614f709b080411fd96997fd209211ea02",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 08f4d24614f7: \"assets: refresh product visuals\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

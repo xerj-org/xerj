@@ -1,0 +1,22 @@
+{
+ "corpus": "sashimiboi--spooling",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how sashimiboi/spooling implements it: Local session tracker and semantic search for AI coding assistants (selected work: spooling, the project root)",
+ "repos": [
+  {
+   "repo": "spooling",
+   "url": "https://github.com/sashimiboi/spooling",
+   "sha": "3eaebb635b7ca09666b8575edab23177a6a6a26a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 3eaebb635b7c: \"v0.2.3: new CLI commands, fix push --with-spans, cloudflare auto-down\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

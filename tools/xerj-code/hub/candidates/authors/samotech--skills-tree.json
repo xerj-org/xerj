@@ -1,0 +1,22 @@
+{
+ "corpus": "samotech--skills-tree",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai, ai-agents queries this for how SamoTech/skills-tree implements it: The universal, platform-agnostic skills and capability registry for AI agents \u2014 mapping capabilities, skills, implementations, dependencies, (selected work: registry, tools, benchmarks)",
+ "repos": [
+  {
+   "repo": "skills-tree",
+   "url": "https://github.com/SamoTech/skills-tree",
+   "sha": "203d4b12e576cbeb5eaa83249cc97d96905b01fc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 203d4b12e576: \"feat(orchestration): add behavioral skill selection runtime evidence \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

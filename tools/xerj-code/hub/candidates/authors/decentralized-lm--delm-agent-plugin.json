@@ -1,0 +1,22 @@
+{
+ "corpus": "decentralized-lm--delm-agent-plugin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how Decentralized-LM/delm-agent-plugin implements it: Build faster with collaborating agents in Codex and Claude Code (selected work: src/claude, src/board, src)",
+ "repos": [
+  {
+   "repo": "delm-agent-plugin",
+   "url": "https://github.com/Decentralized-LM/delm-agent-plugin",
+   "sha": "bee5ff5595e1fb4c2d7c759e9dfa3117fe22cfe0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit bee5ff5595e1: \"Fix completion validation for excluded check inputs (#13)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "jasonssdev--openkos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cli, knowledge-base, llm-wiki queries this for how jasonssdev/openkos implements it: Local-first engine that turns your scattered text into a living, portable knowledge base in the Open Knowledge Format (OKF) (selected work: tests, src/openkos)",
+ "repos": [
+  {
+   "repo": "openkos",
+   "url": "https://github.com/jasonssdev/openkos",
+   "sha": "b5715d653777a7795a0bbd68875d2e2aaecfca42",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit b5715d653777: \"feat(okf): add openkos export with sensitivity enforced at the bounda\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

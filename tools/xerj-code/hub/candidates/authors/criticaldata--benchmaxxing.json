@@ -1,0 +1,22 @@
+{
+ "corpus": "criticaldata--benchmaxxing",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-safety, llm-evaluation, multi-agent-systems queries this for how criticaldata/benchmaxxing implements it: How AI agents cheat together, and how to catch them: shortcut cascades and referee oversight in clinical AI. MICCAI 2026 (selected work: experiments, tests)",
+ "repos": [
+  {
+   "repo": "benchmaxxing",
+   "url": "https://github.com/criticaldata/benchmaxxing",
+   "sha": "9a71bbcb92b6263c6d17cead1acc914a5dc1b0dc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 9a71bbcb92b6: \"Multi-round cascade at n=120 on nemotron, beside the n=40 arm, as the\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

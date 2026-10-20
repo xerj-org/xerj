@@ -1,0 +1,22 @@
+{
+ "corpus": "rocmfpx--rocmfpx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how ROCmFPX/ROCmFPX implements it: This will be the official ROCmFPX stack and studio (selected work: src, tests, common)",
+ "repos": [
+  {
+   "repo": "ROCmFPX",
+   "url": "https://github.com/ROCmFPX/ROCmFPX",
+   "sha": "0da2ff58d1449fa33314c7a72e7ac8c6ec2bb458",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 0da2ff58d144: \"qwen4exp: per-context, per-sequence MTP draft vocabulary, on by default\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "muradyanvano--laravel-react-spa-starter-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on fortify, laravel, laravel-starter-kit queries this for how muradyanvano/laravel-react-spa-starter-kit implements it: Laravel React SPA starter kit with React Router, Fortify & Sanctum \u2014 official-style UI without Inertia.js (selected work: resources, tests, app/Http)",
+ "repos": [
+  {
+   "repo": "laravel-react-spa-starter-kit",
+   "url": "https://github.com/muradyanvano/laravel-react-spa-starter-kit",
+   "sha": "124e1add3e9fd38d84bcb1aae6ac2d137e28b37f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 124e1add3e9f: \"feat: add passkey authentication and management\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

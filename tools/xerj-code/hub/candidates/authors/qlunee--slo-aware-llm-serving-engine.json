@@ -1,0 +1,22 @@
+{
+ "corpus": "qlunee--slo-aware-llm-serving-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Qlunee/SLO-Aware-LLM-Serving-Engine implements it: Qlunee/SLO-Aware-LLM-Serving-Engine (Python) (selected work: tools, benchmarks, tests)",
+ "repos": [
+  {
+   "repo": "SLO-Aware-LLM-Serving-Engine",
+   "url": "https://github.com/Qlunee/SLO-Aware-LLM-Serving-Engine",
+   "sha": "de7130f08413cf395d0db336714dfb8056f353b1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit de7130f08413: \"feat: add V3 step latency predictor and profiling workflow\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

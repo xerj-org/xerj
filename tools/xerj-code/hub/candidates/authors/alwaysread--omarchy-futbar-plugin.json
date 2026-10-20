@@ -1,0 +1,22 @@
+{
+ "corpus": "alwaysread--omarchy-futbar-plugin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on plugin, football, omarchy queries this for how AlwaysRead/omarchy-futbar-plugin implements it: Live match center and football tracker for Omarchy with tactical lineups, real-time scores, league tables, and live event alerts (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "omarchy-futbar-plugin",
+   "url": "https://github.com/AlwaysRead/omarchy-futbar-plugin",
+   "sha": "5c6b35811c4fc3f729db8ed062c4fd2308ae7549",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 5c6b35811c4f: \"Fix Omarchy theme palette bindings and dropdown contrast\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

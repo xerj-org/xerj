@@ -1,0 +1,22 @@
+{
+ "corpus": "alllllinnrann--dsh-inapp-browser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dsh-plugin queries this for how alllllinnrann/dsh-inapp-browser implements it: DeepSeek Harness \u5185\u7f6e\u6d4f\u89c8\u5668\uff1a\u4eba\u673a\u5171\u4eab\u7f51\u9875\u3001\u9f20\u6807\u952e\u76d8\u64cd\u4f5c\u4e0e\u9ad8\u6e05\u622a\u56fe (selected work: src, lib, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-inapp-browser",
+   "url": "https://github.com/alllllinnrann/dsh-inapp-browser",
+   "sha": "d8b355e5c8016e801fda4d49ffbcde85bf56e294",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d8b355e5c801: \"Publish in-app browser 0.2.7 with concise API documentation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "echovic--orca-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, cli, coding-agent queries this for how echoVic/orca-agent implements it: Orca is a DeepSeek-native coding agent (selected work: crates/orca-tui, tests)",
+ "repos": [
+  {
+   "repo": "orca-agent",
+   "url": "https://github.com/echoVic/orca-agent",
+   "sha": "cc85d1ff010a9f3515019664f9f48e79c50f9640",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit cc85d1ff010a: \"fix(tui): drop a queued message from the strip once it is sent\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

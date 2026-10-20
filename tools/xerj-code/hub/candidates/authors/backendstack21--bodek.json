@@ -1,0 +1,22 @@
+{
+ "corpus": "backendstack21--bodek",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Go queries this for how BackendStack21/bodek implements it: Odek Agent with a beautiful TUI using Bubble Tea (selected work: internal/tui)",
+ "repos": [
+  {
+   "repo": "bodek",
+   "url": "https://github.com/BackendStack21/bodek",
+   "sha": "4bca1a20f296ebb9c54a450303f21ecc939aebd3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 4bca1a20f296: \"feat(tui): improve inspection and decision clarity\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

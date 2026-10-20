@@ -1,0 +1,22 @@
+{
+ "corpus": "koronto11--ludo-npc-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-tools, dialogue-editor queries this for how koronto11/ludo-npc-ai implements it: A visual workspace for game narratives and NPCs. Build worlds, arrange scenes and characters, edit branching dialogue, review AI drafts, and (selected work: src, backend, tests)",
+ "repos": [
+  {
+   "repo": "ludo-npc-ai",
+   "url": "https://github.com/koronto11/ludo-npc-ai",
+   "sha": "a3d92196048802a1a7a4cab0be6e19b3b3ef4350",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a3d921960488: \"feat: improve dialogue endings, connection editing and safe deletion\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

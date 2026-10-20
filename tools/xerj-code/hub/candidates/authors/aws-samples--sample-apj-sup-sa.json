@@ -1,0 +1,22 @@
+{
+ "corpus": "aws-samples--sample-apj-sup-sa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how aws-samples/sample-apj-sup-sa implements it: aws-samples/sample-apj-sup-sa (HTML) (selected work: ai-infra)",
+ "repos": [
+  {
+   "repo": "sample-apj-sup-sa",
+   "url": "https://github.com/aws-samples/sample-apj-sup-sa",
+   "sha": "675c94b752f433bbbf9142c56d7eab719464bbf7",
+   "licence": "hint only: MIT-0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT-0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 675c94b752f4: \"feat(ai-infra): CLM-v0.1-8B on a SageMaker AI real-time endpoint (#291)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

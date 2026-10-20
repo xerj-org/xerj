@@ -1,0 +1,22 @@
+{
+ "corpus": "kelvinagyareyeboah--custom-office-templates",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on HTML queries this for how kelvinagyareyeboah/Custom-Office-Templates implements it: Collection of html, css and javascript projects (selected work: 096-cloud hosting service, 100-hulu webpage clone, 097-terminal style landing page)",
+ "repos": [
+  {
+   "repo": "Custom-Office-Templates",
+   "url": "https://github.com/kelvinagyareyeboah/Custom-Office-Templates",
+   "sha": "93c9eeb6237f588e715968fbd81bb974eef82764",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 93c9eeb6237f: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

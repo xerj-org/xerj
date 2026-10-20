@@ -1,0 +1,22 @@
+{
+ "corpus": "hamdyelbatal122--corewatch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on devops, laravel, laravel-package queries this for how hamdyelbatal122/corewatch implements it: A comprehensive, production-ready DevOps & Server Health Dashboard for Laravel , Features server diagnostics, real-time log stream viewer, w (selected work: tests, src/Domain, src/Console)",
+ "repos": [
+  {
+   "repo": "corewatch",
+   "url": "https://github.com/hamdyelbatal122/corewatch",
+   "sha": "bf1474ad491c34be2854685575015f549ebe3f82",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit bf1474ad491c: \"feat: add system doctor, test alert command, and queued alert dispatc\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

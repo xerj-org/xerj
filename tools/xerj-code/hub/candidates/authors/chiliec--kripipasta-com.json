@@ -1,0 +1,22 @@
+{
+ "corpus": "chiliec--kripipasta-com",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how chiliec/kripipasta.com implements it: Sources of creepypasta (selected work: src/import, src/lib, the project root)",
+ "repos": [
+  {
+   "repo": "kripipasta.com",
+   "url": "https://github.com/chiliec/kripipasta.com",
+   "sha": "49cab84291024d49c9cd8aaf2b213cf50ff22f12",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 49cab8429102: \"feat: SCP Foundation tales + Trollpasta Wiki (EN) imports (#145)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

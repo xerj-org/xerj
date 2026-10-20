@@ -1,0 +1,22 @@
+{
+ "corpus": "uisee-ai--zaofu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how uisee-ai/zaofu implements it: An open-source Coding Harness Platform for long-horizon, multi-agent software delivery (selected work: tests, web, src/zf)",
+ "repos": [
+  {
+   "repo": "zaofu",
+   "url": "https://github.com/uisee-ai/zaofu",
+   "sha": "833b282159747e48bad7feedd2089e230dddaf53",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 833b28215974: \"fix: stabilize channel PRD workflow handoff\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

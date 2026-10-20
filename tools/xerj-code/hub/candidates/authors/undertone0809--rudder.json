@@ -1,0 +1,22 @@
+{
+ "corpus": "undertone0809--rudder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Undertone0809/rudder implements it: Open-source local Agent harness for self-improving agent teams: run agents, review work, and turn feedback into reusable skills (selected work: server, native, tests)",
+ "repos": [
+  {
+   "repo": "rudder",
+   "url": "https://github.com/Undertone0809/rudder",
+   "sha": "2c21c5241c3bb2387b5ff671629f3aba7b3a51db",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 2c21c5241c3b: \"feat: route workspace backup list reads through Rust (#280)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

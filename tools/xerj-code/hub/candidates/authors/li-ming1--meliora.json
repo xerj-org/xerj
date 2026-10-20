@@ -1,0 +1,22 @@
+{
+ "corpus": "li-ming1--meliora",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on desktop-app, gpui, kugou queries this for how li-ming1/meliora implements it: \u8f7b\u91cf\u7b2c\u4e09\u65b9\u684c\u9762\u97f3\u4e50\u64ad\u653e\u5668\uff1a\u5355\u6587\u4ef6\u5206\u53d1\u3001\u5185\u5b58\u5360\u7528\u4f4e\u3001\u542f\u52a8\u901f\u5ea6\u5feb\uff0c\u652f\u6301\u672c\u5730\u97f3\u4e50\u5e93\u4e0e\u7f51\u6613\u4e91/\u9177\u72d7\u5728\u7ebf\u670d\u52a1\u3002A lightweight music player written in Rust, built on GPUI (selected work: src/ui, src/playback, src/library)",
+ "repos": [
+  {
+   "repo": "meliora",
+   "url": "https://github.com/li-ming1/meliora",
+   "sha": "736d91a39cf28926ede6b6b2fe73a4983058ba54",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 736d91a39cf2: \"perf(audit): \u5168\u4ed3\u5ba1\u8ba1\u9996\u6279 15 \u9879\u4f18\u5316\uff08\u70ed\u8def\u5f84\u514b\u9686\u3001\u9501\u7ade\u4e89\u3001\u539f\u5b50\u5199\u3001\u6784\u5efa\u76d1\u89c6\uff09\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

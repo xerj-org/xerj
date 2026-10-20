@@ -1,0 +1,22 @@
+{
+ "corpus": "kunchenguid--no-mistakes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how kunchenguid/no-mistakes implements it: git push no-mistakes (selected work: internal/scm, internal/pipeline, internal/cimonitor)",
+ "repos": [
+  {
+   "repo": "no-mistakes",
+   "url": "https://github.com/kunchenguid/no-mistakes",
+   "sha": "ec80c6a83fbf672f3245b52d76626644ac098c31",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit ec80c6a83fbf: \"fix(scm): bind GitLab CI evidence to the delivered commit (#1401)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

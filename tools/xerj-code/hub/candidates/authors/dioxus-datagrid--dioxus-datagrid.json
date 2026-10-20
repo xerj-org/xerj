@@ -1,0 +1,22 @@
+{
+ "corpus": "dioxus-datagrid--dioxus-datagrid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how dioxus-datagrid/dioxus-datagrid implements it: dioxus-datagrid/dioxus-datagrid (Rust) (selected work: playground, registry)",
+ "repos": [
+  {
+   "repo": "dioxus-datagrid",
+   "url": "https://github.com/dioxus-datagrid/dioxus-datagrid",
+   "sha": "5b8610c52a4c65613f2d94a187e64a419fb68d32",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 5b8610c52a4c: \"feat(registry): data_grid lays rows out as cards when narrow, with th\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

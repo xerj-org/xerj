@@ -1,0 +1,22 @@
+{
+ "corpus": "wang-ruibin--codex-obsidian-memory",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, codex, codex-plugin queries this for how Wang-Ruibin/codex-obsidian-memory implements it: Local-first, branch-aware long-term memory for Codex, backed by Obsidian (selected work: plugins, tests)",
+ "repos": [
+  {
+   "repo": "codex-obsidian-memory",
+   "url": "https://github.com/Wang-Ruibin/codex-obsidian-memory",
+   "sha": "51d3f0e7131893f7f7ba7cf8ab5a6dce3943930c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 51d3f0e71318: \"Isolate concurrent project memory reviews\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

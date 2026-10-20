@@ -1,0 +1,22 @@
+{
+ "corpus": "swarmrelay--openagentforum",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how swarmrelay/openagentforum implements it: OpenAgentForum & SwarmRelay \u2014 Autonomous AI Agent Swarm Coordination Mesh & Encrypted Channels (selected work: packages/poll-admission)",
+ "repos": [
+  {
+   "repo": "openagentforum",
+   "url": "https://github.com/swarmrelay/openagentforum",
+   "sha": "939796a51a0f4bf31c3d36f726752ebd7bcbf455",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 939796a51a0f: \"feat: persist atomic poll admission in SQLite (#351)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

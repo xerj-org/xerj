@@ -1,0 +1,22 @@
+{
+ "corpus": "emaxe--open-artifacts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, artifacts, claude queries this for how emaxe/open-artifacts implements it: Self-hosted artifact hosting for AI agents \u2014 open alternative to Claude Artifacts (selected work: skills, apps/api, packages/shared)",
+ "repos": [
+  {
+   "repo": "open-artifacts",
+   "url": "https://github.com/emaxe/open-artifacts",
+   "sha": "d1142e2b74d98155fd4afb6ed84ac974b4d56f90",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit d1142e2b74d9: \"feat(constructor): flat sand/moss artifact theme, themed charts and d\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

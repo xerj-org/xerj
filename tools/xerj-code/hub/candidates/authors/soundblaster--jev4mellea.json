@@ -1,0 +1,22 @@
+{
+ "corpus": "soundblaster--jev4mellea",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how SoundBlaster/Jev4Mellea implements it: Jev adapter for Mellea (selected work: tests, src/mellea_jev)",
+ "repos": [
+  {
+   "repo": "Jev4Mellea",
+   "url": "https://github.com/SoundBlaster/Jev4Mellea",
+   "sha": "633f558e9870f9dec7ec14749a46d548e475c8c2",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 633f558e9870: \"feat: support exact endpoint URLs for HTTP providers (#43)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

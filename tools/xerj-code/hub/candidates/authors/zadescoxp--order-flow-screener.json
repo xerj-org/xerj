@@ -1,0 +1,22 @@
+{
+ "corpus": "zadescoxp--order-flow-screener",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on crypto, finance, liquidity queries this for how zadescoxp/order-flow-screener implements it: Free open source order flow screener for spot and perpetual trade orders (selected work: components, lib/store, lib/managers)",
+ "repos": [
+  {
+   "repo": "order-flow-screener",
+   "url": "https://github.com/zadescoxp/order-flow-screener",
+   "sha": "09591805cf849b13b4832505551415be8de836ce",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 09591805cf84: \"Changes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

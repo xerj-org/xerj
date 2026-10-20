@@ -1,0 +1,22 @@
+{
+ "corpus": "ramlaxmanyadav--active-admin-prism",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on SCSS queries this for how ramlaxmanyadav/active_admin_prism implements it: Active Admin theme built on the Prism design system \u2014 swaps in a purple/lavender palette, refined typography, and subtle motion (animated ba (selected work: js-src, scss-src, app/assets)",
+ "repos": [
+  {
+   "repo": "active_admin_prism",
+   "url": "https://github.com/ramlaxmanyadav/active_admin_prism",
+   "sha": "028affc30dc526faf74b320f47b52374b4be279c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 028affc30dc5: \"Updating filters and top menu\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

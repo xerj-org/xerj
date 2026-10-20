@@ -1,0 +1,22 @@
+{
+ "corpus": "ainz-dg--triad-plus-engineering-loop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-workflows, ai-agents, claude-code queries this for how ainz-dg/triad-plus-engineering-loop implements it: A lightweight engineering loop for coding agents: separate Developer, Reviewer and Orchestrator with evidence-backed verification (selected work: runtime, tests, bin)",
+ "repos": [
+  {
+   "repo": "triad-plus-engineering-loop",
+   "url": "https://github.com/ainz-dg/triad-plus-engineering-loop",
+   "sha": "fbcbf5ab58471cbde2418236803969651b8a6c25",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit fbcbf5ab5847: \"P0: unified multi-repo and multi-harness onboarding (#13)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "zlogic--pterodapter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on fortivpn, vpn, tokio-rs queries this for how zlogic/pterodapter implements it: An all-in-one single-user IKEv2 server, FortiVPN client and NAT64 to bridge them together (selected work: src/ip, src/l2gateway)",
+ "repos": [
+  {
+   "repo": "pterodapter",
+   "url": "https://github.com/zlogic/pterodapter",
+   "sha": "057724a00b0a5bfaa02fe4d6e6f6f1fa804ab3fc",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 057724a00b0a: \"Add a phantom address that responds to pings.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

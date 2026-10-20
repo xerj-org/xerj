@@ -1,0 +1,22 @@
+{
+ "corpus": "thaletto--ascendant-agents",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on mcp, skills, tools queries this for how thaletto/ascendant-agents implements it: AI Skills and Tools for Astrology Analysis and Prediction (selected work: packages/opencode-ascendant, skills, scripts)",
+ "repos": [
+  {
+   "repo": "ascendant-agents",
+   "url": "https://github.com/thaletto/ascendant-agents",
+   "sha": "221593a46fff63e25e821b40f8bf1ca48b4d8238",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 221593a46fff: \"fix(opencode): load plugin on host effect beta via platform-bun\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

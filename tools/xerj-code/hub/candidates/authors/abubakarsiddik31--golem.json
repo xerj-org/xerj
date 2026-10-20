@@ -1,0 +1,22 @@
+{
+ "corpus": "abubakarsiddik31--golem",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-framework, ai-agents, anthropic queries this for how abubakarsiddik31/golem implements it: Go-first framework for dependable AI agents: typed dependencies and outputs, explicit tools, composable models, observable runs (selected work: pdfextract, examples)",
+ "repos": [
+  {
+   "repo": "golem",
+   "url": "https://github.com/abubakarsiddik31/golem",
+   "sha": "f4b63bdf54307d7d49faf093ec0705aa4f74b613",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit f4b63bdf5430: \"feat(pdfextract): add scanned page analysis with multimodal parts, mo\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

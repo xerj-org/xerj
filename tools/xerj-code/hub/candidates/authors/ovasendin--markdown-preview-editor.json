@@ -1,0 +1,22 @@
+{
+ "corpus": "ovasendin--markdown-preview-editor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on client-side, codemirror, content-security-policy queries this for how ovasendin/markdown_preview_editor implements it: Self-hosted, privacy-first Markdown editor & live preview. Documents never leave your browser: no backend, no tracking, strict CSP, sandboxe (selected work: tests, src, src/styles)",
+ "repos": [
+  {
+   "repo": "markdown_preview_editor",
+   "url": "https://github.com/ovasendin/markdown_preview_editor",
+   "sha": "1c7548a764d29a8650e7b2ba8b51ac44102654c4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 1c7548a764d2: \"Accessibility: WCAG 2.2 AA fixes (tabs pattern, resizer ARIA, contras\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "pandich93--youtube-niche-finder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, content-research, dashboard queries this for how pandich93/youtube-niche-finder implements it: Self-hosted YouTube niche & outlier-video research tool (NexLev/vidIQ alternative) \u2014 MCP server + HTTP API + worker on YouTube Data API v3 a (selected work: backend, frontend, scripts)",
+ "repos": [
+  {
+   "repo": "youtube-niche-finder",
+   "url": "https://github.com/pandich93/youtube-niche-finder",
+   "sha": "e7a6a49a8d763500e4f6b3e945037716f67710b5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit e7a6a49a8d76: \"Put drafts on a content calendar with reminders (plan 33)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "akashkundu114--icc-clustering",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on anchor-graph, bioinformatics, clustering queries this for how AkashKundu114/icc-clustering implements it: Reference implementation of Inductive Consensus Clustering (ICC-v2): linear-time bipartite anchor consensus with Sarle bimodality subspace g (selected work: research_audit, src/icc, tests)",
+ "repos": [
+  {
+   "repo": "icc-clustering",
+   "url": "https://github.com/AkashKundu114/icc-clustering",
+   "sha": "f6c95bbb8a058a03e5267bdffe081b82ce50013f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f6c95bbb8a05: \"audit: integrate remediation patches A1-A4, embedding options, and au\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

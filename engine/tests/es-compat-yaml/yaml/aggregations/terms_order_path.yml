@@ -1,0 +1,99 @@
+setup:
+  - do:
+      indices.create:
+          index: terms_order_path
+          body:
+              mappings:
+                  properties:
+                      host:
+                          type: keyword
+                      ms:
+                          type: float
+  - do:
+      bulk:
+          refresh: true
+          body:
+              - '{"index": {"_index": "terms_order_path", "_id": "1"}}'
+              - '{"host": "a", "ms": 10}'
+              - '{"index": {"_index": "terms_order_path", "_id": "2"}}'
+              - '{"host": "c", "ms": 60}'
+              - '{"index": {"_index": "terms_order_path", "_id": "3"}}'
+              - '{"host": "b", "ms": 900}'
+              - '{"index": {"_index": "terms_order_path", "_id": "4"}}'
+              - '{"host": "c", "ms": 50}'
+
+---
+"terms ordered by a percentiles value key (#1282)":
+  - do:
+      search:
+          index: terms_order_path
+          body:
+              size: 0
+              aggs:
+                  k:
+                      terms:
+                          field: host
+                          order: { "p.95": desc }
+                      aggs:
+                          p:
+                              percentiles:
+                                  field: ms
+                                  percents: [ 95 ]
+
+  - match: { aggregations.k.buckets.0.key: b }
+  - match: { aggregations.k.buckets.1.key: c }
+  - match: { aggregations.k.buckets.2.key: a }
+
+  - do:
+      search:
+          index: terms_order_path
+          body:
+              size: 0
+              aggs:
+                  k:
+                      terms:
+                          field: host
+                          order: { "p[95.0]": asc }
+                      aggs:
+                          p:
+                              percentiles:
+                                  field: ms
+                                  percents: [ 95 ]
+
+  - match: { aggregations.k.buckets.0.key: a }
+  - match: { aggregations.k.buckets.1.key: c }
+  - match: { aggregations.k.buckets.2.key: b }
+
+---
+"terms order on an undefined aggregation is a 400 (#1283)":
+  - do:
+      catch: bad_request
+      search:
+          index: terms_order_path
+          body:
+              size: 0
+              aggs:
+                  k:
+                      terms:
+                          field: host
+                          order: { nope: desc }
+  # This runner records a `catch` response without checking its status, so
+  # the 400 is asserted on the body (`status` is in ES's error envelope).
+  - match: { status: 400 }
+
+  - do:
+      catch: bad_request
+      search:
+          index: terms_order_path
+          body:
+              size: 0
+              aggs:
+                  k:
+                      terms:
+                          field: host
+                          order: [ { _count: desc }, { "nope.95": asc } ]
+                      aggs:
+                          m:
+                              max:
+                                  field: ms
+  - match: { status: 400 }

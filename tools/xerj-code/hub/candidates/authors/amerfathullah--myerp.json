@@ -1,0 +1,22 @@
+{
+ "corpus": "amerfathullah--myerp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on accounting, asset-management, crm queries this for how amerfathullah/MyERP implements it: Full-featured ERP system built with .NET 10, ABP.IO 10.5, Angular 21, and PostgreSQL \u2014 featuring accounting, inventory, sales, purchasing, m (selected work: test, src/MyERP.Application, src/MyERP.Domain)",
+ "repos": [
+  {
+   "repo": "MyERP",
+   "url": "https://github.com/amerfathullah/MyERP",
+   "sha": "57c84566b3566e96d0aef9f194f35743bf3423b4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 57c84566b356: \"fix(mfg): sales forecast date indexing and guards\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

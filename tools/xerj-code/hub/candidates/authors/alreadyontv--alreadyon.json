@@ -1,0 +1,22 @@
+{
+ "corpus": "alreadyontv--alreadyon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how AlreadyOnTV/AlreadyOn implements it: Your library, tuned to you (selected work: server, deploy, apps/android)",
+ "repos": [
+  {
+   "repo": "AlreadyOn",
+   "url": "https://github.com/AlreadyOnApp/AlreadyOn",
+   "sha": "1ea8fdb2dbb2eff47df8ce3aad2ae3d77cf6cf7f",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 1ea8fdb2dbb2: \"Minimize release APKs and runtime container contents\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

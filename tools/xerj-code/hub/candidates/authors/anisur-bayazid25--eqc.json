@@ -1,0 +1,22 @@
+{
+ "corpus": "anisur-bayazid25--eqc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on free, free-software, qda queries this for how anisur-bayazid25/eQc implements it: eQc - Easy Qual Coding, a desktop software for QDA (selected work: src/lib, src, src/components)",
+ "repos": [
+  {
+   "repo": "eQc",
+   "url": "https://github.com/anisur-bayazid25/eQc",
+   "sha": "f7cf65039ca511cab2a4eb088d65ef64fd392d65",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f7cf65039ca5: \"1.6.2\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

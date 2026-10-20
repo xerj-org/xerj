@@ -1,0 +1,22 @@
+{
+ "corpus": "farama-foundation--pettingzoo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on api, gymnasium, multi-agent-reinforcement-learning queries this for how Farama-Foundation/PettingZoo implements it: A standard API for multi-agent reinforcement learning environments, with popular reference environments and related utilities (selected work: test, pettingzoo)",
+ "repos": [
+  {
+   "repo": "PettingZoo",
+   "url": "https://github.com/Farama-Foundation/PettingZoo",
+   "sha": "b0fe02166d2106f8fcb6a6e0ca8125765699bdba",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b0fe02166d21: \"Add FlattenObservationV1 wrappers, ported from SuperSuit flatten_v0 (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

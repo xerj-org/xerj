@@ -1,0 +1,22 @@
+{
+ "corpus": "jiabai--skilldrive",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai, llm queries this for how jiabai/skilldrive implements it: a private Skills management SaaS platform purpose-built for AI agents. It focuses on the complete workflow of upload \u2192 manage \u2192 distribute w (selected work: desktop-client)",
+ "repos": [
+  {
+   "repo": "skilldrive",
+   "url": "https://github.com/jiabai/skilldrive",
+   "sha": "f1d1f7a6053fd8f5b09e95215b48dc5e04c8bea4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit f1d1f7a6053f: \"feat: implement delete functionality for skills in Agent view\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

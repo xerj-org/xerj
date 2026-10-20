@@ -1,0 +1,22 @@
+{
+ "corpus": "rath--vimdow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on hjkl, keyboard-driven, macos queries this for how rath/Vimdow implements it: Keyboard-driven window manager for macOS with Vim-style hjkl commands, counts, and undo (selected work: VimdowManager, Tests, Sources)",
+ "repos": [
+  {
+   "repo": "Vimdow",
+   "url": "https://github.com/rath/Vimdow",
+   "sha": "37c05dc77136ed01925ab99e5c816388720eaab2",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 37c05dc77136: \"feat(dimming): dim every window except the focused one\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

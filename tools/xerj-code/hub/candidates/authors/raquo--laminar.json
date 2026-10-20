@@ -1,0 +1,22 @@
+{
+ "corpus": "raquo--laminar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on functional-reactive-programming, dom-manipulation, reactive-streams queries this for how raquo/Laminar implements it: Simple, expressive, and safe UI library for Scala.js (selected work: src/test, src/main)",
+ "repos": [
+  {
+   "repo": "Laminar",
+   "url": "https://github.com/raquo/Laminar",
+   "sha": "23bcdce6aedbf95976d40c9812347deb75d9b46e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 23bcdce6aedb: \"Fix: keepNode logic now extends to nested inserters; ReplaceAll offer\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

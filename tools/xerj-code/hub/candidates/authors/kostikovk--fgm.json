@@ -1,0 +1,22 @@
+{
+ "corpus": "kostikovk--fgm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how kostikovk/fgm implements it: Set up and manage Go development environments with best-practice tooling \u2014 from a single binary (selected work: internal/repocheck, internal/lintdetect, internal/workspace)",
+ "repos": [
+  {
+   "repo": "fgm",
+   "url": "https://github.com/kostikovk/fgm",
+   "sha": "b616889286b41d0e9cb018cc078e3caf71f85240",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit b616889286b4: \"fix: go 1.26 language versions, faster lint detection, C7 Makefile va\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

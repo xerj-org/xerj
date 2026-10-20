@@ -1,0 +1,22 @@
+{
+ "corpus": "artemasmith--skillsentinel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how artemasmith/skillsentinel implements it: artemasmith/skillsentinel (Python) (selected work: tools, tests, skillsentinel)",
+ "repos": [
+  {
+   "repo": "skillsentinel",
+   "url": "https://github.com/artemasmith/skillsentinel",
+   "sha": "64e9ab9bf1b4bd1df86ecabb207f13aa75bc9ba9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 64e9ab9bf1b4: \"verifier: a payload must not cancel its own detection (C2/t_207de2de)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

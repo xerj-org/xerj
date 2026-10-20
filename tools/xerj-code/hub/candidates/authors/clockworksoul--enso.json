@@ -1,0 +1,22 @@
+{
+ "corpus": "clockworksoul--enso",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how clockworksoul/enso implements it: Long term graph-based memory for your AI agents (selected work: host)",
+ "repos": [
+  {
+   "repo": "enso",
+   "url": "https://github.com/clockworksoul/enso",
+   "sha": "6ce82f0e8376e5d7f8e47fa2828a6932356d7fad",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 6ce82f0e8376: \"host/openclaw: derive the RECALL-DEF \"used\" signal from llm_output (W\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

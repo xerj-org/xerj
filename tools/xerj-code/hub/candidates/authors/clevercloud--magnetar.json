@@ -1,0 +1,22 @@
+{
+ "corpus": "clevercloud--magnetar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how CleverCloud/magnetar implements it: Sans-io Apache Pulsar client driver for Rust (selected work: xtask, crates/magnetar-runtime-moonpool, crates/magnetar-runtime-tokio)",
+ "repos": [
+  {
+   "repo": "magnetar",
+   "url": "https://github.com/CleverCloud/magnetar",
+   "sha": "3b8e2594717686dace2720f5568e5612399673f6",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 3b8e25947176: \"test(scalable): quarantine exact intermittent scenarios\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

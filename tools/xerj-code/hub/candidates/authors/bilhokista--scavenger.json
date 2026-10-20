@@ -1,0 +1,22 @@
+{
+ "corpus": "bilhokista--scavenger",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how bilhokista/scavenger implements it: Goal-loop agent system: vague brief in, verified goal out, strategies until proven done (selected work: plugin)",
+ "repos": [
+  {
+   "repo": "scavenger",
+   "url": "https://github.com/bilhokista/scavenger",
+   "sha": "a7718cd2d128dc755cfca0587014a4a0e203bca8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit a7718cd2d128: \"feat: Claude Code plugin with three gates\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

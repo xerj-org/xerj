@@ -1,0 +1,22 @@
+{
+ "corpus": "dynnbw--re-android-live-wallpapers",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, live-wallpaper, opengles queries this for how dynnbw/RE-Android-Live-Wallpapers implements it: An Android live wallpaper collection that ports classic AOSP / MediaTek wallpapers from RenderScript to OpenGL ES 3.2 and Vulkan, allowing t (selected work: app/src, scripts)",
+ "repos": [
+  {
+   "repo": "RE-Android-Live-Wallpapers",
+   "url": "https://github.com/dynnbw/RE-Android-Live-Wallpapers",
+   "sha": "d5ee640e8a0f3517229f52995c8a4105e3dee0bd",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit d5ee640e8a0f: \"feat: show GitHub contributors on the About page\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

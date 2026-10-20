@@ -1,0 +1,22 @@
+{
+ "corpus": "beyonai--byclaw",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on Java queries this for how beyonai/ByClaw implements it: The enterprise-enhanced version of OpenClaw. ByClaw serves as a secure, scalable AI Agent Operating System with multi-tenancy and compliance (selected work: byclaw-be, the project root)",
+ "repos": [
+  {
+   "repo": "ByClaw",
+   "url": "https://github.com/beyonai/ByClaw",
+   "sha": "4c73f422c063e7942fbe1930bc92eab7892af98e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 4c73f422c063: \"init model by env\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

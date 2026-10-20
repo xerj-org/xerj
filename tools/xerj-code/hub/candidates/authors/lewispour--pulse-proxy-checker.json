@@ -1,0 +1,22 @@
+{
+ "corpus": "lewispour--pulse-proxy-checker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on cross-platform, desktop-app, free-proxies queries this for how lewispour/pulse-proxy-checker implements it: \u26a1 Fast local proxy checker for HTTP/HTTPS/SOCKS4/SOCKS5 \u2014 live results with country, quality & risk, offline GeoIP, saved pools. Free & open (selected work: src-tauri, ui)",
+ "repos": [
+  {
+   "repo": "pulse-proxy-checker",
+   "url": "https://github.com/lewispour/pulse-proxy-checker",
+   "sha": "40f5215fdfbe591de9c7683f2ed9864861332ea4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 40f5215fdfbe: \"Add launch-time update check with download banner (GitHub Releases)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "inaglyite--trpg-master",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Inaglyite/TRPG-Master implements it: An AI-driven TRPG platform featuring tool-using agents, deterministic rule execution, persistent state, and character memory (selected work: tests, frontend, src/gameplay)",
+ "repos": [
+  {
+   "repo": "TRPG-Master",
+   "url": "https://github.com/Inaglyite/TRPG-Master",
+   "sha": "67e006cf6528b1dee68b8902b924cd86198919eb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 67e006cf6528: \"\u4fee\u590d\u56de\u5408\u79fb\u52a8\u8fb9\u754c\u4e0e\u53d1\u8a00\u5f52\u5c5e\u5e76\u65b0\u589e\u72b6\u6001\u4fee\u6b63\u5de5\u5177\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

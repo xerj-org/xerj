@@ -1,0 +1,22 @@
+{
+ "corpus": "zkelo--folderdock",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C# queries this for how zkelo/FolderDock implements it: macOS-like folder popups pinned to the Windows 11 taskbar (WinUI 3, .NET 8) (selected work: tests, the project root, FolderDock.Core)",
+ "repos": [
+  {
+   "repo": "FolderDock",
+   "url": "https://github.com/zkelo/FolderDock",
+   "sha": "22bdc943f68a78ff88633392707cc899bfba5ac8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 22bdc943f68a: \"feat: add instant search to folder popup (#2)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

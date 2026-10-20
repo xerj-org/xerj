@@ -1,0 +1,22 @@
+{
+ "corpus": "yunsoft-software--yuncms",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cms, content-management-system, developer-tools queries this for how Yunsoft-Software/yuncms implements it: A programmable, self-hosted MySQL CMS/backend with React Studio, REST API, RBAC, Files, extensions, AI and MCP integrations (selected work: packages/core, test, packages/api)",
+ "repos": [
+  {
+   "repo": "yuncms",
+   "url": "https://github.com/Yunsoft-Software/yuncms",
+   "sha": "bde8d4a025dcad670d2497f048d649983fbcc1a6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit bde8d4a025dc: \"feat(relations): add protected native identity references\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

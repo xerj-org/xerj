@@ -12,7 +12,7 @@
 //! ```
 //!
 //! * **length** — `u32` little-endian: byte length of the payload that follows.
-//! * **op** — one of the [`Op`] constants; determines how the server interprets
+//! * **op** — one of the [`op`] constants; determines how the server interprets
 //!   the payload.
 //! * **payload** — JSON-encoded request or response body (no trailing newline).
 //!
@@ -32,8 +32,9 @@
 //! # Example session
 //!
 //! ```text
-//! client  → [0x0E 0x00 0x00 0x00] [0x06] {}                 (HEALTH, 14-byte payload)
-//! server  → [0x31 0x00 0x00 0x00] [0x40] {"status":"green"} (RESP_OK)
+//! client  → [0x02 0x00 0x00 0x00] [0x06] {}  (HEALTH, 2-byte payload)
+//! server  → [0x31 0x00 0x00 0x00] [0x40] {"status":"green","num_indices":0,"total_docs":0}
+//!                                        (RESP_OK, 49-byte payload)
 //! ```
 
 use std::sync::Arc;

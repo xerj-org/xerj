@@ -1,0 +1,22 @@
+{
+ "corpus": "outmode--rendepth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 3d, xr, ar queries this for how outmode/rendepth implements it: 2D to 3D Conversion (selected work: Source)",
+ "repos": [
+  {
+   "repo": "rendepth",
+   "url": "https://github.com/outmode/rendepth",
+   "sha": "73707f5eec9ef94d64e6ea22b3632a240caafa03",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 73707f5eec9e: \"Blu-ray playback improvements. Frame cap for web video.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

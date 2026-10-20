@@ -1,0 +1,22 @@
+{
+ "corpus": "wqlouis--linux-wallpaperengine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on linux, macos, wgpu queries this for how wqLouis/linux-wallpaperengine implements it: Wallpaper engine using Vulkan and Metal with Linux and Mac support (selected work: src/scene)",
+ "repos": [
+  {
+   "repo": "linux-wallpaperengine",
+   "url": "https://github.com/wqLouis/linux-wallpaperengine",
+   "sha": "77a90186bf362bec2e1debea0273293e922b310e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 77a90186bf36: \"feat(puppet): CPU-skin animated meshes and place objects on MDAT sockets\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

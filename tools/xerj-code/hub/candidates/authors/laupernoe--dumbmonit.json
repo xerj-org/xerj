@@ -1,0 +1,22 @@
+{
+ "corpus": "laupernoe--dumbmonit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on docker, homelab, mcp queries this for how laupernoe/dumbmonit implements it: Dumb-simple self-hosted monitoring in one container: 50+ integrations, SNMP, Proxmox, agent, quiet alerts, status pages, MCP. Homelab to sma (selected work: crates/server, web)",
+ "repos": [
+  {
+   "repo": "dumbmonit",
+   "url": "https://github.com/laupernoe/dumbmonit",
+   "sha": "8314543f8a9a0d65d2308ae27e5a8cf79a85f5d3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 8314543f8a9a: \"Wall widgets: Anthropic and OpenAI usage (cost, tokens, biggest users\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

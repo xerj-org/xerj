@@ -1,0 +1,22 @@
+{
+ "corpus": "liitx--claudart",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how liitx/claudart implements it: A Dart CLI for managing structured debug and suggestion sessions via local markdown workspaces (selected work: test, lib/pipeline, lib/logging)",
+ "repos": [
+  {
+   "repo": "claudart",
+   "url": "https://github.com/liitx/claudart",
+   "sha": "2ed76c0e867286d60e1e899022338601e16e15ec",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 2ed76c0e8672: \"feat(models): record which model each step ran on, set against the de\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

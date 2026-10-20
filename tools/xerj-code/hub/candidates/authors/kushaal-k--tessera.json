@@ -1,0 +1,22 @@
+{
+ "corpus": "kushaal-k--tessera",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on crdt, docker, socket-io queries this for how Kushaal-k/Tessera implements it: An open-source collaborative developer sandbox. Features real-time CRDT synchronization and secure remote code execution for human-AI pair p (selected work: apps/execution-engine, apps/sync-server, apps/web)",
+ "repos": [
+  {
+   "repo": "Tessera",
+   "url": "https://github.com/Kushaal-k/Tessera",
+   "sha": "82ce0008cf26689f0e605b01fd33bc9f537bcaad",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 82ce0008cf26: \"fix(sync-server,execution-engine): broadcast handshake updates, share\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

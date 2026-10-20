@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--ignite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on distributed-sql-database, iot, osgi queries this for how apache/ignite implements it: Apache Ignite (selected work: modules/binary, modules/core)",
+ "repos": [
+  {
+   "repo": "ignite",
+   "url": "https://github.com/apache/ignite",
+   "sha": "6ffb8718571d0a470eb6b018e441d4925e572ffd",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit 6ffb8718571d: \"IGNITE-25090 Get rid of local BinaryWriterEx methods (#13614)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

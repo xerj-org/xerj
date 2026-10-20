@@ -1,0 +1,22 @@
+{
+ "corpus": "selan-ai--whatileaked",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, cli queries this for how selan-ai/whatileaked implements it: Find credentials your coding agent already sent. Scans local Claude Code and Codex transcripts against the gitleaks rule set. No network, no (selected work: src/sources, src, src/wipe)",
+ "repos": [
+  {
+   "repo": "whatileaked",
+   "url": "https://github.com/selan-ai/whatileaked",
+   "sha": "9ffc8d34e299a725bb5603aed0c1990698eabaff",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 9ffc8d34e299: \"feat: scan opencode sessions (#8)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

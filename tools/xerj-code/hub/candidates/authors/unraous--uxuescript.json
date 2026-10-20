@@ -1,0 +1,22 @@
+{
+ "corpus": "unraous--uxuescript",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on chaoxing, javascript, xuexitong queries this for how unraous/uxuescript implements it: \u5b66\u4e60\u901a\u5168\u81ea\u52a8\u5237\u8bfe\u5ba2\u6237\u7aef\uff08\u539f uXuexitongJS\uff09 (selected work: src-tauri, the project root)",
+ "repos": [
+  {
+   "repo": "uxuescript",
+   "url": "https://github.com/unraous/uxuescript",
+   "sha": "e515dafcb15dd1a40a71a0728ad3d34ec7486dcb",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit e515dafcb15d: \"refactor: unify command and permission macros\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

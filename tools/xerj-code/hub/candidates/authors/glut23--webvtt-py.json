@@ -1,0 +1,22 @@
+{
+ "corpus": "glut23--webvtt-py",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on python, webvtt, hls queries this for how glut23/webvtt-py implements it: Read, write, convert and segment WebVTT caption files in Python (selected work: tests, webvtt)",
+ "repos": [
+  {
+   "repo": "webvtt-py",
+   "url": "https://github.com/glut23/webvtt-py",
+   "sha": "d77ab843ac43e04c7f7ca9d9d0385a32ff679919",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit d77ab843ac43: \"Accept non-padded timestamps in WebVTT cue timings (#99)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

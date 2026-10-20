@@ -1,0 +1,22 @@
+{
+ "corpus": "sagarkrjha--minigit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cmake, algorithms, content-addressable-storage queries this for how sagarkrjha/minigit implements it: Git-compatible distributed version control in modern C++20 with SHA-256 CAS, Myers diff, Smart HTTP, Docker, and multi-language SDKs (Rust,  (selected work: src/install, tests)",
+ "repos": [
+  {
+   "repo": "minigit",
+   "url": "https://github.com/sagarkrjha/minigit",
+   "sha": "4a06f60760d3e0eb261da74a004658dd3c879450",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit 4a06f60760d3: \"feat(install): adopt Git-style cmd and bin layout with Add/Remove Pro\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

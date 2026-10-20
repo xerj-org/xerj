@@ -1,0 +1,22 @@
+{
+ "corpus": "drajax69--gantry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Drajax69/gantry implements it: Local-first desktop workspace: tickets, worktrees, coding-agent chat, previews, and pull request review (selected work: desktop, packages/server)",
+ "repos": [
+  {
+   "repo": "gantry",
+   "url": "https://github.com/Drajax69/gantry",
+   "sha": "977f57d8ec25dbc94fbe28f9653c2809d797270d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 977f57d8ec25: \"Inspect network payloads and keep ticket reviews in workspace\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

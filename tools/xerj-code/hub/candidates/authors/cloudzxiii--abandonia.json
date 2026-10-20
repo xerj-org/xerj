@@ -1,0 +1,22 @@
+{
+ "corpus": "cloudzxiii--abandonia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Lua queries this for how cloudzXIII/Abandonia implements it: cloudzXIII/Abandonia (Lua) (selected work: content, localization, the project root)",
+ "repos": [
+  {
+   "repo": "Abandonia",
+   "url": "https://github.com/cloudzXIII/Abandonia",
+   "sha": "660842d5ccaebb05849f88dc7563cab48ecd894a",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 660842d5ccae: \"Square Root, Limit of Function, Limit of Sequence, Divide by Zero, Ma\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

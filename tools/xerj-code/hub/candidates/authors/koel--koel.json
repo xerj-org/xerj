@@ -1,0 +1,22 @@
+{
+ "corpus": "koel--koel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on laravel, vue, audio queries this for how koel/koel implements it: Music streaming solution that works (selected work: resources, tests, app/Http)",
+ "repos": [
+  {
+   "repo": "koel",
+   "url": "https://github.com/koel/koel",
+   "sha": "36434cfdf5295151110d5655f4323bd58f8002ed",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 36434cfdf529: \"feat: log in with passkeys (#2829)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

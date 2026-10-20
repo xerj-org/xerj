@@ -1,0 +1,22 @@
+{
+ "corpus": "johncharlesfields--stocksignalforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, backtesting, fastapi queries this for how JohnCharlesFields/StockSignalForge implements it: \u91d1\u878d\u673a\u6784\u5f00\u53d1\u8005 \u00d7 \u805a\u6e90\u6570\u636e\u5730\u56fe MCP\uff1a\u5f00\u6e90 AI \u91cf\u5316\u4e0e\u6295\u7814\u7cfb\u7edf\u3002 (selected work: agent, frontend, the project root)",
+ "repos": [
+  {
+   "repo": "StockSignalForge",
+   "url": "https://github.com/JohnCharlesFields/StockSignalForge",
+   "sha": "682cc2a5bbdbaa2c50086793198736ead5911e11",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 682cc2a5bbdb: \"Add causal direction studies and prospective signal evidence\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

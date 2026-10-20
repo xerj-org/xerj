@@ -1,0 +1,22 @@
+{
+ "corpus": "chattymin--poketokenbar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-coding, claude-code, codex queries this for how chattymin/PokeTokenBar implements it: Use your tokens to raise, evolve, and collect Pok\u00e9mon! \ud83e\udd5a (selected work: Sources, Tests)",
+ "repos": [
+  {
+   "repo": "PokeTokenBar",
+   "url": "https://github.com/chattymin/PokeTokenBar",
+   "sha": "be9cbc7f5c0e545bdc00d9aba3706a580aaf4016",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit be9cbc7f5c0e: \"feat(menubar): add a right-click menu to the menu bar item (#373)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "elevchyt--openwar3",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how elevchyt/openwar3 implements it: A modern reimplementation of the Warcraft III engine (selected work: src/ai, src/render)",
+ "repos": [
+  {
+   "repo": "openwar3",
+   "url": "https://github.com/elevchyt/openwar3",
+   "sha": "ef16230004f7068dd6653857729bfe0b0a01e53c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit ef16230004f7: \"A builder that stops short is sent again, and a beaten Easy army come\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

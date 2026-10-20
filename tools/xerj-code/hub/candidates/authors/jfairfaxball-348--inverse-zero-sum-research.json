@@ -1,0 +1,22 @@
+{
+ "corpus": "jfairfaxball-348--inverse-zero-sum-research",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Lean queries this for how jfairfaxball-348/Inverse-Zero-Sum-Research implements it: Research programme in combinatorial number theory: target discovery, literature assessment, independent mathematical review, proof developme (selected work: paper, scripts, authoritative)",
+ "repos": [
+  {
+   "repo": "Inverse-Zero-Sum-Research",
+   "url": "https://github.com/jfairfaxball-348/Inverse-Zero-Sum-Research",
+   "sha": "16e6df3a96d20258b6c452e98824900bf319243a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 16e6df3a96d2: \"S061: write illustrated E-JC inverse-classification manuscript\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

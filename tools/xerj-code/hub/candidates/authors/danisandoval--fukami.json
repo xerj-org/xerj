@@ -1,0 +1,22 @@
+{
+ "corpus": "danisandoval--fukami",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how danisandoval/fukami implements it: Fukami: native macOS / Steam Deck port of Ridge Racer V (USA) by static recompilation. No game data (selected work: config, tests, src/app)",
+ "repos": [
+  {
+   "repo": "fukami",
+   "url": "https://github.com/danisandoval/fukami",
+   "sha": "8c0f76333699e8cd2fc05e478038d7c5393dcbe7",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 8c0f76333699: \"Fukami 1.0.1\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

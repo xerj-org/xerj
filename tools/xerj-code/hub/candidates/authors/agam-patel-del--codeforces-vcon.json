@@ -1,0 +1,22 @@
+{
+ "corpus": "agam-patel-del--codeforces-vcon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how Agam-Patel-del/codeforces-vcon implements it: Codeforces-Vcon is a browser extension. It integrates a dedicated virtual contest history and performance analytics interface directly into  (selected work: src/components, src/services, src/pages)",
+ "repos": [
+  {
+   "repo": "codeforces-vcon",
+   "url": "https://github.com/Agam-Patel-del/codeforces-vcon",
+   "sha": "b4c2542d311aa4d7a81bdf4e00d4db6c4aea2a80",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b4c2542d311a: \"Implement the username display feature to replace the default enter s\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

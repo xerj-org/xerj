@@ -1,0 +1,22 @@
+{
+ "corpus": "cartertemm--audiogame-utils",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how cartertemm/audiogame-utils implements it: Building blocks for audiogames in the browser (or a mobile app). Includes accessible speech output, keyboard/mouse/gamepad/multi-finger gest (selected work: tests, src/ui, src)",
+ "repos": [
+  {
+   "repo": "audiogame-utils",
+   "url": "https://github.com/cartertemm/audiogame-utils",
+   "sha": "c8b8beecf922e72cd24291209304c026a690e35d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit c8b8beecf922: \"Add arrow key navigation to buffer lists\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

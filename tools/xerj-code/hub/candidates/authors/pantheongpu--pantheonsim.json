@@ -1,0 +1,22 @@
+{
+ "corpus": "pantheongpu--pantheonsim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on amd, ci, cuda queries this for how pantheongpu/pantheonsim implements it: PantheonSim: GPU simulator for CUDA and ROCm. Run CUDA and HIP programs unmodified on a CPU, no GPU needed: simulated NVIDIA and AMD GPUs fo (selected work: tests, src/core, include)",
+ "repos": [
+  {
+   "repo": "pantheonsim",
+   "url": "https://github.com/pantheongpu/pantheonsim",
+   "sha": "111a079c9dceb5f910a58a0789a62f329a9d65fd",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 111a079c9dce: \"Fail device allocations with out-of-memory when the host is short of \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

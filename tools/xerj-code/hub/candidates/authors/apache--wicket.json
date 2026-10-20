@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--wicket",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on java, apache, web queries this for how apache/wicket implements it: Apache Wicket - Component-based Java web framework (selected work: wicket-core, wicket-examples, wicket-core-tests)",
+ "repos": [
+  {
+   "repo": "wicket",
+   "url": "https://github.com/apache/wicket",
+   "sha": "2c89c796cecd7e5b26925f804876edd867b4f7e7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 2c89c796cecd: \"Keep Firefox from submitting a form for the triggered submit event\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

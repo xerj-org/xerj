@@ -1,0 +1,22 @@
+{
+ "corpus": "hughhan1--rtest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on performance, pytest, python queries this for how hughhan1/rtest implements it: Python test runner built in Rust (selected work: src/python_discovery, tests, src)",
+ "repos": [
+  {
+   "repo": "rtest",
+   "url": "https://github.com/hughhan1/rtest",
+   "sha": "a6daa931dbf0bfb27a9e81d554d7f72b8e6d85a8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit a6daa931dbf0: \"fix: restore safe hybrid pytest collection\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

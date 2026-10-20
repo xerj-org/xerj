@@ -1,0 +1,22 @@
+{
+ "corpus": "algobrother--mayatok-bpe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bytepairencoding, nlp, pyo3-rust-bindings queries this for how AlgoBrother/MayaTok-BPE implements it: MayaTok is a Byte Pair Encoding based Tokenizer (selected work: src, dataset_training, examples)",
+ "repos": [
+  {
+   "repo": "MayaTok-BPE",
+   "url": "https://github.com/AlgoBrother/MayaTok-BPE",
+   "sha": "20af61b11ebf6f3a84db17946f9682ee21a8929e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 20af61b11ebf: \"unicode fixes for math text\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

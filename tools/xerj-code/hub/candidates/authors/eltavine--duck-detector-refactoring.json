@@ -1,0 +1,22 @@
+{
+ "corpus": "eltavine--duck-detector-refactoring",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, bootloader, magisk-detection queries this for how eltavine/Duck-Detector-Refactoring implements it: Android environment integrity inspection tool for root, hook, bootloader, SELinux, virtualization, and attestation signals (selected work: feature)",
+ "repos": [
+  {
+   "repo": "Duck-Detector-Refactoring",
+   "url": "https://github.com/eltavine/Duck-Detector-Refactoring",
+   "sha": "88cc5500d021dabf016f956e209d3de05c14d8e4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 88cc5500d021: \"feat(memory): compare privately copied system code with its file (#162)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "det-labs--det",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on JavaScript queries this for how det-Labs/det implements it: Fast, local-first SQL ETL workspace & pipeline orchestrator powered by Apache DataFusion & Arrow. Zero-cloud-lock-in alternative to dbt & Sp (selected work: src/det, scripts)",
+ "repos": [
+  {
+   "repo": "det",
+   "url": "https://github.com/det-Labs/det",
+   "sha": "db3112f7ad5c52677737a0f3de43c3f36acf52c4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit db3112f7ad5c: \"fix: populate NovaMart sample connections in demo catalog\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

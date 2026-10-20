@@ -1,0 +1,22 @@
+{
+ "corpus": "xiejiayun--aerial",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Xiejiayun/aerial implements it: Xiejiayun/aerial (JavaScript) (selected work: src/setup, test, src/cli)",
+ "repos": [
+  {
+   "repo": "aerial",
+   "url": "https://github.com/Xiejiayun/aerial",
+   "sha": "2a35d2c750ff33ee9d374599e71803865a1ef8c8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 2a35d2c750ff: \"fix(claude): migrate provider overrides and expose shell conflicts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

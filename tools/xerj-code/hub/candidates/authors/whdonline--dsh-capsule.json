@@ -1,0 +1,22 @@
+{
+ "corpus": "whdonline--dsh-capsule",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how whDonline/dsh-capsule implements it: whDonline/dsh-capsule (TypeScript) (selected work: adapter, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-capsule",
+   "url": "https://github.com/whDonline/dsh-capsule",
+   "sha": "46384ad29c41f7687f3b3f8cc7f6319c599a293e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 46384ad29c41: \"fix(console): \u540c\u6e90\u8def\u7531\u771f\u6b63\u6ce8\u518c\u6210\u529f\u2014\u2014\u4fdd\u6301 register \u65b9\u6cd5\u8c03\u7528\u5f62\u6001 + \u5355\u6761 prefix \u8def\u7531\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

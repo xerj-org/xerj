@@ -1,0 +1,22 @@
+{
+ "corpus": "unslothai--unsloth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on fine-tuning, llama, llms queries this for how unslothai/unsloth implements it: Local UI to run and train LLMs and diffusion models. Supports GGUF, MLX, Qwen3.8, DeepSeek-V4, MiniMax-H3, Gemma 4, FLUX and more (selected work: studio)",
+ "repos": [
+  {
+   "repo": "unsloth",
+   "url": "https://github.com/unslothai/unsloth",
+   "sha": "6f4c16250df25a8ee67148bccccbd08adeb15c70",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 6f4c16250df2: \"Studio: cap tool-result text at 256K chars, spill the full output to \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

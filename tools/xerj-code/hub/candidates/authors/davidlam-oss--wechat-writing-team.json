@@ -1,0 +1,22 @@
+{
+ "corpus": "davidlam-oss--wechat-writing-team",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-writing, claude-code queries this for how DavidLam-oss/wechat-writing-team implements it: \u5168\u6d41\u7a0b\u516c\u4f17\u53f7\u5199\u4f5c Skill \u5957\u88c5\uff1a\u5199\u4f5c\u6d41\u6c34\u7ebf + \u89c6\u89c9\u5bfc\u6f14\u914d\u56fe + \u7d20\u6750\u91c7\u96c6\u3002\u5bf9\u63a5 Claude Code / Codex / Gemini CLI\uff0c\u8986\u76d6\u7d20\u6750\u53d1\u82bd\u3001\u8bbf\u8c08\u6316\u6398\u3001\u56db\u5c42\u5ba1\u6821\u3001\u6279\u91cf\u51fa\u56fe\u4e0e\u5f52\u6863\u53d1\u5e03\u3002 (selected work: assets, the project root)",
+ "repos": [
+  {
+   "repo": "wechat-writing-team",
+   "url": "https://github.com/DavidLam-oss/wechat-writing-team",
+   "sha": "0e9c1ff93e390f8263035d3e60dbe2515fbbc791",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 0e9c1ff93e39: \"Add diagram sources; align README and manual with the current skills\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

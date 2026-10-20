@@ -1,0 +1,22 @@
+{
+ "corpus": "innova-space-edu--eduai-platform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how innova-space-edu/eduai-platform implements it: innova-space-edu/eduai-platform (TypeScript) (selected work: app/audio-lab, supabase, lib/audio)",
+ "repos": [
+  {
+   "repo": "eduai-platform",
+   "url": "https://github.com/innova-space-edu/eduai-platform",
+   "sha": "f873814743d3f929c96c70e9673782a9ee9c74af",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit f873814743d3: \"feat(audio): private Kaggle and Colab GPU TTS from EDUAI Mis voces\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

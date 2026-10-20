@@ -1,0 +1,22 @@
+{
+ "corpus": "wcandillon--react-native-skia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on react, react-native, skia queries this for how wcandillon/react-native-skia implements it: High-performance React Native Graphics using Skia (selected work: packages/skia)",
+ "repos": [
+  {
+   "repo": "react-native-skia",
+   "url": "https://github.com/wcandillon/react-native-skia",
+   "sha": "fe34f1651dafad455c310a40a1a49dee3337560b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit fe34f1651daf: \"fix(\ud83c\udfa8): fix crashes and dropped arguments in SkCanvas methods (#4062)\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

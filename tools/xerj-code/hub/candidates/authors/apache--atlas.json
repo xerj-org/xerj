@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--atlas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on atlas, apache, docker queries this for how apache/atlas implements it: Apache Atlas - Open Metadata Management and Governance capabilities across the Hadoop platform and beyond (selected work: notification, distro, rest-notification-webapp)",
+ "repos": [
+  {
+   "repo": "atlas",
+   "url": "https://github.com/apache/atlas",
+   "sha": "18fbc57ee2f4fc45ab791a60c55f0ea5e10accc2",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 18fbc57ee2f4: \"ATLAS-5409: Atlas Kafka clients authenticate with OAUTHBEARER using K\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

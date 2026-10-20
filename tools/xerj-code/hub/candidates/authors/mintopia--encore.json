@@ -1,0 +1,22 @@
+{
+ "corpus": "mintopia--encore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how mintopia/encore implements it: Authenticating WebSocket proxy + supervisor for Spotify Soloist (selected work: src, src/web-vue)",
+ "repos": [
+  {
+   "repo": "encore",
+   "url": "https://github.com/mintopia/encore",
+   "sha": "27281315eb9d36de371c16bf37130d27d6ba4eae",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 27281315eb9d: \"feat: IP-named sticky Listener identity and scoped Own Volume via pro\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

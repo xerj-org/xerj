@@ -1,0 +1,22 @@
+{
+ "corpus": "minikin--presence-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on data-structures, rust, rust-lang queries this for how minikin/presence-rs implements it: A Rust library providing a tri-state type for representing value presence in schemas and data structures (selected work: tests, src, the project root)",
+ "repos": [
+  {
+   "repo": "presence-rs",
+   "url": "https://github.com/minikin/presence-rs",
+   "sha": "6cf1c80b646a27dc3bd293fa7cddfcff5e6f4acd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 6cf1c80b646a: \"feat: JSON Schema through an optional schemars feature (#27)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

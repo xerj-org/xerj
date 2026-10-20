@@ -1,0 +1,22 @@
+{
+ "corpus": "chriscreativecode--soundhub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on audio, audio-library, audio-sprites queries this for how chriscreativecode/soundhub implements it: A JavaScript audio library for web apps and games. Built on the Web Audio API with groups, sprites, streaming and 3D positioning. TypeScript (selected work: examples)",
+ "repos": [
+  {
+   "repo": "soundhub",
+   "url": "https://github.com/chriscreativecode/soundhub",
+   "sha": "69f5353a9a84b5f95c7d31461695e296fda1aafc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 69f5353a9a84: \"Add a Svelte 5 example with a soundState function built on runes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

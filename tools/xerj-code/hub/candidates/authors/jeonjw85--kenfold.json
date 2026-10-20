@@ -1,0 +1,22 @@
+{
+ "corpus": "jeonjw85--kenfold",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-memory, ai-agents, chatgpt queries this for how jeonjw85/kenfold implements it: Self-hosted memory server for AI agents. Share context across Claude Code, Codex, OpenCode, and ChatGPT over MCP (selected work: internal/bench)",
+ "repos": [
+  {
+   "repo": "kenfold",
+   "url": "https://github.com/jeonjw85/kenfold",
+   "sha": "c8380a93a10572b499e858d02a6c5f95037617c5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit c8380a93a105: \"bench: add experimental temporal and claim-scoped reader policies\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

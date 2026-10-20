@@ -1,0 +1,22 @@
+{
+ "corpus": "chunyu33--viap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how Chunyu33/viap implements it: Windows application management and data migration tool (selected work: src-tauri, src/pages)",
+ "repos": [
+  {
+   "repo": "viap",
+   "url": "https://github.com/Chunyu33/viap",
+   "sha": "c4b1d06583740eb3c98f6d8c545c0e4d3f896c92",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit c4b1d0658374: \"feat: expand the app-data catalog and avoid duplicate folders\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

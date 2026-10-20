@@ -1,0 +1,22 @@
+{
+ "corpus": "norvialabs--forge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-coding-assistant, cli, code-editor queries this for how NorviaLabs/forge implements it: Go from idea to verified code without leaving the terminal\u2014Forge unifies an AI agent, code editor, and shell in one focused workflow (selected work: crates/forge-tui, crates/forge-workspace, crates/forge-session)",
+ "repos": [
+  {
+   "repo": "forge",
+   "url": "https://github.com/NorviaLabs/forge",
+   "sha": "354bcb5c43c3e857449180bf25d4a50ffd5b7db6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 354bcb5c43c3: \"Integrate GitHub issues into Forge's Git workspace (#832)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

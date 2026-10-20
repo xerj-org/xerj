@@ -1,0 +1,22 @@
+{
+ "corpus": "gravityxx--aside",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, claude-code-plugin, productivity queries this for how gravityXX/aside implements it: A prompt queue for Claude Code. Queue prompts, ideas and comments while Claude works, without interrupting it, and send them once it finishe (selected work: hooks, tests, types)",
+ "repos": [
+  {
+   "repo": "aside",
+   "url": "https://github.com/gravityXX/aside",
+   "sha": "b1aed0da45bc5b0ea89629b3893176d28dc00926",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit b1aed0da45bc: \"feat: run chosen entries or steps by the numbers /aside shows\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

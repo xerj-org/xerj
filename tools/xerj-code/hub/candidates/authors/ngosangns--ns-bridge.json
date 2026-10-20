@@ -1,0 +1,22 @@
+{
+ "corpus": "ngosangns--ns-bridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how ngosangns/ns-bridge implements it: Model providers (Kiro, Devin, Grok) for coding agents: Pi, oh-my-pi (OMP) and the DeepSeek Harness (selected work: scripts, packages/pi-provider, packages/bridge-core)",
+ "repos": [
+  {
+   "repo": "ns-bridge",
+   "url": "https://github.com/ngosangns/ns-bridge",
+   "sha": "6e917846a68e9737fb52b5ed587c3e055e500cc8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 6e917846a68e: \"fix: keep provider startup and streaming off the host clock\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

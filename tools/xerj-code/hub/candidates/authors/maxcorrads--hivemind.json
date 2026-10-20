@@ -1,0 +1,22 @@
+{
+ "corpus": "maxcorrads--hivemind",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how maxcorrads/hivemind implements it: A local Slack for you and your AI coding agents (selected work: web, tests)",
+ "repos": [
+  {
+   "repo": "hivemind",
+   "url": "https://github.com/maxcorrads/hivemind",
+   "sha": "d24b541fc62068cbb999c9c48c2a22396ea67ba9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit d24b541fc620: \"fix: open threads at latest replies and resize sidebar and thread pan\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

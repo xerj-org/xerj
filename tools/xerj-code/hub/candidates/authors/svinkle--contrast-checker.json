@@ -1,0 +1,22 @@
+{
+ "corpus": "svinkle--contrast-checker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on a11y, accessibility, contrast-checker queries this for how svinkle/contrast-checker implements it: A minimalist, native utility for measuring color contrast anywhere across your operating system (selected work: web, the project root)",
+ "repos": [
+  {
+   "repo": "contrast-checker",
+   "url": "https://github.com/svinkle/contrast-checker",
+   "sha": "e4bee67869bf6776adb7eb3f15be210cc84a16d9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit e4bee67869bf: \"feat(web): add installable Chromebook PWA and GitHub Pages deployment\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

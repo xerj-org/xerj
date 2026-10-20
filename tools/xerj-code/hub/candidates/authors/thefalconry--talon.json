@@ -1,0 +1,22 @@
+{
+ "corpus": "thefalconry--talon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, ai-agent, anthropic queries this for how thefalconry/talon implements it: \ud83e\udd85 Multi-platform agentic AI harness \u2014 runs on Telegram, Discord, Teams & Terminal with a pluggable backend (Claude, Kilo, OpenCode, Codex, O (selected work: src/backend, src/core, src/__tests__)",
+ "repos": [
+  {
+   "repo": "talon",
+   "url": "https://github.com/thefalconry/talon",
+   "sha": "ac9c5a98a1ce6f299fc22d2605bc5321515950b0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit ac9c5a98a1ce: \"feat(claude): support multiple Claude accounts as distinct backends (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

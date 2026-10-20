@@ -1,0 +1,22 @@
+{
+ "corpus": "insightflo--papercompany-runtime",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how insightflo/papercompany-runtime implements it: Papercompany runtime (selected work: ui, server, packages/shared)",
+ "repos": [
+  {
+   "repo": "papercompany-runtime",
+   "url": "https://github.com/insightflo/papercompany-runtime",
+   "sha": "d28d520f57db0fe132660a921a0bd5c80f8d3a5b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit d28d520f57db: \"feat(search): experimental broad-search allowlists (company/mission/a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

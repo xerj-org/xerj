@@ -1,0 +1,22 @@
+{
+ "corpus": "previously-lab--agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai, ai-agents queries this for how previously-lab/agent implements it: Previously on you. A self-evolving AI agent that remembers by when, not by chat thread \u2014 it learns who you are, out in the open. Memory as p (selected work: src/components, src/hooks, tests)",
+ "repos": [
+  {
+   "repo": "agent",
+   "url": "https://github.com/previously-lab/agent",
+   "sha": "a9fbdeb7a88750e564a8f40b4d92510eca1ca0f3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit a9fbdeb7a887: \"fix(chrome, cards): the brand becomes an intertitle, and a card's typ\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

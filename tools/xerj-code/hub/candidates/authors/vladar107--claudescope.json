@@ -1,0 +1,22 @@
+{
+ "corpus": "vladar107--claudescope",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on analytics, claude, claude-code queries this for how vladar107/claudescope implements it: A scope for your Ai coding-agent sessions (selected work: packages/web)",
+ "repos": [
+  {
+   "repo": "claudescope",
+   "url": "https://github.com/vladar107/claudescope",
+   "sha": "fc7988a35a50222003d496b3e9cca6da428de4eb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit fc7988a35a50: \"feat(web): rename Skills to Extensions with per-kind tabs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

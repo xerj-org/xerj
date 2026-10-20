@@ -1,0 +1,22 @@
+{
+ "corpus": "love-u987--neopasterdream1",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how LOVE-U987/NeoPasterDream1 implements it: \u5e15\u65af\u7279\u4e4b\u68a6\u57281.21.1Neo\u4e0a\u7684\u91cd\u751f (selected work: PasterDream, libs)",
+ "repos": [
+  {
+   "repo": "NeoPasterDream1",
+   "url": "https://github.com/LOVE-U987/NeoPasterDream1",
+   "sha": "7f6d612c7db99a40805ef20c58bafa6340edae86",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 7f6d612c7db9: \"hotfix(worldgen): \u7075\u9b42\u77ff\u571f\u65e0\u6cd5\u6b63\u5e38\u751f\u6210\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

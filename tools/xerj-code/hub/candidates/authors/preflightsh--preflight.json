@@ -1,0 +1,22 @@
+{
+ "corpus": "preflightsh--preflight",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on checker, checks, deploy queries this for how preflightsh/preflight implements it: Preflight is a Go-based CLI tool that scans a codebase and related configuration for launch readiness. It identifies missing configuration,  (selected work: internal/checks)",
+ "repos": [
+  {
+   "repo": "preflight",
+   "url": "https://github.com/preflightsh/preflight",
+   "sha": "bd5651d0b96eba98634207d91103ffbbd4c546a1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit bd5651d0b96e: \"Cut debug_statements false positives and negatives from words, block \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "gkurt--tegaki",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on animation, calligraphy, cursive queries this for how gkurt/tegaki implements it: Handwriting animation for the web. Supports any font or text (selected work: examples)",
+ "repos": [
+  {
+   "repo": "tegaki",
+   "url": "https://github.com/gkurt/tegaki",
+   "sha": "02d7500d2296da4500e3908047f743a660d06325",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 02d7500d2296: \"feat(examples): score the launch video\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

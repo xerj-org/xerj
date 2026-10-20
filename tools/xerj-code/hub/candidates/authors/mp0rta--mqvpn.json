@@ -1,0 +1,22 @@
+{
+ "corpus": "mp0rta--mqvpn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on http3, network-programming, quic queries this for how mp0rta/mqvpn implements it: Multipath VPN using MASQUE and Multipath QUIC (selected work: tests, src, src/bind)",
+ "repos": [
+  {
+   "repo": "mqvpn",
+   "url": "https://github.com/mp0rta/mqvpn",
+   "sha": "2b634b9d77ac46b8c21c601f4bad5f4ad9745748",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 2b634b9d77ac: \"feat: add PathMTU to size QUIC packets for the underlay (#391)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

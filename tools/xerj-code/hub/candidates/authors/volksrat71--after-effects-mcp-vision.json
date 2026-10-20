@@ -1,0 +1,22 @@
+{
+ "corpus": "volksrat71--after-effects-mcp-vision",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on adobe, adobe-after-effects, after-effects-plugin queries this for how VolksRat71/after-effects-mcp-vision implements it: MCP server and CEP extension that lets an AI agent build in a live After Effects or Illustrator session, then look at what it made. 16 After (selected work: cep, test, scripts)",
+ "repos": [
+  {
+   "repo": "after-effects-mcp-vision",
+   "url": "https://github.com/VolksRat71/after-effects-mcp-vision",
+   "sha": "6303c393d4c8864cf5161be1b6f42b2b8f579959",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 6303c393d4c8: \"Add Illustrator support alongside AE workflows, contributed by Noah L\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

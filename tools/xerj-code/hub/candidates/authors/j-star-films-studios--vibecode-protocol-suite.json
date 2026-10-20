@@ -1,0 +1,22 @@
+{
+ "corpus": "j-star-films-studios--vibecode-protocol-suite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, prompt-engineering queries this for how J-StaR-Films-Studios/VibeCode-Protocol-Suite implements it: A comprehensive suite of protocols, meta-prompts, and orchestration tools designed to streamline software development workflows, project man (selected work: scripts, src/computer-use, src)",
+ "repos": [
+  {
+   "repo": "VibeCode-Protocol-Suite",
+   "url": "https://github.com/J-StaR-Films-Studios/VibeCode-Protocol-Suite",
+   "sha": "8af09f5f9b987911b45bbb0d597f25bc4205bfba",
+   "licence": "hint only: ISC (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "ISC",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 8af09f5f9b98: \"feat: add opt-in Codex desktop MCP integration\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

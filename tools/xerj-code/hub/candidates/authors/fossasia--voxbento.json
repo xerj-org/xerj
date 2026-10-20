@@ -1,0 +1,22 @@
+{
+ "corpus": "fossasia--voxbento",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how fossasia/voxbento implements it: Open Source AI powered Interpretation Platform https://voxbento.com (selected work: tests, portal)",
+ "repos": [
+  {
+   "repo": "voxbento",
+   "url": "https://github.com/fossasia/voxbento",
+   "sha": "e518eda6a2a2205a447114c1453f705086c75aa8",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e518eda6a2a2: \"Fix interpreter invite access for logged-in users (#793)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

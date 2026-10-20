@@ -1,0 +1,22 @@
+{
+ "corpus": "winston774--winston-10xai-toolspack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Winston774/Winston-10xAI-Toolspack implements it: \u6bcf\u9031\u4e00\u500b\u53ef\u76f4\u63a5\u4f7f\u7528\u3001\u62c6\u89e3\u3001\u7df4\u7fd2\u8207\u5206\u4eab\u7684 AI Skill \u6216 Chrome Extension\u3002 (selected work: weeks, the project root)",
+ "repos": [
+  {
+   "repo": "Winston-10xAI-Toolspack",
+   "url": "https://github.com/Winston774/Winston-10xAI-Toolspack",
+   "sha": "124f9f1bc9c4fa0be5224eb9c96e5ce40c3cf68a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 124f9f1bc9c4: \"feat: add W41 source-led-video learner skill package (#14)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

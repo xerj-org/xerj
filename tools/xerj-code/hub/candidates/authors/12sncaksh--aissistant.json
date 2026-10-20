@@ -1,0 +1,22 @@
+{
+ "corpus": "12sncaksh--aissistant",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how 12sncaksh/AIssistant implements it: AIssistant \u2014 a Windows desktop AI assistant & Live2D pet: PyQt6, LLM chat with structured tool calling, MCP support, voice wake/input/output (selected work: src)",
+ "repos": [
+  {
+   "repo": "AIssistant",
+   "url": "https://github.com/12sncaksh/AIssistant",
+   "sha": "f1f1a3c020a5d2ad42dbd05630513443330b78ff",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f1f1a3c020a5: \"\u8bb0\u5fc6\uff1a\u4f1a\u8bdd\u6458\u8981\u6539\u4e3a\u6eda\u52a8\u589e\u91cf\u5f0f\uff0812 \u8f6e / 1000 \u5b57 / \u8bdd\u9898\u6e05\u5355\uff09\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

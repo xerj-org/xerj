@@ -1,0 +1,22 @@
+{
+ "corpus": "koukibadr--elegant-notification",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how koukibadr/Elegant-Notification implements it: koukibadr/Elegant-Notification (Dart) (selected work: example, the project root)",
+ "repos": [
+  {
+   "repo": "Elegant-Notification",
+   "url": "https://github.com/koukibadr/Elegant-Notification",
+   "sha": "10c32ec0162cea7da9532c6392085b7f6a2e1a3b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 10c32ec0162c: \"fix: upgrade flutter version\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

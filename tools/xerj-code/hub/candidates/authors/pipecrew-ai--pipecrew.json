@@ -1,0 +1,22 @@
+{
+ "corpus": "pipecrew-ai--pipecrew",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how pipecrew-ai/pipecrew implements it: pipecrew-ai/pipecrew (JavaScript) (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "pipecrew",
+   "url": "https://github.com/pipecrew-ai/pipecrew",
+   "sha": "62a7c78313b37c8a87653919d15f33bac58e9451",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 62a7c78313b3: \"feat(explain): auto-approve explain-cache calls in the PreToolUse hook\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

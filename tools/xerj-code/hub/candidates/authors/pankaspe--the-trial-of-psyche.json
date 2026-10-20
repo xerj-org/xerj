@@ -1,0 +1,22 @@
+{
+ "corpus": "pankaspe--the-trial-of-psyche",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Odin queries this for how pankaspe/the-trial-of-psyche implements it: An isometric puzzle about seeing and trusting, from Apuleius' tale of Cupid and Psyche (Metamorphoses IV\u2013VI) (selected work: src/ui, src/progress, src)",
+ "repos": [
+  {
+   "repo": "the-trial-of-psyche",
+   "url": "https://github.com/pankaspe/the-trial-of-psyche",
+   "sha": "1cd8b47087043a05ce01047b1bf7f0aeec31dc4f",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 1cd8b4708704: \"Five games side by side: a list to continue, start or erase one; the \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

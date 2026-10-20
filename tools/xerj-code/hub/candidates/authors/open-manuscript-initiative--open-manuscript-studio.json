@@ -1,0 +1,22 @@
+{
+ "corpus": "open-manuscript-initiative--open-manuscript-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how open-manuscript-initiative/open-manuscript-studio implements it: Reference implementation of the Open Manuscript Initiative (OMI): a semantic editor for creating, reviewing, and publishing scholarly object (selected work: src/components, src/auth, src/modules)",
+ "repos": [
+  {
+   "repo": "open-manuscript-studio",
+   "url": "https://github.com/open-manuscript-initiative/open-manuscript-studio",
+   "sha": "369de7305becf512603fa3484254d5f26ad2f24c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 369de7305bec: \"Preserve conditional UI while localizing labels\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

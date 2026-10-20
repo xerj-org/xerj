@@ -1,0 +1,22 @@
+{
+ "corpus": "ravenrs--netbox-rack-design",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on capacity-planning, datacenter, dcim queries this for how ravenrs/netbox-rack-design implements it: NetBox plugin for designing rack layouts: plan device placements, moves and removals across multiple racks with a visual drag-and-drop eleva (selected work: netbox_rack_design, tests)",
+ "repos": [
+  {
+   "repo": "netbox-rack-design",
+   "url": "https://github.com/ravenrs/netbox-rack-design",
+   "sha": "0180ec95509989b647524499c718ec06805367f7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 0180ec955099: \"Type planning fields, apply blades, and fit templates to any rack\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

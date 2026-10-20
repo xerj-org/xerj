@@ -1,0 +1,22 @@
+{
+ "corpus": "somprasongd--go-thai-smartcard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on golang, smartcard, thai-smartcard queries this for how somprasongd/go-thai-smartcard implements it: \u0e42\u0e1b\u0e23\u0e41\u0e01\u0e23\u0e21\u0e2d\u0e48\u0e32\u0e19\u0e1a\u0e31\u0e15\u0e23\u0e1b\u0e23\u0e30\u0e0a\u0e32\u0e0a\u0e19 \u0e14\u0e49\u0e27\u0e22\u0e20\u0e32\u0e29\u0e32 Go (selected work: sdk, pkg/smc, cmd/agent)",
+ "repos": [
+  {
+   "repo": "go-thai-smartcard",
+   "url": "https://github.com/somprasongd/go-thai-smartcard",
+   "sha": "d18d70ffea8ee8d2c59e5c852ff17f5411fc0a28",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d18d70ffea8e: \"correlate requested card reads\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

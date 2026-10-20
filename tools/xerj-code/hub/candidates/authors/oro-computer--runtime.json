@@ -1,0 +1,22 @@
+{
+ "corpus": "oro-computer--runtime",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, ios, runtime queries this for how oro-computer/runtime implements it: Build native desktop and mobile apps with HTML, CSS, and JavaScript. A C++ runtime with native APIs, platform WebViews, and one CLI (selected work: src/runtime, test)",
+ "repos": [
+  {
+   "repo": "runtime",
+   "url": "https://github.com/oro-computer/runtime",
+   "sha": "242cc30d744e0b374ac951a23dadf41c8618a4e6",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 242cc30d744e: \"fix(runtime/tls): retain static provider registration during linking\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

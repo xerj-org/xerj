@@ -1,0 +1,22 @@
+{
+ "corpus": "arimanyus--warrenduffer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-gateway, ai-trading, algorithmic-trading queries this for how arimanyus/warrenduffer implements it: AI-driven intraday trading bot for Indian stocks. Jev ranks the Nifty 50 every 15s; code sizes each trade and places the stop; orders go liv (selected work: src/data, src/zerodha, src)",
+ "repos": [
+  {
+   "repo": "warrenduffer",
+   "url": "https://github.com/arimanyus/warrenduffer",
+   "sha": "0b7b44eac4d3beb7fb0166d93bc4da037b58802b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 0b7b44eac4d3: \"Add Zerodha Kite Connect broker; open-source release\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "atlassian-labs--mcp-compressor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how atlassian-labs/mcp-compressor implements it: An MCP server wrapper for reducing tokens consumed by MCP tools, available in typescript, python, and rust (selected work: typescript, crates/mcp-compressor-core)",
+ "repos": [
+  {
+   "repo": "mcp-compressor",
+   "url": "https://github.com/atlassian-labs/mcp-compressor",
+   "sha": "7cefecfbba9eeb5d0d1b33ad45a3efdf0480ef95",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 7cefecfbba9e: \"fix: shrink text content only and preserve structured output\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

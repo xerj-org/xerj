@@ -1,0 +1,22 @@
+{
+ "corpus": "mehmoodqureshi--linkedin-browser-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on electron, linkedin, mcp queries this for how Mehmoodqureshi/linkedin-browser-mcp implements it: Drive LinkedIn via Playwright, exposed as an MCP server over stdio. Runs standalone (npx) or as an Electron tray app (selected work: src/driver, test, src/mcp)",
+ "repos": [
+  {
+   "repo": "linkedin-mcp",
+   "url": "https://github.com/Mehmoodqureshi/linkedin-mcp",
+   "sha": "f4663272715e75e81295f842318f3c8793e03878",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit f4663272715e: \"feat: linkedin_get_sent_invitations, linkedin_get_connections; get_co\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

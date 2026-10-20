@@ -1,0 +1,22 @@
+{
+ "corpus": "open-circle--formisch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on form, preact, qwik queries this for how open-circle/formisch implements it: The lightweight, schema-first, and fully type-safe form library for React, Solid, Vue, Svelte and more (selected work: frameworks)",
+ "repos": [
+  {
+   "repo": "formisch",
+   "url": "https://github.com/open-circle/formisch",
+   "sha": "3a0704f82ee8039ddb10309bbc2216c8cf08f352",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 3a0704f82ee8: \"Fix focusing Vue fields bound to wrapper components (#225)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

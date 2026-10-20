@@ -1,0 +1,22 @@
+{
+ "corpus": "elysola--webhooker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Elysola/WebHooker implements it: GitHub webhook \u2192 Discord dispatcher\u3002\u901a\u8fc7 Cloudflare Workers \u63a5\u6536 webhook \u4e8b\u4ef6\uff0c\u5e94\u7528\u8fc7\u6ee4\u5e76\u8def\u7531\u683c\u5f0f\u5316\u6d88\u606f\u5230 Discord channels \u6216 threads\u3002 (selected work: app/components, app/assets, app/pages)",
+ "repos": [
+  {
+   "repo": "WebHooker",
+   "url": "https://github.com/ReCloudStudio/WebHooker",
+   "sha": "fbbff669a36877337fd6b347b132d09a77291d9d",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit fbbff669a368: \"feat(ui): migrate to @recloudstudio/ui, add theme toggle and polish c\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

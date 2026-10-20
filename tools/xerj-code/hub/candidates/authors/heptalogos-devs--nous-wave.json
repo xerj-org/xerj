@@ -1,0 +1,22 @@
+{
+ "corpus": "heptalogos-devs--nous-wave",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how Heptalogos-Devs/Nous-Wave implements it: Standalone cognitive substrate with Subject Core and Memory MicroSystem (selected work: apps/nous-cli, apps/nous-kernel, apps/nous-core)",
+ "repos": [
+  {
+   "repo": "Nous-Wave",
+   "url": "https://github.com/Heptalogos-Devs/Nous-Wave",
+   "sha": "09d67d4452eead78346877980f804ac513675d8d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 09d67d4452ee: \"Make Nous usable for sustained Codex cognition through real dogfoodin\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "atomiechen--dmon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on daemon, dmon, python-dmon queries this for how atomiechen/dmon implements it: A lightweight, cross-platform process manager for local services and development workflows, built for developers and coding agents (selected work: tests, src/dmon, scripts)",
+ "repos": [
+  {
+   "repo": "dmon",
+   "url": "https://github.com/atomiechen/dmon",
+   "sha": "fbeb815370b9df21849af6485a930320c86e0780",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit fbeb815370b9: \"Add safe stack repair, ownership checks, and agent setup\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

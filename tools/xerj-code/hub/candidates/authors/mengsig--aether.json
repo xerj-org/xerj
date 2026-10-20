@@ -1,0 +1,22 @@
+{
+ "corpus": "mengsig--aether",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how mengsig/aether implements it: Aether; the harness we always deserved. Finally (selected work: crates/aether-core, clients, crates/aether-runtime)",
+ "repos": [
+  {
+   "repo": "aether",
+   "url": "https://github.com/mengsig/aether",
+   "sha": "0df602a26ba89307940a553267aeeb3e3f10db85",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 0df602a26ba8: \"feat(providers): expose per-provider quota headroom with reset times \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

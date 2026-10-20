@@ -33,11 +33,43 @@ fn secret(s: &str) -> ClusterSecret {
     ClusterSecret::new(s).expect("valid test secret")
 }
 
+/// `free_addr` yields a port whose listener is already dropped, so between
+/// that drop and `TcpTransport::new`'s own bind another parallel test (or any
+/// process on the CI runner) can take the port — observed as a spurious
+/// `Address already in use` failure in `Build + Test`. Retry a bounded number
+/// of times so a lost race picks a fresh port instead of failing the test.
+const BIND_ATTEMPTS: usize = 20;
+
+fn is_addr_in_use(err: &anyhow::Error) -> bool {
+    err.chain().any(|cause| {
+        cause
+            .downcast_ref::<std::io::Error>()
+            .is_some_and(|io| io.kind() == std::io::ErrorKind::AddrInUse)
+    })
+}
+
+/// Bind a transport on a free port, retrying the pick-and-bind on `AddrInUse`.
+/// Returns the transport and the address it actually bound.
+async fn bind_transport(
+    node_id: &str,
+    peers: HashMap<String, SocketAddr>,
+    s: &str,
+) -> (TcpTransport, SocketAddr) {
+    let mut last_err = None;
+    for _ in 0..BIND_ATTEMPTS {
+        let addr = free_addr().await;
+        match TcpTransport::new(node_id.to_string(), addr, peers.clone(), secret(s)).await {
+            Ok(t) => return (t, addr),
+            Err(e) if is_addr_in_use(&e) => last_err = Some(e),
+            Err(e) => panic!("bind test transport: {e:?}"),
+        }
+    }
+    panic!("no free port after {BIND_ATTEMPTS} attempts: {last_err:?}")
+}
+
 /// Start a listening transport with no peers (receive-only).
-async fn listener(addr: SocketAddr, s: &str) -> TcpTransport {
-    TcpTransport::new("receiver".to_string(), addr, HashMap::new(), secret(s))
-        .await
-        .expect("bind receiver transport")
+async fn listener(s: &str) -> (TcpTransport, SocketAddr) {
+    bind_transport("receiver", HashMap::new(), s).await
 }
 
 fn sample_msg() -> RaftMessage {
@@ -114,16 +146,14 @@ async fn assert_no_delivery(t: &TcpTransport, what: &str) {
 /// Baseline: two transports sharing a secret still talk to each other.
 #[tokio::test]
 async fn authenticated_peers_exchange_messages() {
-    let addr_a = free_addr().await;
-    let addr_b = free_addr().await;
+    // Bind b first: its recorded address is one that is actually bound, not
+    // one that was merely free a moment ago.
+    let (b, addr_b) = listener(SECRET).await;
 
     let mut peers_a = HashMap::new();
     peers_a.insert("node-b".to_string(), addr_b);
 
-    let a = TcpTransport::new("node-a".to_string(), addr_a, peers_a, secret(SECRET))
-        .await
-        .unwrap();
-    let b = listener(addr_b, SECRET).await;
+    let (a, _addr_a) = bind_transport("node-a", peers_a, SECRET).await;
 
     a.send_to("node-b", &sample_msg()).await.expect("send");
 
@@ -142,8 +172,7 @@ async fn authenticated_peers_exchange_messages() {
 /// port used to be able to inject Raft control messages this way.
 #[tokio::test]
 async fn legacy_unauthenticated_client_is_rejected() {
-    let addr = free_addr().await;
-    let t = listener(addr, SECRET).await;
+    let (t, addr) = listener(SECRET).await;
 
     let mut stream = TcpStream::connect(addr).await.unwrap();
     // The legacy client writes immediately and never reads the challenge.
@@ -168,8 +197,7 @@ async fn legacy_unauthenticated_client_is_rejected() {
 /// at the hello — it never gets to send a frame that counts.
 #[tokio::test]
 async fn wrong_secret_is_rejected() {
-    let addr = free_addr().await;
-    let t = listener(addr, SECRET).await;
+    let (t, addr) = listener(SECRET).await;
 
     let (mut stream, challenge) = connect_and_handshake(addr).await;
     let bytes = client_bytes(
@@ -188,8 +216,7 @@ async fn wrong_secret_is_rejected() {
 /// fresh challenge per connection, so the captured tags no longer verify.
 #[tokio::test]
 async fn captured_frame_cannot_be_replayed() {
-    let addr = free_addr().await;
-    let t = listener(addr, SECRET).await;
+    let (t, addr) = listener(SECRET).await;
 
     // Connection 1: a legitimate, correctly-signed exchange. Keep the bytes.
     let (mut stream, challenge) = connect_and_handshake(addr).await;
@@ -219,8 +246,7 @@ async fn captured_frame_cannot_be_replayed() {
 /// down — so nothing but the MAC can catch it.
 #[tokio::test]
 async fn payload_swapped_under_a_valid_tag_is_rejected() {
-    let addr = free_addr().await;
-    let t = listener(addr, SECRET).await;
+    let (t, addr) = listener(SECRET).await;
 
     let (mut stream, challenge) = connect_and_handshake(addr).await;
     let s = secret(SECRET);
@@ -255,8 +281,7 @@ async fn payload_swapped_under_a_valid_tag_is_rejected() {
 /// part of the signed material, so frame 0 cannot be re-sent as frame 1.
 #[tokio::test]
 async fn duplicated_frame_within_connection_is_rejected() {
-    let addr = free_addr().await;
-    let t = listener(addr, SECRET).await;
+    let (t, addr) = listener(SECRET).await;
 
     let (mut stream, challenge) = connect_and_handshake(addr).await;
     let s = secret(SECRET);
@@ -286,8 +311,7 @@ async fn duplicated_frame_within_connection_is_rejected() {
 /// forever, and must never be treated as authenticated.
 #[tokio::test]
 async fn silent_client_delivers_nothing() {
-    let addr = free_addr().await;
-    let t = listener(addr, SECRET).await;
+    let (t, addr) = listener(SECRET).await;
 
     let (_stream, _challenge) = connect_and_handshake(addr).await;
     assert_no_delivery(&t, "silent client").await;

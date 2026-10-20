@@ -1,0 +1,22 @@
+{
+ "corpus": "domica--caprust",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on clap, desktop-app, egui queries this for how Domica/CapRust implements it: Free native Windows video editor for short/long-form creators. Built in Rust with egui + ffmpeg. AI captions, auto-reframe, all on-device (selected work: crates/ui, crates/media-io, crates/core)",
+ "repos": [
+  {
+   "repo": "CapRust",
+   "url": "https://github.com/Domica/CapRust",
+   "sha": "ea296576fa7a1a1abcbbb51d26b69de1239f6cec",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit ea296576fa7a: \"feat: v0.9.13 package - text effects, blend modes, clip rename, refre\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

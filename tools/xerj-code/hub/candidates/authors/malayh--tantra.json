@@ -1,0 +1,22 @@
+{
+ "corpus": "malayh--tantra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on harness, harness-engineering, harness-framework queries this for how malayh/tantra implements it: Agent harness framework (selected work: packages/tantra)",
+ "repos": [
+  {
+   "repo": "tantra",
+   "url": "https://github.com/malayh/tantra",
+   "sha": "d636eba0ce82a805a36353d15fda99e2e2ceddbe",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit d636eba0ce82: \"run time optimization, p4\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "leavesczy--compose-chat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on jetpack-compose, jetpack-compose-app, im-android queries this for how leavesCZY/compose_chat implements it: Jetpack Compose \u6700\u4f73\u5b9e\u8df5\uff0c\u7528 Jetpack Compose \u5199\u4e00\u4e2a IM APP (selected work: app/src, proxy, base)",
+ "repos": [
+  {
+   "repo": "compose_chat",
+   "url": "https://github.com/leavesCZY/compose_chat",
+   "sha": "f115bda1dcf05cfbb6264e05f3928bd60724cc9f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit f115bda1dcf0: \"optimize code\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

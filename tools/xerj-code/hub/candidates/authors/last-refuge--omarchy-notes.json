@@ -1,0 +1,22 @@
+{
+ "corpus": "last-refuge--omarchy-notes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on hyprland, omarchy, omarchy-quattro queries this for how last-refuge/omarchy-notes implements it: Apple Notes-style notes for Omarchy: native Qt 6, local-first, follows your theme (selected work: tests, packaging)",
+ "repos": [
+  {
+   "repo": "omarchy-notes",
+   "url": "https://github.com/last-refuge/omarchy-notes",
+   "sha": "dcd81ad2f5ff30ea134a8ca7a6d57f6c769d4a56",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit dcd81ad2f5ff: \"Complete dependency notices and move user trials to post-release foll\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

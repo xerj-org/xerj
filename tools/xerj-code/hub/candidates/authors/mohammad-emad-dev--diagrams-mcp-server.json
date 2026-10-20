@@ -1,0 +1,22 @@
+{
+ "corpus": "mohammad-emad-dev--diagrams-mcp-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, ai-agents, ai-tools queries this for how mohammad-emad-dev/diagrams-mcp-server implements it: Local-first diagrams for AI agents: manage, render, and verify PlantUML & Mermaid against your codebase (selected work: src/tools, src/services, src/integration)",
+ "repos": [
+  {
+   "repo": "diagrams-mcp-server",
+   "url": "https://github.com/mohammad-emad-dev/diagrams-mcp-server",
+   "sha": "05b427fc62928114a1838dd376a88e16e0106aae",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 05b427fc6292: \"feat: draft TypeScript class scaffolds from diagram names\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

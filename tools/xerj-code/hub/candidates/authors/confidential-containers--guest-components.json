@@ -1,0 +1,22 @@
+{
+ "corpus": "confidential-containers--guest-components",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how confidential-containers/guest-components implements it: Confidential Containers Guest Tools and Components (selected work: attestation-agent)",
+ "repos": [
+  {
+   "repo": "guest-components",
+   "url": "https://github.com/confidential-containers/guest-components",
+   "sha": "14d6b4dfddf5f090315aba98a21d47dd186484bf",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 14d6b4dfddf5: \"aa: log and recover eventlog entries against the PCR they extend\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

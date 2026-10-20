@@ -1,0 +1,22 @@
+{
+ "corpus": "kaan-kross--4r022-autoclicker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Kaan-Kross/4R022-AutoClicker implements it: Professional AutoClicker For You (selected work: Main)",
+ "repos": [
+  {
+   "repo": "4R022-AutoClicker",
+   "url": "https://github.com/Kaan-Kross/4R022-AutoClicker",
+   "sha": "cd21f654393c3032a602f2171d9d6fdc90a2e804",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit cd21f654393c: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

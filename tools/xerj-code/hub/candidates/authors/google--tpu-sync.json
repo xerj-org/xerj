@@ -1,0 +1,22 @@
+{
+ "corpus": "google--tpu-sync",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how google/tpu-sync implements it: google/tpu-sync (C++) (selected work: tpu_sync)",
+ "repos": [
+  {
+   "repo": "tpu-sync",
+   "url": "https://github.com/google/tpu-sync",
+   "sha": "745b64eb2a79e402c034f90d9708f99b8079180e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 745b64eb2a79: \"Decouple KVCacheStore from HostOffloadBackend via virtual backend hooks.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

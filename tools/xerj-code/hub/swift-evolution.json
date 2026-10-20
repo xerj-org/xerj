@@ -1,0 +1,21 @@
+{
+ "corpus": "swift-evolution",
+ "cloned_at": "2026-10-19T22:32:25Z",
+ "repos": [
+  {
+   "repo": "swift-evolution",
+   "url": "https://github.com/swiftlang/swift-evolution",
+   "licence": "Apache-2.0",
+   "sha": "239be1db9902be50984e4a133a1fd769d55e2a64",
+   "files": 622,
+   "bytes": 11709477,
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "xerj-org",
+    "at": "2026-10-19",
+    "note": "LICENSE.txt at pin read by hand: Apache License 2.0 with the Swift Runtime Library Exception (exception only widens use of compiled runtime code). Prose and code samples adapt with attribution."
+   }
+  }
+ ]
+}

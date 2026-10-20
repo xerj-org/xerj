@@ -1,0 +1,22 @@
+{
+ "corpus": "ognjenmarcheta--kaine-forge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on better-auth, drizzle, expo queries this for how ognjenmarcheta/kaine-forge implements it: Agent-ready Turborepo template for full-stack TypeScript: GraphQL API, React web, Tauri desktop, Expo mobile, shared packages, and a generat (selected work: tooling)",
+ "repos": [
+  {
+   "repo": "kaine-forge",
+   "url": "https://github.com/ognjenmarcheta/kaine-forge",
+   "sha": "cfa361bf1f21fd2eb01d4dc82fc28d25835624de",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit cfa361bf1f21: \"fix(desk): run builds and checks on Linux from a Windows host (#479)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

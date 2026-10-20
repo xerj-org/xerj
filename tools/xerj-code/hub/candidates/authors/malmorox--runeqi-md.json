@@ -1,0 +1,22 @@
+{
+ "corpus": "malmorox--runeqi-md",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on markdown, markdown-editor, markdown-previewer queries this for how malmorox/runeqi-md implements it: A friendly and powerful Markdown editor with real-time preview (selected work: src/constants, src/components, src)",
+ "repos": [
+  {
+   "repo": "runeqi-md",
+   "url": "https://github.com/malmorox/runeqi-md",
+   "sha": "2f8c365a61def0c56b19bba1e0f3405ba08ab7c3",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 2f8c365a61de: \"Keep the preview mounted when switching themes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

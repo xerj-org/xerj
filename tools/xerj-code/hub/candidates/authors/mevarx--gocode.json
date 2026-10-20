@@ -1,0 +1,22 @@
+{
+ "corpus": "mevarx--gocode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how mevarx/GoCode implements it: GoCode is a lightweight, high-performance terminal AI coding agent written in Go. It operates directly inside your terminal, assisting you w (selected work: internal/tui, internal/provider, internal/tools)",
+ "repos": [
+  {
+   "repo": "GoCode",
+   "url": "https://github.com/mevarx/GoCode",
+   "sha": "44b5781050258afa84d0e7a87bd274de9ae2b1f8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit 44b578105025: \"v0.7.0: bubbletea v2 migration, audit fixes, tool cards\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

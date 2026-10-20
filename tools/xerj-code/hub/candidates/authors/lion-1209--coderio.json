@@ -1,0 +1,22 @@
+{
+ "corpus": "lion-1209--coderio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, cli, coding-agent queries this for how Lion-1209/coderio implements it: Local coding agent with native Zhipu GLM / StepFun Step Coding-Plan support. Four hard gates \u2014 the agent can't claim done without running th (selected work: tests, src/coderio)",
+ "repos": [
+  {
+   "repo": "coderio",
+   "url": "https://github.com/Lion-1209/coderio",
+   "sha": "1287526769f0455eee433812e0232705270d5d76",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 1287526769f0: \"fix(llm): probe + persist context_limit for models onboarding never p\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

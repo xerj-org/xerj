@@ -1,0 +1,22 @@
+{
+ "corpus": "leanprover-community--lean4game",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on lean4, react queries this for how leanprover-community/lean4game implements it: Server to host Lean games (selected work: client, server, the project root)",
+ "repos": [
+  {
+   "repo": "lean4game",
+   "url": "https://github.com/leanprover-community/lean4game",
+   "sha": "aff9a939e191fc71f37cad84e6f2a6a3e0133091",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit aff9a939e191: \"Refactor: eliminate old infoview implementations (#492)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

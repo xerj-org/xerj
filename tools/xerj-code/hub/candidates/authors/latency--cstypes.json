@@ -1,0 +1,22 @@
+{
+ "corpus": "latency--cstypes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how Latency/CSTypes implements it: C# Type Library For String Parsing And Formatting (selected work: Unit Tests, src, src/Enums)",
+ "repos": [
+  {
+   "repo": "CSTypes",
+   "url": "https://github.com/Latency/CSTypes",
+   "sha": "fdbb244b757b5d79cb6fac5594f99e22cb320063",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit fdbb244b757b: \"Update build configurations and dependency references.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

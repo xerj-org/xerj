@@ -1,0 +1,22 @@
+{
+ "corpus": "szholobetsky--1bcoder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how szholobetsky/1bcoder implements it: Offline-first AI coding assistant for 1B\u20137B local models (Ollama, LMStudio, llama.cpp). Terminal REPL with file editing, project map, agents (selected work: _bcoder_data, the project root)",
+ "repos": [
+  {
+   "repo": "1bcoder",
+   "url": "https://github.com/szholobetsky/1bcoder",
+   "sha": "12082027e54f1c1f92a4367a9b489279310a7ef3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 12082027e54f: \"new agents and deepagents\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

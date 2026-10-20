@@ -1,0 +1,22 @@
+{
+ "corpus": "gbif-sweden--gbif-gap-finder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on data-gaps, gbif-cube, gbif-data queries this for how GBIF-Sweden/gbif_gap_finder implements it: GBIF-Sweden/gbif_gap_finder (HTML) (selected work: shiny_app, analysis, R)",
+ "repos": [
+  {
+   "repo": "gbif_gap_finder",
+   "url": "https://github.com/GBIF-Sweden/gbif_gap_finder",
+   "sha": "b2550555155f11653a1e3a83fc129028b1101ed7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b2550555155f: \"Summary report following the app tabs; replaces the eight analysis re\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

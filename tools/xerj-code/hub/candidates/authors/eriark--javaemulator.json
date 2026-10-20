@@ -1,0 +1,22 @@
+{
+ "corpus": "eriark--javaemulator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, emulator, handheld queries this for how EriArk/JavaEmulator implements it: AbyssME: a J2ME emulator for Android handhelds and phones, based on J2ME Loader (selected work: experiments, app/src, dexlib)",
+ "repos": [
+  {
+   "repo": "JavaEmulator",
+   "url": "https://github.com/EriArk/JavaEmulator",
+   "sha": "055621261a95b6d451671fd5b0f608bdbbe9354b",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 055621261a95: \"Add optimized M3G upgrade rehearsal and fix release-only regressions\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

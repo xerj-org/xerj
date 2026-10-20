@@ -1,0 +1,22 @@
+{
+ "corpus": "yiming1997--agilepool",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on go, goroutine, worker-pool queries this for how Yiming1997/agilePool implements it: A golang goroutine pool with high-performance and elegance (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "agilePool",
+   "url": "https://github.com/Yiming1997/agilePool",
+   "sha": "f8ec741dfac7acf201a981d61f93bb11b4bf20bf",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f8ec741dfac7: \"perf(pool): shard handoff queue to cut channel lock contention\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

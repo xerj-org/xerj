@@ -33,6 +33,77 @@ env:
 # point there, so only its ACTION ref is pinned, not what "nightly" resolves
 # to on the day the job runs.
 jobs:
+  # Change scoping. Docs-only pull requests used to run all ~22 jobs, and with
+  # the org's concurrent-job limit that queued docs PRs behind Rust builds for
+  # about an hour (53 queued runs on 2026-10-15). `changes` classifies the
+  # diff with scripts/ci/change_scope.sh (tested by
+  # scripts/ci/test_change_scope.sh, run first below) and the heavy Rust jobs
+  # run only when `code == 'true'`. The light guards (cla-config,
+  # reference-coding, landing-constants-guard, workflow-timeouts,
+  # release-notes-gate) never depend on it.
+  #
+  # It FAILS OPEN: an empty diff, a failed diff, an all-zeros `before`, or any
+  # path not on the narrow docs allowlist all mean code=true (run everything).
+  # If `changes` itself fails, the gated jobs still run: their condition is
+  # `!cancelled() && (needs.changes.result != 'success' || ...)`, because a
+  # plain `needs:` would SKIP them, and a skipped required check reads green.
+  # The allowlist excludes every docs file a test reads by name; see the
+  # script header for the list and the tests that read them.
+  #
+  # Pushes to main always run everything. Build + Test also carries doc-claim
+  # tests that walk EVERY .md/.html/.txt in the tree (security_tooling_claims,
+  # docs_capability_lists), which no path allowlist can exclude. On a PR that
+  # risk is accepted; on main a docs merge that breaks one of them shows up red
+  # on its own merge commit instead of on the next unrelated code PR.
+  changes:
+    name: Change scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.scope.outputs.code }}
+      ux: ${{ steps.scope.outputs.ux }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      - name: Classifier unit tests
+        run: bash scripts/ci/test_change_scope.sh
+
+      - name: Classify changed files
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          fail_open() {
+            echo "::notice::change scope: $1 -> running everything"
+            printf 'code=true\nux=true\n' >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          if [ "$EVENT" = "pull_request" ]; then
+            range="${PR_BASE}...${HEAD_SHA}"
+          else
+            if [ -z "$PUSH_BEFORE" ] || [ "$PUSH_BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              fail_open "no usable push base"
+            fi
+            range="${PUSH_BEFORE}..${HEAD_SHA}"
+          fi
+          if ! files="$(git diff --name-only "$range")"; then
+            fail_open "git diff $range failed"
+          fi
+          echo "Changed files ($range):"
+          printf '%s\n' "$files" | sed 's/^/  /'
+          result="$(printf '%s\n' "$files" | bash scripts/ci/change_scope.sh)" || fail_open "classifier errored"
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "Push event: classifier said [${result//$'\n'/ }], running everything (see job comment)"
+            fail_open "push to $GITHUB_REF"
+          fi
+          echo "$result"
+          echo "$result" >> "$GITHUB_OUTPUT"
+
   cla-config:
     name: CLA gate config
     runs-on: ubuntu-latest
@@ -64,7 +135,9 @@ jobs:
       # (and nothing else). Any code/CI/other-docs change re-arms the full gate.
       # The binding `verification/cla-signed` status for a field-report-only PR
       # is provided separately (.github/workflows/cla-field-report-exempt.yml),
-      # because cla-bot cannot path-scope itself.
+      # because cla-bot cannot path-scope itself. A rename also emits its source
+      # path (previous_filename), so renaming a code file into the field-report
+      # folder cannot hide its deletion from the carve-out.
       - name: Co-authored-by trailers resolve to signed contributors
         if: github.event_name == 'pull_request'
         env:
@@ -72,7 +145,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
-          FILES="$(gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/files" --jq '.[].filename')"
+          FILES="$(gh api --paginate "repos/${REPO}/pulls/${PR_NUMBER}/files" --jq '.[] | .filename, (.previous_filename // empty)')"
           python3 scripts/check_cla_coauthors.py --pr "$PR_NUMBER" --changed-files "$FILES"
 
   reference-coding:
@@ -236,6 +309,8 @@ jobs:
 
   lint:
     name: Format + Clippy
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -273,6 +348,8 @@ jobs:
   # line. (#749)
   workspace-resolves:
     name: Workspace resolves (links + lockfile)
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -298,6 +375,8 @@ jobs:
   # They are still in the log on every run, which is the point.
   security-audit:
     name: Dependency advisory audit (cargo-audit)
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -335,6 +414,8 @@ jobs:
   #   FUZZ_SECONDS=3600 bash .github/scripts/fuzz-smoke.sh
   fuzz:
     name: Fuzz harnesses (cargo-fuzz)
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -383,6 +464,8 @@ jobs:
 
   build-test:
     name: Build + Test
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     # #751's second-order damage was the whole job hanging against GitHub's 6h
     # default while main's `cancel-in-progress: false` never auto-cancels — main
@@ -497,6 +580,8 @@ jobs:
   # with the tests.
   release-build:
     name: Release build (fat LTO, all members link)
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -516,6 +601,8 @@ jobs:
 
   onnx-feature:
     name: ONNX feature compile + tests
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -549,6 +636,8 @@ jobs:
 
   api-checks:
     name: API smoke + liveness + benchmark
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -590,6 +679,8 @@ jobs:
 
   conformance:
     name: ES-compat YAML conformance
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -686,6 +777,8 @@ jobs:
   # script that needs a live server and a real browser, i.e. by nothing.
   ux-tests:
     name: UX pipeline tests
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true' || needs.changes.outputs.ux == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -722,6 +815,8 @@ jobs:
   # breaks an install, and it needs nothing but Node.
   usecase-smoke:
     name: Use-case harnesses (brain + MCP + autoindex)
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -805,6 +900,8 @@ jobs:
   # under.
   autoindex-fd-smoke:
     name: Autoindex FD smoke (${{ matrix.os }})
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     strategy:
       fail-fast: false
       matrix:
@@ -856,6 +953,8 @@ jobs:
   # arrive as multiples, not percents.
   idle-budget:
     name: Idle budget (many-index at-rest CPU/RSS)
+    needs: [changes]
+    if: ${{ !cancelled() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true') }}
     runs-on: ubuntu-latest
     # One tier up from the no-compile tier: compiles one crate (xerj-server)
     # on the shared ci-test cache, then boots and measures. The fixture itself

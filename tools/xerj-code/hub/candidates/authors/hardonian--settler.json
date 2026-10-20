@@ -1,0 +1,22 @@
+{
+ "corpus": "hardonian--settler",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on audit-trail, fintech, ledger queries this for how Hardonian/Settler implements it: Reconciliation intelligence: payments, evidence, matching, financial workflow control (selected work: packages/web, crates/settler-verify-cli)",
+ "repos": [
+  {
+   "repo": "Settler",
+   "url": "https://github.com/Hardonian/Settler",
+   "sha": "0c5fef0947f4c2eda744eb3b236e35ddda67416f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 0c5fef0947f4: \"feat(verify): wire Sparse Merkle Tree (SMT) verification across CLI a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -79,7 +79,7 @@ PAGES: dict[str, dict[str, str]] = {
     ),
     "benchmarks/index.html": dict(
         label="Benchmarks", kind="software",
-        title="XERJ.ai — Benchmarks: performance, retrieval, token savings, ZTA",
+        title="XERJ.ai — Benchmarks: performance, retrieval, tokens, ZTA",
         description="Every number traces to a run: the 88-cell Elasticsearch board, code retrieval measured head-to-head against Zoekt and ripgrep, 6.5x cheaper agent runs, and the zero-token architecture behind them.",
     ),
     "benchmarks/elasticsearch.html": dict(
@@ -146,11 +146,49 @@ PAGES: dict[str, dict[str, str]] = {
         description="Ten features, eight measured gates: /_ask macro-F1 0.9975, xerj_map 20/30 to 0/30, calibration ECE 0.0088 pass; the judge, the flywheel and the decide head fail their bars, numbers published.",
         published="2026-09-30", updated="2026-09-30",
     ),
+    # Corpus Hub launch post, 2026-10-01. Numbers trace to: docs/case-studies/
+    # reference-coding/SUMMARY.md (16/16, 9,982 vs 26,477, $1.58 vs $3.27),
+    # benchmarks/corpus-ab-2026-10/RESULTS.md (13 vs 16 confirmed, 1 vs 0 FP,
+    # zero corpus-traceable findings — the tie, published as a tie), and the
+    # registry itself on the corpus-hub branch (4 manifests + 1 recipe).
+    "blog/the-corpus-hub.html": dict(
+        label="The Corpus Hub", kind="article",
+        title="The Corpus Hub: pinned, licenced, signed, contributed by PR",
+        description="A public registry of corpora for AI agents: reference code pinned to SHAs, record packs ed25519-signed, every source licence-reviewed by a human. The measured use case (2.7× fewer output tokens), the tie we published anyway, and how to contribute yours by PR.",
+        published="2026-10-01", updated="2026-10-01",
+    ),
+    # Guest post, 2026-10-07: Chunxiao Wang (Assay / nautilus-compass)
+    # answered our practitioner invitation in #1118 + #1138. Every measurement
+    # in the post is theirs, quoted from the issues; the only XERJ-side claims
+    # are the §05 registry counts (validate_hub.py run 2026-10-07: 98
+    # manifests, backlog 132 rows after PR #1210, 99 live, zero session/
+    # trajectory corpora). Updated 2026-10-11 (#1138 follow-through): the
+    # thin spot the post named was closed by the donated corpus — PR #1255
+    # (70 trajectories, CC-BY-4.0) + release pack-agent-session-trajectories-
+    # 2026-10-09 — so an UPDATE note now sits under §04. The 2026-10-07 counts
+    # are left verbatim; only the dated note was added.
+    "blog/eval-scars-from-agent-memory.html": dict(
+        label="Guest eval scars", kind="article",
+        title="Six eval scars from a production agent-memory system",
+        description="Guest recipes from Chunxiao Wang (Assay): topic slicing beat token windows on recall@1 by double digits, a 0.87 classifier nearly matched by a 0.78 always-yes baseline, and the mask bug that scored every query zero. Plus the corpus gap we checked and confirmed.",
+        published="2026-10-07", updated="2026-10-11",
+    ),
+    # Exploit-hub A/B post, 2026-10-08. Every number traces to the
+    # sealed-truth eval (/root/eval-holdout/EVAL-REPORT.md): 23744 route/
+    # field from 36 in-corpus PoCs, 23 s retrieval vs 2.1 s negative
+    # control, the #1238 field-set table, 0/128 PoC lag, 37.6 GB honest
+    # group size, blogposts corpus 7 records / 107,295 B read-back 5/5.
+    "blog/the-exploit-hub.html": dict(
+        label="The exploit hub", kind="article",
+        title="The exploit hub, tested on three fresh CVEs",
+        description="We ran the exploit corpus against three CVEs it had never seen: one query named the exact route and field for one, an in-corpus 2026 exploit named the exact denylist segments the vendor shipped for another, and the third proved the corpus adds nothing when its stratum is empty. Losses included.",
+        published="2026-10-08", updated="2026-10-08",
+    ),
     "blog/index.html": dict(
         label="Blog", kind="collection",
         title="XERJ.ai — Blog: the engineering log",
-        description="Measured results with the losses left in: the rc.80 gates post, the Jev decisions study, the JEV rerank verdict, the storage formats that cut the index 28%, and the signed rust-vulns corpus pack.",
-        updated="2026-09-30",
+        description="Measured results with the losses left in: the exploit hub tested on three fresh CVEs, guest eval scars from a production agent-memory system, the Corpus Hub launch, the rc.80 gates post, the Jev decisions study, the JEV rerank verdict, the storage formats that cut the index 28%, and the signed rust-vulns corpus pack.",
+        updated="2026-10-08",
     ),
     "demo/index.html": dict(
         label="Real-data demo", kind="software",
@@ -310,13 +348,20 @@ PAGES: dict[str, dict[str, str]] = {
         label="CLI reference", kind="techarticle",
         description="The xerj command line — server flags, config and data-dir overrides, and the autoindex, index, brain and mcp subcommands that drive a running node.",
     ),
+    # Registry + contribution guide for the corpus-hub branch; mirrors
+    # tools/xerj-code/hub/CONTRIBUTING.md on that branch (the branch is the
+    # source of record for rules; this page is the walkthrough).
+    "docs/corpus-hub.html": dict(
+        label="Corpus Hub", kind="techarticle",
+        description="The corpus registry: two lanes (reference corpora and record packs), the manifest and recipe formats field by field, the human licence-review contract, and the pull-request path with CI validation.",
+    ),
     "docs/config.html": dict(
         label="Config TOML", kind="techarticle",
         description="The complete xerj.toml surface: every section, key and production-ready default, with runnable examples and the config-file precedence order.",
     ),
     "docs/env.html": dict(
         label="Environment variables", kind="techarticle",
-        description="XERJ reads only two environment variables — XERJ_CONFIG for the config path and XERJ_LOG for the tracing filter. Every other behaviour lives in the TOML.",
+        description="Every environment variable the xerj binary reads — config path, log filter, server overrides, secrets, client settings — and which one wins over the TOML.",
     ),
     "docs/api-native.html": dict(
         label="Native REST API", kind="techarticle",
@@ -360,7 +405,7 @@ PAGES: dict[str, dict[str, str]] = {
     ),
     "docs/clustering.html": dict(
         label="Clustering", kind="techarticle",
-        description="XERJ ships an embedded Raft implementation — no etcd, no ZooKeeper. Leader election, metadata replication, and per-shard data replication in one binary.",
+        description="XERJ ships an embedded Raft ring — leader election, heartbeats, and an authenticated cluster transport in one binary. What replicates today and what is roadmap, stated plainly.",
     ),
 
     # ── docs · operate ──────────────────────────────────────────────────────
@@ -396,7 +441,7 @@ PAGES: dict[str, dict[str, str]] = {
     ),
     "docs/playbooks/log-analytics.html": dict(
         label="Playbook · Log analytics", kind="techarticle",
-        description="Ingest Nginx, JSON, syslog or OTLP logs at line rate and query them in milliseconds — schema, ingest command, queries, and retention without ILM.",
+        description="Ingest Nginx, JSON, syslog or OTLP logs at line rate and query them in milliseconds — the schema, the ingest command and the queries to copy.",
     ),
     "docs/playbooks/observability.html": dict(
         label="Playbook · Observability", kind="techarticle",

@@ -1,0 +1,22 @@
+{
+ "corpus": "potato-security--potatotool",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on security, av-evasion, blue-team queries this for how potato-security/PotatoTool implements it: \u8fd9\u6b3e\u5de5\u5177\u662f\u4e00\u6b3e\u529f\u80fd\u5f3a\u5927\u7684\u7f51\u7edc\u5b89\u5168\u7efc\u5408\u5de5\u5177\uff0c\u65e8\u5728\u4e3a\u5b89\u5168\u4ece\u4e1a\u8005\u3001\u7ea2\u84dd\u5bf9\u6297\u4eba\u5458\u548c\u7f51\u7edc\u5b89\u5168\u7231\u597d\u8005\u63d0\u4f9b\u5168\u9762\u7684\u7f51\u7edc\u5b89\u5168\u89e3\u51b3\u65b9\u6848\u3002\u5b83\u96c6\u6210\u4e86\u591a\u79cd\u5b9e\u7528\u529f\u80fd\uff0c\u5305\u62ec\u89e3\u5bc6\u3001\u5206\u6790\u3001\u626b\u63cf\u3001\u6eaf\u6e90\u7b49\uff0c\u4e3a\u7528\u6237\u63d0\u4f9b\u4e86\u4fbf\u6377\u7684\u64cd\u4f5c\u754c\u9762\u548c\u4e30\u5bcc\u7684\u529f\u80fd\u9009\u62e9\u3002This tool offers robust network se (selected work: src/main, src/test)",
+ "repos": [
+  {
+   "repo": "PotatoTool",
+   "url": "https://github.com/potato-security/PotatoTool",
+   "sha": "6f4fd93620923b41f051e84c58ef822d58e1d09f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 6f4fd9362092: \"\u540c\u6b65 V2.5 \u6e90\u7801\u4e0e\u5206\u6790\u529f\u80fd\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

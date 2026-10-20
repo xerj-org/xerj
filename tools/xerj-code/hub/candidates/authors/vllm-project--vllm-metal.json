@@ -1,0 +1,22 @@
+{
+ "corpus": "vllm-project--vllm-metal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on apple-silicon, llm, macos queries this for how vllm-project/vllm-metal implements it: Community maintained hardware plugin for vLLM on Apple Silicon (selected work: vllm_metal, tests)",
+ "repos": [
+  {
+   "repo": "vllm-metal",
+   "url": "https://github.com/vllm-project/vllm-metal",
+   "sha": "f5733f371066944391a9cb288aef91629fc22c35",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit f5733f371066: \"[Bugfix] Count the compressor in the KV commit probe and bound its vm\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

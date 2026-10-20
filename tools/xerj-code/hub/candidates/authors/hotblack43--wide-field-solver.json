@@ -1,0 +1,22 @@
+{
+ "corpus": "hotblack43--wide-field-solver",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how hotblack43/WIDE-FIELD-SOLVER implements it: Standalone Barghini wide-field point-star astrometry, with a reproducible fisheye example and regression baseline (selected work: v21, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "WIDE-FIELD-SOLVER",
+   "url": "https://github.com/hotblack43/WIDE-FIELD-SOLVER",
+   "sha": "66fb6cea9afed2f7c1161ebd35b1da7c782f39f6",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 66fb6cea9afe: \"feat: map same-sidereal MMTO transmission\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

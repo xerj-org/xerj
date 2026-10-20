@@ -1,0 +1,22 @@
+{
+ "corpus": "zengxinyueooo--thoughtcoding",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Java queries this for how zengxinyueooo/ThoughtCoding implements it: \u652f\u6301\u547d\u4ee4\u884c\u7684 AI Agent \u7f16\u7a0b\u5de5\u5177 (selected work: src/main, src/test, the project root)",
+ "repos": [
+  {
+   "repo": "ThoughtCoding",
+   "url": "https://github.com/zengxinyueooo/ThoughtCoding",
+   "sha": "52f17b64d4ac05b0627ecdd5bc7342b507a14aec",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 52f17b64d4ac: \"\u7edf\u4e00\u8bf7\u6c42\u9884\u7b97\u5e76\u4f18\u5316\u4efb\u52a1\u6536\u5c3e\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

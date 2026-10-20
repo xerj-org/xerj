@@ -1,0 +1,22 @@
+{
+ "corpus": "eternaltwin--kadokadeo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Haxe queries this for how eternaltwin/kadokadeo implements it: eternaltwin/kadokadeo (Haxe) (selected work: app/Achievements, tests, database)",
+ "repos": [
+  {
+   "repo": "kadokadeo",
+   "url": "https://github.com/eternaltwin/kadokadeo",
+   "sha": "38fe785fe3f98b642f267a5ccd0901b3abc5fcbd",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 38fe785fe3f9: \"\ud83d\udea7 (achievemens) magmax\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

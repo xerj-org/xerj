@@ -1,0 +1,22 @@
+{
+ "corpus": "nvidia--cluster-readiness-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on accelerators, gpu, kubernetes queries this for how NVIDIA/cluster-readiness-engine implements it: NVIDIA Cluster Readiness Engine (selected work: pkg/report, pkg/nccl, pkg/controller)",
+ "repos": [
+  {
+   "repo": "cluster-readiness-engine",
+   "url": "https://github.com/NVIDIA/cluster-readiness-engine",
+   "sha": "f66427ea7f430125381681bcfa3c4c808a370b65",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit f66427ea7f43: \"Record NCCL network transport on BandwidthMeasurement (#444)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

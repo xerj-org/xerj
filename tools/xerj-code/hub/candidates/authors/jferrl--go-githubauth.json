@@ -1,0 +1,22 @@
+{
+ "corpus": "jferrl--go-githubauth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on github, github-authentication, go queries this for how jferrl/go-githubauth implements it: GitHub App authentication for Go: installation tokens, JWTs and PATs as oauth2.TokenSource, plus webhook signature verification and KMS/HSM  (selected work: cmd/githubauth, the project root)",
+ "repos": [
+  {
+   "repo": "go-githubauth",
+   "url": "https://github.com/jferrl/go-githubauth",
+   "sha": "bf40e4ff2b0cea99e9287913c217b7ba4704d587",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit bf40e4ff2b0c: \"feat: distinguish failures by exit code and add --exec to the CLI\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

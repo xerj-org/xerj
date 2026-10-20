@@ -1,0 +1,22 @@
+{
+ "corpus": "taw--paradox-tools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Ruby queries this for how taw/paradox-tools implements it: Utilities for formats found in various Paradox games (Europa Universalis, Crusader Kings etc.) (selected work: ck2_mods)",
+ "repos": [
+  {
+   "repo": "paradox-tools",
+   "url": "https://github.com/taw/paradox-tools",
+   "sha": "c2ca5a5364c001c7a7dad54438456b2c26cc8bb4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit c2ca5a5364c0: \"DSL for rulers\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "cds-snc--platform-unified-accounts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on HCL queries this for how cds-snc/platform-unified-accounts implements it: The Terraform and configuration used to run Platform's identity provider (selected work: docker, terraform)",
+ "repos": [
+  {
+   "repo": "platform-unified-accounts",
+   "url": "https://github.com/cds-snc/platform-unified-accounts",
+   "sha": "7c15f34375ff99dab2cb4ca41be98e4a7e284a45",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 7c15f34375ff: \"feat: add anomaly alerting on user events (#346)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

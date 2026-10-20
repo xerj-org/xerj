@@ -1,0 +1,22 @@
+{
+ "corpus": "shamaton--msgpack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on go, golang, msgpack queries this for how shamaton/msgpack implements it: easier, faster, but extendable MessagePack Serializer for Golang. / msgpack.org[Go] (selected work: the project root, internal/stream, internal/decoding)",
+ "repos": [
+  {
+   "repo": "msgpack",
+   "url": "https://github.com/shamaton/msgpack",
+   "sha": "351552e1b6c47bd44a7f483ce86eb03fb229557c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 351552e1b6c4: \"fix: prevent decoder crashes on unhashable map keys and deep nesting\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

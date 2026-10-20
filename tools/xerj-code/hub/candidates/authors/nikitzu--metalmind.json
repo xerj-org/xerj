@@ -1,0 +1,22 @@
+{
+ "corpus": "nikitzu--metalmind",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Nikitzu/metalmind implements it: Interactive Claude Code setup: Obsidian vault w/ local semantic search, Serena LSP navigation, 15 custom agents, agent teams, rules pack. Al (selected work: cli)",
+ "repos": [
+  {
+   "repo": "metalmind",
+   "url": "https://github.com/Nikitzu/metalmind",
+   "sha": "d377100e99826ad41770eac92b766d88782a86d3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d377100e9982: \"scribe: backfill-type --from-folder types notes that have no kind: fr\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

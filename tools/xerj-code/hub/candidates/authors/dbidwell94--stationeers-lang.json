@@ -1,0 +1,22 @@
+{
+ "corpus": "dbidwell94--stationeers-lang",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ic10, mod, rust queries this for how dbidwell94/stationeers_lang implements it: A domain-specific language for Stationeers which compiles into IC10 (selected work: the project root, csharp_mod, ModData)",
+ "repos": [
+  {
+   "repo": "stationeers_lang",
+   "url": "https://github.com/dbidwell94/stationeers_lang",
+   "sha": "7723262fca45f5557b1ca1ef456117eb01d58ef0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 7723262fca45: \"Changelog and version bump\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

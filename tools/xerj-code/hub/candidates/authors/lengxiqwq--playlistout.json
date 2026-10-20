@@ -1,0 +1,22 @@
+{
+ "corpus": "lengxiqwq--playlistout",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on export, music, playlist queries this for how LengxiQwQ/playlistout implements it: Playlist Out\uff08\u628a\u4f60\u7684\u6b4c\u5355\u5e26\u8d70\uff09\u2014 \u4e3b\u6d41\u97f3\u4e50\u5e73\u53f0\u6b4c\u5355\u89e3\u6790\u4e0e\u591a\u683c\u5f0f\u5bfc\u51fa\u5de5\u5177\uff0c\u652f\u6301 TXT / CSV / Excel / JSON / m3u8\uff5cPlaylist parser and multi-format exporter for major music platf (selected work: web)",
+ "repos": [
+  {
+   "repo": "playlistout",
+   "url": "https://github.com/LengxiQwQ/playlistout",
+   "sha": "ff78b599341dfdba0ee1946ab3a7bf4d22f6f36f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ff78b599341d: \"feat(web): move mobile language switch into drawer and expose compact\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

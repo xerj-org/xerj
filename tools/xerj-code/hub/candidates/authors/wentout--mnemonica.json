@@ -1,0 +1,22 @@
+{
+ "corpus": "wentout--mnemonica",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how wentout/mnemonica implements it: abstract technique that aids information retention : instance inheritance system (selected work: src/api, src/types, src)",
+ "repos": [
+  {
+   "repo": "mnemonica",
+   "url": "https://github.com/wentout/mnemonica",
+   "sha": "5a4a6d0043d3aedef4a00036ff21d1398dda2abb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 5a4a6d0043d3: \"callable/newable signatures\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

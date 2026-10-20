@@ -1,0 +1,22 @@
+{
+ "corpus": "wy2926--node-comics",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Wy2926/node-comics implements it: \u9762\u5411 Chrome\u3001Edge\u3001Firefox \u7684\u6f2b\u753b\u9605\u8bfb\u4e0e\u7ffb\u8bd1\u63d2\u4ef6\uff0c\u652f\u6301\u7f51\u7ad9\u3001\u672c\u5730\u6587\u4ef6\u548c Google Drive \u5bfc\u5165\uff0c\u4ee5\u53ca\u672c\u5730\u7ffb\u8bd1\u4e0e AI \u91cd\u7ed8\u3002 (selected work: services)",
+ "repos": [
+  {
+   "repo": "node-comics",
+   "url": "https://github.com/Wy2926/node-comics",
+   "sha": "52296346e1854e901a94bb9ae4c622a7cc894ddc",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 52296346e185: \"fix(engine): recover readable layouts in narrow shared bubbles\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

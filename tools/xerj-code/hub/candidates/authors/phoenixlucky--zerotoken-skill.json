@@ -1,0 +1,22 @@
+{
+ "corpus": "phoenixlucky--zerotoken-skill",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-discipline, ai-workflow, context-optimization queries this for how phoenixlucky/zerotoken-skill implements it: \u8ba9 Agent \u9ad8\u6548\u53c8\u5b88\u7eaa\u5f8b \u2014 \u4e0d\u6b62\u7701 token\uff1aZeroToken \u538b\u7f29\u65e0\u6548\u4e0a\u4e0b\u6587/\u63a8\u7406/\u8f93\u51fa\uff1b\u5c09\u7f2d\u5b50\u5341\u539f\u5219\u7ea6\u675f\u6743\u9650\u8fb9\u754c\u3001\u5355\u4e00\u6307\u4ee4\u3001\u5148\u8c0b\u540e\u52a8\u3001\u9a8c\u8bc1\u5148\u4e8e\u7ed3\u675f\uff1b\u9644 Unicode \u7f16\u7801\u89c4\u8303\u3001\u641c\u7d22\u89c4\u8303\u3001\u516d\u79cd\u4efb\u52a1\u6a21\u5f0f\u3002More than token savings: ZeroTok (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "zerotoken-skill",
+   "url": "https://github.com/phoenixlucky/zerotoken-skill",
+   "sha": "267e7a54fc1b35f28fab0d08fddfcebcd98ac395",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 267e7a54fc1b: \"feat: v1.16.0 \u65b0\u589e\u951a\u70b9/\u811a\u672c\u5f15\u7528\u5ba1\u8ba1 + \u56de\u5f52\u6d4b\u8bd5\uff0cREADME \u7626\u8eab 45%\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "0xaje--nimiqarena",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on albatross, board-game, connect-four queries this for how 0xaje/NimiqArena implements it: Fast, server-authoritative Web3 gaming on Nimiq PoS & Nimiq Hub. Play real-time 1v1 Ludo League & Connect 4 with instant micro-stakes, zero  (selected work: shared, client, server)",
+ "repos": [
+  {
+   "repo": "NimiqArena",
+   "url": "https://github.com/0xaje/NimiqArena",
+   "sha": "6e1adfe4d2dacb71a3c16117b7f0cc162c58914d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 6e1adfe4d2da: \"fix(ludo): enforce combined leap for sole active piece and prevent in\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

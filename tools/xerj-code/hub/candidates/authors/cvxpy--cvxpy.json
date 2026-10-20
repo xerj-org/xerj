@@ -1,0 +1,22 @@
+{
+ "corpus": "cvxpy--cvxpy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on python, cvxpy, optimization queries this for how cvxpy/cvxpy implements it: A Python-embedded modeling language for convex optimization problems (selected work: cvxpy)",
+ "repos": [
+  {
+   "repo": "cvxpy",
+   "url": "https://github.com/cvxpy/cvxpy",
+   "sha": "32cb48561ffcbc32bd43135f94154e75e7c58671",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 32cb48561ffc: \"Add constraint-level complementarity checks (#3495)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

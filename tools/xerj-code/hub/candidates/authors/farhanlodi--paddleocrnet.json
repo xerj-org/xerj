@@ -1,0 +1,22 @@
+{
+ "corpus": "farhanlodi--paddleocrnet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C# queries this for how FarhanLodi/PaddleOcrNet implements it: The full PaddleOCR document pipeline, natively in .NET on ONNX Runtime \u2014 no Python, no native PaddlePaddle. Text detection & recognition (80 (selected work: src/PaddleOcrNet, test, src/PaddleOcrNet.Gpu)",
+ "repos": [
+  {
+   "repo": "PaddleOcrNet",
+   "url": "https://github.com/FarhanLodi/PaddleOcrNet",
+   "sha": "a976fb94ceada80b9ca0584472ef67dd3d9f981f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit a976fb94cead: \"feat(v2.3.0): Hold TensorRT inputs to engine limits, key engine cache\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

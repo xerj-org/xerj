@@ -1,0 +1,22 @@
+{
+ "corpus": "etrnkz--reverse-engineered-airdrops",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how etrnkz/Reverse-Engineered-Airdrops implements it: a collection of some reverse engineered airdrops from telegram and across the web (selected work: BonkVault, Leaf)",
+ "repos": [
+  {
+   "repo": "Reverse-Engineered-Airdrops",
+   "url": "https://github.com/etrnkz/Reverse-Engineered-Airdrops",
+   "sha": "9999ff0ed718a9ce88037958688c6328ccf2eb86",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 9999ff0ed718: \"Add Leaf and BonkVault reverse engineered bots and documentation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

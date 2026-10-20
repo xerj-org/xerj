@@ -1,0 +1,22 @@
+{
+ "corpus": "quiltt--quiltt-sdks",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on sdk queries this for how quiltt/quiltt-sdks implements it: Quiltt SDKs (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "quiltt-sdks",
+   "url": "https://github.com/quiltt/quiltt-sdks",
+   "sha": "ff759f4eb8997b8cb9f3d8435c10bc794f989adc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ff759f4eb899: \"Fix release pipeline so Flutter publishes and re-runs don't collide (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

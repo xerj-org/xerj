@@ -1,0 +1,22 @@
+{
+ "corpus": "oaslananka--kicad-mcp-pro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, bom, dfm queries this for how oaslananka/kicad-mcp-pro implements it: MCP server for KiCad, connecting AI agents to schematic and PCB workflows, ERC/DRC validation, DFM checks, BOM analysis, and manufacturing p (selected work: src/kicad_mcp, tests, scripts)",
+ "repos": [
+  {
+   "repo": "kicad-mcp-pro",
+   "url": "https://github.com/oaslananka/kicad-mcp-pro",
+   "sha": "a2ab498606e6069e78ebb73f258f5c15bb97a65e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit a2ab498606e6: \"refactor(routing): extract manual track service\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

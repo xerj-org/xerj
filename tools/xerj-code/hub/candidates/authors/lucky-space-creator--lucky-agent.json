@@ -1,0 +1,22 @@
+{
+ "corpus": "lucky-space-creator--lucky-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Java queries this for how Lucky-space-creator/lucky_agent implements it: \u8fd9\u662f\u4e00\u6b3e\u57fa\u4e8eJava\u8bed\u8a00\u5f00\u53d1\u7684\u667a\u80fd\u4f53Agent\uff0c\u5229\u7528\u4e86langchain4j\uff0clanggraph4j\u6846\u67b6\u5f00\u53d1\uff0c\u754c\u9762\u53c2\u7167\u4e86dsh\u548ccodex\uff0c\u76ee\u524d\u4ecd\u5904\u4e8e\u5f00\u53d1\u9636\u6bb5\uff0c\u652f\u6301web\u548ccli\u3002\u6301\u7eed\u66f4\u65b0\u4e2d~~~ (selected work: web, the project root)",
+ "repos": [
+  {
+   "repo": "lucky_agent",
+   "url": "https://github.com/Lucky-space-creator/lucky_agent",
+   "sha": "f851483a72bf58aca90238c2a25661d76fde4ac2",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit f851483a72bf: \"feat(cli): \u65b0\u589e\u5de5\u4f5c\u7a7a\u95f4\u8def\u5f84\u8865\u5168\u4e0e\u542f\u52a8\u6a2a\u5e45\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "edwardkim--rhwp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on hwp, hwpx, rust queries this for how edwardkim/rhwp implements it: \uc544\ub798\ud55c\uae00 hwp viewer and editor by rust and wasm (selected work: src/renderer, tests)",
+ "repos": [
+  {
+   "repo": "rhwp",
+   "url": "https://github.com/edwardkim/rhwp",
+   "sha": "732047aa253e92772fd7625e4a5d7f6a9897fd73",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 732047aa253e: \"fix(typeset): preserve stored frame space and map page ownership (#7574)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

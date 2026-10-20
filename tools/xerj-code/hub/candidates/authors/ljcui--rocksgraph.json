@@ -1,0 +1,22 @@
+{
+ "corpus": "ljcui--rocksgraph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cpp, graph-database, neo4j queries this for how ljcui/rocksgraph implements it: A Neo4j-like graph database with openCypher and Bolt protocol support, multiple graphs, and replication (selected work: server, tests, runtime)",
+ "repos": [
+  {
+   "repo": "rocksgraph",
+   "url": "https://github.com/ljcui/rocksgraph",
+   "sha": "e432d97ca0b73231fed443d537fa9d2272b384b4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e432d97ca0b7: \"feat(bolt): support explicit transactions for Neo4j drivers\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

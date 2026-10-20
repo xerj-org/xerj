@@ -1,0 +1,22 @@
+{
+ "corpus": "piratazang--devscope",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how PirataZang/devscope implements it: \ud83d\udda5\ufe0f Painel interativo para terminal (TUI) para gerenciar projetos, monitorar m\u00e9tricas de CPU/RAM, controlar containers Docker e inspecionar h (selected work: internal/ui, internal/collectors)",
+ "repos": [
+  {
+   "repo": "devscope",
+   "url": "https://github.com/PirataZang/devscope",
+   "sha": "67a16b7f6fd7698b962138555bbf05023b3246d9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 67a16b7f6fd7: \"Add Worktrees tab; commit stale .ua analysis cache\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

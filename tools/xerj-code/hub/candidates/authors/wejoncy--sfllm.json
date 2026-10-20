@@ -1,0 +1,22 @@
+{
+ "corpus": "wejoncy--sfllm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Cuda queries this for how wejoncy/sfllm implements it: Super fast serving stack for LLM on Windows/Linux/Macos (selected work: python, tests)",
+ "repos": [
+  {
+   "repo": "sfllm",
+   "url": "https://github.com/wejoncy/sfllm",
+   "sha": "5cc596c833a650172474825b57521ec71971af51",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 5cc596c833a6: \"refactor: unify cache resources and add opt-in prefix reuse (#57)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "polyxml--polyxml",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on cpp20, data-binding, ffi queries this for how polyxml/PolyXML implements it: XSD-to-code compiler and streaming XML runtime for Rust, Python, Go, C++, Java, TypeScript, and C# (selected work: crates/polyxml-core)",
+ "repos": [
+  {
+   "repo": "PolyXML",
+   "url": "https://github.com/polyxml/PolyXML",
+   "sha": "6d3092f860bf21a05a5dcb8d5ca1dab849f24e9a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 6d3092f860bf: \"fix(schema): resolve inherited simple-content scalar text\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

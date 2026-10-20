@@ -1,0 +1,22 @@
+{
+ "corpus": "xresch--coreframework",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Java queries this for how xresch/CoreFramework implements it: The CoreFramework(CFW) is a web application boilerplate projects using Jetty, Bootstrap, H2 and various other cool stuff (selected work: src/main, src/test)",
+ "repos": [
+  {
+   "repo": "CoreFramework",
+   "url": "https://github.com/xresch/CoreFramework",
+   "sha": "e30c1e6cfc0155aa8348ab766f97df424cbe979e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit e30c1e6cfc01: \"Mailing: Enhancing code to support the registration of multiple mail \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

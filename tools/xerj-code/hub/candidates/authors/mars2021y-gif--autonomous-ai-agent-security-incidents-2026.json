@@ -1,0 +1,22 @@
+{
+ "corpus": "mars2021y-gif--autonomous-ai-agent-security-incidents-2026",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-security, autonomous-agents, cybersecurity queries this for how mars2021y-gif/autonomous-ai-agent-security-incidents-2026 implements it: Autonomous AI Agent Security Incidents of 2026: Benchmark dataset (109 incidents), falsification matrix, 2-page executive summary, and multi (selected work: agent_supervisor_system)",
+ "repos": [
+  {
+   "repo": "autonomous-ai-agent-security-incidents-2026",
+   "url": "https://github.com/mars2021y-gif/autonomous-ai-agent-security-incidents-2026",
+   "sha": "f0d7bdf9b072141ddfd31679f6322922b5faf2f2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f0d7bdf9b072: \"feat: Add Multi-Agent Supervisor security harness and benchmark test \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "google--gvisor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on sandbox, containers, oci queries this for how google/gvisor implements it: Application Kernel for Containers (selected work: tools, pkg/metric)",
+ "repos": [
+  {
+   "repo": "gvisor",
+   "url": "https://github.com/google/gvisor",
+   "sha": "aa42986c0959256e89b340b9c3db8a16dbb4ad6b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit aa42986c0959: \"Unify generic and concrete checkescape analysis\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

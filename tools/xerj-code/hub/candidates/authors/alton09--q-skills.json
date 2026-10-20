@@ -1,0 +1,22 @@
+{
+ "corpus": "alton09--q-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how Alton09/q-skills implements it: Alton09/q-skills (Shell) (selected work: plugins, the project root)",
+ "repos": [
+  {
+   "repo": "q-skills",
+   "url": "https://github.com/Alton09/q-skills",
+   "sha": "132a8f91dd09c835aff8dfb62f4c1c5c378c7108",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 132a8f91dd09: \"feat(tech-lead): mirror background workers in herdr (#53)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

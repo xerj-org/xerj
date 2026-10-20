@@ -1,0 +1,22 @@
+{
+ "corpus": "onwcan--direwolf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-runtime, agentic-ai, ai-agents queries this for how Onwcan/DireWolf implements it: Security-first, model-agnostic autonomous AI agent runtime with strict authority boundaries, typed protocols, controlled execution, and audi (selected work: crates/dwkd-broker, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "DireWolf",
+   "url": "https://github.com/Onwcan/DireWolf",
+   "sha": "121037be8385b5b0f4db867cbe8a4e5dda332085",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 121037be8385: \"feat(d11): harden HTTPS exchange workers with seccomp, startup verifi\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

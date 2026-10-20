@@ -1,0 +1,22 @@
+{
+ "corpus": "hakanseven12--opencadstudio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cad, dwg, dxf queries this for how HakanSeven12/OpenCADStudio implements it: A CAD application built with Rust \u2014 2D/3D drawing, DWG/DXF support, and GPU-accelerated rendering (selected work: benches, src, src/scene)",
+ "repos": [
+  {
+   "repo": "OpenCADStudio",
+   "url": "https://github.com/HakanSeven12/OpenCADStudio",
+   "sha": "7d008c4914af10fad64833c2626bf12c3073b4df",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 7d008c4914af: \"bench(navigation): add viewport navigation and spatial candidate benc\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

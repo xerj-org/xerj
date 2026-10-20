@@ -1,0 +1,22 @@
+{
+ "corpus": "np4abdou1--ani-cli-arabic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on anime, automation, cli queries this for how np4abdou1/ani-cli-arabic implements it: A cli tool to browse and play anime - IN ARABIC! (selected work: src, tests)",
+ "repos": [
+  {
+   "repo": "ani-cli-arabic",
+   "url": "https://github.com/np4abdou1/ani-cli-arabic",
+   "sha": "47cd26faa2b74721c1345a9c085bd7b0094bc545",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 47cd26faa2b7: \"fix(downloader): make batch/season download work reliably\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "tuanpluss02--interceptly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on dart, flutter, networking queries this for how Tuanpluss02/interceptly implements it: Interceptly is a high-performance network inspector for Flutter. It provides real-time traffic visualization for Dio, Http, and Chopper with (selected work: packages/interceptly, the project root, packages/interceptly_web_socket)",
+ "repos": [
+  {
+   "repo": "interceptly",
+   "url": "https://github.com/Tuanpluss02/interceptly",
+   "sha": "54314a37317b43a737df4b877620b10cbcd8d0ae",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 54314a37317b: \"Feat/update cicd (#15)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

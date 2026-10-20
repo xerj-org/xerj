@@ -1,0 +1,22 @@
+{
+ "corpus": "ujjaldas-11--online-exam-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how ujjaldas-11/online-exam-system implements it: An online exam system for collage (BIST Purulia) (selected work: tests, student, admin)",
+ "repos": [
+  {
+   "repo": "online-exam-system",
+   "url": "https://github.com/ujjaldas-11/online-exam-system",
+   "sha": "424070d738a5957c6b9d2cb0ac284f5126917bac",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 424070d738a5: \"fix(proctoring): prevent disqualified students from rejoining exams a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

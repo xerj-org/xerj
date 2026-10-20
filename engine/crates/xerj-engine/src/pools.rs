@@ -15,6 +15,10 @@
 //! widths the pools already used — the measured ingest/read tuning is
 //! unchanged; what changes is that the knobs now do what they say.
 
+use std::cell::RefCell;
+use std::sync::{Mutex, OnceLock};
+
+use rayon::{ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder};
 use xerj_common::config::EngineConfig;
 use xerj_common::resource::{self, Workload};
 
@@ -129,6 +133,172 @@ fn install_search_pool(threads: usize) {
     });
 }
 
+// ── Building the named pools without aborting (#1122) ────────────────────────
+//
+// `panic = "abort"` in the release profile turns a rayon `build()` failure
+// into a dead node. `build()` fails when `pthread_create` returns `EAGAIN`
+// (thread or memory limit) — the same moment the node is already degraded.
+// A failed build is not cached, so the next call tries again. A wide pool
+// that cannot start is retried at one thread and that success is cached.
+// When even one thread cannot be started, `install` runs on the calling
+// thread and `spawn` runs the job inline rather than aborting.
+
+static POOL_BUILD_LOCK: Mutex<()> = Mutex::new(());
+
+thread_local! {
+    /// A one-thread pool made of the calling thread. Kept for the thread's
+    /// lifetime so a later `par_iter` on this thread does not fall through to
+    /// rayon's global pool, which panics if it cannot start its own threads.
+    static INLINE_POOL: RefCell<Option<ThreadPool>> = const { RefCell::new(None) };
+}
+
+/// A named engine pool. Callers keep writing `ingest_pool().install(...)`.
+/// The pool itself is started on first use, not when this handle is built.
+#[derive(Clone, Copy)]
+pub(crate) struct PoolCall {
+    slot: &'static OnceLock<ThreadPool>,
+    label: &'static str,
+    threads: fn() -> usize,
+    build: fn(usize) -> Result<ThreadPool, ThreadPoolBuildError>,
+}
+
+impl PoolCall {
+    pub(crate) const fn new(
+        slot: &'static OnceLock<ThreadPool>,
+        label: &'static str,
+        threads: fn() -> usize,
+        build: fn(usize) -> Result<ThreadPool, ThreadPoolBuildError>,
+    ) -> Self {
+        Self {
+            slot,
+            label,
+            threads,
+            build,
+        }
+    }
+
+    pub fn install<R: Send>(&self, op: impl FnOnce() -> R + Send) -> R {
+        install_or_inline(self.slot, self.label, (self.threads)(), self.build, op)
+    }
+
+    pub fn spawn(&self, op: impl FnOnce() + Send + 'static) {
+        spawn_or_inline(self.slot, self.label, (self.threads)(), self.build, op)
+    }
+}
+
+pub(crate) fn install_or_inline<R: Send>(
+    slot: &OnceLock<ThreadPool>,
+    label: &str,
+    threads: usize,
+    build: fn(usize) -> Result<ThreadPool, ThreadPoolBuildError>,
+    op: impl FnOnce() -> R + Send,
+) -> R {
+    match ensure_pool(slot, label, threads, build) {
+        Some(pool) => pool.install(op),
+        None => inline_install(op),
+    }
+}
+
+pub(crate) fn spawn_or_inline(
+    slot: &OnceLock<ThreadPool>,
+    label: &str,
+    threads: usize,
+    build: fn(usize) -> Result<ThreadPool, ThreadPoolBuildError>,
+    op: impl FnOnce() + Send + 'static,
+) {
+    match ensure_pool(slot, label, threads, build) {
+        Some(pool) => pool.spawn(op),
+        None => match xerj_common::thread_spawn::try_spawn(label, op) {
+            Ok(_) => {}
+            Err(failure) => {
+                tracing::error!(
+                    "could not spawn a {label} worker ({}); running it on the calling thread (#1122)",
+                    failure.error
+                );
+                if let Some(job) = failure.job {
+                    job();
+                }
+            }
+        },
+    }
+}
+
+/// The pool in `slot`, built at `threads` or, if that fails, at one thread.
+/// `None` when neither could start. A failure is not stored, so the next
+/// call tries again.
+fn ensure_pool<'a>(
+    slot: &'a OnceLock<ThreadPool>,
+    label: &str,
+    threads: usize,
+    build: fn(usize) -> Result<ThreadPool, ThreadPoolBuildError>,
+) -> Option<&'a ThreadPool> {
+    if let Some(pool) = slot.get() {
+        return Some(pool);
+    }
+    let _guard = POOL_BUILD_LOCK
+        .lock()
+        .unwrap_or_else(|err| err.into_inner());
+    if let Some(pool) = slot.get() {
+        return Some(pool);
+    }
+    let width = threads.max(1);
+    let pool = match build(width) {
+        Ok(pool) => pool,
+        Err(err) if width > 1 => {
+            tracing::error!(
+                "could not start the {label} pool with {width} threads ({err}); \
+                 retrying with one thread (#1122)"
+            );
+            match build(1) {
+                Ok(pool) => pool,
+                Err(err) => {
+                    tracing::error!(
+                        "could not start the {label} pool ({err}); \
+                         this call runs on the calling thread (#1122)"
+                    );
+                    return None;
+                }
+            }
+        }
+        Err(err) => {
+            tracing::error!(
+                "could not start the {label} pool ({err}); \
+                 this call runs on the calling thread (#1122)"
+            );
+            return None;
+        }
+    };
+    Some(slot.get_or_init(|| pool))
+}
+
+/// Run `op`, and every `par_iter` inside it, on the calling thread.
+///
+/// Calling `op()` directly would not do that: a `par_iter` on a thread that
+/// is not a rayon worker goes to the global pool, which panics if its threads
+/// cannot start. A `use_current_thread()` pool of width 1 spawns nothing.
+fn inline_install<R: Send>(op: impl FnOnce() -> R + Send) -> R {
+    if rayon::current_thread_index().is_some() {
+        return op();
+    }
+    // Build, run, then keep the pool alive. Dropping it would unregister this
+    // thread, and the next `par_iter` would go to the global pool.
+    match ThreadPoolBuilder::new()
+        .num_threads(1)
+        .use_current_thread()
+        .build()
+    {
+        Ok(pool) => {
+            let out = pool.install(op);
+            INLINE_POOL.with(|slot| *slot.borrow_mut() = Some(pool));
+            out
+        }
+        Err(err) => {
+            tracing::error!("could not register the calling thread with rayon ({err})");
+            op()
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -175,5 +345,74 @@ mod tests {
         let r = resolve(&cfg(3, 2, 4), Some("0"));
         assert_eq!(r.sizing.flush_finalize, 3);
         assert_eq!(r.warnings.len(), 1);
+    }
+
+    /// `pthread_create` returning `EAGAIN`. Injected through rayon's spawn
+    /// hook, so `build()` takes its real failure path.
+    fn failing_build(n: usize) -> Result<ThreadPool, ThreadPoolBuildError> {
+        ThreadPoolBuilder::new()
+            .num_threads(n)
+            .spawn_handler(|_| {
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::WouldBlock,
+                    "injected EAGAIN",
+                ))
+            })
+            .build()
+    }
+
+    fn wide_fails_one_succeeds(n: usize) -> Result<ThreadPool, ThreadPoolBuildError> {
+        if n > 1 {
+            failing_build(n)
+        } else {
+            ThreadPoolBuilder::new().num_threads(1).build()
+        }
+    }
+
+    /// #1122: `.build().expect(..)` aborted the process. A pool that cannot
+    /// start must still produce the job's result, on the calling thread, and
+    /// must not cache the failure (the next call tries again).
+    #[test]
+    fn a_pool_that_cannot_spawn_runs_install_on_the_caller() {
+        let slot = OnceLock::new();
+        let caller = std::thread::current().id();
+        let seen = install_or_inline(&slot, "xerj-test", 4, failing_build, || {
+            std::thread::current().id()
+        });
+        assert_eq!(seen, caller);
+        assert!(slot.get().is_none(), "a failed build must not be cached");
+
+        let sum: u32 = install_or_inline(&slot, "xerj-test", 4, failing_build, || {
+            use rayon::prelude::*;
+            (0..32u32).into_par_iter().sum()
+        });
+        assert_eq!(sum, (0..32u32).sum::<u32>());
+    }
+
+    /// The wide pool cannot start, one thread can. That one-thread pool is
+    /// what later calls use — the work still runs, and the process stays up.
+    #[test]
+    fn a_wide_pool_that_cannot_spawn_falls_back_to_one_thread() {
+        let slot = OnceLock::new();
+        let width = install_or_inline(&slot, "xerj-test", 8, wide_fails_one_succeeds, || {
+            rayon::current_num_threads()
+        });
+        assert_eq!(width, 1);
+        assert_eq!(slot.get().unwrap().current_num_threads(), 1);
+    }
+
+    /// `spawn` is fire-and-forget on the live pools. When the pool cannot
+    /// start, the job still runs (on a thread, or inline if that spawn fails)
+    /// instead of aborting at pool construction.
+    #[test]
+    fn a_pool_that_cannot_spawn_still_runs_a_spawned_job() {
+        let slot = OnceLock::new();
+        let (tx, rx) = std::sync::mpsc::channel();
+        spawn_or_inline(&slot, "xerj-test", 4, failing_build, move || {
+            tx.send(std::thread::current().id()).unwrap();
+        });
+        let ran = rx.recv_timeout(std::time::Duration::from_secs(2));
+        assert!(ran.is_ok(), "the spawned job must run");
+        assert!(slot.get().is_none());
     }
 }

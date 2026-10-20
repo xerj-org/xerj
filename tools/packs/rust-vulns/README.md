@@ -120,7 +120,7 @@ sample. Suggestions, not decisions: the index infers the real mapping.
 
 `SHA256SUMS.sig` is a raw 64-byte ed25519 signature over the pack's
 SHA256SUMS (which covers every pack file). The verifying key lives at
-[keys/rust-vulns.pub](./keys/rust-vulns.pub) here and on xerj.org — never
+[keys/rust-vulns.pub](../keys/rust-vulns.pub) here and on xerj.org — never
 inside the pack, because a key shipped beside its own signature verifies
 nothing. Checksums prove the pack arrived intact; the signature proves who
 built it. A self-consistent rebuild (valid checksums over tampered records)

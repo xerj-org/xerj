@@ -1,0 +1,22 @@
+{
+ "corpus": "gerardofc8--claude-subagent-statusline",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, anthropic, claude queries this for how GerardoFC8/claude-subagent-statusline implements it: Real-time sub-agent delegation tracking in your Claude Code statusline. A Claude Code native plugin (selected work: tests, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "claude-subagent-statusline",
+   "url": "https://github.com/GerardoFC8/claude-subagent-statusline",
+   "sha": "427db42d10fc4a0fbc9649e92e168958095dd0d7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 427db42d10fc: \"feat: resolve sub-agent name in per-subagent rows (v0.15.0)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

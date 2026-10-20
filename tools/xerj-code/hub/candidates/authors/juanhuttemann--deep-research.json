@@ -1,0 +1,22 @@
+{
+ "corpus": "juanhuttemann--deep-research",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, citations, cli queries this for how juanhuttemann/deep-research implements it: Deep research agent for the terminal and browser. Plans a question into sub-topics, researches them in parallel on the web, fact-checks ever (selected work: internal/tools, internal/ui, internal/web)",
+ "repos": [
+  {
+   "repo": "deep-research",
+   "url": "https://github.com/juanhuttemann/deep-research",
+   "sha": "340a21d23590f98637ea82d53a4e656651025305",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 340a21d23590: \"Report refused and off-topic search honestly instead of reporting on \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

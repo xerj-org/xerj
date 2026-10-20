@@ -1,0 +1,22 @@
+{
+ "corpus": "aqta-ai--attestation-spec",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on attestation, audit, cryptography queries this for how Aqta-ai/attestation-spec implements it: Open specification and reference verifiers for Seal records: ATTESTATION-v1 for AI model-call decisions, ACTION-v1 for agent actions. Ed2551 (selected work: test-vectors, packages/verify-receipt-py, packages/verify-receipt)",
+ "repos": [
+  {
+   "repo": "attestation-spec",
+   "url": "https://github.com/Aqta-ai/attestation-spec",
+   "sha": "8d0a745218563f233793d780f3ca9f952d720d7f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 8d0a74521856: \"Verifiers agree on line feeds, non-ASCII digits and lone surrogates\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "espadat-studio--tirage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, generative-art, rust queries this for how espadat-studio/tirage implements it: Print-style generative artwork and seamless loops (grain, halftone, riso, dither) from a single integer seed. Rust library and CLI (selected work: tests, src, cli)",
+ "repos": [
+  {
+   "repo": "tirage",
+   "url": "https://github.com/espadat-studio/tirage",
+   "sha": "9bf8dee85f247e12995fd0f5598a2a785379b2d3",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 9bf8dee85f24: \"feat: add loops for terrain, stipple, oddgrid, specimen and modular (\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

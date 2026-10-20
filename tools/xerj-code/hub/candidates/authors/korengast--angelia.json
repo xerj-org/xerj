@@ -1,0 +1,22 @@
+{
+ "corpus": "korengast--angelia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, coding-agent, daemon queries this for how korengast/angelia implements it: The coding agent CLI you already trust becomes your personal assistant, on WhatsApp and Telegram. Runs on your machine (selected work: src/daemon, tests, examples)",
+ "repos": [
+  {
+   "repo": "angelia",
+   "url": "https://github.com/korengast/angelia",
+   "sha": "18a1dc3741bca8acbf3706cf2ad69ad301876b08",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 18a1dc3741bc: \"Angelia 0.3.19: a documented local API, for scripts and agents\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

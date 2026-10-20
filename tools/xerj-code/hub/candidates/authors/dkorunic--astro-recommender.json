@@ -1,0 +1,22 @@
+{
+ "corpus": "dkorunic--astro-recommender",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on astronomy, astrophotography, astrophysics queries this for how dkorunic/astro-recommender implements it: What to image tonight: ranks deep sky targets and comets for your location, weather, Moon and telescope (selected work: scripts, internal/weather)",
+ "repos": [
+  {
+   "repo": "astro-recommender",
+   "url": "https://github.com/dkorunic/astro-recommender",
+   "sha": "0054f0bd14920243c9c5ecdfb77537d17196d705",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 0054f0bd1492: \"Seeing: calibrate Dewan's Cn\u00b2 against the ESO DIMM archives\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

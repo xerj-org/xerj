@@ -1,0 +1,22 @@
+{
+ "corpus": "jordancoin--codemap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, claude-code, cli queries this for how JordanCoin/codemap implements it: a project brain for your AI. Give LLMs instant architectural context without burning tokens (selected work: watch, mcp, scanner)",
+ "repos": [
+  {
+   "repo": "codemap",
+   "url": "https://github.com/JordanCoin/codemap",
+   "sha": "253c8d64f211420bb99be82aaf2033de7e14a80f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 253c8d64f211: \"fix(mcp,watch,hooks): no confident zeros for unindexed files, surface\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

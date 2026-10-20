@@ -1,0 +1,22 @@
+{
+ "corpus": "jktujq--synapse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on autograd, haskell, machine-learning queries this for how JktuJQ/Synapse implements it: Synapse is a machine learning library written in pure Haskell, that makes creating and training neural networks an easy job (selected work: test, src/Synapse, the project root)",
+ "repos": [
+  {
+   "repo": "Synapse",
+   "url": "https://github.com/JktuJQ/Synapse",
+   "sha": "eb7199b39566c9a653dacad5b50c767cdce7bc65",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit eb7199b39566: \"axes operations\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

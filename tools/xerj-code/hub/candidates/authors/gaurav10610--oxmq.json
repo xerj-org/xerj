@@ -1,0 +1,22 @@
+{
+ "corpus": "gaurav10610--oxmq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on background-jobs, bullmq, dag-workflows queries this for how gaurav10610/oxmq implements it: \u26a1 Distributed job queue & DAG workflow engine for Java 17+ & Java 21 Loom with Redis. BullMQ wire-compatible with Spring Boot 3 (selected work: oxmq-spring-boot-starter, oxmq-examples, oxmq-core)",
+ "repos": [
+  {
+   "repo": "oxmq",
+   "url": "https://github.com/gaurav10610/oxmq",
+   "sha": "48630e181ce05f92a747dfbf3e02762e0df83ef5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 48630e181ce0: \"feat: support Java 17+ baseline, annotation-driven Spring Boot starte\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

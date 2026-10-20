@@ -1,0 +1,22 @@
+{
+ "corpus": "ys-ll--uniterm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on ai-agent, mosh, rdp queries this for how ys-ll/uniterm implements it: All-in-one terminal covering 30+ protocols \u2014 SSH, RDP, SFTP, databases, Kubernetes and more. With a built-in AI Agent that runs multi-turn s (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "uniterm",
+   "url": "https://github.com/ys-ll/uniterm",
+   "sha": "9a9c134c7456ebc724e79622164250a0e72e6961",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 9a9c134c7456: \"feat(importer): add mRemoteNG connection import\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

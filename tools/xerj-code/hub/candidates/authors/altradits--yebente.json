@@ -1,0 +1,22 @@
+{
+ "corpus": "altradits--yebente",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on bitcoin, daraja-api, east-africa queries this for how altradits/yebente implements it: Hard money for the African household. Sovereign, non-custodial financial settlement interface connecting Bitcoin & the Lightning Network dir (selected work: src/services, src/components, tests)",
+ "repos": [
+  {
+   "repo": "yebente",
+   "url": "https://github.com/altradits/yebente",
+   "sha": "94696f985bd9734406081ec5db1d418cf9c40861",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 94696f985bd9: \"fix: ensure sat evidence matches transactions, eliminate reversals, a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

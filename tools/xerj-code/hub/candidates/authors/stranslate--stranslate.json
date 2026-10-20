@@ -1,0 +1,22 @@
+{
+ "corpus": "stranslate--stranslate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on wpf, ocr, plugin queries this for how STranslate/STranslate implements it: A ready-to-go translation ocr tool developed with WPF/WPF \u5f00\u53d1\u7684\u4e00\u6b3e\u5373\u7528\u5373\u8d70\u7684\u7ffb\u8bd1\u3001OCR\u5de5\u5177 (selected work: src/STranslate, src/Tests)",
+ "repos": [
+  {
+   "repo": "STranslate",
+   "url": "https://github.com/STranslate/STranslate",
+   "sha": "9eed5222d8774bd1585ce793582366ca5b84adec",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 9eed5222d877: \"fix: animate the main window directly and preserve foreground visibility\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

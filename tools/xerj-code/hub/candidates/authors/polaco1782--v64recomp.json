@@ -1,0 +1,22 @@
+{
+ "corpus": "polaco1782--v64recomp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on emulator, mips, static-recompilation queries this for how polaco1782/v64recomp implements it: N64 Static Recompiler (selected work: texture_scan, backends, runtime)",
+ "repos": [
+  {
+   "repo": "v64recomp",
+   "url": "https://github.com/polaco1782/v64recomp",
+   "sha": "8d2fa3f431e71da1e32145992271980170323ddf",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 8d2fa3f431e7: \"Rice/GL64 texture import support\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

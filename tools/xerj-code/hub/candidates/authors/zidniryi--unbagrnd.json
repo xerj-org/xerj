@@ -1,0 +1,22 @@
+{
+ "corpus": "zidniryi--unbagrnd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-tools, background-removal queries this for how zidniryi/unbagrnd implements it: Unbagrnd - Free, Fast & Open-source AI-powered background remover for Windows, macOS, Linux and Android (selected work: src-tauri, src, api)",
+ "repos": [
+  {
+   "repo": "unbagrnd",
+   "url": "https://github.com/zidniryi/unbagrnd",
+   "sha": "b9a23465ef71246d619e7b2d0952a912c6f821ff",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b9a23465ef71: \"feat: alpha mask export, edge refinement, and richer batch mode (v0.5.0)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

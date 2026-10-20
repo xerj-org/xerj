@@ -1,0 +1,22 @@
+{
+ "corpus": "huangyincan--videonote-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on mcp, claude-code, skills queries this for how HuangYincan/VideoNote-MCP implements it: VideoNote\uff1a\u5c06\u89c6\u9891\u8f6c\u6210\u6587\u5b57\u6216\u7b14\u8bb0\u3002\u7406\u89e3\u753b\u9762/\u5f39\u5e55/\u8bc4\u8bba\uff1b\u652f\u6301\u4e3b\u6d41\u5e73\u53f0\uff1b\u5de5\u5177\u89e3\u8026\uff1b\u591a\u683c\u5f0f\u5bfc\u51fa\u3002 (selected work: videonote_mcp, tests, the project root)",
+ "repos": [
+  {
+   "repo": "VideoNote-MCP",
+   "url": "https://github.com/HuangYincan/VideoNote-MCP",
+   "sha": "c5559a4eb90db7ad5d73e54d0d063c6f9b08f3e3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit c5559a4eb90d: \"feat(#63): \u72ec\u7acb\u5e73\u53f0\u767b\u5f55\u914d\u7f6e\u5e76\u53d1\u5e03 v0.2.3\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

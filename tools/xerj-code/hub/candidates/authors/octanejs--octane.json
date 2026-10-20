@@ -1,0 +1,22 @@
+{
+ "corpus": "octanejs--octane",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how octanejs/octane implements it: React\u2019s programming model, compiled. The successor to Inferno (selected work: packages/app-core)",
+ "repos": [
+  {
+   "repo": "octane",
+   "url": "https://github.com/octanejs/octane",
+   "sha": "1de873c3a68eafcef4327d90433adbb84496bae0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 1de873c3a68e: \"fix(app-core): serve byte ranges from the built-in static file server\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

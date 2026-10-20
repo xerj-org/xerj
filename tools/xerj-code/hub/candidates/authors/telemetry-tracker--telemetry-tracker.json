@@ -1,0 +1,22 @@
+{
+ "corpus": "telemetry-tracker--telemetry-tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on analytics, error-tracking, fastify queries this for how Telemetry-Tracker/telemetry-tracker implements it: Lightweight self-hosted telemetry: errors, events, sessions, and a dashboard. Fastify API, Next.js UI, PostgreSQL, @telemetry-tracker/* SDKs (selected work: apps/dashboard, apps/api)",
+ "repos": [
+  {
+   "repo": "telemetry-tracker",
+   "url": "https://github.com/Telemetry-Tracker/telemetry-tracker",
+   "sha": "f21e0534637c044c9ba264e60b1ef3054e516f75",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit f21e0534637c: \"fix(sentry): harden operational error privacy filters\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

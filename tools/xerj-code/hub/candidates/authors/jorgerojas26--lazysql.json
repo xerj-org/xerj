@@ -1,0 +1,22 @@
+{
+ "corpus": "jorgerojas26--lazysql",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Go queries this for how jorgerojas26/lazysql implements it: A cross-platform TUI database management tool written in Go (selected work: components, app, commands)",
+ "repos": [
+  {
+   "repo": "lazysql",
+   "url": "https://github.com/jorgerojas26/lazysql",
+   "sha": "2e930f3ded16b3816fa7a1baf8e75c8bd8db43d0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 2e930f3ded16: \"feat: persist per-table column visibility\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

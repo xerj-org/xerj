@@ -1,0 +1,22 @@
+{
+ "corpus": "owaisazmal--owlluna",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on notes, swift, swiftui queries this for how owaisazmal/OwlLuna implements it: Free, open-source handwritten notes for iPad, built with PencilKit and SwiftUI. A Notability/GoodNotes alternative with no subscriptions, ad (selected work: OwlLuna, OwlLunaTests, OwlLunaUITests)",
+ "repos": [
+  {
+   "repo": "OwlLuna",
+   "url": "https://github.com/owaisazmal/OwlLuna",
+   "sha": "907ddb30f6f07c591173a1fb473b86f65c8c4da2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 907ddb30f6f0: \"Add tests for whiteboard session behavior and memory management\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

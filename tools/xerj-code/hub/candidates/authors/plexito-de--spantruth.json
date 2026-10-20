@@ -1,0 +1,22 @@
+{
+ "corpus": "plexito-de--spantruth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, anthropic, conformance-testing queries this for how Plexito-de/spantruth implements it: Does your LLM telemetry tell the truth? Replays provider responses through LLM instrumentation libraries and checks every reported value aga (selected work: src/spantruth, tests, subjects)",
+ "repos": [
+  {
+   "repo": "spantruth",
+   "url": "https://github.com/Plexito-de/spantruth",
+   "sha": "6ddfa8a1a0a1b5dcdc363c67e1f9c3042ded6c0c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 6ddfa8a1a0a1: \"feat: replay a recorded response, starting with the Responses API (#12)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

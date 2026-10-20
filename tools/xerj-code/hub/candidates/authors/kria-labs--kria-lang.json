@@ -1,0 +1,22 @@
+{
+ "corpus": "kria-labs--kria-lang",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on kria, programming-language queries this for how Kria-Labs/kria-lang implements it: Kria Programming Language. Custom programming language written in Rust. Vs Code extension: https://github.com/Kria-Labs/Kria-vscode (selected work: src, src/ir)",
+ "repos": [
+  {
+   "repo": "kria-lang",
+   "url": "https://github.com/Kria-Labs/kria-lang",
+   "sha": "116a22d5f0f171fdc8189844b911234bcce74033",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 116a22d5f0f1: \"fix(VM): Peephole, OPcode, Cache and Closure fixes.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

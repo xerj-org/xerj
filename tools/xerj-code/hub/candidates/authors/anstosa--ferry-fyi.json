@@ -1,0 +1,22 @@
+{
+ "corpus": "anstosa--ferry-fyi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how anstosa/ferry.fyi implements it: A Smarter Tracker for the Washington State Ferry System (selected work: tests, client, shared)",
+ "repos": [
+  {
+   "repo": "ferry.fyi",
+   "url": "https://github.com/anstosa/ferry.fyi",
+   "sha": "5c3cdfe949640a57ac71631f17aa37d9e41bb78b",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 5c3cdfe94964: \"Keep refreshed ferry alerts consistent across planning views\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

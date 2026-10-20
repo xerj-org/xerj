@@ -1,0 +1,22 @@
+{
+ "corpus": "nosugark--realingo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on desktop-app, linux-desktop, macos queries this for how noSugarK/ReaLingo implements it: Realtime speech translation \u2014 a desktop simultaneous interpreter for Alibaba Cloud Qwen, OpenAI and Google Gemini (selected work: src-tauri, src, src/styles)",
+ "repos": [
+  {
+   "repo": "ReaLingo",
+   "url": "https://github.com/noSugarK/ReaLingo",
+   "sha": "1f8d3c1404d96a46e24b430557a661d2f05d0c51",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 1f8d3c1404d9: \"feat: \u6717\u8bfb\u8bd1\u6587\uff0c\u5f55\u7cfb\u7edf\u58f0\u97f3\u65f6\u6392\u9664\u81ea\u8eab\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

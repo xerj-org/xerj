@@ -1,0 +1,22 @@
+{
+ "corpus": "openwisp--openwisp-radius",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on radius, freeradius, wifi queries this for how openwisp/openwisp-radius implements it: Administration web interface and REST API for freeradius 3 build in django & python. Supports captive portal authentication, WPA Enerprise ( (selected work: openwisp_radius)",
+ "repos": [
+  {
+   "repo": "openwisp-radius",
+   "url": "https://github.com/openwisp/openwisp-radius",
+   "sha": "895de434a637813b59e162745ce1c33bb80da219",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 895de434a637: \"[fix] Rejected existing users in batch user imports\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

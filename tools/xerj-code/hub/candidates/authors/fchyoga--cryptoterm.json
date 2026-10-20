@@ -1,0 +1,22 @@
+{
+ "corpus": "fchyoga--cryptoterm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Go queries this for how fchyoga/cryptoterm implements it: \u26a1 Ultra-fast, real-time crypto & meme coin terminal. Live Binance WebSocket tickers, DEX meme tracking (Solana, Base), sparkline trends, pri (selected work: internal/ui, internal/ai, internal/indicator)",
+ "repos": [
+  {
+   "repo": "cryptoterm",
+   "url": "https://github.com/fchyoga/cryptoterm",
+   "sha": "03a8e413cc7cded273071c867523e95c132cefe3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 03a8e413cc7c: \"feat(ai): add universal AI market signal copilot with Gemini, OpenRou\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

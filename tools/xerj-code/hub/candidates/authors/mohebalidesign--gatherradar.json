@@ -1,0 +1,22 @@
+{
+ "corpus": "mohebalidesign--gatherradar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai, event-discovery, web-scraping queries this for how MohebaliDesign/GatherRadar implements it: AI-assisted event discovery for communities. Collecting public Instagram and web content, extracting structured events and surfacing what\u2019s  (selected work: src/gatherradar, tests, config)",
+ "repos": [
+  {
+   "repo": "GatherRadar",
+   "url": "https://github.com/MohebaliDesign/GatherRadar",
+   "sha": "9377618ce1056c0358389bda644ede427fd7d39b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 9377618ce105: \"feat: add publisher channel recovery\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

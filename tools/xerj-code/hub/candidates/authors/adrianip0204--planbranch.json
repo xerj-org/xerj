@@ -1,0 +1,22 @@
+{
+ "corpus": "adrianip0204--planbranch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, codex, developer-tools queries this for how AdrianIp0204/PlanBranch implements it: Visual planning for AI-assisted coding. Chat with Codex, review diagram changes, and approve the plan (selected work: tests, flowdesk)",
+ "repos": [
+  {
+   "repo": "PlanBranch",
+   "url": "https://github.com/AdrianIp0204/PlanBranch",
+   "sha": "293b80a537542f89210449c21031c8e5b5177760",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 293b80a53754: \"Keep coding budgets cumulative and tolerate transient Windows record \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

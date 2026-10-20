@@ -1,0 +1,22 @@
+{
+ "corpus": "farhanaaqil--autonomous-orchestrator-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how FarhanAaqil/Autonomous-Orchestrator-Agent implements it: FarhanAaqil/Autonomous-Orchestrator-Agent (Python) (selected work: tests, orchestrator_core, scripts)",
+ "repos": [
+  {
+   "repo": "Autonomous-Orchestrator-Agent",
+   "url": "https://github.com/FarhanAaqil/Autonomous-Orchestrator-Agent",
+   "sha": "d2db95c5ad81f0f6e7848a26221907c84fde1cc7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit d2db95c5ad81: \"add disaster recovery backup tooling, concurrency soak tests, daily b\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "cydral--dlib-transformer-extensions",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C++ queries this for how Cydral/Dlib-Transformer-extensions implements it: Modern transformer architectures, attention mechanisms, and language modeling utilities for Dlib. Production-ready implementations in C++14  (selected work: dlib)",
+ "repos": [
+  {
+   "repo": "Dlib-Transformer-extensions",
+   "url": "https://github.com/Cydral/Dlib-Transformer-extensions",
+   "sha": "5aeba9a91df9be79d91482d9bbb3297f6314835e",
+   "licence": "hint only: BSL-1.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSL-1.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 5aeba9a91df9: \"Make attention causality a switch, causal by default, and write one l\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

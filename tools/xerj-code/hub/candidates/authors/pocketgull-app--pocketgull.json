@@ -1,0 +1,22 @@
+{
+ "corpus": "pocketgull-app--pocketgull",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on healthcare, angular, fhir-r4 queries this for how pocketgull-app/pocketgull implements it: AI care-plan assistant for clinicians: evidence-grounded care plans, live voice consults, and FHIR R4 export. Built with Angular and Google  (selected work: public, packages/sidecar-proxy, scripts)",
+ "repos": [
+  {
+   "repo": "pocketgull",
+   "url": "https://github.com/pocketgull-app/pocketgull",
+   "sha": "5b8c74c4fe1250a58e1a81bf6d6cda2048f6c93d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 5b8c74c4fe12: \"fix(security): resolve 15 codeql alerts and purge legacy three.js por\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

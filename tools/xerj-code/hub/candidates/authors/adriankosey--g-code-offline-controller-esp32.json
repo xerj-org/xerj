@@ -1,0 +1,22 @@
+{
+ "corpus": "adriankosey--g-code-offline-controller-esp32",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how AdrianKosey/G-code_Offline_Controller_ESP32 implements it: An offline controller capable of making any CNC machine intelligent, primarily using an ESP32 and an ILI9341 touch screen (selected work: src/gui, src/app, src/storage)",
+ "repos": [
+  {
+   "repo": "G-code_Offline_Controller_ESP32",
+   "url": "https://github.com/AdrianKosey/G-code_Offline_Controller_ESP32",
+   "sha": "db466c6457a64a6586f72f65fe5464760eaa4dc5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit db466c6457a6: \"Improve boot splash and CH376 init\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

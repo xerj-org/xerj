@@ -1,0 +1,22 @@
+{
+ "corpus": "aseoriy--sail-launcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on emulation, gaming, indie queries this for how Aseoriy/Sail-Launcher implements it: Custom game/app launcher i made mainly for pirated games, also has a built in downloader (selected work: runtime, the project root, ui)",
+ "repos": [
+  {
+   "repo": "Sail-Launcher",
+   "url": "https://github.com/Aseoriy/Sail-Launcher",
+   "sha": "c48d78e29f12a2690970a35583e75afc11f30d7b",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit c48d78e29f12: \"Linux: uninstall, download pause/resume, TorBox; download and library\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

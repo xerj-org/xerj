@@ -1,0 +1,22 @@
+{
+ "corpus": "ronitgupta138--finflow-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on backend, backend-architecture, docker queries this for how ronitgupta138/FinFlow-Core implements it: \u26a1 Production-Grade Banking & Financial Aggregation REST Platform (Spring Boot 3.3, Java 17, Spring Security 6 JWT, PostgreSQL, Scheduled Mar (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "finflow-core",
+   "url": "https://github.com/ronitgupta138/finflow-core",
+   "sha": "799b58f9eaf5022050e7b16e5c5b9ffe5771720a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 799b58f9eaf5: \"feat(mesh): add MeshIdempotencyService, MeshSettlementService, and Me\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

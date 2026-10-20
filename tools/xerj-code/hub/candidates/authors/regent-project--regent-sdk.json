@@ -1,0 +1,22 @@
+{
+ "corpus": "regent-project--regent-sdk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on automation, configuration-management, infrastructure queries this for how regent-project/regent-sdk implements it: Multi-paradigm configuration management system as a library (selected work: src/state)",
+ "repos": [
+  {
+   "repo": "regent-sdk",
+   "url": "https://github.com/regent-project/regent-sdk",
+   "sha": "e414af3e995e76015a9c6f816807752b36fb59ba",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit e414af3e995e: \"Introducing Template attribute\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

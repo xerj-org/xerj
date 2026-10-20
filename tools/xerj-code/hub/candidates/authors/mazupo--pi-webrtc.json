@@ -1,0 +1,22 @@
+{
+ "corpus": "mazupo--pi-webrtc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on webrtc, hardware-encoding, nvidia-jetson queries this for how mazupo/pi-webrtc implements it: Low-latency hardware-accelerated WebRTC video streaming and remote control for Raspberry Pi & NVIDIA Jetson (selected work: src/capturer, src, src/rtc)",
+ "repos": [
+  {
+   "repo": "pi-webrtc",
+   "url": "https://github.com/mazupo/pi-webrtc",
+   "sha": "80fefe85cce0a5d9af30b785105a20eeffb4e888",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 80fefe85cce0: \"feat: add an RTSP capturer\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

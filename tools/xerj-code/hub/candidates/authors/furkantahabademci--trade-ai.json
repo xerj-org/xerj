@@ -1,0 +1,22 @@
+{
+ "corpus": "furkantahabademci--trade-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how FurkanTahaBademci/trade-ai implements it: FurkanTahaBademci/trade-ai (Python) (selected work: web, backend)",
+ "repos": [
+  {
+   "repo": "trade-ai",
+   "url": "https://github.com/FurkanTahaBademci/trade-ai",
+   "sha": "b5b67e24a62eed1f5ce069515b564e5c356cbc48",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit b5b67e24a62e: \"feat(ops): measure web API wait vs render and host CPU on /sistem\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "nkcodedev--resili",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how nkcodedev/resili implements it: nkcodedev/resili (TypeScript) (selected work: packages/llm-openai, packages/llm)",
+ "repos": [
+  {
+   "repo": "resili",
+   "url": "https://github.com/nkcodedev/resili",
+   "sha": "c51e4a5bebb39bd336c691c51e1c6729a3b6efba",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit c51e4a5bebb3: \"fix(llm): normalize OpenAI SDK cancellation to ERR_ABORTED (#37)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

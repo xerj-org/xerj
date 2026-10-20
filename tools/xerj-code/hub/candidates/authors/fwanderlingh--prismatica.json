@@ -1,0 +1,22 @@
+{
+ "corpus": "fwanderlingh--prismatica",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on TypeScript queries this for how fwanderlingh/prismatica implements it: Open source PRISMA review platform website, supporting the full process from BibTex/RIS import, to deduplication, abstract and full-text scr (selected work: scripts, components, lib)",
+ "repos": [
+  {
+   "repo": "prismatica",
+   "url": "https://github.com/fwanderlingh/prismatica",
+   "sha": "7f3089bee02b2634b9dd69c7946f97c8e48db172",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 7f3089bee02b: \"feat: add storage info management and admin role updates\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "maxie7--logscry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, bubbletea, cli queries this for how maxie7/logscry implements it: Real-time, AI-assisted log triage CLI/TUI in Go. Silent on noise, speaks on signal \u2014 scores logs locally and escalates only genuine anomalie (selected work: internal/score, internal/model, examples)",
+ "repos": [
+  {
+   "repo": "logscry",
+   "url": "https://github.com/maxie7/logscry",
+   "sha": "3027afb5ccc686b2b7cbba0ea5ab4ac9d11de3e7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 3027afb5ccc6: \"fix(score): the burst baseline forgets \u2014 a 30-minute half-life replac\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

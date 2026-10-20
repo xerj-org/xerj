@@ -1,0 +1,22 @@
+{
+ "corpus": "cavaldos--pitago",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, anthropic, cli queries this for how cavaldos/pitago implements it: A polished terminal UI (TUI) for the pi AI coding agent \u2014 real-time chat, multi-provider LLMs, tools and sessions. Built with Go and Bubble  (selected work: src/app, src/builtin)",
+ "repos": [
+  {
+   "repo": "pitago",
+   "url": "https://github.com/cavaldos/pitago",
+   "sha": "9fc3e3e79fa175a203247fb54bafcde813ea96a8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 9fc3e3e79fa1: \"feat: Add shell mode #14\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

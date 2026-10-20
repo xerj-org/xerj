@@ -1,0 +1,22 @@
+{
+ "corpus": "mcluremail--virtdeck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dashboard, proxmox, pve queries this for how mcluremail/virtdeck implements it: VirtDeck \u2014 unofficial desktop client for Proxmox VE (PySide6) (selected work: tests, virtdeck)",
+ "repos": [
+  {
+   "repo": "virtdeck",
+   "url": "https://github.com/mcluremail/virtdeck",
+   "sha": "508e491e51a681f7fe3fbe9749eecd4e262b439a",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 508e491e51a6: \"fix(config): audit stage 5.1 \u2014 connection identity and safe cache res\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

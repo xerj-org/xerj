@@ -1,0 +1,22 @@
+{
+ "corpus": "shiritai--sanity-gravity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on antigravity, sandbox, ai-safety queries this for how Shiritai/sanity-gravity implements it: Providing a strong Gravity (sandbox) in the wild world of AI Agents (Antigravity, claude code, ...), to preserve the developer's Sanity (selected work: tests, sanity_gravity, tools)",
+ "repos": [
+  {
+   "repo": "sanity-gravity",
+   "url": "https://github.com/Shiritai/sanity-gravity",
+   "sha": "5ca936d9d47b74848c32f22aceb3e71bbeabb921",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 5ca936d9d47b: \"feat(plugins): base-image kind, [build].from/context, [plugin].default\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

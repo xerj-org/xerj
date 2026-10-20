@@ -1,0 +1,22 @@
+{
+ "corpus": "stringsync--vexml",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how stringsync/vexml implements it: MusicXML to Vexflow (selected work: packages/vexml, packages/integration, packages/renderer)",
+ "repos": [
+  {
+   "repo": "vexml",
+   "url": "https://github.com/stringsync/vexml",
+   "sha": "c391d8b95ba5aa3ca1c52b2ddb240b4d45903109",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit c391d8b95ba5: \"Render a score from a snapshot\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

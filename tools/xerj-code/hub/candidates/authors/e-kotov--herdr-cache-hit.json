@@ -1,0 +1,22 @@
+{
+ "corpus": "e-kotov--herdr-cache-hit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on herdr-plugin, agentic-ai, antigravity queries this for how e-kotov/herdr-cache-hit implements it: Prompt-cache HUD tokens, real-time expiration alerts, and dynamic agent sorting for Herdr (selected work: lib, tests, the project root)",
+ "repos": [
+  {
+   "repo": "herdr-cache-hit",
+   "url": "https://github.com/e-kotov/herdr-cache-hit",
+   "sha": "19f4ec980c1f7bc35278340be5ee86973718f36d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 19f4ec980c1f: \"Add bounded cache warmer duration and activity guards\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

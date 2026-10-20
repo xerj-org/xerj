@@ -1,0 +1,22 @@
+{
+ "corpus": "thrasher-corp--gocryptotrader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on cryptocurrency, trading-bot, trading-platform queries this for how thrasher-corp/gocryptotrader implements it: A cryptocurrency trading bot and framework supporting multiple exchanges written in Golang (selected work: exchange)",
+ "repos": [
+  {
+   "repo": "gocryptotrader",
+   "url": "https://github.com/thrasher-corp/gocryptotrader",
+   "sha": "914ac56530888d41ee134dc7f4b5a3bffc708316",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 914ac5653088: \"websocket: record a connection's subscriptions when the subscriber fa\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

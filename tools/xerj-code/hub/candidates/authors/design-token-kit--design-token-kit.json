@@ -1,0 +1,22 @@
+{
+ "corpus": "design-token-kit--design-token-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, design-md, design-system queries this for how design-token-kit/design-token-kit implements it: Check, lint, and convert design tokens to CSS. DTCG JSON, HRDT YAML, and DESIGN.md support (selected work: core/test, figma-plugin, cli)",
+ "repos": [
+  {
+   "repo": "design-token-kit",
+   "url": "https://github.com/design-token-kit/design-token-kit",
+   "sha": "c0fd0ef3e177400f2dca5d32fda3f158d2e5385b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit c0fd0ef3e177: \"feat: make missing-description lint check opt-in\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

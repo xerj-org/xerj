@@ -1,0 +1,22 @@
+{
+ "corpus": "caiiiycuk--emulators",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on javascript, dosbox, jsdos queries this for how caiiiycuk/emulators implements it: emulator protocol and backends (selected work: native, src/impl, gulpfile.ts)",
+ "repos": [
+  {
+   "repo": "emulators",
+   "url": "https://github.com/caiiiycuk/emulators",
+   "sha": "f1d0286fd9ee36fb54e9ffb36ab0276a33b60b64",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit f1d0286fd9ee: \"Implement dosbox-x-mcp server in browser\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

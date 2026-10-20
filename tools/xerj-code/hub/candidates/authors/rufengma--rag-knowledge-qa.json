@@ -1,0 +1,22 @@
+{
+ "corpus": "rufengma--rag-knowledge-qa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how rufengma/RAG-knowledge-qa implements it: rufengma/RAG-knowledge-qa (Python) (selected work: tests, src, the project root)",
+ "repos": [
+  {
+   "repo": "RAG-knowledge-qa",
+   "url": "https://github.com/rufengma/RAG-knowledge-qa",
+   "sha": "a560650b1c32b3920cd5ae045422cb98a6d280a7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit a560650b1c32: \"feat: log per-query token usage + latency to JSONL (USAGE_LOG env)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

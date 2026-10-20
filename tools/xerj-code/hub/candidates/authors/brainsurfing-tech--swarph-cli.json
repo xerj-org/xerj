@@ -1,0 +1,22 @@
+{
+ "corpus": "brainsurfing-tech--swarph-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how BrainSurfing-tech/swarph-cli implements it: BrainSurfing-tech/swarph-cli (Python) (selected work: src/swarph_cli, tests)",
+ "repos": [
+  {
+   "repo": "swarph-cli",
+   "url": "https://github.com/BrainSurfing-tech/swarph-cli",
+   "sha": "8154f821ec849bdbdf61ac8c7a871b06892b01b8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8154f821ec84: \"card #1071 provider usage limits #1404: quota sync reader/writer/aler\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

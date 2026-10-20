@@ -1,0 +1,22 @@
+{
+ "corpus": "dkron-io--dkron",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on scheduled-jobs, fault-tolerance, cron queries this for how dkron-io/dkron implements it: Dkron - Distributed, fault tolerant job scheduling system https://dkron.io (selected work: ui, dkron)",
+ "repos": [
+  {
+   "repo": "dkron",
+   "url": "https://github.com/dkron-io/dkron",
+   "sha": "faf3cb3bad66b76e70dd2a1a4295f0ca64dfc6a5",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit faf3cb3bad66: \"Improve the job editing experience (#2072)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

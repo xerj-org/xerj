@@ -1,0 +1,22 @@
+{
+ "corpus": "jasmucrai--truelayer2actual",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how jasmucrai/truelayer2actual implements it: Sync UK bank transactions from TrueLayer into Actual Budget (selected work: test, src/auth, src/web)",
+ "repos": [
+  {
+   "repo": "truelayer2actual",
+   "url": "https://github.com/jasmucrai/truelayer2actual",
+   "sha": "946117f67bf049d72e2dfe17b936eb9b927f5159",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 946117f67bf0: \"Minor: Security review\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

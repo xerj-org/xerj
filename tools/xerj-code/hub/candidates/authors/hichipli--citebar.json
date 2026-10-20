@@ -1,0 +1,22 @@
+{
+ "corpus": "hichipli--citebar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on academic-tools, citation-tracker, google-scholar queries this for how hichipli/CiteBar implements it: Real-time Google Scholar citation tracker in your macOS menu bar (selected work: Sources, Tests)",
+ "repos": [
+  {
+   "repo": "CiteBar",
+   "url": "https://github.com/hichipli/CiteBar",
+   "sha": "eb06b6a5ff256a5f3dbae8a81b44998ddf8039c8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit eb06b6a5ff25: \"feat(data): keep history by date with a retention setting, and add op\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

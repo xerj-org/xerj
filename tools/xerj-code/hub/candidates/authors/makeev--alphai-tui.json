@@ -1,0 +1,22 @@
+{
+ "corpus": "makeev--alphai-tui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on finance, financial-news, insider-trading queries this for how makeev/alphai-tui implements it: Open-source, Bloomberg-style stock dashboard for the terminal: live quotes and candlestick charts next to AI-scored news, SEC Form 4 insider (selected work: src, src/ui, src/app)",
+ "repos": [
+  {
+   "repo": "alphai-tui",
+   "url": "https://github.com/makeev/alphai-tui",
+   "sha": "03c72631c8296b739e7dd152508b5875190f07ac",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 03c72631c829: \"fix: release 0.30.1 with a config that survives typos and parallel panes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

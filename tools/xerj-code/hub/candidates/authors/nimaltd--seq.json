@@ -1,0 +1,22 @@
+{
+ "corpus": "nimaltd--seq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on stm32, interrupt, non-blocking queries this for how nimaltd/seq implements it: Non-blocking state sequencer and interrupt-safe task queue for STM32, no RTOS needed (selected work: test, src)",
+ "repos": [
+  {
+   "repo": "seq",
+   "url": "https://github.com/nimaltd/seq",
+   "sha": "3b12f4dd331fc5bdfb9cc3435d76bf95c498d2eb",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 3b12f4dd331f: \"Add state/task argument support and config checks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "lucasjinreal--crane",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on llama-cpp, mllm, rust queries this for how lucasjinreal/Crane implements it: A Pure Rust based LLM, VLM, VLA, TTS, OCR Inference Engine, powering by Candle & Rust. Alternate to your llama.cpp but much more simpler and (selected work: crane-core)",
+ "repos": [
+  {
+   "repo": "Crane",
+   "url": "https://github.com/lucasjinreal/Crane",
+   "sha": "71e1d9f2fa5394e89fb8960bce87a44f02ddb84b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 71e1d9f2fa53: \"CUDA support with prefill speedup 390 \u2192 935 tok/s\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

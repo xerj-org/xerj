@@ -1,0 +1,22 @@
+{
+ "corpus": "liolu--rayman-rr-usa-decomp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on decompilation, matching-decompilation, nintendo-ds queries this for how liolu/Rayman-RR-usa-decomp implements it: Matching decompilation of Rayman Raving Rabbids (Nintendo DS, USA) (selected work: tools)",
+ "repos": [
+  {
+   "repo": "Rayman-RR-usa-decomp",
+   "url": "https://github.com/liolu/Rayman-RR-usa-decomp",
+   "sha": "4e3b1c3337165c88dd717ab9302bd684cc3efa5f",
+   "licence": "hint only: CC0-1.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "CC0-1.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 4e3b1c333716: \"tools: sync auto_match.py, clone_match.py, donor_match.py, find_culpr\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

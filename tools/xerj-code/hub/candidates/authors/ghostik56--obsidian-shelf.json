@@ -1,0 +1,22 @@
+{
+ "corpus": "ghostik56--obsidian-shelf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how GhOsTiK56/Obsidian-Shelf implements it: Obsidian Shelf is a powerful plugin for Obsidian that turns your knowledge base into a beautiful, convenient, and visually appealing media l (selected work: src/views, src/services, the project root)",
+ "repos": [
+  {
+   "repo": "Obsidian-Shelf",
+   "url": "https://github.com/GhOsTiK56/Obsidian-Shelf",
+   "sha": "a5ac3b079cedc260c03293c3a79e28fe1c511599",
+   "licence": "hint only: 0BSD (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "0BSD",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit a5ac3b079ced: \"refactor: add service layer\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

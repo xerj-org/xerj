@@ -1,0 +1,22 @@
+{
+ "corpus": "yunongdai2005--dsh-theone",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on context-management, conversation-routing, deepseek-harness queries this for how YunongDai2005/dsh-theone implements it: One chat for everything, no more hunting for old conversations. A DeepSeek Harness (DSH) plugin./\u4e0d\u7528\u518d\u7ffb\u65e7\u4f1a\u8bdd\uff1a\u6240\u6709\u4e8b\u5728\u4e00\u4e2a\u5bf9\u8bdd\u6846\u91cc\u804a\uff0c\u81ea\u52a8\u5206\u5230\u5bf9\u5e94\u7684\u90a3\u4ef6\u4e8b (selected work: src, tests, scripts)",
+ "repos": [
+  {
+   "repo": "dsh-theone",
+   "url": "https://github.com/YunongDai2005/dsh-theone",
+   "sha": "1d74799c107c5ae9c6b0febb1510caecfafc4562",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 1d74799c107c: \"feat: durable ongoing tasks and recoverable memory (0.3.36) (#12)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

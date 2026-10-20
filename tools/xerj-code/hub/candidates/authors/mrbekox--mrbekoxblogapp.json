@@ -1,0 +1,22 @@
+{
+ "corpus": "mrbekox--mrbekoxblogapp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on Python queries this for how MrBekoX/MrBekoXBlogApp implements it: MrBekoX/MrBekoXBlogApp (Python) (selected work: src/services, src/backend, src/frontend)",
+ "repos": [
+  {
+   "repo": "MrBekoXBlogApp",
+   "url": "https://github.com/MrBekoX/MrBekoXBlogApp",
+   "sha": "1f1153d2f5fe16d999048ebe66df05cc2ca4efbd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 1f1153d2f5fe: \"feat(agent): token streaming ve ger\u00e7ek ortam entegrasyonlari\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

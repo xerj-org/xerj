@@ -1,0 +1,22 @@
+{
+ "corpus": "rux-lang--rux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on compiler, language, rux queries this for how rux-lang/Rux implements it: Compiler for the Rux programming language (selected work: Compiler, Tests)",
+ "repos": [
+  {
+   "repo": "Rux",
+   "url": "https://github.com/rux-lang/Rux",
+   "sha": "8fced5eaffcdbb9ec68f27ca3f1c220440fe1fdd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8fced5eaffcd: \"Add two-lane float64 vector instructions\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

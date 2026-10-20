@@ -1,0 +1,22 @@
+{
+ "corpus": "fabrikt-io--fabrikt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code-generation, graalvm, kotlin queries this for how fabrikt-io/fabrikt implements it: Generates Kotlin Code from OpenAPI 3 Specifications (selected work: src/test, src/main, playground)",
+ "repos": [
+  {
+   "repo": "fabrikt",
+   "url": "https://github.com/fabrikt-io/fabrikt",
+   "sha": "62f93b3acc155cab15c5c0c4cc47ca0be7fa489e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 62f93b3acc15: \"Generate models from JSON Schema documents, not just OpenAPI 3 (#708)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

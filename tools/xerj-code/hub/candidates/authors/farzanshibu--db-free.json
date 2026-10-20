@@ -1,0 +1,22 @@
+{
+ "corpus": "farzanshibu--db-free",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on database, developer-tools, mongodb queries this for how farzanshibu/db-free implements it: Lightweight, native database workbench (Tauri + React) \u2014 69 engines, sub-second cold start, offline-first, no telemetry (selected work: src-tauri, src/features, src/components)",
+ "repos": [
+  {
+   "repo": "db-free",
+   "url": "https://github.com/farzanshibu/db-free",
+   "sha": "e7ec4b72c466a270748de0f002ae72cbb99d7825",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit e7ec4b72c466: \"Harden workflow file/HTTP access; run EXPLAIN on tab session\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

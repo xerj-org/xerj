@@ -1,0 +1,22 @@
+{
+ "corpus": "getaskclaw--amber",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-evaluation, ai-agents, benchmark queries this for how getaskclaw/amber implements it: AMBER (sealed-in-amber historical replay evaluation): real-event replay, physical sealing, pre-registered scoring \u2014 method spec; cases priva (selected work: tools, schemas)",
+ "repos": [
+  {
+   "repo": "amber",
+   "url": "https://github.com/getaskclaw/amber",
+   "sha": "ae4e48f95fe45a3818ac6536b31a8e4bfc86c722",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit ae4e48f95fe4: \"schemas: add manifest JSON Schema, validator, and SHRE->AMBER mapping\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

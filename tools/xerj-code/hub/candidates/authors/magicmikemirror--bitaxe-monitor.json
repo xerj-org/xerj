@@ -1,0 +1,22 @@
+{
+ "corpus": "magicmikemirror--bitaxe-monitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how MagicMikeMirror/bitaxe-monitor implements it: Privacy-first local dashboard for Bitaxe and AxeOS miners, packaged as a ZimaOS app (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "bitaxe-monitor",
+   "url": "https://github.com/MagicMikeMirror/bitaxe-monitor",
+   "sha": "7555fd77fefe03ad6bf3a4bb6bb1ad291231594a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 7555fd77fefe: \"Add miner menu and isolated multi-miner monitoring for 1.8.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

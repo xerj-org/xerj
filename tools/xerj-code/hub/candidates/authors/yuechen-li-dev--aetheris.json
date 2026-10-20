@@ -1,0 +1,22 @@
+{
+ "corpus": "yuechen-li-dev--aetheris",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 3d-modeling, cad, brep queries this for how yuechen-li-dev/Aetheris implements it: STEP AP242 Native-ish BREP Geometric Modeling Kernel (selected work: scripts, aetheris.client, Aetheris.Cadmata.Desktop)",
+ "repos": [
+  {
+   "repo": "Aetheris",
+   "url": "https://github.com/yuechen-li-dev/Aetheris",
+   "sha": "194bda94162fa29d9fd52c1452e8dce8d7a458eb",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 194bda94162f: \"Resolve Cadmata redistribution notices and prepare Preview 4 release\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

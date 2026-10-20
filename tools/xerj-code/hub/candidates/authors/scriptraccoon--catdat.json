@@ -1,0 +1,22 @@
+{
+ "corpus": "scriptraccoon--catdat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on category-theory, database, mathematics queries this for how ScriptRaccoon/CatDat implements it: A comprehensive and searchable database of categories and their properties (selected work: shared, database, src/routes)",
+ "repos": [
+  {
+   "repo": "CatDat",
+   "url": "https://github.com/ScriptRaccoon/CatDat",
+   "sha": "acb65efce2eef152883e218704f2952b8891677b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit acb65efce2ee: \"remove dates from structure history\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

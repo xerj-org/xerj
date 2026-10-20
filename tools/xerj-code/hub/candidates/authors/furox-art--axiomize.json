@@ -1,0 +1,22 @@
+{
+ "corpus": "furox-art--axiomize",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, mathematical-modeling, scientific-computing queries this for how Furox-Art/axiomize implements it: Reproducible scientific modeling engine and agent skill pack: versioned Model IR with mandatory units, dimensional and numerical validation, (selected work: tests, src/axiomize, the project root)",
+ "repos": [
+  {
+   "repo": "axiomize",
+   "url": "https://github.com/Furox-Art/axiomize",
+   "sha": "0854fe53ed850b7b870ffe7674b7461f1c679755",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit 0854fe53ed85: \"fix(security): repair npm entry point and close nested-pow DoS + arch\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "samzong--recall",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, cli, codex queries this for how samzong/Recall implements it: Switch agents. Keep the history. Local-first search across your AI coding sessions (selected work: src, src/sync, src/adapters)",
+ "repos": [
+  {
+   "repo": "Recall",
+   "url": "https://github.com/samzong/Recall",
+   "sha": "d9ec51b6cf36e56f2a20d8bdbfdaa76376c1fec5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit d9ec51b6cf36: \"fix(sync): stream file-scan sessions to bound sync memory (#274)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

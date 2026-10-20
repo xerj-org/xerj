@@ -1,0 +1,22 @@
+{
+ "corpus": "lockbook--lockbook",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on collaborative, drawing, end-to-end-encryption queries this for how lockbook/lockbook implements it: Encrypted notebook (selected work: libs, clients)",
+ "repos": [
+  {
+   "repo": "lockbook",
+   "url": "https://github.com/lockbook/lockbook",
+   "sha": "2237f6c13d72577ab5df60d0034ff24f657b2974",
+   "licence": "hint only: Unlicense (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Unlicense",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 2237f6c13d72: \"ios: rebuild text input (#5128)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

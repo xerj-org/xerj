@@ -1,0 +1,22 @@
+{
+ "corpus": "xevfx--amenity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on discord, user-app, utility queries this for how xevfx/Amenity implements it: A discord user-install app with usefull features realted to crpto, ai, image, template (selected work: core, tests, cogs)",
+ "repos": [
+  {
+   "repo": "Amenity",
+   "url": "https://github.com/xevfx/Amenity",
+   "sha": "0dbda0ded3d5453b2f14562a42d9958717f62bb2",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 0dbda0ded3d5: \"Improve help UI/UX, paginator, and exclude internal and owner cogs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

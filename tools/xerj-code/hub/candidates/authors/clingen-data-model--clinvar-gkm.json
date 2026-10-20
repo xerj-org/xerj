@@ -1,0 +1,22 @@
+{
+ "corpus": "clingen-data-model--clinvar-gkm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how clingen-data-model/clinvar-gkm implements it: dataform project with pipelines to transform clinvar to gks standards (selected work: src/scripts)",
+ "repos": [
+  {
+   "repo": "clinvar-gkm",
+   "url": "https://github.com/clingen-data-model/clinvar-gkm",
+   "sha": "bbe3aa64b7a1419711894239f754a49dac23afb2",
+   "licence": "hint only: CC0-1.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "CC0-1.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit bbe3aa64b7a1: \"feat(r2): serve distribution via data.clinvar-gkm.org custom domain +\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "jakob1379--nix-config",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Nix queries this for how jakob1379/nix-config implements it: Various NixOS and home-manager configs (selected work: home)",
+ "repos": [
+  {
+   "repo": "nix-config",
+   "url": "https://github.com/jakob1379/nix-config",
+   "sha": "693a693c4921053db48a5d362c267c380f93c09e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 693a693c4921: \"fix(gui): gate GUI programs on gui.enable (#139)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

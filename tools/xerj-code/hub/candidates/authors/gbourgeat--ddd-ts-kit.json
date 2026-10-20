@@ -1,0 +1,22 @@
+{
+ "corpus": "gbourgeat--ddd-ts-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, claude-code-plugin, clean-architecture queries this for how gbourgeat/ddd-ts-kit implements it: Domain-Driven Design (DDD), Clean Architecture (hexagonal, ports and adapters) and Clean Code for TypeScript and Node.js backends: CLI to bo (selected work: packages/cli)",
+ "repos": [
+  {
+   "repo": "ddd-ts-kit",
+   "url": "https://github.com/gbourgeat/ddd-ts-kit",
+   "sha": "9f192ba219be800dfc2b82cd45fe0059c0c15bf8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 9f192ba219be: \"feat(cli): an event handler and an integration handler take --name, a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

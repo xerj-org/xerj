@@ -1,0 +1,22 @@
+{
+ "corpus": "421c--autodoc-laravel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how 421C/autodoc-laravel implements it: Generate accurate OpenAPI 3.1.0 docs for your Laravel project (selected work: tests, src/Helpers, src)",
+ "repos": [
+  {
+   "repo": "autodoc-laravel",
+   "url": "https://github.com/421C/autodoc-laravel",
+   "sha": "45d546cd6c552b13c8aa0bdfd7f88ba8ccd80a3e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 45d546cd6c55: \"derive per-operation security from `auth` guards and `can` abilities,\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

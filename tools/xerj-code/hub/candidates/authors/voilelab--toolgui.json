@@ -1,0 +1,22 @@
+{
+ "corpus": "voilelab--toolgui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on go, golang, internal-tools queries this for how voilelab/toolgui implements it: ToolGUI: Build tool apps in Go (selected work: toolgui-wails)",
+ "repos": [
+  {
+   "repo": "toolgui",
+   "url": "https://github.com/voilelab/toolgui",
+   "sha": "bcff6a8cdac05692ed8604624b7089621102ad5e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit bcff6a8cdac0: \"feat(wails): add opt-in native fullscreen toggle (#262)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

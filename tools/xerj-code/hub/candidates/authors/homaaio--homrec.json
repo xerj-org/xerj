@@ -1,0 +1,22 @@
+{
+ "corpus": "homaaio--homrec",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on screen-capture, ffmpeg, video-recording queries this for how homaaio/HomRec implements it: Screen recorder built for weak PCs (selected work: src/ui)",
+ "repos": [
+  {
+   "repo": "HomRec",
+   "url": "https://github.com/homaaio/HomRec",
+   "sha": "543a4a5b5a43572471be7a28fa4d5986ac87da39",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 543a4a5b5a43: \"feat(ui): Capture source window replaces File > Select Window / Selec\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

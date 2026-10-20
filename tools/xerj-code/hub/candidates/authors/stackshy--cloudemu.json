@@ -1,0 +1,22 @@
+{
+ "corpus": "stackshy--cloudemu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how stackshy/cloudemu implements it: A real cloud simulator. It simulates real cloud resources (AWS, Azure, GCP) entirely in-memory on your machine (selected work: providers, server, services)",
+ "repos": [
+  {
+   "repo": "cloudemu",
+   "url": "https://github.com/stackshy/cloudemu",
+   "sha": "b68b0c8a504f0921f887c069c647ee903f68bee5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b68b0c8a504f: \"feat(aws-apprunner): complete App Runner parity (VPC ingress, custom \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "vassiliylakhonin--agenda-intelligence-md",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, json-schema, mcp-server queries this for how vassiliylakhonin/agenda-intelligence-md implements it: Deterministic evidence-packet checks for AI-generated claims: references, quotes, numbers, and support gaps. CLI, Python, MCP, and review ad (selected work: deploy, src/agenda_intelligence, examples)",
+ "repos": [
+  {
+   "repo": "agenda-intelligence-md",
+   "url": "https://github.com/vassiliylakhonin/agenda-intelligence-md",
+   "sha": "7e693ec67a1a1cbb53458235050a8047d554dbd5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 7e693ec67a1a: \"fix: review critical minerals dossier evidence without false clearanc\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

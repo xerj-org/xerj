@@ -1,0 +1,22 @@
+{
+ "corpus": "awslabs--cli-agent-orchestrator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestration, ai-agents, ai-coding-assistant queries this for how awslabs/cli-agent-orchestrator implements it: Multi-agent orchestration for AI coding CLIs \u2014 Claude Code, Kiro, Codex, and more, coordinated in isolated tmux sessions (selected work: test, src/cli_agent_orchestrator, the project root)",
+ "repos": [
+  {
+   "repo": "cli-agent-orchestrator",
+   "url": "https://github.com/awslabs/cli-agent-orchestrator",
+   "sha": "fd5113ea91c25727ea1139a188769853f6ab967b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit fd5113ea91c2: \"feat(ephemeral): create and store ephemeral agents, not yet launchabl\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

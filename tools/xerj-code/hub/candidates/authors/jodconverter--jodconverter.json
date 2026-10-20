@@ -1,0 +1,22 @@
+{
+ "corpus": "jodconverter--jodconverter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on java, converter, openoffice queries this for how jodconverter/jodconverter implements it: JODConverter automates document conversions using LibreOffice or Apache OpenOffice (selected work: jodconverter-local)",
+ "repos": [
+  {
+   "repo": "jodconverter",
+   "url": "https://github.com/jodconverter/jodconverter",
+   "sha": "38019d07920282409fa7f6a0a835ff77cfe6bcb6",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 38019d079202: \"Add a format registry that completes another one with the formats of \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

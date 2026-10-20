@@ -1,0 +1,22 @@
+{
+ "corpus": "swiftuijs--ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on swiftui, javascript, component-library queries this for how swiftuijs/ui implements it: SwiftUI-inspired React components for the web, with TypeScript, adaptive layouts, scoped themes, and optional glass materials (selected work: apps/docs, packages/ui, e2e)",
+ "repos": [
+  {
+   "repo": "ui",
+   "url": "https://github.com/swiftuijs/ui",
+   "sha": "2b6f5e8027bfebb82c35c9fcc92311d2007e0c70",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit 2b6f5e8027bf: \"Harden SwiftUI.js and add scoped themes and glass materials (#1)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

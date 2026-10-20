@@ -1,0 +1,22 @@
+{
+ "corpus": "ddrubok--kill-game-slop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-slop, game-ui queries this for how Ddrubok/kill-game-slop implements it: Remove the slop. Keep the game. An engine-agnostic agent skill for clearer game UI, copy, VFX, and audio (selected work: evals, the project root)",
+ "repos": [
+  {
+   "repo": "kill-game-slop",
+   "url": "https://github.com/Ddrubok/kill-game-slop",
+   "sha": "7baafa084f09686d02a01d2669f4557fee1db05d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 7baafa084f09: \"Strengthen game review decisions and add evaluation evidence\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

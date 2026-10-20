@@ -1,0 +1,22 @@
+{
+ "corpus": "avilalabs--actinv",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on activation, depletion, fusion-energy queries this for how AvilaLabs/ACTINV implements it: Open, standalone activation and nuclide-inventory solver in Rust with a Python API and reproducible validation (selected work: results, the project root)",
+ "repos": [
+  {
+   "repo": "ACTINV",
+   "url": "https://github.com/AvilaLabs/ACTINV",
+   "sha": "1b91e5f5c9078dde3950bac8f0fe4e3258e332af",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 1b91e5f5c907: \"P121: record G1-G3 evidence\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

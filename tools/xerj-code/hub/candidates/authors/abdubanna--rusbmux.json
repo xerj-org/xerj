@@ -1,0 +1,22 @@
+{
+ "corpus": "abdubanna--rusbmux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on apple, usb, usbmuxd queries this for how abdubanna/rusbmux implements it: A usbmuxd replacement in pure Rust (selected work: src/device, src, src/watcher)",
+ "repos": [
+  {
+   "repo": "rusbmux",
+   "url": "https://github.com/abdullah-albanna/rusbmux",
+   "sha": "4a4aec5aa8c43ded30d72b8431f107bbd585d0a8",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4a4aec5aa8c4: \"split the UsbDevice struct and remove the Arc\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

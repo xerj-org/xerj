@@ -1,0 +1,22 @@
+{
+ "corpus": "kgpp34--kumabox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on ai-agent, infra, sandbox queries this for how kgpp34/KumaBox implements it: A lightweight microVM sandbox runtime for agents, automation, and untrusted workloads (selected work: oci-images, core, cli)",
+ "repos": [
+  {
+   "repo": "KumaBox",
+   "url": "https://github.com/kgpp34/KumaBox",
+   "sha": "dbab362102bb7205c6e709177474c4e7b14bcd44",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit dbab362102bb: \"Optimize cold boot and snapshot clone latency\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

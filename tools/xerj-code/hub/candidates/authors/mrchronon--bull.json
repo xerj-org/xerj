@@ -1,0 +1,22 @@
+{
+ "corpus": "mrchronon--bull",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how MrChronon/bull implements it: Windows-first local LLM chat and reproducible model comparisons: versioned test packs, private checkpoints and offline reports for Ollama/ll (selected work: Tools, the project root, Shared)",
+ "repos": [
+  {
+   "repo": "bull",
+   "url": "https://github.com/MrChronon/bull",
+   "sha": "1d419f3dea7a06b4329ddcc156f01bb1b9cb4e14",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 1d419f3dea7a: \"Publish audited source for Online and Standalone runtime preview\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

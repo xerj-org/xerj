@@ -1,0 +1,22 @@
+{
+ "corpus": "gofiber--fiber",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on go, golang, fiber queries this for how gofiber/fiber implements it: \u26a1\ufe0f Express inspired web framework written in Go (selected work: internal/mediatype, the project root, middleware)",
+ "repos": [
+  {
+   "repo": "fiber",
+   "url": "https://github.com/gofiber/fiber",
+   "sha": "d8242d099ae3b69cef06ea3a58e2b90ddd312a4d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d8242d099ae3: \"\ud83e\uddf9 chore: consolidate media-type parameter parsing into internal/media\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

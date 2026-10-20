@@ -1,0 +1,22 @@
+{
+ "corpus": "ruben-am--paxxword",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how Ruben-am/Paxxword implements it: Local password manager for Android (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "Paxxword",
+   "url": "https://github.com/Ruben-am/Paxxword",
+   "sha": "763e41e5c25b046e4d47179395a5821f80203913",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 763e41e5c25b: \"Refactor/navigation and snackbar (#112)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

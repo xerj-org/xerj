@@ -1,0 +1,22 @@
+{
+ "corpus": "farag2--sophia-script-for-windows",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on powershell, tweaks, script queries this for how farag2/Sophia-Script-for-Windows implements it: :zap: The most powerful PowerShell module for fine-tuning Windows 10 & Windows 11 on GitHub (selected work: src/Sophia_Script_for_Windows_11_PowerShell_7, src/Sophia_Script_for_Windows_11_ARM, src/Sophia_Script_for_Windows_11_AR)",
+ "repos": [
+  {
+   "repo": "Sophia-Script-for-Windows",
+   "url": "https://github.com/farag2/Sophia-Script-for-Windows",
+   "sha": "1586c04c527ea0c25bbabb0c650e721963d2857b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 1586c04c527e: \"Code refactoring\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

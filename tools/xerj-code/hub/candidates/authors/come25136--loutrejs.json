@@ -1,0 +1,22 @@
+{
+ "corpus": "come25136--loutrejs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on aws-lambda, bun, cloudflare-workers queries this for how come25136/loutrejs implements it: TypeScript application framework built around an explicit Application Graph for HTTP, tasks, queues, and triggers (selected work: packages/loutre, tests)",
+ "repos": [
+  {
+   "repo": "loutrejs",
+   "url": "https://github.com/come25136/loutrejs",
+   "sha": "7f4f93bf6b8d92a14af63c2f9ba1b9fbe1b84e03",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 7f4f93bf6b8d: \"refactor(di): Execution\u306e\u6240\u6709\u8005\u3092resolver\u3078\u675f\u7e1b\u3059\u308b\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

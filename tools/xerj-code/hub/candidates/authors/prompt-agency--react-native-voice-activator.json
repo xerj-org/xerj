@@ -1,0 +1,22 @@
+{
+ "corpus": "prompt-agency--react-native-voice-activator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, expo, ios queries this for how prompt-agency/react-native-voice-activator implements it: The on-device wake word and mic gate for React Native voice agents. Any phrase, no training, no API key. Hand a hot mic to ElevenLabs, LiveK (selected work: src/__tests__, src/internal, the project root)",
+ "repos": [
+  {
+   "repo": "react-native-voice-activator",
+   "url": "https://github.com/prompt-agency/react-native-voice-activator",
+   "sha": "b2c7f2a7da9a7437c63614053caed803be1c536d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit b2c7f2a7da9a: \"fix: harden model and wake phrase asset preparation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

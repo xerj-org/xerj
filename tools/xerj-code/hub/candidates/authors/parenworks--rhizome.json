@@ -1,0 +1,22 @@
+{
+ "corpus": "parenworks--rhizome",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Common Lisp queries this for how parenworks/rhizome implements it: StumpWM-style window manager for the River Wayland compositor, written in Common Lisp (selected work: session)",
+ "repos": [
+  {
+   "repo": "rhizome",
+   "url": "https://github.com/parenworks/rhizome",
+   "sha": "46b02c87c7c0335d45348c560a654820f6fc4cb1",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 46b02c87c7c0: \"session: vendor the session wiring; document non-Omarchy installs\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

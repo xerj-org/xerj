@@ -108,7 +108,7 @@ pub struct Draft {
 /// Entry point for the `xerj feedback` subcommand (blocking; the server binary
 /// calls this via `spawn_blocking`). Returns the process exit code.
 pub fn run_cli() -> i32 {
-    let args: Vec<String> = std::env::args().skip(2).collect();
+    let args: Vec<String> = xerj_common::argv::args_after_subcommand();
     match parse(args) {
         Ok(None) => {
             print_help();
@@ -355,9 +355,17 @@ pub fn slugify(s: &str) -> String {
 pub fn pr_commands(d: &Draft) -> String {
     let relpath = report_relpath(&d.date, &d.slug);
     let branch = format!("field-report/{}", d.slug);
+    // The placeholder was never passed on the command line. Reprinting it
+    // would make the next run look filled in. A real `--agent` has to survive,
+    // or the suggested command silently drops the model that wrote the report.
+    let agent_line = if d.agent == PH_AGENT {
+        String::new()
+    } else {
+        format!(" \\\n --agent {:?}", d.agent)
+    };
     format!(
         "# Ready-to-run — files ONLY the field report, nothing else:\n\
-         xerj feedback \\\n\
+         xerj feedback{agent_line} \\\n\
          \x20 --used-for {used_for:?} --pointed-at {pointed_at:?} \\\n\
          \x20 --verdict {verdict:?} --numbers {numbers:?} \\\n\
          \x20 -o {relpath}\n\
@@ -787,6 +795,108 @@ mod tests {
             "2026-08-18",
         );
         assert_eq!(d.pointed_at, "my own words");
+    }
+
+    #[test]
+    fn the_summary_counts_only_the_latest_runs_datasets() {
+        // Last run recorded 10 records in 2 datasets. Two older datasets from
+        // another run sit on the same catalog. The sentence must not say
+        // "10 records across 4 dataset(s)".
+        let summary = crate::CatalogSummary {
+            run: Some(serde_json::json!({
+                "run_id": "run-b",
+                "records_total": 10,
+                "root": "/repo",
+            })),
+            datasets: vec![
+                serde_json::json!({"run_id": "run-a", "record_count": 1000}),
+                serde_json::json!({"run_id": "run-a", "record_count": 1000}),
+                serde_json::json!({"run_id": "run-b", "record_count": 4}),
+                serde_json::json!({"run_id": "run-b", "record_count": 6}),
+            ],
+        };
+        assert_eq!(
+            summary.one_line().as_deref(),
+            Some("10 records across 2 dataset(s) under /repo (autoindex run run-b)")
+        );
+
+        // Dataset docs written before `run_id` was stored cannot be split by
+        // run, so the whole list is still the only count available.
+        let legacy = crate::CatalogSummary {
+            run: Some(serde_json::json!({
+                "run_id": "run-old",
+                "records_total": 5,
+            })),
+            datasets: vec![
+                serde_json::json!({"record_count": 2}),
+                serde_json::json!({"record_count": 3}),
+            ],
+        };
+        assert_eq!(
+            legacy.one_line().as_deref(),
+            Some("5 records across 2 dataset(s) (autoindex run run-old)")
+        );
+
+        // Tagged docs from a different run are not this run's datasets. The
+        // record total still comes from the run document; the dataset count
+        // is omitted rather than borrowed from the other run.
+        let others = crate::CatalogSummary {
+            run: Some(serde_json::json!({
+                "run_id": "run-new",
+                "records_total": 7,
+                "root": "/x",
+            })),
+            datasets: vec![serde_json::json!({"run_id": "run-old", "record_count": 99})],
+        };
+        assert_eq!(
+            others.one_line().as_deref(),
+            Some("7 records under /x (autoindex run run-new)")
+        );
+
+        // No run document: sum the dataset docs that were actually fetched.
+        let datasets_only = crate::CatalogSummary {
+            run: None,
+            datasets: vec![
+                serde_json::json!({"record_count": 2}),
+                serde_json::json!({"record_count": 3}),
+            ],
+        };
+        assert_eq!(
+            datasets_only.one_line().as_deref(),
+            Some("5 records across 2 dataset(s)")
+        );
+        assert!(crate::CatalogSummary {
+            run: None,
+            datasets: Vec::new(),
+        }
+        .one_line()
+        .is_none());
+    }
+
+    #[test]
+    fn the_rerun_command_keeps_a_real_agent_and_drops_the_placeholder() {
+        let filled = resolve_draft(
+            &Cfg {
+                agent: Some("Claude Code".into()),
+                ..base_cfg()
+            },
+            None,
+            "2026-08-18",
+        );
+        let commands = pr_commands(&filled);
+        assert!(
+            commands.contains("--agent \"Claude Code\""),
+            "a passed --agent must be reprinted, got:\n{commands}"
+        );
+        assert!(commands.contains("xerj feedback \\\n --agent \"Claude Code\""));
+
+        let placeholder = resolve_draft(&base_cfg(), None, "2026-08-18");
+        let commands = pr_commands(&placeholder);
+        assert!(
+            !commands.contains("--agent"),
+            "the placeholder agent must not be reprinted as a flag:\n{commands}"
+        );
+        assert!(!commands.contains(PH_AGENT), "{commands}");
     }
 
     #[test]

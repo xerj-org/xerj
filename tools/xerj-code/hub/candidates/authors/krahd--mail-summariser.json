@@ -1,0 +1,22 @@
+{
+ "corpus": "krahd--mail-summariser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on email, email-summarization, fastapi queries this for how krahd/mail_summariser implements it: Local-first email summarizer with a FastAPI backend, macOS app, and web UI (selected work: scripts, webapp, backend)",
+ "repos": [
+  {
+   "repo": "mail_summariser",
+   "url": "https://github.com/krahd/mail_summariser",
+   "sha": "72c05dec3fdeb09caa0fdba0a01d6b95ff3bee4a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 72c05dec3fde: \"Repair demo recovery status and validate visible browser controls\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "avenx-js--avenx-js",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on framework, javascript, javascript-framework queries this for how Avenx-JS/avenx-js implements it: Avenx.js is a compiler-driven, blazingly fast JavaScript framework with proxy-based reactivity (selected work: lib/core, test, lib/compiler)",
+ "repos": [
+  {
+   "repo": "avenx-js",
+   "url": "https://github.com/Avenx-JS/avenx-js",
+   "sha": "270595158aca39bd8a81a0c41396cdb1bb278648",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 270595158aca: \"fix(events): warn about unknown template modifiers\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

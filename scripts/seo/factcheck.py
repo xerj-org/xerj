@@ -943,6 +943,18 @@ def self_test():
     overlap = set(R.TIER_A) & set(R.TIER_C)
     if overlap:
         fails.append("keys in both Tier A and Tier C: %s" % sorted(overlap))
+    # A regex escape decoded by a scripted edit lands as a control character: the
+    # man-page row once held "\x08man ?pages?\x08" (backspaces, not word
+    # boundaries) and matched nothing. Every alias and pattern must be printable.
+    for row in R.THING_MATRIX:
+        for a in row.get("aliases", []):
+            re.compile(a)
+            if any(ord(c) < 0x20 for c in a):
+                fails.append("THING %r alias %r holds a control character" % (row["thing"], a))
+    for r in R.RULES:
+        for k in ("pattern", "context", "requires"):
+            if r.get(k) and any(ord(c) < 0x20 and c not in "\t\n" for c in r[k]):
+                fails.append("%s %s holds a control character" % (r["id"], k))
 
     cases = [
         ("11.5x", "the bool query is 11.5× faster", "FC-NUM-TIERC"),

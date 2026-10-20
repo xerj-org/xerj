@@ -1,0 +1,22 @@
+{
+ "corpus": "igapyon--igapyon-agent-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, codex, note queries this for how igapyon/igapyon-agent-skills implements it: A personal repository for managing Agent Skills used for Japanese Note/Qiita article writing, companion-style technical and music post writi (selected work: skills, the project root, config)",
+ "repos": [
+  {
+   "repo": "igapyon-agent-skills",
+   "url": "https://github.com/igapyon/igapyon-agent-skills",
+   "sha": "1d8fa77e39ed987b12cb252090e5956bb2e787f0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 1d8fa77e39ed: \"miku-scm\u306e\u30de\u30fc\u30b8\u5f8c\u5f15\u304d\u7d99\u304e\u3068\u540c\u68b1\u7248\u3092\u66f4\u65b0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

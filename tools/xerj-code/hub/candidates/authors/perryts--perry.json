@@ -1,0 +1,22 @@
+{
+ "corpus": "perryts--perry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on compile, smc, typescript queries this for how PerryTS/perry implements it: A native TypeScript/JavaScript compiler written in Rust. Compiles TypeScript/JavaScript directly to executables using SWC and LLVM (selected work: crates/perry-codegen, crates/perry-runtime)",
+ "repos": [
+  {
+   "repo": "perry",
+   "url": "https://github.com/PerryTS/perry",
+   "sha": "48573e0186e030cf7799c2ecf76c534a08c28b11",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 48573e0186e0: \"split ptr_shape.rs this-flow pass and node_stream_readwrite.rs method\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

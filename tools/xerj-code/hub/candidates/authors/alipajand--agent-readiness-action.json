@@ -1,0 +1,22 @@
+{
+ "corpus": "alipajand--agent-readiness-action",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-readiness, agents-md, ai-agents queries this for how alipajand/agent-readiness-action implements it: GitHub Action that scores how ready a repository is for AI coding agents and checks its agent instruction files. Deterministic, no LLM (selected work: integrations, plugins)",
+ "repos": [
+  {
+   "repo": "agent-readiness-action",
+   "url": "https://github.com/alipajand/agent-readiness-action",
+   "sha": "ffce68aa8be3636ad72ddae000be91ce49a9bfc4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit ffce68aa8be3: \"Prepare integrations 0.1.2 for the Anthropic and Cursor directories\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

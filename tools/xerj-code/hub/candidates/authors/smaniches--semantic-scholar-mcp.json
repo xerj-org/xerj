@@ -1,0 +1,22 @@
+{
+ "corpus": "smaniches--semantic-scholar-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on academic-tool, claude, claude-ai queries this for how smaniches/semantic-scholar-mcp implements it: Semantic Scholar MCP server: 14 typed tools for paper search, citation graphs, author profiles, recommendations, PyPI/Docker (selected work: scripts, tests, src/semantic_scholar_mcp)",
+ "repos": [
+  {
+   "repo": "semantic-scholar-mcp",
+   "url": "https://github.com/smaniches/semantic-scholar-mcp",
+   "sha": "8a5e8325e54468f0e275804b92acb5f0719f5345",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 8a5e8325e544: \"fix: preserve pagination for citation and reference graph traversal (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

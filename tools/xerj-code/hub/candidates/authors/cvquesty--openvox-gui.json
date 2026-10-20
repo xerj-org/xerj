@@ -1,0 +1,22 @@
+{
+ "corpus": "cvquesty--openvox-gui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how cvquesty/openvox-gui implements it: OpenVox GUI - OpenVox Management Web Interface (selected work: backend, frontend, ovox)",
+ "repos": [
+  {
+   "repo": "openvox-gui",
+   "url": "https://github.com/cvquesty/openvox-gui",
+   "sha": "7b1ccd4bf82fcbf03bc0d8a5f6c0a0f1f9a60e02",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 7b1ccd4bf82f: \"fix(installer): do not toast last-sync success when the log is frozen\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

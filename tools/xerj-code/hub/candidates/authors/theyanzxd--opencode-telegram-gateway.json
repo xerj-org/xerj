@@ -1,0 +1,22 @@
+{
+ "corpus": "theyanzxd--opencode-telegram-gateway",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agent, ai-agents queries this for how TheyanzXD/opencode-telegram-gateway implements it: Multi-provider OpenAI-compatible Telegram gateway with sessions, admin channel gate, and SQLite state (selected work: src/agent, src, src/bot)",
+ "repos": [
+  {
+   "repo": "opencode-telegram-gateway",
+   "url": "https://github.com/TheyanzXD/opencode-telegram-gateway",
+   "sha": "a588fbe93a3431eb9572ba576288ff3ca738a860",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit a588fbe93a34: \"Upload via uploadprogit 2026-10-02 14:21:13 UTC\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

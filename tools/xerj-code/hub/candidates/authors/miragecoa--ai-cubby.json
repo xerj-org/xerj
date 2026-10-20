@@ -1,0 +1,22 @@
+{
+ "corpus": "miragecoa--ai-cubby",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai, desktop-app, electron queries this for how miragecoa/AI-Cubby implements it: Local-first media manager that auto-catalogs files as you open them. AI-powered tagging for images, games & apps. Built with Electron + Vue  (selected work: app/tests, app/backend, app)",
+ "repos": [
+  {
+   "repo": "AI-Cubby",
+   "url": "https://github.com/miragecoa/AI-Cubby",
+   "sha": "2aecb6146bd4f2eba2e551f9158f511186413878",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 2aecb6146bd4: \"fix(imports): exclude background tools and detect Windows default icons\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

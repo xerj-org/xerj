@@ -1,0 +1,22 @@
+{
+ "corpus": "yiyazadxr--solarsystemmodel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Yiyazadxr/SolarSystemModel implements it: Interactive 3D solar system, featuring planet orbit demonstrations, time and perspective control, as well as a teaching mode suitable for cl (selected work: assets, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "SolarSystemModel",
+   "url": "https://github.com/Yiyazadxr/SolarSystemModel",
+   "sha": "6301e16bfc95d2b73bcbdb8ac045ce53b03c4442",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 6301e16bfc95: \"feat: \u6559\u5b66\u6a21\u5f0f\u6269\u7f16\u4e0e\u6f14\u793a\u589e\u5f3a - \u65b0\u589e\u5e73\u5730\u89c2\u65e5\u4e0e\u5730\u6708\u6f6e\u6c50\u9501\u5b9a\u88c5\u7f6e + \u6559\u5b66\u6b65\u9aa4\u8865\u81ea\u8f6c\u516c\u8f6c\u8282\u6c14\u65e5\u6708\u98df + \u4fe1\u606f\u5361\u52a0\u771f\u5b9e AU \u6bd4\u4f8b\u8f68\u9053\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

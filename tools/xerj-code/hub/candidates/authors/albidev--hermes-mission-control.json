@@ -1,0 +1,22 @@
+{
+ "corpus": "albidev--hermes-mission-control",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on hermes, local-first, mission-control queries this for how albidev/hermes-mission-control implements it: Local-first operational dashboard for Hermes with live telemetry, sessions, agents, usage, and tools (selected work: src/components, tests, src/lib)",
+ "repos": [
+  {
+   "repo": "hermes-mission-control",
+   "url": "https://github.com/albidev/hermes-mission-control",
+   "sha": "b04ef79fdc4a002d70eaced52c07e77ed9fdf6c6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit b04ef79fdc4a: \"feat(chat): add live session picker with profile-safe resume\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

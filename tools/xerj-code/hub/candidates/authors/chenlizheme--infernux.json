@@ -1,0 +1,22 @@
+{
+ "corpus": "chenlizheme--infernux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on editor, game-engine, physics queries this for how ChenlizheMe/Infernux implements it: Building a Neural Network-Native Engine (3N). Python authoring, C++ runtime, Vulkan/WebGPU. Windows, Linux, Android and Web (selected work: python, packaging, scripts)",
+ "repos": [
+  {
+   "repo": "Infernux",
+   "url": "https://github.com/ChenlizheMe/Infernux",
+   "sha": "845202d19d74554469751afccb29715050c37a4b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 845202d19d74: \"Align batch field writes and close release validation regressions\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

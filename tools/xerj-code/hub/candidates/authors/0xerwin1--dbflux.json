@@ -1,0 +1,22 @@
+{
+ "corpus": "0xerwin1--dbflux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on database, db, gpui queries this for how 0xErwin1/dbflux implements it: A fast, keyboard-first database client built with Rust and GPUI (selected work: crates/dbflux_ui_document, crates/dbflux_ui_base, crates/dbflux_ui)",
+ "repos": [
+  {
+   "repo": "dbflux",
+   "url": "https://github.com/0xErwin1/dbflux",
+   "sha": "9b32b3d6c065e5107501c83fe23dae402d134eed",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 9b32b3d6c065: \"feat(ui): toggle line comments in the SQL and script editors (#662)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

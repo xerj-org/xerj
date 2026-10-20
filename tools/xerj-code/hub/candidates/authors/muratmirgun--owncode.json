@@ -1,0 +1,22 @@
+{
+ "corpus": "muratmirgun--owncode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on coding-agent, harness, jev queries this for how muratmirgun/owncode implements it: An experimental terminal coding agent with configurable models, Witch orchestration, and multiple context compaction methods (selected work: internal/tui, internal/skills, internal/pubsub)",
+ "repos": [
+  {
+   "repo": "owncode",
+   "url": "https://github.com/muratmirgun/owncode",
+   "sha": "1e4e62b95165688c88b8283fb5a86da33a518f5b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 1e4e62b95165: \"Add global skill installation and improve parallel agent responsiveness\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

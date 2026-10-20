@@ -1,0 +1,22 @@
+{
+ "corpus": "stunt-double--stuntkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, browser-automation, llm-tools queries this for how stunt-double/stuntkit implements it: Open source building blocks for AI agents that use the web (selected work: packages/icons)",
+ "repos": [
+  {
+   "repo": "stuntkit",
+   "url": "https://github.com/stunt-double/stuntkit",
+   "sha": "a53b77c47b0883a27a9f3687d78dc9a32774d86c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit a53b77c47b08: \"feat(icons): add AI provider and coding agent marks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

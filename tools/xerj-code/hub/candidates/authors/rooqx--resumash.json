@@ -1,0 +1,22 @@
+{
+ "corpus": "rooqx--resumash",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Rooqx/resumash implements it: Rooqx/resumash (JavaScript) (selected work: server)",
+ "repos": [
+  {
+   "repo": "resumash",
+   "url": "https://github.com/Rooqx/resumash",
+   "sha": "ce909ae5df8cc7bfe14f936a0f0315d1a093998d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit ce909ae5df8c: \"fix(tailoring): safely omit unsupported AI skills and log exact post-\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

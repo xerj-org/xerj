@@ -1,0 +1,22 @@
+{
+ "corpus": "alexandrezanata--abastevo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how AlexandreZanata/Abastevo implements it: AlexandreZanata/Abastevo (Go) (selected work: application, domain)",
+ "repos": [
+  {
+   "repo": "Abastevo",
+   "url": "https://github.com/AlexandreZanata/Abastevo",
+   "sha": "c21bbc40506e5a5d325d76daa92b899b21bd5e28",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit c21bbc40506e: \"feat(sec): Android refresh serialization and denial mapping (SEC07-C)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

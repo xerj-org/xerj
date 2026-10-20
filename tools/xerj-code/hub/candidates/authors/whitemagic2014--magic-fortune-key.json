@@ -1,0 +1,22 @@
+{
+ "corpus": "whitemagic2014--magic-fortune-key",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on lottery, fortune-key queries this for how WhiteMagic2014/magic-fortune-key implements it: \u8fd9\u662f\u4e00\u4e2a\u7384\u5b66\u9879\u76ee\uff0c\u53ef\u4ee5\u5229\u7528\u8d22\u5bcc\u5bc6\u7801\u751f\u6210\u5927\u4e50\u900f\u548c\u53cc\u8272\u7403\u7684\u53f7\u7801 (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "magic-fortune-key",
+   "url": "https://github.com/WhiteMagic2014/magic-fortune-key",
+   "sha": "3510fe803b03121c3ac38975f20b4cbbad6d6754",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 3510fe803b03: \"\u652f\u6301 \u738b\u8005\u4e07\u8c61\u68cb \u6a21\u5f0f\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

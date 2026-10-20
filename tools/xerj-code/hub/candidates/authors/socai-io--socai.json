@@ -1,0 +1,22 @@
+{
+ "corpus": "socai-io--socai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, browser-use, compute-use queries this for how socai-io/socai implements it: Agent that actually understands social platforms. Fast. Precise. Deep (selected work: core/src)",
+ "repos": [
+  {
+   "repo": "socai",
+   "url": "https://github.com/socai-io/socai",
+   "sha": "746d899baf106195b9a26d07d60e118b139926be",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit 746d899baf10: \"feat(agent): add constrained public web tools\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

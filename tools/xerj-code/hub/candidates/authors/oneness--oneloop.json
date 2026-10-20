@@ -1,0 +1,22 @@
+{
+ "corpus": "oneness--oneloop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how oneness/OneLoop implements it: A local-first coding agent. Runs against a model on your own machine by default. One loop, few tools, zero config (selected work: src/antigravity, src)",
+ "repos": [
+  {
+   "repo": "OneLoop",
+   "url": "https://github.com/oneness/OneLoop",
+   "sha": "27e6533c088095af74fd8ad2e0b96c7b543da134",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 27e6533c0880: \"Added Antigravity support Claude Code style\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

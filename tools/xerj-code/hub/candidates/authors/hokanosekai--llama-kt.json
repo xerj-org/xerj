@@ -1,0 +1,22 @@
+{
+ "corpus": "hokanosekai--llama-kt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on android, edge-ai, gguf queries this for how hokanosekai/llama.kt implements it: Kotlin/Android JNI binding for llama.cpp \u2014 GGUF on-device inference, extracted from llama.rn (selected work: patches, llama-kt, example)",
+ "repos": [
+  {
+   "repo": "llama.kt",
+   "url": "https://github.com/hokanosekai/llama.kt",
+   "sha": "cad0ec95620d0dd951fc277fec0223f9ea4171e4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit cad0ec95620d: \"TEN-123: real model-load stages; TEN-114 fix moved into a patch\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

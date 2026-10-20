@@ -1,0 +1,22 @@
+{
+ "corpus": "engineering87--distributed-systems-playground",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on distributed-systems, distributed-systems-algorithm, distributed-systems-fundamentals queries this for how engineering87/distributed-systems-playground implements it: Write distributed algorithms in pseudocode, run them against a network that breaks its promises, and check the properties they should satisf (selected work: test, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "distributed-systems-playground",
+   "url": "https://github.com/engineering87/distributed-systems-playground",
+   "sha": "f1a4030abc9df6645d605836973bdedd9158b0c7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit f1a4030abc9d: \"fix(security): stop matching HTML with regular expressions anywhere\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

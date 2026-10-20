@@ -1,0 +1,22 @@
+{
+ "corpus": "akafelixab--revres",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on high-performance, http, http-server queries this for how akaFelixAB/Revres implements it: Fast, lightweight, tasty HTTP server written in C++ (selected work: src)",
+ "repos": [
+  {
+   "repo": "VeloxServ",
+   "url": "https://github.com/akaFelixAB/VeloxServ",
+   "sha": "f6fcf288e23a064f33a39087aa3284ebd75bdf06",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f6fcf288e23a: \":sparkles: feat(Router): implement Router class with route handling a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

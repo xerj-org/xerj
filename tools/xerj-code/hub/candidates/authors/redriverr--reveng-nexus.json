@@ -1,0 +1,22 @@
+{
+ "corpus": "redriverr--reveng-nexus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how RedRiveRR/reveng-nexus implements it: Local MCP gateway for evidence-driven, multi-engine reverse engineering (Ghidra, IDA, Binary Ninja, JADX, Frida) (selected work: tests, src/reveng_nexus, config)",
+ "repos": [
+  {
+   "repo": "reveng-nexus",
+   "url": "https://github.com/RedRiveRR/reveng-nexus",
+   "sha": "43f581e5a08762d2733150b626ebc45db5adc5c5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 43f581e5a087: \"feat: add REA as an adapter-only static provider\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

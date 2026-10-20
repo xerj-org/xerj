@@ -1,0 +1,22 @@
+{
+ "corpus": "andreesalazar--bmo-x-x86-64",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on destkop-environments, metal, no-qemu queries this for how AndreeSalazar/BMO-X-x86-64 implements it: Independent x86-64 OS in Rust: UEFI boot, capability microkernel, own drivers and native COBOL/C/Ada compilers. Boots on real Ryzen hardware (selected work: toolchain, Ultra_userspace)",
+ "repos": [
+  {
+   "repo": "BMO-X-x86-64",
+   "url": "https://github.com/AndreeSalazar/BMO-X-x86-64",
+   "sha": "1252c5709887be56942d56540a30e46669d32e96",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 1252c5709887: \"feat(titan): prestar componentes y reducir temporales de registros\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

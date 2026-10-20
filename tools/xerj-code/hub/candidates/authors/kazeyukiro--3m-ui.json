@@ -1,0 +1,22 @@
+{
+ "corpus": "kazeyukiro--3m-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on admin-panel, clash, clash-meta queries this for how kazeyukiro/3m-ui implements it: Lightweight self-hosted web panel for Mihomo: listeners, users, subscriptions, SSL/ACME, Telegram, and multi-node cluster (selected work: frontend, backend)",
+ "repos": [
+  {
+   "repo": "3m-ui",
+   "url": "https://github.com/kazeyukiro/3m-ui",
+   "sha": "d26b7e1534d20ace74dad411dfd16c18a6029499",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit d26b7e1534d2: \"feat(config): add inbound-tfo / inbound-mptcp global kernel settings \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

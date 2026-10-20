@@ -1,0 +1,22 @@
+{
+ "corpus": "elixir-sqlite--exqlite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on elixir, ecto, sqlite3 queries this for how elixir-sqlite/exqlite implements it: An SQLite3 driver for Elixir (selected work: test, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "exqlite",
+   "url": "https://github.com/elixir-sqlite/exqlite",
+   "sha": "895a37b08448e0ac911168e4eba5b6d958850960",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 895a37b08448: \"test: add Clang and sanitizer checks for sqlite3_nif.c\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

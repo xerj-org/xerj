@@ -1,0 +1,22 @@
+{
+ "corpus": "alordash--hotcode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on developer-tools, hotreload, rust queries this for how alordash/hotcode implements it: Library for hotreload in Rust (selected work: src/hotcode, src/hotcode_proc_macro, examples)",
+ "repos": [
+  {
+   "repo": "hotcode",
+   "url": "https://github.com/alordash/hotcode",
+   "sha": "629323923436cd98e146b387f069aaddffa0ac93",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 629323923436: \"debug_assertions by default, force always with 'hotreload(always)'\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

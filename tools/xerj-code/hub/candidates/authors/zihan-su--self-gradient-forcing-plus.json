@@ -1,0 +1,22 @@
+{
+ "corpus": "zihan-su--self-gradient-forcing-plus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on Python queries this for how Zihan-Su/Self_Gradient_Forcing_Plus implements it: Autoregressive video generation with decoupled context-writing and denoising parameters, enabling up to 24-hour generation from 5s training  (selected work: gradient_conflict)",
+ "repos": [
+  {
+   "repo": "Self_Gradient_Forcing_Plus",
+   "url": "https://github.com/Zihan-Su/Self_Gradient_Forcing_Plus",
+   "sha": "974d0410483b53675eb0d642437470f230367d6a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 974d0410483b: \"Add TF initialization gradient analysis and streamline SGF diagnostics\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

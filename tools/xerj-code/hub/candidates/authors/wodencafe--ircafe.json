@@ -1,0 +1,22 @@
+{
+ "corpus": "wodencafe--ircafe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how wodencafe/ircafe implements it: wodencafe/ircafe (Java) (selected work: src/test, src/main)",
+ "repos": [
+  {
+   "repo": "ircafe",
+   "url": "https://github.com/wodencafe/ircafe",
+   "sha": "c3da3343245b9d27ecd9b68bf6be73bc09c66ded",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit c3da3343245b: \"refactor(quassel): encapsulate session nick observations\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

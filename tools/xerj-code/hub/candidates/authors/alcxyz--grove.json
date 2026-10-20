@@ -1,0 +1,22 @@
+{
+ "corpus": "alcxyz--grove",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how alcxyz/grove implements it: TUI for multi-repo git forge monitoring (selected work: internal/buildinfo, the project root, cmd/grove)",
+ "repos": [
+  {
+   "repo": "grove",
+   "url": "https://github.com/alcxyz/grove",
+   "sha": "77a2f95211519252e69b903de5873b35bf2ca902",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 77a2f9521151: \"feat: identify development builds by revision\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

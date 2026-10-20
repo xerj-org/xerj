@@ -1,0 +1,22 @@
+{
+ "corpus": "marmikshah--tono",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on audio, gamedev, music queries this for how marmikshah/tono implements it: A deterministic Rust audio engine for sound effects, instruments, songs, and adaptive game music. Use it with Rust, Python, the CLI, or the  (selected work: crates/tono-core, crates/tono-web, scripts)",
+ "repos": [
+  {
+   "repo": "tono",
+   "url": "https://github.com/marmikshah/tono",
+   "sha": "aa4ef83189c9cfcc60b2a15b499e6e583227fe18",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit aa4ef83189c9: \"Add browser-rendered sound library, background music, and sound studi\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

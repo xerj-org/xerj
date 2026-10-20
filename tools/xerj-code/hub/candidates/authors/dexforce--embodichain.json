@@ -1,0 +1,22 @@
+{
+ "corpus": "dexforce--embodichain",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, data-generation, embodied-ai queries this for how DexForce/EmbodiChain implements it: An end-to-end, GPU-accelerated, and modular platform for building generalized Embodied Intelligence (selected work: scripts, tests)",
+ "repos": [
+  {
+   "repo": "EmbodiChain",
+   "url": "https://github.com/DexForce/EmbodiChain",
+   "sha": "7a9c2675d49c6aee7a33082a5585a9932f5b945b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 7a9c2675d49c: \"feat(benchmark): add configurable rendering benchmark sweep (#731)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

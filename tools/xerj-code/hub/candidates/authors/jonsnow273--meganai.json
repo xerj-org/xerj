@@ -1,0 +1,22 @@
+{
+ "corpus": "jonsnow273--meganai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on assistant, looking-for-contributors, machine-learning queries this for how jonsnow273/MeganAI implements it: The First Local AI Assistant with Controllable Internal Behavior (selected work: focus, the project root, api)",
+ "repos": [
+  {
+   "repo": "MeganAI",
+   "url": "https://github.com/jonsnow273/MeganAI",
+   "sha": "2ce09ef5e18bbd96976906a51d4d1cab3f4e7ac3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 2ce09ef5e18b: \"feat(focus): implement Focus and Anti-Distraction Coach with window t\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

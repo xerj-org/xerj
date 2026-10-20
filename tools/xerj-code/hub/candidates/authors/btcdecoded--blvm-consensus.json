@@ -1,0 +1,22 @@
+{
+ "corpus": "btcdecoded--blvm-consensus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how BTCDecoded/blvm-consensus implements it: BTCDecoded/blvm-consensus (Rust) (selected work: tests, src, src/script)",
+ "repos": [
+  {
+   "repo": "blvm-consensus",
+   "url": "https://github.com/BTCDecoded/blvm-consensus",
+   "sha": "bea14b3591fbd92f2a8af2a162e05943d016e92b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit bea14b3591fb: \"fix(consensus): reject a non-push P2SH scriptSig and an uncompressed \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

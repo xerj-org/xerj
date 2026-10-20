@@ -1,0 +1,22 @@
+{
+ "corpus": "victorzakharov--better-web-browser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on browser, browser-engine, css queries this for how VictorZakharov/better-web-browser implements it: Experimental performance-first browser engine and native Windows browser written in Rust\u2014without Chromium, WebView2, or Gecko (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "better-web-browser",
+   "url": "https://github.com/VictorZakharov/better-web-browser",
+   "sha": "9f804f9ba72ce58c3ebbdd350086a7a7a300bf70",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 9f804f9ba72c: \"Select local iteration tests by responsibility and downstream contracts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

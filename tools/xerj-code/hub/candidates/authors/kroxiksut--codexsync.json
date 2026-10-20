@@ -1,0 +1,22 @@
+{
+ "corpus": "kroxiksut--codexsync",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on codex, codex-sync, codexsync queries this for how kroxiksut/codexSync implements it: codexSync is a local-first GUI + CLI for safe Codex sync between personal machines: chats, projects, configuration and local state, with gua (selected work: src/codexsync, tests, the project root)",
+ "repos": [
+  {
+   "repo": "codexSync",
+   "url": "https://github.com/kroxiksut/codexSync",
+   "sha": "0a19a9e54df353f43f7d36926def8266f4d84c60",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 0a19a9e54df3: \"feat: Linux detector proven; projects without a folder carried with c\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

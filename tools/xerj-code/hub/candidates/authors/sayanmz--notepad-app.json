@@ -1,0 +1,22 @@
+{
+ "corpus": "sayanmz--notepad-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on artificial-intelligence, flutter, rich-text-editors queries this for how SayanMz/notepad-app implements it: A sophisticated, local-first workspace featuring AI driven voice formatting, Semantic Search and SQLite FTS (selected work: lib/core, lib/features, test)",
+ "repos": [
+  {
+   "repo": "notepad-app",
+   "url": "https://github.com/SayanMz/notepad-app",
+   "sha": "02acdfcd9e32d843ac4ef437932ea78b2840dd77",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 02acdfcd9e32: \"feat: add release signing, offload PDF exports to isolates, and add s\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

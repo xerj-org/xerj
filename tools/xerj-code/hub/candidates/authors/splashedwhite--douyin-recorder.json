@@ -1,0 +1,22 @@
+{
+ "corpus": "splashedwhite--douyin-recorder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on douyin, douyin-download, douyin-live queries this for how SplashedWhite/douyin-recorder implements it: \u6296\u97f3\u76f4\u64ad\u5f55\u5c4f\u5de5\u5177 (selected work: src-tauri, tests, src/components)",
+ "repos": [
+  {
+   "repo": "douyin-recorder",
+   "url": "https://github.com/SplashedWhite/douyin-recorder",
+   "sha": "9ac807f564244d98338a2281912c46f75ef6a20a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 9ac807f56424: \"\u589e\u52a0\u65ad\u6d41\u6062\u590d\u529f\u80fd,ffmpeg\u548c\u8f6f\u4ef6\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

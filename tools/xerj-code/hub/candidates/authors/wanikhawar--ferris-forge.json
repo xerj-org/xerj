@@ -1,0 +1,22 @@
+{
+ "corpus": "wanikhawar--ferris-forge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-tutor, axum, browser-game queries this for how wanikhawar/ferris-forge implements it: A cozy pixel-art game that teaches Rust, with Ferris the crab as a Claude-powered teacher (selected work: levels, web, src)",
+ "repos": [
+  {
+   "repo": "ferris-forge",
+   "url": "https://github.com/wanikhawar/ferris-forge",
+   "sha": "0a47c7aeec1431654af442e1e0ec9c32b19bf742",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 0a47c7aeec14: \"add worlds 10 - 15\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

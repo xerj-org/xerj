@@ -1,0 +1,22 @@
+{
+ "corpus": "inqwise--inqwise-leader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on leader-election, raft, reactive queries this for how inqwise/inqwise-leader implements it: Inqwise-Leader \u2013 A leader election library for Vert.x clusters based on the Raft Consensus Algorithm, ensuring reliable coordination for cri (selected work: src/test, src/main)",
+ "repos": [
+  {
+   "repo": "inqwise-leader",
+   "url": "https://github.com/inqwise/inqwise-leader",
+   "sha": "7ae509a3537c4026e0258e8840a12ab452de80e0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 7ae509a3537c: \"fix: correct leadership lifecycle and timer defaults\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

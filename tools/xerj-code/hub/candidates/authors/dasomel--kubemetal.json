@@ -1,0 +1,22 @@
+{
+ "corpus": "dasomel--kubemetal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Rust queries this for how dasomel/kubemetal implements it: Apple Silicon hybrid MLOps desktop app \u2014 K8s control plane (Colima/K3s) + macOS host MLX compute. Tauri v2 (Rust) + React (selected work: src-tauri, scripts, src/components)",
+ "repos": [
+  {
+   "repo": "kubemetal",
+   "url": "https://github.com/dasomel/kubemetal",
+   "sha": "c0ac85b72f04f0166a3c7783919c1456e0096a66",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit c0ac85b72f04: \"feat(colima): run the managed VM in a dedicated kubemetal profile (D4\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

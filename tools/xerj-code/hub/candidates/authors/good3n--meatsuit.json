@@ -1,0 +1,22 @@
+{
+ "corpus": "good3n--meatsuit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-writing, claude-code queries this for how good3n/meatsuit implements it: A tool for stripping obvious AI writing patterns from generated text and reshaping it into something more natural, human, and readable (selected work: plugin, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "meatsuit",
+   "url": "https://github.com/good3n/meatsuit",
+   "sha": "c2657e1ea4edffa521da53283784880d84d34f4e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c2657e1ea4ed: \"Ship the detector with the skill and forbid invented scores\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "milvus-io--birdwatcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how milvus-io/birdwatcher implements it: milvus-io/birdwatcher (Go) (selected work: states, the project root)",
+ "repos": [
+  {
+   "repo": "birdwatcher",
+   "url": "https://github.com/milvus-io/birdwatcher",
+   "sha": "7d13fcf14bb547555f19b1d9f7dcc60cf310bb4a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 7d13fcf14bb5: \"fix: abort load-backup on a MultiSave failure instead of racing on a \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

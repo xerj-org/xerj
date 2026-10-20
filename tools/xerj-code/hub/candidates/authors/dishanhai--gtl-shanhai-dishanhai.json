@@ -1,0 +1,22 @@
+{
+ "corpus": "dishanhai--gtl-shanhai-dishanhai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on gtl, shanhai, gtladditions queries this for how dishanhai/gtl_shanhai-dishanhai implements it: \u7528\u4e8e\u5b58\u653e\u6211\u7684\u6a21\u7ec4\uff1agt_shanhai (selected work: src/main, src/test)",
+ "repos": [
+  {
+   "repo": "gtl_shanhai-dishanhai",
+   "url": "https://github.com/dishanhai/gtl_shanhai-dishanhai",
+   "sha": "9aa4ba60f7417a66a98b1ba3be4cc0d2a30d2e03",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit 9aa4ba60f741: \"feat(recipe-editor): \u65b0\u589e\u914d\u65b9\u521b\u5efa\u529f\u80fd\u5e76\u4f18\u5316\u754c\u9762\u663e\u793a\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

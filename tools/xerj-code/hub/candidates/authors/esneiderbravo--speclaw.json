@@ -1,0 +1,22 @@
+{
+ "corpus": "esneiderbravo--speclaw",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic, ai-agents, claude-code queries this for how esneiderbravo/speclaw implements it: Where specs become law. One command turns any repo into a spec-driven, agent-ready project: Foundation (laws + gates), Compass (local code g (selected work: src/modules, test)",
+ "repos": [
+  {
+   "repo": "speclaw",
+   "url": "https://github.com/esneiderbravo/speclaw",
+   "sha": "99395e3a745af0984d9161cb0b4d712a25358cc8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 99395e3a745a: \"fix(lawbook): time harness stages from their evidence, not the stop\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

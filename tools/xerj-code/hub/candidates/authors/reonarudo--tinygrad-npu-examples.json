@@ -1,0 +1,22 @@
+{
+ "corpus": "reonarudo--tinygrad-npu-examples",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Reonarudo/tinygrad-npu-examples implements it: LLMs (Ternary Bonsai 2 27B, Qwen3.8-27B, Ornith 9B) and Ideogram 4 on the Zhouyi X2 NPU (CIX P1 / Radxa Orion O6N) with tinygrad; OpenAI- an (selected work: gemma4, qwen3.8-27b)",
+ "repos": [
+  {
+   "repo": "tinygrad-npu-examples",
+   "url": "https://github.com/Reonarudo/tinygrad-npu-examples",
+   "sha": "734b0aa1396993329a0fd1057cf4cae4bb9b1b1b",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 734b0aa13969: \"Gemma 4: text in and out (a tokenizer and chat template read from the\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "utrino-utkarsh--blood-net",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on JavaScript queries this for how UTRINO-UTKARSH/Blood.Net implements it: This is the version 2 for my blood-donor-database project.. a fullstack project... started (selected work: version2)",
+ "repos": [
+  {
+   "repo": "Blood.Net",
+   "url": "https://github.com/UTRINO-UTKARSH/Blood.Net",
+   "sha": "216173ce65c545e6eb972af17955a00049e0f75a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 216173ce65c5: \"Profile form complete now preview remains\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

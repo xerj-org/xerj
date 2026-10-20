@@ -1,0 +1,22 @@
+{
+ "corpus": "dacronje-quant--apex-velo-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on bike, cycling, fitness queries this for how dacronje-quant/Apex-Velo-Lab implements it: I got tired of every cycling app missing something I wanted, so I built one with all of it: ERG indoor rides over Bluetooth, training analyt (selected work: js, the project root, css)",
+ "repos": [
+  {
+   "repo": "Apex-Velo-Lab",
+   "url": "https://github.com/dacronje-quant/Apex-Velo-Lab",
+   "sha": "f707a7e85c956db780641b755972e5ce9fb6fe4d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f707a7e85c95: \"Turn Analytics into switchable modules with drill-down and interactiv\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

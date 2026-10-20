@@ -1,0 +1,22 @@
+{
+ "corpus": "atharh--career-corpus-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how atharh/career-corpus-kit implements it: Claude Code skills for building a private career corpus and rendering r\u00e9sum\u00e9s, cover letters, and interview prep from it (selected work: examples, skills, evals)",
+ "repos": [
+  {
+   "repo": "career-corpus-kit",
+   "url": "https://github.com/atharh/career-corpus-kit",
+   "sha": "044aeceb95ba825431babc6b57ce6f493505f3bd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 044aeceb95ba: \"Add a live interview script to prep's pack, 1.39.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

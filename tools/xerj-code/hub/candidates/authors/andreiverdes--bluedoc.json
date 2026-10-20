@@ -1,0 +1,22 @@
+{
+ "corpus": "andreiverdes--bluedoc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, architecture-diagrams, claude-code queries this for how andreiverdes/bluedoc implements it: Agent skill: engineering docs, plans, code reviews, designs, decks and websites as JSON, rendered by a local server you comment on, decide a (selected work: skills, tests, the project root)",
+ "repos": [
+  {
+   "repo": "bluedoc",
+   "url": "https://github.com/andreiverdes/bluedoc",
+   "sha": "d01dec15ca16ac91bf0b6467087439f2965c1946",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit d01dec15ca16: \"1.0.0-beta08: storelisting M5: variant tabs per platform (CPP/PPO, CS\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "yoshipep--aarch64-kernel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how yoshipep/aarch64_kernel implements it: A kernel for aarch64 (selected work: src/kernel, src)",
+ "repos": [
+  {
+   "repo": "aarch64_kernel",
+   "url": "https://github.com/yoshipep/aarch64_kernel",
+   "sha": "61b495a43231225f67599dd903dfd8c2437d524b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 61b495a43231: \"mm: Map the kernel image in TTBR1\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

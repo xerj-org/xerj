@@ -1,0 +1,22 @@
+{
+ "corpus": "nguyentribaothang--localexplorerai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on local-explorer-ai queries this for how NguyenTriBaoThang/LocalExplorerAI implements it: AI-powered platform for discovering local experiences and planning smart, real-time urban itineraries in Ho Chi Minh City (selected work: apps/web)",
+ "repos": [
+  {
+   "repo": "LocalExplorerAI",
+   "url": "https://github.com/NguyenTriBaoThang/LocalExplorerAI",
+   "sha": "e2f4e0d16fb1711635503af5b4a3517832d0c47a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e2f4e0d16fb1: \"feat(map): replace CityHero3D with MapGL3DHero component and add asso\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

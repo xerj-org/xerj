@@ -1,0 +1,22 @@
+{
+ "corpus": "ikawrakow--ik-llama-cpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how ikawrakow/ik_llama.cpp implements it: llama.cpp fork with additional SOTA quants and improved performance (selected work: ggml, src, examples)",
+ "repos": [
+  {
+   "repo": "ik_llama.cpp",
+   "url": "https://github.com/ikawrakow/ik_llama.cpp",
+   "sha": "d9e286846d6f8232db48ec5c111a4ea3aea675ef",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit d9e286846d6f: \"quantize: encode IQ4_KT and IQ3_KT on CUDA (#2572)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

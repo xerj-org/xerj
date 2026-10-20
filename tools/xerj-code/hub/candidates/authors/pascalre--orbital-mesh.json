@@ -1,0 +1,22 @@
+{
+ "corpus": "pascalre--orbital-mesh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on iot, eda queries this for how pascalre/orbital-mesh implements it: This interactive Digital Twin tracks live orbital positions. It orchestrates telemetry data via Solace, transforming raw event streams into  (selected work: services, deploy)",
+ "repos": [
+  {
+   "repo": "orbital-mesh",
+   "url": "https://github.com/pascalre/orbital-mesh",
+   "sha": "9602d9897901601ebdcf4b3d9ae2600090f38d82",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 9602d9897901: \"Enhance CelesTrak integration: add error handling for non-200 respons\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

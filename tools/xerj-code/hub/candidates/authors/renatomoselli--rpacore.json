@@ -1,0 +1,22 @@
+{
+ "corpus": "renatomoselli--rpacore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on automation, local-first, python queries this for how renatomoselli/rpacore implements it: RPA Core - deterministic, stateful RPA in Python (selected work: tests, rpacore, scripts)",
+ "repos": [
+  {
+   "repo": "rpacore",
+   "url": "https://github.com/renatomoselli/rpacore",
+   "sha": "d4999ff53463bb6e0d09ca134aa84f588b626470",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit d4999ff53463: \"fix(report): restrict HTML screenshot links to unambiguous local paths\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

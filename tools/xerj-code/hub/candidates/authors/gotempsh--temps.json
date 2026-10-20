@@ -1,0 +1,22 @@
+{
+ "corpus": "gotempsh--temps",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on analytics, ci-cd, deployment-platform queries this for how gotempsh/temps implements it: AI-native open-source alternative to Vercel + Sentry + PostHog + Pingdom + Resend + E2B. 440+ CLI operations with drop-in skills for Claude  (selected work: crates/temps-git, crates/temps-deployments, crates/temps-projects)",
+ "repos": [
+  {
+   "repo": "temps",
+   "url": "https://github.com/gotempsh/temps",
+   "sha": "93996692ddf73e247843abead561a9ffef098d35",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 93996692ddf7: \"feat(git): optionally clone only the project root directory (#1067)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

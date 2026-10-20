@@ -1,0 +1,22 @@
+{
+ "corpus": "rhshourav--peekesp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on dietpi, embedded-ui, esp32 queries this for how rhshourav/PeekESP implements it: PeekESP brings remote system metrics to Android, dedicated ESP32 displays, desktop hosts, Raspberry Pi displays, and Home Assistant. Monitor (selected work: android)",
+ "repos": [
+  {
+   "repo": "PeekESP",
+   "url": "https://github.com/rhshourav/PeekESP",
+   "sha": "db23833838a26a5c6a97afd6f698570ae908687c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit db23833838a2: \"added gradlew env files\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

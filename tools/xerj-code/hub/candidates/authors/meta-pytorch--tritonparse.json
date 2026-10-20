@@ -1,0 +1,22 @@
+{
+ "corpus": "meta-pytorch--tritonparse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on compiler, debugging, interactive-visualization queries this for how meta-pytorch/tritonparse implements it: TritonParse: A Compiler Tracer, Visualizer, and Reproducer for Triton Kernels (selected work: tritonparse, tests)",
+ "repos": [
+  {
+   "repo": "tritonparse",
+   "url": "https://github.com/meta-pytorch/tritonparse",
+   "sha": "ae8ab8e793b45fbb0c7ef83dfc2737b3bf91a980",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit ae8ab8e793b4: \"Split autotune sessions by launch key args\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

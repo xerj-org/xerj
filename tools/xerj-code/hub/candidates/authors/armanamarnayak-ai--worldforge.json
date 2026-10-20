@@ -1,0 +1,22 @@
+{
+ "corpus": "armanamarnayak-ai--worldforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how armanamarnayak-ai/WorldForge implements it: Open-source artificial experience engine for autonomous AI agents (selected work: src/worldforge, tests, schemas)",
+ "repos": [
+  {
+   "repo": "WorldForge",
+   "url": "https://github.com/armanamarnayak-ai/WorldForge",
+   "sha": "b5f97946f14569e600887d24ed12a2c9753f455e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit b5f97946f145: \"WorldForge v0.1 release candidate\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

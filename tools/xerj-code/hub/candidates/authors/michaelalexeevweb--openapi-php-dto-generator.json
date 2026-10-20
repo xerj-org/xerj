@@ -1,0 +1,22 @@
+{
+ "corpus": "michaelalexeevweb--openapi-php-dto-generator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api, deserialization, dto queries this for how michaelalexeevweb/openapi-php-dto-generator implements it: Generate PHP DTOs from OpenAPI and validate incoming HTTP requests against OpenAPI schema (selected work: tests, templates, src/Command)",
+ "repos": [
+  {
+   "repo": "openapi-php-dto-generator",
+   "url": "https://github.com/michaelalexeevweb/openapi-php-dto-generator",
+   "sha": "bded7a4f4391f98dc3ea194bbba6e6fba930d0fe",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit bded7a4f4391: \"fix: version 2.15.55\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "ju571nk--chartnagari",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on algorithmic-trading, cryptocurrency, docker queries this for how Ju571nK/ChartNagari implements it: Open-source ICT/Wyckoff signal detector \u2014 30+ rules, multi-timeframe, self-hosted. Go + React (selected work: web, internal/api, internal/notifier)",
+ "repos": [
+  {
+   "repo": "ChartNagari",
+   "url": "https://github.com/Ju571nK/ChartNagari",
+   "sha": "aefb53721ef0b0b081f46d6cd7772e7dbf4a82e0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit aefb53721ef0: \"feat: add Forex alert profiles and per-symbol Telegram notes (v2.15.0.0)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

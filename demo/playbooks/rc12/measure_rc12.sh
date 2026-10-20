@@ -33,7 +33,8 @@ echo "    binary: $BIN"
 echo "    data:   $DATA"
 
 # ── fresh instance ───────────────────────────────────────────────────────────
-# There is no --port flag; the listen ports come from a TOML config.
+# The listen ports come from the TOML config below (the same PORT, PORT+1,
+# PORT+2 layout that `--port` claims; the config keeps all three explicit).
 # Free the PORT, not just this label's data dir: a previous run under a
 # DIFFERENT label still owns the socket, and killing only our own config path
 # leaves it up. The new server then fails to bind and exits, while every
@@ -313,4 +314,4 @@ PY
 
 echo ""
 echo "==> done. server still running on $PORT (data: $DATA)"
-echo "    stop it with: pkill -f 'xerj --data-dir $DATA'"
+echo "    stop it with: pkill -f '$DATA/xerj.toml'"

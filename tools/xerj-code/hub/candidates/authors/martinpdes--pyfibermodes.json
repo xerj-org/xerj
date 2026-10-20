@@ -1,0 +1,22 @@
+{
+ "corpus": "martinpdes--pyfibermodes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on coupled-mode-theory, dispersion, fiber-optics queries this for how MartinPdeS/PyFiberModes implements it: Python toolkit for guided-mode analysis and design of circular step-index and multilayer optical fibers (selected work: PyFiberModes, tests)",
+ "repos": [
+  {
+   "repo": "PyFiberModes",
+   "url": "https://github.com/MartinPdeS/PyFiberModes",
+   "sha": "82d4d64248747d88563d9ee7477f9196f98c13a0",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 82d4d6424874: \"Freeze and harden the public API contract\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

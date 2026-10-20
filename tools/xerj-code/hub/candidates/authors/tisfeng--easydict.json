@@ -1,0 +1,22 @@
+{
+ "corpus": "tisfeng--easydict",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on dictionary, translate, app queries this for how tisfeng/Easydict implements it: \u4e00\u4e2a\u7b80\u6d01\u4f18\u96c5\u7684\u8bcd\u5178\u7ffb\u8bd1 macOS App\u3002\u5f00\u7bb1\u5373\u7528\uff0c\u652f\u6301\u79bb\u7ebf OCR \u8bc6\u522b\uff0c\u652f\u6301\u6709\u9053\u8bcd\u5178\uff0c\ud83c\udf4e \u82f9\u679c\u7cfb\u7edf\u8bcd\u5178\uff0c\ud83c\udf4e \u82f9\u679c\u7cfb\u7edf\u7ffb\u8bd1\uff0cOpenAI\uff0cGemini\uff0cDeepL\uff0cGoogle\uff0cBing\uff0c\u817e\u8baf\uff0c\u767e\u5ea6\uff0c\u963f\u91cc\uff0c\u5c0f\u725b\uff0c\u5f69\u4e91\u548c\u706b\u5c71\u7ffb\u8bd1\u3002A concise and elegant Di (selected work: Easydict, EasydictTests, Easydict.xcodeproj)",
+ "repos": [
+  {
+   "repo": "Easydict",
+   "url": "https://github.com/tisfeng/Easydict",
+   "sha": "966fa5805c59751d919e12c0b905ea1fab04f1a8",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 966fa5805c59: \"feat(deepl): \u52a8\u6001\u83b7\u53d6 DeepL Web App \u7248\u672c (#1341)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

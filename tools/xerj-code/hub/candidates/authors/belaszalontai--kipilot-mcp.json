@@ -1,0 +1,22 @@
+{
+ "corpus": "belaszalontai--kipilot-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, copilot, kicad queries this for how belaszalontai/kipilot-mcp implements it: Model Context Protocol (MCP) server for KiCad, enabling Agentic AI workflows for SCH and PCB design (selected work: src/kipilot_mcp, tests)",
+ "repos": [
+  {
+   "repo": "kipilot-mcp",
+   "url": "https://github.com/belaszalontai/kipilot-mcp",
+   "sha": "bd3e0106b0489c27785ec4154e102e065721fb62",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit bd3e0106b048: \"fix: discover the KiCad IPC endpoint instead of trusting the default \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "firebase--firebase-ios-sdk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on firebase, ios-sdk, objective-c queries this for how firebase/firebase-ios-sdk implements it: Firebase SDK for Apple App Development (selected work: FirebaseDatabase)",
+ "repos": [
+  {
+   "repo": "firebase-ios-sdk",
+   "url": "https://github.com/firebase/firebase-ios-sdk",
+   "sha": "ba0c5cebc4b0f6d24f181b0cdf9a6ae1fa7c5d34",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit ba0c5cebc4b0: \"ignore malformed realtime server messages in message handlers (#16750)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

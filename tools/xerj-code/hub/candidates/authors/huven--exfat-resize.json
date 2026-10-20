@@ -1,0 +1,22 @@
+{
+ "corpus": "huven--exfat-resize",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on exfat, filesystem queries this for how huven/exfat-resize implements it: Resize existing exFAT filesystem (selected work: tests, src/windows, lib)",
+ "repos": [
+  {
+   "repo": "exfat-resize",
+   "url": "https://github.com/huven/exfat-resize",
+   "sha": "db7856900c141df593f5a396688d3aef9fc937c7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit db7856900c14: \"Add incremental exFAT shrinking and Windows partition shrink support \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

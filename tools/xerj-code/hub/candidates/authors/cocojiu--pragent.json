@@ -1,0 +1,22 @@
+{
+ "corpus": "cocojiu--pragent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Java queries this for how cocojiu/PRAgent implements it: \u4ee3\u7801\u5ba1\u67e5\u5e73\u53f0 (selected work: repoguard-backend)",
+ "repos": [
+  {
+   "repo": "PRAgent",
+   "url": "https://github.com/cocojiu/PRAgent",
+   "sha": "81bcb0bde7766b2299be9096678e2886a0983677",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 81bcb0bde776: \"refactor(review): \u590d\u7528\u8bc4\u4f30\u72b6\u6001\u4e0e\u98ce\u9669\u753b\u50cf\u7ec4\u88c5\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

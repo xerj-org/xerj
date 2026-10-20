@@ -1,0 +1,22 @@
+{
+ "corpus": "averyy--wafer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Python queries this for how Averyy/wafer implements it: Anti-detection HTTP client for Python that handles TLS fingerprinting, WAF challenge solving, and cookie management (selected work: tests, wafer)",
+ "repos": [
+  {
+   "repo": "wafer",
+   "url": "https://github.com/Averyy/wafer",
+   "sha": "96180310ba8aa3bf09674b49cb9a6e0e75ab24e9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 96180310ba8a: \"Keep the driver alive through detached elements, keep session cookies\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

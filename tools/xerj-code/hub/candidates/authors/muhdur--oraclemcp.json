@@ -1,0 +1,22 @@
+{
+ "corpus": "muhdur--oraclemcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, database, llm queries this for how MuhDur/oraclemcp implements it: Safe-by-default Oracle Database MCP server, in pure Rust \u2014 fail-closed SQL guard, engine-free, stdio + HTTP (selected work: crates/oraclemcp-db, crates/oraclemcp, crates/oraclemcp-core)",
+ "repos": [
+  {
+   "repo": "oraclemcp",
+   "url": "https://github.com/MuhDur/oraclemcp",
+   "sha": "db066176398ff1f5230a007ed8ac6b92d05469e8",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit db066176398f: \"fix(db): reuse bounded isolated policy observation sessions\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

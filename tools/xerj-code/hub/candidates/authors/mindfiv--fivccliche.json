@@ -1,0 +1,22 @@
+{
+ "corpus": "mindfiv--fivccliche",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how MindFiv/FivcCliche implements it: A production-ready, multi-user backend AI agent server (selected work: src/fivccliche, tests)",
+ "repos": [
+  {
+   "repo": "FivcCliche",
+   "url": "https://github.com/MindFiv/FivcCliche",
+   "sha": "3190828a7d4904f8eec9eeb9fda6652e81ff702c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 3190828a7d49: \"add chat stats\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "davegallant--homelab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on homelab, selfhosted queries this for how davegallant/homelab implements it: configuration for self-hosted services (selected work: ansible, scripts)",
+ "repos": [
+  {
+   "repo": "homelab",
+   "url": "https://github.com/davegallant/homelab",
+   "sha": "76896842dcb154eae582d5118dee80498f8efc67",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 76896842dcb1: \"feat(hermes): add agent service and Headscale setup\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "bigdawnghost--wenyi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on novel, python, translation-tool queries this for how BigDawnGhost/wenyi implements it: \u5c06\u88ab\u8bed\u8a00\u963b\u9694\u7684\u4f5c\u54c1\uff0c\u5e26\u5230\u8bfb\u8005\u7684\u8bed\u8a00\u4e2d\u3002Bringing literature into your language (selected work: apps/api, packages/backend, packages/core)",
+ "repos": [
+  {
+   "repo": "wenyi",
+   "url": "https://github.com/BigDawnGhost/wenyi",
+   "sha": "aa231b24e8c9dc3518cbf8859b880b21798f1f8f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit aa231b24e8c9: \"fix(types): align backend adapter contracts for static checks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

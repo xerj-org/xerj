@@ -1,0 +1,22 @@
+{
+ "corpus": "open-nvr--open-nvr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, computer-vision, homelab queries this for how open-nvr/open-nvr implements it: The open platform for AI on your cameras: a self-hosted NVR (ONVIF/RTSP, recording, WebRTC) running any AI model through one open contract,  (selected work: server, app/src, app/tests)",
+ "repos": [
+  {
+   "repo": "open-nvr",
+   "url": "https://github.com/open-nvr/open-nvr",
+   "sha": "2fff3063eb33024efcf986e59cb85eab8bfe105f",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 2fff3063eb33: \"Fix MediaMTX duration validation\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

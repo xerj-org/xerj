@@ -1,0 +1,22 @@
+{
+ "corpus": "bricksigma--steineros",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on osdev, bootloader queries this for how BrickSigma/SteinerOS implements it: A hobby operating system/bootloader project (selected work: boot)",
+ "repos": [
+  {
+   "repo": "SteinerOS",
+   "url": "https://github.com/BrickSigma/SteinerOS",
+   "sha": "30f393f036d22109a10163e556667c7671e81eb3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 30f393f036d2: \"feat: IDT is now working! Keyboard interrupts also work using the PIC\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "taimkellizy--portfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on blog, desgin, example queries this for how Taimkellizy/portfolio implements it: This is my portfolio (selected work: components, app/[locale], lib)",
+ "repos": [
+  {
+   "repo": "portfolio",
+   "url": "https://github.com/Taimkellizy/portfolio",
+   "sha": "0d613701218a928a8934e96a9da5035622861491",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 0d613701218a: \"feat: blog search \u2014 index title/excerpt + full-text highlighted resul\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

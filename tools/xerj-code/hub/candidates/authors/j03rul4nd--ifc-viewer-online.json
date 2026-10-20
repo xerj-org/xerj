@@ -1,0 +1,22 @@
+{
+ "corpus": "j03rul4nd--ifc-viewer-online",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bcf, bim, ifc queries this for how j03rul4nd/ifc-viewer-online implements it: Free online IFC viewer & validator that runs 100% in your browser, no upload, no account. Get an IFC Health Score (0\u2013100), 38 validation rul (selected work: src/lib, src/components, src)",
+ "repos": [
+  {
+   "repo": "ifc-viewer-online",
+   "url": "https://github.com/j03rul4nd/ifc-viewer-online",
+   "sha": "671617071a69fd4d9f5b5b02ed446f7bd6edf984",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 671617071a69: \"feat(solar): the passive shade/shine impact on the IFC, hour by hour,\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

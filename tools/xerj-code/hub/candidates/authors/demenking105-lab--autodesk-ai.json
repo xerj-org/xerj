@@ -1,0 +1,22 @@
+{
+ "corpus": "demenking105-lab--autodesk-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how demenking105-lab/autodesk-ai implements it: Intelligent IT Support, Incident Triage & Automated Error Resolution Agent (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "autodesk-ai",
+   "url": "https://github.com/demenking105-lab/autodesk-ai",
+   "sha": "34663bdc832c2efb1bee97f322f0a0c8fb222404",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 34663bdc832c: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

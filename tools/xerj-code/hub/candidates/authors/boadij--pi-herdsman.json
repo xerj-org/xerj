@@ -1,0 +1,22 @@
+{
+ "corpus": "boadij--pi-herdsman",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, delegation, herdr queries this for how boadij/pi-herdsman implements it: Asynchronous Pi subagents and agent fleet orchestration for parallel coding agents with nested delegation, background work, and supervision  (selected work: extension, scripts)",
+ "repos": [
+  {
+   "repo": "pi-herdsman",
+   "url": "https://github.com/boadij/pi-herdsman",
+   "sha": "390923daee8dc326aad6796f5b587cbffc1b2b32",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 390923daee8d: \"fix(smoke): gate simulated continuation completion on live evidence (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

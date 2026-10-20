@@ -1,0 +1,22 @@
+{
+ "corpus": "ccomkhj--skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how ccomkhj/skills implements it: Personal agent setup utilizing skills, commands (selected work: manage-context)",
+ "repos": [
+  {
+   "repo": "skills",
+   "url": "https://github.com/ccomkhj/skills",
+   "sha": "251aa1a5c9817872337483060f6117c05fc6f9d2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 251aa1a5c981: \"feat(manage-context): measure and slim session context\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

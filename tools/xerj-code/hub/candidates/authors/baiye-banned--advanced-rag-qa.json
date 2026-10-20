@@ -1,0 +1,22 @@
+{
+ "corpus": "baiye-banned--advanced-rag-qa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how baiye-banned/advanced-rag-qa implements it: \u4f01\u4e1a\u77e5\u8bc6\u5e93 RAG \u667a\u80fd\u95ee\u7b54\u7cfb\u7edf (selected work: tests, backend, src/views)",
+ "repos": [
+  {
+   "repo": "advanced-rag-qa",
+   "url": "https://github.com/baiye-banned/advanced-rag-qa",
+   "sha": "38c0848ca46235dd4fad8eb951f903c6f4ff9911",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 38c0848ca462: \"feat(chat): persist message-level like/dislike feedback (#250) (#269)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

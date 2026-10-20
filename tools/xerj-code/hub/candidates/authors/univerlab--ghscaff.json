@@ -1,0 +1,22 @@
+{
+ "corpus": "univerlab--ghscaff",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on github, automation, cli queries this for how UniverLab/ghscaff implements it: Interactive CLI wizard for creating and configuring GitHub repositories. One binary, zero runtime dependencies. https://univerlab.org/ghscaf (selected work: src/templates)",
+ "repos": [
+  {
+   "repo": "ghscaff",
+   "url": "https://github.com/UniverLab/ghscaff",
+   "sha": "510b126dca9e9591514e7e8891b7eae97ee4f112",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 510b126dca9e: \"feat(gs-agentic-from-registry): derive agentic gitignore block from r\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

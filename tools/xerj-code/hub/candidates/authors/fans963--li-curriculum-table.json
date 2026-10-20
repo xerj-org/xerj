@@ -1,0 +1,22 @@
+{
+ "corpus": "fans963--li-curriculum-table",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how fans963/li_curriculum_table implements it: fans963/li_curriculum_table (Dart) (selected work: rust, lib/core, lib/features)",
+ "repos": [
+  {
+   "repo": "li_curriculum_table",
+   "url": "https://github.com/fans963/li_curriculum_table",
+   "sha": "dcf2d8aa43bd24d25167afd66e44bf4b293397db",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit dcf2d8aa43bd: \"feat: add QR code login and persistent cookie storage\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

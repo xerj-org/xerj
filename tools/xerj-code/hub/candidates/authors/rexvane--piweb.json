@@ -1,0 +1,22 @@
+{
+ "corpus": "rexvane--piweb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how RexVane/PiWeb implements it: Modern web UI for the pi coding agent, driven by the official pi SDK without modifying pi (selected work: tests, src/lib, src/components)",
+ "repos": [
+  {
+   "repo": "PiWeb",
+   "url": "https://github.com/RexVane/PiWeb",
+   "sha": "e8164eee776f746ac94683590db0cb3b078987fc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit e8164eee776f: \"feat(\u5bf9\u8bdd): \u5706\u73af\u91cc\u76f4\u63a5\u6539\u4e0a\u4e0b\u6587\u7a97\u53e3\uff0c\u7cbe\u786e\u586b\u5199\u3001\u7acb\u5373\u751f\u6548\uff08\u91cd\u505a PR #27\uff09 #095\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

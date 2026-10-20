@@ -1,0 +1,22 @@
+{
+ "corpus": "fossasia--eventyay",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how fossasia/eventyay implements it: Open Source Event Management, Ticketing and Checkins, Talks and Schedules, Video and Interpretations, Badges, Exhibitions and more https://e (selected work: app/eventyay, app/tests)",
+ "repos": [
+  {
+   "repo": "eventyay",
+   "url": "https://github.com/fossasia/eventyay",
+   "sha": "6bff6b018a5860313495ea4a0cb781dd51d77875",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 6bff6b018a58: \"feat(submission): track speaker invitations and report email delivery\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

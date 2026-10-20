@@ -1,0 +1,22 @@
+{
+ "corpus": "clubpay--ronykit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on rpc, rpc-framework, rest-api queries this for how clubpay/ronykit implements it: API Framework supporting REST and RPC (selected work: ronyup, the project root)",
+ "repos": [
+  {
+   "repo": "ronykit",
+   "url": "https://github.com/clubpay/ronykit",
+   "sha": "85c04b4f83c3f94dbe9597f124003494ad0603b4",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 85c04b4f83c3: \"Add tests for MCP knowledge Go snippet parsing, feature templates, an\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

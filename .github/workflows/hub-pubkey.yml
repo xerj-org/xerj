@@ -1,0 +1,47 @@
+# Print the PUBLIC half of the HUB_SIGNING_SEED secret, so it can be committed as
+# HUB_PUBKEY_HEX (engine/crates/xerj-common/src/hub.rs). GitHub secrets are
+# write-only, and the public key of an Ed25519 seed is not secret, so deriving it
+# in CI is how the code and the secret are paired without anyone handling the seed.
+#
+# Manual only. Read-only token. The seed is written to a 0600 temp file for
+# `ed25519.sh derive`, removed immediately, and never echoed; only the 64-hex
+# public key is printed (job summary + a notice). If HUB_PUBKEY_HEX is already
+# set, the job also says whether the secret matches it.
+name: hub public key
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  derive:
+    name: derive HUB_PUBKEY_HEX from HUB_SIGNING_SEED
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Derive the public key
+        env:
+          HUB_SIGNING_SEED: ${{ secrets.HUB_SIGNING_SEED }}
+        run: |
+          set -euo pipefail
+          if [ -z "$HUB_SIGNING_SEED" ]; then
+            echo "::error title=hub public key::the HUB_SIGNING_SEED secret is not set"
+            exit 1
+          fi
+          umask 077
+          key="$RUNNER_TEMP/hub.seed"
+          printf '%s' "$HUB_SIGNING_SEED" > "$key"
+          pub=$(bash tools/hub-packs/ed25519.sh derive "$key") || { rm -f "$key"; echo "::error title=hub public key::HUB_SIGNING_SEED is not a 64-hex Ed25519 seed (xerj corpus keygen format)"; exit 1; }
+          rm -f "$key"
+          committed=$(sed -n 's/^pub const HUB_PUBKEY_HEX: &str = "\([0-9a-fA-F]*\)";.*/\1/p' engine/crates/xerj-common/src/hub.rs | head -n 1 | tr 'A-F' 'a-f')
+          if [ -z "$committed" ]; then status="HUB_PUBKEY_HEX is empty on this commit: commit the key above"
+          elif [ "$committed" = "$pub" ]; then status="matches the committed HUB_PUBKEY_HEX"
+          else status="DOES NOT MATCH the committed HUB_PUBKEY_HEX ($committed)"; fi
+          echo "::notice title=HUB_PUBKEY_HEX::$pub"
+          { echo "### HUB_PUBKEY_HEX"; echo; echo "\`$pub\`"; echo; echo "$status"; } >> "$GITHUB_STEP_SUMMARY"

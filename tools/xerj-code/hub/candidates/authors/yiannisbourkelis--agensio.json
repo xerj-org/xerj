@@ -1,0 +1,22 @@
+{
+ "corpus": "yiannisbourkelis--agensio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how YiannisBourkelis/agensio implements it: YiannisBourkelis/agensio (C++) (selected work: src/control, tests, src)",
+ "repos": [
+  {
+   "repo": "agensio",
+   "url": "https://github.com/YiannisBourkelis/agensio",
+   "sha": "afa342afbdd38794ef758ba9269890dbcd488e21",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit afa342afbdd3: \"Health: HSTS suggested, certificate findings raised with it, an appli\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

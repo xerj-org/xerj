@@ -1,0 +1,22 @@
+{
+ "corpus": "algesten--str0m",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how algesten/str0m implements it: A Sans I/O WebRTC implementation in Rust (selected work: src/streams, tests, src)",
+ "repos": [
+  {
+   "repo": "str0m",
+   "url": "https://github.com/algesten/str0m",
+   "sha": "16e078f363418f0088b8bd72f4487dcb4c9c75ca",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 16e078f36341: \"Make NACK retries per-packet and RTT-aware\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

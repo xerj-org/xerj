@@ -1,0 +1,22 @@
+{
+ "corpus": "zendev-sh--goai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, ai-tools queries this for how zendev-sh/goai implements it: Go AI SDK, the Go way. One unified API across 21+ providers. Streaming, structured output, MCP support, stdlib only. Go AI SDK for AI applic (selected work: provider, the project root)",
+ "repos": [
+  {
+   "repo": "goai",
+   "url": "https://github.com/zendev-sh/goai",
+   "sha": "853c93821de1b6f845085b6e71a1a155a7fdc9f8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 853c93821de1: \"feat(google): add CacheClient for explicit context caching\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

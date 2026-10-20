@@ -1,0 +1,22 @@
+{
+ "corpus": "raisfast--raisfast",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on backend-api, backend-engine, desktop queries this for how RaisFast/raisfast implements it: The fastest CMS, easiest to deploy. Single binary, zero dependencies, zero GC. Download and run. Rust-powered high-performance BaaS and head (selected work: crates/core, crates/agent)",
+ "repos": [
+  {
+   "repo": "raisfast",
+   "url": "https://github.com/RaisFast/raisfast",
+   "sha": "def50f19765e14496cf894f4d954b98526a21a03",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit def50f19765e: \"feat: flows transcribe node, engine publish dispatch fix, llm per_sec\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

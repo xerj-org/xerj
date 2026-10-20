@@ -1,0 +1,22 @@
+{
+ "corpus": "vikindor--omnibeat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, android-app, android-application queries this for how Vikindor/omnibeat implements it: An open-source Android internet radio player built to support all modern online stations (selected work: app/src, app, the project root)",
+ "repos": [
+  {
+   "repo": "omnibeat",
+   "url": "https://github.com/Vikindor/omnibeat",
+   "sha": "f5772bfda6253ae5346578c8bde2e418b9b9c07e",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit f5772bfda625: \"feat: add github app update checks and downloads\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

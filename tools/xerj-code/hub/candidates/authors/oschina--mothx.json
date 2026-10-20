@@ -1,0 +1,22 @@
+{
+ "corpus": "oschina--mothx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on vibecoding, anthropic, codingplan queries this for how oschina/mothx implements it: Ultra cost-effective terminal AI coding assistant with excellent token cache hit rate. Built in ~10K lines of Go, it uses DeepSeek by defaul (selected work: internal/acp, desktop, cmd/mothx)",
+ "repos": [
+  {
+   "repo": "mothx",
+   "url": "https://github.com/oschina/mothx",
+   "sha": "05a3686f0cfc6c7632d92b926708f5cf2311446a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 05a3686f0cfc: \"fix: resolve v1.3.103 pre-release review findings\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

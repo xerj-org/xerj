@@ -1,0 +1,22 @@
+{
+ "corpus": "agrshubham--shreemewa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dry-fruits, ecommerce, fssai queries this for how AgrShubham/ShreeMewa implements it: \u2728 Premium Dry Fruits & Handcrafted Gifting Boutique platform rooted in Ramgarh Cantonment, Jharkhand. Built with React 19, Vite 6, Tailwind  (selected work: src/components, src/views)",
+ "repos": [
+  {
+   "repo": "ShreeMewa",
+   "url": "https://github.com/AgrShubham/ShreeMewa",
+   "sha": "70066ff49b86f86413b9e08b4270ac0a37c8f5ce",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 70066ff49b86: \"refactor(home): deconstruct monolithic HomeView into 10 modular secti\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

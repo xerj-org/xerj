@@ -1,0 +1,22 @@
+{
+ "corpus": "adecubed--gigamail",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on imap, mail, mcp queries this for how adecubed/gigamail implements it: Mail for AI agents ( and humans). MCP server giving Claude (or any agent) safe, permission-controlled access to email (Microsoft Graph + IMA (selected work: console, src/gigamail, tests)",
+ "repos": [
+  {
+   "repo": "gigamail",
+   "url": "https://github.com/adecubed/gigamail",
+   "sha": "e8f19974740b84c95dee5d4511565451110fd433",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit e8f19974740b: \"Console: view several accounts as one, and replace an outdated backend\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

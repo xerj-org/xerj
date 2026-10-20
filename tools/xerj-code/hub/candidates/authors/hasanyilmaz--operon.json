@@ -1,0 +1,22 @@
+{
+ "corpus": "hasanyilmaz--operon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, calendar, kanban queries this for how hasanyilmaz/operon implements it: Task management system for humans and agents in Obsidian (selected work: src/ui, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "operon",
+   "url": "https://github.com/hasanyilmaz/operon",
+   "sha": "95513fece960148b7eaa957ce8ec377f461dcfc1",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 95513fece960: \"Fix calendar precision, custom properties and task conversion (#273)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

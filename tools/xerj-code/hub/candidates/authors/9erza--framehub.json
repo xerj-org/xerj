@@ -1,0 +1,22 @@
+{
+ "corpus": "9erza--framehub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how 9Erza/FrameHub implements it: Windows performance and game optimization tool with CPU profile management, process optimization (selected work: FrameHub.Core, FrameHub.Tests, FrameHub.App)",
+ "repos": [
+  {
+   "repo": "FrameHub",
+   "url": "https://github.com/9Erza/FrameHub",
+   "sha": "3002df5451924d4c819dcfb809dfd928eca62a1e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 3002df545192: \"feat(games): harden CS2 configuration workflow, backups and validation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

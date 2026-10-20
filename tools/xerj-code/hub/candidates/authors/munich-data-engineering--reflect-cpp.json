@@ -1,0 +1,22 @@
+{
+ "corpus": "munich-data-engineering--reflect-cpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how munich-data-engineering/reflect-cpp implements it: A C++20 library for fast serialization, deserialization and validation using reflection. Supports JSON, Avro, Boost Serialization, BSON, Cap (selected work: benchmarks, tests, include)",
+ "repos": [
+  {
+   "repo": "reflect-cpp",
+   "url": "https://github.com/getml/reflect-cpp",
+   "sha": "10580aa6305d8c859fdf58f1d3974af59c84940f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 10580aa6305d: \"Reserve vector capacity when array lengths are known (#739)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

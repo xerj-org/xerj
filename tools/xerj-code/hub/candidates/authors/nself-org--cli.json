@@ -1,0 +1,22 @@
+{
+ "corpus": "nself-org--cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on backend, cli, devops queries this for how nself-org/cli implements it: Deploy a feature-complete backend infrastructure on your own servers with PostgreSQL, Hasura GraphQL, Redis, Auth, Storage, and optional mic (selected work: internal/plugin, cmd/commands)",
+ "repos": [
+  {
+   "repo": "cli",
+   "url": "https://github.com/nself-org/cli",
+   "sha": "f894559d8bdfd7eebe5ea6556f13eeed95465e88",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f894559d8bdf: \"fix(cli): No freshness check on plugin releases: an old, (D-0843) (#831)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

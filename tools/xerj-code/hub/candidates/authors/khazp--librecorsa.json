@@ -1,0 +1,22 @@
+{
+ "corpus": "khazp--librecorsa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on browser-game, force-feedback, formula-1 queries this for how KhazP/librecorsa implements it: Open-source racing sim that runs in your browser: 500 Hz vehicle physics, thermal tyres, open-wheelers and a GT3, AI races, ghosts, P2P mult (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "rwanda-f1-2026-sim",
+   "url": "https://github.com/KhazP/rwanda-f1-2026-sim",
+   "sha": "38eaada81ce348a758c1620bfe6a7572c2c736a3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 38eaada81ce3: \"test: add physics, session, FFB, and telemetry verification suites an\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

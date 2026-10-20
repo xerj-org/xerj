@@ -1,0 +1,22 @@
+{
+ "corpus": "open-cluster--oc-control-plane",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how open-cluster/oc-control-plane implements it: OpenCluster control plane \u2014 organizations, placements, reasoning, and truth. Proprietary (selected work: test, internal/store, internal/conversation)",
+ "repos": [
+  {
+   "repo": "oc-control-plane",
+   "url": "https://github.com/open-cluster/oc-control-plane",
+   "sha": "6633564e8f5e964780e9a43d9fe4756cd5431097",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 6633564e8f5e: \"Clean up Conversation authorship and schema state (#161)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "invoke-ai--invokeai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-art, artificial-intelligence, generative-art queries this for how invoke-ai/InvokeAI implements it: Invoke is a leading creative engine for Stable Diffusion models, empowering professionals, artists, and enthusiasts to generate and create v (selected work: tests, invokeai)",
+ "repos": [
+  {
+   "repo": "InvokeAI",
+   "url": "https://github.com/invoke-ai/InvokeAI",
+   "sha": "f128d584a9bf6efed5eec5f2d050e497ca02ace9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit f128d584a9bf: \"fix(models): record pipeline components relative to the model folder\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "gnsb--ufc-3-ps4-port-linux-windows",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how GNSB/UFC-3-PS4-PORT-LINUX-WINDOWS implements it: EA SPORTS UFC 3 (PS4) native port for Linux and Windows \u2014 SacredFire/bbport runtime + shadPS4-derived Vulkan renderer (selected work: gpu)",
+ "repos": [
+  {
+   "repo": "UFC-3-PS4-PORT-LINUX-WINDOWS",
+   "url": "https://github.com/GNSB/UFC-3-PS4-PORT-LINUX-WINDOWS",
+   "sha": "0ee0a1a4e1c57e79ed588e0ffa07510675007ca0",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 0ee0a1a4e1c5: \"UFC-13: El peleador del jugador no aparece en el post-fight menu (y r\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

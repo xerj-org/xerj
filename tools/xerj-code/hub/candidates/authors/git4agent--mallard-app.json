@@ -1,0 +1,22 @@
+{
+ "corpus": "git4agent--mallard-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-framework, agent-infrastructure, agentic-ai queries this for how Git4Agent/mallard-app implements it: Flexible storage solutions for agent sessions (selected work: src/components, tests, scripts)",
+ "repos": [
+  {
+   "repo": "mallard-app",
+   "url": "https://github.com/Git4Agent/mallard-app",
+   "sha": "702c9cb01b5c7d5e15eb7c204a4486618ebac9c2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 702c9cb01b5c: \"add auto update feature\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

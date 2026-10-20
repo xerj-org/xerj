@@ -1,0 +1,22 @@
+{
+ "corpus": "nikita-sud--latentjam",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, compose-multiplatform, ios queries this for how Nikita-sud/latentjam implements it: A local music player that understands what your library sounds like: on-device neural shuffle and rediscovery for the music you already own. (selected work: composeApp, core/library)",
+ "repos": [
+  {
+   "repo": "latentjam",
+   "url": "https://github.com/Nikita-sud/latentjam",
+   "sha": "26c16ba7c8ed361565dfafe299226a29ed5c5dd8",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 26c16ba7c8ed: \"fix(playlists): keep addition order independent of custom order\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

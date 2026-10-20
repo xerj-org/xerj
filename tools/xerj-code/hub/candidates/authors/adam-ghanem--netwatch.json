@@ -1,0 +1,22 @@
+{
+ "corpus": "adam-ghanem--netwatch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on asset-inventory, cybersecurity, docker queries this for how Adam-Ghanem/NetWatch implements it: Local-first network visibility for authorized teams \u2014 Python/FastAPI dashboard for asset discovery, change tracking, service review & bounde (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "NetWatch",
+   "url": "https://github.com/Adam-Ghanem/NetWatch",
+   "sha": "e8f6d39132c0b09792a3ee07421bfadbe06f3ca3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit e8f6d39132c0: \"Add bounded TCP payload evidence for PCAP analysis\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

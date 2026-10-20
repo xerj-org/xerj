@@ -1,0 +1,22 @@
+{
+ "corpus": "neoacar--focusless-edit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how NeoAcar/focusless-edit implements it: NeoAcar/focusless-edit (Rust) (selected work: crates/focusless-app, crates/focusless-engine-vips, crates/focusless-storage)",
+ "repos": [
+  {
+   "repo": "focusless-edit",
+   "url": "https://github.com/NeoAcar/focusless-edit",
+   "sha": "1b2f7a72e09bcec40d6f8422fc29f553545dabfd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 1b2f7a72e09b: \"Unify mask controls and stabilize masked rendering\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

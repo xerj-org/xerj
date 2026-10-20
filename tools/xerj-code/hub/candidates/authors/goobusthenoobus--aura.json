@@ -1,0 +1,22 @@
+{
+ "corpus": "goobusthenoobus--aura",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how GoobusTheNoobus/Aura implements it: An interpreter written for practice (selected work: src, include, tests)",
+ "repos": [
+  {
+   "repo": "Aura",
+   "url": "https://github.com/GoobusTheNoobus/Aura",
+   "sha": "52a61fada5cb1b938c120e015b108df218d2defc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 52a61fada5cb: \"Added assignments and chain assignments\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

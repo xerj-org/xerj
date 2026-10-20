@@ -1,0 +1,22 @@
+{
+ "corpus": "burakdede--lorepack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, build-system queries this for how burakdede/lorepack implements it: Give AI agents cited, versioned context from your docs and spreadsheets. Build, diff and roll back what Claude Code, Codex and any MCP clien (selected work: scripts, tools, the project root)",
+ "repos": [
+  {
+   "repo": "lorepack",
+   "url": "https://github.com/burakdede/lorepack",
+   "sha": "35a0273a9fd2257a3db5aed15ccdd3f00f3b7db5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 35a0273a9fd2: \"Showcase workflows and benchmark profiles (#533)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "dansday-com--dansday-discord-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on discord-bot, discord-js, open-source queries this for how dansday-com/dansday-discord-bot implements it: DANSDAY \u2014 from dev to community. A free, open-source Discord bot built by developers and shaped by its communities: leveling, an XP economy  (selected work: src/lib, src/routes)",
+ "repos": [
+  {
+   "repo": "dansday-discord-bot",
+   "url": "https://github.com/dansday-com/dansday-discord-bot",
+   "sha": "bc05932a10e3bdb25095ded776abc9013710d44e",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit bc05932a10e3: \"Add more any\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

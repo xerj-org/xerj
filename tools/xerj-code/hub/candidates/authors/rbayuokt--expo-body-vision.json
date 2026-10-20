@@ -1,0 +1,22 @@
+{
+ "corpus": "rbayuokt--expo-body-vision",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, body-tracking, computer-vision queries this for how rbayuokt/expo-body-vision implements it: Native body tracking, pose rules, exercise counting and body interaction for React Native and Expo. Camera, inference, tracking and renderin (selected work: example, src, scripts)",
+ "repos": [
+  {
+   "repo": "expo-body-vision",
+   "url": "https://github.com/rbayuokt/expo-body-vision",
+   "sha": "e3e7211e2fd906db2f0d6d43fd7216f96059a459",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e3e7211e2fd9: \"feat: add camera controls with torch, stats hooks, ios landscape fix \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

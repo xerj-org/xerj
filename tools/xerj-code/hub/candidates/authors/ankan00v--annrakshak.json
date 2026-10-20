@@ -1,0 +1,22 @@
+{
+ "corpus": "ankan00v--annrakshak",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ankan00V/AnnRakshak implements it: Early detection and management of crop diseases and pest infestations (selected work: backend, the project root, frontend)",
+ "repos": [
+  {
+   "repo": "AnnRakshak",
+   "url": "https://github.com/ankan00V/AnnRakshak",
+   "sha": "06f33f67139e81c8ee1ebf534d1f27be719a9033",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 06f33f67139e: \"production is a place the app knows it is in\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

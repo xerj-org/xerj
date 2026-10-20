@@ -1,0 +1,22 @@
+{
+ "corpus": "fireflyframework--fireflyframework-pyfly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on asyncio, cqrs, dependency-injection queries this for how fireflyframework/fireflyframework-pyfly implements it: pyfly \u2014 async Python application architecture with typed dependency injection, domain and repository contracts, CQRS, messaging, orchestrati (selected work: tests, src/pyfly, the project root)",
+ "repos": [
+  {
+   "repo": "fireflyframework-pyfly",
+   "url": "https://github.com/fireflyframework/fireflyframework-pyfly",
+   "sha": "f6d7a615eac62ea5cf554b978dda6d5c167bcee5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit f6d7a615eac6: \"fix: harden framework identity transport and lifecycle for v26.09.10\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

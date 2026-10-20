@@ -1,0 +1,22 @@
+{
+ "corpus": "the-last-math-competition--the-last-math-competition",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Lean queries this for how The-Last-Math-Competition/The-Last-Math-Competition implements it: The-Last-Math-Competition/The-Last-Math-Competition (Lean) (selected work: solutions)",
+ "repos": [
+  {
+   "repo": "The-Last-Math-Competition",
+   "url": "https://github.com/The-Last-Math-Competition/The-Last-Math-Competition",
+   "sha": "127812a91bd9fbcf3a1afdb4b9067a3e2e79046e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 127812a91bd9: \"Disprove conjectures 1255 and 1457 with verified Lean projects\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

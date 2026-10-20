@@ -1,0 +1,22 @@
+{
+ "corpus": "zml--zml",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, bazel, hpc queries this for how zml/zml implements it: Any model. Any hardware. Zero compromise. Built with @ziglang / @openxla / MLIR / @bazelbuild (selected work: zml, mlir, kernels)",
+ "repos": [
+  {
+   "repo": "zml",
+   "url": "https://github.com/zml/zml",
+   "sha": "5a1875736849bd97cc85051a9c8a6de5ca94b954",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 5a1875736849: \"zig 0.17 (#693)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

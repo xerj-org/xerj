@@ -1,0 +1,22 @@
+{
+ "corpus": "afonsojramos--super-calendar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on agenda, android, calendar queries this for how afonsojramos/super-calendar implements it: Gesture-driven, virtualized month / week / day calendar and date picker for React Native and the web (selected work: packages/native)",
+ "repos": [
+  {
+   "repo": "super-calendar",
+   "url": "https://github.com/afonsojramos/super-calendar",
+   "sha": "866b460a9ec637c517a8f4f852f35180170fc714",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 866b460a9ec6: \"feat(native): localize event labels and drag actions through labels\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

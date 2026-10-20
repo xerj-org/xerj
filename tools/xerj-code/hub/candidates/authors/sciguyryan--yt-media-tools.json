@@ -1,0 +1,22 @@
+{
+ "corpus": "sciguyryan--yt-media-tools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how sciguyryan/yt-media-tools implements it: A collection of tools and wrappers used to expand the functionality of yt-dlp and associated tools (selected work: yt_media_tools, yt_media_tools_tests)",
+ "repos": [
+  {
+   "repo": "yt-media-tools",
+   "url": "https://github.com/sciguyryan/yt-media-tools",
+   "sha": "5a724332e0585ab3da4d12b56a3295b777656384",
+   "licence": "hint only: LGPL-2.1 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-2.1",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 5a724332e058: \"Consolidate SQLite compaction under shared maintenance.\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "jgassens--codex-terminal-pro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on codex-cli, home-assistant, home-assistant-addon queries this for how jgassens/codex-terminal-pro implements it: Unofficial Home Assistant add-on that runs OpenAI Codex CLI inside /config with persistent tmux, ingress terminal, and admin safety helpers (selected work: codex-terminal)",
+ "repos": [
+  {
+   "repo": "codex-terminal-pro",
+   "url": "https://github.com/jgassens/codex-terminal-pro",
+   "sha": "5ca83644e46348d70cd0ee38c814ef831980975a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 5ca83644e463: \"Add persistent stable Codex CLI updates\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

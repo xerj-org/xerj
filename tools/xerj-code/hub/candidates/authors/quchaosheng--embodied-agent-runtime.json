@@ -1,0 +1,22 @@
+{
+ "corpus": "quchaosheng--embodied-agent-runtime",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on action-server, behaviortree-cpp, can-bus queries this for how Quchaosheng/embodied-agent-runtime implements it: ROS 2 task runtime where cancel and device-ACK are non-bypassable: CAN send success and device confirmation are separate states. 11 packages (selected work: ros2_ws, scripts)",
+ "repos": [
+  {
+   "repo": "embodied-agent-runtime",
+   "url": "https://github.com/Quchaosheng/embodied-agent-runtime",
+   "sha": "ec8d99549c7992a78656dead43c9210c04dff05b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ec8d99549c79: \"feat(tracing): emit cross-layer stage evidence for offline diagnosis\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

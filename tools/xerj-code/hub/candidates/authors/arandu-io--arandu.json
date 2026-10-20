@@ -1,0 +1,22 @@
+{
+ "corpus": "arandu-io--arandu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on arandu, boilerplate, go queries this for how arandu-io/arandu implements it: The Arandu project skeleton, which aru new clones (selected work: tests, bootstrap, the project root)",
+ "repos": [
+  {
+   "repo": "arandu",
+   "url": "https://github.com/arandu-io/arandu",
+   "sha": "85cfa650b1b0d7ca623cd89cef41d5fb803b094c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit 85cfa650b1b0: \"Link only SQLite by default and reach the shared store through its co\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

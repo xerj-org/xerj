@@ -1,0 +1,22 @@
+{
+ "corpus": "ricfanin--netwright",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, csharp queries this for how ricfanin/netwright implements it: Playwright-style automation for .NET desktop apps: an MCP server that lets AI agents see, operate and test WPF, WinForms and WinUI apps (selected work: src/Netwright.Companion, src/Netwright.Engine, tests)",
+ "repos": [
+  {
+   "repo": "netwright",
+   "url": "https://github.com/ricfanin/netwright",
+   "sha": "f31f6118f1eb775af48117fbc20ef1ea0bce6d19",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit f31f6118f1eb: \"feat: background actions run in-process and launched apps run hidden\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

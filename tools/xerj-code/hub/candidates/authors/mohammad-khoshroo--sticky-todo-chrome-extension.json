@@ -1,0 +1,22 @@
+{
+ "corpus": "mohammad-khoshroo--sticky-todo-chrome-extension",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on browser-extension, css, html5 queries this for how Mohammad-Khoshroo/sticky-todo-chrome-extension implements it: Starting as a learning project, now an open-core browser extension for TODO. Powered by HTML, CSS, and JS (selected work: styles, js, the project root)",
+ "repos": [
+  {
+   "repo": "sticky-todo-chrome-extension",
+   "url": "https://github.com/Mohammad-Khoshroo/sticky-todo-chrome-extension",
+   "sha": "b9e87d099dd9aad4e8f755a9bfd4ecf4c3dbb0a2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b9e87d099dd9: \"update deadline panel with alerting info\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "sriramworkspace--medspace-healthcare",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on HTML queries this for how SriramWorkSpace/MedSpace-Healthcare implements it: Healthcare web application that helps users turn scattered medical documents and prescriptions into an organized, actionable health workspac (selected work: frontend, backend)",
+ "repos": [
+  {
+   "repo": "MedSpace-Healthcare",
+   "url": "https://github.com/SriramWorkSpace/MedSpace-Healthcare",
+   "sha": "fcb76b81d59a66a55c9597670cf4f19db1fe916a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit fcb76b81d59a: \"fix(ask): render the model's formatting; normalize its citations\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

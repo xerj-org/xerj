@@ -1,0 +1,22 @@
+{
+ "corpus": "open-telemetry--opentelemetry-js-contrib",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how open-telemetry/opentelemetry-js-contrib implements it: OpenTelemetry instrumentation for JavaScript modules (selected work: packages/instrumentation-winston, packages/winston-transport)",
+ "repos": [
+  {
+   "repo": "opentelemetry-js-contrib",
+   "url": "https://github.com/open-telemetry/opentelemetry-js-contrib",
+   "sha": "60893066c1b6326bdd22384f150f7e742b839d15",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 60893066c1b6: \"feat(winston): support native OpenTelemetry log levels and custom sev\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

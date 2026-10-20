@@ -1,0 +1,22 @@
+{
+ "corpus": "nerojust--jetimagepicker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how Nerojust/JetImagePicker implements it: Jetpack Compose-ready image picker for Android: camera and gallery, works with Compose or XML, and gallery picks need no runtime permission (selected work: JetImagePicker, the project root)",
+ "repos": [
+  {
+   "repo": "JetImagePicker",
+   "url": "https://github.com/Nerojust/JetImagePicker",
+   "sha": "6d998bfe045385a19b2d3136927b87fccdfd215d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 6d998bfe0453: \"fix(video): enhance video recording, compression safety, and resource\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

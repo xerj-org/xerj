@@ -1,0 +1,22 @@
+{
+ "corpus": "mrcdprm--sahaf-bookstore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on aspnet-core, aspnet-core-mvc, bookstore queries this for how MrcDprm/sahaf-bookstore implements it: Online bookshop built with ASP.NET Core MVC: catalogue, Stripe checkout, bulk orders and an admin panel. Turkish and English (selected work: src/Sahaf.Web)",
+ "repos": [
+  {
+   "repo": "sahaf-bookstore",
+   "url": "https://github.com/MrcDprm/sahaf-bookstore",
+   "sha": "0b020dd0f88ee90564033c01492ba7d76c358b67",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 0b020dd0f88e: \"feat(admin): add order management with shipping and refunds, and user\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

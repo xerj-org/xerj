@@ -1,0 +1,22 @@
+{
+ "corpus": "cajoats--cajoa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how CajoaTS/Cajoa implements it: CajoaTS/Cajoa (TypeScript) (selected work: tests, src/dom, src/renderer)",
+ "repos": [
+  {
+   "repo": "Cajoa",
+   "url": "https://github.com/CajoaTS/Cajoa",
+   "sha": "24ccc5abfe42293071fc60b8c5c78dafd0eb3825",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 24ccc5abfe42: \"refactor: add Renderer abstraction with DOM implementation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

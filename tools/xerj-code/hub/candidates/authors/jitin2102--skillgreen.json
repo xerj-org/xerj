@@ -1,0 +1,22 @@
+{
+ "corpus": "jitin2102--skillgreen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Jupyter Notebook queries this for how Jitin2102/SkillGreen implements it: AI-powered ESG career readiness platform with ML predictions, resume parsing, skill-gap analysis, and explainable scoring. Built with FastAP (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "SkillGreen",
+   "url": "https://github.com/Jitin2102/SkillGreen",
+   "sha": "0820d03927196b592c99df719c8faf97c08564ea",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 0820d0392719: \"milestone 2 accomplished and  moving to milestone 3\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

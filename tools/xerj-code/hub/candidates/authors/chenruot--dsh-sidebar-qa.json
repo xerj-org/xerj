@@ -1,0 +1,22 @@
+{
+ "corpus": "chenruot--dsh-sidebar-qa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on deepseek, deepseek-harness, dsh queries this for how ChenRuoT/dsh-sidebar-qa implements it: \u4e00\u4e2a\u57fa\u4e8eDSH-better-sidebar\u7684\u4fa7\u8fb9\u680f\u63d0\u95eetab\uff0c\u5b9e\u73b0\u7c7bcodex\u7684\u4fa7\u8fb9\u63d0\u95ee\u6216claude code\u7684/btw\u529f\u80fd (selected work: src, tests, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-sidebar-qa",
+   "url": "https://github.com/ChenRuoT/dsh-sidebar-qa",
+   "sha": "1ff6457f2101ae7ea6365d1b6f076b73ffff2e43",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 1ff6457f2101: \"fix: address the settings form by profile entry id, since 0.1.7 dropp\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

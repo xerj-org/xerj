@@ -1,0 +1,22 @@
+{
+ "corpus": "elbayoumi--crewloom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, bilingual queries this for how elbayoumi/crewloom implements it: Specialist AI agent roles (43 skills, 19 tools), working memory, MCP bridge, and isolated Docker execution. Bilingual (EN/AR). Apache-2.0 (selected work: examples, scripts)",
+ "repos": [
+  {
+   "repo": "crewloom",
+   "url": "https://github.com/elbayoumi/crewloom",
+   "sha": "e5c2fb3f138e84544ef328661c556aaf39c0d26b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit e5c2fb3f138e: \"feat: freeze bilingual user understanding evaluation contracts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

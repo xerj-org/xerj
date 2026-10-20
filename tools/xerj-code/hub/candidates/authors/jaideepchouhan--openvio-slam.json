@@ -1,0 +1,22 @@
+{
+ "corpus": "jaideepchouhan--openvio-slam",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how JaideepChouhan/openvio_slam implements it: OpenVIO-SLAM is a complete, from-scratch Monocular Visual-Inertial Simultaneous Localization and Mapping system \u2014 built not by wrapping exis (selected work: log, install)",
+ "repos": [
+  {
+   "repo": "openvio_slam",
+   "url": "https://github.com/JaideepChouhan/openvio_slam",
+   "sha": "696139cfc143ed8936f4de3acdfc564370b49809",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 696139cfc143: \"re-colcon build the openvio_slam\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

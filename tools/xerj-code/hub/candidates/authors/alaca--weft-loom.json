@@ -1,0 +1,22 @@
+{
+ "corpus": "alaca--weft-loom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on algorave, strudel, algorithmic-patterns queries this for how alaca/weft-loom implements it: Weft Loom is a free desktop app for pattern music, built on Strudel (selected work: src/app, src/ui, tests)",
+ "repos": [
+  {
+   "repo": "weft-loom",
+   "url": "https://github.com/alaca/weft-loom",
+   "sha": "2ecc92cc91c65f32f23f5bf8bd3aced3a6fd8c21",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 2ecc92cc91c6: \"feat(midi): pads of a controller switch scenes and mute or solo patterns\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

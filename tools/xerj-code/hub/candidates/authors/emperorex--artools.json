@@ -1,0 +1,22 @@
+{
+ "corpus": "emperorex--artools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how Emperorex/artools implements it: Fast parallel CLI utilities for filesystem search, disk analysis, and text search (selected work: tools)",
+ "repos": [
+  {
+   "repo": "artools",
+   "url": "https://github.com/Emperorex/artools",
+   "sha": "64817e80ad080c79f4b47e51700c05c60a6abd39",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 64817e80ad08: \"feat(argrep): add -r/--replace to show matches replaced (output only)\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

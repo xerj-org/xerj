@@ -1,0 +1,22 @@
+{
+ "corpus": "markussela--iw4-pocket",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bevy, game-engine, ios queries this for how MarkusSela/IW4-Pocket implements it: IW4 Pocket: unofficial iOS port of the open-source IW4L runtime for Modern Warfare 2 (2009). Experimental. No game files included (selected work: crates/ui, crates/console, crates/hud)",
+ "repos": [
+  {
+   "repo": "IW4-Pocket",
+   "url": "https://github.com/MarkusSela/IW4-Pocket",
+   "sha": "caf80d42d551dd740e956ad1c08e64126bab6422",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit caf80d42d551: \"Add lobby bot setup menu under game setup (on/off + 0..10 count)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

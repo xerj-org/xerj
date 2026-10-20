@@ -1,0 +1,22 @@
+{
+ "corpus": "youchenjiang--clickra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how Youchenjiang/Clickra implements it: Instant File Actions for Windows Shell (selected work: src/Clickra.Fluent, tests)",
+ "repos": [
+  {
+   "repo": "Clickra",
+   "url": "https://github.com/Youchenjiang/Clickra",
+   "sha": "0c688329efb6a25b897dd04791c16464b1b4adb2",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 0c688329efb6: \"refactor: isolate fluent history surface\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

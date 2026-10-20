@@ -1,0 +1,22 @@
+{
+ "corpus": "kvcache-ai--mooncake",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on inference, kvcache, llm queries this for how kvcache-ai/Mooncake implements it: Mooncake is the serving platform for Kimi, a leading LLM service provided by Moonshot AI (selected work: mooncake-store, mooncake-common)",
+ "repos": [
+  {
+   "repo": "Mooncake",
+   "url": "https://github.com/kvcache-ai/Mooncake",
+   "sha": "dbd46e6cc7d6fb596b98a00b1972c7f569f970d7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit dbd46e6cc7d6: \"[Store] Add immutable bucket allocator for DFS replicas (#4124)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "aws-samples--sample-agentcore-enterprise-platform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on a2a-protocol, agentcore, agentcore-agent queries this for how aws-samples/sample-agentcore-enterprise-platform implements it: Amazon Bedrock AgentCore enterprise platform accelerator with AWS CDK, Terraform organization guardrails, MCP/A2A agents, security, memory,  (selected work: scripts, tests, infra_utils)",
+ "repos": [
+  {
+   "repo": "sample-agentcore-enterprise-platform",
+   "url": "https://github.com/aws-samples/sample-agentcore-enterprise-platform",
+   "sha": "d9fe244be3cba7be0afeb5c473b45e79d3ed71be",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d9fe244be3cb: \"Organize repository by capability\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "qwed-ai--qwed-verification",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-safety, ai-security, code-security queries this for how QWED-AI/qwed-verification implements it: Open-source AI verification infrastructure for deterministic verification of LLM outputs, tool calls, code, schemas, and agent state before  (selected work: tests, src/qwed_new, scripts)",
+ "repos": [
+  {
+   "repo": "qwed-verification",
+   "url": "https://github.com/QWED-AI/qwed-verification",
+   "sha": "d382daf80cd182e649829992c89e5269f2488e43",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit d382daf80cd1: \"fix(security): SSRF guard on operator URL fetches; assert cleanup (#427)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

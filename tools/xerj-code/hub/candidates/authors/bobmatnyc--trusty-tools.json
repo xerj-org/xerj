@@ -1,0 +1,22 @@
+{
+ "corpus": "bobmatnyc--trusty-tools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-tools, claude, code-search queries this for how bobmatnyc/trusty-tools implements it: Unified Rust workspace for the trusty-* AI developer-tooling ecosystem: hybrid code search, memory palace, code analysis, PR review, and the (selected work: crates/trusty-mpm)",
+ "repos": [
+  {
+   "repo": "trusty-tools",
+   "url": "https://github.com/bobmatnyc/trusty-tools",
+   "sha": "19ed4b42c854b0d83e6b72ca9acce3e3ff039367",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 19ed4b42c854: \"fix(trusty-mpm): pm-guard denies tmux verbs aimed at the Architect pa\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

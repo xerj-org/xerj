@@ -1,0 +1,22 @@
+{
+ "corpus": "vesaias--jobnavigator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on chrome-extension, docker, job-application-tracker queries this for how vesaias/JobNavigator implements it: Self-hosted, multi-account job-hunt automation: scrape career pages and job boards, score jobs against your r\u00e9sum\u00e9s with AI, tailor r\u00e9sum\u00e9s  (selected work: backend)",
+ "repos": [
+  {
+   "repo": "JobNavigator",
+   "url": "https://github.com/vesaias/JobNavigator",
+   "sha": "3efd106fecc8d460d8b13fd918a07538da51b41d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 3efd106fecc8: \"Back up the database before a release upgrade migrates it\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

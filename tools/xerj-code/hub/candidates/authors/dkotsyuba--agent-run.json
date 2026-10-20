@@ -1,0 +1,22 @@
+{
+ "corpus": "dkotsyuba--agent-run",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, claude, codex queries this for how DKotsyuba/agent-run implements it: Local supervisor for coding agents: durable async runs of Codex, Claude Code children with verified outcomes, quota tracking and workflows - (selected work: crates/agent-run, crates/agent-run-core, crates/agent-run-config)",
+ "repos": [
+  {
+   "repo": "agent-run",
+   "url": "https://github.com/DKotsyuba/agent-run",
+   "sha": "b64c946510c5924b5f21f21b883b259ff1cebfda",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit b64c946510c5: \"feat(runtime)!: remove execution lifetime limits\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

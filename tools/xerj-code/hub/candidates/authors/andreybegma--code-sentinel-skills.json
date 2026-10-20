@@ -1,0 +1,22 @@
+{
+ "corpus": "andreybegma--code-sentinel-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestration, ai-agents, claude-code queries this for how AndreyBegma/code-sentinel-skills implements it: Code Sentinel: Claude Code plugin that reviews code and PRs, finds security and dead-code issues, and runs agent fleets (selected work: skills, the project root)",
+ "repos": [
+  {
+   "repo": "claude-code-plugin",
+   "url": "https://github.com/AndreyBegma/claude-code-plugin",
+   "sha": "bdce2e0dd083a0ffffad0cd56ee26e3ab60cdf61",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit bdce2e0dd083: \"feat(orchestrator): wire emit.py into dispatch, watch and the skills\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

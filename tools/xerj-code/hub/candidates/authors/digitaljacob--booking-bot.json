@@ -1,0 +1,22 @@
+{
+ "corpus": "digitaljacob--booking-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on aiogram, aiogram3, asyncio queries this for how DigitalJacob/booking_bot implements it: Telegram booking bot for small service businesses: aiogram 3, PostgreSQL, Redis FSM, Docker Compose, layered architecture with unit-tested d (selected work: app/bot)",
+ "repos": [
+  {
+   "repo": "booking_bot",
+   "url": "https://github.com/DigitalJacob/booking_bot",
+   "sha": "111878a6055b27c3ff026c4f85da2a0fd5016c51",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 111878a6055b: \"Refactor(bot): share booking funnel forward steps.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

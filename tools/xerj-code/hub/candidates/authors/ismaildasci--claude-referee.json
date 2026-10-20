@@ -1,0 +1,22 @@
+{
+ "corpus": "ismaildasci--claude-referee",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, claude-code-hooks queries this for how ismaildasci/claude-referee implements it: Evidence over eloquence. Unofficial Claude Code plugin that checks \"done\" claims and small judgement calls with TypeSafe Jev, and keeps rece (selected work: src/engine, npm, test)",
+ "repos": [
+  {
+   "repo": "claude-referee",
+   "url": "https://github.com/ismaildasci/claude-referee",
+   "sha": "3bdce9f300503abe9115e444bc0805eae5538a67",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 3bdce9f30050: \"feat: mix test, ctest, rubocop parsers\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

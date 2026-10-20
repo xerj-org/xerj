@@ -1,0 +1,22 @@
+{
+ "corpus": "nankillbro--glassy-music-nankill",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on glass-effect, glassmorphism, glassmorphism-ui queries this for how NanKillBro/glassy-music-nankill implements it: \ud83d\udd76\ufe0f Glassy Music is extension for music player (selected work: src/plugins)",
+ "repos": [
+  {
+   "repo": "glassy-music-nankill",
+   "url": "https://github.com/NanKillBro/glassy-music-nankill",
+   "sha": "50c99633b5e304b760676286c333416dd592f53c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 50c99633b5e3: \"download now playing\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "doruk-aksoy--dnd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on doom, rpg, zandronum queries this for how Doruk-Aksoy/DnD implements it: Repository for the RPG Doom mod Death and Decay (selected work: DnD, acs)",
+ "repos": [
+  {
+   "repo": "DnD",
+   "url": "https://github.com/Doruk-Aksoy/DnD",
+   "sha": "adbb6e343d05ee9c712007b3024258868947cedb",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit adbb6e343d05: \"more cold wip\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

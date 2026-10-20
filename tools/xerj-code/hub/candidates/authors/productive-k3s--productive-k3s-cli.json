@@ -1,0 +1,22 @@
+{
+ "corpus": "productive-k3s--productive-k3s-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how productive-k3s/productive-k3s-cli implements it: Composable CLI toolkit for Productive K3S use cases, profiles, infrastructure, and cluster operations (selected work: internal/app, internal/tui)",
+ "repos": [
+  {
+   "repo": "productive-k3s-cli",
+   "url": "https://github.com/productive-k3s/productive-k3s-cli",
+   "sha": "d21f3e6487acf759aa03eca76703d425ad2d55f5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit d21f3e6487ac: \"feat: expose profile runtime availability\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

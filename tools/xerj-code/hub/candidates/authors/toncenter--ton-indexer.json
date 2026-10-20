@@ -1,0 +1,22 @@
+{
+ "corpus": "toncenter--ton-indexer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on C++ queries this for how toncenter/ton-indexer implements it: TON Indexer system to store and serve blockchain data using SQL-database (selected work: ton-index-worker)",
+ "repos": [
+  {
+   "repo": "ton-indexer",
+   "url": "https://github.com/toncenter/ton-indexer",
+   "sha": "421c966168ed42cc8522e632cb79425934523a36",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 421c966168ed: \"Safe parse guards\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

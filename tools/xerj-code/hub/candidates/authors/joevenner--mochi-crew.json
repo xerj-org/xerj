@@ -1,0 +1,22 @@
+{
+ "corpus": "joevenner--mochi-crew",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, claude-code-plugin, companion queries this for how joeVenner/mochi-crew implements it: Mochi, a pixel-art cat companion for Claude Code: reacts to your real session, with a kitten crew, XP, missions and a session journal (selected work: plugins)",
+ "repos": [
+  {
+   "repo": "mochi-crew",
+   "url": "https://github.com/joeVenner/mochi-crew",
+   "sha": "606a4c8e89676a160c982a5a228debfd0bdefb92",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 606a4c8e8967: \"feat(files): model worktree sections in the tree\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

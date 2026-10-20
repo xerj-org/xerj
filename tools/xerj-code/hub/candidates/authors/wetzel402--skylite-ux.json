@@ -1,0 +1,22 @@
+{
+ "corpus": "wetzel402--skylite-ux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on ai, calendar, docker queries this for how Wetzel402/Skylite-UX implements it: Life, Organized (selected work: app/integrations, server, test)",
+ "repos": [
+  {
+   "repo": "Skylite-UX",
+   "url": "https://github.com/Wetzel402/Skylite-UX",
+   "sha": "00012aa03de6da0cc3ee23c304c2e2f57550d714",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 00012aa03de6: \"fix: tests for NUXT 4\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "igorcbraz--gitascii",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on github, github-profile, github-profile-readme queries this for how Igorcbraz/GitAscii implements it: Create amazing GitHub profile READMEs with a visual editor, customizable widgets, real-time preview, and custom export (selected work: src/lib)",
+ "repos": [
+  {
+   "repo": "GitAscii",
+   "url": "https://github.com/Igorcbraz/GitAscii",
+   "sha": "efad50a553ad644746c7fb2175fa698281b3550c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit efad50a553ad: \"feat(analytics): always grant Google Analytics and prompt only for Cl\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

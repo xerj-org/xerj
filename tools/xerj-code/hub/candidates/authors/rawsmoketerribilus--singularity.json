@@ -1,0 +1,22 @@
+{
+ "corpus": "rawsmoketerribilus--singularity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Python queries this for how RawSmokeTerribilus/Singularity implements it: Advanced Dockerized P2P suite: Mass orchestration, auto-upload, and real-time telemetry. Featuring MKVerything for deep MKV analysis & repai (selected work: RawLoadrr)",
+ "repos": [
+  {
+   "repo": "Singularity",
+   "url": "https://github.com/RawSmokeTerribilus/Singularity",
+   "sha": "bf882534aedabee9fe75f27f60632a2543de0690",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit bf882534aeda: \"fix(rawncher): crear tracker sale de una plantilla UNIT3D con los ids\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

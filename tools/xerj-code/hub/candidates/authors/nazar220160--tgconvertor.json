@@ -1,0 +1,22 @@
+{
+ "corpus": "nazar220160--tgconvertor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on tdata, telethon, pyrogram queries this for how nazar220160/TGConvertor implements it: Convert Telegram sessions between Telethon, Pyrogram, Kurigram, GramJS and tdata. Offline Python API, CLI and a local browser converter with (selected work: web)",
+ "repos": [
+  {
+   "repo": "TGConvertor",
+   "url": "https://github.com/nazar220160/TGConvertor",
+   "sha": "c43c44e53f508c9b237debe74a51cb3acf73990b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit c43c44e53f50: \"Apply complete PWA updates automatically in an untouched single-tab w\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

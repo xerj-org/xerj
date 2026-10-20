@@ -1,0 +1,22 @@
+{
+ "corpus": "dreamofxm--diskwise",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on apache-2-0, disk-cleaner, docker queries this for how DreamOfXM/diskwise implements it: Free, open-source CleanMyMac alternative for macOS. Native SwiftUI disk cleaner for app caches, node_modules, Xcode DerivedData and Docker u (selected work: Sources)",
+ "repos": [
+  {
+   "repo": "diskwise",
+   "url": "https://github.com/DreamOfXM/diskwise",
+   "sha": "1f147691e491429686a14481c8f894749716c62b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 1f147691e491: \"Agent page: per-client connect recipes for eight MCP clients\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

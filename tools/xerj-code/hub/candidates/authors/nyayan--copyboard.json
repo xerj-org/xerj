@@ -1,0 +1,22 @@
+{
+ "corpus": "nyayan--copyboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how NYAYAN/CopyBoard implements it: NYAYAN/CopyBoard (JavaScript) (selected work: test, src/main, src/renderer)",
+ "repos": [
+  {
+   "repo": "CopyBoard",
+   "url": "https://github.com/NYAYAN/CopyBoard",
+   "sha": "04d4213fb51e4e1fb4e2937ae145510c1220e30f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 04d4213fb51e: \"fix(widget): g\u00f6rev \u00e7ubu\u011fu yan\u0131nda yar\u0131m kalma, men\u00fc fla\u015f\u0131 ve s\u00fcr\u00fckleme\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

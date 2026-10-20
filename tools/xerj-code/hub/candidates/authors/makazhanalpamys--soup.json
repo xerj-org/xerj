@@ -1,0 +1,22 @@
+{
+ "corpus": "makazhanalpamys--soup",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on python, fine-tuning, gguf queries this for how MakazhanAlpamys/Soup implements it: Fine-tune LLMs from one YAML. Layer streaming trains an 8B model on a 4 GB laptop GPU (selected work: tests, src/soup_cli)",
+ "repos": [
+  {
+   "repo": "Soup",
+   "url": "https://github.com/MakazhanAlpamys/Soup",
+   "sha": "ba71a6d264af33d5aff4309a1fbaa6e783f47e11",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit ba71a6d264af: \"fix(diagnose): decouple forgetting probe from training dataset rows (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

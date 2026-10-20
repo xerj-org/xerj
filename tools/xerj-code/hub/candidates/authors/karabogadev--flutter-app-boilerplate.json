@@ -1,0 +1,22 @@
+{
+ "corpus": "karabogadev--flutter-app-boilerplate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bloc, dart, flutter queries this for how karabogadev/flutter_app_boilerplate implements it: Production-ready Flutter boilerplate with Clean Architecture, BLoC, offline-first support (Hive CE), auto_route, Dio, easy_localization, and (selected work: lib/core, test, lib/features)",
+ "repos": [
+  {
+   "repo": "flutter_app_boilerplate",
+   "url": "https://github.com/karabogadev/flutter_app_boilerplate",
+   "sha": "516e7567a91a161c44c40426b8163237138b7013",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 516e7567a91a: \"Refine error localization and offline/test cleanup\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

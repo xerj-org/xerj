@@ -1,0 +1,22 @@
+{
+ "corpus": "socialgouv--claw-code-go",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on Go queries this for how SocialGouv/claw-code-go implements it: SocialGouv/claw-code-go (Go) (selected work: internal/runtime, internal/api, internal/tools)",
+ "repos": [
+  {
+   "repo": "claw-code-go",
+   "url": "https://github.com/SocialGouv/claw-code-go",
+   "sha": "28e2e6b1df7c5b1568ca76409993244eb03db01e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 28e2e6b1df7c: \"fix(openai): enable image generation with Codex login\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

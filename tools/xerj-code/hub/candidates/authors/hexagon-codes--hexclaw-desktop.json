@@ -1,0 +1,22 @@
+{
+ "corpus": "hexagon-codes--hexclaw-desktop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, chatbot, desktop-app queries this for how hexagon-codes/hexclaw-desktop implements it: \u57fa\u4e8e Tauri 2 \u4e0e Vue 3 \u7684 AI Agent \u684c\u9762\u5de5\u4f5c\u53f0\uff0c\u652f\u6301\u672c\u673a\u6216\u4e91\u7aef HexClaw \u670d\u52a1\uff0c\u96c6\u6210\u591a\u6a21\u578b\u5bf9\u8bdd\u3001\u77e5\u8bc6\u5e93\u3001\u5de5\u5177\u3001\u4efb\u52a1\u81ea\u52a8\u5316\u4e0e\u4f5c\u4e1a\u8f85\u5bfc\u3002 (selected work: src/features, src/views, src/api)",
+ "repos": [
+  {
+   "repo": "hexclaw-desktop",
+   "url": "https://github.com/hexagon-codes/hexclaw-desktop",
+   "sha": "e532dedea56ca1c1b27899d17a28410c63ee02bb",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e532dedea56c: \"feat(k12): \u63a5\u5165\u8bfe\u7a0b\u8fdb\u5ea6\u5efa\u8bae\u4e0e\u6863\u6848\u66f4\u65b0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

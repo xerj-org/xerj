@@ -1,0 +1,22 @@
+{
+ "corpus": "shlokkvaishnav--cardiovascular-risk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on docker, fastapi, healthcare queries this for how shlokkvaishnav/cardiovascular-risk implements it: A heart disease prediction system with an ETL pipeline, a FastAPI backend, MLflow tracking, and Docker deployment (selected work: backend)",
+ "repos": [
+  {
+   "repo": "cardiovascular-risk",
+   "url": "https://github.com/shlokkvaishnav/cardiovascular-risk",
+   "sha": "61b8618dcebc21e5bce08014fc977f1f73cb9ce2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 61b8618dcebc: \"Add per-client rate limits for predict, batch, extract and auth routes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

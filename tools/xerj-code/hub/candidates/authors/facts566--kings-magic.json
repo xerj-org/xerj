@@ -1,0 +1,22 @@
+{
+ "corpus": "facts566--kings-magic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how Facts566/Kings-Magic implements it: Facts566/Kings-Magic (C#) (selected work: Assets, the project root)",
+ "repos": [
+  {
+   "repo": "Kings-Magic",
+   "url": "https://github.com/Facts566/Kings-Magic",
+   "sha": "d49787c5eb0dda24b52c90c29761a385c6dd861e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit d49787c5eb0d: \"KingsMagic - \u0432\u0440\u0435\u043c\u0435\u043d\u043d\u044b\u0435 \u0442\u0435\u0441\u0442\u043e\u0432\u044b\u0435 \u0447\u0438\u0442\u044b: \u043f\u0430\u043d\u0435\u043b\u044c \u0437\u0430\u0434\u0430\u043d\u0438\u044f \u0443\u0440\u043e\u0432\u043d\u044f/\u043c\u043e\u043d\u0435\u0442/\u043e\u043f\u044b\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

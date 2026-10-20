@@ -1,0 +1,22 @@
+{
+ "corpus": "nevercodealone--cms-symfony-sulu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on CSS queries this for how nevercodealone/cms-symfony-sulu implements it: CMS Symfony Sulu f\u00fcr nevercodealone.de (selected work: src/Sulu, tests, src/MCP)",
+ "repos": [
+  {
+   "repo": "cms-symfony-sulu",
+   "url": "https://github.com/nevercodealone/cms-symfony-sulu",
+   "sha": "b9e886a6590870e987d4810dc61f2b2ea34c344e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit b9e886a65908: \"Add route health, history routes and check_url to the sulu mcp.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

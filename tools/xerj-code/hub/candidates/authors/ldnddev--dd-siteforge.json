@@ -1,0 +1,22 @@
+{
+ "corpus": "ldnddev--dd-siteforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how ldnddev/dd_siteforge implements it: A terminal-UI CMS for authoring framework-native static pages. Single Rust binary; edit pages in a TUI, export typed HTML (selected work: src, src/tui)",
+ "repos": [
+  {
+   "repo": "dd_siteforge",
+   "url": "https://github.com/ldnddev/dd_siteforge",
+   "sha": "98d2ee3361dd40d4369f505d0eb9c99626123036",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 98d2ee3361dd: \"export: keep preview and copied assets inside the site\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

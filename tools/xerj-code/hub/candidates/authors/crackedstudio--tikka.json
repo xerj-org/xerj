@@ -1,0 +1,22 @@
+{
+ "corpus": "crackedstudio--tikka",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how crackedstudio/tikka implements it: crackedstudio/tikka (TypeScript) (selected work: sdk)",
+ "repos": [
+  {
+   "repo": "tikka",
+   "url": "https://github.com/crackedstudio/tikka",
+   "sha": "5c673a32093d24e38974c586d8c65b2a2abec514",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 5c673a32093d: \"test: cover the sdk read services and the horizon wrapper (#1689)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

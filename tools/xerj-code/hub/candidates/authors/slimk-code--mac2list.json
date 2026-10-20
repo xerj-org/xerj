@@ -1,0 +1,22 @@
+{
+ "corpus": "slimk-code--mac2list",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on iptv, iptv-channels, iptv-m3u queries this for how Slimk-Code/mac2list implements it: Mac2List \u2014 a CLI tool to convert your own Stalker/MAG-portal IPTV subscription into a standard M3U playlist, so you can use it in any lightw (selected work: core, the project root)",
+ "repos": [
+  {
+   "repo": "mac2list",
+   "url": "https://github.com/Slimk-Code/mac2list",
+   "sha": "80c5e73979262d28cfc2bea8ca93ff1aaf3bec48",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 80c5e7397926: \"Improve UI/UX & Fix minnor bug\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

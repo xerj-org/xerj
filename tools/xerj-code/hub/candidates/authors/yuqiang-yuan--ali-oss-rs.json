@@ -1,0 +1,22 @@
+{
+ "corpus": "yuqiang-yuan--ali-oss-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how yuqiang-yuan/ali-oss-rs implements it: Aliyun OSS Rust SDK (selected work: src, src/blocking)",
+ "repos": [
+  {
+   "repo": "ali-oss-rs",
+   "url": "https://github.com/yuqiang-yuan/ali-oss-rs",
+   "sha": "876409ff738ff067d543ce4fa0023e0f115852f7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 876409ff738f: \"add progress callback to put/get object\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

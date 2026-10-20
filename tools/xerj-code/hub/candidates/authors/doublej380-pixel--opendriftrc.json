@@ -1,0 +1,22 @@
+{
+ "corpus": "doublej380-pixel--opendriftrc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how doublej380-pixel/OpenDriftRC implements it: Open source drift gyro based on Waveshare ESP32-S3 1.64inch AMOLED touch display development board (selected work: OpenDrift)",
+ "repos": [
+  {
+   "repo": "OpenDriftRC",
+   "url": "https://github.com/doublej380-pixel/OpenDriftRC",
+   "sha": "42bce24965dd867b0002a840038027bbaa29885b",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 42bce24965dd: \"feat(experimental): port Matrix firmware to S3-Zero with MPU6050\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

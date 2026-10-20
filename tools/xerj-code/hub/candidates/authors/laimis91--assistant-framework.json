@@ -1,0 +1,22 @@
+{
+ "corpus": "laimis91--assistant-framework",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, codex, codex-skills queries this for how laimis91/assistant-framework implements it: laimis91/assistant-framework (Shell) (selected work: tests, tools, skills)",
+ "repos": [
+  {
+   "repo": "assistant-framework",
+   "url": "https://github.com/laimis91/assistant-framework",
+   "sha": "242141b04b977f37da0bdf5570f4b71ae606784e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 242141b04b97: \"fix: enforce observed scope and valid execution contracts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

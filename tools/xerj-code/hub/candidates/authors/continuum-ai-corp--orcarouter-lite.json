@@ -1,0 +1,22 @@
+{
+ "corpus": "continuum-ai-corp--orcarouter-lite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-gateway, ai-gateways, anthropic-api queries this for how Continuum-AI-Corp/OrcaRouter-Lite implements it: Self-hosted LLM router with a managed safety net. OpenAI-compatible. BYOK. Single-workspace. Streaming. For more advanced routing choose hos (selected work: tests, app/routes, packages/auth)",
+ "repos": [
+  {
+   "repo": "OrcaRouter-Lite",
+   "url": "https://github.com/Continuum-AI-Corp/OrcaRouter-Lite",
+   "sha": "4cacea8538f6dc16c4c9a8364ec867a1c4c80088",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 4cacea8538f6: \"fix(keys): scope key management to workspace and gate privileged ops \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

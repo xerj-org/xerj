@@ -1,0 +1,22 @@
+{
+ "corpus": "mkamrul9--kidraw-canvas-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how mkamrul9/Kidraw-canvas-app implements it: mkamrul9/Kidraw-canvas-app (TypeScript) (selected work: src/features, src/app, src/widgets)",
+ "repos": [
+  {
+   "repo": "Kidraw-canvas-app",
+   "url": "https://github.com/mkamrul9/Kidraw-canvas-app",
+   "sha": "583d87750309cf040a12ae9ed4ec06fa1b0a1ebd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 583d87750309: \"feat(security): implement board access control, autosave protection, \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

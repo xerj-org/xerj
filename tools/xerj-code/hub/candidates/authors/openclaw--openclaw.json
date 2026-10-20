@@ -1,0 +1,22 @@
+{
+ "corpus": "openclaw--openclaw",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, assistant, own-your-data queries this for how openclaw/openclaw implements it: The AI that really does things. Any OS. Any Platform. The lobster way. \ud83e\udd9e (selected work: extensions)",
+ "repos": [
+  {
+   "repo": "openclaw",
+   "url": "https://github.com/openclaw/openclaw",
+   "sha": "8cedf203e34af009708af0ccfaaa43f2ff7c0987",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 8cedf203e34a: \"fix(minimax): honor M3.1 thinking effort levels (#160089)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

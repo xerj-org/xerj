@@ -1,0 +1,22 @@
+{
+ "corpus": "sbaruwal--orbvane",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on code-editor, debugger, editor queries this for how sbaruwal/orbvane implements it: A native code editor for Mac, written in Rust. Language servers, debugging, git, terminals, tests and extensions, drawn by its own GPU toolk (selected work: crates/app)",
+ "repos": [
+  {
+   "repo": "orbvane",
+   "url": "https://github.com/sbaruwal/orbvane",
+   "sha": "9e054aebe272bab3030e951cf5421f48d366d781",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 9e054aebe272: \"Accessibility: Settings, Run and Debug, and the Assistant\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

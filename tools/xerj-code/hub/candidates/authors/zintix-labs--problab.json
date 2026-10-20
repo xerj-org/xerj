@@ -1,0 +1,22 @@
+{
+ "corpus": "zintix-labs--problab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on go, golang, math queries this for how zintix-labs/problab implements it: Problab is a high-performance slot math engine for math designers and engineers. Build once, then simulate, reproduce, and ship to productio (selected work: playerexp, the project root, cmd/exp)",
+ "repos": [
+  {
+   "repo": "problab",
+   "url": "https://github.com/zintix-labs/problab",
+   "sha": "425bc08cdc1da5f5676e33be0b433ccb5dcf9985",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 425bc08cdc1d: \"feat(playerexp)!: add strategy-driven player experience analysis\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "everyai-com--flare-actions",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, ci, ci-cd queries this for how everyai-com/flare-actions implements it: Flare Forge: many AI agents on one repo, on Cloudflare. Agents declare intents before editing, see overlaps early, and land through CI-verif (selected work: apps/worker, the project root, apps/cli)",
+ "repos": [
+  {
+   "repo": "flare-actions",
+   "url": "https://github.com/everyai-com/flare-actions",
+   "sha": "b067b21764e6a2a95c74a02f7931b9a157785f1c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit b067b21764e6: \"Forge: agent-forge product surface + magic links + CLI login/forge co\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

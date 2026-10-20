@@ -1,0 +1,22 @@
+{
+ "corpus": "open-devops-agent--open-devops-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how open-devops-agent/open-devops-agent implements it: DevOps-AI-Agent to troubleshoot issues while you are away (selected work: tools, tests, agent)",
+ "repos": [
+  {
+   "repo": "open-devops-agent",
+   "url": "https://github.com/open-devops-agent/open-devops-agent",
+   "sha": "1095ac7c490929eeaa5565626231dedab04bce71",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 1095ac7c4909: \"feat: enhance code review capabilities across multiple platforms\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

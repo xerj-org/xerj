@@ -1,0 +1,22 @@
+{
+ "corpus": "liebhardt-io--aims-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how liebhardt-io/aims-agent implements it: Generate images and videos with AI agents \u2014 MCP server, CLI, and skills for AI Media Studio (AIMS) (selected work: packages/cli, packages/core, packages/mcp)",
+ "repos": [
+  {
+   "repo": "aims-agent",
+   "url": "https://github.com/liebhardt-io/aims-agent",
+   "sha": "d7b5f0e194d183a99a6877ce1649bb2af96d3be5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d7b5f0e194d1: \"fix: preserve generation results and complete CLI and MCP workflows\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

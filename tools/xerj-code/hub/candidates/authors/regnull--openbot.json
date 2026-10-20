@@ -1,0 +1,22 @@
+{
+ "corpus": "regnull--openbot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, chatbot, electron queries this for how regnull/openbot implements it: Open-source, self-hosted platform for running a team of AI bots that use tools, keep long-term memory, and hand work to each other (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "openbot",
+   "url": "https://github.com/regnull/openbot",
+   "sha": "e98dc780c921ea577093bd49bb9c87cab2f14837",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit e98dc780c921: \"feat: add a todo_write tool persisted per thread and bot (#286)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

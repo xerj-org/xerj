@@ -1,0 +1,22 @@
+{
+ "corpus": "jazzyalex--agent-sessions",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-workflow, ai, claude-code queries this for how jazzyalex/agent-sessions implements it: Local-first macOS app to browse, search, analyze, and resume supported AI coding-agent session history across Codex, Claude Code, OpenCode,  (selected work: AgentSessions, AgentSessionsTests, AgentSessions.xcodeproj)",
+ "repos": [
+  {
+   "repo": "agent-sessions",
+   "url": "https://github.com/jazzyalex/agent-sessions",
+   "sha": "6fa9a73f489d37f655873871e5e6a5cf6975d1ff",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 6fa9a73f489d: \"feat(session-info): split quick metadata from telemetry\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

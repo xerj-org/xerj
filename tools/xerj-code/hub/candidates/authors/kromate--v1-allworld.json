@@ -1,0 +1,22 @@
+{
+ "corpus": "kromate--v1-allworld",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how kromate/v1-allworld implements it: An open-source social world on real maps, with standalone accounts, homes, games, work and vehicles (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "v1-allworld",
+   "url": "https://github.com/kromate/v1-allworld",
+   "sha": "816024d12ef1912117ee79b188c348f234748241",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 816024d12ef1: \"Add isolated guarded JoinAllworld deployment workflow (#17)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

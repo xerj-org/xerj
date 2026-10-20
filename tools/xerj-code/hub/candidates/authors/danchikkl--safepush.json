@@ -1,0 +1,22 @@
+{
+ "corpus": "danchikkl--safepush",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, cli, codex queries this for how Danchikkl/SafePush implements it: Local-first security CLI and MCP server for AI coding agents. Detect exposed secrets before you commit (selected work: src, test, the project root)",
+ "repos": [
+  {
+   "repo": "SafePush",
+   "url": "https://github.com/Danchikkl/SafePush",
+   "sha": "b47f2761735271062c3746ded73597997fbcf7a0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit b47f27617352: \"feat: ship SafePush v0.1 local-first secret scanning CLI with CI and \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

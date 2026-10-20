@@ -1,0 +1,22 @@
+{
+ "corpus": "byusistudio--code-cin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ByUsiStudio/Code-CIN implements it: Code CIN \u2014\u2014 \u7b80\u6d01\u7684\u7c7b C \u9ad8\u7ea7\u8bed\u8a00\u4e0e\u8de8\u5e73\u53f0\u8fd0\u884c\u65f6: CIN/PL/ASM \u5de5\u5177\u94fe\u3001UCPU \u5b57\u8282\u7801\u3001Go \u539f\u751f\u5f15\u64ce\u5355\u8def\u5f84\u4e00\u81f4\u6267\u884c\u3002 (selected work: codecin, tests, the project root)",
+ "repos": [
+  {
+   "repo": "Code-CIN",
+   "url": "https://github.com/ByUsiStudio/Code-CIN",
+   "sha": "9b68e461ee0ff47e391d66ec59c294bd70bddb17",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 9b68e461ee0f: \"feat: \u53d1\u5e03 6.0.0 \u7248\u672c\uff0c\u65b0\u589e AOT \u7f16\u8bd1\u4e0e\u8c03\u8bd5\u6a21\u5f0f\u7b49\u6838\u5fc3\u529f\u80fd\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

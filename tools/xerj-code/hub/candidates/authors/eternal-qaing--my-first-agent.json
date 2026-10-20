@@ -1,0 +1,22 @@
+{
+ "corpus": "eternal-qaing--my-first-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Java queries this for how Eternal-Qaing/my-first-agent implements it: Spring Boot 4 + Spring AI 2 \u6784\u5efa\u7684 Java AI Agent\uff0c\u652f\u6301\u771f\u5b9e\u5de5\u5177\u8c03\u7528\u3001Redis \u8bb0\u5fc6\u6301\u4e45\u5316\u4e0e SSE \u6d41\u5f0f\u8f93\u51fa (selected work: src/main, the project root)",
+ "repos": [
+  {
+   "repo": "my-first-agent",
+   "url": "https://github.com/Eternal-Qaing/my-first-agent",
+   "sha": "69c7ca63b07cca732874628c5f9a0c602dfceca4",
+   "licence": "hint only: MulanPSL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MulanPSL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 69c7ca63b07c: \"\u5168\u5c40\u5f02\u5e38\u5904\u7406\uff0c\u8bb0\u5fc6\u6301\u4e45\u5316\u5230redis\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

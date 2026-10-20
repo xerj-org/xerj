@@ -1,0 +1,22 @@
+{
+ "corpus": "eclipse-milo--milo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on opc-ua, opcua, iec62541 queries this for how eclipse-milo/milo implements it: Eclipse Milo\u2122 - an open source implementation of OPC UA (IEC 62541) (selected work: opc-ua-sdk)",
+ "repos": [
+  {
+   "repo": "milo",
+   "url": "https://github.com/eclipse-milo/milo",
+   "sha": "9622ea94ad11f61bfcf2a16db4aa73ff85f54b32",
+   "licence": "hint only: EPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "EPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 9622ea94ad11: \"Use switch expressions in the remaining conversions (#2036)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "koltyakov--varro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai, chat queries this for how koltyakov/varro implements it: \ud83e\udd16 An OpenCode workbench for VS Code with project-aware AI chat and parallel agent sessions (selected work: scripts, e2e)",
+ "repos": [
+  {
+   "repo": "varro",
+   "url": "https://github.com/koltyakov/varro",
+   "sha": "49212365e3007527e6b36e0269f8d352788e4e6a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 49212365e300: \"fix: make AI verification setup and input checks deterministic\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

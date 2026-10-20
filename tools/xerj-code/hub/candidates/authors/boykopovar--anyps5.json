@@ -1,0 +1,22 @@
+{
+ "corpus": "boykopovar--anyps5",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dynamic-library, game-porting, ps5-tools queries this for how boykopovar/AnyPS5 implements it: Tool for automatic PS5 executables porting to Linux and Windows (selected work: core/libs)",
+ "repos": [
+  {
+   "repo": "AnyPS5",
+   "url": "https://github.com/boykopovar/AnyPS5",
+   "sha": "d694aac7b4005b2f7628b9f435aea4e7598ea6da",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit d694aac7b400: \"fix(libkernel): translate every host socket error to the guest errno \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "futureware-tech--simulator-action",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how futureware-tech/simulator-action implements it: GitHub Action for starting an iOS Simulator (selected work: the project root, __tests__, src)",
+ "repos": [
+  {
+   "repo": "simulator-action",
+   "url": "https://github.com/futureware-tech/simulator-action",
+   "sha": "e1ab0c47dfd6c6ae2dce140df96db566da3fd699",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit e1ab0c47dfd6: \"Upgrade dependencies\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

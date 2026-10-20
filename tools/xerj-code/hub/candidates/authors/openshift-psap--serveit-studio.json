@@ -1,0 +1,22 @@
+{
+ "corpus": "openshift-psap--serveit-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how openshift-psap/serveit-studio implements it: Reserved (selected work: core, tests)",
+ "repos": [
+  {
+   "repo": "serveit-studio",
+   "url": "https://github.com/openshift-psap/serveit-studio",
+   "sha": "ffbe5f7f4a3c16aaa8975a140ff2ed88d2802c43",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ffbe5f7f4a3c: \"Collect LoRA adapter and hot-pod routing metrics\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

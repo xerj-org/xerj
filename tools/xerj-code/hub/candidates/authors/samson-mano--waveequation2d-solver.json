@@ -1,0 +1,22 @@
+{
+ "corpus": "samson-mano--waveequation2d-solver",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 2d-wave-propagation, acoustic-analysis, acoustics queries this for how Samson-Mano/WaveEquation2D_solver implements it: Finite element solver for the 2D wave equation using spectral elements with Legendre-Gauss-Lobatto (LGL) quadrature. Ideal for seismic wave  (selected work: WaveEquation2D_solver)",
+ "repos": [
+  {
+   "repo": "WaveEquation2D_solver",
+   "url": "https://github.com/Samson-Mano/WaveEquation2D_solver",
+   "sha": "927e39d2e1b8fb6a8cba761811adefc98fd97f70",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 927e39d2e1b8: \"dynamic timer label.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

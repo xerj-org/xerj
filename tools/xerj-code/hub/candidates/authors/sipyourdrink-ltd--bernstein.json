@@ -1,0 +1,22 @@
+{
+ "corpus": "sipyourdrink-ltd--bernstein",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestrator, deterministic-replay, air-gap queries this for how sipyourdrink-ltd/bernstein implements it: The open-source governance layer for AI agents: write the rules declaratively, Bernstein enforces them and produces the verifiable, replayab (selected work: tests, src/bernstein)",
+ "repos": [
+  {
+   "repo": "bernstein",
+   "url": "https://github.com/sipyourdrink-ltd/bernstein",
+   "sha": "2fc3fe1e17ff86faeb95e4607c68bc7fc6942a3c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 2fc3fe1e17ff: \"fix(orchestrator): exit once when no adapter is configured instead of\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

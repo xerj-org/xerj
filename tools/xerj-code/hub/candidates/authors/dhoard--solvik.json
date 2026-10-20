@@ -1,0 +1,22 @@
+{
+ "corpus": "dhoard--solvik",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how dhoard/solvik implements it: Solvik programming langue (selected work: language, tck, benchmarks)",
+ "repos": [
+  {
+   "repo": "solvik",
+   "url": "https://github.com/dhoard/solvik",
+   "sha": "fe8d4a0960d365ffb9408ea34b263426903b978f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit fe8d4a0960d3: \"Function-type joining: the least common function supertype rule\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

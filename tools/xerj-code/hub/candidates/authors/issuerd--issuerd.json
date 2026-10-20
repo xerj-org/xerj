@@ -1,0 +1,22 @@
+{
+ "corpus": "issuerd--issuerd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on active-directory, authentication, authorization queries this for how issuerd/issuerd implements it: Fast, Keycloak-compatible IAM with DPoP and CIBA (selected work: crates/issuerd-admin-api, webclientsrc)",
+ "repos": [
+  {
+   "repo": "issuerd",
+   "url": "https://github.com/issuerd/issuerd",
+   "sha": "fe967640ec9318d74c00499bd6a237c0fc279061",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit fe967640ec93: \"feat(admin-api): serve dotenv installation config as text/plain\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

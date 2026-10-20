@@ -1,0 +1,22 @@
+{
+ "corpus": "ahilles107--gravity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, claude-code, macos queries this for how ahilles107/gravity implements it: Gravity \u2014 a desktop workspace for AI coding agents (selected work: crates/gravityd, scripts, apps/desktop)",
+ "repos": [
+  {
+   "repo": "gravity",
+   "url": "https://github.com/ahilles107/gravity",
+   "sha": "e2e52dc3217df255a2f7a9a662004764f6112e99",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e2e52dc3217d: \"feat(windows): build native desktop and managed daemon (#17)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

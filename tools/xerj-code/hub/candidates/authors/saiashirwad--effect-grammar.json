@@ -1,0 +1,22 @@
+{
+ "corpus": "saiashirwad--effect-grammar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on effect, effect-ts, typescript queries this for how saiashirwad/effect-grammar implements it: Invertible grammar combinators and parser-printers for Effect (selected work: test, examples, src/internal)",
+ "repos": [
+  {
+   "repo": "effect-grammar",
+   "url": "https://github.com/saiashirwad/effect-grammar",
+   "sha": "3cb6f7ab568e6c190cb0e3e28e587c52fba4c3ae",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 3cb6f7ab568e: \"Derive schema (#30)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

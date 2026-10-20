@@ -1,0 +1,22 @@
+{
+ "corpus": "alexandrefimov--query-doctor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on apache-impala, observability, query-diagnostics queries this for how alexandrefimov/query-doctor implements it: Local-first Big Data query diagnostics for Apache Impala triage and bounded local Trino support, with raw-data-safe reports and read-only op (selected work: tests, query_doctor)",
+ "repos": [
+  {
+   "repo": "query-doctor",
+   "url": "https://github.com/alexandrefimov/query-doctor",
+   "sha": "479bdc959eb4e61b6421eb5fa99a6bbbdaa534fe",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 479bdc959eb4: \"Retain bounded exchange inspection evidence for Recent cases\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

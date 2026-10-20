@@ -1,0 +1,22 @@
+{
+ "corpus": "vproject111--rae-agentic-memory",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how vproject111/RAE-agentic-memory implements it: vproject111/RAE-agentic-memory (Python) (selected work: apps/memory_api, rae-core)",
+ "repos": [
+  {
+   "repo": "RAE-agentic-memory",
+   "url": "https://github.com/vproject111/RAE-agentic-memory",
+   "sha": "3ab04c6547d536ffd21e7056aed1e181dae2b5aa",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 3ab04c6547d5: \"feat(agentic): complete Phases 1-3 of Agentic Evolution (Facade, Dete\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

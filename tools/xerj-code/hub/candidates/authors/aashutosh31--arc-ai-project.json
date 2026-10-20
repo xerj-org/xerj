@@ -1,0 +1,22 @@
+{
+ "corpus": "aashutosh31--arc-ai-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, ai-agent, ai-assistant queries this for how Aashutosh31/arc-ai-project implements it: Realtime multimodal AI agent with voice streaming, RAG memory, and autonomous workflows (selected work: client, server)",
+ "repos": [
+  {
+   "repo": "arc-ai-project",
+   "url": "https://github.com/Aashutosh31/arc-ai-project",
+   "sha": "bbef8b6f931368c1729c089df6b66a03fb62f1de",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit bbef8b6f9313: \"fix(auth): same-origin /api proxy + one-time socket/oauth tickets (th\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

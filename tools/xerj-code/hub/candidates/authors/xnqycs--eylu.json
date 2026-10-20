@@ -1,0 +1,22 @@
+{
+ "corpus": "xnqycs--eylu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how xnqycs/Eylu implements it: Eylu \u662f\u4e00\u4e2a\u9762\u5411\u672c\u5730\u4ee3\u7801\u5e93\u7684 Go \u7ec8\u7aef\u7f16\u7a0b Agent\u3002\u6838\u5fc3\u534f\u8bae\u3001\u6a21\u578b\u9a71\u52a8\u3001\u5de5\u5177\u3001\u6743\u9650\u3001\u4e0a\u4e0b\u6587\u548c\u4f1a\u8bdd\u6301\u4e45\u5316\u4fdd\u6301\u89e3\u8026\uff0c\u517c\u5bb9 OpenAI Responses \u98ce\u683c\u7684 HTTP \u7f51\u5173\u3002 (selected work: internal/host, internal/hostmock, internal/app)",
+ "repos": [
+  {
+   "repo": "Eylu",
+   "url": "https://github.com/xnqycs/Eylu",
+   "sha": "3bd7b34f529f477a4b41776d6ec7deeeb8200c99",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 3bd7b34f529f: \"feat(host): implement bastion host protocol v1\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

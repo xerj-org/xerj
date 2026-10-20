@@ -1,0 +1,22 @@
+{
+ "corpus": "sammausberg--cairn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how SamMausberg/cairn implements it: CAIRN native language development (selected work: tests, evidence, tools)",
+ "repos": [
+  {
+   "repo": "cairn",
+   "url": "https://github.com/SamMausberg/cairn",
+   "sha": "43324bde297bec7ac696fd9e4174ca248b6bccad",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 43324bde297b: \"facts.py, Facts.lean and the audit read a product of two constants an\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

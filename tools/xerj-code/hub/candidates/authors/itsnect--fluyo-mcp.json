@@ -1,0 +1,22 @@
+{
+ "corpus": "itsnect--fluyo-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how itsnect/fluyo-mcp implements it: itsnect/fluyo-mcp (TypeScript) (selected work: test, scripts, src)",
+ "repos": [
+  {
+   "repo": "fluyo-mcp",
+   "url": "https://github.com/itsnect/fluyo-mcp",
+   "sha": "81ee6d49739542699f06c52778a697ffcba831e7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 81ee6d497395: \"feat: add MCP story arrival dependencies\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

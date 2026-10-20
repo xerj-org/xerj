@@ -1,0 +1,22 @@
+{
+ "corpus": "eclipse-opensovd--opensovd-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how eclipse-opensovd/opensovd-core implements it: OpenSOVD core containing Server, Client and Gateway (selected work: opensovd-server, opensovd-core, opensovd-mocks)",
+ "repos": [
+  {
+   "repo": "opensovd-core",
+   "url": "https://github.com/eclipse-opensovd/opensovd-core",
+   "sha": "87e543334745c5ba67a530a8708b8e62613da2d4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 87e543334745: \"feat: Implement SOVD logs resource (#209)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

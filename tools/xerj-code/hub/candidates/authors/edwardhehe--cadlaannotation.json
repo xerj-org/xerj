@@ -1,0 +1,22 @@
+{
+ "corpus": "edwardhehe--cadlaannotation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how Edwardhehe/CADLAAnnotation implements it: \u4e00\u4e2acad\u3001\u4e2d\u671bcad\u6279\u6ce8\u63d2\u4ef6 (selected work: src, src/Views)",
+ "repos": [
+  {
+   "repo": "CADLAAnnotation",
+   "url": "https://github.com/Edwardhehe/CADLAAnnotation",
+   "sha": "e5e5bfa2e7e0d35a2cfc79cd7657e3d67cac9e17",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit e5e5bfa2e7e0: \"feat: \u6bd4\u4f8b\u6309\u7a7a\u95f4\u81ea\u52a8\u5207\u6362\u8bf4\u660e\u4e0e\u8bbe\u7f6e\u9632\u4e22\u5931\uff1b\u4fee\u590d AutoCAD \u62d6\u62fd\u9884\u89c8\u65f6\u9690\u65f6\u73b0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "ayus1n9--threatlens",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on abuseipdb, cybersecurity, incident-response queries this for how ayus1n9/ThreatLens implements it: Threat Intelligence Enrichment and SOC Alert Automation Using Python, VirusTotal, and AbuseIPDB (selected work: src/soc_intel, tests)",
+ "repos": [
+  {
+   "repo": "ThreatLens",
+   "url": "https://github.com/ayus1n9/ThreatLens",
+   "sha": "329a157166cb178bca8bbdf2043c795521cf4e69",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 329a157166cb: \"fix(core): address critical audit findings, strengthen IP routability\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

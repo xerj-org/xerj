@@ -19,7 +19,7 @@ use std::time::{Duration, Instant};
 use anyhow::{bail, Result};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 /// State a Raft node can be in.
 #[derive(Debug, Clone, PartialEq)]
@@ -178,8 +178,22 @@ pub struct RaftNode {
 impl RaftNode {
     /// Create a new Raft node.
     ///
-    /// All nodes start as followers in term 0.
+    /// All nodes start as followers in term 0. A `peers` entry equal to this
+    /// node's own id is **excluded** (with a warning): the documented config
+    /// convention lists the full membership on every node, so a self entry is
+    /// expected in the input — but leaving it in made `cluster_size` one too
+    /// large (a 3-node ring computed majority = 3, i.e. unanimity — zero fault
+    /// tolerance) and had every node address its own RequestVote to itself,
+    /// counting its own vote twice (#1168).
     pub fn new(id: String, peers: Vec<String>) -> Self {
+        if peers.iter().any(|p| p == &id) {
+            warn!(
+                node = %id,
+                "peer list included this node's own id — excluded (self is not a peer: \
+                 cluster_size would be wrong and the node would count its own vote twice)"
+            );
+        }
+        let peers: Vec<String> = peers.into_iter().filter(|p| p != &id).collect();
         let election_timeout = Self::random_election_timeout();
         RaftNode {
             id,
@@ -412,6 +426,14 @@ impl RaftNode {
     /// Current Raft term.
     pub fn current_term(&self) -> u64 {
         self.current_term
+    }
+
+    /// The peer ids this node addresses (self already excluded — see
+    /// [`RaftNode::new`]). Exposed so a caller can assert the config-shape
+    /// fix (#1168): a membership list that included this node's own id must
+    /// not reach the state machine as a peer.
+    pub fn peers(&self) -> &[String] {
+        &self.peers
     }
 
     /// Current role.
@@ -885,6 +907,23 @@ mod tests {
             }
             deliver_messages(nodes, all_msgs);
         }
+    }
+
+    /// A membership list that includes this node's own id (the documented
+    /// full-membership config convention) must not reach the state machine as
+    /// a peer (#1168): self-in-peers made cluster_size 4 in a 3-node ring —
+    /// majority 3, i.e. unanimity, no fault tolerance — and had the node
+    /// grant its own RequestVote to itself, counting its own vote twice.
+    #[test]
+    fn test_self_is_excluded_from_peers() {
+        let node = RaftNode::new(
+            "n1".to_string(),
+            vec!["n1".to_string(), "n2".to_string(), "n3".to_string()],
+        );
+        assert_eq!(node.peers(), &["n2".to_string(), "n3".to_string()]);
+
+        // And the majority reflects the REAL cluster: 3 members → 2.
+        assert_eq!(node.majority(), 2);
     }
 
     #[test]

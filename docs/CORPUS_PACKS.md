@@ -23,7 +23,7 @@ Every statement below points at the code that makes it true:
 |---|---|
 | Pipeline orchestration, `corpus build` CLI | `engine/crates/xerj-autoindex/src/harvest/mod.rs` |
 | Recipe parsing + strict validation | `engine/crates/xerj-autoindex/src/harvest/recipe.rs` |
-| Source adapters (`dir`, `http-zip`, `git`) | `engine/crates/xerj-autoindex/src/harvest/source.rs` |
+| Source adapters (`dir`, `http-zip`, `http-json`, `git`) | `engine/crates/xerj-autoindex/src/harvest/source.rs` |
 | Input-format normalisation (`osv`, `rustsec-md`, `flat`) | `engine/crates/xerj-autoindex/src/harvest/normalize.rs` |
 | Content-addressed store (presence = dedup) | `engine/crates/xerj-autoindex/src/harvest/store.rs` |
 | Union-find identity resolution | `engine/crates/xerj-autoindex/src/harvest/identity.rs` |
@@ -32,7 +32,7 @@ Every statement below points at the code that makes it true:
 | ed25519 keygen / sign / verify | `engine/crates/xerj-autoindex/src/harvest/sign.rs` |
 | `corpus add --from <pack>` + `--verify-sig` | `engine/crates/xerj-autoindex/src/xc.rs` |
 | Claims pinned to a measured build | `engine/crates/xerj-autoindex/tests/pack_claims.rs` |
-| Showcase recipe + stats | `tools/packs/rust-vulns/` |
+| Showcase recipes + stats | `tools/packs/rust-vulns/`, `tools/packs/cisa-kev/` |
 | Scheduled build/sign/publish | `.github/workflows/pack-publish.yml` |
 
 ## Quick start
@@ -54,10 +54,11 @@ xerj corpus add rust-vulns --from ~/.xerj-code/builds/rust-vulns/pack/rust-vulns
 A recipe is a commented TOML file — licence reasoning belongs in comments, and
 the recipe ships verbatim inside the pack as provenance. Sections:
 
-- `[[sources]]` — `slug`, `kind` (`dir` | `http-zip` | `git`), `url`/`path`,
-  `format` (the normalisation adapter), `licence`, optional `glob` and
-  watermark. Sources are advisory-listed upstream trees, HTTP zip exports, or
-  git repos fetched shallow at a pinned ref.
+- `[[sources]]` — `slug`, `kind` (`dir` | `http-zip` | `http-json` | `git`),
+  `url`/`path`, `format` (the normalisation adapter), `licence`, optional
+  `glob`, `records_field` (to unwrap a top-level JSON object's array field), and
+  watermark. Sources are advisory-listed upstream trees, HTTP zip exports,
+  single-URL JSON feeds, or git repos fetched shallow at a pinned ref.
 - `[envelope]` — which normalised fields become the universal envelope:
   `id_from`, `title_from`, `body_join`, `defs_from`. `defs` (space-joined
   symbol paths) is what feeds `xerj code`'s definition search.

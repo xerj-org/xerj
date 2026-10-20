@@ -1,0 +1,22 @@
+{
+ "corpus": "kmgowda--sbk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on pravega, kafka, throughput queries this for how kmgowda/SBK implements it: Storage Benchmark Kit (selected work: sbk-api)",
+ "repos": [
+  {
+   "repo": "SBK",
+   "url": "https://github.com/kmgowda/SBK",
+   "sha": "14ad27238a7bd0de7d51fdd195b381e97ea79689",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 14ad27238a7b: \"Fix core reader, timestamp, and ramp correctness\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

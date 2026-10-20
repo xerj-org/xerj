@@ -1,0 +1,22 @@
+{
+ "corpus": "bitsagarob--shielded-btc-probe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Rust queries this for how bitsagarob/shielded-btc-probe implements it: Proof of concept of Shielded Bitcoin (private transfers on Bitcoin L1) proven on mainnet and signet. Insecure by design, not usable today (selected work: src/chain, tests, src)",
+ "repos": [
+  {
+   "repo": "shielded-btc-probe",
+   "url": "https://github.com/bitsagarob/shielded-btc-probe",
+   "sha": "6f1a952a9c2fc1c9aa5d4f2c4c8b2936991dadcb",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 6f1a952a9c2f: \"Put the chain behind a ChainSource trait and run every non-live test \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

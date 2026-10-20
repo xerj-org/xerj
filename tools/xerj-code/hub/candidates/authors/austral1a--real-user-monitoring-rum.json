@@ -1,0 +1,22 @@
+{
+ "corpus": "austral1a--real-user-monitoring-rum",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on expressjs, nodejs, real-user-monitoring queries this for how Austral1a/Real-User-Monitoring-RUM implements it: Real User Monitoring (RUM) tool. Svelte dashboard and express.js server (selected work: web, src, test)",
+ "repos": [
+  {
+   "repo": "Real-User-Monitoring-RUM",
+   "url": "https://github.com/Austral1a/Real-User-Monitoring-RUM",
+   "sha": "0bb6dd536e3e07dc0d23eadc5f098b828f8f0940",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 0bb6dd536e3e: \"rum: new features;\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -124,29 +124,32 @@ jobs:
           cp SHA256SUMS.sig "$RUNNER_TEMP/rust-vulns-SHA256SUMS.sig"
 
       # This repository has immutable releases, which make release tags
-      # SINGLE-USE: assets may only be uploaded before a release is published,
-      # and a tag that has named an immutable release can never name another —
-      # run 36358399114 got "Cannot create ref … / tag_name was used by an
-      # immutable release" trying to reuse the deleted first attempt's tag,
-      # and 36355121167 got "Cannot upload asset … to an immutable release"
-      # trying to upload after publish. So each build is its own dated
-      # release, published the way GitHub's error message prescribes:
-      #   1. compute pack-rust-vulns-YYYY-MM-DD (a tag never used before;
-      #      a same-day re-run deletes and recreates today's release first),
+      # SINGLE-USE: a tag that has named an immutable release can never name
+      # another — not even after the release is DELETED. Run 36358399114 hit
+      # "Cannot create ref … / tag_name was used by an immutable release"
+      # reusing a deleted tag, and run 37826006767 hit the same wall through
+      # the old "drop today's release and recreate it" re-run path: the
+      # delete SUCCEEDS, the recreate cannot. So:
+      #   1. pick the first tag nobody has used — the bare date, else -r2,
+      #      -r3, … (a published release or an existing ref is visible to
+      #      the picker; a tag burned by a deleted release is not, so the
+      #      publish step below retags past a refusal instead of failing),
       #   2. create it as a DRAFT and upload the assets to the draft,
       #   3. publish the draft (`release.published` fires).
-      # Yesterday's release is never touched: under immutable releases it is
-      # exactly the bytes that shipped, and the signature over SHA256SUMS
-      # pins them. A best-effort retention step keeps only the newest 7.
-      - name: Compute the daily tag
-        run: echo "PACK_TAG=pack-rust-vulns-$(date -u +%F)" >> "$GITHUB_ENV"
-
-      - name: Drop today's release if this is a same-day re-run
+      # Published releases are never deleted here; the signature over
+      # SHA256SUMS pins the bytes that shipped. A best-effort retention
+      # step keeps only the newest 7 (drafts included).
+      - name: Pick an unused release tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          gh release delete "$PACK_TAG" --repo "$GITHUB_REPOSITORY"
-          --cleanup-tag --yes || true
+        run: |
+          BASE="pack-rust-vulns-$(date -u +%F)"
+          TAG="$BASE"; N=1
+          while gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+             || gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; do
+            N=$((N + 1)); TAG="$BASE-r$N"
+          done
+          echo "PACK_TAG=$TAG" >> "$GITHUB_ENV"
 
       - name: Upload the assets to a draft release
         uses: softprops/action-gh-release@v2
@@ -159,7 +162,9 @@ jobs:
             The `rust-vulns` corpus pack, built and signed by the scheduled
             `pack publish` workflow from `tools/packs/rust-vulns/recipe.toml`.
 
-            One release per build day; the newest is always at
+            One release per build; under immutable releases a same-day
+            rebuild publishes under `-r2`, `-r3`, … instead of replacing
+            the day's earlier release. The newest is always at
             https://github.com/xerj-org/xerj/releases?q=pack-rust-vulns
             Build history lives in the releases themselves and in the
             workflow runs.
@@ -180,27 +185,47 @@ jobs:
             ${{ runner.temp }}/rust-vulns-freshness.json
 
       # Draft first, publish last: this is the step GitHub's own error
-      # message prescribes for immutable-release repositories.
-      - name: Publish the draft
+      # message prescribes for immutable-release repositories. A tag whose
+      # release was DELETED is burned with no queryable trace, so the
+      # picker cannot foresee the refusal — on "tag_name was used by an
+      # immutable release" we retag this draft to the next free -rN and
+      # publish that instead of failing the run (verified by hand on the
+      # 2026-10-08 rust-vulns repair).
+      - name: Publish the draft (retag past a burned tag if refused)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          gh release edit "$PACK_TAG" --repo "$GITHUB_REPOSITORY"
-          --draft=false
+        run: |
+          if gh release edit "$PACK_TAG" --repo "$GITHUB_REPOSITORY" --draft=false; then
+            exit 0
+          fi
+          RELID=$(gh api 'repos/$GITHUB_REPOSITORY/releases?per_page=100' --paginate \
+            --jq ".[] | select(.draft and .tag_name == \"$PACK_TAG\") | .id" | head -1)
+          if [ -z "$RELID" ]; then
+            echo "publish refused and no draft named $PACK_TAG found" >&2
+            exit 1
+          fi
+          N=1; NEW="$PACK_TAG"
+          while gh release view "$NEW" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+             || gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$NEW" >/dev/null 2>&1; do
+            N=$((N + 1)); NEW="$PACK_TAG-r$N"
+          done
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELID" \
+            -f tag_name="$NEW" -F draft=false
 
-      # Immutable releases allow deletion (verified by hand); tags sort
-      # lexicographically = chronologically. Best effort only — a retention
-      # failure must never cost the daily publish.
+      # Immutable releases allow deletion (verified by hand). Sort by
+      # created_at, not by tag: a same-day "-r2" suffix would break
+      # lexicographic date order. Drafts are included — an abandoned draft
+      # holds its tag forever under the picker above. Best effort only; a
+      # retention failure must never cost the publish.
       - name: Retire pack releases beyond the newest 7
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mapfile -t old < <(gh release list --repo "$GITHUB_REPOSITORY" \
-            --limit 100 --json tagName,isDraft \
-            --jq '[.[] | select(.tagName | startswith("pack-rust-vulns-"))
-                   | select(.isDraft | not) | .tagName]
-                  | sort | reverse | .[7:][]')
+          mapfile -t old < <(gh api 'repos/$GITHUB_REPOSITORY/releases?per_page=100' \
+            --paginate \
+            --jq '[.[] | select(.tag_name | startswith("pack-rust-vulns-"))]
+                  | sort_by(.created_at) | reverse | .[7:] | .[].tag_name')
           for tag in "${old[@]:-}"; do
             [ -n "$tag" ] && gh release delete "$tag" \
               --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
@@ -283,17 +308,20 @@ jobs:
           cp SHA256SUMS "$RUNNER_TEMP/agent-session-trajectories-SHA256SUMS"
           cp SHA256SUMS.sig "$RUNNER_TEMP/agent-session-trajectories-SHA256SUMS.sig"
 
-      # Same immutable-release protocol as the rust-vulns job above: each
-      # build is its own dated tag, uploaded to a draft, published last.
-      - name: Compute the daily tag
-        run: echo "PACK_TAG=pack-agent-session-trajectories-$(date -u +%F)" >> "$GITHUB_ENV"
-
-      - name: Drop today's release if this is a same-day re-run
+      # Same immutable-release protocol as the rust-vulns job above: pick
+      # the first unused tag (date, then -r2, -r3, …), upload to a draft,
+      # publish last, never delete a published release for a rebuild.
+      - name: Pick an unused release tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          gh release delete "$PACK_TAG" --repo "$GITHUB_REPOSITORY"
-          --cleanup-tag --yes || true
+        run: |
+          BASE="pack-agent-session-trajectories-$(date -u +%F)"
+          TAG="$BASE"; N=1
+          while gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+             || gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; do
+            N=$((N + 1)); TAG="$BASE-r$N"
+          done
+          echo "PACK_TAG=$TAG" >> "$GITHUB_ENV"
 
       - name: Upload the assets to a draft release
         uses: softprops/action-gh-release@v2
@@ -310,7 +338,9 @@ jobs:
             kept verbatim, built and signed by the `pack publish` workflow
             from `tools/packs/agent-session-trajectories/recipe.toml`.
 
-            One release per build day; the newest is always at
+            One release per build; under immutable releases a same-day
+            rebuild publishes under `-r2`, `-r3`, … instead of replacing
+            the day's earlier release. The newest is always at
             https://github.com/xerj-org/xerj/releases?q=pack-agent-session-trajectories
 
             Install (public key: `tools/packs/keys/agent-session-trajectories.pub` in the repo):
@@ -329,23 +359,48 @@ jobs:
             ${{ runner.temp }}/agent-session-trajectories-SHA256SUMS.sig
             ${{ runner.temp }}/agent-session-trajectories-freshness.json
 
-      - name: Publish the draft
+      # Draft first, publish last: this is the step GitHub's own error
+      # message prescribes for immutable-release repositories. A tag whose
+      # release was DELETED is burned with no queryable trace, so the
+      # picker cannot foresee the refusal — on "tag_name was used by an
+      # immutable release" we retag this draft to the next free -rN and
+      # publish that instead of failing the run (verified by hand on the
+      # 2026-10-08 rust-vulns repair).
+      - name: Publish the draft (retag past a burned tag if refused)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >
-          gh release edit "$PACK_TAG" --repo "$GITHUB_REPOSITORY"
-          --draft=false
+        run: |
+          if gh release edit "$PACK_TAG" --repo "$GITHUB_REPOSITORY" --draft=false; then
+            exit 0
+          fi
+          RELID=$(gh api 'repos/$GITHUB_REPOSITORY/releases?per_page=100' --paginate \
+            --jq ".[] | select(.draft and .tag_name == \"$PACK_TAG\") | .id" | head -1)
+          if [ -z "$RELID" ]; then
+            echo "publish refused and no draft named $PACK_TAG found" >&2
+            exit 1
+          fi
+          N=1; NEW="$PACK_TAG"
+          while gh release view "$NEW" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+             || gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$NEW" >/dev/null 2>&1; do
+            N=$((N + 1)); NEW="$PACK_TAG-r$N"
+          done
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELID" \
+            -f tag_name="$NEW" -F draft=false
 
+      # Immutable releases allow deletion (verified by hand). Sort by
+      # created_at, not by tag: a same-day "-r2" suffix would break
+      # lexicographic date order. Drafts are included — an abandoned draft
+      # holds its tag forever under the picker above. Best effort only; a
+      # retention failure must never cost the publish.
       - name: Retire pack releases beyond the newest 7
         continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mapfile -t old < <(gh release list --repo "$GITHUB_REPOSITORY" \
-            --limit 100 --json tagName,isDraft \
-            --jq '[.[] | select(.tagName | startswith("pack-agent-session-trajectories-"))
-                   | select(.isDraft | not) | .tagName]
-                  | sort | reverse | .[7:][]')
+          mapfile -t old < <(gh api 'repos/$GITHUB_REPOSITORY/releases?per_page=100' \
+            --paginate \
+            --jq '[.[] | select(.tag_name | startswith("pack-agent-session-trajectories-"))]
+                  | sort_by(.created_at) | reverse | .[7:] | .[].tag_name')
           for tag in "${old[@]:-}"; do
             [ -n "$tag" ] && gh release delete "$tag" \
               --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes

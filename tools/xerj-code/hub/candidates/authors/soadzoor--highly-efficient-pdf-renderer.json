@@ -1,0 +1,22 @@
+{
+ "corpus": "soadzoor--highly-efficient-pdf-renderer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how soadzoor/Highly-Efficient-PDF-Renderer implements it: Efficiently render PDFs on the GPU (selected work: scripts, src)",
+ "repos": [
+  {
+   "repo": "Highly-Efficient-PDF-Renderer",
+   "url": "https://github.com/soadzoor/Highly-Efficient-PDF-Renderer",
+   "sha": "8d41b7bd2df018fc126fec346ebcc09b7d27ee5a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8d41b7bd2df0: \"perf: accelerate analytic fills and add vector comparisons\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

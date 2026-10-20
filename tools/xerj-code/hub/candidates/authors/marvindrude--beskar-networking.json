@@ -1,0 +1,22 @@
+{
+ "corpus": "marvindrude--beskar-networking",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on csharp, low-allocation, net queries this for how MarvinDrude/Beskar.Networking implements it: A high-performance, low-allocation networking stack for modern .NET. Provides unified, pipeline-based abstractions for TCP, WebSockets, QUIC (selected work: Beskar.Networking.Transports.Common, Beskar.Networking.Transports.Ws, the project root)",
+ "repos": [
+  {
+   "repo": "Beskar.Networking",
+   "url": "https://github.com/MarvinDrude/Beskar.Networking",
+   "sha": "962320660a0a5ce5602d9c7d102e4ba9de13a5f8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 962320660a0a: \"Rework socket sender and boost single echo messages. More granular me\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

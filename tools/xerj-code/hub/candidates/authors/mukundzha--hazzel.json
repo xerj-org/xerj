@@ -1,0 +1,22 @@
+{
+ "corpus": "mukundzha--hazzel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cli, llm, ollama queries this for how mukundzha/hazzel implements it: A terminal coding agent you can actually read \u2014 every change shown as a diff before it touches disk (selected work: src/hazzel, tests)",
+ "repos": [
+  {
+   "repo": "hazzel",
+   "url": "https://github.com/mukundzha/hazzel",
+   "sha": "aefe234fac7091ed985413812a7f32a6b5345d73",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit aefe234fac70: \"speed: stop wasting model calls, and four latency bugs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

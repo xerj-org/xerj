@@ -1,0 +1,22 @@
+{
+ "corpus": "tronschell--statusline-sh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how tronschell/statusline.sh implements it: A visual builder for Claude Code statuslines. Design the bar at the bottom of your terminal in the browser, then paste one command to instal (selected work: src/frontend, worker, test)",
+ "repos": [
+  {
+   "repo": "statusline.sh",
+   "url": "https://github.com/tronschell/statusline.sh",
+   "sha": "13642970e82846cb45e9b460f1a01b4532923990",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 13642970e828: \"Account UI polish, billing hardening, test-mode worker\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

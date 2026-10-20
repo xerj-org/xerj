@@ -1,0 +1,22 @@
+{
+ "corpus": "zaras123--qqmusic-plugin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how zaras123/qqmusic-plugin implements it: \u4e00\u4e2a\u89e3\u6790\u70b9\u6b4cXX\u97f3\u4e50\u529f\u80fd\u7684\u4e91\u5d3d\u63d2\u4ef6 (selected work: utils, scripts, apps)",
+ "repos": [
+  {
+   "repo": "qqmusic-plugin",
+   "url": "https://github.com/zaras123/qqmusic-plugin",
+   "sha": "60c20dee98641a57bf4b7b0663f49baab59cac98",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 60c20dee9864: \"feat(stats): \u672c\u5730\u542c\u6b4c\u65f6\u957f\u7edf\u8ba1\u4e0e\u53ea\u8bfb\u52cb\u7ae0\u8fdb\u5ea6\u67e5\u8be2\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

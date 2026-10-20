@@ -1,0 +1,22 @@
+{
+ "corpus": "hamzahassanm--laravel-social-auto-post",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how HamzaHassanM/laravel-social-auto-post implements it: A Laravel package for automatic social media posting across 8 major platforms using a unified API (selected work: src/Services, tests, src/Utils)",
+ "repos": [
+  {
+   "repo": "laravel-social-auto-post",
+   "url": "https://github.com/HamzaHassanM/laravel-social-auto-post",
+   "sha": "50b60848854fd507de2268a17dcd45c7faa44ed2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 50b60848854f: \"Fix SSRF vulnerabilities, refactor SafeMediaFetcher, and improve retr\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -143,6 +143,24 @@ const KNOWN: &[(&str, Role)] = &[
     // client (xerj-mcp/src/lib.rs, already classified); only its unit tests
     // construct one, to point at an unroutable address.
     ("xerj-mcp/src/map.rs", Role::TestOnly),
+    // Corpus Hub v2 (discussion #1374): `xerj hub …` and `xerj code --def` are
+    // command-line clients in the same binary; both run and exit before the
+    // server starts (xerj-server/src/main.rs), so a default node opens none of
+    // these. catalogue.rs and cli.rs's `fetch_to` are `xerj hub pull`'s two
+    // read-only fetches (signed catalogue + sig, then the one pack + sig) from
+    // XERJ_HUB_URL, default https://hub.xerj.org: records travel IN, and no
+    // document text, query text or credential goes up, so — as with `xerj
+    // corpus build` — DATA_EGRESS and the air-gapped rows do not change.
+    // node.rs's HubNode is the node-URL client (`--url`, XERJ_URL, else
+    // localhost:9200) behind `build-pack`, `pull` and `code --def`.
+    // NOT covered here: the hosted-answer client of plan §5-§6
+    // (docs/CORPUS_HUB_V2_IMPLEMENTATION.md). It sends the user's question to
+    // the hub, so it needs its own published row, DATA_EGRESS sentence and
+    // air-gapped row — even if it reuses HubNode, which this file-level scan
+    // cannot tell apart from a call to a local node.
+    ("xerj-hub/src/catalogue.rs", Role::Client("`xerj hub pull`")),
+    ("xerj-hub/src/cli.rs", Role::Client("`xerj hub pull`")),
+    ("xerj-hub/src/node.rs", Role::Client("`xerj hub`")),
 ];
 
 /// Phrasings that were false and must not come back on a published surface.

@@ -1,0 +1,22 @@
+{
+ "corpus": "romanvht--byebyedpi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, byedpi queries this for how romanvht/ByeByeDPI implements it: \u041f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438\u0435 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e \u0437\u0430\u043f\u0443\u0441\u043a\u0430\u0435\u0442 ByeDPI \u0438 \u043f\u0435\u0440\u0435\u043d\u0430\u043f\u0440\u0430\u0432\u043b\u044f\u0435\u0442 \u0432\u0435\u0441\u044c \u0442\u0440\u0430\u0444\u0438\u043a \u0447\u0435\u0440\u0435\u0437 \u043d\u0435\u0433\u043e (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "ByeByeDPI",
+   "url": "https://github.com/romanvht/ByeByeDPI",
+   "sha": "8e3a3cba204389530b78793da0ef9a23258ddb1f",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8e3a3cba2043: \"move test proxy to service, update service manager\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

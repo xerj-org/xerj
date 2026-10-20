@@ -1,0 +1,22 @@
+{
+ "corpus": "aaron-gh--accessible-android-emulator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how aaron-gh/accessible-android-emulator implements it: Create, run and test Android virtual devices without sighted help: a screen reader from first boot, the full keyboard, and dependable audio (selected work: crates/aae-core, googlebook, crates/aae-ffi)",
+ "repos": [
+  {
+   "repo": "accessible-android-emulator",
+   "url": "https://github.com/aaron-gh/accessible-android-emulator",
+   "sha": "15831c4d2514ac603df664f1c429b5157d3ec923",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 15831c4d2514: \"Googlebook devices: Googlebook OS in a QEMU virtual machine\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

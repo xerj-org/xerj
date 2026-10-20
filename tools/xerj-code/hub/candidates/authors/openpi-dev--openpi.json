@@ -1,0 +1,22 @@
+{
+ "corpus": "openpi-dev--openpi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how openpi-dev/openpi implements it: The setup I use for pi. Changes a ton, don't recommend hard copying it, just a taste of what's possible with it (selected work: tests, web)",
+ "repos": [
+  {
+   "repo": "openpi",
+   "url": "https://github.com/openpi-dev/openpi",
+   "sha": "245de296454e9c6d8345cfa3a1883f29457d6b34",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 245de296454e: \"fix(web): bind copied session selection to file identity (#584)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

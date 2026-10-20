@@ -20,6 +20,7 @@ fn dataset(slug: &str) -> PlanDataset {
         time_field: None,
         semantic_field: None,
         text_analyzer: None,
+        scope: None,
         sampled_records: 1,
         file_count: 0,
     }

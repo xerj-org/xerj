@@ -1,0 +1,22 @@
+{
+ "corpus": "snuri00--psp-web-recomp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on emscripten, god-of-war, psp queries this for how snuri00/psp-web-recomp implements it: PSP games in the browser, static recompilation to WebAssembly, an HLE kernel and a WebGL2 renderer (selected work: profile)",
+ "repos": [
+  {
+   "repo": "psp-web-recomp",
+   "url": "https://github.com/snuri00/psp-web-recomp",
+   "sha": "95d088239cfb09c22fe4ee9d98671ede371f2a4b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 95d088239cfb: \"Save and load game progress, fix audio and texture stutter\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

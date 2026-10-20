@@ -1,0 +1,22 @@
+{
+ "corpus": "trygerz--voxitype",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how TrygerZ/VoxiType implements it: Free & open-source voice-to-text desktop app. Real-time speech-to-text with AI formatting, global hotkey, and text injection into any applic (selected work: src-tauri)",
+ "repos": [
+  {
+   "repo": "VoxiType",
+   "url": "https://github.com/TrygerZ/VoxiType",
+   "sha": "048a05ce1e31dce7f3ea51dc8d11f60f3a5bb5ad",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 048a05ce1e31: \"fix(storage): dedupe dictionary words case-insensitively with a NOCAS\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

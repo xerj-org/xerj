@@ -1,0 +1,22 @@
+{
+ "corpus": "krutftw--ramraccoon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, codex, developer-tools queries this for how krutftw/ramraccoon implements it: Local memory diagnostics for humans and coding agents. Read-only by default, with explicitly approved Codex recovery (selected work: skills, tests, evidence)",
+ "repos": [
+  {
+   "repo": "ramraccoon",
+   "url": "https://github.com/krutftw/ramraccoon",
+   "sha": "b901dd1c525e67645ea0f4299369a94e431c0c1a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit b901dd1c525e: \"Improve cross-platform diagnostics and recovery evidence\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

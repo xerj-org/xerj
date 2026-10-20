@@ -1,0 +1,22 @@
+{
+ "corpus": "gguatit--anonymous-chat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on JavaScript queries this for how gguatit/Anonymous_Chat implements it: Anonymous_Chat\ub294 \uc0ac\uc6a9\uc790 \uacc4\uc815 \uc5c6\uc774 \uc775\uba85\uc73c\ub85c \uc989\uc2dc \ub300\ud654\ubc29\uc5d0 \ucc38\uc5ec\ud574 \uc2e4\uc2dc\uac04\uc73c\ub85c \uba54\uc2dc\uc9c0\ub97c \uc8fc\uace0\ubc1b\uc744 \uc218 \uc788\ub294 \uacbd\ub7c9 \uc6f9 \ucc44\ud305 \uc560\ud50c\ub9ac\ucf00\uc774\uc158\uc785\ub2c8\ub2e4. \ub0ae\uc740 \uc9c0\uc5f0\uc758 WebSocket \uae30\ubc18 \uc2e4\uc2dc\uac04 \ud1b5\uc2e0\uc744 \ud1b5\ud574 \uac04\ud3b8\ud55c \ucc44\ud305\ubc29 \uae30\ub2a5\uc744 \uc81c\uacf5\ud558\uace0, \uac1c\uc778 \uc815\ubcf4 \uc218\uc9d1 (selected work: src/durable-objects, test, src/handlers)",
+ "repos": [
+  {
+   "repo": "Anonymous_Chat",
+   "url": "https://github.com/gguatit/Anonymous_Chat",
+   "sha": "e57e898a5187fea7dc0a1277f1df49ab668ff025",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit e57e898a5187: \"fix: \uacf5\uc9c0\uc0ac\ud56d\uc744 D1\uc5d0 \uc601\uad6c\uc800\uc7a5\uc73c\ub85c \uc804\ud658 \u2014 DO \uc800\uc7a5 \ud55c\ub3c4\ub85c \uc778\ud55c \uacf5\uc9c0 \uc720\uc2e4 \uc218\uc815\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "wolfenazz--yzpzcode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agent, ai-tools queries this for how wolfenazz/YzPzCode implements it: YzPzCode - The Unified Workspace for AI Coding Agents (selected work: app/src, app/src-tauri, app/scripts)",
+ "repos": [
+  {
+   "repo": "YzPzCode",
+   "url": "https://github.com/wolfenazz/YzPzCode",
+   "sha": "9a1955c104f251dd8894cd62ce87146c47a89f6c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 9a1955c104f2: \"feat: JCode agent support, terminal lifecycle fixes and theme improve\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

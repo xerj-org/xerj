@@ -1,0 +1,22 @@
+{
+ "corpus": "bigboss248--tool-box",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on automation, bash-script, dns-over-https queries this for how BIGboss248/Tool-box implements it: A collection of useful open-source tools deployable on VPS or your home lab (selected work: traefik, the project root)",
+ "repos": [
+  {
+   "repo": "Tool-box",
+   "url": "https://github.com/BIGboss248/Tool-box",
+   "sha": "7e7019571c145e5fca1f3767d4478aced0968c5d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 7e7019571c14: \"traefik setup\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

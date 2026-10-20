@@ -1,0 +1,22 @@
+{
+ "corpus": "eeeeeaeon--egocore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how eeeeeAeoN/EgoCore implements it: Designed to replace aging legacy modding tools like Fable Explorer or Chocolate Box, EgoCore is an all-in-one asset manager, binary archive  (selected work: EgoCore)",
+ "repos": [
+  {
+   "repo": "EgoCore",
+   "url": "https://github.com/eeeeeAeoN/EgoCore",
+   "sha": "300f949a5d212df0493ae5e167a0b23bd1e45b6e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 300f949a5d21: \"Lipsync renderer. Configurable renderer background colour.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

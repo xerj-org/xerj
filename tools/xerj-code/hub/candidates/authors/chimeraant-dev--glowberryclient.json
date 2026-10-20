@@ -1,0 +1,22 @@
+{
+ "corpus": "chimeraant-dev--glowberryclient",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on levilaunchroid, minecraft-clientside, minecraft-serverside queries this for how ChimeraAnt-DEV/GlowberryClient implements it: Originally ChimeraLauncher/ChimeraClient, GlowberryClient is a advanced Minecraft client made for mod loading with its own native .AntEgg mo (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "GlowberryClient",
+   "url": "https://github.com/ChimeraAnt-DEV/GlowberryClient",
+   "sha": "cde6d8700c5f0b2dd5d846556e8c84a669b39a01",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit cde6d8700c5f: \"Cosmetics: real Java->native frame pipeline; fix cursed pet rig\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

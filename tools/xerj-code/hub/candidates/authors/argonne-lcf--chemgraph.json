@@ -1,0 +1,22 @@
+{
+ "corpus": "argonne-lcf--chemgraph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, chemistry, materials-science queries this for how argonne-lcf/ChemGraph implements it: Agentic framework for computational chemistry and materials science workflows (selected work: src/chemgraph, tests)",
+ "repos": [
+  {
+   "repo": "ChemGraph",
+   "url": "https://github.com/argonne-lcf/ChemGraph",
+   "sha": "09c62ffb5e54b5b70b8ebefde65c68ed518b5095",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 09c62ffb5e54: \"fix: preserve normalized main-agent execution context across restart\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

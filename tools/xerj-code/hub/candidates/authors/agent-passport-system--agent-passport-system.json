@@ -1,0 +1,22 @@
+{
+ "corpus": "agent-passport-system--agent-passport-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, delegation, ed25519 queries this for how agent-passport-system/agent-passport-system implements it: Open protocol and TypeScript SDK for AI agent authority: identity, scoped delegation, enforcement before the action, and signed receipts (selected work: tests, src/v2)",
+ "repos": [
+  {
+   "repo": "agent-passport-system",
+   "url": "https://github.com/agent-passport-system/agent-passport-system",
+   "sha": "67bc6c2aa7090a52b5f69a5391f59b076247179b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 67bc6c2aa709: \"Check Cycles receipt to envelope correspondence for permits and releases\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

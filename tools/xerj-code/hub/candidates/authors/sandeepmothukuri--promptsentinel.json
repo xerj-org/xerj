@@ -1,0 +1,22 @@
+{
+ "corpus": "sandeepmothukuri--promptsentinel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on ai-security, jailbreak-detection, llm-security queries this for how sandeepmothukuri/PromptSentinel implements it: Enterprise-grade prompt injection detection and AI firewall for LLM applications (selected work: api, scripts, tests)",
+ "repos": [
+  {
+   "repo": "PromptSentinel",
+   "url": "https://github.com/sandeepmothukuri/PromptSentinel",
+   "sha": "a492d2da65a77c0f6f180530edbdbfb8062320b9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit a492d2da65a7: \"feat(api): add interactive Security Operations Console Web Dashboard \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

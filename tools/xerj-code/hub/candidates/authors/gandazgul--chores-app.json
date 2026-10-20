@@ -1,0 +1,22 @@
+{
+ "corpus": "gandazgul--chores-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on TypeScript queries this for how gandazgul/chores-app implements it: A chores app built with SolidJS and Firebase. It allows users to manage household chores, assign them to family members, and track completio (selected work: src/notifications, src/pages, src/components)",
+ "repos": [
+  {
+   "repo": "chores-app",
+   "url": "https://github.com/gandazgul/chores-app",
+   "sha": "dd64251a12542a78bb500a23b0454ecd36abddec",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit dd64251a1254: \"Add Pushover notifications and private account settings\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

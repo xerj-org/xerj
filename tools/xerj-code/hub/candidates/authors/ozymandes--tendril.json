@@ -1,0 +1,22 @@
+{
+ "corpus": "ozymandes--tendril",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, android, cli queries this for how Ozymandes/TENDRIL implements it: A mobile control plane for persistent AI agents over Tailscale, Mosh, Herdr and ntfy (selected work: tests, bin, the project root)",
+ "repos": [
+  {
+   "repo": "TENDRIL",
+   "url": "https://github.com/Ozymandes/TENDRIL",
+   "sha": "16980a7e6b473b06ad8ed91d43ff5fd15017c647",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 16980a7e6b47: \"feat(setup): two-command upgrades \u2014 phone channel (tendril --upgrade \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

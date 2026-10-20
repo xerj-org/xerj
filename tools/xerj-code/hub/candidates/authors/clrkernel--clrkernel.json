@@ -1,0 +1,22 @@
+{
+ "corpus": "clrkernel--clrkernel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on C# queries this for how ClrKernel/ClrKernel implements it: Notebooks as plain markdown (.nb.md) so they diff and review like source code. Runs your existing .ipynb and .dib too. C# on Roslyn, SQL, DA (selected work: src/ClrKernel.Studio, test)",
+ "repos": [
+  {
+   "repo": "ClrKernel",
+   "url": "https://github.com/ClrKernel/ClrKernel",
+   "sha": "2483e4e2ad38f5958343b9b1f946134bf56c8851",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 2483e4e2ad38: \"Feature/cell run keys (#45)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

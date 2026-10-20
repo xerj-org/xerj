@@ -1,0 +1,22 @@
+{
+ "corpus": "dorrmant--tiktok-streak-control-center",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how dorrmant/tiktok-streak-control-center implements it: Neon control panel for a TikTok streak bot: terminal menu, PC and phone dashboards, live logs. Made by Dorrmant (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "tiktok-streak-control-center",
+   "url": "https://github.com/dorrmant/tiktok-streak-control-center",
+   "sha": "ddb80fdfef0a9a61e51ace63d0209676c69dda17",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ddb80fdfef0a: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

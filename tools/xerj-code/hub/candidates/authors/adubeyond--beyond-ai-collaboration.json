@@ -1,0 +1,22 @@
+{
+ "corpus": "adubeyond--beyond-ai-collaboration",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-workflow, ai-agents, ai-engineering queries this for how adubeyond/beyond-ai-collaboration implements it: AI project collaboration for Codex Desktop: one or multiple PMs, policy-based model selection and stage-wise upgrades/downgrades, continuous (selected work: scripts, \u6a21\u677f\u4ea4\u4ed8\u5305)",
+ "repos": [
+  {
+   "repo": "beyond-ai-collaboration",
+   "url": "https://github.com/adubeyond/beyond-ai-collaboration",
+   "sha": "f78416b0d730e27b053eaa35a3887b1f65e86605",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f78416b0d730: \"Retry only atomic receipt replacement and verify release regression\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "tr0drigues--tactilebar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on developer-tools, dieter-rams, macos queries this for how tr0drigues/TactileBar implements it: \ud83c\udf9b\ufe0f Precision Menu Bar Telemetry & 26-Switch Industrial Command Deck for macOS (Swift 6, Zero Dependencies, Mach Kernel CPU/RAM, IOBluetooth, (selected work: Sources)",
+ "repos": [
+  {
+   "repo": "TactileBar",
+   "url": "https://github.com/tr0drigues/TactileBar",
+   "sha": "dd294324683fbb257eac1980956ac56407637e39",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit dd294324683f: \"feat(ui): add concentric telemetry dial, live disk telemetry, and bes\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

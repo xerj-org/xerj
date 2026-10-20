@@ -1,0 +1,22 @@
+{
+ "corpus": "galaxy-rio--gracelauncher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how Galaxy-rio/GraceLauncher implements it: An open-source Android launcher inspired by the design of Niagara Launcher (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "GraceLauncher",
+   "url": "https://github.com/Galaxy-rio/GraceLauncher",
+   "sha": "0b843a02af5aebc9914a97153244007568b68e42",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 0b843a02af5a: \"\u641c\u7d22\u4e0b\u62c9\u5173\u95ed\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

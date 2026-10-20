@@ -1,0 +1,22 @@
+{
+ "corpus": "tpluharik--tuxindrive",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on android, cloud-storage, desktop-app queries this for how tpluharik/Tuxindrive implements it: Open-source multicloud sync, streaming, search and encrypted collaboration for Linux, Windows, macOS and Android (selected work: tests, src/tuxindrive, packaging)",
+ "repos": [
+  {
+   "repo": "Tuxindrive",
+   "url": "https://github.com/tpluharik/Tuxindrive",
+   "sha": "a5dc5b5c9b26869c09cb0859f805bb89bdda637b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit a5dc5b5c9b26: \"Fix credential helper hangs and backup filter ordering; release 0.26.69\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

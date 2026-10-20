@@ -1,0 +1,22 @@
+{
+ "corpus": "shaarkys--com-xiaomi-miio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on homey, homeyapp, xiaomi queries this for how shaarkys/com.xiaomi-miio implements it: Homey app to control Mi Home devices that implement the miIO protocol and Xiaomi gateway child devices (selected work: test, drivers)",
+ "repos": [
+  {
+   "repo": "com.xiaomi-miio",
+   "url": "https://github.com/shaarkys/com.xiaomi-miio",
+   "sha": "dd829a771a83ef9868ff730c4256cc3ee5a5e9a4",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit dd829a771a83: \"Fixed Roborock S5 polling recovery to prevent repeated reconnects and\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

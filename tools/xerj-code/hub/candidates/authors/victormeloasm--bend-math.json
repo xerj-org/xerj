@@ -1,0 +1,22 @@
+{
+ "corpus": "victormeloasm--bend-math",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how victormeloasm/bend-math implements it: Adds a comprehensive F32 math library to Bend, modeled after the C math.h API and adapted to Bend's current numeric type system (selected work: patches, backend, src)",
+ "repos": [
+  {
+   "repo": "bend-math",
+   "url": "https://github.com/victormeloasm/bend-math",
+   "sha": "109775be451e94e7cfecd71bfcad0458eb349f60",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 109775be451e: \"feat: add comprehensive Bend F32 math library\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

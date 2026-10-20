@@ -1,0 +1,22 @@
+{
+ "corpus": "kokikwbt--predictive-maintenance",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on ai-engineering, machine-learning, predictive-maintenance queries this for how kokikwbt/predictive-maintenance implements it: Datasets for Predictive Maintenance (selected work: pdmdata, tests, scripts)",
+ "repos": [
+  {
+   "repo": "predictive-maintenance",
+   "url": "https://github.com/kokikwbt/predictive-maintenance",
+   "sha": "6a15199fcbc0dfd0cf5e708ea9dd920e863f96ea",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 6a15199fcbc0: \"Add checksum-verified ALPI downloads and raw event loader\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "notcorwin--codex-credit-bar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how notCorwin/Codex-Credit-Bar implements it: \u5728\u83dc\u5355\u680f\u663e\u793a Codex \u5269\u4f59\u989d\u5ea6\u3002 (selected work: Tests, Sources)",
+ "repos": [
+  {
+   "repo": "Codex-Credit-Bar",
+   "url": "https://github.com/notCorwin/Codex-Credit-Bar",
+   "sha": "97d8471e3e0dd4032fa1e1a68ca4bf17df5bb14e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 97d8471e3e0d: \"Adopt manifest-based automatic updates\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

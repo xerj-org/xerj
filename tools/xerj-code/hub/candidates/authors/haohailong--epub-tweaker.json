@@ -1,0 +1,22 @@
+{
+ "corpus": "haohailong--epub-tweaker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how haohailong/EPUB-Tweaker implements it: Privacy-first PWA for repairing and fine-tuning EPUB files locally (selected work: src)",
+ "repos": [
+  {
+   "repo": "EPUB-Tweaker",
+   "url": "https://github.com/haohailong/EPUB-Tweaker",
+   "sha": "893893590f82d864496b14af531d4d003868d198",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 893893590f82: \"Avoid redundant EPUB reprocessing\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

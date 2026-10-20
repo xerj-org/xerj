@@ -1,0 +1,22 @@
+{
+ "corpus": "sst-community--sst",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how sst-community/sst implements it: Community-maintained fork of SST (anomalyco/sst). Not affiliated with SST or Anomaly (selected work: packages/svelte-kit-sst)",
+ "repos": [
+  {
+   "repo": "sst",
+   "url": "https://github.com/sst-community/sst",
+   "sha": "5ec1341607f7c03b623e2fb753cba8a2879c5d65",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 5ec1341607f7: \"svelte-kit-sst: add the adapter, for SvelteKit 2 and 3 (#6)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

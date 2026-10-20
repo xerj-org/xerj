@@ -1,0 +1,22 @@
+{
+ "corpus": "nujievik--mux-media",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how nujievik/mux-media implements it: CLI utility to mux (merge) video, audio, and subtitles (selected work: dockerfiles, the project root)",
+ "repos": [
+  {
+   "repo": "mux-media",
+   "url": "https://github.com/nujievik/mux-media",
+   "sha": "b8298054a0bcd604489db7085f966fc883dad409",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b8298054a0bc: \"Update Linux prebuilds building\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

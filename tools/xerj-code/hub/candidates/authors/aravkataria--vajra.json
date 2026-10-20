@@ -1,0 +1,22 @@
+{
+ "corpus": "aravkataria--vajra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on finder, fine-tuning, llm queries this for how Aravkataria/VAJRA implements it: VAJRA \u2014 Vulnerability Analysis, Judgment, Repair & Assurance (selected work: backend, vajra_bot, hf_space)",
+ "repos": [
+  {
+   "repo": "VAJRA",
+   "url": "https://github.com/Aravkataria/VAJRA",
+   "sha": "d34788ce3d05698ba17058381acd976ff37961d3",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit d34788ce3d05: \"fix(bot): verify and align autopilot task detectors; style: remove al\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

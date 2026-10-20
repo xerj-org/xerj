@@ -61,12 +61,35 @@ pub struct ResourceGovernor {
     // ── item 1: RSS admission watermark ─────────────────────────────────
     /// Effective process memory limit (cgroup limit, else system RAM).
     memory_limit_bytes: u64,
-    /// RSS admission threshold = `memory_limit_bytes * pct/100`. `0` = off.
-    memory_watermark_bytes: u64,
+    /// Uncapped machine/cgroup memory the process can see — the base a
+    /// percentage override is taken against and the hard ceiling an absolute
+    /// override is clamped to. Distinct from `memory_limit_bytes`, which is the
+    /// AUTO-tier *capped* value (e.g. 16 GiB on a 119 GiB box): a live override
+    /// exists precisely to climb past that conservative cap, so it must be able
+    /// to reach up to real machine memory, never just a fraction of the cap.
+    machine_memory_bytes: u64,
+    /// Boot-derived RSS admission threshold = `memory_limit_bytes * pct/100`.
+    /// `0` = the watermark was disabled at startup and stays disabled; a runtime
+    /// override is then a no-op (see [`Self::set_memory_watermark_override`]).
+    memory_watermark_bytes_default: u64,
+    /// Effective RSS admission threshold engaging the parent breaker —
+    /// `memory_watermark_bytes_default` unless overridden at runtime via the
+    /// `indices.breaker.total.limit` persistent cluster setting (see
+    /// [`Self::set_memory_watermark_override`]), which lets an operator raise
+    /// the watermark on a big box without a restart — the live equivalent of
+    /// the boot-only `XERJ_MAX_PROCESS_MEMORY_MB`. `0` = off.
+    memory_watermark_bytes: AtomicU64,
     /// Last sampled resident set size of this process.
     rss_bytes: AtomicU64,
     /// Latched: last sample crossed the RSS watermark.
     memory_tripped: AtomicBool,
+    /// The effective watermark in force when the breaker last engaged (#1250).
+    /// The release hysteresis is only meaningful against the watermark that
+    /// tripped; when an operator re-tunes the watermark live
+    /// (`indices.breaker.total.limit`, #1323) the latch is re-evaluated
+    /// against the new value without the band, so a live raise releases at
+    /// once instead of waiting for RSS to fall 5% below the NEW watermark.
+    memory_trip_watermark: AtomicU64,
 
     // ── item 1: per-query memory guard (`max_query_memory_mb`) ──────────
     /// Maximum bytes a single query may be estimated to allocate. `0` = off.
@@ -105,6 +128,10 @@ pub struct ResourceGovernor {
     /// lets an operator clear/relax the block without a restart, matching
     /// ES's `PUT _cluster/settings` recovery flow.
     disk_flood_pct: AtomicU8,
+    /// `false` while the `cluster.routing.allocation.disk.threshold_enabled`
+    /// cluster setting is `false`: the flood stage never engages, and an
+    /// engaged block is released on the next sample, as in ES.
+    disk_threshold_enabled: AtomicBool,
     /// Latched: the data-dir filesystem is at/over the flood-stage watermark.
     disk_blocked: AtomicBool,
     /// Last sampled used-percentage of the data-dir filesystem.
@@ -130,12 +157,23 @@ impl ResourceGovernor {
         }
         if self.memory_tripped.load(Ordering::Relaxed) {
             let rss = self.rss_bytes.load(Ordering::Relaxed);
+            let watermark = self.memory_watermark_bytes.load(Ordering::Relaxed);
+            // Inside the release band (#1250) RSS is already under the
+            // watermark while the drain finishes; say so rather than print a
+            // false `>=`.
+            let relation = if rss >= watermark {
+                ">="
+            } else {
+                "draining below"
+            };
             return Err(XerjError::circuit_breaking(format!(
-                "[parent] real memory circuit breaker tripped: rss={}MB >= watermark={}MB \
-                 ({}% of limit={}MB); writes rejected to prevent an out-of-memory kill",
+                "[parent] real memory circuit breaker tripped: rss={}MB {relation} watermark={}MB \
+                 ({}% of limit={}MB); writes rejected to prevent an out-of-memory kill \
+                 (raise it live with PUT _cluster/settings {{\"persistent\":\
+                 {{\"indices.breaker.total.limit\":\"<N>gb\"}}}})",
                 rss / (1024 * 1024),
-                self.memory_watermark_bytes / (1024 * 1024),
-                pct_of(self.memory_watermark_bytes, self.memory_limit_bytes),
+                watermark / (1024 * 1024),
+                pct_of(watermark, self.memory_limit_bytes),
                 self.memory_limit_bytes / (1024 * 1024),
             )));
         }
@@ -150,6 +188,31 @@ impl ResourceGovernor {
     /// re-hydratable data make progress.
     pub fn memory_breaker_engaged(&self) -> bool {
         self.memory_tripped.load(Ordering::Relaxed)
+    }
+
+    /// Whether it is safe to spawn a helper thread right now (#1122).
+    ///
+    /// `std::thread::Builder::spawn` **panics** — it does not return `Err` —
+    /// when the new thread's alternate signal stack cannot be mmap'd under
+    /// memory exhaustion, and the shipped profile is `panic = "abort"`, so one
+    /// ENOMEM at spawn time aborts the whole node. Callers on flush/publish
+    /// paths that have an inline fallback must check this and take the
+    /// fallback instead of spawning.
+    ///
+    /// Reads the *live* RSS (`current_rss_bytes`), not the sampler's last
+    /// value, so an RSS spike between samples cannot sneak a spawn through;
+    /// the engaged breaker flag is the second, sampled signal. With no RSS
+    /// probe or no configured watermark this returns `true` — spawning is
+    /// unrestricted, exactly the pre-#1122 behaviour.
+    pub fn thread_spawn_safe(&self) -> bool {
+        if self.memory_breaker_engaged() {
+            return false;
+        }
+        let watermark = self.memory_watermark_bytes.load(Ordering::Relaxed);
+        if watermark == 0 {
+            return true;
+        }
+        current_rss_bytes() < watermark
     }
 
     /// Disk flood-stage admission. Returns an ES-shaped
@@ -188,6 +251,42 @@ impl ResourceGovernor {
         }
         let effective = override_pct.unwrap_or(self.disk_flood_pct_default).min(100);
         self.disk_flood_pct.store(effective, Ordering::Relaxed);
+    }
+
+    /// Applies the `cluster.routing.allocation.disk.threshold_enabled` cluster
+    /// setting (`None` = unset = enabled).
+    pub fn set_disk_threshold_enabled(&self, enabled: Option<bool>) {
+        self.disk_threshold_enabled
+            .store(enabled.unwrap_or(true), Ordering::Relaxed);
+    }
+
+    /// Applies (or clears) a runtime override of the parent RSS watermark, read
+    /// each sampler tick from the `indices.breaker.total.limit` persistent
+    /// cluster setting (parsed by [`parse_breaker_total_limit`]) — see
+    /// `Engine::spawn_resource_sampler`. `None` reverts to the boot default.
+    ///
+    /// This is the live fix for the multi-index ingest oscillation (#1250): on
+    /// a big box the AUTO tier caps the watermark conservatively (16 GiB on a
+    /// 119 GiB host → it trips at ~15.5 GiB and sheds ALL writes), and the only
+    /// prior remedy was `XERJ_MAX_PROCESS_MEMORY_MB` + a restart — which forced
+    /// the indexing client into a full source-snapshot reconciliation. Raising
+    /// the watermark via `PUT _cluster/settings` now needs no restart.
+    ///
+    /// `override_bytes` is clamped to `machine_memory_bytes` (a watermark above
+    /// physical RAM cannot protect anything) and may be *below* the boot default
+    /// too. A no-op when the watermark was disabled at startup
+    /// (`memory_watermark_percent = 0`): like the disk override, this only
+    /// re-tunes an already-active watermark, it never turns the feature on.
+    pub fn set_memory_watermark_override(&self, override_bytes: Option<u64>) {
+        if self.memory_watermark_bytes_default == 0 {
+            return;
+        }
+        let effective = match override_bytes {
+            Some(bytes) => bytes.min(self.machine_memory_bytes).max(1),
+            None => self.memory_watermark_bytes_default,
+        };
+        self.memory_watermark_bytes
+            .store(effective, Ordering::Relaxed);
     }
 
     /// Per-query memory guard for `max_query_memory_mb` (item 1). Rejects a
@@ -289,14 +388,41 @@ impl ResourceGovernor {
     /// `0` when it isn't available (e.g. from the [`Self::refresh`] test
     /// wrapper); it only affects that one log line, never admission.
     pub fn refresh_memory_disk(&self, rss: u64, disk_used_pct: u64, disk_avail_bytes: u64) {
-        // ── RSS watermark ──
-        self.rss_bytes.store(rss, Ordering::Relaxed);
-        let mem_next = self.memory_watermark_bytes != 0 && rss >= self.memory_watermark_bytes;
+        // ── RSS watermark, with a bounded release hysteresis (#1250) ──
+        //
+        // Engage at `rss >= watermark`. Once engaged, hold the latch while RSS
+        // sits in the band `[95% of watermark, watermark)` only for as long as
+        // RSS is still FALLING — the memory-pressure drain is making progress,
+        // and releasing now would re-admit the write burst that re-trips the
+        // breaker a sample later (the rss=15,596MB vs watermark=15,564MB
+        // chatter in #1250). If RSS stops falling inside the band the drain
+        // has nothing more to free: holding would only reject writes the node
+        // can take and keep the sampler re-draining every
+        // `MEMORY_DRAIN_MIN_INTERVAL` forever, so the latch releases exactly
+        // as it did before the band existed. A live watermark change (#1323)
+        // drops the band for that sample: the operator's new value decides.
+        let prev_rss = self.rss_bytes.swap(rss, Ordering::Relaxed);
+        let watermark = self.memory_watermark_bytes.load(Ordering::Relaxed);
+        let cur_mem = self.memory_tripped.load(Ordering::Relaxed);
+        let retuned = self.memory_trip_watermark.load(Ordering::Relaxed) != watermark;
+        let release_bytes = watermark - (watermark / 20);
+        let mem_next = watermark != 0
+            && if rss >= watermark {
+                true
+            } else if cur_mem && !retuned {
+                rss >= release_bytes && rss < prev_rss
+            } else {
+                false
+            };
+        if mem_next {
+            self.memory_trip_watermark
+                .store(watermark, Ordering::Relaxed);
+        }
         if mem_next != self.memory_tripped.swap(mem_next, Ordering::Relaxed) {
             if mem_next {
                 tracing::warn!(
                     rss_mb = rss / (1024 * 1024),
-                    watermark_mb = self.memory_watermark_bytes / (1024 * 1024),
+                    watermark_mb = watermark / (1024 * 1024),
                     "RSS crossed the memory watermark — engaging the parent memory circuit breaker (writes → 429)"
                 );
             } else {
@@ -313,7 +439,10 @@ impl ResourceGovernor {
             self.disk_used_pct.store(disk_used_pct, Ordering::Relaxed);
             let cur = self.disk_blocked.load(Ordering::Relaxed);
             let release_pct = (flood_pct as u64).saturating_sub(1);
-            let next = if cur {
+            let enabled = self.disk_threshold_enabled.load(Ordering::Relaxed);
+            let next = if !enabled {
+                false
+            } else if cur {
                 disk_used_pct >= release_pct
             } else {
                 disk_used_pct >= flood_pct as u64
@@ -325,6 +454,11 @@ impl ResourceGovernor {
                         flood_pct = flood_pct,
                         free = %human_bytes(disk_avail_bytes),
                         "disk flood-stage watermark crossed — engaging read_only_allow_delete write block"
+                    );
+                } else if !enabled {
+                    tracing::info!(
+                        used_pct = disk_used_pct,
+                        "disk threshold disabled by cluster setting — releasing write block"
                     );
                 } else {
                     tracing::info!(
@@ -375,7 +509,7 @@ impl ResourceGovernor {
             memtable_tripped: self.memtable_tripped.load(Ordering::Relaxed),
             rss_bytes: self.rss_bytes.load(Ordering::Relaxed),
             memory_limit_bytes: self.memory_limit_bytes,
-            memory_watermark_bytes: self.memory_watermark_bytes,
+            memory_watermark_bytes: self.memory_watermark_bytes.load(Ordering::Relaxed),
             memory_tripped: self.memory_tripped.load(Ordering::Relaxed),
             disk_used_pct: self.disk_used_pct.load(Ordering::Relaxed),
             disk_flood_pct: self.disk_flood_pct.load(Ordering::Relaxed),
@@ -680,7 +814,12 @@ fn resolve_segment_hydration_budget(
 /// call wins (subsequent calls return the already-installed governor, so a
 /// second `Engine` in-process — e.g. a test — does not re-key the budgets).
 pub fn init(config: &Config) -> Arc<ResourceGovernor> {
-    Arc::clone(GOVERNOR.get_or_init(|| Arc::new(build(config))))
+    let governor = Arc::clone(GOVERNOR.get_or_init(|| Arc::new(build(config))));
+    // #1122: every crate that spawns through `xerj_common::thread_spawn`
+    // (storage, server, …) consults this same watermark check, so a spawn
+    // under memory exhaustion is refused instead of aborting the node.
+    xerj_common::thread_spawn::install_spawn_gate(thread_spawn_safe);
+    governor
 }
 
 /// The installed governor, if [`init`] has run. Engine-only unit tests that
@@ -689,6 +828,13 @@ pub fn init(config: &Config) -> Arc<ResourceGovernor> {
 /// unchanged for them.
 pub fn global() -> Option<Arc<ResourceGovernor>> {
     GOVERNOR.get().map(Arc::clone)
+}
+
+/// Global form of [`ResourceGovernor::thread_spawn_safe`] (#1122). Without an
+/// initialised governor (unit tests, library embedding) there is no watermark
+/// to protect, so spawning is unrestricted.
+pub fn thread_spawn_safe() -> bool {
+    global().map(|g| g.thread_spawn_safe()).unwrap_or(true)
 }
 
 fn build(config: &Config) -> ResourceGovernor {
@@ -831,9 +977,12 @@ fn build(config: &Config) -> ResourceGovernor {
         memtable_used_bytes: AtomicU64::new(0),
         memtable_tripped: AtomicBool::new(false),
         memory_limit_bytes,
-        memory_watermark_bytes,
+        machine_memory_bytes: effective_memory_bytes,
+        memory_watermark_bytes_default: memory_watermark_bytes,
+        memory_watermark_bytes: AtomicU64::new(memory_watermark_bytes),
         rss_bytes: AtomicU64::new(0),
         memory_tripped: AtomicBool::new(false),
+        memory_trip_watermark: AtomicU64::new(0),
         max_query_memory_bytes,
         search_pool: Arc::new(Semaphore::new(max_concurrent_searches)),
         max_concurrent_searches,
@@ -843,6 +992,7 @@ fn build(config: &Config) -> ResourceGovernor {
         max_concurrent_bulks,
         disk_flood_pct_default: limits.disk_flood_stage_percent.min(100),
         disk_flood_pct: AtomicU8::new(limits.disk_flood_stage_percent.min(100)),
+        disk_threshold_enabled: AtomicBool::new(true),
         disk_blocked: AtomicBool::new(false),
         disk_used_pct: AtomicU64::new(0),
     }
@@ -1087,6 +1237,82 @@ pub fn parse_flood_stage_pct(v: &Value) -> Option<u8> {
         _ => return None,
     };
     Some(pct.min(100) as u8)
+}
+
+/// Parses a boolean cluster setting: a JSON bool or the string `"true"` /
+/// `"false"` (what `PUT _cluster/settings` stores for either form).
+pub fn parse_setting_bool(v: &Value) -> Option<bool> {
+    match v {
+        Value::Bool(b) => Some(*b),
+        Value::String(s) => s.trim().parse().ok(),
+        _ => None,
+    }
+}
+
+/// Parses the parent memory-breaker watermark override from an
+/// `indices.breaker.total.limit` cluster-settings value, resolving it to an
+/// absolute byte count. Accepts the two ES-compatible forms:
+///
+///   * a percentage (`"70%"`) — taken against `machine_bytes` (real machine /
+///     cgroup memory), so an operator can climb past the conservative AUTO cap;
+///   * a byte-size (`"46gb"`, `"49152mb"`, `"500000000"`, or a JSON number) —
+///     an absolute watermark.
+///
+/// Clamping to `machine_bytes` is the caller's job
+/// ([`ResourceGovernor::set_memory_watermark_override`]); this only parses.
+/// Returns `None` for a non-positive, malformed, or unrecognised value, which
+/// reverts the override to the boot default.
+pub fn parse_breaker_total_limit(v: &Value, machine_bytes: u64) -> Option<u64> {
+    match v {
+        Value::Number(n) => n.as_u64().filter(|b| *b > 0),
+        Value::String(s) => {
+            let s = s.trim();
+            if let Some(pct_str) = s.strip_suffix('%') {
+                let pct: f64 = pct_str.trim().parse().ok()?;
+                if !(pct.is_finite()) || pct <= 0.0 {
+                    return None;
+                }
+                let pct = pct.min(100.0);
+                Some(((machine_bytes as f64) * pct / 100.0) as u64).filter(|b| *b > 0)
+            } else {
+                parse_byte_size(s)
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Parses an ES-style byte-size string (`"46gb"`, `"512mb"`, `"1024kb"`,
+/// `"4096b"`, or a bare `"500000000"` meaning bytes). Case-insensitive on the
+/// unit; the single-letter ES forms (`k`/`m`/`g`/`t`) are also accepted.
+/// Returns `None` for a non-positive or malformed value.
+fn parse_byte_size(s: &str) -> Option<u64> {
+    const KB: u64 = 1024;
+    const MB: u64 = 1024 * KB;
+    const GB: u64 = 1024 * MB;
+    const TB: u64 = 1024 * GB;
+    let s = s.trim();
+    let lower = s.to_ascii_lowercase();
+    let (num_str, mult) =
+        if let Some(n) = lower.strip_suffix("tb").or_else(|| lower.strip_suffix('t')) {
+            (n, TB)
+        } else if let Some(n) = lower.strip_suffix("gb").or_else(|| lower.strip_suffix('g')) {
+            (n, GB)
+        } else if let Some(n) = lower.strip_suffix("mb").or_else(|| lower.strip_suffix('m')) {
+            (n, MB)
+        } else if let Some(n) = lower.strip_suffix("kb").or_else(|| lower.strip_suffix('k')) {
+            (n, KB)
+        } else if let Some(n) = lower.strip_suffix('b') {
+            (n, 1)
+        } else {
+            (lower.as_str(), 1)
+        };
+    let value: f64 = num_str.trim().parse().ok()?;
+    if !value.is_finite() || value <= 0.0 {
+        return None;
+    }
+    let bytes = (value * mult as f64) as u64;
+    (bytes > 0).then_some(bytes)
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -1608,7 +1834,7 @@ mod tests {
         cfg.limits.max_total_memtable_mb = 0; // isolate the RSS path
         cfg.limits.memory_watermark_percent = 95;
         let g = build(&cfg);
-        let watermark = g.memory_watermark_bytes;
+        let watermark = g.memory_watermark_bytes.load(Ordering::Relaxed);
         assert!(watermark > 0, "this test needs a live RSS watermark");
         assert!(!g.memory_breaker_engaged(), "fresh governor is disengaged");
         g.refresh(0, watermark, 0);
@@ -1620,6 +1846,37 @@ mod tests {
         assert!(
             !g.memory_breaker_engaged(),
             "RSS back under the watermark releases it"
+        );
+    }
+
+    /// #1122: a spawn attempted while the breaker is engaged aborts the node
+    /// (std panics on the alternate-signal-stack mmap; release is
+    /// panic=abort), so `thread_spawn_safe` must refuse exactly then and
+    /// allow it again once pressure releases — the drain-free caller drops
+    /// the Arcs inline instead, which is the fallback that path was written
+    /// for.
+    #[test]
+    fn thread_spawn_safe_refuses_under_memory_pressure() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0; // isolate the RSS path
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let watermark = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        assert!(watermark > 0, "this test needs a live RSS watermark");
+        // Disengaged + this process's real RSS under the watermark.
+        assert!(
+            g.thread_spawn_safe(),
+            "healthy governor allows helper spawns"
+        );
+        g.refresh(0, watermark, 0);
+        assert!(
+            !g.thread_spawn_safe(),
+            "breaker engaged: spawning would risk #1122's abort"
+        );
+        g.refresh(0, watermark / 2, 0);
+        assert!(
+            g.thread_spawn_safe(),
+            "pressure released: helper spawns allowed again"
         );
     }
 
@@ -1660,6 +1917,28 @@ mod tests {
     }
 
     #[test]
+    fn disk_threshold_disabled_releases_and_suppresses_block() {
+        let mut cfg = Config::default();
+        cfg.limits.disk_flood_stage_percent = 95;
+        let g = build(&cfg);
+        g.refresh(0, 0, 97);
+        assert!(g.check_disk_block("i").is_err());
+
+        // `threshold_enabled: false` releases an engaged block on the next
+        // sample and keeps it off however full the disk gets.
+        g.set_disk_threshold_enabled(Some(false));
+        g.refresh(0, 0, 97);
+        assert!(g.check_disk_block("i").is_ok());
+        g.refresh(0, 0, 100);
+        assert!(g.check_disk_block("i").is_ok());
+
+        // Unsetting it (`None`) turns the watermark back on.
+        g.set_disk_threshold_enabled(None);
+        g.refresh(0, 0, 97);
+        assert!(g.check_disk_block("i").is_err());
+    }
+
+    #[test]
     fn disk_flood_pct_override_is_noop_when_disabled_at_startup() {
         let mut cfg = Config::default();
         cfg.limits.disk_flood_stage_percent = 0; // feature off
@@ -1679,6 +1958,137 @@ mod tests {
         // ES's byte-size form isn't supported — no silent misinterpretation.
         assert_eq!(parse_flood_stage_pct(&Value::from("500mb")), None);
         assert_eq!(parse_flood_stage_pct(&Value::Null), None);
+    }
+
+    #[test]
+    fn parse_setting_bool_accepts_es_shapes() {
+        assert_eq!(parse_setting_bool(&Value::from(false)), Some(false));
+        assert_eq!(parse_setting_bool(&Value::from("false")), Some(false));
+        assert_eq!(parse_setting_bool(&Value::from("true")), Some(true));
+        assert_eq!(parse_setting_bool(&Value::from("no")), None);
+        assert_eq!(parse_setting_bool(&Value::Null), None);
+    }
+
+    /// The `indices.breaker.total.limit` override parser (#1250) must accept
+    /// both ES forms — a percentage of real machine memory, and an absolute
+    /// byte-size — and reject garbage so the override reverts to the boot
+    /// default rather than silently mis-arming the breaker.
+    #[test]
+    fn parse_breaker_total_limit_accepts_pct_and_bytes() {
+        const GIB: u64 = 1024 * 1024 * 1024;
+        let machine = 119 * GIB; // the reporter's box
+
+        // Percentage is taken against machine memory, NOT the 16 GiB AUTO cap —
+        // this is the whole point: 40% of 119 GiB climbs well past the cap.
+        assert_eq!(
+            parse_breaker_total_limit(&Value::from("40%"), machine),
+            Some(machine * 40 / 100)
+        );
+        // Clamped to 100%, never above machine memory.
+        assert_eq!(
+            parse_breaker_total_limit(&Value::from("150%"), machine),
+            Some(machine)
+        );
+
+        // Absolute byte-size forms (the operator's XERJ_MAX_PROCESS_MEMORY_MB
+        // mental model, now live): 46 GiB reproduces today's env+restart fix.
+        assert_eq!(
+            parse_breaker_total_limit(&Value::from("46gb"), machine),
+            Some(46 * GIB)
+        );
+        assert_eq!(
+            parse_breaker_total_limit(&Value::from("49152mb"), machine),
+            Some(49152 * 1024 * 1024)
+        );
+        assert_eq!(
+            parse_breaker_total_limit(&Value::from("512kb"), machine),
+            Some(512 * 1024)
+        );
+        // Bare number / JSON number = bytes.
+        assert_eq!(
+            parse_breaker_total_limit(&Value::from("500000000"), machine),
+            Some(500_000_000)
+        );
+        assert_eq!(
+            parse_breaker_total_limit(&Value::from(500_000_000u64), machine),
+            Some(500_000_000)
+        );
+
+        // Rejections revert to the default (None).
+        assert_eq!(parse_breaker_total_limit(&Value::from("0%"), machine), None);
+        assert_eq!(
+            parse_breaker_total_limit(&Value::from("0gb"), machine),
+            None
+        );
+        assert_eq!(parse_breaker_total_limit(&Value::from(0u64), machine), None);
+        assert_eq!(
+            parse_breaker_total_limit(&Value::from("bogus"), machine),
+            None
+        );
+        assert_eq!(parse_breaker_total_limit(&Value::Null, machine), None);
+    }
+
+    /// The runtime watermark override (#1250): it re-tunes an active watermark
+    /// live (no restart), clamps above-RAM requests, reverts on `None`, and is
+    /// a no-op when the watermark was disabled at startup — exactly the
+    /// contract the disk flood-stage override already honours.
+    #[test]
+    fn memory_watermark_override_retunes_live_and_clamps() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0; // isolate the RSS path
+        cfg.limits.memory_watermark_percent = 95;
+        // Force a known, small AUTO-style cap so the override clearly climbs
+        // past it — mirrors the 16 GiB cap on the reporter's 119 GiB box.
+        cfg.limits.max_process_memory_mb = 16 * 1024;
+        let g = build(&cfg);
+
+        let default_wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        assert!(default_wm > 0, "this test needs a live RSS watermark");
+        let machine = g.machine_memory_bytes;
+
+        // RSS just over the default watermark trips the breaker.
+        g.refresh(0, default_wm + 1, 0);
+        assert!(g.check_ingest_admission().is_err());
+
+        // Raise the watermark live to 2× the capped default (still within
+        // machine memory on any CI box with ≥ a few GiB): the same RSS now
+        // admits without a restart.
+        let raised = (default_wm * 2).min(machine);
+        g.set_memory_watermark_override(Some(raised));
+        g.refresh(0, default_wm + 1, 0);
+        if raised > default_wm {
+            assert!(
+                g.check_ingest_admission().is_ok(),
+                "raising the watermark live must stop the 429s"
+            );
+        }
+        assert_eq!(g.memory_watermark_bytes.load(Ordering::Relaxed), raised);
+
+        // A request above physical RAM is clamped to machine memory, never
+        // beyond — a watermark past RAM cannot protect anything.
+        g.set_memory_watermark_override(Some(machine * 4));
+        assert_eq!(g.memory_watermark_bytes.load(Ordering::Relaxed), machine);
+
+        // None reverts to the boot default.
+        g.set_memory_watermark_override(None);
+        assert_eq!(g.memory_watermark_bytes.load(Ordering::Relaxed), default_wm);
+    }
+
+    /// When the watermark was disabled at startup (`memory_watermark_percent =
+    /// 0`), a runtime override must stay a no-op — it only re-tunes an active
+    /// watermark, it never arms the feature. Same rule as the disk override.
+    #[test]
+    fn memory_watermark_override_is_a_noop_when_disabled_at_startup() {
+        let mut cfg = Config::default();
+        cfg.limits.memory_watermark_percent = 0; // disabled at boot
+        let g = build(&cfg);
+        assert_eq!(g.memory_watermark_bytes.load(Ordering::Relaxed), 0);
+        g.set_memory_watermark_override(Some(64 * 1024 * 1024 * 1024));
+        assert_eq!(
+            g.memory_watermark_bytes.load(Ordering::Relaxed),
+            0,
+            "a disabled watermark must not be armed by a runtime override"
+        );
     }
 
     #[test]
@@ -1722,5 +2132,101 @@ mod tests {
             .unwrap();
         assert_eq!(g.search_inflight_peak(), 2, "concurrency never exceeded 2");
         drop(p2);
+    }
+
+    #[test]
+    fn memory_watermark_releases_with_hysteresis() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        assert!(wm > 0, "this test needs a live RSS watermark");
+
+        g.refresh(0, wm, 0);
+        assert!(g.check_ingest_admission().is_err(), "trips at watermark");
+
+        // 98% of watermark is above the 95% release threshold and RSS is
+        // still falling (the drain is working): stays tripped.
+        g.refresh(0, wm * 98 / 100, 0);
+        let err = g.check_ingest_admission().unwrap_err().to_string();
+        assert!(
+            err.contains("draining below watermark"),
+            "an in-band rejection must not claim rss >= watermark: {err}"
+        );
+        g.refresh(0, wm * 97 / 100, 0);
+        assert!(
+            g.check_ingest_admission().is_err(),
+            "must remain tripped while RSS drains through the band"
+        );
+
+        // 94% of watermark is below the 95% release threshold: releases.
+        g.refresh(0, wm * 94 / 100, 0);
+        assert!(
+            g.check_ingest_admission().is_ok(),
+            "must release once RSS drops below 95% of watermark"
+        );
+    }
+
+    /// #1250 review: a node whose irreducible resident set settles INSIDE the
+    /// band after a drain must not stay write-blocked (and re-draining every
+    /// `MEMORY_DRAIN_MIN_INTERVAL`) forever. Once RSS stops falling the band
+    /// has nothing left to wait for and the latch releases, which is exactly
+    /// the pre-band behaviour.
+    #[test]
+    fn memory_hysteresis_releases_when_rss_stalls_inside_the_band() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        assert!(wm > 0, "this test needs a live RSS watermark");
+
+        g.refresh(0, wm + 1, 0);
+        assert!(g.memory_breaker_engaged());
+        g.refresh(0, wm * 97 / 100, 0);
+        assert!(g.memory_breaker_engaged(), "still draining");
+        // The drain freed nothing more: RSS is flat inside the band.
+        g.refresh(0, wm * 97 / 100, 0);
+        assert!(
+            !g.memory_breaker_engaged(),
+            "a stalled in-band RSS must release, not latch forever"
+        );
+        assert!(g.check_ingest_admission().is_ok());
+    }
+
+    /// #1250 x #1323: the watermark is live-tunable. Raising it while the
+    /// breaker is engaged must release at once whenever RSS is under the NEW
+    /// watermark — not wait for RSS to fall 5% below it — or the live fix
+    /// #1323 shipped would be undone by the band.
+    #[test]
+    fn live_watermark_raise_releases_without_the_hysteresis_band() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        cfg.limits.max_process_memory_mb = 1024;
+        let g = build(&cfg);
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        assert!(wm > 0, "this test needs a live RSS watermark");
+        let rss = wm + 1;
+        g.refresh(0, rss, 0);
+        assert!(g.check_ingest_admission().is_err());
+
+        // Raise just above the current RSS: RSS is now inside the new
+        // watermark's 5% band, and still (barely) falling.
+        let raised = (rss + rss / 50).min(g.machine_memory_bytes);
+        assert!(raised > rss, "test box must have headroom over 1 GiB");
+        g.set_memory_watermark_override(Some(raised));
+        g.refresh(0, rss - 1, 0);
+        assert!(
+            g.check_ingest_admission().is_ok(),
+            "a live raise above RSS must stop the 429s on the next sample"
+        );
+
+        // The band still applies to a trip against the raised watermark.
+        g.refresh(0, raised, 0);
+        assert!(g.check_ingest_admission().is_err());
+        g.refresh(0, raised * 98 / 100, 0);
+        assert!(g.check_ingest_admission().is_err());
     }
 }

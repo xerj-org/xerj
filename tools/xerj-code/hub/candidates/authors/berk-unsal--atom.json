@@ -1,0 +1,22 @@
+{
+ "corpus": "berk-unsal--atom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on golang, rf, 5g queries this for how Berk-Unsal/atom implements it: Open-source cellular RF planning workspace for real-map propagation, interference analysis, and bounded network optimization (selected work: frontend-react)",
+ "repos": [
+  {
+   "repo": "atom",
+   "url": "https://github.com/Berk-Unsal/atom",
+   "sha": "bfab6dd8adbf6544f52fd6c306d3dc122d79bc32",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit bfab6dd8adbf: \"fix: explain portable project limit recovery\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

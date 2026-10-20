@@ -1,0 +1,22 @@
+{
+ "corpus": "thsnkhn--harbor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on aria2c, download-manager, macos queries this for how thsnkhn/harbor implements it: Beautiful native macOS download manager for direct links, magnets, and torrents (selected work: Harbor, HarborTests)",
+ "repos": [
+  {
+   "repo": "harbor",
+   "url": "https://github.com/thsnkhn/harbor",
+   "sha": "59ca88cb57f2dd7625fe3dce5b011164ec9ead78",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 59ca88cb57f2: \"feat: Add download list controls and media defaults\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

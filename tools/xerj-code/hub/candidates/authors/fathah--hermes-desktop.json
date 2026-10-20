@@ -1,0 +1,22 @@
+{
+ "corpus": "fathah--hermes-desktop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agent, autonomous-agents queries this for how fathah/hermes-desktop implements it: Desktop Companion for Hermes Agent (selected work: src/renderer, src/main, src/preload)",
+ "repos": [
+  {
+   "repo": "hermes-desktop",
+   "url": "https://github.com/fathah/hermes-desktop",
+   "sha": "9ef06062c06ad24fdebdf97425054ac3a0541bd6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 9ef06062c06a: \"feat(chat): context fill and session token totals in the status bar (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

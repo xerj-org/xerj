@@ -1,0 +1,22 @@
+{
+ "corpus": "snowleopard-io--ergalicsstudio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on gpgpu, wasm, webgpu queries this for how SnowLeopard-io/ErgalicsStudio implements it: Ergalics Studio is a browser-based GPU scientific workbench. Powered by WebGPU and WebAssembly, it runs high-performance simulations and vis (selected work: src/plugins)",
+ "repos": [
+  {
+   "repo": "ErgalicsStudio",
+   "url": "https://github.com/SnowLeopard-io/ErgalicsStudio",
+   "sha": "492db56812ff1680644a91c5aaeed273db9a65d0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 492db56812ff: \"feat: TRAE AI \u81ea\u52a8\u751f\u6210\u63d0\u4ea4\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

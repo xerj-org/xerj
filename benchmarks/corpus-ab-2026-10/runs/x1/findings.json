@@ -1,0 +1,115 @@
+{
+  "findings": [
+    {
+      "id": "F1",
+      "title": "One-request process kill via char-boundary panic in sort `format` translation (share-guest reachable)",
+      "severity": "high",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 4136,
+      "description": "java_pattern_to_strftime walks the attacker-supplied ES sort `format` string by byte (`i += 1`) but re-slices the `&str` every iteration (`let rest = &fmt[i..]`). After the first byte of any multi-byte UTF-8 character is consumed, `i` is no longer a char boundary and the next slice panics. The sort `format` is taken verbatim from the request body (parse_sort, es_compat.rs:6707) and format_sort_value (es_compat.rs:4065) is applied to every hit's numeric sort value in the response renderer (es_compat.rs:15146). The release profile sets `panic = \"abort\"` (engine/Cargo.toml:165) and there is no catch-panic layer, so one request aborts the whole node — all tenants, all indices, including the reserved agent-memory namespace. The engine's own copy of the same translator (xerj-engine/src/aggs.rs:4870) operates on bytes and is safe; only the es_compat duplicate slices a `&str`.",
+      "attack_scenario": "A share-link guest — the lowest-privilege principal XERJ has, holding only a link id and passcode, no API account — searches the shared index sorted by any numeric/date field with a multi-byte format string. Dynamically confirmed on a local auth-enabled node: after claiming a share of index `case2` (one POST /_share/claim), the guest's `POST /case2/_search {\"sort\":[{\"price\":{\"order\":\"asc\",\"format\":\"é\"}}],\"size\":1}` aborted the process with `panicked at crates/xerj-api/src/es_compat.rs:4136: start byte index 1 is not a char boundary`. Any corpus with a timestamp field qualifies; the guest needs read access only, and the kill is repeatable on every restart.",
+      "exploit_sketch": "curl -X POST $URL/<shared-index>/_search -H 'Authorization: ApiKey <guest-key-from-_share/claim>' -d '{\"sort\":[{\"@timestamp\":{\"order\":\"asc\",\"format\":\"é\"}}],\"size\":1}'  # process aborts; loop to crash-loop the node",
+      "confidence": "high"
+    },
+    {
+      "id": "F2",
+      "title": "Reversed-brace slice panic in POST /_scripts/painless/_execute kills the node (any authenticated principal)",
+      "severity": "high",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 35623,
+      "description": "The MovingFunctions literal extractor takes `start = source.find('{')` and `end = source.rfind('}')` and slices `source[start + 1..end]` with no ordering check. If the last `}` precedes the first `{`, `start + 1 > end` and slice indexing panics — the exact defect class already fixed in `resolve_date_math_expr`, whose comment (es_compat.rs:19400) documents that under `panic = \"abort\"` such a slice \"is a panic, not a 400 (#207)\". This call site was missed. `_scripts` is in POST_READ_OPS (authz.rs:432), so `POST /_scripts/painless/_execute` classifies as a cluster read and `decide()` returns Ok for every authenticated principal (Scoped, Unscoped, superuser) with no index or privilege requirement; on `--insecure` nodes it needs no credentials at all (tested: guests are correctly 403'd, but any real key works).",
+      "attack_scenario": "Dynamically confirmed: `POST /_scripts/painless/_execute {\"script\":{\"source\":\"}MovingFunctions.max(){\"}}` aborted the process with `panicked at crates/xerj-api/src/es_compat.rs:35623: byte range starts at 23 but ends at 0`. A tenant key scoped to a single read-only index, or any client of an --insecure node, kills the whole multi-tenant node with one request and no data prerequisites.",
+      "exploit_sketch": "curl -X POST $URL/_scripts/painless/_execute -H 'Authorization: ApiKey <any-valid-key>' -H 'Content-Type: application/json' -d '{\"script\":{\"source\":\"}MovingFunctions.max(){\"}}'",
+      "confidence": "high"
+    },
+    {
+      "id": "F3",
+      "title": "Char-boundary/truncate panics in docvalue_fields `format` reformatting (reader-triggerable on non-ASCII data)",
+      "severity": "high",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 38715,
+      "description": "reformat_docvalue splits document text at the first '.' and then does `frac[..4]` (line 38715, for strict_date_optional_time) and `digits.truncate(9)` (line 38745, for *_nanos/SSSSSSSSS patterns). Both panic when byte 4 (resp. 9) falls inside a multi-byte character — e.g. a fraction starting with two-byte accented letters (é, ü, å, ß …), common in non-English corpora. The format string is passed through unvalidated from `docvalue_fields: [{field, format}]` (es_compat.rs:38640) and the value is document `_source` content, reached from the per-hit renderer of `_search` (es_compat.rs:14760). Under `panic = \"abort\"` this kills the process.",
+      "attack_scenario": "Dynamically confirmed three times on local nodes: indexing `{\"note\":\".éé\"}` and searching with `docvalue_fields:[{field:note, format:strict_date_optional_time}]` aborted at es_compat.rs:38715 (`end byte index 4 is not a char boundary`); `\".ééééé\"` with `strict_date_optional_time_nanos` aborted at 38745 (`assertion failed: self.is_char_boundary(new_len)`); and the same read performed by a share-link guest against a shared index containing the value killed the node. Any tenant with write access to its own index can create the value and then kill the shared node.",
+      "exploit_sketch": "curl -X PUT $URL/myidx/_doc/1 -d '{\"f\":\".éé\"}'; curl -X POST $URL/myidx/_search -d '{\"docvalue_fields\":[{\"field\":\"f\",\"format\":\"strict_date_optional_time\"}],\"query\":{\"match_all\":{}},\"size\":1}'",
+      "confidence": "high"
+    },
+    {
+      "id": "F4",
+      "title": "Divide-by-zero process kill via unclamped `index.number_of_shards: 0` in sliced searches",
+      "severity": "medium",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 37571,
+      "description": "The sliced-search path reads the stored `number_of_shards` with `.map(|n| n as u32).unwrap_or(1)` (es_compat.rs:12551-12571) — no `.max(1)` clamp — then calls `murmur3_routing_shard(key, shards)` whose `as_i32.rem_euclid(shard_count as i32)` (line 37571) divides by zero when the setting is 0. The setting is stored verbatim at index creation (create_index clones `body.settings` into engine.index_settings, es_compat.rs:1097) and can be merged in later by `PUT /{index}/_settings` (es_compat.rs:28717-28741). The same class was already fixed for the profile path with a SECURITY comment (profile_shard_count, es_compat.rs:7279, cites panic=abort); the slice path was left unclamped.",
+      "attack_scenario": "Dynamically confirmed: `PUT /sh0 {\"settings\":{\"number_of_shards\":0}}` was acknowledged, then one document plus `POST /sh0/_search {\"slice\":{\"id\":0,\"max\":2},\"query\":{\"match_all\":{}}}` aborted the process with `panicked at crates/xerj-api/src/es_compat.rs:37571: attempt to calculate the remainder with a divisor of zero`. Requires manage privilege on an index (a tenant's own index suffices to kill the shared node) or any principal on an --insecure node.",
+      "exploit_sketch": "curl -X PUT \"$URL/t\" -d '{\"settings\":{\"number_of_shards\":0}}'; curl -X PUT $URL/t/_doc/1 -d '{\"a\":1}'; curl -X POST $URL/t/_search -d '{\"slice\":{\"id\":0,\"max\":2},\"query\":{\"match_all\":{}}}'",
+      "confidence": "high"
+    },
+    {
+      "id": "F5",
+      "title": "Segment/sidecar readers trust on-disk lengths, offsets and counts — crafted files abort the node (open or query path)",
+      "severity": "medium",
+      "file": "engine/crates/xerj-fts/src/index.rs",
+      "line": 2343,
+      "description": "Under the stated threat model (attacker with data-dir write access, or hostile bytes planted in a snapshot repo that an operator restores — the only gates there are a recomputable non-keyed CRC-32 and a filename whitelist), the persistence readers panic on malformed input, and `panic = \"abort\"` turns each into process death: (a) `load_norms` slices `&bytes[13..13+payload_len]` with an unvalidated u32 (xerj-fts/index.rs:2343) and `Vec::with_capacity(count)` on a raw u32 in the legacy branch (2370); (b) `SegmentReader::section()` slices `&mmap[start..end]` from unchecked u64 section-table entries and no longer re-validates any CRC on the hot path (xerj-storage/segment.rs:668-676); (c) `decode_znv2` writes `data[doc_id]` for doc ids taken from the on-disk null bitmap without bounding them by doc_count (xerj-storage/doc_values.rs:515); (d) the legacy V1 postings decoder feeds unchecked `num_bits`/`byte_len` to bitpacking, whose safe wrapper panics (xerj-fts/postings.rs:555-575); (e) decompression capacities (`.post`/`.meta`/norms/stored) are attacker-chosen u32/u64s (e.g. zstd::bulk::decompress with 4 GiB capacity from a ~20-byte file, xerj-fts/index.rs:2212). WAL replay and the current v2/v3 codecs are bounds-checked; these are the legacy/lazy paths.",
+      "attack_scenario": "Dynamically confirmed for (a): after a clean flush and shutdown, patching one `<field>.norms` to a 14-byte file with `payload_len = 0xFFFFFFF0` let the node boot normally, and the first search touching that index aborted the process — `panicked at crates/xerj-fts/src/index.rs:2343: range end index 4294967293 out of range for slice of length 14` (reproduced twice; the node dies on every restart-then-query until the file is removed). (b)-(e) were verified by direct code reading; all reach either Index::open or per-query decode paths.",
+      "exploit_sketch": "python3 -c \"d=bytearray(open('<seg-dir>/<field>.norms','rb').read()); d[9:13]=(0xFFFFFFF0).to_bytes(4,'little'); open('<seg-dir>/<field>.norms','wb').write(d[:14])\"; # then any query on that index aborts the node",
+      "confidence": "high"
+    },
+    {
+      "id": "F6",
+      "title": "Tampered stored `_seq_no` makes merges silently and permanently delete live documents",
+      "severity": "medium",
+      "file": "engine/crates/xerj-storage/src/merge.rs",
+      "line": 351,
+      "description": "The merge decides staleness from the stored document itself: `let doc_seq = doc.get(\"_seq_no\").and_then(|v| v.as_u64()).unwrap_or(0); if entry.seq_no > doc_seq { continue; }`. The stored section is attacker-authored JSON (its only integrity check is a recomputable CRC-32), and nothing anchors a stored doc's seq to the version map. Setting `_seq_no` to 0, deleting it, or making it a string makes every live document in a segment look stale: the merge drops it from merged_docs, then deletes the input segments — silent, error-free, permanent data loss. Documents whose version-map entry is absent are keyed only by `_id`, and the final sort re-uses the same `unwrap_or(0)` fallback.",
+      "attack_scenario": "An attacker with data-dir write access (or who planted a hostile snapshot that an operator restored) rewrites one segment's stored section — recomputing the CRC — so that documents carry `_seq_no: 0`. The next background merge (or explicit `_forcemerge`) drops all of them and removes the source segments; the data is unrecoverable and no error, log line, or audit entry marks it.",
+      "exploit_sketch": "patch stored JSON in segments/<id>/<seg>.seg (set \"_seq_no\":0), recompute section+file CRC-32, wait for/trigger a merge  # live docs silently dropped, inputs deleted",
+      "confidence": "medium"
+    },
+    {
+      "id": "F7",
+      "title": "GET /_resolve/index/* discloses other tenants' alias names",
+      "severity": "low",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 25838,
+      "description": "resolve_index iterates the raw engine.aliases map (es_compat.rs:25838-25853) instead of the visibility-filtered listing that GET /_alias and _cat/aliases use. The authz response-pruner does cover this route, but its alias rule (`Site::NamedIn(\"aliases\",\"name\")` in authz.rs prune_sites) only drops entries whose *name* is a hidden index name — an alias name is never an index name, so foreign aliases survive while their backing indices are correctly stripped. Result: a principal scoped to one index learns every alias name on the node (alias names often encode tenant/project semantics), though not which indices they point at.",
+      "attack_scenario": "Dynamically confirmed on a multi-tenant lab node: with a key scoped to read `casefile` only, `GET /_resolve/index/*` returned `{\"indices\":[{\"name\":\"casefile\",…}],\"aliases\":[{\"name\":\"al1\",\"indices\":[\"casefile\"]},{\"name\":\"alpha-secret-alias\",\"indices\":[]}]}` — the second alias belongs to another tenant's index `tenant-alpha`, which was correctly hidden everywhere else. `GET /_cat/aliases` and `GET /_alias` with the same key correctly show only `al1`, as do `_cat/indices`, `_cat/shards` and `_cluster/health?level=indices`.",
+      "exploit_sketch": "curl $URL/_resolve/index/* -H 'Authorization: ApiKey <scoped-key>'   # aliases[] lists names of aliases the key cannot see",
+      "confidence": "high"
+    },
+    {
+      "id": "F8",
+      "title": "Predictable task ids let any key read other principals' completed task results",
+      "severity": "low",
+      "file": "engine/crates/xerj-api/src/es_compat.rs",
+      "line": 37198,
+      "description": "Task ids are \"{node_id}:{sequential u64}\" starting at 1 (state.rs:136-138, 195), and `GET /_tasks/{id}` is a cluster read that returns the stored completed `response` of whichever principal ran the task, with no ownership or visibility check. Every other server-side context (scroll, PIT, async-search, API keys) correctly uses UUID v4; only the task registry is predictable. The leaked payload is metadata: action, description, timings, and per-item failure entries (document ids + reasons) of other tenants' update/delete/by-query runs. Cross-tenant `_cancel` was tested and is correctly refused for scoped keys (403 write); it remains open to any Unscoped key.",
+      "attack_scenario": "Dynamically confirmed: the admin ran `POST /tenant-alpha/_update_by_query?wait_for_completion=false`, and a key scoped to a different single index read `GET /_tasks/local:3` back complete with the admin's response body (action, counts, failures[0].cause). Node ids come from `GET /_nodes`, so enumeration is `local:1`, `local:2`, …",
+      "exploit_sketch": "curl $URL/_nodes | jq '.nodes|keys'; for i in $(seq 1 100); do curl $URL/_tasks/local:$i -H \"Authorization: ApiKey $K\"; done",
+      "confidence": "high"
+    },
+    {
+      "id": "F9",
+      "title": "Unauthenticated 401 body discloses the server's absolute data directory and admin.key path",
+      "severity": "low",
+      "file": "engine/crates/xerj-api/src/auth.rs",
+      "line": 478,
+      "description": "unauthorized_response interpolates the configured data_dir into the free-text `reason` (\"This server writes its admin key to <abs-path>/admin.key on first start, so `export XERJ_API_KEY=\\\"$(cat <abs-path>/admin.key)\\\"` … or pass --api-key … or restart with --insecure\"). Any unauthenticated caller of any protected route receives the node's absolute filesystem layout plus the exact credential filename, duplicated in both root_cause and reason. The doc comment shows this is a deliberate usability affordance and the key itself is not leaked; the exposure is reconnaissance information (deployment path, container layout, where to aim a file-read primitive) handed to anonymous callers on any network-exposed node.",
+      "attack_scenario": "Dynamically confirmed on an auth-enabled node: `curl http://localhost:9940/logs-2026/_search` with no credentials returned a 401 whose body contains the absolute path `/root/ab-run-x1/scratch-audit/data-auth/admin.key` twice.",
+      "exploit_sketch": "curl -s $URL/_search | jq -r '.error.reason'   # server filesystem layout without any credential",
+      "confidence": "high"
+    },
+    {
+      "id": "F10",
+      "title": "Console login/setup pages lack CSP, frame protection and no-store caching",
+      "severity": "low",
+      "file": "engine/crates/xerj-console-api/src/spa.rs",
+      "line": 176,
+      "description": "serve_asset gives index.html a strict CSP + Referrer-Policy + no-cache (spa.rs:186-209) and share/* the full guest header set (no-store, CSP, X-Frame-Options: DENY, COOP/CORP, permissions-policy; spa.rs:216-247) — but login.html and setup.html, the two credential-entry pages (setup.html receives the first-run token in its URL fragment and performs the first-user/passkey ceremony), get only `Cache-Control: public, max-age=300` and `nosniff`. No CSP, no frame-ancestors/X-Frame-Options (clickjacking the login/setup form), no Referrer-Policy, and 5-minute shared-cache retention. The module doc records the omission as deliberate (\"carry an inline module script and show no document data\"), but the pages do handle secrets.",
+      "attack_scenario": "Dynamically confirmed on a local node: `GET /_xerj-console/login.html` and `/setup.html` return 200 with `cache-control: public, max-age=300` and none of the security headers, while index.html and share/ return the strict sets. An attacker who can frame the node's origin (tunneled deployments, DNS rebinding) can overlay the login/setup form; a proxy or shared browser cache retains the setup page for 5 minutes.",
+      "exploit_sketch": "curl -sD - -o /dev/null $URL/_xerj-console/setup.html   # no content-security-policy / x-frame-options / referrer-policy; cacheable",
+      "confidence": "high"
+    }
+  ],
+  "method_note": "See /root/ab-run-x1/out/method.md"
+}

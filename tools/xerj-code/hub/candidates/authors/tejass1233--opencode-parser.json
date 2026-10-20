@@ -1,0 +1,22 @@
+{
+ "corpus": "tejass1233--opencode-parser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on csv, document-extraction, document-parser queries this for how TejasS1233/opencode-parser implements it: Parse any file in opencode. Supports PDF, DOCX, XLSX, PPTX, images, EPUB, HTML, Markdown, Jupyter, archives, and plain text (selected work: src, the project root, test)",
+ "repos": [
+  {
+   "repo": "opencode-parser",
+   "url": "https://github.com/TejasS1233/opencode-parser",
+   "sha": "959fbd3f7cbdfc2fc0fed28ee8b285b827c62d34",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 959fbd3f7cbd: \"feat: support both OpenCode V1 and V2 from one package\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

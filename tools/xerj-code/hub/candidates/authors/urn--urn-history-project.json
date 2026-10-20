@@ -1,0 +1,22 @@
+{
+ "corpus": "urn--urn-history-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how URN/urn-history-project implements it: The archives of University Radio Nottingham (selected work: the project root, _sass, _coffee)",
+ "repos": [
+  {
+   "repo": "urn-history-project",
+   "url": "https://github.com/URN/urn-history-project",
+   "sha": "1f5d4e9d427328ed99e99c7d79c27cbed6c1fc40",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 1f5d4e9d4273: \"Move frontend deps from bower to npm, upgrade to gulp 5\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

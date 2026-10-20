@@ -1,0 +1,22 @@
+{
+ "corpus": "saidone75--alfresco-node-vault",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on alfresco, alfresco-addon, mongodb queries this for how saidone75/alfresco-node-vault implements it: A Spring Boot application designed for long-term storage of Alfresco nodes (selected work: src/main, src/test)",
+ "repos": [
+  {
+   "repo": "alfresco-node-vault",
+   "url": "https://github.com/saidone75/alfresco-node-vault",
+   "sha": "7491c4a962100b2b9c9e669a025548679e44819f",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 7491c4a96210: \"Secure temporary files with POSIX permissions and Windows ACLs\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

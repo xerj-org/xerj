@@ -1,0 +1,22 @@
+{
+ "corpus": "invesalius--invesalius3",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on dicom, dicom-viewer, magnetic-resonance-imaging queries this for how invesalius/invesalius3 implements it: 3D medical imaging reconstruction software (selected work: invesalius, tests, tools)",
+ "repos": [
+  {
+   "repo": "invesalius3",
+   "url": "https://github.com/invesalius/invesalius3",
+   "sha": "368e2279000673fcede2f0516bb699dfac7c8575",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 368e22790006: \"TotalSegmentator inference engine (#1410)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

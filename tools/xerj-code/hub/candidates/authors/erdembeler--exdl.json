@@ -1,0 +1,22 @@
+{
+ "corpus": "erdembeler--exdl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on app-installer, apple-silicon, disk-space queries this for how erdembeler/exdl implements it: Install Mac apps straight onto an external drive and keep them in Launchpad and Spotlight (selected work: Sources, the project root)",
+ "repos": [
+  {
+   "repo": "exdl",
+   "url": "https://github.com/erdembeler/exdl",
+   "sha": "8e853dddc088fbdec93b033d75888ce91c70107b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8e853dddc088: \"feat: add 10 customizable menu bar icons (EX Monogram default) and fi\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

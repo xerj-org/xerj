@@ -1,0 +1,22 @@
+{
+ "corpus": "danielmevit--unio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on multi-agent, agent-orchestration, agentic-coding queries this for how danielmevit/unio implements it: AI agents from different AI labs, working as one team. Delegate work, improve code through independent reviews, and keep control (selected work: tests, tools, the project root)",
+ "repos": [
+  {
+   "repo": "unio",
+   "url": "https://github.com/danielmevit/unio",
+   "sha": "4516d5130572fa7eb94a6c63164c91d705502a30",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 4516d5130572: \"fix(copilot): correct JSONL decoder defects in event ids, usage, and \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "sharrahul--raiker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on anthropic, chatgpt, gemma queries this for how sharRahul/Raiker implements it: Raiker is a personal autonomous secure AI agent assistant \u2014 designed to understand your context, pursue goals, act within your authority and (selected work: web, scripts, tests)",
+ "repos": [
+  {
+   "repo": "Raiker",
+   "url": "https://github.com/sharRahul/Raiker",
+   "sha": "46baf279c64c92977becaf027837ecad5143c287",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 46baf279c64c: \"Derive the API contract where it is verified, finish BUG-310 on Windo\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

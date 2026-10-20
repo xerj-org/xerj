@@ -1,0 +1,22 @@
+{
+ "corpus": "ghostlane-project--olcrtc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on censorship-circumvention, go-library, golang queries this for how ghostlane-project/olcrtc implements it: An encrypted tunnel that travels inside a WebRTC video call. The transport engine behind Ghostlane (selected work: internal/engine)",
+ "repos": [
+  {
+   "repo": "olcrtc",
+   "url": "https://github.com/ghostlane-project/olcrtc",
+   "sha": "0a89b032f97a0c9f738592827ff7ff41d7314a5a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 0a89b032f97a: \"fix(vkcalls): recruit the third participant a fresh VK room needs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

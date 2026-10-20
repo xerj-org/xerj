@@ -1,0 +1,22 @@
+{
+ "corpus": "senu-io--reviewberry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on JavaScript queries this for how senu-io/Reviewberry implements it: Full-stack AI platform (FastAPI + React) that clusters customer complaints into actionable Kanban tasks and SOPs via AMD Radeon Cloud (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "Reviewberry",
+   "url": "https://github.com/senu-io/Reviewberry",
+   "sha": "36afdb9a8d0c2484198e05f8d6890208408d716b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 36afdb9a8d0c: \"feat(studio): add resolution studio for customer apologies and staff \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

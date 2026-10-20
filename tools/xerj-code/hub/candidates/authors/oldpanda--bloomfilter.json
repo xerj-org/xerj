@@ -1,0 +1,22 @@
+{
+ "corpus": "oldpanda--bloomfilter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bloomfilter, bloomfilter-go, golang queries this for how OldPanda/bloomfilter implements it: Yet another Bloomfilter implementation in Go, compatible with Java's Guava library (selected work: the project root, guava_dump_files)",
+ "repos": [
+  {
+   "repo": "bloomfilter",
+   "url": "https://github.com/OldPanda/bloomfilter",
+   "sha": "876620dafe33dd3832dbcfb58f2012f9da19c98c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 876620dafe33: \"fix: address medium-priority security findings (#27)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

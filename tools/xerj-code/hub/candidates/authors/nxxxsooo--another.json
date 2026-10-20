@@ -1,0 +1,22 @@
+{
+ "corpus": "nxxxsooo--another",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on bubbletea, claude-code, cli queries this for how nxxxsooo/another implements it: Keep the session. Change the agent. Native session manager for Pi, Codex, Claude Code, Cursor, OpenCode, and more (selected work: internal/cli, internal/tui, the project root)",
+ "repos": [
+  {
+   "repo": "another",
+   "url": "https://github.com/nxxxsooo/another",
+   "sha": "dbb5dccae8f9a8da698d5165c4ad779d639d2246",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit dbb5dccae8f9: \"feat(relocate): move sessions by default and keep explicit --fork\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

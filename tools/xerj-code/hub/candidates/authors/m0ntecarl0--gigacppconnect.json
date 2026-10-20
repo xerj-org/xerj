@@ -1,0 +1,22 @@
+{
+ "corpus": "m0ntecarl0--gigacppconnect",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cpp20, framework, gigachat queries this for how M0nteCarl0/GigaCppConnect implements it: GigaCppConnect - is a C++ framework for interacting with LLM Gigachat. It provides a convenient interface and functions for integrating your (selected work: src/GigaCppConnect, the project root)",
+ "repos": [
+  {
+   "repo": "GigaCppConnect",
+   "url": "https://github.com/M0nteCarl0/GigaCppConnect",
+   "sha": "07a2708800b53d63c27528c009ebf19f838f8eb4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 07a2708800b5: \"feat(tools): add function calling, Jetson & Windows tools, dynamic pl\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "theplator--jobradar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on automation, freshers, gemini queries this for how ThePlator/JobRadar implements it: Self-hosted job radar for Telegram job channels: dedupes every posting, hides channel ads, reads each job page with Gemini, and lays it all  (selected work: src/jobradar, tests)",
+ "repos": [
+  {
+   "repo": "JobRadar",
+   "url": "https://github.com/ThePlator/JobRadar",
+   "sha": "8d790230b1435e5d1680240dca7af33a10e15633",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8d790230b143: \"Stop experienced roles alerting as fresher matches\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "deepaleph--jevreel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, claude-code, contact-sheets queries this for how DeepAleph/jevreel implements it: A zero-embedding approach to video intelligence, using Jev: contact sheets + typed decisions, as MCP tools and a skill for any coding agent (selected work: src/jevreel, tests, examples)",
+ "repos": [
+  {
+   "repo": "jevreel",
+   "url": "https://github.com/DeepAleph/jevreel",
+   "sha": "b5ea3c9c3760322e862451e2c1bd4ad394d3908e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit b5ea3c9c3760: \"Verify top windows on full frames, add lenses and timeline queries, c\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

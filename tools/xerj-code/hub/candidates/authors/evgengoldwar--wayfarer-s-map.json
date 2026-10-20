@@ -1,0 +1,22 @@
+{
+ "corpus": "evgengoldwar--wayfarer-s-map",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how evgengoldwar/Wayfarer-s-Map implements it: evgengoldwar/Wayfarer-s-Map (Java) (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "Wayfarer-s-Map",
+   "url": "https://github.com/evgengoldwar/Wayfarer-s-Map",
+   "sha": "1fe9bc8a958cc520e28ad2f6cc0e722c7518f20f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 1fe9bc8a958c: \"Waypoints: share them with the team, per waypoint or by group, with t\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

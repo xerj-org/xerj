@@ -1,0 +1,22 @@
+{
+ "corpus": "atoma-run--atoma",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestration, agpl, ai-agents queries this for how atoma-run/atoma implements it: Watch a request turn into finished work. AI agents produce and check it (selected work: src/launcher, tests, src/viz)",
+ "repos": [
+  {
+   "repo": "atoma",
+   "url": "https://github.com/atoma-run/atoma",
+   "sha": "7c049cbe32552bacf07dc7e8a056370470856356",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 7c049cbe3255: \"feat(compute): guide native setup and Docker preparation\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

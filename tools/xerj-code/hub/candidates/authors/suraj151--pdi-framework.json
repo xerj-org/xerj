@@ -1,0 +1,22 @@
+{
+ "corpus": "suraj151--pdi-framework",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on esp8266, mqtt-service, esp-mail-service queries this for how Suraj151/pdi-framework implements it: Portable Device Interface (PDI) framework stack for easy configurable applications running over avr, esp8266, esp32 devices. Designed to man (selected work: tests, src/service_provider, src/transports)",
+ "repos": [
+  {
+   "repo": "pdi-framework",
+   "url": "https://github.com/Suraj151/pdi-framework",
+   "sha": "6099395c428691570ae1c688846beff8943f6aac",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 6099395c4286: \"Added read command to get stdout in env var\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

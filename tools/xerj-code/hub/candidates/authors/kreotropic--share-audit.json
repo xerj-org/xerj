@@ -1,0 +1,22 @@
+{
+ "corpus": "kreotropic--share-audit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on nextcloud, nextcloud-app, share queries this for how kreotropic/share_audit implements it: See and audit every share on your Nextcloud \u2014 in the browser, not the CLI (selected work: tests, l10n, js)",
+ "repos": [
+  {
+   "repo": "share_audit",
+   "url": "https://github.com/kreotropic/share_audit",
+   "sha": "0d1ecbfe65dd933f574a20786cd90f34e00912ee",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 0d1ecbfe65dd: \"test, docs, l10n: audit regressions, 0.8.0 package version, changelog\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

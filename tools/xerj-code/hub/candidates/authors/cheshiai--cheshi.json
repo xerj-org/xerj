@@ -1,0 +1,22 @@
+{
+ "corpus": "cheshiai--cheshi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on code-search, codegraph, codex queries this for how CheshiAI/Cheshi implements it: Jev-powered conversation memory: find past sessions and revisit decisions with original sources. A macOS workspace for OpenAI Codex. Manage  (selected work: desktop, scripts, examples)",
+ "repos": [
+  {
+   "repo": "Cheshi",
+   "url": "https://github.com/CheshiAI/Cheshi",
+   "sha": "b656c6e9f2141accaa90b20b183c29d35dd87a1a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit b656c6e9f214: \"[feature] add executable skills with jev judgments and luna fallback\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

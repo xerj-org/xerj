@@ -1,0 +1,22 @@
+{
+ "corpus": "gthruworldwide--mapnote-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how Gthruworldwide/MapNote-App implements it: Gthruworldwide/MapNote-App (Dart) (selected work: lib/src, test)",
+ "repos": [
+  {
+   "repo": "RouteNote-App",
+   "url": "https://github.com/Gthruworldwide/RouteNote-App",
+   "sha": "df8042a3da0e39f250ef9c4eebe68b7bb882b4c4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit df8042a3da0e: \"feat(motion): add PolylineSmoother & MotionBehaviorAnalyzer with 26 u\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

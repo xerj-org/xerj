@@ -1,0 +1,22 @@
+{
+ "corpus": "cirvix--agent-control",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-safety, ai-agents, ai-security queries this for how CIRVIX/agent-control implements it: Runtime authorization infrastructure for AI agents. Every tool call, API action, and credential request is evaluated against identity, polic (selected work: packages/agent-control)",
+ "repos": [
+  {
+   "repo": "agent-control",
+   "url": "https://github.com/CIRVIX/agent-control",
+   "sha": "361e7c7f782fcbd81c96565901ea683c6b790653",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 361e7c7f782f: \"fix(cli): rebuild the launch plate \u2014 defects, more motion, honest status\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

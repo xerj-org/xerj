@@ -1,0 +1,22 @@
+{
+ "corpus": "devcodex-labs--vextjs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on adapter, api, cluster queries this for how devcodex-labs/vextjs implements it: AI-first full-stack Node.js framework for APIs and server-rendered React pages with one route model, typed contracts, OpenAPI, and machine-r (selected work: test, src/frontend, src/lib)",
+ "repos": [
+  {
+   "repo": "vextjs",
+   "url": "https://github.com/devcodex-labs/vextjs",
+   "sha": "13875aec333cf6a460299fe1b7cc37b04d88dfd0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 13875aec333c: \"fix: align frontend contracts and startup failure handling\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

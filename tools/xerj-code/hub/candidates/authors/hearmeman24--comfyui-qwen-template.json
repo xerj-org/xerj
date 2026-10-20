@@ -1,0 +1,22 @@
+{
+ "corpus": "hearmeman24--comfyui-qwen-template",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how Hearmeman24/comfyui-qwen-template implements it: Hearmeman24/comfyui-qwen-template (Python) (selected work: workflows, tools, src)",
+ "repos": [
+  {
+   "repo": "comfyui-qwen-template",
+   "url": "https://github.com/Hearmeman24/comfyui-qwen-template",
+   "sha": "e0959af2042ac78d677f15af2237ac1b912df17b",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e0959af2042a: \"Add Flux Klein 3 with gated access preflight and nonblocking setup\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

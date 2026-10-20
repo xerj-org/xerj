@@ -1,0 +1,22 @@
+{
+ "corpus": "asheeshsahu7300--infinity-media-player",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, android-library, android-package queries this for how asheeshsahu7300/infinity-media-player implements it: All-in-one resilient Android Media Player with Neural Video Latent Concealment (NVC-Live), Qualcomm ACDB audio handling, low-latency zero-dr (selected work: library)",
+ "repos": [
+  {
+   "repo": "infinity-media-player",
+   "url": "https://github.com/asheeshsahu7300/infinity-media-player",
+   "sha": "6de3e1ab0623b0b4e13fef37afc063956f086d49",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 6de3e1ab0623: \"feat(v1.4.0): pixel-derived feature extraction, dual-stage ONNX pipel\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

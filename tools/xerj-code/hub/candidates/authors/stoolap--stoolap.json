@@ -1,0 +1,22 @@
+{
+ "corpus": "stoolap--stoolap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on database, embedded-sql, mvcc queries this for how stoolap/stoolap implements it: A Modern Embedded SQL Database written in Rust (selected work: src/executor, src/functions, tests)",
+ "repos": [
+  {
+   "repo": "stoolap",
+   "url": "https://github.com/stoolap/stoolap",
+   "sha": "b520f895f31f7fe68bad7c000a5f1afe72859e46",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit b520f895f31f: \"Give aggregate modifiers one owner and one admission rule (#463)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

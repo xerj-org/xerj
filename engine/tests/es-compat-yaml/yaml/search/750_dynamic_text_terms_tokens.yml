@@ -1,0 +1,39 @@
+setup:
+  - do:
+      indices.create:
+          index: dynamic_text_terms
+  - do:
+      bulk:
+          body:
+              - '{"index": {"_index": "dynamic_text_terms", "_id": "1"}}'
+              - '{"text": "quick brown fox"}'
+              - '{"index": {"_index": "dynamic_text_terms", "_id": "2"}}'
+              - '{"text": "lazy dog"}'
+
+---
+"terms on a dynamically mapped text field matches analyzed tokens before refresh":
+  - do:
+      search:
+          index: dynamic_text_terms
+          body: { query: { terms: { text: [ "brown" ] } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+---
+"terms on a dynamically mapped text field matches analyzed tokens after refresh":
+  - do:
+      indices.refresh: {}
+  - do:
+      search:
+          index: dynamic_text_terms
+          body: { query: { terms: { text: [ "brown" ] } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }
+
+  # The keyword sub-field keeps answering the whole value.
+  - do:
+      search:
+          index: dynamic_text_terms
+          body: { query: { term: { text.keyword: "quick brown fox" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._id: "1" }

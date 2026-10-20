@@ -1,0 +1,22 @@
+{
+ "corpus": "subpop--relay",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how subpop/Relay implements it: All the power of Matrix. None of the complexity (selected work: Relay, RelayTests, Relay.xcodeproj)",
+ "repos": [
+  {
+   "repo": "Relay",
+   "url": "https://github.com/subpop/Relay",
+   "sha": "74edea5b5ae516e84ab8e535077bf5c7b1d06048",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 74edea5b5ae5: \"Migrate Relay to the normalized SwiftData store API\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

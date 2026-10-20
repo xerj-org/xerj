@@ -1,0 +1,22 @@
+{
+ "corpus": "pasichdev--encly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Kotlin queries this for how pasichDev/Encly implements it: Offline, encrypted notes and tasks for Android. No account, no cloud, no internet permission (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "Encly",
+   "url": "https://github.com/pasichDev/Encly",
+   "sha": "924fc4e6331b044d11f42c03f1620fadc39b2035",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 924fc4e6331b: \"fix(security): make the wipe-PIN erase safe against races and failed \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

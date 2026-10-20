@@ -8,7 +8,7 @@ Reads ONLY registry state on this branch (corpus-hub):
   tools/xerj-code/hub/backlog/*-graded.json  - graded G7 suites (non-IT lane)
   tools/xerj-code/hub/backlog/impact-snapshot-*.json - benchmark A/B snapshot
   tools/packs/*/recipe.toml                  - lane B packs
-Writes out/ (index, per-corpus, per-category, about, style, data.json).
+Writes out/ (index, per-corpus, per-category, whats-this, style, data.json).
 
 Design: xerj.org brandbook, day palette only (user directive 2026-10-06:
 strictly main-site fonts and CSS, domains as large typography, white default).
@@ -18,6 +18,11 @@ registry change.
 """
 import datetime as dt
 import hashlib
+import agent_score
+import contributors
+import os
+import private_data
+import usage
 import html
 import json
 import pathlib
@@ -247,10 +252,13 @@ def impact_badge(c, impact):
             f'A/B {esc(r["p"])} to {esc(r["x"])}</span>')
 
 
-def card(c, g7, graded, impact):
+def card(c, g7, graded, impact, rel=""):
+    """One corpus card. `rel` is the path back to the site root: category
+    pages live one level down, and their cards linked category/corpus/<slug>
+    (a 404) before it existed."""
     files, nbytes, licences = corpus_stats(c)
     st, stcls = STATUSES.get(c["status"], (c["status"], "mute"))
-    return f'''<a class="card" data-cat="{esc(c['cat'])}" data-region="{esc(region(c))}" href="corpus/{esc(c['slug'])}.html">
+    return f'''<a class="card" data-cat="{esc(c['cat'])}" data-region="{esc(region(c))}" data-slug="{esc(c['slug'].lower())}" href="{rel}corpus/{esc(c['slug'])}.html">
   <div class="chead"><span class="cname">{esc(c['slug'])}</span><span class="dot {stcls}"></span></div>
   <p class="cuse">{esc(plain(c['usecase'])[:180])}{'...' if len(c['usecase']) > 180 else ''}</p>
   {tag_line(c)}
@@ -282,6 +290,10 @@ SETUP_STEPS = (
     '   Success: the health call returns JSON containing "status":"green".\n'
     "   To stop a node you started: kill $(cat ~/xerj-node.pid). Never pkill or killall xerj -\n"
     "   other XERJ nodes may be running on this machine.\n"
+    "   If the log says a port is already in use (8080 is often taken), start it with\n"
+    "   --port 9400 instead (ES-compat API on 9400, native REST 9401, gRPC 9402), check\n"
+    "   curl -s localhost:9400/_cluster/health, and pass --url http://127.0.0.1:9400 to every\n"
+    "   later xerj command. --url always takes the ES-compat port, never the native REST one.\n"
 )
 
 
@@ -367,17 +379,21 @@ def tile(c):
 
 # Brandbook tokens from xerj.org (landing/style.css), day palette only.
 # White schema is the one scheme: no dark variant, no prefers-color-scheme
-# override (user directive 2026-10-06).
+# override (user directive 2026-10-06). 2026-10 readability pass: every text
+# colour is >= 7:1 against --z-bg (ratios in the comments), body 18px / 1.6.
 STYLE = """/* corpus hub - xerj.org brandbook, day palette, white only */
 :root{
---z-bg:#f6f4ee;--z-ink:#11120f;--z-mute:#696762;--z-faint:#e3dfd4;--z-line:#cfcbbf;
---z-accent:#7f5200;--z-cmp:#6f8aa8;
---ok:#2e6b3a;--bad:#8c2f2f;--warn:#8a6d1a;
+color-scheme:light;
+--z-bg:#fafaf7;--z-ink:#1a1a1a;--z-mute:#4a4843;--z-faint:#e7e5de;--z-line:#d4d1c7;
+--z-accent:#6b4400;--z-cmp:#3b536f;
+--z-brand:#ffc400;--z-focus:#8a5a00;--z-code-bg:#f3f4f6;--z-code-line:#e2e4e8;
+--ok:#1e5c30;--bad:#8f2427;--warn:#5f4a0e;
+/* vs --z-bg: ink 16.6, mute 8.7, accent 8.2, cmp 7.6, ok 7.6, bad 8.2, warn 8.1 */
 --font-display:'Big Shoulders Display','Inter',system-ui,sans-serif;
 --font-prose:'Inter',system-ui,sans-serif;
 --font-data:'IBM Plex Sans','Inter',system-ui,sans-serif;
 --font-mono:'JetBrains Mono','IBM Plex Mono',monospace;
---fs-11:11px;--fs-13:13px;--fs-16:16px;--fs-20:20px;--fs-32:32px;
+--fs-11:12px;--fs-13:14px;--fs-16:18px;--fs-20:20px;--fs-32:32px;
 --fs-56:56px;--fs-96:96px;--fs-160:160px;
 --track-ui:.14em;--track-label:.08em;
 --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;
@@ -386,9 +402,18 @@ STYLE = """/* corpus hub - xerj.org brandbook, day palette, white only */
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:var(--font-prose);background:var(--z-bg);color:var(--z-ink);
-line-height:1.5;font-size:var(--fs-16)}
+line-height:1.6;font-size:var(--fs-16)}
 a{color:inherit}
-code{font-family:var(--font-mono);font-size:.92em;background:var(--z-faint);padding:.1em .35em}
+:where(p,li,dd,td,.kbox,.note) a:not([class]){color:var(--z-accent);text-decoration:underline;
+text-decoration-thickness:1px;text-underline-offset:.18em}
+:where(p,li,dd,td,.kbox,.note) a:not([class]):hover{color:var(--z-ink);text-decoration-thickness:2px}
+:focus-visible{outline:3px solid var(--z-focus);outline-offset:2px}
+::placeholder{color:var(--z-mute);opacity:1}
+@media (max-width:720px){:root{--fs-16:17px}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;
+animation-iteration-count:1!important;transition-duration:.01ms!important}}
+code{font-family:var(--font-mono);font-size:.9em;background:var(--z-code-bg);
+border:1px solid var(--z-code-line);padding:.05em .35em}
 /* nav: main-site pattern, 1px bottom line */
 .nav{display:flex;align-items:baseline;gap:var(--sp-5);padding:var(--sp-4) var(--page-x);
 border-bottom:1px solid var(--z-line);font-family:var(--font-data);font-size:var(--fs-11);
@@ -411,6 +436,23 @@ background:none;transition:color .2s,border-color .2s}
 .nav a.navcta.on{color:#fff;border:0;
 background:linear-gradient(100deg,#6d28d9,#9333ea,#7c3aed,#6d28d9);background-size:280% 100%;animation:ctaflow 5s ease infinite}
 .nav a.navcta.on:hover{color:#fff;filter:brightness(1.12)}
+/* sign-in (functions/auth/*): hidden until /api/me says enabled; see AUTH_JS */
+.authbox[hidden]{display:none}
+.authbox{position:relative;align-self:center}
+.authbox summary{list-style:none;cursor:pointer;color:var(--z-mute);display:inline-flex;align-items:center;gap:var(--sp-2)}
+.authbox summary::-webkit-details-marker{display:none}
+.authbox summary:hover{color:var(--z-ink)}
+.authbox summary img{width:24px;height:24px;border-radius:50%;border:1px solid var(--z-line);display:block}
+.authbox .menu{position:absolute;right:0;top:calc(100% + 8px);min-width:220px;background:#fff;border:1px solid var(--z-line);
+padding:var(--sp-2) 0;display:flex;flex-direction:column;z-index:60;box-shadow:0 6px 24px rgba(0,0,0,.06)}
+.authbox .menu a,.authbox .menu span{padding:var(--sp-2) var(--sp-4);display:block}
+.authbox .menu span{color:var(--z-ink);text-transform:none;letter-spacing:normal;font-size:var(--fs-13)}
+.authbox .menu a:hover{background:var(--z-faint);color:var(--z-ink)}
+.mystars{width:100%;border-collapse:collapse;margin-top:var(--sp-6);background:#fff}
+.mystars th,.mystars td{border:1px solid var(--z-line);padding:var(--sp-2) var(--sp-3);text-align:left}
+.spark{width:160px;height:32px;display:block}.spark polyline{fill:none;stroke:var(--z-accent);stroke-width:1.5}
+.authnote{position:fixed;bottom:var(--sp-5);right:var(--sp-5);background:var(--z-ink);color:#fff;padding:var(--sp-3) var(--sp-5);
+font-family:var(--font-data);font-size:var(--fs-13);z-index:70}
 .cta{display:inline-block;margin-top:var(--sp-5);font-family:var(--font-data);font-size:var(--fs-13);
 font-weight:600;text-transform:uppercase;letter-spacing:var(--track-ui);text-decoration:none;color:#fff;
 background:linear-gradient(100deg,#6d28d9,#9333ea,#7c3aed,#6d28d9);background-size:280% 100%;animation:ctaflow 5s ease infinite;padding:.72em 1.25em;border:0}
@@ -425,7 +467,7 @@ main{max-width:var(--max-w);margin:0 auto;padding:var(--sp-8) var(--page-x) var(
 .kicker{font-family:var(--font-data);font-size:var(--fs-11);font-weight:500;
 letter-spacing:var(--track-ui);text-transform:uppercase;color:var(--z-mute)}
 .kicker .accent{color:var(--z-accent)}
-.kicker .dash{opacity:.4;margin:0 6px}
+.kicker .dash{margin:0 6px}
 h1.hero{font-family:var(--font-display);font-weight:900;font-size:clamp(40px,6vw,var(--fs-96));
 line-height:.9;letter-spacing:-.02em;margin:0 0 var(--sp-6);color:var(--z-ink)}
 h1.hero .accent{color:var(--z-accent)}
@@ -469,6 +511,7 @@ gap:1px;background:var(--z-line);border:1px solid var(--z-line)}
 .stat{background:var(--z-bg);padding:var(--sp-4) var(--sp-5);min-height:88px;
 display:flex;flex-direction:column;justify-content:center;gap:4px}
 .stat.wide{grid-column:1 / -1}
+.stat a{display:flex;flex-direction:column;gap:4px;text-decoration:none;color:inherit}.stat a:hover b{color:var(--z-accent)}
 .stat b{font-family:var(--font-display);font-weight:800;white-space:nowrap;
 font-size:var(--fs-32);line-height:1;color:var(--z-ink)}
 .stat span{font-family:var(--font-data);font-size:var(--fs-11);font-weight:500;
@@ -497,7 +540,8 @@ font-weight:600;text-transform:uppercase;letter-spacing:var(--track-label);color
 .toolbar .row{display:flex;gap:var(--sp-2);flex-wrap:wrap;align-items:center}
 .toolbar input{font-family:var(--font-prose);font-size:var(--fs-13);padding:.5em .8em;
 border:1px solid var(--z-line);background:transparent;color:var(--z-ink);min-width:22rem}
-.toolbar input:focus{outline:none;border-color:var(--z-accent)}
+.toolbar input{border-color:#8c8a82}
+.toolbar input:focus{outline:3px solid var(--z-focus);outline-offset:1px;border-color:var(--z-accent)}
 .chip{font-family:var(--font-data);font-size:var(--fs-11);font-weight:500;
 text-transform:uppercase;letter-spacing:var(--track-label);border:1px solid var(--z-line);
 background:transparent;color:var(--z-mute);padding:.35em .9em;cursor:pointer}
@@ -525,7 +569,7 @@ padding:.1em .5em;color:var(--z-mute)}
 .badge.cat{color:var(--z-accent);border-color:var(--z-accent)}
 .badge.g7.ok,.badge.imp{color:var(--ok);border-color:var(--ok)}
 .badge.g7.bad{color:var(--bad);border-color:var(--bad)}
-.badge.g7.mute{opacity:.6}
+.badge.g7.mute{border-style:dashed}
 /* detail pages */
 section.detail h2{font-family:var(--font-display);font-weight:700;font-size:var(--fs-32);
 line-height:.95;border-bottom:1px solid var(--z-line);padding-bottom:var(--sp-2);margin:var(--sp-10) 0 var(--sp-4)}
@@ -597,16 +641,16 @@ PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 {fonts}
 <link rel="stylesheet" href="{rel}assets/style.css?v={ver}"></head>
 <body><nav class="nav"><a class="brand" href="https://xerj.org">XERJ<b>·</b>HUB</a>
-<a href="{rel}index.html">CORPORA</a><a href="{rel}index.html#domains">DOMAINS</a>
-<a href="{rel}about.html">ABOUT</a>
-<a href="https://github.com/xerj-org/xerj/tree/corpus-hub/tools/xerj-code/hub">REGISTRY (GIT)</a>
-<span class="spacer"></span><a class="navicon" href="https://x.com/xerj_org" title="XERJ on X" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a><a class="navicon" href="https://discord.com/invite/yetXFusXfs" title="XERJ on Discord" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.317 4.37a19.79 19.79 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.74 19.74 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.1 13.1 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.3 12.3 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.84 19.84 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a><a href="https://xerj.org">XERJ.ORG</a><a href="{rel}contribute.html" class="navcta">ADD YOUR CORPUS</a></nav>
+<a href="{rel}index.html">CORPORA</a>
+<a href="{rel}contributors/index.html">CONTRIBUTORS</a>
+<a href="{rel}whats-this/">WHAT'S THIS?</a>
+<span class="spacer"></span><details class="authbox" id="hubauth" hidden></details><a class="navicon" href="https://x.com/xerj_org" title="XERJ on X" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a><a class="navicon" href="https://discord.com/invite/yetXFusXfs" title="XERJ on Discord" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.317 4.37a19.79 19.79 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.74 19.74 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.1 13.1 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.3 12.3 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.84 19.84 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a><a href="https://xerj.org">XERJ.ORG</a><a href="{rel}contribute.html" class="navcta">ADD YOUR CORPUS</a></nav>
 {body}
 <footer><span>XERJ · CORPUS HUB · {stamp}</span>
 <span>PINNED SOURCES · VERIFIED LICENCES · MEASURED RETRIEVAL</span>
-<span><a href="{rel}index.html">CORPORA</a> · <a href="{rel}about.html">ABOUT</a> ·
+<span><a href="{rel}index.html">CORPORA</a> · <a href="{rel}whats-this/">WHAT'S THIS?</a> ·
 <a href="{rel}llms.txt">LLMS.TXT</a></span></footer>
-{navjs}
+{navjs}{authjs}
 </body></html>"""
 
 
@@ -627,12 +671,109 @@ NAVCTA_JS = """<script>
 
 # Content hash of the stylesheet: appended as ?v= on every page's CSS link so a
 # changed stylesheet always busts the browser cache (assets carry a long max-age).
+STYLE += contributors.STYLE
+STYLE += """
+/* What's this? (WHATS_THIS): short, readable measure */
+.whats .lead,.whats .detail{max-width:72ch}
+.steps{padding-left:1.4em}.steps li{margin:0 0 var(--sp-4)}
+"""
+STYLE += usage.STYLE
+STYLE += agent_score.STYLE
 STYLE_VER = hashlib.sha1(STYLE.encode("utf-8")).hexdigest()[:8]
+
+
+# Sign in / avatar / sign out in the nav. Asks /api/me (functions/api/me.js); the
+# box stays hidden unless sign-in is enabled (HUB_SESSION_SECRET and at least one
+# provider's OAuth app configured), and if the Function is absent or errors.
+# Only offered providers are listed. window.hubMe is the one shared /api/me request
+# (whichever page script runs first starts it). User text goes in via textContent, never as HTML.
+AUTH_JS = """<script>
+(function(){
+  var box=document.getElementById('hubauth');
+  function el(t,a,txt){var e=document.createElement(t);for(var k in a)e.setAttribute(k,a[k]);if(txt)e.textContent=txt;return e}
+  var here=encodeURIComponent(location.pathname+location.search.replace(/([?&])signin=[^&]*&?/,'$1').replace(/[?&]$/,''));
+  var m=location.search.match(/[?&]signin=(failed|cancelled|disabled)/);
+  if(m){
+    var n=el('div',{'class':'authnote',role:'status'},m[1]==='failed'?'Sign-in did not complete. Try again.':m[1]==='cancelled'?'Sign-in cancelled.':'Sign-in is not available yet.');
+    document.body.appendChild(n);setTimeout(function(){n.remove()},5000);
+    history.replaceState(null,'',decodeURIComponent(here)+location.hash);
+  }
+  (window.hubMe=window.hubMe||fetch('/api/me',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null})).then(function(me){
+    if(!box||!me||!me.ok||!me.enabled)return;
+    var sum=el('summary'),menu=el('div',{'class':'menu'});
+    if(me.user){
+      var u=me.user;
+      if(u.avatar)sum.appendChild(el('img',{src:u.avatar,alt:'',referrerpolicy:'no-referrer'}));
+      sum.appendChild(el('span',{},u.login));
+      menu.appendChild(el('span',{},(u.name||u.login)+' · '+(u.provider==='hf'?'Hugging Face':'GitHub')));
+      (me.links||[]).forEach(function(l){menu.appendChild(el('a',{href:l.href},l.label))});
+      menu.appendChild(el('a',{href:'/auth/logout?return='+here},'Sign out'));
+    }else{
+      sum.textContent='Sign in';
+      if(me.providers.github)menu.appendChild(el('a',{href:'/auth/github/login?return='+here},'with GitHub'));
+      if(me.providers.hf)menu.appendChild(el('a',{href:'/auth/hf/login?return='+here},'with Hugging Face'));
+    }
+    box.appendChild(sum);box.appendChild(menu);box.hidden=false;
+    document.addEventListener('click',function(e){if(!box.contains(e.target))box.open=false});
+  });
+})();
+</script>"""
+
+
+# /me.html: the signed-in visitor's own hub page. The static file is an empty
+# shell; everything on it comes from the authenticated API at view time
+# (/api/v1/me/stars; functions/api/v1/me/stars.js), so nothing personal is ever
+# in the generated site.
+ME_BODY = """<main class="cwrap"><section class="whead"><h1>Your hub</h1>
+<p id="me-lead">Sign in from the header to see the corpora and contributors you starred, and how their hub stars grew.</p></section>
+<div id="me-stars"></div></main>"""
+
+ME_JS = """<script>
+(function(){
+  var lead=document.getElementById('me-lead'),box=document.getElementById('me-stars');
+  function el(t,a,txt){var e=document.createElement(t);for(var k in a)e.setAttribute(k,a[k]);if(txt!=null)e.textContent=txt;return e}
+  function spark(h){ // cumulative hub stars over the days we have history for
+    if(!h||!h.length)return null;
+    var c=0,pts=h.map(function(d){c+=d[1];return c}),mx=pts[pts.length-1]||1,w=160,ht=32,n=pts.length;
+    var d=pts.map(function(v,i){return (n===1?w:i*w/(n-1)).toFixed(1)+','+(ht-v/mx*(ht-2)-1).toFixed(1)}).join(' ');
+    if(n===1)d='0,'+(ht-1)+' '+d;
+    var s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('viewBox','0 0 '+w+' '+ht);s.setAttribute('class','spark');
+    var p=document.createElementNS('http://www.w3.org/2000/svg','polyline');p.setAttribute('points',d);s.appendChild(p);
+    var t=document.createElementNS('http://www.w3.org/2000/svg','title');t.textContent='+'+c+' hub stars from '+h[0][0]+' to '+h[h.length-1][0];s.appendChild(t);
+    return s;
+  }
+  (window.hubMe=window.hubMe||fetch('/api/me',{credentials:'same-origin'}).then(function(r){return r.ok?r.json():null}).catch(function(){return null})).then(function(me){
+    if(!me||!me.enabled){lead.textContent='Sign-in is not enabled on this hub yet.';return}
+    if(!me.user)return;
+    lead.textContent='Signed in as '+me.user.login+'. Everything you starred on the hub, newest first.';
+    fetch('/api/v1/me/stars',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(r){
+      if(!r||!r.ok){lead.textContent='Could not load your stars right now.';return}
+      if(!r.enabled){lead.textContent='Hub stars are not enabled on this hub yet.';return}
+      if(!r.stars.length){box.appendChild(el('p',{'class':'note'},'No stars yet. Star a corpus or a contributor from its page.'));return}
+      var t=el('table',{'class':'mystars'}),hd=el('tr');
+      ['','starred','hub stars','since daily history began'].forEach(function(x){hd.appendChild(el('th',{},x))});t.appendChild(hd);
+      r.stars.forEach(function(s){
+        var tr=el('tr'),a=el('td');a.appendChild(el('a',{href:s.href},(s.kind==='corpus'?'corpus ':'@')+s.id));tr.appendChild(a);
+        tr.appendChild(el('td',{'class':'mono'},(s.starred_at||'').slice(0,10)));
+        tr.appendChild(el('td',{'class':'mono'},'\u2605 '+Number(s.count||0).toLocaleString('en-US')));
+        var h=el('td'),sp=spark(s.history);if(sp)h.appendChild(sp);else h.textContent=s.history?'no new stars yet':'';tr.appendChild(h);
+        t.appendChild(tr);
+      });
+      box.appendChild(t);
+    }).catch(function(){lead.textContent='Could not load your stars right now.'});
+  });
+})();
+</script>"""
+
+
+NOT_FOUND_BODY = """<section class="hero"><h1>Not found</h1>
+<p>There is no page at this address. Corpus pages live at <code>/corpus/&lt;slug&gt;</code>;
+<a href="/index.html">the corpus list</a> and <a href="/llms.txt">llms.txt</a> name every live slug.</p></section>"""
 
 
 def page(title, desc, body, rel=""):
     return PAGE.format(title=esc(title), desc=esc(desc), body=body, rel=rel,
-                       fonts=FONTS, stamp=STAMP, ver=STYLE_VER, navjs=NAVCTA_JS)
+                       fonts=FONTS, stamp=STAMP, ver=STYLE_VER, navjs=NAVCTA_JS, authjs=AUTH_JS)
 
 
 FILTER_JS = """<script>
@@ -747,7 +888,7 @@ document.querySelectorAll('.copy').forEach(function(b){
 </script>"""
 
 
-def render_index(corpora, g7, graded, impact, prov):
+def render_index(corpora, g7, graded, impact, prov, people=None):
     live = [c for c in corpora if c["status"] == "live"]
     total_bytes = sum(sum(r.get("bytes") or 0 for r in c["repos"]) for c in live)
     n_imp = sum(1 for c in live if impact.get(c["slug"], {}).get("status") == "measured")
@@ -792,6 +933,12 @@ def render_index(corpora, g7, graded, impact, prov):
     treemap = "\n".join(groups)
     cat_chips = "".join(f'<button class="chip" data-cat="{k}">{k}</button>' for k in CATS)
     region_chips = "".join(f'<button class="chip" data-region="{esc(r)}">{esc(r)}</button>' for r in regions)
+    # owner request: real numbers instead of "registry rows" / "live corpora".
+    # Stars: distinct pinned repos with a recorded count only (never estimated).
+    stars, n_star_repos = contributors.pinned_repo_stars(people or {})
+    stars_stat = (f'<div class="stat" title="{stars:,} GitHub stars, summed over {n_star_repos:,} distinct pinned repositories '
+                  f'that have a recorded star count"><b>{contributors.compact(stars)}</b><span>GitHub stars across pinned repos</span></div>'
+                  if n_star_repos else "")
     body = f'''<main>
 <div class="kicker"><span class="accent">HUB.XERJ.ORG</span><span class="dash">·</span><span>REFERENCE MEMORY HUB FOR AI AGENTS</span></div>
 <div class="herorow">
@@ -803,9 +950,9 @@ that loads one works like a domain expert.</p>
 </div>
 <div class="heroside">
 <div class="statgrid">
-<div class="stat"><b>{len(live)}</b><span>live corpora</span></div>
+{stars_stat}
 <div class="stat"><b>{len(CATS)}</b><span>domains</span></div>
-<div class="stat"><b>{len(corpora)}</b><span>registry rows</span></div>
+<div class="stat"><a href="contributors/index.html"><b>{len(people or {}):,}</b><span>contributors</span></a></div>
 <div class="stat"><b>{human_bytes(total_bytes)}</b><span>pinned text</span></div>
 </div>
 <a class="cta" href="contribute.html">Add your corpus &rarr;</a>
@@ -826,15 +973,16 @@ that loads one works like a domain expert.</p>
 </div>
 <div class="treemap" id="grid">{treemap}</div>
 </section>
+{usage.home_section()}
 </main>
 {FILTER_JS}
-{COPY_JS}'''
+{COPY_JS}{usage.USAGE_JS}'''
     return page("XERJ Corpus Hub: reference memory for AI agents",
                 "Pinned, licence-checked, measured corpora an agent downloads per task and searches instead of guessing",
                 body)
 
 
-def detail_body(c, g7, graded, impact, prov):
+def detail_body(c, g7, graded, impact, prov, contrib=""):
     files, nbytes, licences = corpus_stats(c)
     st, stcls = STATUSES.get(c["status"], (c["status"], "mute"))
     cat_desc = CATS.get(c["cat"], ("", ""))
@@ -850,7 +998,11 @@ def detail_body(c, g7, graded, impact, prov):
 <td class="mono">{human_bytes(r.get('bytes'))} / {human_files(r.get('files'))}</td>
 <td class="note">{esc(plain(rv.get('note',''))[:400])}</td></tr>''')
     for s in c.get("sources", []):
-        rows.append(f'''<tr><td class="mono"><a href="{esc(s.get('url',''))}">{esc(s.get('slug', s.get('url','')))}</a></td>
+        # a backlog row's "url" can be a note ("superseded by ...", "mined from ...");
+        # link only real URLs, print the rest as text (no dead relative hrefs)
+        u, label = s.get('url', ''), esc(s.get('slug', s.get('url', '')))
+        src = f'<a href="{esc(u)}">{label}</a>' if re.match(r"^https?://", u or "") else label
+        rows.append(f'''<tr><td class="mono">{src}</td>
 <td class="mono">recipe</td><td>{esc(s.get('licence','?'))}</td><td class="mono">curated pack</td>
 <td class="note">{esc(plain(s.get('licence_hint',''))[:400])}</td></tr>''')
     g = graded.get(c["slug"])
@@ -898,72 +1050,73 @@ def detail_body(c, g7, graded, impact, prov):
     return f'''<main>
 <p><a class="backlink" href="../index.html">&larr; all corpora</a></p>
 <h1 class="slug">{esc(c['slug'])} <span class="dot {stcls}"></span></h1>
+{contributors.star_widget("corpus", c["slug"], esc, inline=True)}
 <p class="note">{esc(c['kind'])} · status <b>{st}</b> · domain <b>{esc(c['cat'])}</b> ({esc(cat_desc[0])}) · lane {esc(c['lane'])} · refresh {esc(c['refresh'])} · tags <b>{esc(tags_txt)}</b></p>
 <section class="detail"><h2>What an agent uses it for</h2><p>{esc(c['usecase'] or 'n/a')}</p></section>
 {useit}
 <section class="detail"><h2>Sources and pins</h2><table>
 <tr><th>source</th><th>pin</th><th>licence</th><th>size</th><th>review note</th></tr>{''.join(rows)}</table>
 <p class="note">{human_bytes(nbytes)} across {human_files(files)}. Added {esc(c['added'][:10] or 'n/a')}.</p></section>
+{contrib}
 <section class="detail"><h2>Rights</h2><p>{esc(' + '.join(licences) or '?')}.
 {esc('Redistribution permitted with attribution per the licence review' if any(r.get('review',{}).get('use')=='adapt-with-attribution' for r in c['repos']) else 'See per-source review blocks')}.
 The review block records a human opening each licence file at the pin. Detector output is a hint, never the verdict.</p></section>
-{g7sec}{impsec}
+{contributors.more_block("corpus", c["slug"], esc)}
+{g7sec}{impsec}{agent_score.section(c['slug'], esc)}{usage.traffic_section(c["slug"], esc)}{usage.corpus_section(c["slug"], esc)}
 </main>
-{COPY_JS}'''
+{COPY_JS}{contributors.STARS_JS}{contributors.MORE_JS}{usage.USAGE_JS}{agent_score.PANEL_JS}'''
 
 
 def category_body(k, cs, g7, graded, impact):
     title, what = CATS[k]
-    cards = "\n".join(card(c, g7, graded, impact) for c in cs)
+    cards = "\n".join(card(c, g7, graded, impact, rel="../") for c in cs)
     n_live = sum(1 for c in cs if c["status"] == "live")
     return f'''<main>
-<p><a class="backlink" href="../index.html">&larr; all domains</a></p>
+<p><a class="backlink" href="../index.html">&larr; all corpora</a></p>
 <div class="kicker"><span class="accent">{esc(k)}</span><span class="dash">·</span><span>DOMAIN</span></div>
 <h1 class="hero" style="font-size:clamp(56px,9vw,var(--fs-160))">{esc(k)}</h1>
 <p class="lead">{esc(title)}. Agent asks: {esc(what)}. {n_live} live of {len(cs)} entries.</p>
+{agent_score.SORT_BAR}
 <div class="grid">{cards}</div>
-</main>'''
+</main>{agent_score.CARDS_JS}'''
 
 
-ABOUT = '''<main>
-<div class="kicker"><span class="accent">ABOUT</span><span class="dash">·</span><span>THE HUB IN ONE PAGE</span></div>
-<h1 class="hero" style="font-size:clamp(48px,7vw,120px)">WHY A<br><span class="accent">CORPUS HUB</span></h1>
-<p class="lead">Agents answer from memory, and memory is stale, generic, or wrong on exactly
-the questions that matter: what the regulation says at this pin, whether this CVE is
-exploited, how this engine actually implements it. A corpus fixes that. The agent
-downloads the domain it needs, searches it, and cites what it found. This hub is the
-registry of those corpora: pinned, licence-checked, and measured.</p>
-<section class="detail"><h2>Every corpus passes seven gates</h2>
-<table>
-<tr><th>gate</th><th>what satisfies it</th></tr>
-<tr><td>G1 domain</td><td>the row finishes "an agent working on ___ would query this for ___" in one specific sentence</td></tr>
-<tr><td>G2 shape</td><td>the retrieval unit matches the question: clause-level sections for standards, function bodies for code, advisory records for precedent</td></tr>
-<tr><td>G3 un-memorisation</td><td>answer-bearing content is niche, internal, post-cutoff, or too detailed for recall. Famous-and-small is killed as retrieval theatre</td></tr>
-<tr><td>G4 licence</td><td>a human opened the licence at the pin and wrote the review block. Detector output is a hint, never the verdict</td></tr>
-<tr><td>G5 pin truth</td><td>manifest SHA equals the commit the build used. Rewrites are withdrawals, not re-pins</td></tr>
-<tr><td>G6 registry validation</td><td>validate_hub.py green in CI on the corpus-hub branch</td></tr>
-<tr><td>G7 retrieval spot-check</td><td>5 pre-registered domain queries, top-5 graded manually, median 3 or more relevant to pass</td></tr>
-</table></section>
-<section class="detail"><h2>Scores on the cards</h2>
-<p><b>G7</b> is the retrieval spot-check above. <b>A/B</b> is the drift-anchored agent
-benchmark: the same task run bare (offline, instructed to answer honestly rather than
-fabricate) and with the corpus. The badge shows pass counts, bare then corpus.
-A tie is a publishable outcome; the registry records it either way.</p></section>
-<section class="detail"><h2>Tags</h2>
-<p>Every corpus carries a region (US, UK, DE, EU, or GLOBAL) and topics. Filter the
-front page by domain and region; free-text search covers topics and subtopics.</p></section>
-<section class="detail"><h2>Rights policy</h2>
-<p>Per-source licence verdicts live in each manifest's review block. PD (US government
-works), OGL v3.0 (UK), and permissive licences ship as <code>adapt-with-attribution</code>.
-GPL, AGPL, SSPL, and other restrictive sources are <code>approach-only</code>: readable
-as design evidence, never copied. Closed families (ICC I-codes, Eurocodes, NEC, ASTM,
-ISO, DIN) are documented as closed and excluded.</p></section>
-<section class="detail"><h2>Contribute</h2>
-<p>The registry is a git branch: <a href="https://github.com/xerj-org/xerj/tree/corpus-hub">corpus-hub</a>.
-Read <a href="https://github.com/xerj-org/xerj/blob/corpus-hub/tools/xerj-code/hub/CONTRIBUTING.md">CONTRIBUTING.md</a>
-and the program doc (PROGRAM-100.md). This site is generated from the registry by
-<code>tools/corpus-hub-site/gen.py</code>. No hand-written corpus pages, ever.</p></section>
+# "What's this?" (was About; /about redirects here, see REDIRECTS). Short and
+# plain on purpose: what the hub is for, in facts the repo can back up, and
+# no numbers that are not computed from the registry at build time.
+WHATS_THIS = '''<main class="whats">
+<div class="kicker"><span class="accent">WHAT'S THIS?</span></div>
+<h1 class="hero" style="font-size:clamp(44px,6vw,var(--fs-96))">A SHARED LIBRARY<br><span class="accent">FOR AI AGENTS</span></h1>
+<p class="lead">AI agents often answer from memory, or crawl the web, or grep a repository they cloned a minute ago.
+The XERJ Corpus Hub is a shared library of corpora that are already indexed, so an agent can search the real source
+on its own machine and cite what it found.</p>
+<section class="detail"><h2>How it works</h2><ol class="steps">
+<li><b>A corpus is a pinned source.</b> A library's code at one commit, a standard, a regulation, an advisory feed.
+Each one records where it came from and the licence a person reviewed.</li>
+<li><b>It is pre-indexed and signed.</b> The hub builds a search pack for each corpus. The catalogue and the packs are
+signed (ed25519), and the <code>xerj</code> CLI refuses anything that does not verify against the hub key built into it.</li>
+<li><b>The agent searches locally.</b> <code>xerj hub pull</code> fetches a pack, then <code>xerj code &lt;corpus&gt; "question"</code>
+answers with passages headed by a file path and line, so every answer can be cited as <code>file:line</code>.
+Your queries stay on your machine.</li>
+</ol></section>
+<section class="detail"><h2>People get the credit</h2>
+<p>Corpora come from the community. Every contributor has a <a href="{rel}contributors/index.html">profile</a> that lists
+their work and the corpora it is in, and visitors can give hub stars to contributors and corpora. Each corpus page names
+the people behind it, with attribution under each source's own licence.</p></section>
+<section class="detail"><h2>Agents say what worked</h2>
+<p>After they use a corpus, agents can send a structured review: was it useful, was the answer found, is it fresh.
+That becomes the corpus's <b>agent score</b>, shown on its page apart from the human stars.</p></section>
+<section class="detail"><h2>Start</h2>
+<p><a href="{rel}index.html">Browse the corpora</a> · <a href="{rel}llms.txt">llms.txt</a> (the agent's guide) ·
+<a href="{rel}contribute.html">Add your corpus</a> · <a href="https://github.com/xerj-org/xerj/tree/corpus-hub/tools/xerj-code/hub">The registry on GitHub</a></p></section>
+''' + usage.PRIVACY + '''
 </main>'''
+
+# Cloudflare Pages _redirects: the old About URLs keep working.
+REDIRECTS = """/about /whats-this/ 301
+/about/ /whats-this/ 301
+/about.html /whats-this/ 301
+"""
 
 
 def contribute_prompt():
@@ -1013,15 +1166,33 @@ def main():
     g7 = parse_waves_g7()
     graded = parse_graded_suites()
     impact, prov = load_impact()
-    (OUT / "index.html").write_text(render_index(corpora, g7, graded, impact, prov))
+    people = contributors.load(HUB, corpora)
+    (OUT / "index.html").write_text(render_index(corpora, g7, graded, impact, prov, people))
+    # every corpus page credits its people: signed-up contributors, the upstream
+    # owners of its pinned repositories, or the curator (contributors.credits)
+    credit, upstream = contributors.credits(corpora, people)
     for c in corpora:
+        cr = credit[c["slug"]]
+        contrib = contributors.corpus_section(cr["contributors"], esc, people, cr["upstream"], cr["curator"], cr["aggregate"])
         (OUT / "corpus" / f"{c['slug']}.html").write_text(
-            page(f"{c['slug']}: XERJ Corpus Hub", c["usecase"][:150], detail_body(c, g7, graded, impact, prov), rel="../"))
+            page(f"{c['slug']}: XERJ Corpus Hub", c["usecase"][:150], detail_body(c, g7, graded, impact, prov, contrib), rel="../"))
     for k, (title, what) in CATS.items():
         cs = [c for c in corpora if c["cat"] == k]
         (OUT / "category" / f"{k}.html").write_text(
             page(f"{k}: {title} domain", what, category_body(k, cs, g7, graded, impact), rel="../"))
-    (OUT / "about.html").write_text(page("About: XERJ Corpus Hub", "How corpora are gated, scored, tagged, and licenced", ABOUT, rel=""))
+    (OUT / "whats-this").mkdir(exist_ok=True)
+    (OUT / "whats-this" / "index.html").write_text(page(
+        "What's this? XERJ Corpus Hub", "A shared, signed library of pre-indexed corpora that AI agents search locally, with cited file:line answers",
+        WHATS_THIS.replace("{rel}", "../"), rel="../"))
+    (OUT / "about.html").unlink(missing_ok=True)   # replaced by whats-this/; _redirects keeps the old URL
+    (OUT / "_redirects").write_text(REDIRECTS)
+    (OUT / "me.html").write_text(page("Your hub: XERJ Corpus Hub", "Your hub stars, after you sign in", ME_BODY + ME_JS, rel=""))
+    # 404.html: Cloudflare Pages serves it, with status 404, for any path that
+    # has no file. Without it Pages falls back to index.html with a 200, so a
+    # mistyped corpus URL, a link checker or an agent probing /corpus/<slug>
+    # took the homepage for a live page (issue #1895). Absolute links (rel="/"):
+    # it is served at every depth.
+    (OUT / "404.html").write_text(page("Not found: XERJ Corpus Hub", "This page does not exist", NOT_FOUND_BODY, rel="/"))
     (OUT / "contribute.html").write_text(page("Contribute: XERJ Corpus Hub", "Share your knowledge: index a corpus and open a pull request", contribute_body(), rel=""))
     # llms.txt - agent-facing index of the registry, generated like everything
     # else. Short first screen (study rule 7), no obligation language, every
@@ -1068,6 +1239,13 @@ def main():
         '   Success: the health call returns JSON containing "status":"green".',
         "   To stop a node you started: `kill $(cat ~/xerj-node.pid)`. Never `pkill xerj` or",
         "   `killall xerj`: other XERJ nodes may be running on the machine and you would stop them too.",
+        "",
+        "   Busy port: if `~/xerj-node.log` says a port is already in use (8080 is a common",
+        "   clash), start the node with `--port 9400` instead: ES-compat API on 9400, native",
+        "   REST on 9401, gRPC on 9402. Check `curl -s localhost:9400/_cluster/health`, then add",
+        "   `--url http://127.0.0.1:9400` to every later `xerj` command. `--url` always takes the",
+        "   ES-compat port; the native REST port answers `PUT /xc-... 404`. (`--auto-port` also",
+        "   works, but then read the ports it bound from the log banner.)",
         "",
         "3. Download the pinned manifest and add the corpus. `--from` takes a local file:",
         "",
@@ -1130,8 +1308,16 @@ def main():
               "  withdrawn states (visible, not hidden: hub policy is honest statuses).",
               "  Browse all: https://hub.xerj.org"]
     (OUT / "llms.txt").write_text("\n".join(lines) + "\n")
+    n_people = contributors.generate(OUT, HUB, page, esc, {c["slug"] for c in live}, corpora, people, upstream)
+    # Signed-in details: bundled into the Pages Functions, never written to out/.
+    if os.environ.get("GITHUB_ACTIONS") == "true" or os.environ.get("HUB_FUNCTION_DATA") == "1":
+        mod = private_data.module(private_data.build(ROOT, HUB, PACKS, corpora, people,
+                                                         dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d")))
+        (ROOT / "functions" / "_lib" / "hubdata.js").write_text(mod)
+        print(f"signed-in details: functions/_lib/hubdata.js, {len(mod):,} bytes")
     n = len(list((OUT / "corpus").glob("*.html")))
-    print(f"generated: index, about, {len(CATS)} category pages, {n} corpus pages -> {OUT}")
+    print(f"generated: index, whats-this, {len(CATS)} category pages, {n} corpus pages ({len(corpora)} registry), "
+          f"{n_people} contributor pages, {len(upstream)} upstream/curator pages -> {OUT}")
 
 
 if __name__ == "__main__":

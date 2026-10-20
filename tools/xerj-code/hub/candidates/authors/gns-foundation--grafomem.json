@@ -1,0 +1,22 @@
+{
+ "corpus": "gns-foundation--grafomem",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, governance, langgraph queries this for how GNS-Foundation/grafomem implements it: GNS-Foundation/grafomem (Python) (selected work: src/aml, tests, the project root)",
+ "repos": [
+  {
+   "repo": "grafomem",
+   "url": "https://github.com/GNS-Foundation/grafomem",
+   "sha": "02e95546d647ee67b08b49ac53049b64596e009f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 02e95546d647: \"fix(server): scope store audit to tenant\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

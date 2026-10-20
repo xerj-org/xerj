@@ -1,0 +1,22 @@
+{
+ "corpus": "baole--konture",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on architecture, gradle-plugin, kotlin queries this for how baole/konture implements it: Define, enforce, and automate architecture rules run as fast, lightweight Kotlin unit tests. Fully supports Kotlin Multiplatform (KMP), Andr (selected work: script, library, konture-test)",
+ "repos": [
+  {
+   "repo": "konture",
+   "url": "https://github.com/baole/konture",
+   "sha": "4bde7e8af1490ce7310d6a44268787670a145292",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 4bde7e8af149: \"update agents\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

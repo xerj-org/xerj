@@ -1,0 +1,22 @@
+{
+ "corpus": "sirjansingh--agentarcade",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, cursor queries this for how SirjanSingh/agentarcade implements it: Play a mini-game or watch Shorts while your coding agent thinks. A tray app for Claude Code, Codex, Cursor and Antigravity that only shows u (selected work: src-tauri, src)",
+ "repos": [
+  {
+   "repo": "agentarcade",
+   "url": "https://github.com/SirjanSingh/agentarcade",
+   "sha": "e464887322a6d058d714ddf20a857c8f067bca1a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit e464887322a6: \"feat(agents): connect Codex, Cursor and Antigravity, and keep a backg\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

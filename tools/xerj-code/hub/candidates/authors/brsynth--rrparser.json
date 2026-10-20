@@ -1,0 +1,22 @@
+{
+ "corpus": "brsynth--rrparser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how brsynth/RRParser implements it: Reaction rules parser (selected work: tests, rrparser)",
+ "repos": [
+  {
+   "repo": "RRParser",
+   "url": "https://github.com/brsynth/RRParser",
+   "sha": "195512708355f942ae82faad973be5428ab13260",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 195512708355: \"Normalize radius and diameter expressions before parsing rules\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

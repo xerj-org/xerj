@@ -1,0 +1,22 @@
+{
+ "corpus": "reddcoin-project--reddcoin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how reddcoin-project/reddcoin implements it: Reddcoin 4.22 (selected work: src/wallet)",
+ "repos": [
+  {
+   "repo": "reddcoin",
+   "url": "https://github.com/reddcoin-project/reddcoin",
+   "sha": "0ddfd1ccfce1962425bf13ef64242fd4c5e079c6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 0ddfd1ccfce1: \"wallet: write only the changed pages in the periodic flush\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

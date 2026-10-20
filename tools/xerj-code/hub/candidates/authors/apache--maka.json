@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--maka",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-runtime, ai, ai-agent queries this for how apache/maka implements it: Apache Maka (Incubating) is a high-performance agent workspace that keeps a complete record of everything it did (selected work: apps/desktop, packages/ui)",
+ "repos": [
+  {
+   "repo": "maka",
+   "url": "https://github.com/apache/maka",
+   "sha": "0021c73538ceafd78e7dcf0c766c0609a061bb81",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 0021c73538ce: \"fix(desktop): clarify delivery states and recover failed messages (#5\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "open-markets-initiative--omi-cpp-protocols",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on binary-protocol, electronic-exchange queries this for how Open-Markets-Initiative/omi-cpp-protocols implements it: Deterministically code generated C++ protocols and exectuables that gather statistics and gap detection on common exchange protocols (selected work: cpp, executables, tests)",
+ "repos": [
+  {
+   "repo": "omi-cpp-protocols",
+   "url": "https://github.com/Open-Markets-Initiative/omi-cpp-protocols",
+   "sha": "0d5e44bf1590e1334aca2938a18ae227cdc19679",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 0d5e44bf1590: \"Add flex and regenerate\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

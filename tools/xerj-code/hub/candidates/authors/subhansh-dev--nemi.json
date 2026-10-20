@@ -1,0 +1,22 @@
+{
+ "corpus": "subhansh-dev--nemi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, cli-agents, collaboration queries this for how subhansh-dev/nemi implements it: Multiplayer coding sessions for VS Code \u2014 teammates and their AI coding agents work side by side in one shared session, with live lanes, sha (selected work: scripts, extension, the project root)",
+ "repos": [
+  {
+   "repo": "nemi",
+   "url": "https://github.com/subhansh-dev/nemi",
+   "sha": "086e99d548bb8346ae9f1231afeab2d355e2deb6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 086e99d548bb: \"Run the agent adapters in tests, and fix the OpenCode parser they caught\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

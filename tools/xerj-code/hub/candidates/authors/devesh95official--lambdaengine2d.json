@@ -1,0 +1,22 @@
+{
+ "corpus": "devesh95official--lambdaengine2d",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cpp20, ecs, game-engine queries this for how devesh95official/LambdaEngine2D implements it: A 2D Game engine written in C++ (selected work: templates)",
+ "repos": [
+  {
+   "repo": "LambdaEngine2D",
+   "url": "https://github.com/devesh95official/LambdaEngine2D",
+   "sha": "c10cb86dffd1561d9d8c6562ff6fc014167792f3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c10cb86dffd1: \"Starter templates\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "dcotecnologia--kubescope",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on amazon-eks, cluster-management, desktop-app queries this for how dcotecnologia/kubescope implements it: Read-only desktop viewer for Kubernetes workloads on Amazon EKS, Google GKE and Azure AKS, built with Python and Qt (selected work: tests, the project root)",
+ "repos": [
+  {
+   "repo": "kubescope",
+   "url": "https://github.com/dcotecnologia/kubescope",
+   "sha": "8565d280f1ea890ae7fd276e77a5628e88337f26",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 8565d280f1ea: \"feat(install): add scripts that install or update KubeScope from a re\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

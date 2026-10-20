@@ -1,0 +1,22 @@
+{
+ "corpus": "trassert--luminto",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on python, telegram-bot, aiohttp queries this for how trassert/Luminto implements it: Luminto monorepo (selected work: modules, modules/telegram, defaults)",
+ "repos": [
+  {
+   "repo": "Luminto",
+   "url": "https://github.com/trassert/Luminto",
+   "sha": "da08961ce4360ca2e3fc47d2e49a85fdc9e4518a",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit da08961ce436: \"\u0420\u0437\u043b\u0438\u0447\u043d\u044b\u0435 \u0444\u0438\u043a\u0441\u044b\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "adidshaft--atria",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bluetooth-low-energy, corebluetooth, health queries this for how adidshaft/atria implements it: Open-source, local-first iOS companion for compatible WHOOP straps. Live HR and evidence-qualified personal metrics over Bluetooth\u2014no WHOOP  (selected work: Atria)",
+ "repos": [
+  {
+   "repo": "atria",
+   "url": "https://github.com/adidshaft/atria",
+   "sha": "892b69ced0d881fe5c0755b035b6279cf16f505f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 892b69ced0d8: \"Address App Review demo, HealthKit and wellness disclosures\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

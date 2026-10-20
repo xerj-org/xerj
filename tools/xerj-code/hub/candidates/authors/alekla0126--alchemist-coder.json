@@ -1,0 +1,22 @@
+{
+ "corpus": "alekla0126--alchemist-coder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-client-protocol, ai-agents, claude-code queries this for how Alekla0126/alchemist-coder implements it: Free, open-source desktop app for Claude Code and Codex: follow every agent and subagent live, run your own agent organization and automate  (selected work: apps/desktop)",
+ "repos": [
+  {
+   "repo": "alchemist-coder",
+   "url": "https://github.com/Alekla0126/alchemist-coder",
+   "sha": "dd67c83d8dadb3395c79dba02301072e5d32a91a",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit dd67c83d8dad: \"feat(browser): tabs, and a browser of its own for each project (AC-003)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

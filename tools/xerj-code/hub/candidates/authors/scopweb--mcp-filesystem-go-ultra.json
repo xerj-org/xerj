@@ -1,0 +1,22 @@
+{
+ "corpus": "scopweb--mcp-filesystem-go-ultra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-tools, claude, claude-code queries this for how scopweb/mcp-filesystem-go-ultra implements it: High-performance MCP filesystem server in Go \u2014 17 tools, pipeline system, audit logging, dashboard, WSL support. For Claude Desktop and Clau (selected work: core, internal/mcpserver)",
+ "repos": [
+  {
+   "repo": "mcp-filesystem-go-ultra",
+   "url": "https://github.com/scopweb/mcp-filesystem-go-ultra",
+   "sha": "20767dcc9852d36d535d08612721457e1932e374",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 20767dcc9852: \"feat: structured reads, symbol ranges, normalized diff, and ff-only pull\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

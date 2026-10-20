@@ -1,0 +1,22 @@
+{
+ "corpus": "milind-soni--openmausbot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how milind-soni/OpenMausBot implements it: Open-source Grok Bot alternative with a virtual machine that bots can use (selected work: src/components, shared, server)",
+ "repos": [
+  {
+   "repo": "OpenMausBot",
+   "url": "https://github.com/milind-soni/OpenMausBot",
+   "sha": "c4f4ff22478a7afca6b02ffc4b46c823cc06435f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit c4f4ff22478a: \"fix(acp): sanitize leaked internal system messages from assistant output\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

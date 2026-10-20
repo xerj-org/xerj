@@ -1,0 +1,22 @@
+{
+ "corpus": "126punith--react-native-pdf-jsi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how 126punith/react-native-pdf-jsi implements it: \ud83d\ude80 React Native PDF Enhanced \u2013 JSI\u2011Powered Performance The only React Native PDF viewer built with JSI. Render, zoom, search, and compress up (selected work: android, cpp, ios)",
+ "repos": [
+  {
+   "repo": "react-native-pdf-jsi",
+   "url": "https://github.com/126punith/react-native-pdf-jsi",
+   "sha": "766c2b5bb3d2eec2efb212d8d0b6ab77b45c6f00",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 766c2b5bb3d2: \"feat: route PDF JSI through Nitro on the new architecture\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

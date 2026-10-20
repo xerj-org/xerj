@@ -1,0 +1,22 @@
+{
+ "corpus": "echo-foxtrot-works--topostack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on digital-fabrication, laser-cutting, laser-engraving queries this for how Echo-Foxtrot-Works/topostack implements it: Browser-based topographic map generator for laser cutting and engraving. Create layered terrain reliefs and export SVG files from real eleva (selected work: apps/generator, packages/core, scripts)",
+ "repos": [
+  {
+   "repo": "topostack",
+   "url": "https://github.com/Echo-Foxtrot-Works/topostack",
+   "sha": "8020e7f1fdac300ce862511c1887b65126f9727e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 8020e7f1fdac: \"Fix acrylic stock validation and production release safeguards\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

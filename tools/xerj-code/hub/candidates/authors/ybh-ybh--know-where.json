@@ -1,0 +1,22 @@
+{
+ "corpus": "ybh-ybh--know-where",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-summarization, bilibili, content-archive queries this for how ybh-ybh/know-where implements it: \u77e5\u5f52\u662f\u4e00\u4e2a\u9762\u5411\u4e2a\u4eba\u4f7f\u7528\u7684 AI \u77e5\u8bc6\u5f52\u6863\u5de5\u5177\u3002\u628a\u5185\u5bb9\u94fe\u63a5\uff08\u5fae\u4fe1\u516c\u4f17\u53f7\u3001\u7a00\u571f\u6398\u91d1\u3001GitHub\u3001\u5c0f\u7ea2\u4e66\u3001\u6296\u97f3\u3001B\u7ad9\uff09\u53d1\u9001\u7ed9\u98de\u4e66\u673a\u5668\u4eba\uff0c\u77e5\u5f52\u4f1a\u81ea\u52a8\u5b8c\u6210\u5185\u5bb9\u63d0\u53d6\u3001AI \u5206\u7c7b\u4e0e\u603b\u7ed3\uff0c\u5e76\u5c06\u7ed3\u679c\u6c89\u6dc0\u5230\u98de\u4e66\u591a\u7ef4\u8868\u683c\u4e2d\u3002Send WeChat Article / Douyin / Xiaohon (selected work: tests, src/knowwhere, the project root)",
+ "repos": [
+  {
+   "repo": "know-where",
+   "url": "https://github.com/ybh-ybh/know-where",
+   "sha": "85770c2fb8a602263e0d7c19bf9696433f5f5279",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 85770c2fb8a6: \"fix(xiaohongshu): \u4fee\u6b63\u767b\u5f55\u8df3\u8f6c\u8bef\u62a5\u5e76\u652f\u6301\u53ef\u9009 Cookie \u4f1a\u8bdd\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

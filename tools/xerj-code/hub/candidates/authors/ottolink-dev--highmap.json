@@ -1,0 +1,22 @@
+{
+ "corpus": "ottolink-dev--highmap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on heightmap, procedural-generation, terrain-generation queries this for how ottolink-dev/HighMap implements it: A C++ library to generate two-dimensional terrain heightmaps for software rendering or video games (selected work: HighMap, tests, examples)",
+ "repos": [
+  {
+   "repo": "HighMap",
+   "url": "https://github.com/ottolink-dev/HighMap",
+   "sha": "90bb8041b17fd7c0bd1631597fda78cb492368f4",
+   "licence": "hint only: LGPL-2.1 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-2.1",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 90bb8041b17f: \"feat: add loose symmetry operator and example (#461)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

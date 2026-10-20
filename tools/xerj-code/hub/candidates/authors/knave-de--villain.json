@@ -1,0 +1,22 @@
+{
+ "corpus": "knave-de--villain",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how knave-de/villain implements it: knave-de/villain (Rust) (selected work: src, src/appearance)",
+ "repos": [
+  {
+   "repo": "villain",
+   "url": "https://github.com/knave-de/villain",
+   "sha": "20f00f42ca0d8ce1a990a84f623a20e4fac56b39",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 20f00f42ca0d: \"fix(render): clip oversized client content and input to tile bounds (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

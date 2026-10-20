@@ -1,0 +1,22 @@
+{
+ "corpus": "cogno-us--cognous-control-plane",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-governance, authorization queries this for how cogno-us/cognous-control-plane implements it: A minimal runtime control and replay layer for AI agents. It records proposed actions, authorization decisions, blocked actions, external-to (selected work: tests, src/agent_control_plane)",
+ "repos": [
+  {
+   "repo": "cognous-control-plane",
+   "url": "https://github.com/cogno-us/cognous-control-plane",
+   "sha": "e66e5f163c5d5c112ff345a2f332b4c3893ee183",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit e66e5f163c5d: \"W1: enforce tenant-bound authorization effect 0.2 (#18)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

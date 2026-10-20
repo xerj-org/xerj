@@ -1,0 +1,22 @@
+{
+ "corpus": "anmolsah--firstissue-dev",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how anmolsah/firstissue.dev implements it: FirstIssue.dev is a developer platform designed to help engineers start and track their open source contribution journey (selected work: src/components, src/hooks, src/services)",
+ "repos": [
+  {
+   "repo": "firstissue.dev",
+   "url": "https://github.com/anmolsah/firstissue.dev",
+   "sha": "d62336b10b291b014fafdfe48dde21118b4ed9d7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit d62336b10b29: \"feat: add AI learning service, badge system, and related components a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

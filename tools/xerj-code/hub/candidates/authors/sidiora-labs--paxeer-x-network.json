@@ -1,0 +1,22 @@
+{
+ "corpus": "sidiora-labs--paxeer-x-network",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai, ai-agents queries this for how Sidiora-Labs/Paxeer-X-Network implements it: Paxeer X is a Distributed HyperState Machine for payments, code execution and intent routing. Designed for Machines and the Users operating  (selected work: tests, agent, cmd/layerxd)",
+ "repos": [
+  {
+   "repo": "Paxeer-X-Network",
+   "url": "https://github.com/Sidiora-Labs/Paxeer-X-Network",
+   "sha": "d3b803ba53cb91561a68e966d65243b28ed96842",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit d3b803ba53cb: \"Connect authenticated native replay evidence to the daemon and SDK\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

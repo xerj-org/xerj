@@ -1,0 +1,22 @@
+{
+ "corpus": "ixinortyan--suzuemojy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on local-image-collection, meme, memes queries this for how IxinorTyan/SuzuEmojy implements it: A local emoji manager for Windows (8+). Organize, search, and quickly send your local image collection (selected work: tests, fluent_ui, services)",
+ "repos": [
+  {
+   "repo": "SuzuEmojy",
+   "url": "https://github.com/IxinorTyan/SuzuEmojy",
+   "sha": "dc14f4a1f5149d964480528dd5a50b41df803752",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit dc14f4a1f514: \"v1.13.1\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

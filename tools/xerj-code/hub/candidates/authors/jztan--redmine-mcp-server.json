@@ -1,0 +1,22 @@
+{
+ "corpus": "jztan--redmine-mcp-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agentic-ai, redmine queries this for how jztan/redmine-mcp-server implements it: MCP server connecting AI assistants to Redmine: issues, projects, wikis, time tracking, agile boards, and CRM, with OAuth2 multi-user suppor (selected work: tests, src/redmine_mcp_server)",
+ "repos": [
+  {
+   "repo": "redmine-mcp-server",
+   "url": "https://github.com/jztan/redmine-mcp-server",
+   "sha": "bb494a800a04acda2c804ef1e9897a0a5112020f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit bb494a800a04: \"fix: report a custom field name that cannot be resolved\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

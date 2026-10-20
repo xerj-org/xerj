@@ -1,0 +1,22 @@
+{
+ "corpus": "codecentric--spring-boot-admin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on spring-boot-admin, spring-cloud, spring-boot queries this for how codecentric/spring-boot-admin implements it: Admin UI for administration of spring boot applications (selected work: spring-boot-admin-server-ui, spring-boot-admin-samples)",
+ "repos": [
+  {
+   "repo": "spring-boot-admin",
+   "url": "https://github.com/codecentric/spring-boot-admin",
+   "sha": "2a292ec27773a4157d8d7717352a475317011f33",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 2a292ec27773: \"fix: stop expanding cyclic SBOM dependencies (#5746) (#5748)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

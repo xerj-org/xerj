@@ -1,0 +1,22 @@
+{
+ "corpus": "andrewmolyuk--mongo-leader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on leader, mongodb queries this for how andrewmolyuk/mongo-leader implements it: Leader election backed by MongoDB (selected work: tests, src, the project root)",
+ "repos": [
+  {
+   "repo": "mongo-leader",
+   "url": "https://github.com/andrewmolyuk/mongo-leader",
+   "sha": "582ee4b4656358cab6c934b15f1dfcc505b07001",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 582ee4b46563: \"refactor: move the source and tests to TypeScript, and tests to Vites\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

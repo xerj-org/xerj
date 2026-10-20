@@ -1,0 +1,22 @@
+{
+ "corpus": "zhao-guang-ai--dsh-quote-annotate-pro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on deepseek-harness, dsh, dsh-bundle queries this for how zhao-guang-ai/dsh-quote-annotate-pro implements it: Selection quoting and anchored annotations for DSH: the composer and the transcript render a compact quote block you can click to jump back  (selected work: lib, tools, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-quote-annotate-pro",
+   "url": "https://github.com/zhao-guang-ai/dsh-quote-annotate-pro",
+   "sha": "bfcd3f806f1e3e2d033486aafb23b4596b487de1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit bfcd3f806f1e: \"feat(annotation): \u7f16\u53f7\u6279\u6ce8 + \u56de\u590d\u9010\u6761\u5bf9\u7167\uff08v0.3.0\uff09\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

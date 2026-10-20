@@ -1,0 +1,22 @@
+{
+ "corpus": "grigory51--brigade",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how grigory51/brigade implements it: grigory51/brigade (Go) (selected work: backend, web)",
+ "repos": [
+  {
+   "repo": "brigade",
+   "url": "https://github.com/grigory51/brigade",
+   "sha": "8fb80eb0a70ee26633016aed86071985e9ced725",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit 8fb80eb0a70e: \"fix(telegram): invalidate stale business drafts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

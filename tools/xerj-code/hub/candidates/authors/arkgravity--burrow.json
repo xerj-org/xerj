@@ -1,0 +1,22 @@
+{
+ "corpus": "arkgravity--burrow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on authentication, golang, identity-provider queries this for how ArkGravity/burrow implements it: Lightweight, self-hosted OIDC identity provider for small teams. Go + React, password + mandatory TOTP, RBAC, and shared SSO. MIT licensed (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "burrow",
+   "url": "https://github.com/ArkGravity/burrow",
+   "sha": "abac1beac7986f87cbde07053956d6170bafc77c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit abac1beac798: \"feat: build and release native amd64 and arm64 artifacts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

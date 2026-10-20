@@ -1,0 +1,22 @@
+{
+ "corpus": "rdrsss--planar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C++ queries this for how rdrsss/planar implements it: a context plane for long running agents (selected work: src/engine, src/cmd, src/lib)",
+ "repos": [
+  {
+   "repo": "planar",
+   "url": "https://github.com/rdrsss/planar",
+   "sha": "9599a19f79e2984e12a4fa5e120b6994677c3263",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 9599a19f79e2: \"Make planar report's inputs and privacy statement trustworthy (#249)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "daniel-w-innes--nixos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Nix queries this for how Daniel-W-Innes/nixos implements it: Daniel-W-Innes/nixos (Nix) (selected work: generic, secrets)",
+ "repos": [
+  {
+   "repo": "nixos",
+   "url": "https://github.com/Daniel-W-Innes/nixos",
+   "sha": "6050270496f8880f07dfc1f9a25d24a55e554943",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 6050270496f8: \"init audiomuse\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

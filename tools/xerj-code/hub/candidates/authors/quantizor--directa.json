@@ -1,0 +1,22 @@
+{
+ "corpus": "quantizor--directa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Swift queries this for how quantizor/directa implements it: An agent-friendly coordinator for many devservers and their unique configurations (selected work: Tests, Sources)",
+ "repos": [
+  {
+   "repo": "directa",
+   "url": "https://github.com/quantizor/directa",
+   "sha": "7d2e3f706fd37b294df5986e3c24220b22d42b27",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 7d2e3f706fd3: \"fix(hook): say only what changed after a tool\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

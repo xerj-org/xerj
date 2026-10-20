@@ -1,0 +1,22 @@
+{
+ "corpus": "kaushal937--netbreaker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how kaushal937/NetBreaker implements it: local reverse proxy for safe port-forwarding (selected work: src/config, src/middlewares, src)",
+ "repos": [
+  {
+   "repo": "NetBreaker",
+   "url": "https://github.com/kaushal937/NetBreaker",
+   "sha": "fcb05d1931e487305519e11fa8ef58a79a9323ff",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit fcb05d1931e4: \"state\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

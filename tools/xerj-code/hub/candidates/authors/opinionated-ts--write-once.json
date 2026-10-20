@@ -1,0 +1,22 @@
+{
+ "corpus": "opinionated-ts--write-once",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on content-synchronization, documentation-sync, single-source-of-truth queries this for how opinionated-ts/write-once implements it: Keep documentation, AI instructions, skills, and code examples in sync from a single source of truth. Reuse text across files with simple ma (selected work: src, tests)",
+ "repos": [
+  {
+   "repo": "write-once",
+   "url": "https://github.com/opinionated-ts/write-once",
+   "sha": "0f12bdbe098b37ca6c6b0e9e6e23b975efbde0e7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 0f12bdbe098b: \"feat(hooks): chain pre-write transformations\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

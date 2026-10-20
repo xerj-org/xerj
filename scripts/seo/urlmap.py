@@ -292,10 +292,14 @@ class DateSource:
     def _probe(self) -> bool:
         try:
             r = subprocess.run(
-                ["git", "-C", str(self.repo_root), "rev-parse", "--git-dir"],
+                ["git", "-C", str(self.repo_root), "rev-parse",
+                 "--is-shallow-repository"],
                 capture_output=True, text=True, timeout=15,
             )
-            return r.returncode == 0
+            # At a shallow boundary, git treats every surviving file as added
+            # by that commit, even if it was last changed earlier. Those dates
+            # are not verifiable page history; use the recorded mtime fallback.
+            return r.returncode == 0 and r.stdout.strip() == "false"
         except (OSError, subprocess.SubprocessError):
             return False
 

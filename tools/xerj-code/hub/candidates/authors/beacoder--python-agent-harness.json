@@ -1,0 +1,22 @@
+{
+ "corpus": "beacoder--python-agent-harness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on coding-agent, mini-opencode, agent-harness queries this for how beacoder/python-agent-harness implements it: A lightweight, hackable mini-OpenCode written in Python (selected work: tests, python_agent_harness)",
+ "repos": [
+  {
+   "repo": "python-agent-harness",
+   "url": "https://github.com/beacoder/python-agent-harness",
+   "sha": "df727f4e3e43183655997eb514c13365a371fadf",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit df727f4e3e43: \"Fix potential bug.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

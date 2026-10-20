@@ -1,0 +1,22 @@
+{
+ "corpus": "npc-worldwide--incognide",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, ai, npc queries this for how NPC-Worldwide/incognide implements it: Explore the unknown, build the future, own your data (selected work: src/renderer, src/ipc, src)",
+ "repos": [
+  {
+   "repo": "incognide",
+   "url": "https://github.com/NPC-Worldwide/incognide",
+   "sha": "b31dffa21f6810f2103b6e7c242a5e00679204b5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit b31dffa21f68: \"agent context usage meter fixes and compression in agents\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

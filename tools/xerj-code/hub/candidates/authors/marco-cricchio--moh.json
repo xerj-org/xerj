@@ -1,0 +1,22 @@
+{
+ "corpus": "marco-cricchio--moh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, bun, cli queries this for how Marco-Cricchio/moh implements it: Your terminal, with a coding agent inside: reads your code, edits files, runs commands \u2014 with permission gates on every risky step (selected work: packages/tui)",
+ "repos": [
+  {
+   "repo": "moh",
+   "url": "https://github.com/Marco-Cricchio/moh",
+   "sha": "f749fb1a12d27c6599491771a3c50f602f8e8d08",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f749fb1a12d2: \"fix(tui): ScrollDialog measures rendered height \u2014 retro borders never\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

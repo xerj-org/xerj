@@ -1,0 +1,22 @@
+{
+ "corpus": "sst-systems--stableref",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on gamedev, guid, refactoring-safe queries this for how SST-Systems/StableRef implements it: A convenient, reliable wrapper over Unity's [SerializeReference] (selected work: Tests, Editor)",
+ "repos": [
+  {
+   "repo": "StableRef",
+   "url": "https://github.com/SST-Systems/StableRef",
+   "sha": "fe7fe8d4e54842c825781bd92bae1fa09816f78f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit fe7fe8d4e548: \"fix confirm list Clear/Replace over missing entries\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

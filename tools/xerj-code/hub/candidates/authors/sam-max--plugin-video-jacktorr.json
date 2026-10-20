@@ -1,0 +1,22 @@
+{
+ "corpus": "sam-max--plugin-video-jacktorr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on addon, kodi, torrent queries this for how Sam-Max/plugin.video.jacktorr implements it: TorrServer streaming addon for Kodi (selected work: tests, lib, resources)",
+ "repos": [
+  {
+   "repo": "plugin.video.jacktorr",
+   "url": "https://github.com/Sam-Max/plugin.video.jacktorr",
+   "sha": "775f9c116a62e3cb6bde5e293aa6b1c555a04eeb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 775f9c116a62: \"fix: configure Rutor and Torznab searches safely\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

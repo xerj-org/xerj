@@ -1,0 +1,22 @@
+{
+ "corpus": "muhammadhaseebiqbal-dev--screen-recorder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on opensource, quickaccess, recorder queries this for how muhammadhaseebiqbal-dev/Screen-Recorder implements it: A pristine material-you screen recorder with mic and internal audio toggles (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "Screen-Recorder",
+   "url": "https://github.com/muhammadhaseebiqbal-dev/Screen-Recorder",
+   "sha": "f2a81cc678968b7756c4b7a4b1240bd33f2e726d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit f2a81cc67896: \"Follow capture rotation within a fixed video canvas (#28)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

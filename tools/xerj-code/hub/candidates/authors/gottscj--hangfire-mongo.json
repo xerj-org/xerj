@@ -1,0 +1,22 @@
+{
+ "corpus": "gottscj--hangfire-mongo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on C# queries this for how gottscj/Hangfire.Mongo implements it: Mongo DB support for Hangfire (selected work: src/Hangfire.Mongo, src/Hangfire.Mongo.Tests)",
+ "repos": [
+  {
+   "repo": "Hangfire.Mongo",
+   "url": "https://github.com/gottscj/Hangfire.Mongo",
+   "sha": "0963e31ef624e71f86abc7731efa3a0d63340070",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 0963e31ef624: \"1.17.0 - Use asynchronous MongoDB (#466)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "alexneverland--astakos-ai-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, automation, chromadb queries this for how alexneverland/Astakos-AI-Agent implements it: A self-hosted, local-first AI companion with shared Web, Telegram and Matrix conversations, memory, routines and tools. Supports external AI (selected work: tests, services, clients)",
+ "repos": [
+  {
+   "repo": "Astakos-AI-Agent",
+   "url": "https://github.com/alexneverland/Astakos-AI-Agent",
+   "sha": "2006d0042a60d3acfbcc4381e3c18abc7450c35f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 2006d0042a60: \"fix: require relevant recent activity for goal follow-ups (#223)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

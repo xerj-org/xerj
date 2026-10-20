@@ -1,0 +1,22 @@
+{
+ "corpus": "balzaniedoardo--asyncvideo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how BalzaniEdoardo/asyncvideo implements it: Fast Asyc Video Array: async video reader with fast random frame access (selected work: tests, src/asyncvideo)",
+ "repos": [
+  {
+   "repo": "asyncvideo",
+   "url": "https://github.com/BalzaniEdoardo/asyncvideo",
+   "sha": "ac5507b3e296c28b93cc83f9419b97d029a2dfe8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit ac5507b3e296: \"teardown video via dedicated thread\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

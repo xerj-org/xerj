@@ -1,0 +1,22 @@
+{
+ "corpus": "norman-finance--norman-mcp-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on bookkeeping, claude, cursor-plugin queries this for how norman-finance/norman-mcp-server implements it: AI-powered bookkeeping, accounting, invoicing, and tax workflows for European businesses through MCP (selected work: tests, norman_mcp)",
+ "repos": [
+  {
+   "repo": "norman-mcp-server",
+   "url": "https://github.com/norman-finance/norman-mcp-server",
+   "sha": "e41453b9eceeb5ed2256878682bff19775d61921",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit e41453b9ecee: \"fix: correct review hints and minimize company data\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "robczart82--sawstar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how RobCZart82/SAWSTAR implements it: SAW-focused Synth: iPlug2, DaisySP, and a Custom SAWSTAR Engine (selected work: scripts, tests, experiments)",
+ "repos": [
+  {
+   "repo": "SAWSTAR",
+   "url": "https://github.com/RobCZart82/SAWSTAR",
+   "sha": "cf1fae06768a78e2744395af1443c80084e106c4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit cf1fae06768a: \"Add reproducible full-engine target collection and reference controls\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "gepheum--skir-kotlin-gen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on codegen, kotlin, rpc-framework queries this for how gepheum/skir-kotlin-gen implements it: Official plugin for generating Kotlin code from .skir files (selected work: src, e2e-test, the project root)",
+ "repos": [
+  {
+   "repo": "skir-kotlin-gen",
+   "url": "https://github.com/gepheum/skir-kotlin-gen",
+   "sha": "e39464e1bb9bbca4fa0415348ac11610dd4e5219",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit e39464e1bb9b: \"Fix race condition which can happen when multiple threads try to acce\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "buyoung--skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how buYoung/skills implements it: Initialize projects with AGENTS.md 1.1 standard support for seamless AI agent collaboration (selected work: skills)",
+ "repos": [
+  {
+   "repo": "skills",
+   "url": "https://github.com/buYoung/skills",
+   "sha": "ed38f0f267cf035bb105be19eca7fdf8a5f839d7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit ed38f0f267cf: \"feat(\uc2a4\ud0ac \uc81c\uc791\uae30 \uc2b9\uaca9\uacfc ISO \uae00\uc4f0\uae30 \uc2a4\ud0ac \ucd94\uac00): feat/skill-creator-promotion\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

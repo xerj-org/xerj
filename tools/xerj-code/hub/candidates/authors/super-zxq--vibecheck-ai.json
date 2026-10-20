@@ -1,0 +1,22 @@
+{
+ "corpus": "super-zxq--vibecheck-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-security, code-review-assistant-active, fastapi queries this for how super-ZXQ/vibecheck-ai implements it: \u9762\u5411Vibe Coding\u5f00\u53d1\u8005\u7684AI\u9879\u76ee\u4e0a\u7ebf\u4f53\u68c0\u5de5\u5177\uff0c\u5206\u6790GitHub\u4ed3\u5e93\u98ce\u9669\u5e76\u751f\u6210\u4fee\u590d\u5efa\u8bae\u3002 (selected work: backend, load, frontend)",
+ "repos": [
+  {
+   "repo": "vibecheck-ai",
+   "url": "https://github.com/super-ZXQ/vibecheck-ai",
+   "sha": "c6e3bd07c498883a7ee7089ab54a8eb23ade4d5b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit c6e3bd07c498: \"feat: harden task execution concurrency\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

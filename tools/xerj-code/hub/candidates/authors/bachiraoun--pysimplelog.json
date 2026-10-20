@@ -1,0 +1,22 @@
+{
+ "corpus": "bachiraoun--pysimplelog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how bachiraoun/pysimplelog implements it: This package is a simple yet complete logging management system for python based applications (selected work: tests, the project root, examples)",
+ "repos": [
+  {
+   "repo": "pysimplelog",
+   "url": "https://github.com/bachiraoun/pysimplelog",
+   "sha": "0c74faa1841e8154a572d1675de27a2441a965ff",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 0c74faa1841e: \"adding redactors\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

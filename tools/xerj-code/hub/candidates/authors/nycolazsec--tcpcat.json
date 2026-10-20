@@ -1,0 +1,22 @@
+{
+ "corpus": "nycolazsec--tcpcat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on af-xdp, cve, ebpf queries this for how NycolazSec/tcpcat implements it: Fast network scanner in Go with an eBPF/AF_XDP engine, service and OS detection, CVE correlation, and JSON/SARIF reports. Built for authoriz (selected work: internal/inventory, internal/explain, cmd/tcpcat)",
+ "repos": [
+  {
+   "repo": "tcpcat",
+   "url": "https://github.com/NycolazSec/tcpcat",
+   "sha": "80a6b5f02dab9cd8e5f8578003185dd6f6229444",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 80a6b5f02dab: \"feat: explain exposure by joining a host inventory with an outside scan\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

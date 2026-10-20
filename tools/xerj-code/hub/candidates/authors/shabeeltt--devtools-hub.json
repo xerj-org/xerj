@@ -1,0 +1,22 @@
+{
+ "corpus": "shabeeltt--devtools-hub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on astro, dev-utilities, developer-tools queries this for how shabeeltt/devtools-hub implements it: An open-source collection of developer tools built with Astro and React. Build useful tools, improve existing ones, and contribute as a begi (selected work: src/features, src/pages, src/constants)",
+ "repos": [
+  {
+   "repo": "devtools-hub",
+   "url": "https://github.com/shabeeltt/devtools-hub",
+   "sha": "805f59b77cf090917630c09ccc54c8aacd1bc06d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 805f59b77cf0: \"feat: add image compressor tool\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

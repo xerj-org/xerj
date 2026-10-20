@@ -1,0 +1,22 @@
+{
+ "corpus": "chevey339--kelivo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai, android, flutter queries this for how Chevey339/kelivo implements it: A Flutter LLM Chat Client. Support Mobile & Desktop (selected work: test, lib/core, integration_test)",
+ "repos": [
+  {
+   "repo": "kelivo",
+   "url": "https://github.com/Chevey339/kelivo",
+   "sha": "bbd600633626b23aa86260b3ef94a5d9d9a27df6",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit bbd600633626: \"perf: bound large-history loading and ZIP memory\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

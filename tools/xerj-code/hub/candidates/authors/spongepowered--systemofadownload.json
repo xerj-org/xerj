@@ -1,0 +1,22 @@
+{
+ "corpus": "spongepowered--systemofadownload",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on akka-streams, java, indexer queries this for how SpongePowered/SystemOfADownload implements it: Downloads webpage builder, backend builds the database and pages (selected work: internal/logging, cmd/frontend, cmd/server)",
+ "repos": [
+  {
+   "repo": "SystemOfADownload",
+   "url": "https://github.com/SpongePowered/SystemOfADownload",
+   "sha": "31899603a5d9550d646b8e4d5d474614c3a3ece7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 31899603a5d9: \"feat(logging): enable proxied ip logging\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

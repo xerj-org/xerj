@@ -1,0 +1,22 @@
+{
+ "corpus": "spider-rs--firewall",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on firewall, rust, adblock queries this for how spider-rs/firewall implements it: Firewall for Rust (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "firewall",
+   "url": "https://github.com/spider-rs/firewall",
+   "sha": "e9ee41124e085e2738477a962a18f315613824c2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e9ee41124e08: \"Stop public suffixes blocking zones, hard-refuse only on threat feeds\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

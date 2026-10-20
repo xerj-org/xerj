@@ -1,0 +1,22 @@
+{
+ "corpus": "takkub--agent-takkub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how takkub/agent-takkub implements it: Desktop cockpit for orchestrating Claude Code dev teammates on Windows (PyQt6 + pywinpty + pyte) (selected work: src/agent_takkub, tests, bin)",
+ "repos": [
+  {
+   "repo": "agent-takkub",
+   "url": "https://github.com/takkub/agent-takkub",
+   "sha": "a74939df4dbffd7ade1e54943ff0a1eb23059493",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit a74939df4dbf: \"fix: resolve issues #787-#801 and add quota limit auto-reroute/park s\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

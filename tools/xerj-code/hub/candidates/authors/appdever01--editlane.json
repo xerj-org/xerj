@@ -1,0 +1,22 @@
+{
+ "corpus": "appdever01--editlane",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on coding-agents, context-engineering, developer-tools queries this for how appdever01/editlane implements it: Focused, exact context and session evidence for coding agents. Local CLI and read-only MCP (selected work: test, src, the project root)",
+ "repos": [
+  {
+   "repo": "editlane",
+   "url": "https://github.com/appdever01/editlane",
+   "sha": "37ba5539df060ab71da9c55c24e33761725101d4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 37ba5539df06: \"Improve focused packets, config inheritance and MCP connections\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

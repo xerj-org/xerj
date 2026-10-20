@@ -1,0 +1,22 @@
+{
+ "corpus": "dsecurity49--safe-migrate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on ast, ci-cd, cli queries this for how dsecurity49/safe-migrate implements it: A CI/CD infrastructure tool that prevents PostgreSQL database migrations from causing catastrophic locks in production (selected work: src/_internal, tests, live_tests)",
+ "repos": [
+  {
+   "repo": "safe-migrate",
+   "url": "https://github.com/dsecurity49/safe-migrate",
+   "sha": "3c8791a7e7405c5e54e9bd7d1086aab2a6d9d145",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 3c8791a7e740: \"V0.10.0 (#21)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

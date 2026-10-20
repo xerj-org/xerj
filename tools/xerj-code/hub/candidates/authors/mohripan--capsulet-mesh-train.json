@@ -1,0 +1,22 @@
+{
+ "corpus": "mohripan--capsulet-mesh-train",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how mohripan/capsulet-mesh-train implements it: mohripan/capsulet-mesh-train (Python) (selected work: tests, python, tools)",
+ "repos": [
+  {
+   "repo": "capsulet-mesh-train",
+   "url": "https://github.com/mohripan/capsulet-mesh-train",
+   "sha": "b603284360682d9defae46a2474f25ab80ca92e6",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit b60328436068: \"Add CUDA MLP training with independent GPU reference parity\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

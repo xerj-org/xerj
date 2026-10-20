@@ -1,0 +1,22 @@
+{
+ "corpus": "checkstyle--checkstyle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on java, static-code-analysis, command-line-tool queries this for how checkstyle/checkstyle implements it: Checkstyle is a development tool to help programmers write Java code that adheres to a coding standard. By default it supports the Google Ja (selected work: src/main, src/test, config)",
+ "repos": [
+  {
+   "repo": "checkstyle",
+   "url": "https://github.com/checkstyle/checkstyle",
+   "sha": "bfe45c6f95d88e012e9cffbdfeca3ad91fb3ef0c",
+   "licence": "hint only: LGPL-2.1 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-2.1",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit bfe45c6f95d8: \"Issue #14121: IndentationCheck: inner Handlers should not have refere\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

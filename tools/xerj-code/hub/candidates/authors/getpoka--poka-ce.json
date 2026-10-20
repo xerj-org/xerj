@@ -1,0 +1,22 @@
+{
+ "corpus": "getpoka--poka-ce",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on dart, flutter, offline-first queries this for how getpoka/poka-ce implements it: Simple. Offline. Yours. \u2014 Personal finance management, no cloud required (selected work: lib/features, test)",
+ "repos": [
+  {
+   "repo": "poka-ce",
+   "url": "https://github.com/getpoka/poka-ce",
+   "sha": "97d64bba3a256d261b1941bb7135190fd0e7619e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 97d64bba3a25: \"fix(controllers): guard notifiers against use after disposal (#93)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

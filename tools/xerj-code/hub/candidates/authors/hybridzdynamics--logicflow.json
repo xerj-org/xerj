@@ -1,0 +1,22 @@
+{
+ "corpus": "hybridzdynamics--logicflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how HybridzDynamics/logicflow implements it: Interactive web-based digital logic circuit simulator for designing, connecting, and simulating logic gates in real time (selected work: team, app, shared)",
+ "repos": [
+  {
+   "repo": "logicflow",
+   "url": "https://github.com/HybridzDynamics/logicflow",
+   "sha": "60decd2a274f7a0a977d6eebae28df38136a3095",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 60decd2a274f: \"feat: add circuit library and displays\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

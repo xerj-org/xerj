@@ -1,0 +1,22 @@
+{
+ "corpus": "argszero--emrg",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, autonomous-agents, coding-assistant queries this for how argszero/emrg implements it: EMRG \u2014 a self-evolving AI agent architecture (selected work: tests, emrg)",
+ "repos": [
+  {
+   "repo": "emrg",
+   "url": "https://github.com/argszero/emrg",
+   "sha": "ee3e317d6f4b9a865c98b0253d7d120779ea223d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit ee3e317d6f4b: \"emrg: compacts trim the retained tail to the gate's budget (#1993)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

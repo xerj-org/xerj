@@ -1,0 +1,22 @@
+{
+ "corpus": "vitalyvorobyev--viva-genicam",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how VitalyVorobyev/viva-genicam implements it: GenICam standard implemented with RUST (selected work: crates/viva-u3v, crates/viva-genicam, crates/viva-fake-u3v)",
+ "repos": [
+  {
+   "repo": "viva-genicam",
+   "url": "https://github.com/VitalyVorobyev/viva-genicam",
+   "sha": "221d1b9d811c36bc95cc206f6b076fcbf9188878",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 221d1b9d811c: \"USB3 Vision on a real camera: nusb with transfers in flight, recovery\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

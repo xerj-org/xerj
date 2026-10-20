@@ -1,0 +1,22 @@
+{
+ "corpus": "jrengmusic--carol",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Shell queries this for how jrengmusic/carol implements it: Cognitive Amplifier Role Orchestration with LLM agents (selected work: skills, the project root, templates)",
+ "repos": [
+  {
+   "repo": "carol",
+   "url": "https://github.com/jrengmusic/carol",
+   "sha": "db4d64099a6e59f7b4cdda8499ab09f77ccdcea7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit db4d64099a6e: \"Commit message and changelog writing formalised as skills; whatdbg-tr\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

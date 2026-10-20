@@ -1,0 +1,22 @@
+{
+ "corpus": "vectorsim--embed-sim-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how vectorsim/embed_sim_project implements it: frame work for simulation and code generation (selected work: aurix_tricore)",
+ "repos": [
+  {
+   "repo": "embed_sim_project",
+   "url": "https://github.com/vectorsim/embed_sim_project",
+   "sha": "049e81bb8254511dd345c20046c6fb9cf26d759f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 049e81bb8254: \"added header information\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

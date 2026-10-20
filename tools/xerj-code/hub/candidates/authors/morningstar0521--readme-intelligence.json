@@ -1,0 +1,22 @@
+{
+ "corpus": "morningstar0521--readme-intelligence",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, code-analysis, developer-tools queries this for how morningstar0521/Readme-Intelligence implements it: README Intelligence helps developers understand an unfamiliar GitHub repository before running anything (selected work: packages/core, scripts, apps/web)",
+ "repos": [
+  {
+   "repo": "Readme-Intelligence",
+   "url": "https://github.com/morningstar0521/Readme-Intelligence",
+   "sha": "dfdadef4a33a81db4d1611b81fd8e7d36cba8bda",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit dfdadef4a33a: \"fix: scope reality contradictions to explicit evidence\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "allanhue--galleria",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how allanhue/Galleria implements it: Galleria is an event application platform designed to seamlessly connect users with local and trending events. Built with Next.js, Go and Ca (selected work: server, app/dashboard, app/events)",
+ "repos": [
+  {
+   "repo": "Galleria",
+   "url": "https://github.com/allanhue/Galleria",
+   "sha": "65a4e231f215a8af02a5f913b68e47dc3a822fb0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 65a4e231f215: \"fix season features , ticketing subcribe , addons payments\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

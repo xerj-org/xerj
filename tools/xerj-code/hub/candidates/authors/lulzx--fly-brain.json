@@ -1,0 +1,22 @@
+{
+ "corpus": "lulzx--fly-brain",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how Lulzx/fly-brain implements it: Embodied whole-CNS Drosophila connectome simulation in the browser: 165k-neuron LIF brain (WASM) + MuJoCo flybody + flyvis vision (selected work: the project root, scripts)",
+ "repos": [
+  {
+   "repo": "fly-brain",
+   "url": "https://github.com/Lulzx/fly-brain",
+   "sha": "ba0b4f815c00e81a2ef1f36165df2b1891e5e39c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit ba0b4f815c00: \"Weaken the inhibition inside each half of the cord's inhibitory half-\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

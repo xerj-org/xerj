@@ -1,0 +1,22 @@
+{
+ "corpus": "mobilegraph--mobilegraph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-development-kit, agent-framework, ai-framework queries this for how MobileGraph/mobilegraph implements it: Kotlin-first framework for building Model Agnostic AI applications, RAG systems, and agentic workflows on Android and Kotlin Multiplatform (selected work: intelligence, androidApp, foundation)",
+ "repos": [
+  {
+   "repo": "mobilegraph",
+   "url": "https://github.com/MobileGraph/mobilegraph",
+   "sha": "d31eec5a72a95e2cf98046c68015c2f315425f2b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit d31eec5a72a9: \"A2A protocol support v1.0 added. Automatic protocol version fallback \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

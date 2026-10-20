@@ -1,0 +1,22 @@
+{
+ "corpus": "techsecwhisperer--ars-infinita-notion",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, career, claude queries this for how TechSecWhisperer/ars-infinita-notion implements it: A gamified, AI-agent-driven job-search engine built on Notion: track applications as quests, research and tailor with an agent, earn XP and  (selected work: packages/system-skills, the project root)",
+ "repos": [
+  {
+   "repo": "ars-infinita-notion",
+   "url": "https://github.com/TechSecWhisperer/ars-infinita-notion",
+   "sha": "6cbb4b0c8b4502e7089d27846d384a70085ef7d2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 6cbb4b0c8b45: \"feat(skills): v2.0.16 zero-friction discovery engine, Cardinal living\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

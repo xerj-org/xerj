@@ -1,0 +1,22 @@
+{
+ "corpus": "hsienw--natrix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on canvas, design-patterns-js, game-runtime queries this for how HsienW/natrix implements it: \ud83d\udc0dFramework-free browser game runtime built on vanilla JS - fixed-timestep simulation, deterministic replay (seeded RNG + tick-indexed comman (selected work: src/js, test)",
+ "repos": [
+  {
+   "repo": "natrix",
+   "url": "https://github.com/HsienW/natrix",
+   "sha": "d996bebaccbd7e4f05ae1404c8ee429b444b6c12",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit d996bebaccbd: \"feat(telemetry): complete runtime timing metrics\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

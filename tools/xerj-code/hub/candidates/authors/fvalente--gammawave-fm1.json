@@ -1,0 +1,22 @@
+{
+ "corpus": "fvalente--gammawave-fm1",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on drum-machine, firmware, fm-1 queries this for how fvalente/GammaWave-FM1 implements it: Pocket GammaWave (GW-1) \u2014 Dual-core M-VAVE FM-1 custom firmware & Web Studio: Solar Hearth wavetable physics, FFT spectrogram filter, 4-trac (selected work: firmware, tests)",
+ "repos": [
+  {
+   "repo": "GammaWave-FM1",
+   "url": "https://github.com/fvalente/GammaWave-FM1",
+   "sha": "3edb869d5c5c54f7fab34e787886b033a766e055",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 3edb869d5c5c: \"GEN UX: one control model, the reel's knobs, pop-ups, drops, the key \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

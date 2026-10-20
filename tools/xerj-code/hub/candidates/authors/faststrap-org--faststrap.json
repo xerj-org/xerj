@@ -1,0 +1,22 @@
+{
+ "corpus": "faststrap-org--faststrap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how Faststrap-org/Faststrap implements it: Faststrap is a component-based extension for FastHTML that provides reusable UI elements (cards, modals, toasts, drawers, navbars, grids, et (selected work: src/faststrap, tests, scripts)",
+ "repos": [
+  {
+   "repo": "Faststrap",
+   "url": "https://github.com/Faststrap-org/Faststrap",
+   "sha": "adb985ff29d0986eedda72c4069b1fa390acba2d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit adb985ff29d0: \"feat: ship v0.10.0 visual and compatibility improvements\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

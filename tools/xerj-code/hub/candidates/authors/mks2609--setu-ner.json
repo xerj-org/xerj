@@ -1,0 +1,22 @@
+{
+ "corpus": "mks2609--setu-ner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on disaster-response, fastapi, flood-forecasting queries this for how mKs2609/setu_ner implements it: Road accessibility forecasting and relief logistics for flood-prone Assam. FastAPI, PostGIS, OR-Tools, Next.js, MapLibre (selected work: apps/api)",
+ "repos": [
+  {
+   "repo": "setu_ner",
+   "url": "https://github.com/mKs2609/setu_ner",
+   "sha": "207a0e1b5bde4ce5ed25dc5dc5a98a12cc3eedeb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 207a0e1b5bde: \"Document every endpoint, split the data licences out, refresh the counts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

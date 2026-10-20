@@ -1,0 +1,22 @@
+{
+ "corpus": "samratvsn--tasks",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android-app, jetpack-compose, kotlin queries this for how SamratVsn/Tasks implements it: To-Do App from Kotlin & Jetpack Compose (selected work: app/src, app, gradle)",
+ "repos": [
+  {
+   "repo": "Tasks",
+   "url": "https://github.com/SamratVsn/Tasks",
+   "sha": "c460f685453d71654ae808d37fec03789b1a5f64",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit c460f685453d: \"Full QA Done\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

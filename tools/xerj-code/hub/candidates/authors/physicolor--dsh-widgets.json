@@ -1,0 +1,22 @@
+{
+ "corpus": "physicolor--dsh-widgets",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dsh-plugin, cordis, cordis-plugin queries this for how Physicolor/dsh-widgets implements it: A customizable widget system for the right side of DeepSeek Harness (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "dsh-widgets",
+   "url": "https://github.com/Physicolor/dsh-widgets",
+   "sha": "dbebb2174de330803003123e1d1ae8b2444b87e9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit dbebb2174de3: \"test(probe): one browser resolver, a shared harness, and the new acce\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

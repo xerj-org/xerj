@@ -1,0 +1,22 @@
+{
+ "corpus": "macalbert--envilder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on automation, devops, dotenv queries this for how macalbert/envilder implements it: One secret mapping for local dev, CI/CD, and runtime. Envilder resolves cloud secrets from your own vaults without SaaS middlemen, duplicate (selected work: tests, src/envilder, e2e)",
+ "repos": [
+  {
+   "repo": "envilder",
+   "url": "https://github.com/macalbert/envilder",
+   "sha": "181ea06aed55af1dd5ba1d89007629bb1f5324cc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 181ea06aed55: \"feat(cli): add exec command to run a process with resolved secrets (#\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

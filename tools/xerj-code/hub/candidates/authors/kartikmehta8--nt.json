@@ -1,0 +1,22 @@
+{
+ "corpus": "kartikmehta8--nt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agent-framework, language queries this for how kartikmehta8/nt implements it: NT \u2014 a language for agent ecosystems (selected work: packages/engine, example)",
+ "repos": [
+  {
+   "repo": "nt",
+   "url": "https://github.com/kartikmehta8/nt",
+   "sha": "82a7af4ea37b772c0f46caf3dd80b216cf20ffad",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 82a7af4ea37b: \"feat(engine): add for_each, when, and retry to workflow steps\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

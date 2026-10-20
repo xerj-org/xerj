@@ -223,6 +223,13 @@ async fn mint_bootstrap_link(engine: &Engine, bind_url: &str) -> ConsoleResult<S
     ))
 }
 
+/// Printed under the bootstrap link. Names the recovery that actually works:
+/// while no active user exists, every boot re-mints and reprints a fresh link
+/// (see `run` above) — and the shipped binary has no `admin` subcommand. An
+/// earlier revision of this line suggested `xerj admin magic-link --role
+/// owner`, which rc.95 rejects with `unknown argument: admin` (#1424).
+const RENEWAL_HINT: &str = "Need a fresh link?  Restart this node: a new one is printed on boot.";
+
 fn print_bootstrap_banner(url: &str) {
     let bar = "─".repeat(78);
     eprintln!();
@@ -247,10 +254,7 @@ fn print_bootstrap_banner(url: &str) {
         eprintln!("├{bar}┤");
     }
     eprintln!("│ {:<76} │", "");
-    eprintln!(
-        "│ {:<76} │",
-        "Need a fresh link?  `xerj admin magic-link --role owner`"
-    );
+    eprintln!("│ {:<76} │", RENEWAL_HINT);
     eprintln!("└{bar}┘");
     eprintln!();
 }
@@ -363,5 +367,47 @@ mod tests {
         let k1 = load_or_init_master_key(dir.path()).unwrap();
         let k2 = load_or_init_master_key(dir.path()).unwrap();
         assert_eq!(k1, k2, "key must be stable across boots");
+    }
+
+    /// #1424: the banner must not name a command the shipped binary lacks.
+    /// It used to suggest `xerj admin magic-link --role owner`; the CLI has no
+    /// `admin` subcommand and rejects it with `unknown argument: admin`.
+    /// The recovery it names instead is a restart — which the next test pins
+    /// to actually mint a fresh link.
+    #[test]
+    fn renewal_hint_names_a_recovery_that_exists() {
+        assert!(
+            !RENEWAL_HINT.contains("admin"),
+            "the hint must not name the nonexistent `xerj admin` subcommand: \
+             {RENEWAL_HINT}"
+        );
+        assert!(
+            RENEWAL_HINT.contains("Restart"),
+            "the hint must name the real recovery (a restart re-mints a link): \
+             {RENEWAL_HINT}"
+        );
+    }
+
+    /// The banner's advice, exercised: before anyone claims the owner account,
+    /// restarting the node mints ANOTHER printable link with a new token —
+    /// which is what makes "restart" a genuine recovery for an expired link.
+    #[tokio::test]
+    async fn restart_without_an_active_user_mints_a_fresh_link() {
+        let dir = TempDir::new().unwrap();
+        let engine = engine_in(&dir);
+
+        let first = run(&engine, dir.path(), "http://localhost:9200")
+            .await
+            .expect("first boot")
+            .magic_link
+            .expect("a fresh boot must mint a link");
+        let second = run(&engine, dir.path(), "http://localhost:9200")
+            .await
+            .expect("restart before enrolment")
+            .magic_link
+            .expect("a restart before enrolment must mint another link");
+
+        assert_ne!(first, second, "the fresh link must carry a new token");
+        assert!(second.starts_with("http://localhost:9200/_xerj-console/setup#token="));
     }
 }

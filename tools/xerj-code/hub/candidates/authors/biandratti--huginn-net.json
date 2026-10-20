@@ -1,0 +1,22 @@
+{
+ "corpus": "biandratti--huginn-net",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on network, p0f, security queries this for how biandratti/huginn-net implements it: Multi-protocol passive fingerprinting library: TCP/HTTP (p0f-style) + TLS (JA4-style) analysis in Rust (selected work: huginn-net-db, huginn-net, the project root)",
+ "repos": [
+  {
+   "repo": "huginn-net",
+   "url": "https://github.com/biandratti/huginn-net",
+   "sha": "aa8956ea0fd46f9d39e4bbbfb22817d55c860a2c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit aa8956ea0fd4: \"update tcp-syn db (#332)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "natnaelmekuriaw--galaxyballs2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how natnaelmekuriaw/GalaxyBalls2 implements it: Simple Galaxy balls game (selected work: ios, android, src/components)",
+ "repos": [
+  {
+   "repo": "GalaxyBalls2",
+   "url": "https://github.com/natnaelmekuriaw/GalaxyBalls2",
+   "sha": "fac54db3cc24feabc80ff8fe393b1d0c6c46cb9c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit fac54db3cc24: \"Switch to Expo project structure\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

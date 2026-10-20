@@ -1,0 +1,22 @@
+{
+ "corpus": "niv20--obsidian-plugin-callout-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on appearance-customization, callout, obsidian queries this for how Niv20/obsidian-plugin-callout-studio implements it: Callout Studio is the only callout plugin you'll ever need to download. It offers regular callouts, inline callouts, and callout headings. P (selected work: tests, src/editor, src/usage)",
+ "repos": [
+  {
+   "repo": "obsidian-plugin-callout-studio",
+   "url": "https://github.com/Niv20/obsidian-plugin-callout-studio",
+   "sha": "5ac682161a0793cc2a4a2e0e221778321488800b",
+   "licence": "hint only: 0BSD (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "0BSD",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 5ac682161a07: \"Find callouts: flash on landing, sidebar follows the caret\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

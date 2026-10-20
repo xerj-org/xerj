@@ -1,0 +1,22 @@
+{
+ "corpus": "dappros--ethora-mcp-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, chat-api, claude queries this for how dappros/ethora-mcp-server implements it: Remote and local MCP server for Ethora: let Claude, ChatGPT, Cursor and agents create chat apps, rooms, users and RAG-powered AI agents (selected work: src)",
+ "repos": [
+  {
+   "repo": "ethora-mcp-server",
+   "url": "https://github.com/dappros/ethora-mcp-server",
+   "sha": "e3453a57e11eb58c8e229a2d929d088019df9489",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit e3453a57e11e: \"Agents and widget: try an agent, knowledge health, stop a crawl, save\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

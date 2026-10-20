@@ -1,0 +1,22 @@
+{
+ "corpus": "amazinglh--tuzhengguard-travel-guardian",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how amazingLH/tuzhengguard-travel-guardian implements it: \u9014\u8bc1\u54e8 TuzhengGuard\uff1a\u57fa\u4e8e\u8bc1\u636e\u7684\u65c5\u884c\u6570\u5b57\u5b6a\u751f\u3001\u98ce\u9669\u68c0\u67e5\u4e0e\u53d7\u7ea6\u675f Plan B \u667a\u80fd\u4f53\u3002 (selected work: the project root, tests, scripts)",
+ "repos": [
+  {
+   "repo": "tuzhengguard-travel-guardian",
+   "url": "https://github.com/amazingLH/tuzhengguard-travel-guardian",
+   "sha": "5a23154b2c0525de375ec0832b1ef17a8fef4ffd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 5a23154b2c05: \"fix: retain pending plans across inspection and show scoped elapsed f\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

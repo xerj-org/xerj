@@ -1,0 +1,22 @@
+{
+ "corpus": "thermetery-technology-co-limited--druta",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Thermetery-Technology-Co-Limited/Druta implements it: Thermetery-Technology-Co-Limited/Druta (Python) (selected work: src/druta, tests, the project root)",
+ "repos": [
+  {
+   "repo": "Druta",
+   "url": "https://github.com/Thermetery-Technology-Co-Limited/Druta",
+   "sha": "df57a9a5ede9cb32c28435b5ba1c59f0e28ded05",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit df57a9a5ede9: \"Fix and validate Kingpin iCX controls for Druta 1.8.0\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

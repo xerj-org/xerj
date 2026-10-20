@@ -1,0 +1,22 @@
+{
+ "corpus": "bpftrace--bpftrace",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on bpf, ebpf, tracing queries this for how bpftrace/bpftrace implements it: High-level tracing language for Linux (selected work: src/ast, tests, src)",
+ "repos": [
+  {
+   "repo": "bpftrace",
+   "url": "https://github.com/bpftrace/bpftrace",
+   "sha": "25f0cf164cebabc367dd388aea3d74c531054572",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 25f0cf164ceb: \"Add kfunc:: for calling kernel functions directly (#5360)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

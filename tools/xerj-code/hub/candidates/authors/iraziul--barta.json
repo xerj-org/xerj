@@ -1,0 +1,22 @@
+{
+ "corpus": "iraziul--barta",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on sms-gateway, barta, sms-gateway-bangladesh queries this for how iRaziul/barta implements it: Barta is a Laravel package designed to integrate popular Bangladeshi SMS gateways seamlessly (selected work: tests, src/Drivers, src/Exceptions)",
+ "repos": [
+  {
+   "repo": "barta",
+   "url": "https://github.com/iRaziul/barta",
+   "sha": "5ff64381d71617d44a5fe5234e9e4fe9ab7fada1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 5ff64381d716: \"feat: implement balance checking support across SMS drivers\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

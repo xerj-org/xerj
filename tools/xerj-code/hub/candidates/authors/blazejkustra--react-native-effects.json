@@ -1,0 +1,22 @@
+{
+ "corpus": "blazejkustra--react-native-effects",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how blazejkustra/react-native-effects implements it: WebGPU-powered shader effects for React Native. Drop-in components running on a separate thread (selected work: example)",
+ "repos": [
+  {
+   "repo": "react-native-effects",
+   "url": "https://github.com/blazejkustra/react-native-effects",
+   "sha": "57a9cad1b3e1c207d833fe2aafa890c4b79d1290",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 57a9cad1b3e1: \"fix: deliver the iMessage reply after the effect ends\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

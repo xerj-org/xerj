@@ -1,0 +1,22 @@
+{
+ "corpus": "googleapis--python-aiplatform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how googleapis/python-aiplatform implements it: A Python SDK for Vertex AI, a fully managed, end-to-end platform for data science and machine learning (selected work: agentplatform, tests)",
+ "repos": [
+  {
+   "repo": "python-aiplatform",
+   "url": "https://github.com/googleapis/python-aiplatform",
+   "sha": "f6bf2195cd1503b1a41586cc617b6939941f5147",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit f6bf2195cd15: \"fix: GenAI Client(evals) - Back off only on retryable errors in infer\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

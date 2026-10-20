@@ -1,0 +1,22 @@
+{
+ "corpus": "sunkaifei--flycms",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on spring-boot, mybatis, freemarker queries this for how sunkaifei/FlyCms implements it: FlyCms \u662f\u4e00\u4e2a\u7c7b\u4f3c\u77e5\u4e4e\u4ee5\u95ee\u7b54\u4e3a\u57fa\u7840\u7684\u5b8c\u5168\u5f00\u6e90\u7684JAVA\u8bed\u8a00\u5f00\u53d1\u7684\u793e\u4ea4\u7f51\u7edc\u5efa\u7ad9\u7a0b\u5e8f\uff0c\u57fa\u4e8e Spring Boot+Bootstrap3+MyBatis+MySql+Solr +Ehcache\u5e94\u7528\u67b6\u6784\uff0c\u4e13\u6ce8\u4e8e\u793e\u533a\u5185\u5bb9\u7684\u6574\u7406\u3001\u5f52\u7c7b\u548c\u68c0\u7d22\uff0c\u5b83\u96c6\u5408\u4e86\u95ee\u7b54\uff0cdigg\uff0cwiki \u7b49\u591a\u4e2a\u7a0b (selected work: backend, sql, frontend)",
+ "repos": [
+  {
+   "repo": "FlyCms",
+   "url": "https://github.com/sunkaifei/FlyCms",
+   "sha": "c8fbe0a4ad4b3141582ab5e85f615ed51083dbbd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit c8fbe0a4ad4b: \"S/T \u6279\u6b21\u5168\u91cf\u843d\u5730\uff1aS1-a \u533a\u5757\u5c5e\u6027\uff08fly_area_block.wrapper_class \u5217+\u6e32\u67d3 wrapper div+\u7f16\u8f91\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

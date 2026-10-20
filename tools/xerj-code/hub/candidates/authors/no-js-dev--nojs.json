@@ -1,0 +1,22 @@
+{
+ "corpus": "no-js-dev--nojs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on declarative, dom, framework queries this for how no-js-dev/nojs implements it: No.JS is an HTML-first reactive framework that lets you build complete, dynamic web applications using nothing but HTML attributes; no build (selected work: __tests__, the project root, src)",
+ "repos": [
+  {
+   "repo": "nojs",
+   "url": "https://github.com/no-js-dev/nojs",
+   "sha": "079cb732e09c2b11f083db22968d2030cc2a5786",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 079cb732e09c: \"feat(package): add exports map and ESM compiler entry\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "docling-project--docling",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, convert, documents queries this for how docling-project/docling implements it: Get your documents ready for gen AI (selected work: docling, tests)",
+ "repos": [
+  {
+   "repo": "docling",
+   "url": "https://github.com/docling-project/docling",
+   "sha": "5f4509767647721a8ec011ce6a3a6a39b19bb1f0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 5f4509767647: \"fix(reading-order): bound page-separator candidate work and honor doc\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

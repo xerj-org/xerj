@@ -1,0 +1,22 @@
+{
+ "corpus": "fasterxml--jackson-dataformats-binary",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on avro, cbor, protobuf queries this for how FasterXML/jackson-dataformats-binary implements it: Uber-project for standard Jackson binary format backends: avro, cbor, ion, protobuf, smile (selected work: protobuf, release-notes)",
+ "repos": [
+  {
+   "repo": "jackson-dataformats-binary",
+   "url": "https://github.com/FasterXML/jackson-dataformats-binary",
+   "sha": "7cfbad3496b96acb0fedb752de0b234c61aa8557",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 7cfbad3496b9: \"Fix #398: add Protobuf read feature for unknown enum default fallback\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

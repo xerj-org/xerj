@@ -1,0 +1,22 @@
+{
+ "corpus": "kaddo-kdd--kaddo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Kaddo-kdd/kaddo implements it: The Knowledge Driven Development Toolkit (selected work: packages/admin-server, packages/admin)",
+ "repos": [
+  {
+   "repo": "kaddo",
+   "url": "https://github.com/Kaddo-kdd/kaddo",
+   "sha": "932a48e1563e5bd57aa96cd356ae97e968ed8233",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 932a48e1563e: \"feat(admin): add deprecation management views\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

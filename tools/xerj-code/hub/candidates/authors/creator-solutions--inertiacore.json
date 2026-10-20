@@ -1,0 +1,22 @@
+{
+ "corpus": "creator-solutions--inertiacore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how Creator-Solutions/InertiaCore implements it: Inertia.js ASP.NET Adapter (selected work: InertiaCoreTests, InertiaCore, the project root)",
+ "repos": [
+  {
+   "repo": "InertiaCore",
+   "url": "https://github.com/Creator-Solutions/InertiaCore",
+   "sha": "76e3e53dac94c3e63237f0578c8764bc76ee3dd6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 76e3e53dac94: \"Security/audit fixes (#14)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

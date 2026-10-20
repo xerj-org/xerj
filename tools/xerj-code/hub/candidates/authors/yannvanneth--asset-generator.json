@@ -1,0 +1,22 @@
+{
+ "corpus": "yannvanneth--asset-generator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Dart queries this for how YannVanneth/asset-generator implements it: A Dart/Flutter package to generate asset classes from your asset folders (selected work: test, lib/lazy_asset_generator, the project root)",
+ "repos": [
+  {
+   "repo": "asset-generator",
+   "url": "https://github.com/YannVanneth/asset-generator",
+   "sha": "631e8b970561931305119965d40c4ae43be53c46",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 631e8b970561: \"feat: improve asset generation reliability and release 1.6.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

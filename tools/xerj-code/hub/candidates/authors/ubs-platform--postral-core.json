@@ -1,0 +1,22 @@
+{
+ "corpus": "ubs-platform--postral-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how ubs-platform/postral-core implements it: ubs-platform/postral-core (TypeScript) (selected work: apps/payment, libs)",
+ "repos": [
+  {
+   "repo": "postral-core",
+   "url": "https://github.com/ubs-platform/postral-core",
+   "sha": "3037a5cee4d8759cb6272ca83ad6f07b385c143b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 3037a5cee4d8: \"dev\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

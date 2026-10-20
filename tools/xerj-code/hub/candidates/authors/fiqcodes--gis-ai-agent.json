@@ -1,0 +1,22 @@
+{
+ "corpus": "fiqcodes--gis-ai-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, geoai-agent, geospatial queries this for how fiqcodes/gis-ai-agent implements it: A geospatial AI agent that turns natural-language prompts into satellite imagery analysis, trend detection, and PDF research reports. Powere (selected work: public, the project root, tests)",
+ "repos": [
+  {
+   "repo": "gis-ai-agent",
+   "url": "https://github.com/fiqcodes/gis-ai-agent",
+   "sha": "76dcd60c9d03fccf8011007ec766d0c8dcf0fdc1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 76dcd60c9d03: \"Fix research context, descriptive paper names, and PDF glyphs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

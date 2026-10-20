@@ -1,0 +1,22 @@
+{
+ "corpus": "jnechaevsky--cry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how JNechaevsky/CRY implements it: CRY is a non-conservative recreation of Jaguar Doom for PC (selected work: src, src/doom)",
+ "repos": [
+  {
+   "repo": "CRY",
+   "url": "https://github.com/JNechaevsky/CRY",
+   "sha": "3d31749c9a24b7f461dab1eee06146b39795006b",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 3d31749c9a24: \"Add Minimap\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

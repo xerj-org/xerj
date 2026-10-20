@@ -1,0 +1,22 @@
+{
+ "corpus": "premo-cloud--typesafe-sdk-java",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on java, sdk, spring-boot queries this for how Premo-Cloud/typesafe-sdk-java implements it: Community Java SDK for Jev, TypeSafe's System One model: typed questions in, typed answers with calibrated probabilities out. Java 17+, Spri (selected work: typesafe-sdk)",
+ "repos": [
+  {
+   "repo": "typesafe-sdk-java",
+   "url": "https://github.com/Premo-Cloud/typesafe-sdk-java",
+   "sha": "13e9909b4bfed16ede61f1fe6fe15a1f4b79e4b8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 13e9909b4bfe: \"Add Ask: keyed questions typed by their answer\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

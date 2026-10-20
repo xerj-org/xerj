@@ -225,6 +225,19 @@ pub enum FlushFinalizeOutcome {
     },
 }
 
+/// Pads and aligns a value to its own 64-byte cache line, so writes to
+/// adjacent fields do not invalidate it (false sharing).
+#[repr(align(64))]
+struct CacheLine<T>(T);
+
+impl<T> std::ops::Deref for CacheLine<T> {
+    type Target = T;
+    #[inline]
+    fn deref(&self) -> &T {
+        &self.0
+    }
+}
+
 // ── Fsck report types ─────────────────────────────────────────────────────────
 //
 // ── SnapshotReadGuard ─────────────────────────────────────────────────────────
@@ -255,12 +268,18 @@ impl std::ops::Deref for SnapshotReadGuard<'_> {
 impl Drop for SnapshotReadGuard<'_> {
     fn drop(&mut self) {
         // Last lease out sweeps the graveyard.  `fetch_sub` returning 1
-        // means this was the final outstanding lease.
+        // means this was the final outstanding lease; the flag check skips
+        // the graveyard lock when nothing is parked (see
+        // `retired_segments_non_empty` for why this cannot miss a retire).
         if self
             .store
             .read_leases
             .fetch_sub(1, std::sync::atomic::Ordering::SeqCst)
             == 1
+            && self
+                .store
+                .retired_segments_non_empty
+                .load(std::sync::atomic::Ordering::SeqCst)
         {
             self.store.sweep_retired_segments();
         }
@@ -592,7 +611,20 @@ pub struct IndexStore {
     /// as it keeps the guard, and retired (merged-away) segment files are
     /// only unlinked once this count reaches zero.  See
     /// `retire_segment_files` for the full race description.
-    read_leases: std::sync::atomic::AtomicUsize,
+    ///
+    /// Every query bumps this twice (lease taken, lease dropped), so it sits
+    /// on its own cache line: otherwise it shares one with neighbouring
+    /// fields such as `memtable_bytes`, which every indexed document bumps,
+    /// and readers and writers keep invalidating each other's line (#1394).
+    read_leases: CacheLine<std::sync::atomic::AtomicUsize>,
+    /// True while `retired_segments` holds ids. Lets the last lease drop
+    /// skip the graveyard lock when nothing is parked (the common case).
+    /// It is stored under that lock whenever the graveyard changes, and read
+    /// without it. Both sides use `SeqCst`: a retire stores `true` and then
+    /// loads `read_leases`, while a lease drop decrements `read_leases` and
+    /// then loads this flag. In the single total order, either the drop sees
+    /// `true` and sweeps, or the retire sees zero leases and sweeps itself.
+    retired_segments_non_empty: AtomicBool,
     /// Graveyard of segment ids retired by `apply_merge` whose on-disk
     /// files could not be deleted immediately because a read lease was
     /// outstanding.  Swept (files unlinked, reader-cache entries evicted)
@@ -859,7 +891,8 @@ impl IndexStore {
                 xerj_common::resource::per_index_map_shards(),
             ),
             last_wal_maintenance_ms: AtomicU64::new(0),
-            read_leases: std::sync::atomic::AtomicUsize::new(0),
+            read_leases: CacheLine(std::sync::atomic::AtomicUsize::new(0)),
+            retired_segments_non_empty: AtomicBool::new(false),
             retired_segments: Mutex::new(Vec::new()),
             segments_changed_hook: Mutex::new(None),
             pending_deletes: Mutex::new(std::collections::HashMap::new()),
@@ -1708,6 +1741,8 @@ impl IndexStore {
         {
             let mut graveyard = self.retired_segments.lock().unwrap();
             graveyard.extend_from_slice(segment_ids);
+            self.retired_segments_non_empty
+                .store(true, std::sync::atomic::Ordering::SeqCst);
         }
         // Opportunistic sweep: deletes right away when no reader is active
         // (the common case), otherwise the last lease drop sweeps.
@@ -1732,7 +1767,10 @@ impl IndexStore {
             {
                 return (0, 0);
             }
-            graveyard.drain(..).collect()
+            let drained = graveyard.drain(..).collect();
+            self.retired_segments_non_empty
+                .store(false, std::sync::atomic::Ordering::SeqCst);
+            drained
         };
         // Evict any reader-cache entries a leased scan may have re-opened
         // for these ids so their mmaps (and the unlinked blocks) get
@@ -7401,6 +7439,55 @@ mod tests {
                 "retired segment file must be deleted once the last lease drops"
             );
         }
+    }
+
+    #[test]
+    fn lease_drop_fast_path_never_strands_a_retired_segment() {
+        // #1394: the last lease drop skips the graveyard lock when
+        // `retired_segments_non_empty` is false. Race retires against a
+        // storm of lease take/drop and check that, once every lease is
+        // gone, nothing is left parked: a retire is swept either by itself
+        // (it saw zero leases) or by the drop that ended the last lease.
+        let dir = tempfile::tempdir().unwrap();
+        let store = open_test_store(dir.path());
+        let stop = std::sync::atomic::AtomicBool::new(false);
+        std::thread::scope(|scope| {
+            for _ in 0..4 {
+                scope.spawn(|| {
+                    while !stop.load(Ordering::Relaxed) {
+                        drop(store.snapshot());
+                    }
+                });
+            }
+            for i in 0..5_000 {
+                store
+                    .retire_segment_files(&[SegmentId::from(format!("ghost-{i}"))])
+                    .unwrap();
+            }
+            stop.store(true, Ordering::Relaxed);
+        });
+        assert_eq!(store.read_leases.load(Ordering::SeqCst), 0);
+        assert!(
+            store.retired_segments.lock().unwrap().is_empty(),
+            "a retired id was left in the graveyard after the last lease dropped"
+        );
+        assert!(!store
+            .retired_segments_non_empty
+            .load(std::sync::atomic::Ordering::SeqCst));
+    }
+
+    #[test]
+    fn read_leases_sit_on_their_own_cache_line() {
+        assert_eq!(
+            std::mem::align_of::<CacheLine<std::sync::atomic::AtomicUsize>>(),
+            64
+        );
+        let dir = tempfile::tempdir().unwrap();
+        let store = open_test_store(dir.path());
+        let leases = (&raw const store.read_leases) as usize;
+        let bytes = (&raw const store.memtable_bytes) as usize;
+        assert_eq!(leases % 64, 0);
+        assert_ne!(leases / 64, bytes / 64);
     }
 
     #[test]

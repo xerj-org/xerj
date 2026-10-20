@@ -1,0 +1,22 @@
+{
+ "corpus": "lukaszfd--cyber-sentinel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on PLpgSQL queries this for how lukaszFD/cyber-sentinel implements it: AI-driven threat detection for home networks on Raspberry Pi 5: captures DNS traffic, enriches it with CTI feeds and has Gemini score each t (selected work: config, ansible)",
+ "repos": [
+  {
+   "repo": "cyber-sentinel",
+   "url": "https://github.com/lukaszFD/cyber-sentinel",
+   "sha": "077a9ef807aef2f2ffb2e25c26c295d2a1ba437b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 077a9ef807ae: \"AI config page (#23)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

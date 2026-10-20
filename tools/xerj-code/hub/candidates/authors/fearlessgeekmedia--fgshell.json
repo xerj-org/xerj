@@ -1,0 +1,22 @@
+{
+ "corpus": "fearlessgeekmedia--fgshell",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how fearlessgeekmedia/fgshell implements it: A unique shell written in Javascript using the OpenTUI library and compiled with Bun. It started as a joke but now it's a bit more serious (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "fgshell",
+   "url": "https://github.com/fearlessgeekmedia/fgshell",
+   "sha": "d66595db3d658eedad3e8787663333816a515252",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit d66595db3d65: \"Fixed line duplications on smaller windows\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

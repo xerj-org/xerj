@@ -1,0 +1,22 @@
+{
+ "corpus": "zumpyx--aikun",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-gateway, anthropic queries this for how zumpyx/Aikun implements it: \u8f7b\u91cf\u7a33\u5b9a\u7684 AI \u7f51\u5173\uff1aOpenAI / Anthropic \u53cc\u534f\u8bae\u63a5\u5165\uff0c\u591a\u6e20\u9053\u805a\u5408\u3001\u6545\u969c\u8f6c\u79fb\u4e0e\u534f\u8bae\u81ea\u52a8\u8f6c\u6362\uff0c\u5355\u4e8c\u8fdb\u5236\u96f6\u4f9d\u8d56\u90e8\u7f72 (selected work: src/proxy, src/frontend, src/router)",
+ "repos": [
+  {
+   "repo": "Aikun",
+   "url": "https://github.com/zumpyx/Aikun",
+   "sha": "37e40285b9d5bac2daf9c6052d8d0c942b790285",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 37e40285b9d5: \"feat: \u6e20\u9053\u4eb2\u548c\u3001\u601d\u8003\u5b57\u6bb5\u4fdd\u7559\u4e0e\u53ea\u8bfb\u4ef7\u76ee\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

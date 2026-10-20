@@ -1,0 +1,22 @@
+{
+ "corpus": "maryus1991--completeonlineschoolsystem",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on online, online-school, online-school-management queries this for how maryus1991/CompleteOnlineSchoolSystem implements it: maryus1991/CompleteOnlineSchoolSystem (HTML) (selected work: templates, apps/users)",
+ "repos": [
+  {
+   "repo": "CompleteOnlineSchoolSystem",
+   "url": "https://github.com/maryus1991/CompleteOnlineSchoolSystem",
+   "sha": "1590954c283d37841d65b3d6242064d8f4c73aa7",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 1590954c283d: \"update \u2764\ufe0f\u200d\ud83e\ude79 : add live class create and update and cancell control in\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

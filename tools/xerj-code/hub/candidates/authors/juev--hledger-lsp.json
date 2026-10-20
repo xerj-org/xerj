@@ -1,0 +1,22 @@
+{
+ "corpus": "juev--hledger-lsp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on go, golang, hledger queries this for how juev/hledger-lsp implements it: Language Server Protocol (LSP) implementation for hledger journal files (selected work: internal/include, internal/server, internal/workspace)",
+ "repos": [
+  {
+   "repo": "hledger-lsp",
+   "url": "https://github.com/juev/hledger-lsp",
+   "sha": "35c0abc0d802050374357cd8c15010f5de7f8a72",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 35c0abc0d802: \"perf(include): one parse per document version, not one per consumer\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

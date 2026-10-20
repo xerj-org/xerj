@@ -1,0 +1,22 @@
+{
+ "corpus": "mozilla-ai--otari",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, gateway, llm queries this for how mozilla-ai/otari implements it: Open-source, OpenAI-compatible LLM gateway you run yourself. One endpoint for 40+ providers, with virtual keys, budgets, and usage tracking (selected work: tests, src/gateway, web)",
+ "repos": [
+  {
+   "repo": "otari",
+   "url": "https://github.com/mozilla-ai/otari",
+   "sha": "756dc4757f9504f6ee1c6ed478d9864053822402",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 756dc4757f95: \"fix(usage): capture provider-reported latency for Groq and Ollama (#1\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

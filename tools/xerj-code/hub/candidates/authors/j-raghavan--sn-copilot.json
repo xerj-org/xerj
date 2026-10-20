@@ -1,0 +1,22 @@
+{
+ "corpus": "j-raghavan--sn-copilot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how j-raghavan/sn-copilot implements it: Supernote React Native plugin bringing Summarize, Explain, Action Items, and Clarify to notes and documents via your own LLM API key (selected work: __tests__, src/providers, src/ui)",
+ "repos": [
+  {
+   "repo": "sn-copilot",
+   "url": "https://github.com/j-raghavan/sn-copilot",
+   "sha": "6b1f2bb5b4185dc0514d5d25b1fecd47cedf219c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 6b1f2bb5b418: \"feat(providers): add OpenRouter as a provider\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

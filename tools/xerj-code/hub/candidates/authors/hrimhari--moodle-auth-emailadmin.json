@@ -1,0 +1,22 @@
+{
+ "corpus": "hrimhari--moodle-auth-emailadmin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how hrimhari/moodle-auth_emailadmin implements it: Moodle plugin to provide email self-registration with admin confirmation (selected work: classes, tests, the project root)",
+ "repos": [
+  {
+   "repo": "moodle-auth_emailadmin",
+   "url": "https://github.com/hrimhari/moodle-auth_emailadmin",
+   "sha": "749e7b8eca0a5646711ab46b11b1ef7e2258516d",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 749e7b8eca0a: \"fix(ISSUE-60): Port fixes from stadtschamane's fork (#61)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

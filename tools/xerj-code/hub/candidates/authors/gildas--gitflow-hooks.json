@@ -1,0 +1,22 @@
+{
+ "corpus": "gildas--gitflow-hooks",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how gildas/gitflow-hooks implements it: Git Flow hooks for my GO projects (selected work: the project root, src)",
+ "repos": [
+  {
+   "repo": "gitflow-hooks",
+   "url": "https://github.com/gildas/gitflow-hooks",
+   "sha": "271ff2a2c03dd47e90624c903981a98d73de9f05",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 271ff2a2c03d: \"feat: hook-it is now a Rust application with fully embedded hooks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

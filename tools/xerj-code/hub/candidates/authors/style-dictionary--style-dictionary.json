@@ -1,0 +1,22 @@
+{
+ "corpus": "style-dictionary--style-dictionary",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on style, styleguide, design-systems queries this for how style-dictionary/style-dictionary implements it: A build system for creating cross-platform styles (selected work: lib/common, __tests__, types)",
+ "repos": [
+  {
+   "repo": "style-dictionary",
+   "url": "https://github.com/style-dictionary/style-dictionary",
+   "sha": "2f0b0ff22c8121ac260e59e63e0ac64ff79f6587",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 2f0b0ff22c81: \"feat: support DTCG duration token values in time and transition trans\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

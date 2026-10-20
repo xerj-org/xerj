@@ -1,0 +1,22 @@
+{
+ "corpus": "squidnose--voidlinux-post-install-tui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bash, tui, voidlinux queries this for how squidnose/Voidlinux-Post-Install-TUI implements it: A whiptale TUI for my voidlinux scripts with scripts (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "Voidlinux-Post-Install-TUI",
+   "url": "https://github.com/squidnose/Voidlinux-Post-Install-TUI",
+   "sha": "9ace1c334ba7d652d26be0ee2c0286bea6c1e972",
+   "licence": "hint only: BSD-2-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-2-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 9ace1c334ba7: \"Fixed GPU drivers scripts, Minor changes to coments.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "gravion-ux--llm-security-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how gravion-ux/llm-security-bot implements it: AI-powered security analysis tool using LLMs for code, log, and configuration review (selected work: src, test, the project root)",
+ "repos": [
+  {
+   "repo": "llm-security-bot",
+   "url": "https://github.com/gravion-ux/llm-security-bot",
+   "sha": "717970df21124a81e57aa93e41eb3a8d3f9767c9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 717970df2112: \"Add pattern-based static analyzer: prompt-injection, secrets, exec, S\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

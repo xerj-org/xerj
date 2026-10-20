@@ -1,0 +1,22 @@
+{
+ "corpus": "jeonyul00--yultopia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Shell queries this for how jeonyul00/yultopia implements it: Claude Code \ud50c\ub7ec\uadf8\uc778 \u2014 \ud55c\uad6d\uc5b4 \ucf54\ub4dc\ub9ac\ubdf0\u00b7\ubc84\uadf8\uc870\uc0ac\u00b7\uc778\uc218\uc778\uacc4\u00b7\ubb38\uc11c\ub3d9\uae30\ud654 \uc2a4\ud0ac \ubb36\uc74c + Codex \uc790\ub3d9 \uac80\uc218 (selected work: plugins, tests)",
+ "repos": [
+  {
+   "repo": "yultopia",
+   "url": "https://github.com/jeonyul00/yultopia",
+   "sha": "02ff891bc542949f9fff615e0c207353d4dd9fd9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 02ff891bc542: \"fix(cc): harden Codex workspace integrity checks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

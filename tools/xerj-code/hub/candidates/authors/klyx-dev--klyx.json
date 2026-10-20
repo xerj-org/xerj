@@ -1,0 +1,22 @@
+{
+ "corpus": "klyx-dev--klyx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, text-editor, klyx queries this for how klyx-dev/klyx implements it: A lightweight, high-performance code editor for Android (selected work: app/src, runtime)",
+ "repos": [
+  {
+   "repo": "klyx",
+   "url": "https://github.com/klyx-dev/klyx",
+   "sha": "42de6a21c0616d983a761b6ee3e2b00d8fed0f4c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 42de6a21c061: \"feat: add customizable rounded UI corners\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

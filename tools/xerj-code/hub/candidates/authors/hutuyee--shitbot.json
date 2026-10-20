@@ -1,0 +1,22 @@
+{
+ "corpus": "hutuyee--shitbot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on bungeecord-plugin, folia-plugin, paper-plugin queries this for how hutuyee/ShitBot implements it: ShitBot \u662f\u4e00\u4e2a\u9762\u5411 Minecraft \u670d\u52a1\u5668\u7684QQ\u673a\u5668\u4eba\u63d2\u4ef6, \u652f\u6301mc\u7ed1\u5b9a\u767d\u540d\u5355, OneBotV11\u534f\u8bae\uff0cWebSocket\u6b63\u5411\u8fde\u63a5\uff0c\u652f\u6301Paper\uff0cspigot\uff0cbungeecord\u7b49 (selected work: ShitBotRenderer, ShitBotCore)",
+ "repos": [
+  {
+   "repo": "ShitBot",
+   "url": "https://github.com/hutuyee/ShitBot",
+   "sha": "ffbbc1ee079a45d122f806e936fc67e4fc3d2f4d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ffbbc1ee079a: \"fix(security): \u56fa\u5b9a\u56fe\u7247\u4e0b\u8f7d\u76ee\u6807\u5e76\u9650\u5236\u6a21\u677f\u8d44\u6e90\u6d88\u8017\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

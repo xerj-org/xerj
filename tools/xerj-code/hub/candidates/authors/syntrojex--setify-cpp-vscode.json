@@ -1,0 +1,22 @@
+{
+ "corpus": "syntrojex--setify-cpp-vscode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Syntrojex/setify-cpp-vscode implements it: Zero-config C++ development for VS Code on Windows \u2014 automatically detects or installs MinGW-w64 and configures everything for you (selected work: src)",
+ "repos": [
+  {
+   "repo": "setify-cpp-vscode",
+   "url": "https://github.com/Syntrojex/setify-cpp-vscode",
+   "sha": "92d538f4961c1dac873e5bcb8d57ecd3e24c4fc9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 92d538f4961c: \"v1.1.5\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

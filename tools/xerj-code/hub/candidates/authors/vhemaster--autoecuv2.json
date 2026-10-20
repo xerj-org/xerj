@@ -1,0 +1,22 @@
+{
+ "corpus": "vhemaster--autoecuv2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how VHEMaster/AutoECUv2 implements it: A project of Automotive Engine Control Unit (version 2) on STM32H7 (selected work: CM7)",
+ "repos": [
+  {
+   "repo": "AutoECUv2",
+   "url": "https://github.com/VHEMaster/AutoECUv2",
+   "sha": "e4e0736f81216f9f6ab09ac14801906d7c394afc",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit e4e0736f8121: \"Signals: implementation\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

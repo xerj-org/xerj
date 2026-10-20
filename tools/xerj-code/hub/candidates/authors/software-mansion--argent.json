@@ -1,0 +1,22 @@
+{
+ "corpus": "software-mansion--argent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on agentic, ios, react-native queries this for how software-mansion/argent implements it: An agentic toolkit to control, debug, and profile iOS and Android apps. Made by Software Mansion (selected work: packages/tool-server, scripts, packages/ui)",
+ "repos": [
+  {
+   "repo": "argent",
+   "url": "https://github.com/software-mansion/argent",
+   "sha": "d40708ef8e31003fbe3806f365322497faa37e9a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit d40708ef8e31: \"feat(ios): support foldable simulators (iPhone Duo) (#1199)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

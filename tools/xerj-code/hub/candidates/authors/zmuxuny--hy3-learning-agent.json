@@ -1,0 +1,22 @@
+{
+ "corpus": "zmuxuny--hy3-learning-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-runtime, ai-education, hy3 queries this for how zmuxuny/hy3-learning-agent implements it: Hunyuan HY3-powered proactive learning agent that continuously tracks long-horizon learning goals, verifies real progress, and actively inte (selected work: tests, scripts, backend)",
+ "repos": [
+  {
+   "repo": "hy3-learning-agent",
+   "url": "https://github.com/zmuxuny/hy3-learning-agent",
+   "sha": "64da4214a23a842c0fc69be7eb1618a11afb2ef4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 64da4214a23a: \"fix: respect required submission checks and isolate frozen evaluation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

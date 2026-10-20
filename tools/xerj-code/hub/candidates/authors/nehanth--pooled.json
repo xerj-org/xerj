@@ -1,0 +1,22 @@
+{
+ "corpus": "nehanth--pooled",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on browser, distributed-inference, inference queries this for how Nehanth/pooled implements it: Peer-to-peer LLM inference in the browser: pool your devices to run big open models, for chat and coding agents (selected work: tests, room, the project root)",
+ "repos": [
+  {
+   "repo": "pooled",
+   "url": "https://github.com/Nehanth/pooled",
+   "sha": "2b39a861cbaf12c43eba7cf10914b3297ed6447d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 2b39a861cbaf: \"Make model-loader configuration and draft pacing explicit (#329)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

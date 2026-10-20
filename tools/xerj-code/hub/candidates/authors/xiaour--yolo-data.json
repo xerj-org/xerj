@@ -1,0 +1,22 @@
+{
+ "corpus": "xiaour--yolo-data",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, ai-agent, data-analysis queries this for how xiaour/yolo-data implements it: \u5148\u8fdb\u4e14\u7a33\u5b9a\u7684\u4f01\u4e1a\u7ea7\u667a\u80fd\u5206\u6790\u5e73\u53f0\uff1b\u9762\u5411\u4f01\u4e1a\u95ee\u6570\u3001\u6d1e\u5bdf\u5206\u6790\u7684Data Agent\uff0c\u57fa\u4e8e\u6570\u636e\u5206\u6790\u65b9\u6cd5\u8bba\u6253\u9020\u53ef\u5ba1\u8ba1\u3001\u53ef\u6cbb\u7406\u3001\u53ef\u590d\u73b0workflow (selected work: tests, public, src)",
+ "repos": [
+  {
+   "repo": "yolo-data",
+   "url": "https://github.com/xiaour/yolo-data",
+   "sha": "4da555cbeffc1144c09173709868f2a60f93f2fc",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 4da555cbeffc: \"fix: validate Skill uploads and activate uploaded phase guidance\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

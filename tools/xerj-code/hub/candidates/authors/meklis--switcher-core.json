@@ -1,0 +1,22 @@
+{
+ "corpus": "meklis--switcher-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how meklis/switcher-core implements it: meklis/switcher-core (PHP) (selected work: src/Modules, configs)",
+ "repos": [
+  {
+   "repo": "switcher-core",
+   "url": "https://github.com/meklis/switcher-core",
+   "sha": "9b3063250c3888854303e84b5c4546c8862ede68",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 9b3063250c38: \"Added displaying BGP sessions\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

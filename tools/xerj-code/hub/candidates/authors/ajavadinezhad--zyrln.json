@@ -1,0 +1,22 @@
+{
+ "corpus": "ajavadinezhad--zyrln",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Go queries this for how ajavadinezhad/zyrln implements it: Domain-fronting relay that routes traffic through Google infrastructure to bypass DPI-based censorship, Android VPN app + desktop proxy http (selected work: android, relay, scripts)",
+ "repos": [
+  {
+   "repo": "zyrln",
+   "url": "https://github.com/ajavadinezhad/zyrln",
+   "sha": "d55efdf08dc25ef90cb8ba8d5e55bf282f57e378",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit d55efdf08dc2: \"Improve Android and desktop reliability, UI, and test coverage\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

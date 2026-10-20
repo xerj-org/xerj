@@ -1,0 +1,22 @@
+{
+ "corpus": "franciscogfsm--mirlow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how franciscogfsm/Mirlow implements it: franciscogfsm/Mirlow (TypeScript) (selected work: apps/desktop)",
+ "repos": [
+  {
+   "repo": "Mirlow",
+   "url": "https://github.com/franciscogfsm/Mirlow",
+   "sha": "e1a6815ebbfd00d32278ab075c9ee0ca7b5e389c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit e1a6815ebbfd: \"mroe imrpvoments\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

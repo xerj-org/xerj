@@ -1,0 +1,22 @@
+{
+ "corpus": "uday-a--uipkge-registry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on component-library, design-system, nextjs queries this for how uday-a/uipkge-registry implements it: Open-source shadcn-style UI registry for Vue, React, Angular, Svelte and Lit \u2014 200+ accessible components, charts, blocks and SaaS starters (selected work: packages/react, packages/vue)",
+ "repos": [
+  {
+   "repo": "uipkge-registry",
+   "url": "https://github.com/uday-a/uipkge-registry",
+   "sha": "0c00a66d3d50651d73d6a2d7e7f4b5102fad2b0a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 0c00a66d3d50: \"fix(button): correct ButtonGroup child border radii and split button \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

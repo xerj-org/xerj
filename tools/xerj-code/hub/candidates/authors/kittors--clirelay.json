@@ -1,0 +1,22 @@
+{
+ "corpus": "kittors--clirelay",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-gateway, anthropic, api-gateway queries this for how kittors/CliRelay implements it: Self-hosted AI gateway for coding CLIs \u2014 one OpenAI/Claude/Gemini/Codex-compatible endpoint, with a multi-tenant web console, request logs,  (selected work: internal/runtime)",
+ "repos": [
+  {
+   "repo": "CliRelay",
+   "url": "https://github.com/kittors/CliRelay",
+   "sha": "516835904145bab8bcb48bf2cc77b41cb9101018",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 516835904145: \"fix(antigravity): re-request when Gemini ends a turn with MALFORMED_F\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "iamsomraj--vue-qs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on composition-api, history-api, nuqs queries this for how iamsomraj/vue-qs implements it: Type-safe search params state manager for Vue 3 and Nuxt - a port of nuqs (selected work: tests, src, src/composables)",
+ "repos": [
+  {
+   "repo": "vue-qs",
+   "url": "https://github.com/iamsomraj/vue-qs",
+   "sha": "23349c8cce02f08fa4001a6ecf89a59f59235ebe",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 23349c8cce02: \"feat!: port nuqs API to Vue with parsers, batching and adapters (#15)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

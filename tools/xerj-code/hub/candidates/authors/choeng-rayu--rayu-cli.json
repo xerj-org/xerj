@@ -1,0 +1,22 @@
+{
+ "corpus": "choeng-rayu--rayu-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agentic-ai, ai queries this for how Choeng-Rayu/rayu-cli implements it: Open-source AI coding agent CLI with multi-provider support, local models, MCP, and specialized AI agents (selected work: rayu)",
+ "repos": [
+  {
+   "repo": "rayu-cli",
+   "url": "https://github.com/Choeng-Rayu/rayu-cli",
+   "sha": "f0ff9889c6a611cf2cc0ea8631a44caecb2653e9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f0ff9889c6a6: \"update: for make the sidebar become control panel\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

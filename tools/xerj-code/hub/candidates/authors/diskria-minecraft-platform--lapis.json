@@ -1,0 +1,22 @@
+{
+ "corpus": "diskria-minecraft-platform--lapis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on kotlin, kotlin-library, ksp queries this for how diskria-minecraft-platform/lapis implements it: Idiomatic, zero-boilerplate Kotlin Mixins for Minecraft modding (selected work: lapis-core, lapis-ksp, lapis-annotations)",
+ "repos": [
+  {
+   "repo": "lapis",
+   "url": "https://github.com/diskria-minecraft-platform/lapis",
+   "sha": "f481377f18c5dece05d952dd258ff9babcf7c173",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit f481377f18c5: \"feat(core): support named type parameter binding and validation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

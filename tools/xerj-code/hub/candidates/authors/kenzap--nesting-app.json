@@ -1,0 +1,22 @@
+{
+ "corpus": "kenzap--nesting-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cad, cnc, cutting-and-packing queries this for how kenzap/nesting-app implements it: Free DXF Nesting Software for Metal Cutting (selected work: scripts, main, renderer)",
+ "repos": [
+  {
+   "repo": "nesting-app",
+   "url": "https://github.com/kenzap/nesting-app",
+   "sha": "08ac2a8d9e62abce8b804fc083e522236e4b3d58",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 08ac2a8d9e62: \"[new] Favor sheet edges feature\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "uptimepage--uptimepage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on devops, monitoring, observability queries this for how uptimepage/uptimepage implements it: Uptime monitoring, public status pages and on-call in one. Checks as often as every 30 seconds from multiple regions, 8 check types includin (selected work: src/storage, tests, src/api)",
+ "repos": [
+  {
+   "repo": "uptimepage",
+   "url": "https://github.com/uptimepage/uptimepage",
+   "sha": "5dd744d05da4498dcb06bb92f361b5de6893564e",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit 5dd744d05da4: \"refactor(storage): break the passkeys and oauth_identities cycle\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "weeei001--115409",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how weeei001/115409 implements it: G115409 (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "115409",
+   "url": "https://github.com/weeei001/115409",
+   "sha": "4b9795f22afb68255584eb5c4c1ddea4eae60d64",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 4b9795f22afb: \"\u52a0\u901f AI \u5c0d\u8a71\uff1a\u4e32\u6d41\u56de\u7b54\u3001\u7e2e\u77ed\u8f38\u51fa\u4e26\u79fb\u9664\u65b0\u805e\u88dc\u67e5\u5224\u65b7\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

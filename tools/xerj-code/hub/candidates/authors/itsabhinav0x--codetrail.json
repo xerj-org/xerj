@@ -1,0 +1,22 @@
+{
+ "corpus": "itsabhinav0x--codetrail",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on HTML queries this for how itsabhinav0x/CodeTrail implements it: CodeTrail: a free PWA to track coding problems (solve, solve again, watch lecture) with auto-sync to Google Sheets. Installable on Android a (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "CodeTrail",
+   "url": "https://github.com/itsabhinav0x/CodeTrail",
+   "sha": "9d6219f3b85997f973f3988a8cad6bab0dd548d1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 9d6219f3b859: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

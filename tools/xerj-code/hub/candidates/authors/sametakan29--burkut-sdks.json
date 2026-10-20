@@ -1,0 +1,22 @@
+{
+ "corpus": "sametakan29--burkut-sdks",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on algorithmic-trading-quantitative, bist, bist-api queries this for how sametakan29/burkut-sdks implements it: Borsa \u0130stanbul (BIST 100), TEFAS Fonlar\u0131, Canl\u0131 Alt\u0131n ve D\u00f6viz Verileri \u0130\u00e7in Resmi Python ve Node.js SDK K\u00fct\u00fcphanesi \ud83d\ude80 (selected work: mcp)",
+ "repos": [
+  {
+   "repo": "burkut-sdks",
+   "url": "https://github.com/sametakan29/burkut-sdks",
+   "sha": "9ff15619fe83841269b4dddbbcd349f8dfc5dd46",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 9ff15619fe83: \"feat(mcp): add Model Context Protocol server for Claude and Cursor\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

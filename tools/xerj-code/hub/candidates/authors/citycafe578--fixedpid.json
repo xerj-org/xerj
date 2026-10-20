@@ -1,0 +1,22 @@
+{
+ "corpus": "citycafe578--fixedpid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on arduino, control-systems, embeded queries this for how citycafe578/FixedPID implements it: A lightweight fixed-point PID controller for embedded systems with integer arithmetic and low computational overhead (selected work: test, src, the project root)",
+ "repos": [
+  {
+   "repo": "FixedPID",
+   "url": "https://github.com/citycafe578/FixedPID",
+   "sha": "73fd915b8fbbbadf037cc850cac82ffd3d5c9a82",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 73fd915b8fbb: \"v1.1.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

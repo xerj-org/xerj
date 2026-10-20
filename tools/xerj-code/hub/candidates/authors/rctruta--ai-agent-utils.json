@@ -1,0 +1,22 @@
+{
+ "corpus": "rctruta--ai-agent-utils",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Shell queries this for how rctruta/ai-agent-utils implements it: A collection of boilerplate scripts and security guidelines for safely collaborating with autonomous coding agents (selected work: templates, the project root)",
+ "repos": [
+  {
+   "repo": "ai-agent-utils",
+   "url": "https://github.com/rctruta/ai-agent-utils",
+   "sha": "6b800eb83b7b632e7bb81288ae8ee7cbc9b7f6bf",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 6b800eb83b7b: \"Two gates for failures that rules did not prevent (#5)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

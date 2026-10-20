@@ -1,0 +1,22 @@
+{
+ "corpus": "zakariamerabetayache--track-life",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on expressjs, javascript, nextjs queries this for how zakariamerabetayache/track-life implements it: A full-stack productivity app for tracking tasks, habits, sleep, work hours, and personal progress through data-driven insights (selected work: frontend, backend)",
+ "repos": [
+  {
+   "repo": "track-life",
+   "url": "https://github.com/zakariamerabetayache/track-life",
+   "sha": "26279b5370f6a9159ae79d0a94298b337bf5ca77",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 26279b5370f6: \"add the reminders CRUD SYSTEM and the eroor hundeling\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "archiveheritagegroup--heratio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on archival-description, archives, collections-management queries this for how ArchiveHeritageGroup/heratio implements it: Open-source (AGPL-3.0) GLAM platform on Laravel 12: archival description, museum collections management, digital asset management, and recor (selected work: tests, resources, docker)",
+ "repos": [
+  {
+   "repo": "heratio",
+   "url": "https://github.com/ArchiveHeritageGroup/heratio",
+   "sha": "c3a74d4b4ec5d4f8909d850ce62d417be264fe8f",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit c3a74d4b4ec5: \"v1.159.26: feat: versioned install, upgrade and security documentatio\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

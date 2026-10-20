@@ -1,0 +1,22 @@
+{
+ "corpus": "xing-shuyin--pi-web-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dsh-plugin, pi, dsh queries this for how xing-shuyin/pi-web-ui implements it: Just open your browser \u2014 get all your work done (selected work: web, tests)",
+ "repos": [
+  {
+   "repo": "pi-web-ui",
+   "url": "https://github.com/xing-shuyin/pi-web-ui",
+   "sha": "6a6fe9caaf835935938fa2c9d4b4056339de251a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 6a6fe9caaf83: \"fix(markdown): support backslash-delimited KaTeX math (#629)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

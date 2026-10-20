@@ -1,0 +1,22 @@
+{
+ "corpus": "unlimitedpm--academycraft-remake",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on academycraft, anime, forge queries this for how UnlimitedPM/AcademyCraft-Remake implements it: AcademyCraft for Minecraft 1.20.1: abilities, an Imag energy network, ten machines and a skill tree. A port of the 1.12.2 classic. / Portage (selected work: src/main, src/test)",
+ "repos": [
+  {
+   "repo": "AcademyCraft-Remake",
+   "url": "https://github.com/UnlimitedPM/AcademyCraft-Remake",
+   "sha": "78bbe17fdf8f2898aa99de34f874bdb62a3703de",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 78bbe17fdf8f: \"fix(cgui): la taille du document va a la carte, elle ne s'arrondit pas\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

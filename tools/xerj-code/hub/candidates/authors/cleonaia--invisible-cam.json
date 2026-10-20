@@ -1,0 +1,22 @@
+{
+ "corpus": "cleonaia--invisible-cam",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how cleonaia/invisible_cam implements it: I have created a project that detects when someone makes a hand gesture or closes their hand, triggering an effect that makes them disappear (selected work: invisible)",
+ "repos": [
+  {
+   "repo": "invisible_cam",
+   "url": "https://github.com/cleonaia/invisible_cam",
+   "sha": "658a5ca0802dbbe7e9c3d34040c25df32e3fea30",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 658a5ca0802d: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

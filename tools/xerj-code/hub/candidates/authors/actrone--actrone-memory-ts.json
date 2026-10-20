@@ -1,0 +1,22 @@
+{
+ "corpus": "actrone--actrone-memory-ts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-memory, ai-agents, langchainjs queries this for how actrone/actrone-memory-ts implements it: Persistent memory for AI agents in TypeScript. Short-term session memory plus long-term semantic recall, in-memory by default with Redis and (selected work: test, examples, the project root)",
+ "repos": [
+  {
+   "repo": "actrone-memory-ts",
+   "url": "https://github.com/actrone/actrone-memory-ts",
+   "sha": "885915f8ff381ee25a8559bca68e0d27e5c27c0b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 885915f8ff38: \"feat: add use-case examples for personal assistant, coding assistant,\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "octafuse--octafuse-gateway",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how OctaFuse/octafuse-gateway implements it: Octafuse Gateway\u662f\u53ef\u81ea\u6258\u7ba1\u7684\u5f00\u6e90 AI Gateway\uff1a\u628a\u591a\u4f9b\u5e94\u5546\u3001\u591a\u8d26\u53f7\u3001\u591a API Key \u6536\u6210\u4e00\u4e2a Base URL\u3001\u4e00\u4e2a API Key\uff0c\u5e76\u5e26\u8def\u7531\u3001\u9884\u7b97\u3001\u8ba1\u8d39\u4e0e\u5ba1\u8ba1\u3002 (selected work: packages/admin)",
+ "repos": [
+  {
+   "repo": "octafuse-gateway",
+   "url": "https://github.com/OctaFuse/octafuse-gateway",
+   "sha": "2790a549f2d8101d0618fa9688eda063554492cb",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 2790a549f2d8: \"Implement Model Duplication Feature in Admin Interface\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

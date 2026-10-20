@@ -1,0 +1,22 @@
+{
+ "corpus": "aetosdios27--kiban",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Rust queries this for how aetosdios27/kiban implements it: A durable LSM-tree storage engine exploring WALs, memtables, SSTables, compaction, and crash recovery from first principles (selected work: src, src/sstable, benches)",
+ "repos": [
+  {
+   "repo": "kiban",
+   "url": "https://github.com/aetosdios27/kiban",
+   "sha": "302d7b8c9664a54acb0a8418311e2d06b22e09a4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 302d7b8c9664: \"fix: harden recovery, ownership and read paths\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

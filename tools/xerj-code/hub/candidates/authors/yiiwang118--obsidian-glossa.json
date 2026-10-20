@@ -1,0 +1,22 @@
+{
+ "corpus": "yiiwang118--obsidian-glossa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how yiiwang118/obsidian-glossa implements it: yiiwang118/obsidian-glossa (TypeScript) (selected work: src/ui, tests, src)",
+ "repos": [
+  {
+   "repo": "obsidian-glossa",
+   "url": "https://github.com/yiiwang118/obsidian-glossa",
+   "sha": "a80c36ffdf7236441fcf50f3afb7ce2d72bc91d2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit a80c36ffdf72: \"feat: release Glossa 1.0.0 with local CLI and organized conversations\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

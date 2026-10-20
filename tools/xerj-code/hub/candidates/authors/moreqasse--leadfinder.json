@@ -1,0 +1,22 @@
+{
+ "corpus": "moreqasse--leadfinder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on google-maps-scraper, internship-tracker, jobs queries this for how MOREQASSE/LEADFinder implements it: LEADFinder is a full-stack localhost application that turns the chaos of 9 different platforms into one clean, brutalist dashboard. It scrap (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "LEADFinder",
+   "url": "https://github.com/MOREQASSE/LEADFinder",
+   "sha": "9e22e9ef79eace7ea4d856cc10ef23ae3c4ff54f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 9e22e9ef79ea: \"Enhanced Scrappers with more strict call to the presets\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

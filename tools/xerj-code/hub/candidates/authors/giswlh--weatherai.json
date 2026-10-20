@@ -1,0 +1,22 @@
+{
+ "corpus": "giswlh--weatherai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, fengwu, fuxi queries this for how GISWLH/WeatherAI implements it: Personal weather AI model zoo (PyTorch): Pangu, FuXi, FengWu, and more (selected work: scripts, weatherai, tests)",
+ "repos": [
+  {
+   "repo": "WeatherAI",
+   "url": "https://github.com/GISWLH/WeatherAI",
+   "sha": "6dd015e1373b454d9b0052a1627a1d986b2689f9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 6dd015e1373b: \"FuXi-S2S: parity vs onnxruntime, data/summary helpers, tests, GPU smo\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "headroomlabs-ai--headroom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai, anthropic queries this for how headroomlabs-ai/headroom implements it: Compress tool outputs, logs, files, and RAG chunks before they reach the LLM. 20% fewer tokens for coding agents, 60-95% fewer tokens for JS (selected work: tests, headroom)",
+ "repos": [
+  {
+   "repo": "headroom",
+   "url": "https://github.com/headroomlabs-ai/headroom",
+   "sha": "b1b005a9a867d75cbc6b459b1f5276c272e7ac50",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit b1b005a9a867: \"fix(memory): align project routing with wrap headers (#3603)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

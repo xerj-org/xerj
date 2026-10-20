@@ -1,0 +1,22 @@
+{
+ "corpus": "markalexi--blocksiteextension",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on addon, blocker, chrome-extension queries this for how MarkAlexI/blockSiteExtension implements it: Google Chrome web-extension for block the sites (selected work: tests, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "blockSiteExtension",
+   "url": "https://github.com/MarkAlexI/blockSiteExtension",
+   "sha": "24e0787cb25e866d07ee02a952018a0619824e33",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 24e0787cb25e: \"fix(focus): handle Stop sync failures and duplicate requests\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

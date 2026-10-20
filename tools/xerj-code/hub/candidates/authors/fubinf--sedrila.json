@@ -1,0 +1,22 @@
+{
+ "corpus": "fubinf--sedrila",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how fubinf/sedrila implements it: Tool infrastructure for building and running \"self-driven lab\" courses (selected work: sedrila, py, cmd)",
+ "repos": [
+  {
+   "repo": "sedrila",
+   "url": "https://github.com/fubinf/sedrila",
+   "sha": "1e5da14fdd2821de9c2d7bcee7ad931dfe214144",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 1e5da14fdd28: \"big refactoring: introduce a proper package structure\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

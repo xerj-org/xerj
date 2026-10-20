@@ -1,0 +1,22 @@
+{
+ "corpus": "faiyazenayet--neural-cppi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how FaiyazEnayet/neural-cppi implements it: Neural networks learn portfolio insurance: dynamic stock/cash allocation guarding a floor, trained on real market data (selected work: scripts, src/dhl, tests)",
+ "repos": [
+  {
+   "repo": "neural-cppi",
+   "url": "https://github.com/FaiyazEnayet/neural-cppi",
+   "sha": "cb2b32c6f2d16917e1744b33e4dae9998dfc3be5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit cb2b32c6f2d1: \"neural-cppi: polish pass - README rewrite, dashboard, demo GIF, 48 tests\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

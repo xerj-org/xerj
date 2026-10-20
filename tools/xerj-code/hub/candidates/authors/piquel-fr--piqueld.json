@@ -1,0 +1,22 @@
+{
+ "corpus": "piquel-fr--piqueld",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Rust queries this for how piquel-fr/piqueld implements it: A pure Rust infrastructure control plane (selected work: apps/piqueld, crates/piqueld-core, apps/piquelctl)",
+ "repos": [
+  {
+   "repo": "piqueld",
+   "url": "https://github.com/piquel-fr/piqueld",
+   "sha": "2cd509039e830f67c80528bc8e1d9e8c7989077d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 2cd509039e83: \"fix(server): isolate before-rollout jobs and show them in plans (#227)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

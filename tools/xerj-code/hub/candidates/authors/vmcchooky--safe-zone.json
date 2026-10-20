@@ -1,0 +1,22 @@
+{
+ "corpus": "vmcchooky--safe-zone",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how vmcchooky/safe-zone implements it: vmcchooky/safe-zone (Go) (selected work: ui)",
+ "repos": [
+  {
+   "repo": "safe-zone",
+   "url": "https://github.com/vmcchooky/safe-zone",
+   "sha": "95ad3e34c6d39939a7af87729175ca6304d1c9d6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 95ad3e34c6d3: \"fix(ui): enforce prettier gate and bound non-JSON error bodies\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

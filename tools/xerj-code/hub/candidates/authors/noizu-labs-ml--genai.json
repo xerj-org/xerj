@@ -1,0 +1,22 @@
+{
+ "corpus": "noizu-labs-ml--genai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Elixir queries this for how noizu-labs-ml/genai implements it: Generative AI client for multiple providers with plugin extension support (selected work: test, lib/genai_providers, the project root)",
+ "repos": [
+  {
+   "repo": "genai",
+   "url": "https://github.com/noizu-labs-ml/genai",
+   "sha": "19873b07fd0ffedc928e9b6d8ce741f430770493",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 19873b07fd0f: \"feat(caching): Anthropic cache_control support and cache-usage parsin\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

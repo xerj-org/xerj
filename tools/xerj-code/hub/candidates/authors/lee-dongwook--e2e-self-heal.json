@@ -1,0 +1,22 @@
+{
+ "corpus": "lee-dongwook--e2e-self-heal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on e2e-testing, langgraph, playwright queries this for how Lee-Dongwook/E2E-Self-Heal implements it: Automatically repair broken Playwright E2E tests. When a UI change renames or restructures an element and a test's selector breaks, the engi (selected work: tests, app)",
+ "repos": [
+  {
+   "repo": "E2E-Self-Heal",
+   "url": "https://github.com/Lee-Dongwook/E2E-Self-Heal",
+   "sha": "1e6e69fcbfdc63065dca7b8fa328ad04fa1d1894",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 1e6e69fcbfdc: \"fix: let the safety benchmark run under the sandbox and report why it\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

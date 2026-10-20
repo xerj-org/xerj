@@ -1,0 +1,22 @@
+{
+ "corpus": "ayberkrk--timoshenko",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on civil-engineering, digital-twin, modal-analysis queries this for how Ayberkrk/timoshenko implements it: Reusable structural engineering building blocks for Python: modal analysis, sensor workflows and monitoring (selected work: src/timoshenko, tests, examples)",
+ "repos": [
+  {
+   "repo": "timoshenko",
+   "url": "https://github.com/Ayberkrk/timoshenko",
+   "sha": "434680e70648f9ac0765e26e0f64feb05e928aed",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 434680e70648: \"Adopt Ruff formatting with a 100 character limit (#35)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

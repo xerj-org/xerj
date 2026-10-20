@@ -1,0 +1,22 @@
+{
+ "corpus": "civ13--civ13",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on byond, dreammaker, ss13 queries this for how Civ13/Civ13 implements it: Historical SS13 (selected work: scripts, tests, code)",
+ "repos": [
+  {
+   "repo": "Civ13",
+   "url": "https://github.com/Civ13/Civ13",
+   "sha": "fb1de758962933a314cbe5ea9a7e5169ff1964b9",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit fb1de7589629: \"Support remote Ollama context and inference settings (#3128)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "hemansadeghi--termify",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on automation, ci-cd, cli queries this for how hemansadeghi/Termify implements it: A curated and ever-growing list of awesome terminal-based CLI tools for developers, sysadmins, and power users. Clean, fast, and productive (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "Termify",
+   "url": "https://github.com/hemansadeghi/Termify",
+   "sha": "d70022b249e3d25062005efb24cee786629087b7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit d70022b249e3: \"Revamp Termify: dedupe list, replace unmaintained tools, harden senti\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "lvndry--jazz",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai, automation queries this for how lvndry/jazz implements it: One agent. Every surface. Your rules (selected work: packages/cli, bench)",
+ "repos": [
+  {
+   "repo": "jazz",
+   "url": "https://github.com/lvndry/jazz",
+   "sha": "3dbd4dd8cdd8dd0e88107236bb1224526b6d4965",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 3dbd4dd8cdd8: \"perf(chat): keep per-token transcript cost flat as a chat grows (#884)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

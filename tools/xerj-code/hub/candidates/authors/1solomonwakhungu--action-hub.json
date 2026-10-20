@@ -1,0 +1,22 @@
+{
+ "corpus": "1solomonwakhungu--action-hub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how 1solomonwakhungu/action-hub implements it: Indexed, on-demand capability layer for MCP servers and skills, for any MCP-capable agent harness (selected work: stress, packages/plugin)",
+ "repos": [
+  {
+   "repo": "action-hub",
+   "url": "https://github.com/1solomonwakhungu/action-hub",
+   "sha": "eb6c0e660734531e08a5cdfcf9d12df88967b2ec",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit eb6c0e660734: \"Abstention recalibration (held-out, 87 negatives), cache-stable desig\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

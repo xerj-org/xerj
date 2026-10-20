@@ -1,0 +1,22 @@
+{
+ "corpus": "keiyoushi--extensions-source",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, hacktoberfest, kotlin queries this for how keiyoushi/extensions-source implements it: Source code of extensions in https://github.com/keiyoushi/extensions (selected work: src/es)",
+ "repos": [
+  {
+   "repo": "extensions-source",
+   "url": "https://github.com/keiyoushi/extensions-source",
+   "sha": "a06a2fc135827bef03cd7c32f771be8226177576",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit a06a2fc13582: \"MangoLibreria fix (#19520)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

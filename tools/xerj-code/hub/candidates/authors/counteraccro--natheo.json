@@ -1,0 +1,22 @@
+{
+ "corpus": "counteraccro--natheo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how counteraccro/natheo implements it: Natheo est un Headless CMS offrant un back-office complet ainsi que des APIs pour g\u00e9rer le front de votre site (selected work: src/Resolver, src/Service, src/Controller)",
+ "repos": [
+  {
+   "repo": "natheo",
+   "url": "https://github.com/counteraccro/natheo",
+   "sha": "1bc2fe9e4a9e4ad6ecc7d16d64486f5dd3cc67ac",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 1bc2fe9e4a9e: \"Correction API\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

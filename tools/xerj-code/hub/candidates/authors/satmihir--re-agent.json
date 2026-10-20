@@ -1,0 +1,22 @@
+{
+ "corpus": "satmihir--re-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how satmihir/re-agent implements it: Building an AI agent from first principles (selected work: internal/reagent, the project root)",
+ "repos": [
+  {
+   "repo": "re-agent",
+   "url": "https://github.com/satmihir/re-agent",
+   "sha": "dbfeed0ec4d1c3f21069254f4396e315124cc87b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit dbfeed0ec4d1: \"Improve git_do choice safety and reduce false declines\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

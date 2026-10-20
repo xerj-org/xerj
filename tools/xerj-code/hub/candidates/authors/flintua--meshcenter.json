@@ -1,0 +1,22 @@
+{
+ "corpus": "flintua--meshcenter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how FlintUA/MeshCenter implements it: Browser-based control center for Meshtastic nodes with messaging, telemetry and camera support on Raspberry Pi (selected work: scripts, tests, static)",
+ "repos": [
+  {
+   "repo": "MeshCenter",
+   "url": "https://github.com/FlintUA/MeshCenter",
+   "sha": "af83e0ea9813672d302ada5fb5e197f27e51a8b9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit af83e0ea9813: \"feat(H2-D): XSS inline-handler ratchet + inventory (F1.0/F1.2 first a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

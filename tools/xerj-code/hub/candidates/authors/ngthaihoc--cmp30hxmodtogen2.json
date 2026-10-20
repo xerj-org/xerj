@@ -1,0 +1,22 @@
+{
+ "corpus": "ngthaihoc--cmp30hxmodtogen2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cmp, developer-tools, leagueoflegends queries this for how ngthaihoc/CMP30HXmodtoGEN2 implements it: This project is inspired by CMP40HX-Unlock. If you find it useful, please consider giving a star to both the original author and this reposi (selected work: windows-v3.0, the project root)",
+ "repos": [
+  {
+   "repo": "CMP30HXmodtoGEN2",
+   "url": "https://github.com/ngthaihoc/CMP30HXmodtoGEN2",
+   "sha": "6fee61993978596c829f5653f6fa165a760983e2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 6fee61993978: \"feat: optimize LinkNegotiator, add HVCI diagnostic errors and refine \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

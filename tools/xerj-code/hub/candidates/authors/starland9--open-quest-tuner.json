@@ -1,0 +1,22 @@
+{
+ "corpus": "starland9--open-quest-tuner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on adb, android, jetpack-compose queries this for how Starland9/Open-Quest-Tuner implements it: Free, open-source per-game performance profiles for Meta Quest (refresh rate, render resolution, CPU/GPU levels, foveation), applied from in (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "Open-Quest-Tuner",
+   "url": "https://github.com/Starland9/Open-Quest-Tuner",
+   "sha": "52e1de1c6a20b13525514f40843a3d9b6066c31c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 52e1de1c6a20: \"feat: add thermal state diagnostics and active profile indication\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

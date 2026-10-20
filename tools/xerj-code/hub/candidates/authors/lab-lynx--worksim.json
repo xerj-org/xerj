@@ -1,0 +1,22 @@
+{
+ "corpus": "lab-lynx--worksim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Lab-Lynx/WorkSim implements it: A realistic job simulator for junior developers where they experience what working on a real software team feels like (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "WorkSim",
+   "url": "https://github.com/Lab-Lynx/WorkSim",
+   "sha": "272d9687ce748340a1503e1570adf35ca7bbbc44",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 272d9687ce74: \"fix: update settings page routing and layout\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

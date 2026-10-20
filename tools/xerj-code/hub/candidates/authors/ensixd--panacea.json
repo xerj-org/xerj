@@ -1,0 +1,22 @@
+{
+ "corpus": "ensixd--panacea",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on arch-linux, desktop-shell, dotfiles queries this for how EnsixD/Panacea implements it: Panacea \u2014 a one-pill desktop shell for Hyprland, built with Quickshell (QML). Full dotfiles + installer (selected work: panacea, the project root, hypr)",
+ "repos": [
+  {
+   "repo": "Panacea",
+   "url": "https://github.com/EnsixD/Panacea",
+   "sha": "c751be9683ca91d1703454cc7962e04326aaf0ad",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit c751be9683ca: \"feat: save keyboard layouts and apply them to Hyprland\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "enuno--unifi-mcp-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how enuno/unifi-mcp-server implements it: An MCP server that leverages official UniFi API (selected work: tests, src/tools, src/models)",
+ "repos": [
+  {
+   "repo": "unifi-mcp-server",
+   "url": "https://github.com/enuno/unifi-mcp-server",
+   "sha": "8a771e09743999a76e4cd2e8b0a518e4390b7e29",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 8a771e097439: \"fix: issue #183 \u2014 permissive firewall-policy reads + get_device_detai\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

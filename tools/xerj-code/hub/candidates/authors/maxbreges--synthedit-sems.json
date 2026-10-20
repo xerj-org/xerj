@@ -1,0 +1,22 @@
+{
+ "corpus": "maxbreges--synthedit-sems",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how maxbreges/SynthEdit-sems implements it: SynthEdit_sems (selected work: PulsesOnHold)",
+ "repos": [
+  {
+   "repo": "SynthEdit-sems",
+   "url": "https://github.com/maxbreges/SynthEdit-sems",
+   "sha": "bcf896c91950c56fa3f7a2c899f3dba39223d572",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit bcf896c91950: \"pulses on hold (key repeat)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

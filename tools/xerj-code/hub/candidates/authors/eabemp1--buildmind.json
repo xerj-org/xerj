@@ -1,0 +1,22 @@
+{
+ "corpus": "eabemp1--buildmind",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how eabemp1/BuildMind implements it: Execution and OS system for founders (selected work: app/agents, components, lib/visuals)",
+ "repos": [
+  {
+   "repo": "BuildMind",
+   "url": "https://github.com/eabemp1/BuildMind",
+   "sha": "fa0a74e7b2549001fdea1bab5bcb6d52a3adc1e8",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit fa0a74e7b254: \"Add agent workspace and contextual visuals\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

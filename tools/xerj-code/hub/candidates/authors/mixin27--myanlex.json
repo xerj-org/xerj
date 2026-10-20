@@ -1,0 +1,22 @@
+{
+ "corpus": "mixin27--myanlex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on conversion, mixed-script-detection, myanmar-language queries this for how mixin27/myanlex implements it: Open-source Myanmar-language processing tools (selected work: scripts, packages/core, packages/application)",
+ "repos": [
+  {
+   "repo": "myanlex",
+   "url": "https://github.com/mixin27/myanlex",
+   "sha": "3a13e424ba677c51dba826f7ed029622315b5cfe",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 3a13e424ba67: \"feat(packages): prepare consumer artifacts and release workflow\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

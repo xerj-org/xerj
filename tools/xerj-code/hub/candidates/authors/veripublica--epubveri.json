@@ -1,0 +1,22 @@
+{
+ "corpus": "veripublica--epubveri",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how veripublica/epubveri implements it: Pure-Rust EPUB validator \u2014 a fast, JVM-free, embeddable alternative to epubcheck (selected work: src, src/rng, schemas)",
+ "repos": [
+  {
+   "repo": "epubveri",
+   "url": "https://github.com/veripublica/epubveri",
+   "sha": "4055497cda178b3308c95c82ab0be79ab939d501",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 4055497cda17: \"Judge XML names and whitespace with epubcheck's own tables\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

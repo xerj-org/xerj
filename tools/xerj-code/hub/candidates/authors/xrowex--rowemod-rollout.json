@@ -1,0 +1,22 @@
+{
+ "corpus": "xrowex--rowemod-rollout",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how xrowex/RoweMod-Rollout implements it: RoweMod x Rollout Inline clothing-modding kit (selected work: tools, art, the project root)",
+ "repos": [
+  {
+   "repo": "RoweMod-Rollout",
+   "url": "https://github.com/xrowex/RoweMod-Rollout",
+   "sha": "6ba64ddd8618aafe03798e31e804e47457fdeb30",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 6ba64ddd8618: \"Ship portable Windows app and complete creator workflows\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

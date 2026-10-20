@@ -1,0 +1,22 @@
+{
+ "corpus": "mufasaxz--focusforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, app-blocker, dart queries this for how MufasaXz/focusforge implements it: Open-source, privacy-first study companion \u2014 app shielding, Pomodoro engine, analytics and gamification in one Flutter app (selected work: test, lib/features, lib/core)",
+ "repos": [
+  {
+   "repo": "focusforge",
+   "url": "https://github.com/MufasaXz/focusforge",
+   "sha": "54050c2622aeab2a33c07e0eff4109544a206f31",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 54050c2622ae: \"fix(account): add Spark client deletion and contextual usage consent\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

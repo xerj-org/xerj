@@ -1,0 +1,22 @@
+{
+ "corpus": "putbullet--compust",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ats-checker, browser-extension, career-intelligence queries this for how putbullet/compust implements it: Local-first career intelligence platform: verified job & internship ingestion, browser capture extension (Chrome/Firefox), RenderCV Typst re (selected work: important)",
+ "repos": [
+  {
+   "repo": "compust",
+   "url": "https://github.com/putbullet/compust",
+   "sha": "6ea3ae8b04d8e654696be52a3caf30c0de13d8b3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 6ea3ae8b04d8: \"feat(mock-interview): rebuild AI mock interview as behavioral/HR inte\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

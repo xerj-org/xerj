@@ -1,0 +1,22 @@
+{
+ "corpus": "fakeminjun7321--2-4cloud",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on JavaScript queries this for how fakeminjun7321/2-4cloud implements it: fakeminjun7321/2-4cloud (JavaScript) (selected work: worker, src, src/components)",
+ "repos": [
+  {
+   "repo": "2-4cloud",
+   "url": "https://github.com/fakeminjun7321/2-4cloud",
+   "sha": "180219e4348cbbfa45a711572a394fa5743fe183",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 180219e4348c: \"Fix slow file delivery and excessive gallery downloads (#1)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

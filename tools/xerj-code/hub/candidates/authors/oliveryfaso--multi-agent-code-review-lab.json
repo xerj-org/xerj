@@ -1,0 +1,22 @@
+{
+ "corpus": "oliveryfaso--multi-agent-code-review-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on code-review, debugging, developer-tools queries this for how Oliveryfaso/multi-agent-code-review-lab implements it: Local-first multi-agent code review lab with evidence-first retrieval, Agent Board, CLI/Web workflows, SARIF output, and GitHub PR review in (selected work: src/macr, tests, scripts)",
+ "repos": [
+  {
+   "repo": "multi-agent-code-review-lab",
+   "url": "https://github.com/Oliveryfaso/multi-agent-code-review-lab",
+   "sha": "44b1890c12af4dbbe2b58adbc1006e3901264e8d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 44b1890c12af: \"feat: add local static evidence workbench\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

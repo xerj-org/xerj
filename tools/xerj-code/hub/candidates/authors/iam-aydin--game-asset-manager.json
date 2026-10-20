@@ -1,0 +1,22 @@
+{
+ "corpus": "iam-aydin--game-asset-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how iam-aydin/Game-Asset-Manager implements it: Manage your 3D Models, IMGs, Text, Audio, Video Files with Game Asset Manager, All in One Place (selected work: src/renderer, src/main, src/shared)",
+ "repos": [
+  {
+   "repo": "Game-Asset-Manager",
+   "url": "https://github.com/iam-aydin/Game-Asset-Manager",
+   "sha": "c1c5e654bcb1f39f7ec5c904f470d72c967dd17b",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit c1c5e654bcb1: \"v0.9.3 \u2014 Floating window, full-window preview, video transforms, audi\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "travel-albums-ai--coucheditor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on mui, photo-editing, reactflow queries this for how travel-albums-ai/CouchEditor implements it: Image editing without the Photoshop headache. \ud83d\udecb\ufe0f\ud83c\udfa8 (selected work: src/pipeline, src/assets)",
+ "repos": [
+  {
+   "repo": "CouchEditor",
+   "url": "https://github.com/travel-albums-ai/CouchEditor",
+   "sha": "064959551a2d44d0c3afe1e7bf2891465d195714",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 064959551a2d: \"feat: add screen share node with adjustable capture settings and inte\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

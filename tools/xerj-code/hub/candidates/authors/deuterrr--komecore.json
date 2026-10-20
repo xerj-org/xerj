@@ -1,0 +1,22 @@
+{
+ "corpus": "deuterrr--komecore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on domain-driven-design, e-commerce-backend, golang queries this for how Deuterrr/komecore implements it: Modular REST API for e-commerce, built with Go ft Clean Architecture and Domain-Driven Design (DDD) (selected work: internal/modules)",
+ "repos": [
+  {
+   "repo": "komecore",
+   "url": "https://github.com/Deuterrr/komecore",
+   "sha": "37731758019c32738bf260b5e1739bf8f16460ff",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 37731758019c: \"Use narrow interfaces and simplify test mocks\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

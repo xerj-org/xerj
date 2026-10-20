@@ -1,0 +1,22 @@
+{
+ "corpus": "unishare-oss--unishare",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how unishare-oss/unishare implements it: An open-source university platform for students to share notes, past question papers, and academic resources (selected work: apps/api)",
+ "repos": [
+  {
+   "repo": "unishare",
+   "url": "https://github.com/unishare-oss/unishare",
+   "sha": "c14dca743f56fefe55468e6c2b707833b19b7e17",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit c14dca743f56: \"feat(api): add request tracing and correct HTTP metrics\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "devollox--void-web",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on discord, richpresence, typescript queries this for how Devollox/void-web implements it: Download Void Presence, an advanced Discord Rich Presence manager for Windows with live preview, configurable profiles, custom buttons, imag (selected work: src/components, src/app)",
+ "repos": [
+  {
+   "repo": "void-web",
+   "url": "https://github.com/Devollox/void-web",
+   "sha": "05befe3db77e61505f9a46b7d95d37b18ffb5afe",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 05befe3db77e: \"feat: add uptime monitoring endpoints and status chart\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "oussama-zbir--retrieval-evaluation-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on beir, bm25, evaluation queries this for how Oussama-zbir/retrieval-evaluation-lab implements it: Retrieval pipelines for RAG measured on public relevance judgements: BM25 baseline, trec_eval-verified metrics, and versioned run records th (selected work: src/retrieval_lab, tests)",
+ "repos": [
+  {
+   "repo": "retrieval-evaluation-lab",
+   "url": "https://github.com/Oussama-zbir/retrieval-evaluation-lab",
+   "sha": "628d2da73fd04721ad9067e6282f7e0abf621b61",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 628d2da73fd0: \"feat: paired significance testing between run records\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

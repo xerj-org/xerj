@@ -1,0 +1,22 @@
+{
+ "corpus": "denzam--systemeq-for-mac",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on audio, audio-equalizer, blackhole queries this for how denzam/SystemEQ-for-Mac implements it: System-wide parametric equalizer for macOS 13+ \u2014 free, open source, GPLv3 (selected work: Scripts, ProjectMHelper)",
+ "repos": [
+  {
+   "repo": "SystemEQ-for-Mac",
+   "url": "https://github.com/denzam/SystemEQ-for-Mac",
+   "sha": "6f2b18ccea2822a8af9783785ee4b08968cf0735",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 6f2b18ccea28: \"fix(visualizer): prevent missing-texture crashes and preserve filtere\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

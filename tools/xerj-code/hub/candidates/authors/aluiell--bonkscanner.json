@@ -1,0 +1,22 @@
+{
+ "corpus": "aluiell--bonkscanner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ALuiell/BonkScanner implements it: ALuiell/BonkScanner (Python) (selected work: src/tests, src/infra, src/app)",
+ "repos": [
+  {
+   "repo": "BonkScanner",
+   "url": "https://github.com/ALuiell/BonkScanner",
+   "sha": "ac23a6c303131f98e0b656e9385be2e494d903e8",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit ac23a6c30313: \"Recover item cooldown readings after transient memory failures\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "rl-align--rl-kernel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how RL-Align/RL-Kernel implements it: High-performance RL post-training infrastructure. Designed to achieve bitwise operator-level train-inference consistency across heterogeneou (selected work: rl_engine, tests, benchmarks)",
+ "repos": [
+  {
+   "repo": "RL-Kernel",
+   "url": "https://github.com/RL-Align/RL-Kernel",
+   "sha": "5ccfc09dae63ddfcf181d3e5922d84e3e6ffb703",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 5ccfc09dae63: \"refactor(ffn): align backend ownership\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

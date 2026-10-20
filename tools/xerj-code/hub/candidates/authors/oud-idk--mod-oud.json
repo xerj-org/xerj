@@ -1,0 +1,22 @@
+{
+ "corpus": "oud-idk--mod-oud",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Oud-Idk/mod-oud implements it: A Discord moderation bot written in Rust, open source (selected work: dashboard)",
+ "repos": [
+  {
+   "repo": "mod-oud",
+   "url": "https://github.com/Oud-Idk/mod-oud",
+   "sha": "568051d1eb4b0a0493c03e9008b66bff473b2807",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 568051d1eb4b: \"test(hooks): cover key-sequence and music-socket pure units\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

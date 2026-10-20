@@ -1,0 +1,22 @@
+{
+ "corpus": "flaviomilan--aws-staticsite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on aws, staticsite, terraform queries this for how flaviomilan/aws-staticsite implements it: Automates the setup of a secure and scalable static website hosting infrastructure on Amazon Web Services (AWS) (selected work: modules/static-site, examples, src)",
+ "repos": [
+  {
+   "repo": "aws-staticsite",
+   "url": "https://github.com/flaviomilan/aws-staticsite",
+   "sha": "4d93e25f5bb2df3c7f4af69d30eec858e3941fb3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4d93e25f5bb2: \"feat: reusable AWS static site kit with complete user setup guides (#11)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

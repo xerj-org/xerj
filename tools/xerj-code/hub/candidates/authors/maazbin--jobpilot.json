@@ -1,0 +1,22 @@
+{
+ "corpus": "maazbin--jobpilot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how maazbin/jobpilot implements it: Self-evolving, agent-driven job hunter. An MCP server (no LLM of its own) that drives YOUR logged-in Chrome to apply via email, LinkedIn Eas (selected work: src, scripts, src/mcp)",
+ "repos": [
+  {
+   "repo": "jobpilot",
+   "url": "https://github.com/maazbin/jobpilot",
+   "sha": "0e114c7a62fa051ae2a10241f859c576ea5a5924",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 0e114c7a62fa: \"Read known-fake emails from a text file and keep target-role titles i\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

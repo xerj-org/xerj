@@ -1,0 +1,22 @@
+{
+ "corpus": "edalcin--pkd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Go queries this for how edalcin/pkd implements it: Personal Knowledge Database (selected work: internal/server, tests, internal/store)",
+ "repos": [
+  {
+   "repo": "pkd",
+   "url": "https://github.com/edalcin/pkd",
+   "sha": "92f7a01cb992e1eb21ae326a460b61010ad59726",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 92f7a01cb992: \"feat(api)!: create Documento via Bearer on POST /api/documents\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

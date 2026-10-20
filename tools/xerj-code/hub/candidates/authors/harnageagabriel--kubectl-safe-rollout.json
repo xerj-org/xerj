@@ -1,0 +1,22 @@
+{
+ "corpus": "harnageagabriel--kubectl-safe-rollout",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on devops, golang, krew queries this for how HarnageaGabriel/kubectl-safe-rollout implements it: kubectl plugin that explains why a rollout failed or stalled: deterministic cause classification, no LLM, never modifies the cluster (selected work: internal/diagnose, internal/workload, internal/check)",
+ "repos": [
+  {
+   "repo": "kubectl-safe-rollout",
+   "url": "https://github.com/HarnageaGabriel/kubectl-safe-rollout",
+   "sha": "e5036826d3b75a9ed72bc8d8fe6510120809d8e8",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit e5036826d3b7: \"feat(diagnose): add replicaset-create for Deployments blocked on Repl\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

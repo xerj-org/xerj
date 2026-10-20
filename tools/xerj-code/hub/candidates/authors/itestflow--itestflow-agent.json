@@ -1,0 +1,22 @@
+{
+ "corpus": "itestflow--itestflow-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how iTestFlow/iTestFlow-Agent implements it: iTestFlow is an AI-powered software testing lifecycle platform designed to help teams improve quality, reduce manual effort, and accelerate  (selected work: src/components, src/modules, src/app)",
+ "repos": [
+  {
+   "repo": "iTestFlow-Agent",
+   "url": "https://github.com/iTestFlow/iTestFlow-Agent",
+   "sha": "bfb60b75e98bdf314b4d859d19e72fae644e33c1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit bfb60b75e98b: \"feat(test-design): filter coverage and clean suggested titles\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "sports-alliance--sports-lib",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on tcx, gpx, garmin queries this for how sports-alliance/sports-lib implements it: Enable Timeline notes access to include your notes in the recommendation (selected work: src/fit, scripts, src)",
+ "repos": [
+  {
+   "repo": "sports-lib",
+   "url": "https://github.com/sports-alliance/sports-lib",
+   "sha": "0384485b0974d86122dbc7279d237281be02c318",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 0384485b0974: \"feat: read exact Wahoo FIT workout references\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "jasonacox--pypowerwall-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on JavaScript queries this for how jasonacox/pypowerwall-server implements it: A pypowerwall based FastAPI server for monitoring and managing Tesla Solar and Powerwall systems with multi-gateway support, real-time data  (selected work: tests, app/core, app/api)",
+ "repos": [
+  {
+   "repo": "pypowerwall-server",
+   "url": "https://github.com/jasonacox/pypowerwall-server",
+   "sha": "5f9af0c1e244eb2b5f7bb74c02863e26652020f9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 5f9af0c1e244: \"fix(poll): skip unsupported local grid charging/export getters (#114)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "dev-kryptic--kryptic-k8s-operator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how dev-kryptic/Kryptic.K8s.Operator implements it: Kubernetes operator that syncs Kryptic secrets into native Secret objects (selected work: internal/dynsecret, the project root, internal/krypticapi)",
+ "repos": [
+  {
+   "repo": "Kryptic.K8s.Operator",
+   "url": "https://github.com/dev-kryptic/Kryptic.K8s.Operator",
+   "sha": "cf461cf65459ebba538b040583b9c67174c2e75f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit cf461cf65459: \"Build the operator without a sibling Kryptic.Daemon checkout.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

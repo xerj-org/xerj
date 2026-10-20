@@ -1,0 +1,22 @@
+{
+ "corpus": "stoneskin--open-memex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-memory, claude-code queries this for how stoneskin/open-memex implements it: Local-first memory layer for AI coding agents \u2014 Markdown as source of truth, MCP server + CLI, human-reviewed capture, team knowledge via gi (selected work: src/retrieve, scripts, src/tools)",
+ "repos": [
+  {
+   "repo": "open-memex",
+   "url": "https://github.com/stoneskin/open-memex",
+   "sha": "4d14432e2853435fe66b0b515e570c6db1cac8d9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 4d14432e2853: \"D81: user-defined alias vocabulary as query-time expansion (bidirecti\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

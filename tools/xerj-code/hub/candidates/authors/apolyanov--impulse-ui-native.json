@@ -1,0 +1,22 @@
+{
+ "corpus": "apolyanov--impulse-ui-native",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how apolyanov/impulse-ui-native implements it: apolyanov/impulse-ui-native (TypeScript) (selected work: packages/color-picker, packages/storybook, packages/theme)",
+ "repos": [
+  {
+   "repo": "impulse-ui-native",
+   "url": "https://github.com/apolyanov/impulse-ui-native",
+   "sha": "91eba293147c354ad7d999daba1cca6f4f223eee",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 91eba293147c: \"feat(color-picker): add modular native color selection\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "mcychan--nquant-cs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on color-quantization, error-diffusion, image-processing queries this for how mcychan/nQuant.cs implements it: Fast pairwise nearest neighbor based algorithm with C# console (selected work: nQuant.Master, nQuant.Console)",
+ "repos": [
+  {
+   "repo": "nQuant.cs",
+   "url": "https://github.com/mcychan/nQuant.cs",
+   "sha": "6070f618563e3e6247c20410116e94de7746ffc7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 6070f618563e: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

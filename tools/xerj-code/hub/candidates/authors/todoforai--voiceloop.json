@@ -1,0 +1,22 @@
+{
+ "corpus": "todoforai--voiceloop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on barge-in, javascript, stt queries this for how todoforai/voiceloop implements it: Fast, interruptible browser voice agent: VAD \u2192 STT \u2192 LLM \u2192 TTS with real barge-in, echo filtering, streaming TTS and tap-to-seek. Zero runti (selected work: src, bench)",
+ "repos": [
+  {
+   "repo": "voiceloop",
+   "url": "https://github.com/todoforai/voiceloop",
+   "sha": "4b432211c56560d4a2876fc1fcf5085ecb57b57b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 4b432211c565: \"stt: Soniox real-time provider (native EoT), endpoint latency level 2\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

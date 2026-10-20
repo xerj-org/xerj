@@ -1,0 +1,22 @@
+{
+ "corpus": "chidiokoene--optimal-brain",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how ChidiOkoene/optimal-brain implements it: Extended agent skills stack for research and long-term knowledge work. Adds loop engineering and a personal Obsidian knowledge vault on top  (selected work: scripts, packaging, skills)",
+ "repos": [
+  {
+   "repo": "optimal-brain",
+   "url": "https://github.com/ChidiOkoene/optimal-brain",
+   "sha": "bb3a4a7352f153983892216e992c1dc17eaceca4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit bb3a4a7352f1: \"Agensi compliance: zip packager, trigger descriptions, skill READMEs,\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

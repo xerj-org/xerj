@@ -1,0 +1,22 @@
+{
+ "corpus": "shreypurohit--gitingest-vsextension",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code-editor, git, gitingest queries this for how ShreyPurohit/gitingest-vsextension implements it: Seamlessly analyze your repositories inside your IDE! (selected work: src/utils, src, src/test)",
+ "repos": [
+  {
+   "repo": "gitingest-vsextension",
+   "url": "https://github.com/ShreyPurohit/gitingest-vsextension",
+   "sha": "1de80732f18ce428db4945d7809b1ef1b3dd12ec",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 1de80732f18c: \"feat(V0.7.3): enhance cross-editor support and improve analysis funct\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

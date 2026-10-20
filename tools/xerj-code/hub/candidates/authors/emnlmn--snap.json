@@ -1,0 +1,22 @@
+{
+ "corpus": "emnlmn--snap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on decision-engine, gguf, llamacpp queries this for how emnlmn/snap implements it: Typed decisions from unstructured state: one forward pass, zero generated text. Local, deterministic, Jev-compatible. Not affiliated with ty (selected work: src/grep, src)",
+ "repos": [
+  {
+   "repo": "snap",
+   "url": "https://github.com/emnlmn/snap",
+   "sha": "d4a35b1743fff631b4884252c715e44d5e13894a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit d4a35b1743ff: \"grep: a model-judged tree descent over scrubbed previews runs beside \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

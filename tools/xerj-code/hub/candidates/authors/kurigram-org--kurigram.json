@@ -1,0 +1,22 @@
+{
+ "corpus": "kurigram-org--kurigram",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on fork, kurigram, pyro queries this for how kurigram-org/kurigram implements it: Kurigram \u2014 actively maintained Pyrogram fork with support for Gifts, Stories, Topics, business features and the latest Telegram updates (selected work: pyrogram)",
+ "repos": [
+  {
+   "repo": "kurigram",
+   "url": "https://github.com/kurigram-org/kurigram",
+   "sha": "57d81504db73a7e4d05765d0aa70f15ee415729b",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 57d81504db73: \"feat: rework chat event log filters and actions\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

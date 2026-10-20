@@ -1,0 +1,22 @@
+{
+ "corpus": "jjtjtyt6644--robloxaccountmanager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how jjtjtyt6644/RobloxAccountManager implements it: Roblox account manager that takes up only 0.1percent of gpu and cpu and around 3mb of ram usage when minimised. It lowers roblox cilent to m (selected work: manager, login)",
+ "repos": [
+  {
+   "repo": "RobloxAccountManager",
+   "url": "https://github.com/jjtjtyt6644/RobloxAccountManager",
+   "sha": "fe36ee2fac4c17da1910800706b49831f610d1a4",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit fe36ee2fac4c: \"v1.7.0: one window per account, working performance profiles, lighter\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

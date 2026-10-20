@@ -1,0 +1,22 @@
+{
+ "corpus": "locflamedia--daminus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentless, ai-ops, devops queries this for how locflamedia/daminus implements it: Agentless, read-only server scanner for your web projects. Open, scan, close (selected work: crates/core, src/features, src-tauri)",
+ "repos": [
+  {
+   "repo": "daminus",
+   "url": "https://github.com/locflamedia/daminus",
+   "sha": "faeb845c9fba3c0fb910ecdcb61e3071061e0da6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit faeb845c9fba: \"fix(ai): name each provider failure and retry what can recover (#85)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

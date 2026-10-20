@@ -1,0 +1,22 @@
+{
+ "corpus": "rafaelhdsv--linkedin-posts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api, linkedin, linkedin-scraper queries this for how RafaelHDSV/linkedin-posts implements it: Coleta os posts p\u00fablicos de um perfil do LinkedIn no seu PC, guarda o cache no Supabase e deixa qualquer site (portf\u00f3lio, blog, landing) ler (selected work: tmp, src/scraper, tests)",
+ "repos": [
+  {
+   "repo": "linkedin-posts",
+   "url": "https://github.com/RafaelHDSV/linkedin-posts",
+   "sha": "79e59484e610d69839b0078c2ad94c40741677da",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 79e59484e610: \"feat: enhance post parsing and scraping functionality with new date p\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

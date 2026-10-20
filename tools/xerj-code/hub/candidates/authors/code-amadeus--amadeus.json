@@ -1,0 +1,22 @@
+{
+ "corpus": "code-amadeus--amadeus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, desktop-agent, electron queries this for how Code-Amadeus/Amadeus implements it: Real-time multimodal desktop agent evolving toward a persistent AI OS interface (0.17 \u03b1) (selected work: tests, server, agent_host)",
+ "repos": [
+  {
+   "repo": "Amadeus",
+   "url": "https://github.com/Code-Amadeus/Amadeus",
+   "sha": "063e23ff754bf972cdc1432bb5985c1c65269ee8",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 063e23ff754b: \"fix(work): preserve narration evidence and terminal facts (#210)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

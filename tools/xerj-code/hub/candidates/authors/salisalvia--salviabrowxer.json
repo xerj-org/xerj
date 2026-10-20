@@ -1,0 +1,22 @@
+{
+ "corpus": "salisalvia--salviabrowxer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how SaliSalvia/SalviaBrowxer implements it: SaliSalvia/SalviaBrowxer (Kotlin) (selected work: app/src, scripts, app)",
+ "repos": [
+  {
+   "repo": "SalviaBrowxer",
+   "url": "https://github.com/SaliSalvia/SalviaBrowxer",
+   "sha": "01591670eb3387d96a5d95e8c4621d3f36b2420b",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 01591670eb33: \"feat: wire session, source-attributed detection, recording and the do\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

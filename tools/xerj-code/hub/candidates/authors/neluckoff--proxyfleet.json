@@ -1,0 +1,22 @@
+{
+ "corpus": "neluckoff--proxyfleet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Go queries this for how neluckoff/proxyfleet implements it: Open-source control plane for managing distributed HTTP, SOCKS5 and MTProto proxy nodes (selected work: internal/control, internal/agent, internal/model)",
+ "repos": [
+  {
+   "repo": "proxyfleet",
+   "url": "https://github.com/neluckoff/proxyfleet",
+   "sha": "40a2b3f3513b47dad22d55d964c344612be0eafa",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 40a2b3f3513b: \"feat: add managed MTProto proxies\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

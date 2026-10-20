@@ -1,0 +1,22 @@
+{
+ "corpus": "endora-commerce--endora-commerce",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on b2b, b2b-ecommerce, ecommerce queries this for how endora-commerce/endora-commerce implements it: Endora Commerce is a modern, AI-built B2B platform that bends to your processes (selected work: storefront)",
+ "repos": [
+  {
+   "repo": "endora-commerce",
+   "url": "https://github.com/endora-commerce/endora-commerce",
+   "sha": "e9fb6677d9dc0c3adf6b3e3ec674a6736efe51de",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit e9fb6677d9dc: \"fix(storefront): remember whether the blog is served on the reader's \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

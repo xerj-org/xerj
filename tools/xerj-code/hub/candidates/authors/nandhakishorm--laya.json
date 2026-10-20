@@ -1,0 +1,22 @@
+{
+ "corpus": "nandhakishorm--laya",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on calibration, classification, decision-model queries this for how NandhaKishorM/laya implements it: Non-autoregressive System 1 decision engine. Typed choice, score and yes/no decisions over any text in a single forward pass, in 100+ langua (selected work: laya-java)",
+ "repos": [
+  {
+   "repo": "laya",
+   "url": "https://github.com/NandhaKishorM/laya",
+   "sha": "71e43b75e5f701239c232f32b894af315350c05e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 71e43b75e5f7: \"feat(java): port predict_tournament as Shortlist.predictTournament\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

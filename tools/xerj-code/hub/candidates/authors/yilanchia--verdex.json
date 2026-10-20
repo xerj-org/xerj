@@ -1,0 +1,22 @@
+{
+ "corpus": "yilanchia--verdex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on ctf, deepseek-harness, exploit-development queries this for how Yilanchia/Verdex implements it: \u8bc1\u636e\u4f18\u5148\u7684\u672c\u5730\u5b89\u5168\u7814\u7a76\u5de5\u4f5c\u53f0:\u6e90\u7801\u5ba1\u8ba1 / \u9006\u5411 / pwn / web \u653b\u9632,\u901a\u8fc7 MCP \u8ba9\u5927\u6a21\u578b\u81ea\u4e3b\u7f16\u6392\u3002Evidence-first local security workbench driven by LLMs via MCP (selected work: src, tests)",
+ "repos": [
+  {
+   "repo": "Verdex",
+   "url": "https://github.com/Yilanchia/Verdex",
+   "sha": "19eca7b487ff644b25b50a43c5cb328f5cad49f8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 19eca7b487ff: \"Add Ghidra decompile fallback, run diff, SARIF export; expand web rul\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

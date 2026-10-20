@@ -1,0 +1,22 @@
+{
+ "corpus": "openstarterkit--nextjs-saas-starter-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on nextjs, react, boilerplate queries this for how openstarterkit/nextjs-saas-starter-kit implements it: \u26a1\ufe0f Open source Next.js SaaS boilerplate and starter kit: Better Auth, Stripe, Prisma, Tailwind, TypeScript. Full payments in the free tier,  (selected work: src/components, src/lib, src/app)",
+ "repos": [
+  {
+   "repo": "nextjs-saas-starter-kit",
+   "url": "https://github.com/openstarterkit/nextjs-saas-starter-kit",
+   "sha": "1f618d0fab954998b3a4541065e3ec681b2244ec",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 1f618d0fab95: \"v2.3.5: bring your own email provider, and one loading state for the app\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

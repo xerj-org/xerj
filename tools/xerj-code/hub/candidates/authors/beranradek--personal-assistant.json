@@ -1,0 +1,22 @@
+{
+ "corpus": "beranradek--personal-assistant",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on TypeScript queries this for how beranradek/personal-assistant implements it: Personal AI assistant with secured sandbox, memory (markdowns and hybrid search), integrations - adapters, heartbeat proactivity and skills (selected work: src/tools, src/cron)",
+ "repos": [
+  {
+   "repo": "personal-assistant",
+   "url": "https://github.com/beranradek/personal-assistant",
+   "sha": "5ba3fd92a532096b8dd35f1a75f33e169f7bd758",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 5ba3fd92a532: \"feat: split cron MCP tools by access mode\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

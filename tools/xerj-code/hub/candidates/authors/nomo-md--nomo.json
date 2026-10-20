@@ -1,0 +1,22 @@
+{
+ "corpus": "nomo-md--nomo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on markdown, markdown-editor, wysiwyg queries this for how nomo-md/nomo implements it: Nomo \u662f\u4e00\u6b3e\u6240\u89c1\u5373\u6240\u5f97\u3001\u5373\u65f6\u6e32\u67d3\u3001\u65e0\u5e72\u6270\u7684 Markdown \u7f16\u8f91\u5668\uff0c\u652f\u6301 macOS \u4e0e Windows\u3002Nomo is a WYSIWYG, real-time rendering, and distraction-free Markdown editor that su (selected work: src/app)",
+ "repos": [
+  {
+   "repo": "nomo",
+   "url": "https://github.com/nomo-md/nomo",
+   "sha": "a9d47058f3bdbebb387ee130b598fd4dcc9d338c",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit a9d47058f3bd: \"\u4e3a\u6587\u4ef6\u6811\u6dfb\u52a0\u952e\u5165\u5b9a\u4f4d\u4e0e\u4e34\u65f6\u5339\u914d\u63d0\u793a\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

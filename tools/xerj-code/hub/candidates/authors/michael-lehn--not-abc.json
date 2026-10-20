@@ -1,0 +1,22 @@
+{
+ "corpus": "michael-lehn--not-abc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on LLVM queries this for how michael-lehn/not-abc implements it: michael-lehn/not-abc (LLVM) (selected work: hpc0-sessions)",
+ "repos": [
+  {
+   "repo": "not-abc",
+   "url": "https://github.com/michael-lehn/not-abc",
+   "sha": "d7162afd03fe01f485b40facb8b2644a56718b85",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit d7162afd03fe: \"added session 18\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "smartloop-ai--docent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, ratatui queries this for how smartloop-ai/docent implements it: Docent: your private AI assistant. Chat with your PDFs and Office files, search the web and connect MCP servers, running on your own machine (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "docent",
+   "url": "https://github.com/smartloop-ai/docent",
+   "sha": "176b1072a96a4a3409e39afe02bcca085d1b47ad",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 176b1072a96a: \"Hint project skills, show agent health on the card, trim the CLI to a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

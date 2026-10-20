@@ -1,0 +1,22 @@
+{
+ "corpus": "akshayvr-programmer--risc-v-rv32i-single-cycle-processor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on artix-7, branch-prediction, computer-architecture queries this for how akshayvr-programmer/RISC-V-RV32I-Single-Cycle-Processor implements it: 5-stage pipelined RV32I RISC-V core in Verilog with hazard handling, CSR traps, a dynamic branch predictor, and Artix-7 timing closure at 10 (selected work: tb, rtl, programs)",
+ "repos": [
+  {
+   "repo": "RISC-V-RV32I-Single-Cycle-Processor",
+   "url": "https://github.com/akshayvr-programmer/RISC-V-RV32I-Single-Cycle-Processor",
+   "sha": "5db13547b3aef5b8cc5199a3ae1296fbf196f162",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 5db13547b3ae: \"Phase 4: branch predictor on, FPGA synthesis, first Artix-7 timing\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

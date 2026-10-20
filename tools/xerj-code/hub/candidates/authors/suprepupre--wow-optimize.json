@@ -1,0 +1,22 @@
+{
+ "corpus": "suprepupre--wow-optimize",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dll-injection, gaming-performance, optimization queries this for how suprepupre/wow-optimize implements it: Engine-level optimization DLL for WoW 3.3.5a. Replaces the allocator, adds Lua VM and file I/O fast paths, fixes the 16-year combat log bug. (selected work: src/simd_math, src/core, src/launcher)",
+ "repos": [
+  {
+   "repo": "wow-optimize",
+   "url": "https://github.com/suprepupre/wow-optimize",
+   "sha": "5feb21c77a8eca53464063c3da9c86b4e6af49c0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 5feb21c77a8e: \"add a detour for sub_81CFF0, the model bounding-sphere ray pass, veri\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

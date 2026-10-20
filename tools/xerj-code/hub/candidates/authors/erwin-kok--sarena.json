@@ -1,0 +1,22 @@
+{
+ "corpus": "erwin-kok--sarena",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on cni, dataplane, ebpf queries this for how erwin-kok/sarena implements it: An eBPF-based cloud-native network dataplane and control plane written in Rust, exploring CNI, Linux networking, and programmable networking (selected work: sarena-data-plane, sarena-loader, tests)",
+ "repos": [
+  {
+   "repo": "sarena",
+   "url": "https://github.com/erwin-kok/sarena",
+   "sha": "25348ca96f3654a6b8983146398f1b69f3a142ad",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 25348ca96f36: \"data-plane refactoring\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "vinimoz--agora",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on agora, democracy, nextcloud-app queries this for how vinimoz/agora implements it: Agora \u2013 Participatory democracy for your organization Agora is a Decidim-inspired application for Nextcloud that lets your group or organiza (selected work: lib/Db, src/components, lib/Service)",
+ "repos": [
+  {
+   "repo": "agora",
+   "url": "https://github.com/vinimoz/agora",
+   "sha": "41045ee210ddeaf0777476c99d7abc9bcfaf40b5",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 41045ee210dd: \"v1.7.13\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

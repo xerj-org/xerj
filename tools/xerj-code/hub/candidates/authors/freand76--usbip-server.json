@@ -1,0 +1,22 @@
+{
+ "corpus": "freand76--usbip-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on prototype, usb, usbip queries this for how freand76/usbip-server implements it: Prototype USB devices as ordinary Linux programs: HID, CDC serial, audio and displays over USB/IP (selected work: src/lib)",
+ "repos": [
+  {
+   "repo": "usbip-server",
+   "url": "https://github.com/freand76/usbip-server",
+   "sha": "f7468036400ab1556d1c5facf1d06f02d9dbb1cc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit f7468036400a: \"Document the library's internal headers\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

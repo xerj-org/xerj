@@ -1,0 +1,22 @@
+{
+ "corpus": "paularlott--llmrouter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on llm, mcp-server queries this for how paularlott/llmrouter implements it: Simple router to aggregate multiple LLM providers with optional smart routing and MCP aggretation (selected work: internal/router, internal/responses, web)",
+ "repos": [
+  {
+   "repo": "llmrouter",
+   "url": "https://github.com/paularlott/llmrouter",
+   "sha": "a56ac10179c53929bcddc2912b8abdb2d0adbe2a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit a56ac10179c5: \"Support for gork and improved responses\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

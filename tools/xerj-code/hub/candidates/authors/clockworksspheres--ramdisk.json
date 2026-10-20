@@ -1,0 +1,22 @@
+{
+ "corpus": "clockworksspheres--ramdisk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on python, ramdisk, ramdisk-environments queries this for how clockworksspheres/ramdisk implements it: cross platform interface/tool for creating platform specific ramdisks (selected work: src/rust, src/golang)",
+ "repos": [
+  {
+   "repo": "ramdisk",
+   "url": "https://github.com/clockworksspheres/ramdisk",
+   "sha": "9b226434c2cb29dd6169a6853202305f25679c52",
+   "licence": "hint only: Unlicense (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Unlicense",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 9b226434c2cb: \"rust appears to be working on deb 13\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

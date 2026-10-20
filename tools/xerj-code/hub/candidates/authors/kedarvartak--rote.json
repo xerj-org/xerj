@@ -1,0 +1,22 @@
+{
+ "corpus": "kedarvartak--rote",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-harness, agent-memory, ai-agents queries this for how kedarvartak/rote implements it: An efficiency-first browser-agent system. Fewer observation tokens, lower latency, and browser memory that compounds with every run (selected work: packages/cli, scripts)",
+ "repos": [
+  {
+   "repo": "rote",
+   "url": "https://github.com/kedarvartak/rote",
+   "sha": "1b0fa16e8f2f6b0141386a292190191243272958",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 1b0fa16e8f2f: \"feat(cli): add responsive chat terminal workspace\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "mister-album--koharia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how Mister-album/Koharia implements it: Koharia \u662f\u4e00\u6b3e\u9762\u5411 Komga\u3001Kavita\u3001LANraragi\u3001smanga\u3001Suwayomi \u670d\u52a1\u5668\u4e0e\u672c\u5730\u5a92\u4f53\u5e93\u7684\u7b2c\u4e09\u65b9 Android \u5ba2\u6237\u7aef\u548c\u9605\u8bfb\u5668 / Koharia is a third-party Android client and reader for  (selected work: app/src, reader-image-view, app)",
+ "repos": [
+  {
+   "repo": "Koharia",
+   "url": "https://github.com/Mister-album/Koharia",
+   "sha": "998c73f3828ea674cff3c4e7cde86487168625d4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 998c73f3828e: \"feat(reader): \u63a5\u5165\u53ef\u8c03\u56fe\u50cf\u63d2\u503c / add configurable image resampling\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

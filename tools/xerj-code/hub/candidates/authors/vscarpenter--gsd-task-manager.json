@@ -1,0 +1,22 @@
+{
+ "corpus": "vscarpenter--gsd-task-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on eisenhower-matrix, mcp-server, model-context-protocol queries this for how vscarpenter/gsd-task-manager implements it: Stop juggling, start finishing. GSD Task Manager makes it easy to sort your to-dos into what\u2019s urgent and what\u2019s important, so you can final (selected work: components, tests, lib/sync)",
+ "repos": [
+  {
+   "repo": "gsd-task-manager",
+   "url": "https://github.com/vscarpenter/gsd-task-manager",
+   "sha": "99718b46b6c48d79e0a3c7b215a9773383014aef",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 99718b46b6c4: \"fix: close the review findings on sync, capture, and the matrix (#595)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

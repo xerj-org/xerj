@@ -1,0 +1,22 @@
+{
+ "corpus": "habeeiiyy--smashup",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how habeeiiyy/SmashUp implements it: Backend-focused project management and issue tracking system built with Django (selected work: frontend, backend)",
+ "repos": [
+  {
+   "repo": "SmashUp",
+   "url": "https://github.com/habeeiiyy/SmashUp",
+   "sha": "769225e0c89509c038901742302518799f412d2c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 769225e0c895: \"frontend issues\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

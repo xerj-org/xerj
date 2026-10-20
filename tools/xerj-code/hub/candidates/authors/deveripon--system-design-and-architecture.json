@@ -1,0 +1,22 @@
+{
+ "corpus": "deveripon--system-design-and-architecture",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how deveripon/system-design-and-architecture implements it: An open-source, high-fidelity learning platform for mastering system design and distributed architecture. Built with Next.js, Tailwind v4, a (selected work: content, components)",
+ "repos": [
+  {
+   "repo": "system-design-and-architecture",
+   "url": "https://github.com/deveripon/system-design-and-architecture",
+   "sha": "50c08db294418b14664516aa41c24141550f421f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 50c08db29441: \"feat: add email provider walkthroughs to the DNS records lesson\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

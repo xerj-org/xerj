@@ -1,0 +1,22 @@
+{
+ "corpus": "arvindand--maven-tools-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-tools, dependency-management, developer-tools queries this for how arvindand/maven-tools-mcp implements it: MCP server providing AI assistants with Maven Central dependency intelligence for all JVM build tools (Maven, Gradle, SBT, Mill). Features C (selected work: src/test, agents, src/main)",
+ "repos": [
+  {
+   "repo": "maven-tools-mcp",
+   "url": "https://github.com/arvindand/maven-tools-mcp",
+   "sha": "c9de90b34ccbae30e2a74bea0c1d9176f56aa0cd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit c9de90b34ccb: \"fix: preserve release variants and refresh dependencies for 3.2.3\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

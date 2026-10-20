@@ -1,0 +1,22 @@
+{
+ "corpus": "hjsang--delta-mopd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on Python queries this for how HJSang/Delta-MOPD implements it: Miles-based MOPD and Delta-MOPD: teacher-relative on-policy distillation research code (selected work: recipes, tests)",
+ "repos": [
+  {
+   "repo": "Delta-MOPD",
+   "url": "https://github.com/HJSang/Delta-MOPD",
+   "sha": "d2b11c560d5b39995b00995ac9a273b9a957f71c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit d2b11c560d5b: \"Add validated standalone and multi-LoRA serving recipes for public pr\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

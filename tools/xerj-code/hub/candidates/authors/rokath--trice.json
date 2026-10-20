@@ -1,0 +1,22 @@
+{
+ "corpus": "rokath--trice",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on instrumentation, embedded, logging queries this for how rokath/trice implements it: \ud83d\udfe2 Super-fast, tiny C/C++ tracing with printf look-and-feel, even in interrupts \u26a1, plus real-time PC logging \ud83d\udcbb (selected work: internal/id)",
+ "repos": [
+  {
+   "repo": "trice",
+   "url": "https://github.com/rokath/trice",
+   "sha": "9df593f5db3248a4d49bcdf72bd33697063652b4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 9df593f5db32: \"fix(id): assign identical Trices deterministic IDs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

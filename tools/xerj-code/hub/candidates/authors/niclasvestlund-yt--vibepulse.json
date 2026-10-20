@@ -1,0 +1,22 @@
+{
+ "corpus": "niclasvestlund-yt--vibepulse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on amoled, claude, claude-code queries this for how niclasvestlund-YT/vibepulse implements it: ESP32-S3 AMOLED for Claude Code & Codex usage, live agent activity, and answerable NEEDS YOU alerts. Local-first macOS/Windows host; optiona (selected work: tools, components, test)",
+ "repos": [
+  {
+   "repo": "vibepulse",
+   "url": "https://github.com/niclasvestlund-YT/vibepulse",
+   "sha": "21b905d206ce85ca18a95b17809ad67eb8ace96a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 21b905d206ce: \"Add OpenRouter spend and budget as an optional VibePulse Labs page (#\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

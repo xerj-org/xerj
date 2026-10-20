@@ -1,0 +1,22 @@
+{
+ "corpus": "zrdep--chegou",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, brazil, cli queries this for how zrdep/chegou implements it: Phone \u2194 PC file transfer from the terminal. Run npx chegou, scan the QR, done (selected work: src/cli, src, bin)",
+ "repos": [
+  {
+   "repo": "chegou",
+   "url": "https://github.com/zrdep/chegou",
+   "sha": "b96365a1a3d5bf31c783ff870d7f0748cae211bb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit b96365a1a3d5: \"refactor: organiza src em cli/server/net e adiciona i18n (pt/en)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

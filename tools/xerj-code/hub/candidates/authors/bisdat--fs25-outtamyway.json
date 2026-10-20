@@ -1,0 +1,22 @@
+{
+ "corpus": "bisdat--fs25-outtamyway",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Lua queries this for how bisdat/FS25_OuttaMyWay implements it: bisdat/FS25_OuttaMyWay (Lua) (selected work: tests, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "FS25_OuttaMyWay",
+   "url": "https://github.com/bisdat/FS25_OuttaMyWay",
+   "sha": "011677d07a34780649d8fa96574b193105d31c00",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 011677d07a34: \"#486 Audit active Log Publication event taxonomy and repeated version\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "zelenov--clipscribe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how Zelenov/clipscribe implements it: Describe what happens in video clips, and when, with Claude: a summary and time-ranged key moments. CLI and Rust crate (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "clipscribe",
+   "url": "https://github.com/Zelenov/clipscribe",
+   "sha": "f9e751a7539377a55fd7aa030e4ef7f19a4bbb2c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f9e751a75393: \"Describe one moment: a name and a description for the frame at a give\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

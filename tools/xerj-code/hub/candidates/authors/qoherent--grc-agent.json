@@ -1,0 +1,22 @@
+{
+ "corpus": "qoherent--grc-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how qoherent/GRC-Agent implements it: An AI Agent for GNU Radio Companion (GRC) that will understand the graph and help you build by updating parameters/connections, adding block (selected work: experiments)",
+ "repos": [
+  {
+   "repo": "GRC-Agent",
+   "url": "https://github.com/qoherent/GRC-Agent",
+   "sha": "1ff88f4042fd38f04fc792b60e1ab7a0a317587e",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 1ff88f4042fd: \"feat(atomic_dataset): tier-2 multi-turn interactive suite\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "coe0718--diaktoros",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on hermes-agent, hermes-agent-plugin, hermes-plugin queries this for how coe0718/diaktoros implements it: Bounded autonomous software maintenance for Hermes: triage issues, propose fixes, review PRs, gate on CI and policy, escalate disputes, reco (selected work: diaktoros, desktop, tests)",
+ "repos": [
+  {
+   "repo": "diaktoros",
+   "url": "https://github.com/coe0718/diaktoros",
+   "sha": "94792b571bcccd5d066b80df2da77312a20380da",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 94792b571bcc: \"Desktop: the live usage-window state, not the frozen hold line (#650)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

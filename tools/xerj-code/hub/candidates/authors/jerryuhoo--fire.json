@@ -1,0 +1,22 @@
+{
+ "corpus": "jerryuhoo--fire",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on vst-plugin, distortion-plugin, juce-framework queries this for how jerryuhoo/Fire implements it: This is a mutiband distortion plugin (selected work: Source, tests, the project root)",
+ "repos": [
+  {
+   "repo": "Fire",
+   "url": "https://github.com/jerryuhoo/Fire",
+   "sha": "f722d649a09110cd50a2ca3ecbe4338512df0c20",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit f722d649a091: \"feat: model transformer flux and magnetic hysteresis\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "dvfs-iit-gandhinagar--distributed-virtual-file-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how DVFS-IIT-Gandhinagar/Distributed-Virtual-File-System implements it: DVFS-IIT-Gandhinagar/Distributed-Virtual-File-System (Go) (selected work: internal/client, internal/fileserver)",
+ "repos": [
+  {
+   "repo": "Distributed-Virtual-File-System",
+   "url": "https://github.com/DVFS-IIT-Gandhinagar/Distributed-Virtual-File-System",
+   "sha": "19d17bcacc543160fcdeec0458985095aaf1d7ba",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 19d17bcacc54: \"Fix cache invalidation not reaching users a root is shared with\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

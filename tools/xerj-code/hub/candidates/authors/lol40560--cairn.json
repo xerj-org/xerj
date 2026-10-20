@@ -1,0 +1,22 @@
+{
+ "corpus": "lol40560--cairn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, collaboration, developer-tools queries this for how lol40560/Cairn implements it: Real-time code collaboration for teams using AI coding tools (selected work: src, src/components, src/lib)",
+ "repos": [
+  {
+   "repo": "Cairn",
+   "url": "https://github.com/lol40560/Cairn",
+   "sha": "2462473bd34ef6259a91b73f6718a20bf8481182",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 2462473bd34e: \"feat: redesign project workflow and prepare rc.3\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

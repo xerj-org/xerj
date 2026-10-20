@@ -1,0 +1,22 @@
+{
+ "corpus": "aamanzi--vpx-micro-frontend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how AAmanzi/vpx-micro-frontend implements it: Micro Frontend for Visual Pinball X for Windows and macOS (selected work: src/electron, src/components, src/types)",
+ "repos": [
+  {
+   "repo": "vpx-micro-frontend",
+   "url": "https://github.com/AAmanzi/vpx-micro-frontend",
+   "sha": "57b67434426d88ae373760bc4c4cafd1e6e7b185",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 57b67434426d: \"add fullscreen option & restoring window state\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

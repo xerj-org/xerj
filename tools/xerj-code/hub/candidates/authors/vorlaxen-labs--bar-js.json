@@ -1,0 +1,22 @@
+{
+ "corpus": "vorlaxen-labs--bar-js",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api, express, fastify queries this for how vorlaxen-labs/bar-js implements it: BaR (Build a Response): TypeScript API response builder for Express & Fastify \u2014 fluent JSON envelope, request IDs, zero runtime deps (selected work: tests, src/adapters, src/utils)",
+ "repos": [
+  {
+   "repo": "bar-js",
+   "url": "https://github.com/vorlaxen-labs/bar-js",
+   "sha": "5c92058398e2d79c93c9cb45ec90894ea44085d1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); pinned to the default-branch head; suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

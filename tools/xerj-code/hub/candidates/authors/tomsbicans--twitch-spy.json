@@ -1,0 +1,22 @@
+{
+ "corpus": "tomsbicans--twitch-spy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on music, python3, yt-dlp queries this for how TomsBicans/twitch-spy implements it: This is a project that aims to create an easy to use music downloading and library management software that can be run locally on a computer (selected work: client, tests)",
+ "repos": [
+  {
+   "repo": "twitch-spy",
+   "url": "https://github.com/TomsBicans/twitch-spy",
+   "sha": "9a09d1c13df8b226a5b086e736110f8e2517d38e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 9a09d1c13df8: \"feat: add autoplay, shuffle, and search-based playback navigation\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

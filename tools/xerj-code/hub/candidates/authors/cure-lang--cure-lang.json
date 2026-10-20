@@ -1,0 +1,22 @@
+{
+ "corpus": "cure-lang--cure-lang",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Elixir queries this for how cure-lang/cure-lang implements it: Cure language compiling to BEAM with FSM primitives and Dependent types (selected work: zed-cure)",
+ "repos": [
+  {
+   "repo": "cure-lang",
+   "url": "https://github.com/cure-lang/cure-lang",
+   "sha": "7edc023d6d37338f348b4b0714a35109b87774c9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 7edc023d6d37: \"Build zed-cure's grammar from tree-sitter-cure/ in this repository\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

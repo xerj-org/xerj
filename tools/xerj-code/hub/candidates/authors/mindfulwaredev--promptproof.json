@@ -1,0 +1,22 @@
+{
+ "corpus": "mindfulwaredev--promptproof",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-safety, ai-security, anthropic queries this for how MindfulwareDev/PromptProof implements it: Plug-and-play guardrail prompts for any LLM \u2014 injection defense, hallucination control, bias detection, PII protection, and 50+ more. Includ (selected work: tests, tools, benchmarks)",
+ "repos": [
+  {
+   "repo": "PromptProof",
+   "url": "https://github.com/MindfulwareDev/PromptProof",
+   "sha": "a7d085af70da666166f3d283f599fe75db5fa815",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a7d085af70da: \"Improve prompt evidence guidance, local tooling and review documentation\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

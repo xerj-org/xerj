@@ -1,0 +1,22 @@
+{
+ "corpus": "0xdps--daemon-hound",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli-tool, configuration-management, developer-tools queries this for how 0xdps/daemon-hound implements it: Opinionated local config and secret management for developers. Track, sync, and back up important files across machines (selected work: internal/utils, internal/sync, internal/tracker)",
+ "repos": [
+  {
+   "repo": "daemon-hound",
+   "url": "https://github.com/0xdps/daemon-hound",
+   "sha": "a97ce9da944f134d8b4e6f8da2d9adb6bd58a0ed",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit a97ce9da944f: \"feat: improve namespace lookup and remote checks with caching and tim\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

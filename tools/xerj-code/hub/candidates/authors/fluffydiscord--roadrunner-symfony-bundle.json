@@ -1,0 +1,22 @@
+{
+ "corpus": "fluffydiscord--roadrunner-symfony-bundle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how FluffyDiscord/roadrunner-symfony-bundle implements it: Yet another runtime for Symfony and RoadRunner with batteries included (selected work: tests, src/Doctrine, src/DependencyInjection)",
+ "repos": [
+  {
+   "repo": "roadrunner-symfony-bundle",
+   "url": "https://github.com/FluffyDiscord/roadrunner-symfony-bundle",
+   "sha": "70619d88cc1571e2334a10a1fc8e2aa5be0e58f7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 70619d88cc15: \"Doctrine - preconnect takes a connection name or a list of names\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

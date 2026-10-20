@@ -18,10 +18,7 @@
 //! now < last_seen_at + idle_seconds`. `last_seen_at` is bumped on
 //! every authenticated request via the extractor.
 
-use axum::{
-    extract::FromRequestParts,
-    http::{request::Parts, HeaderValue, StatusCode},
-};
+use axum::{extract::FromRequestParts, http::request::Parts};
 use axum_extra::extract::cookie::{Cookie, CookieJar, SameSite};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use hmac::{Hmac, Mac};
@@ -321,9 +318,6 @@ pub fn request_is_secure(parts: &Parts) -> bool {
     }
     false
 }
-
-#[allow(dead_code)]
-fn _silence_unused_imports(_v: HeaderValue, _s: StatusCode) {}
 
 #[cfg(test)]
 mod tests {

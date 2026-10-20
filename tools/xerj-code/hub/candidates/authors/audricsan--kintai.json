@@ -1,0 +1,22 @@
+{
+ "corpus": "audricsan--kintai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how AudricSan/Kintai implements it: AudricSan/Kintai (PHP) (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "Kintai",
+   "url": "https://github.com/AudricSan/Kintai",
+   "sha": "b5b3859421a1622e4603550b3fa6a937b6a754b2",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit b5b3859421a1: \"core: add operational CLI scripts\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

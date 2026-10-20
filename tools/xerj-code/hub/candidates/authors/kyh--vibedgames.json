@@ -1,0 +1,22 @@
+{
+ "corpus": "kyh--vibedgames",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on game, multiplayer, react queries this for how kyh/vibedgames implements it: A game studio for your agent \ud83c\udfae (selected work: apps/web, apps/party, packages/db)",
+ "repos": [
+  {
+   "repo": "vibedgames",
+   "url": "https://github.com/kyh/vibedgames",
+   "sha": "14437b817b1dd60ef04b84caebf2062fbb7bb818",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 14437b817b1d: \"Deploy workers with cf instead of wrangler\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "react-native-linux--react-native-linux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C++ queries this for how react-native-linux/react-native-linux implements it: React Native for desktop Linux \u2014 GPU-first: Fabric + Skia/Vulkan on Wayland, Hermes, New Architecture, 120 fps target (selected work: packages/core, patches, packages/cli)",
+ "repos": [
+  {
+   "repo": "react-native-linux",
+   "url": "https://github.com/react-native-linux/react-native-linux",
+   "sha": "1916bd66fd9cc7da43a08c100199d5dcbff9c6bc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 1916bd66fd9c: \"feat(modules): render public TextInput on Linux\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

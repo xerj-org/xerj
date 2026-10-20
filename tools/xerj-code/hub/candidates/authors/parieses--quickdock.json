@@ -1,0 +1,22 @@
+{
+ "corpus": "parieses--quickdock",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Go queries this for how parieses/quickdock implements it: parieses/quickdock (Go) (selected work: internal/plugin, frontend, the project root)",
+ "repos": [
+  {
+   "repo": "quickdock",
+   "url": "https://github.com/parieses/quickdock",
+   "sha": "c106db38d921dca236f3b659dc2154532a8c359a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit c106db38d921: \"feat(plugin): \u5b8c\u5584\u63d2\u4ef6\u7cfb\u7edf\uff0c\u65b0\u589e\u7981\u7528\u72b6\u6001\u3001\u95f2\u7f6e\u964d\u7ea7\u4e0e\u72ec\u7acb\u7a97\u53e3\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

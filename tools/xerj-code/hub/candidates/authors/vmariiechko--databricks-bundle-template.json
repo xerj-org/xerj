@@ -1,0 +1,22 @@
+{
+ "corpus": "vmariiechko--databricks-bundle-template",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on data-engineering, databricks, template queries this for how vmariiechko/databricks-bundle-template implements it: A custom Declarative Automation Bundles template for production-ready, multi-environment Databricks data pipeline projects (selected work: tests, assets, template)",
+ "repos": [
+  {
+   "repo": "databricks-bundle-template",
+   "url": "https://github.com/vmariiechko/databricks-bundle-template",
+   "sha": "ceb85e37a8e6c33a1ed224e611eb5387ba9bb7a2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit ceb85e37a8e6: \"Read the sdp-expectation-notifications webhook only from a secret sco\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

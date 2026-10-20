@@ -1,0 +1,22 @@
+{
+ "corpus": "authorizerdev--authorizer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on hacktoberfest, authentication, auth queries this for how authorizerdev/authorizer implements it: Your data, your control. Fully open source, authentication and authorization. No lock-ins. Deployment in Railway in 120 seconds || Spin a do (selected work: internal/storage)",
+ "repos": [
+  {
+   "repo": "authorizer",
+   "url": "https://github.com/authorizerdev/authorizer",
+   "sha": "f8f5d37f4f064072d0bdc85320e5179bca90d147",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit f8f5d37f4f06: \"fix(storage): apply all audit log filters on cassandra and couchbase \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

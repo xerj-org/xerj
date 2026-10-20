@@ -1,0 +1,22 @@
+{
+ "corpus": "josh012006--cib-irl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on causal-representation-learning, deep-learning, information-bottleneck queries this for how Josh012006/CIB-IRL implements it: Unsupervised image clustering via simultaneous Information-Bottleneck representation learning and Multi-Intention Inverse Reinforcement Lear (selected work: results, cibirl, configs)",
+ "repos": [
+  {
+   "repo": "CIB-IRL",
+   "url": "https://github.com/Josh012006/CIB-IRL",
+   "sha": "591821af14f4e0ebb11137c07b0b200506f93a28",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 591821af14f4: \"feat: Diagnosing the disagreement between memory based clusters and p\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

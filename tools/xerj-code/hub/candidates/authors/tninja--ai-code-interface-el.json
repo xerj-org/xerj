@@ -1,0 +1,22 @@
+{
+ "corpus": "tninja--ai-code-interface-el",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agile-development, claude-code, emacs queries this for how tninja/ai-code-interface.el implements it: Unified Emacs interface supporting OpenAI Codex, Antigravity CLI, Claude Code, Pi agent, Muse Code, and more (selected work: the project root, test)",
+ "repos": [
+  {
+   "repo": "ai-code-interface.el",
+   "url": "https://github.com/tninja/ai-code-interface.el",
+   "sha": "0e29ab6bda57e3b56f031ebc94130b99d20a4373",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 0e29ab6bda57: \"Add Address code annotation action with suggestions-first review (#528)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

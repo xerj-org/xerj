@@ -1,0 +1,22 @@
+{
+ "corpus": "kajitiluna--erd-designer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on erd, database-design, entity-relationship-diagram queries this for how kajitiluna/erd-designer implements it: Free, open-source ERD designer for browser, VS Code & Google Drive \u2014 with AI agent integration (MCP / Claude Code plugin). DDL export for 7  (selected work: src/features)",
+ "repos": [
+  {
+   "repo": "erd-designer",
+   "url": "https://github.com/kajitiluna/erd-designer",
+   "sha": "edc43dcc1fbcef32e7e81611cc4f2a1f1bfc3c21",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit edc43dcc1fbc: \"Add relation summary card.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

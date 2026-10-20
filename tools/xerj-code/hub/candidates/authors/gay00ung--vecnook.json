@@ -1,0 +1,22 @@
+{
+ "corpus": "gay00ung--vecnook",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on embedded-database, hnsw, rust queries this for how gay00ung/vecnook implements it: Embedded vector database for Rust: from-scratch HNSW, atomic batches, durable storage, and no external crates (selected work: src, examples, tests)",
+ "repos": [
+  {
+   "repo": "vecnook",
+   "url": "https://github.com/gay00ung/vecnook",
+   "sha": "7d031b504a1d4a71814334caa0e09df4f01b508f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 7d031b504a1d: \"feat: \ud558\uc774\ube0c\ub9ac\ub4dc \ubb38\uc11c \uac80\uc0c9\uacfc 1.1 \ucd9c\uc2dc \ud6c4\ubcf4 \ucd94\uac00 \u2728\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

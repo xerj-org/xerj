@@ -1,0 +1,22 @@
+{
+ "corpus": "wujerry--repoatlas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how Wujerry/RepoAtlas implements it: A local-first control center for the code you already have (selected work: crates/repoatlas-core, the project root, src/test)",
+ "repos": [
+  {
+   "repo": "RepoAtlas",
+   "url": "https://github.com/Wujerry/RepoAtlas",
+   "sha": "7d972b7daa738ea99beb0bba1e2815272099e357",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 7d972b7daa73: \"fix: reconcile dependency updates and harden local quota transport\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

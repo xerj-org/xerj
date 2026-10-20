@@ -1,0 +1,22 @@
+{
+ "corpus": "thsa--datawarrior",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how thsa/datawarrior implements it: Interactive data analysis and visualisation with chemical intelligence (selected work: src/com, src/org)",
+ "repos": [
+  {
+   "repo": "datawarrior",
+   "url": "https://github.com/thsa/datawarrior",
+   "sha": "1ee22cfce6819f6ee926638d835ec81306b71aa4",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 1ee22cfce681: \"updated experimental (now working) BitBirch clustering\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

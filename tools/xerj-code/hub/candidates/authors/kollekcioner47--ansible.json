@@ -1,0 +1,22 @@
+{
+ "corpus": "kollekcioner47--ansible",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how Kollekcioner47/ansible implements it: \u041f\u0440\u0430\u043a\u0442\u0438\u043a\u0430 \u043f\u043e \u043a\u0443\u0440\u0441\u0443 ansible (selected work: files, the project root, project)",
+ "repos": [
+  {
+   "repo": "ansible",
+   "url": "https://github.com/Kollekcioner47/ansible",
+   "sha": "2f9ae37479b909c0babd32e0a0b704bec5d9163f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 2f9ae37479b9: \"\u041f\u0435\u0440\u0435\u043f\u0438\u0441\u044b\u0432\u0430\u043d\u0438\u0435 \u043a\u0443\u0440\u0441\u0430\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

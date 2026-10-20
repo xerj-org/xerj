@@ -1,0 +1,22 @@
+{
+ "corpus": "rodion981--ha-energy-outages",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on hacs, home-assistant, power-outages queries this for how rodion981/ha-energy-outages implements it: Home Assistant integration for Ukrainian power outage schedules from Alerts Energy, with region and queue selection, outage forecasts and da (selected work: tests, custom_components)",
+ "repos": [
+  {
+   "repo": "ha-energy-outages",
+   "url": "https://github.com/rodion981/ha-energy-outages",
+   "sha": "3bb0345178decb45d7b2e2a88a4695791d47a6c8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 3bb0345178de: \"feat: expose outage forecasts and source health\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

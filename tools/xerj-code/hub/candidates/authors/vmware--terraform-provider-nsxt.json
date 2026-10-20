@@ -1,0 +1,22 @@
+{
+ "corpus": "vmware--terraform-provider-nsxt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on terraform, terraform-provider, vmware-nsx queries this for how vmware/terraform-provider-nsxt implements it: Terraform Provider for VMware NSX (selected work: nsxt)",
+ "repos": [
+  {
+   "repo": "terraform-provider-nsxt",
+   "url": "https://github.com/vmware/terraform-provider-nsxt",
+   "sha": "fee71abcbfbfc9cb05e0092974ecfc4165ea4991",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit fee71abcbfbf: \"Skip unconfigured segment port profile reads (#2351)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

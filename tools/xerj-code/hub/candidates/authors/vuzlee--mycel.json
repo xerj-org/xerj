@@ -1,0 +1,22 @@
+{
+ "corpus": "vuzlee--mycel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, fastapi, gmail queries this for how vuzlee/mycel implements it: Like mycelium under your team's work: quietly connecting everything it knows, surfacing when you ask (selected work: src/mycel, tests)",
+ "repos": [
+  {
+   "repo": "mycel",
+   "url": "https://github.com/vuzlee/mycel",
+   "sha": "2f0436a81aa9c062d2cc97b161ce11b5b1628094",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 2f0436a81aa9: \"fix(models): keep Gemini 3 thought signatures across tool calls on th\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

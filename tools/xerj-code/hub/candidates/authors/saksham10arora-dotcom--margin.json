@@ -1,0 +1,22 @@
+{
+ "corpus": "saksham10arora-dotcom--margin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on chrome-extension, fastapi, gemini-api queries this for how saksham10arora-dotcom/Margin implements it: Watch a lecture, get the notes in Obsidian: slides, diagrams, run code, the crux, flashcards and answers from the lecture. With any model yo (selected work: extension, scripts, sidecar)",
+ "repos": [
+  {
+   "repo": "Margin",
+   "url": "https://github.com/saksham10arora-dotcom/Margin",
+   "sha": "e4686407e9a6fe181c226433974480c9f5088ad4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e4686407e9a6: \"Margin 2.10.0: DeepLearning.AI, like Udemy\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "tonygorb--scenri",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, branding, image-generation queries this for how tonygorb/Scenri implements it: The open-source AI photo studio that remembers your products, people and places. Runs on your computer, on your own ChatGPT plan or OpenRout (selected work: apps/studio, packages/cli)",
+ "repos": [
+  {
+   "repo": "Scenri",
+   "url": "https://github.com/tonygorb/Scenri",
+   "sha": "0de0734329a662686d0de8ca1256fdd3983bd882",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 0de0734329a6: \"test: prove People and Places with 0.21 data, and guard the words\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

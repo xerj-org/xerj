@@ -1,0 +1,22 @@
+{
+ "corpus": "jeronimorepetto--dwarfai-miners",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, codex, developer-tools queries this for how JeronimoRepetto/DwarfAI-Miners implements it: Local desktop panel that turns your AI coding sessions into an isometric dwarf mining colony - watch, message, and manage your agents in rea (selected work: src/host)",
+ "repos": [
+  {
+   "repo": "DwarfAI-Miners",
+   "url": "https://github.com/JeronimoRepetto/DwarfAI-Miners",
+   "sha": "c951c0a936fa523b917d7e76519bd93b89ae0833",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c951c0a936fa: \"fix(launching): end launches accepted during stop-all and run one sto\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

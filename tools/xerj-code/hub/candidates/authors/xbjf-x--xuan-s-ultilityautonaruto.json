@@ -1,0 +1,22 @@
+{
+ "corpus": "xbjf-x--xuan-s-ultilityautonaruto",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how XBJF-X/Xuan-s-UltilityAutoNaruto implements it: \u706b\u5f71\u5fcd\u8005\u81ea\u52a8\u5316\u65e5\u5e38\u5de5\u5177 (selected work: backend, test_scene, the project root)",
+ "repos": [
+  {
+   "repo": "Xuan-s-UltilityAutoNaruto",
+   "url": "https://github.com/XBJF-X/Xuan-s-UltilityAutoNaruto",
+   "sha": "2f073c36d22ffe74e7eea5cf758e5ffa907c2dcc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 2f073c36d22f: \"feat: \u7edf\u4e00\u81ea\u5e26 adb \u5e76\u4fee\u590d minitouch \u521d\u59cb\u5316\u4e0e\u66f4\u65b0\u94fe\u8def\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "4regab--hover",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how 4regab/Hover implements it: opensource desktop app to monitor and give tasks to agents on your notch (selected work: internal/chat, internal/office, internal/ui)",
+ "repos": [
+  {
+   "repo": "Hover",
+   "url": "https://github.com/4regab/Hover",
+   "sha": "0726f4b65d509e7ca3082dfb779847022e666f13",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 0726f4b65d50: \"Faster notch and office; tool calls shown as Claude's app shows them \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "vegonza--bismuth-code",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how vegonza/bismuth-code implements it: vegonza/bismuth-code (TypeScript) (selected work: web)",
+ "repos": [
+  {
+   "repo": "bismuth-code",
+   "url": "https://github.com/vegonza/bismuth-code",
+   "sha": "40a4e71e4cc6fadb0e0eb482aaec98d14fb00a48",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 40a4e71e4cc6: \"The sessions sidebar, put away, peeks from the window's left edge as \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

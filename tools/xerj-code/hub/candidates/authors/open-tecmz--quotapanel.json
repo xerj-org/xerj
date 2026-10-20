@@ -1,0 +1,22 @@
+{
+ "corpus": "open-tecmz--quotapanel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on quota, quota-management, quota-monitor queries this for how open-tecmz/quotapanel implements it: QuotaPanel \u662f\u4e00\u6b3e\u5f00\u6e90\u7684\u684c\u9762\u7aef AI \u989d\u5ea6\u9762\u677f\uff0c\u628a\u6563\u843d\u5728\u5404\u5bb6\u63a7\u5236\u53f0\u91cc\u7684\u8ba2\u9605\u4e0e API \u4f59\u989d\u96c6\u4e2d\u5230\u4e00\u5f20\u754c\u9762\u4e0a\u3002 (selected work: the project root, frontend)",
+ "repos": [
+  {
+   "repo": "quotapanel",
+   "url": "https://github.com/open-tecmz/quotapanel",
+   "sha": "e0518fd601947ef6ce3ac69ee0f91c900a05b832",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit e0518fd60194: \"feat: crash logger\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

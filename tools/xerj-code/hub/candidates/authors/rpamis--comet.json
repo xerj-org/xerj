@@ -1,0 +1,22 @@
+{
+ "corpus": "rpamis--comet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, harness-engineering, sdd queries this for how rpamis/comet implements it: Comet: agent skill harness for turning ideas into evaluated workflows (selected work: assets, test, domains)",
+ "repos": [
+  {
+   "repo": "comet",
+   "url": "https://github.com/rpamis/comet",
+   "sha": "18aaa861ab1b1ceaec13b8d3ccdcf70e61ade0c7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 18aaa861ab1b: \"feat: improve project memory and workflow runtime (#450)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "techakii--lab-eqipment-booking-project",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how TechAkii/lab-eqipment-booking-project implements it: TechAkii/lab-eqipment-booking-project (HTML) (selected work: app, app/templates, the project root)",
+ "repos": [
+  {
+   "repo": "lab-eqipment-booking-project",
+   "url": "https://github.com/TechAkii/lab-eqipment-booking-project",
+   "sha": "f420719f4f1b17340646b82d14fc9d91667610b8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit f420719f4f1b: \"feat: add admin dashboard and user management\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

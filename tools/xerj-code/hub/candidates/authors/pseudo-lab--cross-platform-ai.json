@@ -1,0 +1,22 @@
+{
+ "corpus": "pseudo-lab--cross-platform-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on code queries this for how Pseudo-Lab/Cross-Platform-AI implements it: Vulkan-based LLM/VLM inference across heterogeneous edge GPUs (selected work: examples)",
+ "repos": [
+  {
+   "repo": "Cross-Platform-AI",
+   "url": "https://github.com/Pseudo-Lab/Cross-Platform-AI",
+   "sha": "5c53899571317b77d93b17ef010ac47f08f1145c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 5c5389957131: \"Add compute pipeline tutorials through multiple dispatches\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

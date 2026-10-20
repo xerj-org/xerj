@@ -58,7 +58,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::io::{BufRead, BufReader, Seek, Write};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use std::sync::{Condvar, Mutex};
 use std::time::Instant;
 
 use cli::{Cmd, IndexCfg, MapCfg, StatusCfg};
@@ -145,10 +145,9 @@ pub(crate) fn code_search_hint(prefix: &str) -> String {
 }
 
 fn prepared_records_identity(cfg: &IndexCfg) -> Result<String> {
-    let value = json!({
+    let mut value = json!({
         "contract": PREPARED_RECORDS_IDENTITY,
         "sample": cfg.sample,
-        "max_file_gb": cfg.max_file_gb,
         "no_semantic": cfg.no_semantic,
         // Worker counts are operational only. The timeout can change whether
         // a PDF yields records, so it is part of the semantic contract.
@@ -162,6 +161,19 @@ fn prepared_records_identity(cfg: &IndexCfg) -> Result<String> {
                 .unwrap_or_else(|_| "unreadable".to_string())
         }),
     });
+    // Back-compat: every pre-#1233 cap was a whole number of GB, serialised as
+    // the top-level key `"max_file_gb": N`. Keep emitting exactly that whenever
+    // the byte cap is a whole number of GB, so an index built before the flag
+    // gained sub-GB granularity still re-derives its original digest and
+    // resumes cleanly. A genuinely sub-GB cap (the new capability) gets a
+    // distinct `max_file_bytes` key, which correctly reads as a different
+    // prepared-records contract and triggers a fresh generation.
+    let map = value.as_object_mut().expect("json! object");
+    if cfg.max_file_bytes.is_multiple_of(GB) {
+        map.insert("max_file_gb".into(), json!(cfg.max_file_bytes / GB));
+    } else {
+        map.insert("max_file_bytes".into(), json!(cfg.max_file_bytes));
+    }
     Ok(format!(
         "{}-{:032x}",
         PREPARED_RECORDS_IDENTITY,
@@ -395,6 +407,19 @@ fn install_dataset_mappings(
 fn dataset_create_body(dataset: &PlanDataset) -> Value {
     let mut create_body = build_mapping(&dataset.specs);
     create_body["mappings"]["properties"]["ax_paths"] = json!({"type": "keyword"});
+    if dataset.family == "docs" || dataset.family == "code" {
+        if let Some(props) = create_body
+            .pointer_mut("/mappings/properties")
+            .and_then(Value::as_object_mut)
+        {
+            props
+                .entry("impl".to_string())
+                .or_insert_with(|| json!({"type": "text"}));
+            props
+                .entry("end_line".to_string())
+                .or_insert_with(|| json!({"type": "long"}));
+        }
+    }
     if let Some(analyzer) = &dataset.text_analyzer {
         create_body["settings"] = json!({"analysis": {"analyzer": {
             "default": {"type": analyzer}
@@ -931,7 +956,7 @@ fn project_reconcile_plan(
                     digest,
                     &ctx,
                     cfg.sample,
-                    cfg.max_file_gb,
+                    cfg.max_file_bytes,
                     stub_matcher.matches(&file.rel),
                 )
             })
@@ -1624,12 +1649,16 @@ fn route_cli_error(error: &anyhow::Error, json_output: bool) -> CliErrorRoute {
 /// Entry point for the `xerj autoindex` subcommand (blocking; the server
 /// binary calls this via spawn_blocking). Returns the process exit code.
 pub fn run_cli() -> i32 {
-    let args: Vec<String> = std::env::args().skip(2).collect();
+    let args: Vec<String> = xerj_common::argv::args_after_subcommand();
     let cmd = match cli::parse(args) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("error: {e}\n");
-            cli::print_help();
+            // #1586: a usage error is the error plus one pointer line. The
+            // 390-line help page used to follow on stdout, which buried the
+            // error for anyone reading stdout or the tail of combined output —
+            // an agent saw help and concluded the run had done something.
+            eprintln!("error: {e}");
+            eprintln!("run `xerj autoindex --help` for usage.");
             return 2;
         }
     };
@@ -1656,6 +1685,64 @@ pub fn run_cli() -> i32 {
             }
             route.exit_code
         }
+    }
+}
+
+/// The hub manifest at the root of a corpus directory. Excluded only by
+/// [`run_with_options`]; a folder named the same way is still indexed.
+const CORPUS_MANIFEST_REL: &str = "corpus.json";
+
+/// Drop walk entries whose root-relative path is in `exclude`. An empty list
+/// returns the walk unchanged, so this is not a global skip of that filename.
+fn without_excluded_rels(
+    files: Vec<walk::FileEntry>,
+    exclude: &[String],
+) -> (Vec<walk::FileEntry>, usize) {
+    if exclude.is_empty() {
+        return (files, 0);
+    }
+    let before = files.len();
+    let kept: Vec<walk::FileEntry> = files
+        .into_iter()
+        .filter(|file| !exclude.contains(&file.rel))
+        .collect();
+    let dropped = before - kept.len();
+    (kept, dropped)
+}
+
+#[cfg(test)]
+mod exclude_rels_tests {
+    use super::*;
+
+    fn entry(rel: &str) -> walk::FileEntry {
+        walk::FileEntry {
+            path: std::path::PathBuf::from(rel),
+            rel: rel.to_string(),
+            rel_id: rel.to_string(),
+            is_symlink: false,
+            size: 1,
+        }
+    }
+
+    #[test]
+    fn the_corpus_manifest_is_dropped_and_a_nested_copy_is_kept() {
+        let files = vec![
+            entry("corpus.json"),
+            entry("src/lib.rs"),
+            entry("vendor/corpus.json"),
+        ];
+        let (kept, dropped) = without_excluded_rels(files, &[CORPUS_MANIFEST_REL.to_string()]);
+        assert_eq!(dropped, 1);
+        let rels: Vec<&str> = kept.iter().map(|file| file.rel.as_str()).collect();
+        assert_eq!(rels, ["src/lib.rs", "vendor/corpus.json"]);
+    }
+
+    #[test]
+    fn an_empty_exclusion_list_keeps_a_root_corpus_json() {
+        let files = vec![entry("corpus.json"), entry("README.md")];
+        let (kept, dropped) = without_excluded_rels(files, &[]);
+        assert_eq!(dropped, 0);
+        assert_eq!(kept.len(), 2);
     }
 }
 
@@ -1697,7 +1784,14 @@ pub fn run_with_options(
         }
     };
     let res = match cmd {
-        Cmd::Index(cfg) => run_index(*cfg),
+        Cmd::Index(cfg) => {
+            // The corpus directory's own manifest is bookkeeping, not a
+            // source file. A normal folder index leaves `exclude_rels` empty,
+            // so a project that happens to contain `corpus.json` still indexes it.
+            let mut cfg = *cfg;
+            cfg.exclude_rels = vec![CORPUS_MANIFEST_REL.to_string()];
+            run_index(cfg)
+        }
         _ => return 2,
     };
     match res {
@@ -1840,6 +1934,8 @@ fn sample_limit_bytes(family: Family, path: &Path) -> Option<u64> {
         // multi-GB Takeout export costs phase A a few MB of reading.
         Family::Mbox => Some(SAMPLE_LIMIT_BYTES),
         Family::Sqlite => Some(1), // signals per-table row cap inside the extractor
+        Family::Xlsx => Some(1),   // likewise a per-sheet row cap
+        Family::Xls => Some(1),    // legacy workbook: same per-sheet row cap
         _ => None,                 // whole-file extractors cap themselves
     }
 }
@@ -1973,6 +2069,333 @@ fn record_bulk_outcome(
             *send_err = Some(format!("{error:#}"));
             true
         }
+    }
+}
+
+// ─── phase-B bulk coalescing (#1147) ─────────────────────────────────────
+
+/// Shared mutable state of [`BulkPipe`]. One lock covers the buffer and the
+/// per-token bookkeeping so a flush is atomic against submissions.
+#[derive(Default)]
+struct PipeState {
+    /// NDJSON body under construction. Never holds more than one flush's
+    /// worth: crossing the cut flushes inline.
+    buf: Vec<u8>,
+    docs: usize,
+    /// Tokens with bytes in `buf`, in submission order. A token appears once
+    /// even across several chunk submissions (one file larger than the cut).
+    pending: Vec<u64>,
+    /// Terminal result per token, observed (and removed) by the token's
+    /// owner in [`BulkPipe::settle`].
+    done: std::collections::HashMap<u64, Result<(), String>>,
+    /// Tokens that saw at least one failed bulk. A file larger than one
+    /// flush has bytes in SEVERAL bulks; if the first fails and a later
+    /// one succeeds, the file is still un-journaled — the failure is
+    /// sticky, exactly like the per-file `send_err` it replaces.
+    failed: std::collections::HashSet<u64>,
+    next_token: u64,
+    /// Workers that may still call [`BulkPipe::submit`]. Decremented by
+    /// [`BulkPipe::retire`] as each worker drains its queue.
+    live_workers: usize,
+    /// Live workers currently parked inside `settle` (or waiting for an
+    /// in-flight slot in `submit`). `live == parked` is the "no more bytes
+    /// are coming" signal that flushes a residual buffer.
+    parked_workers: usize,
+    /// Bulk bodies currently on the wire. Capped at [`MAX_IN_FLIGHT`].
+    in_flight: usize,
+}
+
+/// How many bulk bodies may be on the wire at once. 8 matches the server
+/// governor's default `max_concurrent_bulks`: more would queue server-side
+/// without adding throughput, fewer re-creates the one-at-a-time pipe the
+/// first cut of this change shipped (and which measured 4.7x SLOWER on
+/// phase B than the per-file code it replaced — extraction and sending
+/// must overlap, not alternate).
+const MAX_IN_FLIGHT: usize = 8;
+
+/// ONE bulk buffer shared by every phase-B worker (#1147).
+///
+/// Phase B used to drain each file's staged records into a buffer that lived
+/// inside the per-file job, so the `--bulk-mb` and 5,000-doc flush triggers
+/// could never span files: a corpus of 36k one-record advisory JSONs left as
+/// 36k one-round-trip bulks, and the measured ceiling was ~12 records/s
+/// regardless of node load (issue #1147). The pipe holds one buffer for the
+/// whole run: workers submit a file's staged lines in cut-sized chunks tagged
+/// with the file's token, and a worker that has submitted its whole file
+/// settles on that token.
+///
+/// Flush triggers, in order:
+/// 1. the shared buffer crosses the cut (`--bulk-mb` bytes or the doc cap) —
+///    shipped inline by the submitting worker, exactly where the per-file
+///    code flushed (it blocks here, so a worker's own chunks stay ordered);
+/// 2. half the live workers are parked settling — ship what is buffered
+///    rather than wait for a full wave: extraction and sending must OVERLAP,
+///    not alternate (the all-parked barrier alone measured 4.7x slower on
+///    phase B than the per-file code, which sent 8-wide);
+/// 3. every worker that could still add bytes is parked settling — the
+///    "nothing more is coming" flush, playing the role of the busy timeout
+///    in clickhouse's async-insert queue (which groups per-insert futures
+///    behind one flush the same way; `AsynchronousInsertQueue.cpp`, Apache-2.0,
+///    read as design, not copied);
+/// 4. `retire` — the last worker out drains what remains.
+///
+/// The pipe lock is NOT held across the wire: a flush detaches the buffer as
+/// a job, drops the lock, sends, and resolves tokens on return, so up to
+/// [`MAX_IN_FLIGHT`] bulks are on the wire at once. Per-file order still
+/// holds — a file's cut chunks are sent synchronously by its own worker
+/// inside `submit`, so any later job carrying its tail ships after those
+/// completed; files interleave arbitrarily, exactly as the 32 parallel
+/// per-file buffers always did.
+///
+/// Durability semantics are the per-file code's, unchanged: a token settles
+/// `Ok` only after EVERY bulk carrying its records was accepted (server_errors
+/// == 0), and a bulk that fails transport settles `Err` for EVERY file whose
+/// bytes it held — those files stay un-journaled and are republished by the
+/// next run, which converges because records overwrite by deterministic id.
+/// A file larger than one flush has bytes in several bulks: once any of them
+/// fails, the file's error is sticky — a later successful bulk carrying more
+/// of the same file must not clear it (`PipeState::failed`). Per-item
+/// rejections stay non-fatal as before: counted, surfaced, and the file still
+/// settles.
+struct BulkPipe<'a, F> {
+    send: F,
+    bulk_cut: usize,
+    doc_cap: usize,
+    rejected_records: &'a AtomicU64,
+    bulk_errors: &'a Mutex<Vec<String>>,
+    state: Mutex<PipeState>,
+    ready: Condvar,
+}
+
+impl<'a, F> BulkPipe<'a, F>
+where
+    F: Fn(Vec<u8>) -> anyhow::Result<crate::esclient::BulkOutcome>,
+{
+    fn new(
+        send: F,
+        bulk_cut: usize,
+        doc_cap: usize,
+        rejected_records: &'a AtomicU64,
+        bulk_errors: &'a Mutex<Vec<String>>,
+        workers: usize,
+    ) -> Self {
+        Self {
+            send,
+            bulk_cut: bulk_cut.max(1),
+            doc_cap: doc_cap.max(1),
+            rejected_records,
+            bulk_errors,
+            state: Mutex::new(PipeState {
+                live_workers: workers,
+                ..PipeState::default()
+            }),
+            ready: Condvar::new(),
+        }
+    }
+
+    /// Allocate a file's token. Pre-resolved `Ok`: a file whose staging
+    /// produced no records (all junk, all unrouted) settles instantly.
+    fn token(&self) -> u64 {
+        let mut st = self.lock();
+        let t = st.next_token;
+        st.next_token += 1;
+        st.done.insert(t, Ok(()));
+        t
+    }
+
+    fn lock(&self) -> std::sync::MutexGuard<'_, PipeState> {
+        self.state.lock().unwrap_or_else(|p| p.into_inner())
+    }
+
+    /// Add one chunk of staged NDJSON lines to the shared buffer, flushing
+    /// inline if the buffer crossed the cut. Never blocks on the network
+    /// beyond that inline flush.
+    fn submit(&self, token: u64, bytes: Vec<u8>, docs: usize) {
+        if bytes.is_empty() {
+            return;
+        }
+        let mut st = self.lock();
+        // Bytes are in flight: the pre-resolution from `token` no longer
+        // holds for this file — unless the file already failed, in which
+        // case the error is sticky and no later bulk can clear it.
+        if !st.failed.contains(&token) {
+            st.done.remove(&token);
+        }
+        if !st.pending.contains(&token) {
+            st.pending.push(token);
+        }
+        st.buf.extend_from_slice(&bytes);
+        st.docs += docs;
+        if st.buf.len() < self.bulk_cut && st.docs < self.doc_cap {
+            return;
+        }
+        // Cut crossed: ship inline. If every wire slot is busy, park until a
+        // delivery frees one — backpressure, exactly like the per-file code
+        // blocking inside its own bulk send.
+        let job = loop {
+            if let Some(job) = self.take_job(&mut st) {
+                break job;
+            }
+            st.parked_workers += 1;
+            let (guard, _) = self
+                .ready
+                .wait_timeout(st, std::time::Duration::from_secs(30))
+                .unwrap_or_else(|p| p.into_inner());
+            st = guard;
+            st.parked_workers -= 1;
+        };
+        drop(st);
+        let outcome = (self.send)(job.0);
+        self.deliver(job.1, outcome);
+    }
+
+    /// Whether any bulk carrying this file's records has failed. The drain
+    /// loop breaks on it, mirroring the per-file `send_err` break it
+    /// replaced: no point reading and shipping the rest of a file whose
+    /// earlier records were already refused.
+    fn failed(&self, token: u64) -> bool {
+        self.lock().failed.contains(&token)
+    }
+
+    /// Block until the bulk(s) carrying this file's records were accepted.
+    /// `Ok` means journaled-safe; `Err` is the failure text for the
+    /// un-journaled path.
+    fn settle(&self, token: u64) -> Result<(), String> {
+        let mut st = self.lock();
+        loop {
+            if let Some(res) = st.done.remove(&token) {
+                return res;
+            }
+            // This worker is about to park, so `parked + 1` is what the
+            // conditions look like from in here. All parked: no submission
+            // can arrive, a residual buffer must ship now. Half parked: ship
+            // what is there so extraction and sending overlap instead of
+            // alternating in waves (the wave barrier is what made the first
+            // cut of this pipe slower than the per-file code).
+            let all = st.parked_workers + 1 >= st.live_workers;
+            let half = (st.parked_workers + 1) * 2 >= st.live_workers.max(1);
+            if !st.buf.is_empty() && (all || half) {
+                if let Some(job) = self.take_job(&mut st) {
+                    drop(st);
+                    let outcome = (self.send)(job.0);
+                    self.deliver(job.1, outcome);
+                    st = self.lock();
+                    continue;
+                }
+                // Every wire slot is busy: park; a delivery will wake us.
+            }
+            st.parked_workers += 1;
+            let (guard, _) = self
+                .ready
+                .wait_timeout(st, std::time::Duration::from_secs(30))
+                .unwrap_or_else(|p| p.into_inner());
+            st = guard;
+            st.parked_workers -= 1;
+        }
+    }
+
+    /// `n` workers the pipe was sized for will never run (#1122: their
+    /// threads could not be started). Stop counting them as live so the
+    /// "all / half parked" ship conditions in [`Self::settle`] are judged
+    /// against the workers that exist; without this a phantom worker would
+    /// hold a residual buffer back until a park timeout.
+    fn abandon_workers(&self, n: usize) {
+        if n == 0 {
+            return;
+        }
+        let mut st = self.lock();
+        st.live_workers = st.live_workers.saturating_sub(n);
+        drop(st);
+        self.ready.notify_all();
+    }
+
+    /// A worker leaving its loop will submit nothing more. The last one out
+    /// drains the residual buffer so the run never ends with unflushed bytes.
+    fn retire(&self) {
+        let mut st = self.lock();
+        st.live_workers = st.live_workers.saturating_sub(1);
+        while !st.buf.is_empty() {
+            if let Some(job) = self.take_job(&mut st) {
+                drop(st);
+                let outcome = (self.send)(job.0);
+                self.deliver(job.1, outcome);
+                st = self.lock();
+                continue;
+            }
+            // Wire full: wait for a delivery to free a slot.
+            let (guard, _) = self
+                .ready
+                .wait_timeout(st, std::time::Duration::from_secs(30))
+                .unwrap_or_else(|p| p.into_inner());
+            st = guard;
+        }
+        // Live workers may have dropped to zero: anyone still parked must
+        // re-check whether they are now the last one able to ship.
+        self.ready.notify_all();
+    }
+
+    /// Detach the buffer as a send job if a wire slot is free. Called with
+    /// the lock held; the caller drops the lock before sending.
+    fn take_job(&self, st: &mut PipeState) -> Option<(Vec<u8>, Vec<u64>)> {
+        if st.buf.is_empty() || st.in_flight >= MAX_IN_FLIGHT {
+            return None;
+        }
+        st.in_flight += 1;
+        st.docs = 0;
+        Some((std::mem::take(&mut st.buf), std::mem::take(&mut st.pending)))
+    }
+
+    /// Resolve a completed job: reclaim the wire slot, settle every token it
+    /// carried, wake the parked. Same outcome handling as
+    /// `record_bulk_outcome`, resolved per token instead of through the
+    /// caller's `send_err`.
+    fn deliver(&self, tokens: Vec<u64>, outcome: anyhow::Result<crate::esclient::BulkOutcome>) {
+        let mut st = self.lock();
+        st.in_flight = st.in_flight.saturating_sub(1);
+        match outcome {
+            Ok(outcome) => {
+                if outcome.server_errors > 0 {
+                    let msg = format!(
+                        "bulk backend failed for {} item(s): {}. Source file was not journaled \
+                         complete; fix the server condition (or wait for it to clear) and rerun \
+                         autoindex — the run resumes from the journal",
+                        outcome.server_errors,
+                        outcome
+                            .first_server_error
+                            .as_deref()
+                            .unwrap_or("unknown server error")
+                    );
+                    for t in &tokens {
+                        st.failed.insert(*t);
+                        st.done.insert(*t, Err(msg.clone()));
+                    }
+                } else {
+                    if outcome.item_errors > 0 {
+                        self.rejected_records
+                            .fetch_add(outcome.item_errors, Ordering::Relaxed);
+                        if let Some(error) = outcome.first_error {
+                            let mut errors = self.bulk_errors.lock().unwrap();
+                            if errors.len() < 5 {
+                                errors.push(error);
+                            }
+                        }
+                    }
+                    for t in &tokens {
+                        if !st.failed.contains(t) {
+                            st.done.insert(*t, Ok(()));
+                        }
+                    }
+                }
+            }
+            Err(error) => {
+                let msg = format!("{error:#}");
+                for t in &tokens {
+                    st.failed.insert(*t);
+                    st.done.insert(*t, Err(msg.clone()));
+                }
+            }
+        }
+        self.ready.notify_all();
     }
 }
 
@@ -2298,13 +2721,28 @@ impl ScanTally {
     }
 }
 
+/// Render a byte count in the largest whole binary unit that divides it, so the
+/// "skipped: oversized" note reads `2 GB` for the default and `10 MB` for a
+/// source-watcher cap (#1233) rather than a raw byte count, while an awkward
+/// value still prints exactly in bytes.
+fn human_size(bytes: u64) -> String {
+    const MB: u64 = 1 << 20;
+    if bytes != 0 && bytes.is_multiple_of(GB) {
+        format!("{} GB", bytes / GB)
+    } else if bytes != 0 && bytes.is_multiple_of(MB) {
+        format!("{} MB", bytes / MB)
+    } else {
+        format!("{bytes} bytes")
+    }
+}
+
 fn scan_file(
     path: &Path,
     size: u64,
     digest: &str,
     ctx: &PhaseAContext<'_>,
     sample: usize,
-    max_file_gb: u64,
+    max_file_bytes: u64,
     stub: bool,
 ) -> FileScan {
     ctx.tally.record_parse();
@@ -2335,6 +2773,7 @@ fn scan_file(
         // owner nothing about why their mail is not searchable.
         let reason = sniff::archive_advice(&kind, sn.gzip)
             .or_else(|| sniff::unsupported_document_advice(&kind))
+            .or_else(|| sniff::unsupported_data_advice(&kind))
             .unwrap_or_else(|| format!("binary content ({kind})"));
         out.junk = Some(("junk".into(), reason));
         out.sniffed = Some(sn);
@@ -2343,14 +2782,25 @@ fn scan_file(
     // whole-file families get a size cap; streaming families don't need one
     let whole_file = matches!(
         sn.family,
-        Family::Json | Family::Html | Family::Yaml | Family::TxtProse | Family::Pdf | Family::Docx
+        Family::Json
+            | Family::Html
+            | Family::Yaml
+            | Family::TxtProse
+            | Family::Pdf
+            | Family::Docx
+            | Family::Doc
+            | Family::Pptx
+            | Family::Epub
+            | Family::Ipynb
+            | Family::Man
     );
-    if whole_file && size > max_file_gb * GB {
+    if whole_file && size > max_file_bytes {
         out.junk = Some((
             "skipped".into(),
             format!(
-                "oversized for non-streaming family {} (> {max_file_gb} GB)",
-                sn.family.as_str()
+                "oversized for non-streaming family {} (> {})",
+                sn.family.as_str(),
+                human_size(max_file_bytes),
             ),
         ));
         out.sniffed = Some(sn);
@@ -2369,7 +2819,7 @@ fn scan_file(
     // untyped.
     let grouped_family = matches!(
         sn.family,
-        Family::SqlDump | Family::Sqlite | Family::UnityYaml
+        Family::SqlDump | Family::Sqlite | Family::Xlsx | Family::Xls | Family::UnityYaml
     );
     let mut sink = |rec: extract::RawRecord| -> bool {
         let entry = groups.entry(rec.group.clone()).or_default();
@@ -2517,7 +2967,7 @@ mod clustering_key_tests {
             meter: &meter,
             tally: &ScanTally::default(),
         };
-        scan_file(&path, size, "d0", &ctx, 500, 2, false)
+        scan_file(&path, size, "d0", &ctx, 500, 2 << 30, false)
     }
 
     /// The #178 mechanism, from the extractor to the clustering key: a source
@@ -2619,9 +3069,10 @@ mod phase_a_grouping_tests {
             follow_symlinks: false,
             follow_symlinks_outside_root: false,
             ignore: crate::ignore_rules::IgnoreOptions::default(),
-            max_file_gb: 2,
+            max_file_bytes: 2 << 30,
             sample: 500,
             no_semantic: false,
+            code_analyzer: Default::default(),
             brain: None,
             no_graph: true,
             // The gate is switched off in these fixtures on purpose: they assert
@@ -2638,10 +3089,15 @@ mod phase_a_grouping_tests {
             watch: false,
             label: None,
             debounce: std::time::Duration::from_millis(0),
+            exclude_rels: Vec::new(),
         }
     }
 
     fn plan_for(root: &Path) -> Plan {
+        plan_for_cfg(root, &cfg_for(root))
+    }
+
+    fn plan_for_cfg(root: &Path, cfg: &IndexCfg) -> Plan {
         let files = walk::walk(root, false).unwrap();
         let keys: Vec<String> = files
             .iter()
@@ -2661,16 +3117,78 @@ mod phase_a_grouping_tests {
             meter: &meter,
             tally: &ScanTally::default(),
         };
-        build_phase_a(
-            root,
-            &files,
-            &keys,
-            &digests,
-            Vec::new(),
-            &ctx,
-            &cfg_for(root),
+        build_phase_a(root, &files, &keys, &digests, Vec::new(), &ctx, cfg).plan
+    }
+
+    /// #1198 end to end through the real planner: `--code-analyzer code` puts
+    /// `code` on the document dataset that holds source (README included —
+    /// code and prose share the per-scope dataset), while the default leaves
+    /// today's election in place.
+    #[test]
+    fn code_analyzer_code_elects_code_on_a_dataset_holding_source() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("server.c"), CODE).unwrap();
+        std::fs::write(root.join("README.md"), PROSE).unwrap();
+
+        let mut cfg = cfg_for(root);
+        cfg.code_analyzer = infer::CodeAnalyzer::Code;
+        let with_flag = plan_for_cfg(root, &cfg);
+        let analyzers: Vec<_> = with_flag
+            .datasets
+            .iter()
+            .map(|d| d.text_analyzer.as_deref())
+            .collect();
+        assert_eq!(
+            analyzers,
+            vec![Some(infer::CODE_TEXT_ANALYZER)],
+            "{:?}",
+            with_flag.datasets
+        );
+
+        let default = plan_for(root);
+        assert!(
+            default
+                .datasets
+                .iter()
+                .all(|d| d.text_analyzer.as_deref() != Some(infer::CODE_TEXT_ANALYZER)),
+            "the default must not elect `code`: {:?}",
+            default.datasets
+        );
+    }
+
+    /// #1198: a folder with no file the sniffer routes to the code extractor
+    /// never gets `code`, flag or not — the dataset is labelled
+    /// `Family::Code` regardless of content, so the election must look at the
+    /// members' own families.
+    #[test]
+    fn code_analyzer_code_leaves_a_prose_only_dataset_alone() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("README.md"), PROSE).unwrap();
+        std::fs::write(
+            root.join("GUIDE.md"),
+            format!("{PROSE}\nSee the handler table.\n"),
         )
-        .plan
+        .unwrap();
+
+        let mut cfg = cfg_for(root);
+        cfg.code_analyzer = infer::CodeAnalyzer::Code;
+        let with_flag = plan_for_cfg(root, &cfg);
+        assert!(!with_flag.datasets.is_empty());
+        assert_eq!(
+            with_flag
+                .datasets
+                .iter()
+                .map(|d| d.text_analyzer.clone())
+                .collect::<Vec<_>>(),
+            plan_for(root)
+                .datasets
+                .iter()
+                .map(|d| d.text_analyzer.clone())
+                .collect::<Vec<_>>(),
+            "a prose-only dataset keeps today's election"
+        );
     }
 
     const CODE: &str = "// The event loop dispatches every ready connection to a worker.\n\
@@ -2767,6 +3285,155 @@ mod phase_a_grouping_tests {
             .find(|d| d.slug == "memcached-data")
             .unwrap();
         assert!(data.specs.iter().any(|s| s.name == "email"), "{data:#?}");
+    }
+
+    /// A minimal Excel workbook: inline-string text, numbers, and style 1 =
+    /// built-in date format 14 so a serial reads as a date.
+    fn write_xlsx(path: &Path, sheets: &[(&str, &[&[&str]])]) {
+        use std::io::Write;
+        let cell = |r: usize, c: usize, v: &str| {
+            let at = format!("{}{}", (b'A' + c as u8) as char, r + 1);
+            match v.strip_prefix('#') {
+                Some(serial) => format!(r#"<c r="{at}" s="1"><v>{serial}</v></c>"#),
+                None if v.parse::<f64>().is_ok() => format!(r#"<c r="{at}"><v>{v}</v></c>"#),
+                None => format!(r#"<c r="{at}" t="inlineStr"><is><t>{v}</t></is></c>"#),
+            }
+        };
+        let ns = r#"xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships""#;
+        let rel_t = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+        let mut z = zip::ZipWriter::new(std::fs::File::create(path).unwrap());
+        let opts = zip::write::SimpleFileOptions::default();
+        let mut put = |name: &str, body: String| {
+            z.start_file(name, opts).unwrap();
+            z.write_all(body.as_bytes()).unwrap();
+        };
+        let list: String = (0..sheets.len())
+            .map(|i| {
+                format!(
+                    r#"<sheet name="{}" sheetId="{}" r:id="rId{}"/>"#,
+                    sheets[i].0,
+                    i + 1,
+                    i + 1
+                )
+            })
+            .collect();
+        put(
+            "xl/workbook.xml",
+            format!("<workbook {ns}><sheets>{list}</sheets></workbook>"),
+        );
+        let rels: String = (0..sheets.len())
+            .map(|i| {
+                format!(
+                    r#"<Relationship Id="rId{}" Type="{rel_t}/worksheet" Target="worksheets/sheet{}.xml"/>"#,
+                    i + 1,
+                    i + 1
+                )
+            })
+            .collect();
+        put(
+            "xl/_rels/workbook.xml.rels",
+            format!(
+                r#"<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">{rels}<Relationship Id="rIdT" Type="{rel_t}/styles" Target="styles.xml"/></Relationships>"#
+            ),
+        );
+        put(
+            "xl/styles.xml",
+            format!(
+                r#"<styleSheet {ns}><cellXfs count="2"><xf numFmtId="0"/><xf numFmtId="14"/></cellXfs></styleSheet>"#
+            ),
+        );
+        for (i, (_, rows)) in sheets.iter().enumerate() {
+            let data: String = rows
+                .iter()
+                .enumerate()
+                .map(|(r, cells)| {
+                    let cs: String = cells
+                        .iter()
+                        .enumerate()
+                        .map(|(c, v)| cell(r, c, v))
+                        .collect();
+                    format!(r#"<row r="{}">{cs}</row>"#, r + 1)
+                })
+                .collect();
+            put(
+                &format!("xl/worksheets/sheet{}.xml", i + 1),
+                format!("<worksheet {ns}><sheetData>{data}</sheetData></worksheet>"),
+            );
+        }
+        z.finish().unwrap();
+    }
+
+    /// Workbooks through the real planner. Each worksheet is its own group, so
+    /// the same `Sales` sheet in two quarterly files clusters into ONE data
+    /// dataset, typed from the cells (a date-formatted serial elects `date`,
+    /// not `long`). A sheet with no header row is rendered as a document and
+    /// joins the scope's document dataset beside the README, so one file is
+    /// assigned to both.
+    #[test]
+    fn workbooks_plan_a_dataset_per_sheet_schema_and_documents_for_form_sheets() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("README.md"), PROSE).unwrap();
+        for (name, month, revenue) in [("q1", "#46023", "1250"), ("q2", "#46113", "980.5")] {
+            write_xlsx(
+                &root.join(format!("{name}.xlsx")),
+                &[
+                    (
+                        "Sales",
+                        &[
+                            &["Quarterly sales"],
+                            &["Region", "Month", "Revenue"],
+                            &["EMEA", month, revenue],
+                            &["APAC", month, "700"],
+                        ],
+                    ),
+                    (
+                        "Assumptions",
+                        &[&["Discount rate", "0.08"], &["Owner", "Finance team"]],
+                    ),
+                ],
+            );
+        }
+
+        let plan = plan_for(root);
+        let sales: Vec<_> = plan
+            .datasets
+            .iter()
+            .filter(|d| d.group.as_deref() == Some("Sales"))
+            .collect();
+        assert_eq!(sales.len(), 1, "{:#?}", plan.datasets);
+        let sales = sales[0];
+        assert_eq!(sales.file_count, 2, "both quarters share the sheet schema");
+        let spec = |name: &str| sales.specs.iter().find(|s| s.name == name).unwrap();
+        assert_eq!(spec("Month").es_type, "date", "{:#?}", sales.specs);
+        assert!(
+            spec("Month")
+                .date_min
+                .as_deref()
+                .is_some_and(|d| d.starts_with("2026-01-01")),
+            "{:#?}",
+            spec("Month")
+        );
+        assert_eq!(spec("Revenue").es_type, "double");
+        assert!(
+            !sales.specs.iter().any(|s| s.name == "Quarterly_sales"),
+            "the title row is not a header"
+        );
+
+        let docs = plan.datasets.iter().find(|d| d.family == "docs").unwrap();
+        assert_eq!(docs.file_count, 3, "README + each workbook's form sheet");
+        let by_rel: HashMap<&str, &FileAssignment> =
+            plan.files.values().map(|f| (f.rel.as_str(), f)).collect();
+        let mut q1 = by_rel["q1.xlsx"].assignments.clone();
+        q1.sort();
+        assert_eq!(
+            q1,
+            [
+                (None, docs.slug.clone()),
+                (Some("Sales".to_string()), sales.slug.clone())
+            ]
+        );
+        assert_eq!(by_rel["q1.xlsx"].family, "xlsx");
     }
 
     /// #196: the same tree WITHOUT nested `.git` markers (or with one at the
@@ -2938,7 +3605,7 @@ fn build_phase_a(
                     digest,
                     ctx,
                     cfg.sample,
-                    cfg.max_file_gb,
+                    cfg.max_file_bytes,
                     stub_matcher.matches(&f.rel),
                 )
             })
@@ -3074,10 +3741,22 @@ fn build_phase_a(
             .iter()
             .find(|s| s.es_type == "semantic_text")
             .map(|s| s.name.clone());
+        if let Some(note) = textless_dataset_note(&specs, &c.slug) {
+            pr.note(&note);
+        }
         // #1059: the dataset's text-analyzer election, from the same sampled
         // accumulators that elected the semantic body above. Deterministic in
         // the sample, so the same bytes elect the same analyzer on every run.
-        let text_analyzer = infer::elected_default_analyzer(&specs, &c.fields).map(str::to_string);
+        // #1198: `--code-analyzer code` overrides it for a dataset holding any
+        // file the sniffer routed to the code extractor. Per-file family, not
+        // `c.family`: a docs cluster is labelled `Family::Code` whatever it holds.
+        let has_code = c
+            .members
+            .iter()
+            .any(|&m| matches!(file_meta[m], Some((Family::Code, _))));
+        let text_analyzer =
+            infer::elect_dataset_analyzer(&specs, &c.fields, has_code, cfg.code_analyzer)
+                .map(str::to_string);
         datasets.push(PlanDataset {
             slug: c.slug.clone(),
             index: format!("{}-{}", cfg.prefix, c.slug),
@@ -3091,6 +3770,12 @@ fn build_phase_a(
             time_field,
             semantic_field,
             text_analyzer,
+            // #1230: freeze the cluster's repository scope so the incremental
+            // reconciler can route a newly added file to the right sibling
+            // `docs` dataset when forks share a schema. `Some("")` is the root
+            // scope; it is a real recorded value, distinct from a legacy
+            // plan's `None`.
+            scope: Some(c.scope.clone()),
             sampled_records: c.records,
             file_count: c.members.len(),
         });
@@ -3119,6 +3804,35 @@ fn build_phase_a(
         clusters,
         pdf_spools,
     }
+}
+
+/// #1158's zero-text warning, the build-time backstop: a dataset whose
+/// mapping carries no text-searchable field is invisible to `xerj code`
+/// passage search (it reads `body`/`defs`/`title`/`text` and then the index's
+/// own text-typed fields — `xerj-common/src/xccode/fields.rs`). The JSON
+/// family synthesizes a `text` passage for prose-less records, so it stops
+/// hitting this; every other shape (a csv of enums, a keyword-only xml set)
+/// still does, and the operator hears it at plan time instead of wondering
+/// why every query comes back empty. `None` means the dataset is searchable.
+fn textless_dataset_note(specs: &[infer::FieldSpec], slug: &str) -> Option<String> {
+    let searchable = specs
+        .iter()
+        .any(|s| matches!(s.es_type.as_str(), "text" | "semantic_text"));
+    if searchable {
+        return None;
+    }
+    let field_list = specs
+        .iter()
+        .take(6)
+        .map(|s| format!("{}:{}", s.name, s.es_type))
+        .collect::<Vec<_>>()
+        .join(" ");
+    Some(format!(
+        "dataset '{slug}' maps no text-searchable field — `xerj code` passage search will \
+         find nothing in it (sampled fields: {field_list}{}); structured queries over \
+         typed fields still work",
+        if specs.len() > 6 { " …" } else { "" }
+    ))
 }
 
 // ─── mapping builder ─────────────────────────────────────────────────────
@@ -3654,6 +4368,10 @@ pub struct ZeroLiveVerificationError {
     pub files_done_journaled: usize,
     /// Dataset indices that answered with zero live documents.
     pub dataset_indices: usize,
+    /// Directory the resume journal was read from. A new `--data-dir` does
+    /// not move this directory: the default is keyed by folder, URL, and
+    /// prefix, so a journal left by an earlier node is reused as-is.
+    pub state_dir: String,
 }
 
 impl std::fmt::Display for ZeroLiveVerificationError {
@@ -3662,12 +4380,14 @@ impl std::fmt::Display for ZeroLiveVerificationError {
             formatter,
             "autoindex verification failed: the resume journal records {} \
              record(s) from {} completed file(s), but 0 documents are \
-             live across the {} dataset index(es). The indices exist and look healthy but \
+             live across the {} dataset index(es). Journal state dir: {}. \
+             This journal may belong to another data dir (a new --data-dir \
+             reuses it). The indices exist and look healthy but \
              hold nothing — a server-side write rejection (e.g. a disk flood-stage or \
-             index write block), deleted indices, or an unreadable server can all cause \
+             index write block), deleted indices, or an unreadable server can also cause \
              this. Fix the server-side condition, then rerun with --fresh to re-index \
              from scratch",
-            self.journal_records, self.files_done_journaled, self.dataset_indices
+            self.journal_records, self.files_done_journaled, self.dataset_indices, self.state_dir
         )
     }
 }
@@ -4401,7 +5121,18 @@ fn delete_catalog_hits_where(
     let mut ids: Vec<String> = Vec::new();
     let mut from = 0usize;
     for _ in 0..SCOPED_SWEEP_MAX_PAGES {
-        let page = es.search(
+        // #1212: `search_page`, not `search` — the engine answers a missed
+        // default search deadline with a partial 200 (`timed_out`), and a
+        // partial page here would end the sweep early holding a prefix of
+        // the candidate set: the deletes below would remove only what the
+        // prefix contained while `Ok(())` reported the sweep complete. (The
+        // `relation` check below cannot catch it either — a timed-out scan
+        // can still answer `relation: "eq"` with an under-counted total,
+        // live-observed against 58,568 real documents answering
+        // `{value: 0, relation: "eq"}`.) The page variant retries a timed-out
+        // page instead of returning it, so every page this loop sees is
+        // complete.
+        let page = es.search_page(
             catalog::CATALOG_INDEX,
             &json!({"query": query.clone(), "from": from, "size": SCOPED_SWEEP_PAGE}),
         )?;
@@ -5054,6 +5785,86 @@ pub(crate) fn run_index_report_watched(
     run_index_report_inner(cfg, &ScanTally::default(), Some(pass))
 }
 
+/// The argv a legacy `--no-graph` journal prints for its independent rebuild.
+///
+/// Following the printed advice must rebuild the same corpus the operator asked
+/// for, so every flag that changes what gets indexed, or how it is analyzed, is
+/// carried: the file selection (`--stub`, `--no-ignore`,
+/// `--no-default-ignores`, symlink policy, `--max-file-gb`), the per-record
+/// enrichment (`--no-semantic`, `--label`) and the dataset analyzer
+/// (`--code-analyzer`). Only the destination changes (`--state-dir`,
+/// `--prefix`). `cli::parse` reads this argv back in the tests below.
+fn legacy_rebuild_argv(cfg: &IndexCfg, state_dir: &Path, prefix: &str) -> Vec<String> {
+    let mut argv = vec![
+        "xerj".to_owned(),
+        "autoindex".to_owned(),
+        cfg.root.to_string_lossy().into_owned(),
+        "--no-graph".to_owned(),
+        "--url".to_owned(),
+        cfg.url.clone(),
+        "--state-dir".to_owned(),
+        state_dir.to_string_lossy().into_owned(),
+        "--prefix".to_owned(),
+        prefix.to_owned(),
+        "--workers".to_owned(),
+        cfg.workers.to_string(),
+        "--pdf-workers".to_owned(),
+        cfg.pdf_workers.to_string(),
+        "--pdf-timeout-secs".to_owned(),
+        cfg.pdf_timeout_secs.to_string(),
+        "--bulk-mb".to_owned(),
+        cfg.bulk_mb.to_string(),
+        "--bulk-timeout-secs".to_owned(),
+        cfg.bulk_timeout_secs.to_string(),
+        "--snapshot-max-gb".to_owned(),
+        (cfg.snapshot_max_bytes >> 30).to_string(),
+        "--sample".to_owned(),
+        cfg.sample.to_string(),
+    ];
+    // Emit the cap in the coarsest flag that expresses it exactly, so the
+    // printed rebuild command stays readable for the whole-GB common case yet
+    // round-trips a sub-GB cap (#1233) losslessly. `cli::parse` reads any of
+    // the three back into the same `max_file_bytes`.
+    const MB: u64 = 1 << 20;
+    if cfg.max_file_bytes.is_multiple_of(GB) {
+        argv.push("--max-file-gb".to_owned());
+        argv.push((cfg.max_file_bytes / GB).to_string());
+    } else if cfg.max_file_bytes.is_multiple_of(MB) {
+        argv.push("--max-file-mb".to_owned());
+        argv.push((cfg.max_file_bytes / MB).to_string());
+    } else {
+        argv.push("--max-file-bytes".to_owned());
+        argv.push(cfg.max_file_bytes.to_string());
+    }
+    if cfg.no_semantic {
+        argv.push("--no-semantic".to_owned());
+    }
+    if cfg.follow_symlinks {
+        argv.push("--follow-symlinks".to_owned());
+    }
+    if cfg.follow_symlinks_outside_root {
+        argv.push("--follow-symlinks-outside-root".to_owned());
+    }
+    for glob in &cfg.stub_globs {
+        argv.push("--stub".to_owned());
+        argv.push(glob.clone());
+    }
+    if !cfg.ignore.enabled {
+        argv.push("--no-ignore".to_owned());
+    } else if !cfg.ignore.defaults {
+        argv.push("--no-default-ignores".to_owned());
+    }
+    if let Some(label) = &cfg.label {
+        argv.push("--label".to_owned());
+        argv.push(label.to_string_lossy().into_owned());
+    }
+    if cfg.code_analyzer == infer::CodeAnalyzer::Code {
+        argv.push("--code-analyzer".to_owned());
+        argv.push(infer::CODE_TEXT_ANALYZER.to_owned());
+    }
+    argv
+}
+
 fn run_index_report_inner(
     mut cfg: IndexCfg,
     tally: &ScanTally,
@@ -5071,7 +5882,7 @@ fn run_index_report_inner(
     // — `xerj-server`'s brain endpoint does exactly that — the installed width
     // can differ from what this run's plan asked for. Progress must state the
     // number the policy got, not the one it requested (#240 + #241).
-    let scan_threads = pool::scan_pool().current_num_threads();
+    let scan_threads = pool::width();
     extract::pdf::configure_workers(cfg.pdf_workers);
     extract::pdf::configure_timeout(cfg.pdf_timeout_secs);
     // A mailbox is one file on one Phase-B worker; inside it, messages are
@@ -5134,6 +5945,12 @@ fn run_index_report_inner(
     // gets the same recipe `xerj def` already prints: start one, or aim at
     // an existing node.
     if let Err(e) = es.ping() {
+        if esclient::Es::ping_failure_is_auth(&e) {
+            anyhow::bail!(
+                "the node at {url} answered, but authentication failed.\n{e:#}",
+                url = cfg.url
+            );
+        }
         anyhow::bail!(
             "no XERJ node reachable at {url} ({e:#})\n\n\
              Start one, then re-run this command:\n  \
@@ -5456,6 +6273,13 @@ fn run_index_report_inner(
         cfg.follow_symlinks_outside_root,
         cfg.ignore,
     )?;
+    let (discovered_files, excluded) = without_excluded_rels(discovered_files, &cfg.exclude_rels);
+    if excluded > 0 {
+        pr.note(&format!(
+            "autoindex: left out {excluded} path(s) ({}) — not part of this corpus index",
+            cfg.exclude_rels.join(", ")
+        ));
+    }
     let discovered_bytes: u64 = discovered_files.iter().map(|f| f.size).sum();
     pr.note(&format!(
         "autoindex: {} files ({} MB) under {}",
@@ -5682,43 +6506,7 @@ fn run_index_report_inner(
         } else {
             preflight.legacy_migration_reasons.join("; ")
         };
-        let mut rebuild_argv = vec![
-            "xerj".to_owned(),
-            "autoindex".to_owned(),
-            cfg.root.to_string_lossy().into_owned(),
-            "--no-graph".to_owned(),
-            "--url".to_owned(),
-            cfg.url.clone(),
-            "--state-dir".to_owned(),
-            replacement_state.to_string_lossy().into_owned(),
-            "--prefix".to_owned(),
-            replacement_prefix,
-            "--workers".to_owned(),
-            cfg.workers.to_string(),
-            "--pdf-workers".to_owned(),
-            cfg.pdf_workers.to_string(),
-            "--pdf-timeout-secs".to_owned(),
-            cfg.pdf_timeout_secs.to_string(),
-            "--bulk-mb".to_owned(),
-            cfg.bulk_mb.to_string(),
-            "--bulk-timeout-secs".to_owned(),
-            cfg.bulk_timeout_secs.to_string(),
-            "--snapshot-max-gb".to_owned(),
-            (cfg.snapshot_max_bytes >> 30).to_string(),
-            "--max-file-gb".to_owned(),
-            cfg.max_file_gb.to_string(),
-            "--sample".to_owned(),
-            cfg.sample.to_string(),
-        ];
-        if cfg.no_semantic {
-            rebuild_argv.push("--no-semantic".to_owned());
-        }
-        if cfg.follow_symlinks {
-            rebuild_argv.push("--follow-symlinks".to_owned());
-        }
-        if cfg.follow_symlinks_outside_root {
-            rebuild_argv.push("--follow-symlinks-outside-root".to_owned());
-        }
+        let rebuild_argv = legacy_rebuild_argv(&cfg, &replacement_state, &replacement_prefix);
         anyhow::bail!(
             "this state directory contains a legacy nonempty plan that cannot become generation \
              authority: {reasons}. Start an independent rebuild using this argv JSON (no shell \
@@ -6408,6 +7196,14 @@ fn run_index_report_inner(
             identity.resumable,
             identity.non_resumable_reason.as_deref(),
         )?;
+        // #1189: name the live backend in the run output. A server started
+        // with mode=proxy that had silently degraded to lexical was
+        // indistinguishable here until the vectors came back wrong.
+        pr.note(&format!(
+            "semantic autoindex embedding backend: {} ({}resumable)",
+            identity.backend,
+            if identity.resumable { "" } else { "non-" }
+        ));
     }
 
     // ── create indices with explicit mappings ────────────────────────────
@@ -6946,657 +7742,695 @@ fn run_index_report_inner(
     let files_done = AtomicU64::new(0);
     let records_total = AtomicU64::new(0);
     let extra_junk = Mutex::new(Vec::<JunkFile>::new());
+    // #1147: ONE bulk buffer for every worker. The per-file drain below used
+    // to build a buffer inside each job, so `bulk_cut` could only ever flush
+    // one file's records and a many-small-files corpus paid one HTTP
+    // round-trip per file (~12 records/s measured). The same cut, now crossed
+    // by whatever the workers are staging concurrently, is what fills a bulk.
+    let worker_count = cfg.workers.min(n_todo.max(1));
+    let pipe = {
+        let es = &es;
+        let rejected = &rejected_records;
+        let errors = &bulk_errors;
+        BulkPipe::new(
+            move |body| es.bulk(body),
+            bulk_cut,
+            5000,
+            rejected,
+            errors,
+            worker_count,
+        )
+    };
 
-    std::thread::scope(|scope| {
-        for _ in 0..cfg.workers.min(n_todo.max(1)) {
-            scope.spawn(|| {
-                loop {
-                    let (i, pdf_spool) = match queue.lock().unwrap().pop() {
-                        Some(job) => job,
-                        None => break,
-                    };
-                    let f = &files[i];
-                    // Counts this file done on EVERY exit path below, junk
-                    // included: progress measures work drained from the queue,
-                    // and a `continue` that skipped the count would park the
-                    // bar short of 100% forever.
-                    let in_flight = pr.file(&f.rel, f.size);
-                    let key = &keys[i];
-                    let expected_digest = &digests[i];
-                    let fa = plan.files.get(key).unwrap();
-                    let asg: HashMap<Option<String>, String> =
-                        fa.assignments.iter().cloned().collect();
-                    let sn = if stub_matcher.matches(&f.rel) {
-                        Ok(stub_sniffed(Path::new(&f.rel)))
-                    } else {
-                        sniff::sniff(&f.path)
-                    };
-                    let sn = match sn {
-                        Ok(s) => s,
-                        Err(e) => {
-                            extra_junk.lock().unwrap().push(JunkFile {
-                                file_key: key.clone(),
-                                rel: f.rel.clone(),
-                                format: "unknown".into(),
-                                status: "junk".into(),
-                                reason: format!("unreadable at index time: {e}"),
-                                bytes: f.size,
-                            });
-                            continue;
-                        }
-                    };
-                    let mut file_records = 0u64;
-                    let mut file_junk = 0u64;
-                    // Groups phase B saw that phase A never sampled, so they
-                    // have no dataset to route to. Silently counting these as
-                    // junk is how a whole Unity class (or SQL table) can
-                    // vanish from a run with nothing in the report to say so.
-                    let mut unrouted_groups: std::collections::BTreeMap<String, u64> =
-                        std::collections::BTreeMap::new();
-                    // `script_guid`s this file referenced that no `.meta` in
-                    // the tree defines. These are exactly the records that
-                    // ship without script_path/script_class, which is what
-                    // makes the headline query come back empty.
-                    let mut unresolved_script_guids: std::collections::BTreeMap<String, u64> =
-                        std::collections::BTreeMap::new();
-                    let mut file_dropped_by_dataset: HashMap<String, u64> = HashMap::new();
-                    let mut send_err: Option<String> = None;
-                    // Edges this file teaches — buffered apart from the node
-                    // staging file (different target index) and sent only
-                    // after the node bulks are accepted (§6.7).
-                    let mut edge_drafts: Vec<detect::EdgeDraft> = Vec::new();
-                    // (doc id, label) of the last staged text section — the
-                    // sequence detector's predecessor. Stream order is the
-                    // only source that can name a PDF page boundary's
-                    // predecessor (p2-s0 follows the LAST section of page 1).
-                    let mut prev_section: Option<(String, String)> = None;
-                    let mut staged = match tempfile::Builder::new()
-                        .prefix(".autoindex-stage-")
-                        .tempfile_in(&state_dir)
-                    {
-                        Ok(file) => file,
-                        Err(error) => {
-                            let mut errors = bulk_errors.lock().unwrap();
-                            if errors.len() < 5 {
-                                errors.push(format!(
-                                    "create per-file staging area for {}: {error}",
-                                    f.rel
-                                ));
-                            }
-                            continue;
-                        }
-                    };
-                    if let Err(error) = content::verify(&f.path, f.size, expected_digest) {
-                        let mut errors = bulk_errors.lock().unwrap();
-                        if errors.len() < 5 {
-                            errors.push(format!("{error:#}"));
-                        }
-                        continue;
+    // One staging worker. Named (rather than written inline in `spawn`) so
+    // the current thread can run it too when no worker thread starts.
+    let worker = || {
+        loop {
+            let (i, pdf_spool) = match queue.lock().unwrap().pop() {
+                Some(job) => job,
+                None => {
+                    // This worker will submit nothing more; the last
+                    // one out drains the shared buffer (#1147).
+                    pipe.retire();
+                    break;
+                }
+            };
+            // The file's slot in the shared bulk buffer. Allocated
+            // before staging so every exit path below can settle it.
+            let file_token = pipe.token();
+            let f = &files[i];
+            // Counts this file done on EVERY exit path below, junk
+            // included: progress measures work drained from the queue,
+            // and a `continue` that skipped the count would park the
+            // bar short of 100% forever.
+            let in_flight = pr.file(&f.rel, f.size);
+            let key = &keys[i];
+            let expected_digest = &digests[i];
+            let fa = plan.files.get(key).unwrap();
+            let asg: HashMap<Option<String>, String> = fa.assignments.iter().cloned().collect();
+            let sn = if stub_matcher.matches(&f.rel) {
+                Ok(stub_sniffed(Path::new(&f.rel)))
+            } else {
+                sniff::sniff(&f.path)
+            };
+            let sn = match sn {
+                Ok(s) => s,
+                Err(e) => {
+                    extra_junk.lock().unwrap().push(JunkFile {
+                        file_key: key.clone(),
+                        rel: f.rel.clone(),
+                        format: "unknown".into(),
+                        status: "junk".into(),
+                        reason: format!("unreadable at index time: {e}"),
+                        bytes: f.size,
+                    });
+                    continue;
+                }
+            };
+            let mut file_records = 0u64;
+            let mut file_junk = 0u64;
+            // Groups phase B saw that phase A never sampled, so they
+            // have no dataset to route to. Silently counting these as
+            // junk is how a whole Unity class (or SQL table) can
+            // vanish from a run with nothing in the report to say so.
+            let mut unrouted_groups: std::collections::BTreeMap<String, u64> =
+                std::collections::BTreeMap::new();
+            // `script_guid`s this file referenced that no `.meta` in
+            // the tree defines. These are exactly the records that
+            // ship without script_path/script_class, which is what
+            // makes the headline query come back empty.
+            let mut unresolved_script_guids: std::collections::BTreeMap<String, u64> =
+                std::collections::BTreeMap::new();
+            let mut file_dropped_by_dataset: HashMap<String, u64> = HashMap::new();
+            let mut send_err: Option<String> = None;
+            // Edges this file teaches — buffered apart from the node
+            // staging file (different target index) and sent only
+            // after the node bulks are accepted (§6.7).
+            let mut edge_drafts: Vec<detect::EdgeDraft> = Vec::new();
+            // (doc id, label) of the last staged text section — the
+            // sequence detector's predecessor. Stream order is the
+            // only source that can name a PDF page boundary's
+            // predecessor (p2-s0 follows the LAST section of page 1).
+            let mut prev_section: Option<(String, String)> = None;
+            let mut staged = match tempfile::Builder::new()
+                .prefix(".autoindex-stage-")
+                .tempfile_in(&state_dir)
+            {
+                Ok(file) => file,
+                Err(error) => {
+                    let mut errors = bulk_errors.lock().unwrap();
+                    if errors.len() < 5 {
+                        errors.push(format!(
+                            "create per-file staging area for {}: {error}",
+                            f.rel
+                        ));
                     }
-                    // File-card anchor node (§6.6.2a): one card doc per corpus
-                    // file, staged BEFORE the file's records. Its
-                    // deterministic id is `CorpusFile.anchor_doc_id` — the
-                    // node every file-level edge (wikilink/mdlink/href/
-                    // pathcite/cratecite/samedir dst, sequence opener src)
-                    // terminates at. Row/line/page families have no `s0`
-                    // section doc, so without the card those edges pointed at
-                    // ghosts. Not counted as an extracted record: it is
-                    // derived anchor infrastructure, not file content.
-                    if let Some(gr) = graph.as_ref() {
-                        if let Some(cf) = gr.corpus.files.get(&f.rel) {
-                            if let Some(rt) = ds_rt.get(&cf.dataset_slug) {
-                                let name = f.rel.rsplit('/').next().unwrap_or(&f.rel);
-                                let mut fields = Map::new();
-                                fields.insert("title".into(), Value::String(name.to_string()));
-                                fields.insert("ax_path".into(), Value::String(f.rel.clone()));
-                                fields.insert(
-                                    "ax_paths".into(),
-                                    Value::Array(
-                                        paths_by_key
-                                            .get(key)
-                                            .into_iter()
-                                            .flatten()
-                                            .cloned()
-                                            .map(Value::String)
-                                            .collect(),
-                                    ),
-                                );
-                                fields.insert("ax_file".into(), Value::String(key.clone()));
-                                fields.insert(
-                                    "ax_locator".into(),
-                                    Value::String(detect::FILE_CARD_LOCATOR.into()),
-                                );
-                                fields.insert(
-                                    "ax_dataset".into(),
-                                    Value::String(cf.dataset_slug.clone()),
-                                );
-                                fields.insert("ax_run".into(), Value::String(run_id.clone()));
-                                fields.insert(
-                                    "ax_format".into(),
-                                    Value::String(format_str(Some(&sn))),
-                                );
-                                let action = json!({"index": {
+                    continue;
+                }
+            };
+            if let Err(error) = content::verify(&f.path, f.size, expected_digest) {
+                let mut errors = bulk_errors.lock().unwrap();
+                if errors.len() < 5 {
+                    errors.push(format!("{error:#}"));
+                }
+                continue;
+            }
+            // File-card anchor node (§6.6.2a): one card doc per corpus
+            // file, staged BEFORE the file's records. Its
+            // deterministic id is `CorpusFile.anchor_doc_id` — the
+            // node every file-level edge (wikilink/mdlink/href/
+            // pathcite/cratecite/samedir dst, sequence opener src)
+            // terminates at. Row/line/page families have no `s0`
+            // section doc, so without the card those edges pointed at
+            // ghosts. Not counted as an extracted record: it is
+            // derived anchor infrastructure, not file content.
+            if let Some(gr) = graph.as_ref() {
+                if let Some(cf) = gr.corpus.files.get(&f.rel) {
+                    if let Some(rt) = ds_rt.get(&cf.dataset_slug) {
+                        let name = f.rel.rsplit('/').next().unwrap_or(&f.rel);
+                        let mut fields = Map::new();
+                        fields.insert("title".into(), Value::String(name.to_string()));
+                        fields.insert("ax_path".into(), Value::String(f.rel.clone()));
+                        fields.insert(
+                            "ax_paths".into(),
+                            Value::Array(
+                                paths_by_key
+                                    .get(key)
+                                    .into_iter()
+                                    .flatten()
+                                    .cloned()
+                                    .map(Value::String)
+                                    .collect(),
+                            ),
+                        );
+                        fields.insert("ax_file".into(), Value::String(key.clone()));
+                        fields.insert(
+                            "ax_locator".into(),
+                            Value::String(detect::FILE_CARD_LOCATOR.into()),
+                        );
+                        fields.insert("ax_dataset".into(), Value::String(cf.dataset_slug.clone()));
+                        fields.insert("ax_run".into(), Value::String(run_id.clone()));
+                        fields.insert("ax_format".into(), Value::String(format_str(Some(&sn))));
+                        let action = json!({"index": {
                                     "_index": rt.index, "_id": cf.anchor_doc_id}});
-                                if let Err(error) = writeln!(
-                                    staged.as_file_mut(),
-                                    "{}\n{}",
-                                    action,
-                                    Value::Object(fields)
-                                ) {
-                                    send_err =
-                                        Some(format!("stage file card for {}: {error}", f.rel));
-                                }
-                            }
+                        if let Err(error) = writeln!(
+                            staged.as_file_mut(),
+                            "{}\n{}",
+                            action,
+                            Value::Object(fields)
+                        ) {
+                            send_err = Some(format!("stage file card for {}: {error}", f.rel));
                         }
                     }
+                }
+            }
+            {
+                let mut sink = |rec: extract::RawRecord| -> bool {
+                    let Some(slug) = asg.get(&rec.group).or_else(|| asg.get(&None)) else {
+                        file_junk += 1;
+                        *unrouted_groups
+                            .entry(rec.group.clone().unwrap_or_else(|| "(ungrouped)".into()))
+                            .or_insert(0) += 1;
+                        return true;
+                    };
+                    let Some(rt) = ds_rt.get(slug) else {
+                        file_junk += 1;
+                        return true;
+                    };
+                    // Progress INSIDE a mailbox. One Takeout mbox is
+                    // the whole corpus, so crediting its bytes only
+                    // when the file finishes left the bar at 0.0% and
+                    // `since_progress_s` climbing for the entire run.
+                    // Every mbox record says how far into the file its
+                    // message began; that is the position.
+                    if sn.family == Family::Mbox {
+                        if let Some(offset) = extract::mbox::locator_offset(&rec.locator) {
+                            in_flight.advance_to(container_extract_credit(f.size, offset));
+                        }
+                    }
+                    let mut fields = rec.fields;
+                    // BEFORE coercion, not after: these are ordinary
+                    // record fields once stamped, and a field that
+                    // skips `coerce_record` is a field the dataset
+                    // plan never validated.
+                    if let Some(unresolved) =
+                        enrich_unity_fields(sn.family, &mut fields, &unity_guid_map.map, &f.rel)
                     {
-                        let mut sink = |rec: extract::RawRecord| -> bool {
-                            let Some(slug) = asg.get(&rec.group).or_else(|| asg.get(&None)) else {
-                                file_junk += 1;
-                                *unrouted_groups
-                                    .entry(
-                                        rec.group.clone().unwrap_or_else(|| "(ungrouped)".into()),
-                                    )
-                                    .or_insert(0) += 1;
-                                return true;
-                            };
-                            let Some(rt) = ds_rt.get(slug) else {
-                                file_junk += 1;
-                                return true;
-                            };
-                            // Progress INSIDE a mailbox. One Takeout mbox is
-                            // the whole corpus, so crediting its bytes only
-                            // when the file finishes left the bar at 0.0% and
-                            // `since_progress_s` climbing for the entire run.
-                            // Every mbox record says how far into the file its
-                            // message began; that is the position.
-                            if sn.family == Family::Mbox {
-                                if let Some(offset) = extract::mbox::locator_offset(&rec.locator) {
-                                    in_flight.advance_to(container_extract_credit(f.size, offset));
+                        *unresolved_script_guids.entry(unresolved).or_insert(0u64) += 1;
+                    }
+                    let dropped = coerce::coerce_record(&mut fields, &rt.plan);
+                    if dropped > 0 {
+                        let durable = file_dropped_by_dataset.entry(slug.clone()).or_default();
+                        *durable = durable.saturating_add(dropped as u64);
+                    }
+                    fields.insert("ax_path".into(), Value::String(f.rel.clone()));
+                    fields.insert(
+                        "ax_paths".into(),
+                        Value::Array(
+                            paths_by_key
+                                .get(key)
+                                .into_iter()
+                                .flatten()
+                                .cloned()
+                                .map(Value::String)
+                                .collect(),
+                        ),
+                    );
+                    fields.insert("ax_file".into(), Value::String(key.clone()));
+                    fields.insert("ax_locator".into(), Value::String(rec.locator.clone()));
+                    fields.insert("ax_dataset".into(), Value::String(slug.clone()));
+                    fields.insert("ax_run".into(), Value::String(run_id.clone()));
+                    fields.insert("ax_format".into(), Value::String(format_str(Some(&sn))));
+                    // `--label` (#1062): decide the record BEFORE it is
+                    // staged — after coerce, which would drop fields
+                    // the plan does not describe, and before the bulk
+                    // action is built, so what /_decide said is what
+                    // gets indexed. A failed decide fails the run: an
+                    // unlabelled corpus the operator believes is
+                    // labelled is the #204 defect class, not a warning.
+                    if let Some(labeler) = labeler.as_ref() {
+                        match labeler.label_fields(&fields) {
+                            Ok(pairs) => {
+                                for (name, value) in pairs {
+                                    fields.insert(name, value);
                                 }
                             }
-                            let mut fields = rec.fields;
-                            // BEFORE coercion, not after: these are ordinary
-                            // record fields once stamped, and a field that
-                            // skips `coerce_record` is a field the dataset
-                            // plan never validated.
-                            if let Some(unresolved) = enrich_unity_fields(
-                                sn.family,
-                                &mut fields,
-                                &unity_guid_map.map,
-                                &f.rel,
-                            ) {
-                                *unresolved_script_guids.entry(unresolved).or_insert(0u64) += 1;
-                            }
-                            let dropped = coerce::coerce_record(&mut fields, &rt.plan);
-                            if dropped > 0 {
-                                let durable =
-                                    file_dropped_by_dataset.entry(slug.clone()).or_default();
-                                *durable = durable.saturating_add(dropped as u64);
-                            }
-                            fields.insert("ax_path".into(), Value::String(f.rel.clone()));
-                            fields.insert(
-                                "ax_paths".into(),
-                                Value::Array(
-                                    paths_by_key
-                                        .get(key)
-                                        .into_iter()
-                                        .flatten()
-                                        .cloned()
-                                        .map(Value::String)
-                                        .collect(),
-                                ),
-                            );
-                            fields.insert("ax_file".into(), Value::String(key.clone()));
-                            fields.insert("ax_locator".into(), Value::String(rec.locator.clone()));
-                            fields.insert("ax_dataset".into(), Value::String(slug.clone()));
-                            fields.insert("ax_run".into(), Value::String(run_id.clone()));
-                            fields.insert("ax_format".into(), Value::String(format_str(Some(&sn))));
-                            // `--label` (#1062): decide the record BEFORE it is
-                            // staged — after coerce, which would drop fields
-                            // the plan does not describe, and before the bulk
-                            // action is built, so what /_decide said is what
-                            // gets indexed. A failed decide fails the run: an
-                            // unlabelled corpus the operator believes is
-                            // labelled is the #204 defect class, not a warning.
-                            if let Some(labeler) = labeler.as_ref() {
-                                match labeler.label_fields(&fields) {
-                                    Ok(pairs) => {
-                                        for (name, value) in pairs {
-                                            fields.insert(name, value);
-                                        }
-                                    }
-                                    Err(error) => {
-                                        send_err = Some(format!(
-                                            "label {} (record {}): {error:#}",
-                                            f.rel, rec.locator
-                                        ));
-                                        return false;
-                                    }
-                                }
-                            }
-                            let id = ids::doc_id(slug, key, &rec.locator);
-                            let action = json!({"index": {"_index": rt.index, "_id": id}});
-                            let doc = Value::Object(fields);
-                            if let Err(error) = writeln!(
-                                staged.as_file_mut(),
-                                "{}\n{}",
-                                action,
-                                serde_json::to_string(&doc).unwrap_or_else(|_| "{}".into())
-                            ) {
-                                send_err =
-                                    Some(format!("stage extracted records for {}: {error}", f.rel));
+                            Err(error) => {
+                                send_err = Some(format!(
+                                    "label {} (record {}): {error:#}",
+                                    f.rel, rec.locator
+                                ));
                                 return false;
                             }
-                            rt.records.fetch_add(1, Ordering::Relaxed);
-                            file_records += 1;
-                            // Textual edge detection (§6.6.2), after the node
-                            // action is staged: `body` is the exact section
-                            // string the node doc carries, and `id` is the
-                            // section node the evidence lives in.
-                            if let Some(gr) = graph.as_ref() {
-                                // Structured (field-level) detection first: it
-                                // is offered every record, text section or not
-                                // — an email's locators (`m{off}-msg-s0`) are
-                                // deliberately not text sections, and its
-                                // thread edges come from parsed headers.
-                                if let (Some(cf), Some(staged_fields)) =
-                                    (gr.corpus.files.get(&f.rel), doc.as_object())
-                                {
-                                    let ctx = detect::RecordCtx {
-                                        corpus: &gr.corpus,
-                                        file: cf,
-                                        locator: &rec.locator,
-                                        doc_id: &id,
-                                        fields: staged_fields,
-                                    };
-                                    for det in &gr.detectors {
-                                        det.detect_record(&ctx, &mut edge_drafts);
-                                    }
-                                }
-                                if let Some(label) = section_label(&rec.locator) {
-                                    if let (Some(cf), Some(body)) = (
-                                        gr.corpus.files.get(&f.rel),
-                                        doc.get("body").and_then(Value::as_str),
-                                    ) {
-                                        let ctx = detect::SectionCtx {
-                                            corpus: &gr.corpus,
-                                            file: cf,
-                                            section_label: &label,
-                                            prev_section: prev_section
-                                                .as_ref()
-                                                .map(|(pid, pl)| (pid.as_str(), pl.as_str())),
-                                            section_doc_id: &id,
-                                            text: body,
-                                        };
-                                        for det in &gr.detectors {
-                                            det.detect_text(&ctx, &mut edge_drafts);
-                                        }
-                                        prev_section = Some((id.clone(), label));
-                                    }
-                                }
-                            }
-                            true
-                        };
-                        // Demoted one-off config files (#173) index as
-                        // documents — their key sets are configuration, not a
-                        // schema (see `dataset` module docs).
-                        //
-                        // `as_document` deliberately outranks artifact replay.
-                        // It decides the record *shape*: phase A built this
-                        // dataset's mapping by re-sampling the file through
-                        // `extract_as_document`, whereas an artifact replays
-                        // PDF-parser page records. Replaying here would publish
-                        // records the frozen plan does not describe. Today no
-                        // PDF can reach this branch (`demotable_family` is
-                        // JSON/YAML/XML only), so this is a guard that keeps
-                        // the precedence right if that set ever widens — the
-                        // artifact is refunded rather than replayed.
-                        let res = if fa.as_document {
-                            if pdf_spool.is_some() {
-                                pdf_spool_budget.record_discarded_before_replay();
-                            }
-                            drop(pdf_spool);
-                            extract::extract_as_document(&f.path, sn.gzip, &mut sink)
-                        } else if sn.family == Family::Pdf {
-                            match pdf_spool {
-                                Some(spool) => {
-                                    match spool.replay(f.size, expected_digest, &mut sink) {
-                                        Ok(stats) => Ok(stats),
-                                        Err(replay_error) => {
-                                            // Replay verifies the complete
-                                            // artifact before `deliver`
-                                            // invokes the sink, so falling
-                                            // back here cannot duplicate a
-                                            // partially staged record stream.
-                                            pdf_spool_budget
-                                                .record_replay_fallback(&f.rel, &replay_error);
-                                            pdf_spool_budget.record_reparse();
-                                            extract::extract(&f.path, &sn, None, &mut sink)
-                                                .with_context(|| {
-                                                    format!(
-                                                        "reparse {} after run-local PDF artifact \
-                                                         verification failed: {replay_error:#}",
-                                                        f.rel
-                                                    )
-                                                })
-                                        }
-                                    }
-                                }
-                                None => {
-                                    pdf_spool_budget.record_reparse();
-                                    extract::extract(&f.path, &sn, None, &mut sink)
-                                }
-                            }
-                        } else {
-                            extract::extract(&f.path, &sn, None, &mut sink)
-                        };
-                        match res {
-                            Ok(stats) => {
-                                file_junk += stats.junk;
-                                if stats.truncated {
-                                    truncated_files.lock().unwrap().push(f.rel.clone());
-                                }
-                            }
-                            Err(e) => {
-                                send_err = Some(format!("extract {}: {e}", f.rel));
-                                extra_junk.lock().unwrap().push(JunkFile {
-                                    file_key: key.clone(),
-                                    rel: f.rel.clone(),
-                                    format: format_str(Some(&sn)),
-                                    status: "junk".into(),
-                                    reason: format!("extract failed at index time: {e}"),
-                                    bytes: f.size,
-                                });
+                        }
+                    }
+                    let id = ids::doc_id(slug, key, &rec.locator);
+                    let action = json!({"index": {"_index": rt.index, "_id": id}});
+                    let doc = Value::Object(fields);
+                    if let Err(error) = writeln!(
+                        staged.as_file_mut(),
+                        "{}\n{}",
+                        action,
+                        serde_json::to_string(&doc).unwrap_or_else(|_| "{}".into())
+                    ) {
+                        send_err = Some(format!("stage extracted records for {}: {error}", f.rel));
+                        return false;
+                    }
+                    rt.records.fetch_add(1, Ordering::Relaxed);
+                    file_records += 1;
+                    // Textual edge detection (§6.6.2), after the node
+                    // action is staged: `body` is the exact section
+                    // string the node doc carries, and `id` is the
+                    // section node the evidence lives in.
+                    if let Some(gr) = graph.as_ref() {
+                        // Structured (field-level) detection first: it
+                        // is offered every record, text section or not
+                        // — an email's locators (`m{off}-msg-s0`) are
+                        // deliberately not text sections, and its
+                        // thread edges come from parsed headers.
+                        if let (Some(cf), Some(staged_fields)) =
+                            (gr.corpus.files.get(&f.rel), doc.as_object())
+                        {
+                            let ctx = detect::RecordCtx {
+                                corpus: &gr.corpus,
+                                file: cf,
+                                locator: &rec.locator,
+                                doc_id: &id,
+                                fields: staged_fields,
+                            };
+                            for det in &gr.detectors {
+                                det.detect_record(&ctx, &mut edge_drafts);
                             }
                         }
-                        if !unresolved_script_guids.is_empty() {
-                            let total: u64 = unresolved_script_guids.values().sum();
-                            pr.note(&format!(
-                                "unity: {}: {total} MonoBehaviour record(s) reference {} \
+                        if let Some(label) = section_label(&rec.locator) {
+                            if let (Some(cf), Some(body)) = (
+                                gr.corpus.files.get(&f.rel),
+                                doc.get("body").and_then(Value::as_str),
+                            ) {
+                                let ctx = detect::SectionCtx {
+                                    corpus: &gr.corpus,
+                                    file: cf,
+                                    section_label: &label,
+                                    prev_section: prev_section
+                                        .as_ref()
+                                        .map(|(pid, pl)| (pid.as_str(), pl.as_str())),
+                                    section_doc_id: &id,
+                                    text: body,
+                                };
+                                for det in &gr.detectors {
+                                    det.detect_text(&ctx, &mut edge_drafts);
+                                }
+                                prev_section = Some((id.clone(), label));
+                            }
+                        }
+                    }
+                    true
+                };
+                // Demoted one-off config files (#173) index as
+                // documents — their key sets are configuration, not a
+                // schema (see `dataset` module docs).
+                //
+                // `as_document` deliberately outranks artifact replay.
+                // It decides the record *shape*: phase A built this
+                // dataset's mapping by re-sampling the file through
+                // `extract_as_document`, whereas an artifact replays
+                // PDF-parser page records. Replaying here would publish
+                // records the frozen plan does not describe. Today no
+                // PDF can reach this branch (`demotable_family` is
+                // JSON/YAML/XML only), so this is a guard that keeps
+                // the precedence right if that set ever widens — the
+                // artifact is refunded rather than replayed.
+                let res = if fa.as_document {
+                    if pdf_spool.is_some() {
+                        pdf_spool_budget.record_discarded_before_replay();
+                    }
+                    drop(pdf_spool);
+                    extract::extract_as_document(&f.path, sn.gzip, &mut sink)
+                } else if sn.family == Family::Pdf {
+                    match pdf_spool {
+                        Some(spool) => {
+                            match spool.replay(f.size, expected_digest, &mut sink) {
+                                Ok(stats) => Ok(stats),
+                                Err(replay_error) => {
+                                    // Replay verifies the complete
+                                    // artifact before `deliver`
+                                    // invokes the sink, so falling
+                                    // back here cannot duplicate a
+                                    // partially staged record stream.
+                                    pdf_spool_budget.record_replay_fallback(&f.rel, &replay_error);
+                                    pdf_spool_budget.record_reparse();
+                                    extract::extract(&f.path, &sn, None, &mut sink).with_context(
+                                        || {
+                                            format!(
+                                                "reparse {} after run-local PDF artifact \
+                                                         verification failed: {replay_error:#}",
+                                                f.rel
+                                            )
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                        None => {
+                            pdf_spool_budget.record_reparse();
+                            extract::extract(&f.path, &sn, None, &mut sink)
+                        }
+                    }
+                } else {
+                    extract::extract(&f.path, &sn, None, &mut sink)
+                };
+                match res {
+                    Ok(stats) => {
+                        file_junk += stats.junk;
+                        if stats.truncated {
+                            truncated_files.lock().unwrap().push(f.rel.clone());
+                        }
+                    }
+                    Err(e) => {
+                        send_err = Some(format!("extract {}: {e}", f.rel));
+                        extra_junk.lock().unwrap().push(JunkFile {
+                            file_key: key.clone(),
+                            rel: f.rel.clone(),
+                            format: format_str(Some(&sn)),
+                            status: "junk".into(),
+                            reason: format!("extract failed at index time: {e}"),
+                            bytes: f.size,
+                        });
+                    }
+                }
+                if !unresolved_script_guids.is_empty() {
+                    let total: u64 = unresolved_script_guids.values().sum();
+                    pr.note(&format!(
+                        "unity: {}: {total} MonoBehaviour record(s) reference {} \
                                  script guid(s) no .meta defines — they ship without \
                                  script_path/script_class: {}",
-                                f.rel,
-                                unresolved_script_guids.len(),
-                                unresolved_script_guids
-                                    .keys()
-                                    .take(REFUSAL_LIST_CAP)
-                                    .cloned()
-                                    .collect::<Vec<_>>()
-                                    .join(", ")
-                            ));
-                        }
-                        if !unrouted_groups.is_empty() {
-                            let total: u64 = unrouted_groups.values().sum();
-                            let named = unrouted_groups
-                                .iter()
-                                .take(REFUSAL_LIST_CAP)
-                                .map(|(g, n)| format!("{g} ({n})"))
-                                .collect::<Vec<_>>()
-                                .join(", ");
-                            let more = unrouted_groups.len().saturating_sub(REFUSAL_LIST_CAP);
-                            let suffix = if more > 0 {
-                                format!(" and {more} more")
-                            } else {
-                                String::new()
-                            };
-                            // A NOTE, never an `extra_junk` entry. This file
-                            // still reaches `journal.file_done` — `send_err`
-                            // is untouched — and every junk entry is turned
-                            // into a catalog document under the same
-                            // `file:{file_key}` id as that completion
-                            // (`catalog::file_doc`, `catalog.rs`). Pushing one
-                            // here put two documents with one id in the same
-                            // bulk, and the later one wins: a file that
-                            // indexed N records was reported as status "junk"
-                            // with records 0, `junk_file_count` counted it
-                            // twice, and `code_coverage.observe` ran for it
-                            // twice. The dropped records are already carried
-                            // on that file's own completion as `junk`
-                            // (`file_junk` below), which is where a per-file
-                            // drop count belongs.
-                            pr.note(&format!(
-                                "{}: {total} record(s) dropped: group(s) never sampled in \
+                        f.rel,
+                        unresolved_script_guids.len(),
+                        unresolved_script_guids
+                            .keys()
+                            .take(REFUSAL_LIST_CAP)
+                            .cloned()
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ));
+                }
+                if !unrouted_groups.is_empty() {
+                    let total: u64 = unrouted_groups.values().sum();
+                    let named = unrouted_groups
+                        .iter()
+                        .take(REFUSAL_LIST_CAP)
+                        .map(|(g, n)| format!("{g} ({n})"))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    let more = unrouted_groups.len().saturating_sub(REFUSAL_LIST_CAP);
+                    let suffix = if more > 0 {
+                        format!(" and {more} more")
+                    } else {
+                        String::new()
+                    };
+                    // A NOTE, never an `extra_junk` entry. This file
+                    // still reaches `journal.file_done` — `send_err`
+                    // is untouched — and every junk entry is turned
+                    // into a catalog document under the same
+                    // `file:{file_key}` id as that completion
+                    // (`catalog::file_doc`, `catalog.rs`). Pushing one
+                    // here put two documents with one id in the same
+                    // bulk, and the later one wins: a file that
+                    // indexed N records was reported as status "junk"
+                    // with records 0, `junk_file_count` counted it
+                    // twice, and `code_coverage.observe` ran for it
+                    // twice. The dropped records are already carried
+                    // on that file's own completion as `junk`
+                    // (`file_junk` below), which is where a per-file
+                    // drop count belongs.
+                    pr.note(&format!(
+                        "{}: {total} record(s) dropped: group(s) never sampled in \
                                  phase A, so they have no dataset — {named}{suffix}",
+                        f.rel
+                    ));
+                }
+            }
+            // Raw-source href pass: the HTML extractor strips markup
+            // before sectioning, so `<a href>` evidence exists only in
+            // the raw bytes (detect::href module docs). The second
+            // content::verify below still covers this re-read.
+            if send_err.is_none() {
+                if let Some(gr) = graph.as_ref() {
+                    if let Some(cf) = gr.corpus.files.get(&f.rel).filter(|cf| cf.family == "html") {
+                        if let Ok(Some(bytes)) =
+                            extract::read_whole(&f.path, sn.gzip, extract::MAX_WHOLE_FILE)
+                        {
+                            let (raw, _) = sniff::decode_text(&bytes);
+                            gr.href_raw
+                                .detect_raw_html(&gr.corpus, cf, &raw, &mut edge_drafts);
+                        }
+                    }
+                }
+            }
+            if send_err.is_none() {
+                if let Err(error) = content::verify(&f.path, f.size, expected_digest) {
+                    send_err = Some(format!(
+                        "{error:#}; no records from this changing file were made visible"
+                    ));
+                }
+            }
+            // Visibility begins only after extraction and the second
+            // full-content verification. Delete-before-replace makes
+            // a retry clean up any partial prior attempt.
+            if send_err.is_none() && cleanup_required.contains(key) {
+                let mut indices: Vec<&str> = fa
+                    .assignments
+                    .iter()
+                    .filter_map(|(_, slug)| ds_rt.get(slug).map(|rt| rt.index.as_str()))
+                    .collect();
+                indices.sort_unstable();
+                indices.dedup();
+                for index in indices {
+                    if let Err(error) =
+                        es.delete_by_query(index, &json!({"term": {"ax_file": key}}))
+                    {
+                        send_err = Some(format!(
+                            "remove prior records for {} before replacement: {error:#}",
+                            f.rel
+                        ));
+                        break;
+                    }
+                }
+                if send_err.is_none() {
+                    if let Err(error) = replacement_failpoint(2, &state_dir) {
+                        send_err = Some(format!("{error:#}"));
+                    }
+                }
+            }
+            if send_err.is_none() {
+                if let Err(error) = staged.as_file_mut().rewind() {
+                    send_err = Some(format!("rewind staged records for {}: {error}", f.rel));
+                }
+            }
+            if send_err.is_none() {
+                // The second half of a mailbox's bar: staged bytes
+                // handed to the engine, out of staged bytes in total.
+                // Credit is taken at submission: the shared buffer
+                // (#1147) may hold these bytes for a moment before a
+                // flush carries them, and the bar measures reading
+                // work, not wire time.
+                let credit_send = sn.family == Family::Mbox;
+                let staged_len = staged.as_file().metadata().map(|m| m.len()).unwrap_or(0);
+                let mut staged_sent = 0u64;
+                let mut reader = BufReader::new(staged.as_file_mut());
+                // A LOCAL chunk, not the bulk: chunks join whatever
+                // the other workers are staging in the shared buffer,
+                // so a small file stops paying for its own round-trip.
+                let mut chunk: Vec<u8> = Vec::with_capacity(bulk_cut + (1 << 20));
+                let mut docs = 0usize;
+                loop {
+                    // A bulk already carrying this file's records was
+                    // refused: stop reading. The sticky error comes
+                    // back from `settle` below (the pre-resolution
+                    // from a successful tail bulk must not clear it).
+                    if pipe.failed(file_token) {
+                        break;
+                    }
+                    let mut action = Vec::new();
+                    match reader.read_until(b'\n', &mut action) {
+                        Ok(0) => break,
+                        Ok(_) => {}
+                        Err(error) => {
+                            send_err = Some(format!("read staged action for {}: {error}", f.rel));
+                            break;
+                        }
+                    }
+                    let mut document = Vec::new();
+                    match reader.read_until(b'\n', &mut document) {
+                        Ok(0) => {
+                            send_err = Some(format!(
+                                "staged record for {} ended without a document",
                                 f.rel
                             ));
+                            break;
+                        }
+                        Ok(_) => {}
+                        Err(error) => {
+                            send_err = Some(format!("read staged document for {}: {error}", f.rel));
+                            break;
                         }
                     }
-                    // Raw-source href pass: the HTML extractor strips markup
-                    // before sectioning, so `<a href>` evidence exists only in
-                    // the raw bytes (detect::href module docs). The second
-                    // content::verify below still covers this re-read.
-                    if send_err.is_none() {
-                        if let Some(gr) = graph.as_ref() {
-                            if let Some(cf) =
-                                gr.corpus.files.get(&f.rel).filter(|cf| cf.family == "html")
-                            {
-                                if let Ok(Some(bytes)) =
-                                    extract::read_whole(&f.path, sn.gzip, extract::MAX_WHOLE_FILE)
-                                {
-                                    let (raw, _) = sniff::decode_text(&bytes);
-                                    gr.href_raw.detect_raw_html(
-                                        &gr.corpus,
-                                        cf,
-                                        &raw,
-                                        &mut edge_drafts,
-                                    );
-                                }
-                            }
-                        }
-                    }
-                    if send_err.is_none() {
-                        if let Err(error) = content::verify(&f.path, f.size, expected_digest) {
-                            send_err = Some(format!(
-                                "{error:#}; no records from this changing file were made visible"
+                    chunk.extend_from_slice(&action);
+                    chunk.extend_from_slice(&document);
+                    staged_sent += (action.len() + document.len()) as u64;
+                    docs += 1;
+                    if chunk.len() >= bulk_cut || docs >= 5000 {
+                        pipe.submit(file_token, std::mem::take(&mut chunk), docs);
+                        docs = 0;
+                        chunk.reserve(bulk_cut);
+                        if credit_send {
+                            in_flight.advance_to(container_send_credit(
+                                f.size,
+                                staged_sent,
+                                staged_len,
                             ));
                         }
                     }
-                    // Visibility begins only after extraction and the second
-                    // full-content verification. Delete-before-replace makes
-                    // a retry clean up any partial prior attempt.
-                    if send_err.is_none() && cleanup_required.contains(key) {
-                        let mut indices: Vec<&str> = fa
-                            .assignments
-                            .iter()
-                            .filter_map(|(_, slug)| ds_rt.get(slug).map(|rt| rt.index.as_str()))
-                            .collect();
-                        indices.sort_unstable();
-                        indices.dedup();
-                        for index in indices {
-                            if let Err(error) =
-                                es.delete_by_query(index, &json!({"term": {"ax_file": key}}))
-                            {
-                                send_err = Some(format!(
-                                    "remove prior records for {} before replacement: {error:#}",
-                                    f.rel
-                                ));
-                                break;
-                            }
-                        }
-                        if send_err.is_none() {
-                            if let Err(error) = replacement_failpoint(2, &state_dir) {
-                                send_err = Some(format!("{error:#}"));
-                            }
-                        }
-                    }
-                    if send_err.is_none() {
-                        if let Err(error) = staged.as_file_mut().rewind() {
-                            send_err =
-                                Some(format!("rewind staged records for {}: {error}", f.rel));
-                        }
-                    }
-                    if send_err.is_none() {
-                        // The second half of a mailbox's bar: staged bytes
-                        // handed to the engine, out of staged bytes in total.
-                        let credit_send = sn.family == Family::Mbox;
-                        let staged_len = staged.as_file().metadata().map(|m| m.len()).unwrap_or(0);
-                        let mut staged_sent = 0u64;
-                        let mut reader = BufReader::new(staged.as_file_mut());
-                        let mut buf = Vec::with_capacity(bulk_cut + (1 << 20));
-                        let mut docs = 0usize;
-                        loop {
-                            let mut action = Vec::new();
-                            match reader.read_until(b'\n', &mut action) {
-                                Ok(0) => break,
-                                Ok(_) => {}
-                                Err(error) => {
-                                    send_err =
-                                        Some(format!("read staged action for {}: {error}", f.rel));
-                                    break;
-                                }
-                            }
-                            let mut document = Vec::new();
-                            match reader.read_until(b'\n', &mut document) {
-                                Ok(0) => {
-                                    send_err = Some(format!(
-                                        "staged record for {} ended without a document",
-                                        f.rel
-                                    ));
-                                    break;
-                                }
-                                Ok(_) => {}
-                                Err(error) => {
-                                    send_err = Some(format!(
-                                        "read staged document for {}: {error}",
-                                        f.rel
-                                    ));
-                                    break;
-                                }
-                            }
-                            buf.extend_from_slice(&action);
-                            buf.extend_from_slice(&document);
-                            staged_sent += (action.len() + document.len()) as u64;
-                            docs += 1;
-                            if (buf.len() >= bulk_cut || docs >= 5000)
-                                && record_bulk_outcome(
-                                    &es,
-                                    std::mem::take(&mut buf),
-                                    &rejected_records,
-                                    &bulk_errors,
-                                    &mut send_err,
-                                )
-                            {
-                                break;
-                            }
-                            if buf.is_empty() {
-                                docs = 0;
-                                buf.reserve(bulk_cut);
-                                if credit_send {
-                                    in_flight.advance_to(container_send_credit(
-                                        f.size,
-                                        staged_sent,
-                                        staged_len,
-                                    ));
-                                }
-                            }
-                        }
-                        if !buf.is_empty() && send_err.is_none() {
-                            record_bulk_outcome(
+                }
+                if !chunk.is_empty() && !pipe.failed(file_token) {
+                    pipe.submit(file_token, chunk, docs);
+                }
+            }
+            // The file's records are in the shared buffer, possibly
+            // already flushed inline; settle blocks until the bulk
+            // carrying them was accepted. Until it returns Ok, the
+            // records are NOT durably in and neither the edges below
+            // nor the journal commit may run.
+            if send_err.is_none() {
+                if let Err(e) = pipe.settle(file_token) {
+                    send_err = Some(e);
+                }
+            }
+            // Second-brain edges for this file (§6.7): only after the
+            // node bulks were accepted, so an edge never precedes its
+            // own src doc. A failed edge send leaves the file
+            // un-journaled — the whole file (nodes AND edges) is
+            // republished on the next run, which converges because
+            // both sides overwrite by deterministic _id.
+            if send_err.is_none() && !edge_drafts.is_empty() {
+                if let Some(gr) = graph.as_ref() {
+                    let out = detect::assemble(&edge_drafts, &gr.edges_index, gr.created_at_ms);
+                    gr.self_dropped
+                        .fetch_add(out.self_dropped, Ordering::Relaxed);
+                    let mut ebuf: Vec<u8> = Vec::new();
+                    for edge in &out.edges {
+                        ebuf.extend_from_slice(&edge.ndjson);
+                        if ebuf.len() >= bulk_cut
+                            && record_bulk_outcome(
                                 &es,
-                                buf,
+                                std::mem::take(&mut ebuf),
                                 &rejected_records,
                                 &bulk_errors,
                                 &mut send_err,
-                            );
+                            )
+                        {
+                            break;
                         }
                     }
-                    // Second-brain edges for this file (§6.7): only after the
-                    // node bulks were accepted, so an edge never precedes its
-                    // own src doc. A failed edge send leaves the file
-                    // un-journaled — the whole file (nodes AND edges) is
-                    // republished on the next run, which converges because
-                    // both sides overwrite by deterministic _id.
-                    if send_err.is_none() && !edge_drafts.is_empty() {
-                        if let Some(gr) = graph.as_ref() {
-                            let out =
-                                detect::assemble(&edge_drafts, &gr.edges_index, gr.created_at_ms);
-                            gr.self_dropped
-                                .fetch_add(out.self_dropped, Ordering::Relaxed);
-                            let mut ebuf: Vec<u8> = Vec::new();
-                            for edge in &out.edges {
-                                ebuf.extend_from_slice(&edge.ndjson);
-                                if ebuf.len() >= bulk_cut
-                                    && record_bulk_outcome(
-                                        &es,
-                                        std::mem::take(&mut ebuf),
-                                        &rejected_records,
-                                        &bulk_errors,
-                                        &mut send_err,
-                                    )
-                                {
-                                    break;
-                                }
-                            }
-                            if send_err.is_none() && !ebuf.is_empty() {
-                                record_bulk_outcome(
-                                    &es,
-                                    ebuf,
-                                    &rejected_records,
-                                    &bulk_errors,
-                                    &mut send_err,
-                                );
-                            }
-                            if send_err.is_none() {
-                                let mut written = gr.written.lock().unwrap();
-                                for edge in &out.edges {
-                                    *written.entry(edge.detector).or_default() += 1;
-                                }
-                            }
+                    if send_err.is_none() && !ebuf.is_empty() {
+                        record_bulk_outcome(
+                            &es,
+                            ebuf,
+                            &rejected_records,
+                            &bulk_errors,
+                            &mut send_err,
+                        );
+                    }
+                    if send_err.is_none() {
+                        let mut written = gr.written.lock().unwrap();
+                        for edge in &out.edges {
+                            *written.entry(edge.detector).or_default() += 1;
                         }
                     }
-                    if let Some(e) = send_err {
-                        // endpoint trouble: record, do NOT journal file_done
-                        let mut be = bulk_errors.lock().unwrap();
-                        if be.len() < 5 {
-                            be.push(e);
-                        }
-                        continue;
-                    }
-                    if let Err(error) = replacement_failpoint(4, &state_dir) {
-                        let mut errors = bulk_errors.lock().unwrap();
-                        if errors.len() < 5 {
-                            errors.push(format!("{error:#}"));
-                        }
-                        continue;
-                    }
-                    records_total.fetch_add(file_records, Ordering::Relaxed);
-                    junk_records.fetch_add(file_junk, Ordering::Relaxed);
-                    let (commit_result, journal_path) = {
-                        let mut journal = journal_mx.lock().unwrap();
-                        let path = journal.path().display().to_string();
-                        let result = journal.file_done(&FileDone {
-                            file_key: key.clone(),
-                            path: f.rel.clone(),
-                            records: file_records,
-                            junk: file_junk,
-                            bytes: f.size,
-                            dropped_by_dataset: file_dropped_by_dataset,
-                            generation: Some(expected_digest.clone()),
-                        });
-                        (result, path)
-                    };
-                    match commit_result {
-                        Ok(()) => {}
-                        Err(error) => {
-                            let mut errors = bulk_errors.lock().unwrap();
-                            if errors.len() < 5 {
-                                errors.push(format!(
-                                    "durably commit completed source {} to {}: {error:#}. \
+                }
+            }
+            if let Some(e) = send_err {
+                // endpoint trouble: record, do NOT journal file_done
+                let mut be = bulk_errors.lock().unwrap();
+                if be.len() < 5 {
+                    be.push(e);
+                }
+                continue;
+            }
+            if let Err(error) = replacement_failpoint(4, &state_dir) {
+                let mut errors = bulk_errors.lock().unwrap();
+                if errors.len() < 5 {
+                    errors.push(format!("{error:#}"));
+                }
+                continue;
+            }
+            records_total.fetch_add(file_records, Ordering::Relaxed);
+            junk_records.fetch_add(file_junk, Ordering::Relaxed);
+            let (commit_result, journal_path) = {
+                let mut journal = journal_mx.lock().unwrap();
+                let path = journal.path().display().to_string();
+                let result = journal.file_done(&FileDone {
+                    file_key: key.clone(),
+                    path: f.rel.clone(),
+                    records: file_records,
+                    junk: file_junk,
+                    bytes: f.size,
+                    dropped_by_dataset: file_dropped_by_dataset,
+                    generation: Some(expected_digest.clone()),
+                });
+                (result, path)
+            };
+            match commit_result {
+                Ok(()) => {}
+                Err(error) => {
+                    let mut errors = bulk_errors.lock().unwrap();
+                    if errors.len() < 5 {
+                        errors.push(format!(
+                            "durably commit completed source {} to {}: {error:#}. \
                                      Live records may be present, but the file remains pending; \
                                      repair journal storage and rerun autoindex",
-                                    f.rel, journal_path
-                                ));
-                            }
-                            continue;
-                        }
+                            f.rel, journal_path
+                        ));
                     }
-                    // Workers no longer print. A worker can block for minutes
-                    // inside one file, so a worker-driven heartbeat cannot
-                    // bound silence; the ticker thread can, and does.
-                    files_done.fetch_add(1, Ordering::Relaxed);
+                    continue;
                 }
-            });
+            }
+            // Workers no longer print. A worker can block for minutes
+            // inside one file, so a worker-driven heartbeat cannot
+            // bound silence; the ticker thread can, and does.
+            files_done.fetch_add(1, Ordering::Relaxed);
+        }
+    };
+    // #1122: `Scope::spawn` panics when a thread cannot be created (thread
+    // limit, memory exhaustion), and release builds are panic=abort, so one
+    // failed spawn used to abort the whole run. Spawn through the fallible
+    // builder instead: workers that did start share the queue between them,
+    // the pipe stops counting the ones that never did, and if none started
+    // this thread works the queue itself. Slower, never wrong.
+    std::thread::scope(|scope| {
+        let mut started = 0usize;
+        for _ in 0..worker_count {
+            match std::thread::Builder::new()
+                .name("autoindex-worker".into())
+                .spawn_scoped(scope, worker)
+            {
+                Ok(_) => started += 1,
+                Err(error) => {
+                    pr.note(&format!(
+                        "autoindex: could not start indexing worker {} of {worker_count} \
+                         ({error}); continuing with {}",
+                        started + 1,
+                        started.max(1)
+                    ));
+                    break;
+                }
+            }
+        }
+        if started == 0 && worker_count > 0 {
+            pipe.abandon_workers(worker_count - 1);
+            worker();
+        } else {
+            pipe.abandon_workers(worker_count - started);
         }
     });
 
@@ -7773,10 +8607,22 @@ fn run_index_report_inner(
     pr.phase("finalize-count", plan.datasets.len() as u64, 0);
     let mut ds_counts: HashMap<String, u64> = HashMap::new();
     let mut ds_timerange: HashMap<String, (Option<String>, Option<String>)> = HashMap::new();
+    // A count that did not answer is not a zero. `unwrap_or(0)` used to
+    // turn a timeout, a 500, or a `timed_out` size:0 page into "0 live
+    // documents", and the gate below then aborted a run whose records
+    // were already journaled (#195's last resort, fired on the wrong
+    // input). Unknown counts skip the gate and are named in the summary.
+    let mut count_unknown: Vec<String> = Vec::new();
     for d in &plan.datasets {
         let _counted = pr.file(&d.index, 0);
-        let cnt = es.count(&d.index).unwrap_or(0);
-        ds_counts.insert(d.slug.clone(), cnt);
+        match es.count(&d.index) {
+            Ok(cnt) => {
+                ds_counts.insert(d.slug.clone(), cnt);
+            }
+            Err(error) => {
+                count_unknown.push(format!("{}: {error:#}", d.index));
+            }
+        }
         if let Some(t) = &d.time_field {
             let body = json!({"size":0,"aggs":{
                 "mn":{"min":{"field":t}},"mx":{"max":{"field":t}}}});
@@ -7816,7 +8662,15 @@ fn run_index_report_inner(
         )
     };
     let live_records: u64 = ds_counts.values().sum();
-    if journal_records > 0 && live_records == 0 {
+    if !count_unknown.is_empty() {
+        pr.warn(&format!(
+            "finalize-count: {} dataset index(es) did not answer a count, so the \
+             zero-live check was not applied. The journal records {journal_records} \
+             record(s). {}",
+            count_unknown.len(),
+            count_unknown.join(" | ")
+        ));
+    } else if journal_records > 0 && live_records == 0 {
         // Typed, not `bail!`: a caller that composes this pipeline can only
         // tell "the journal outlived its destination" from "the server
         // rejected our writes" if the condition carries a type. `xerj brain`
@@ -7830,6 +8684,7 @@ fn run_index_report_inner(
             journal_records,
             files_done_journaled,
             dataset_indices: plan.datasets.len(),
+            state_dir: state_dir.display().to_string(),
         }
         .into());
     }
@@ -8031,6 +8886,12 @@ fn run_index_report_inner(
         formats.sort();
         formats.dedup();
         let (tmin, tmax) = ds_timerange.get(&d.slug).cloned().unwrap_or((None, None));
+        if !ds_counts.contains_key(&d.slug) {
+            notes.push(
+                "record_count unavailable: the node did not answer a count, so 0 here is not a measurement"
+                    .to_string(),
+            );
+        }
         let (id, doc) = catalog::dataset_doc(&catalog::DatasetDocInput {
             prefix: &cfg.prefix,
             pd: d,
@@ -8637,23 +9498,63 @@ fn run_map(cfg: MapCfg) -> Result<i32> {
             })
             .unwrap_or_default())
     };
-    let mut ds_query = json!({"term": {"doc_kind": "dataset"}});
+    // `--prefix` scoping runs server-side first, so a node holding more
+    // catalog docs than one fetch returns (500 datasets / 200 correlations /
+    // 500 runs across every corpus) still answers for the requested corpus.
+    // The server filter over-approximates (`{prefix}-` also matches a longer
+    // hyphenated prefix; a phrase on a legacy text-inferred `prefix` matches a
+    // superset); the exact `catalog::*_matches_prefix` retains below decide.
+    let scoped_prefix = cfg.prefix.as_deref().map(|p| format!("{p}-"));
+    let mut ds_must = vec![json!({"term": {"doc_kind": "dataset"}})];
     if let Some(slug) = &cfg.dataset {
-        ds_query = json!({"bool": {"must": [
-            {"term": {"doc_kind": "dataset"}},
-            {"term": {"slug": slug}}
-        ]}});
+        ds_must.push(json!({"term": {"slug": slug}}));
     }
-    let datasets = fetch(ds_query, 500, Some(json!([{"record_count": "desc"}])))?;
+    if let Some(sp) = &scoped_prefix {
+        ds_must.push(json!({"prefix": {"index_name": sp}}));
+    }
+    let ds_query = json!({"bool": {"must": ds_must}});
+    let mut datasets = fetch(ds_query, 500, Some(json!([{"record_count": "desc"}])))?;
+    if let Some(prefix) = cfg.prefix.as_deref() {
+        datasets.retain(|d| catalog::dataset_matches_prefix(d, prefix));
+    }
     if datasets.is_empty() {
-        eprintln!(
-            "no autoindex catalog found at {} (index {}) — run `xerj autoindex <folder>` first",
-            cfg.url,
-            catalog::CATALOG_INDEX
-        );
+        if let Some(prefix) = cfg.prefix.as_deref() {
+            eprintln!(
+                "no autoindex catalog found for --prefix {prefix} at {} (index {}) — run `xerj autoindex <folder> --prefix {prefix}` first",
+                cfg.url,
+                catalog::CATALOG_INDEX
+            );
+        } else {
+            eprintln!(
+                "no autoindex catalog found at {} (index {}) — run `xerj autoindex <folder>` first",
+                cfg.url,
+                catalog::CATALOG_INDEX
+            );
+        }
         return Ok(1);
     }
-    let mut runs = fetch(json!({"term": {"doc_kind": "run"}}), 50, None)?;
+    let mut run_must = vec![json!({"term": {"doc_kind": "run"}})];
+    if let Some(prefix) = cfg.prefix.as_deref() {
+        // `term` on the declared keyword `prefix`; `match_phrase` covers a
+        // pre-#737 catalog where `prefix` was inferred as `text` and a term
+        // on a hyphenated value matches nothing.
+        run_must.push(json!({"bool": {
+            "should": [
+                {"term": {"prefix": prefix}},
+                {"match_phrase": {"prefix": prefix}}
+            ],
+            "minimum_should_match": 1
+        }}));
+    }
+    let mut runs = fetch(json!({"bool": {"must": run_must}}), 500, None)?;
+    if let Some(prefix) = cfg.prefix.as_deref() {
+        runs.retain(|r| {
+            r.get("prefix")
+                .or_else(|| r.get(catalog::CORPUS_SCOPE_FIELD))
+                .and_then(Value::as_str)
+                == Some(prefix)
+        });
+    }
     runs.sort_by_key(|r| {
         std::cmp::Reverse(
             r.get("started")
@@ -8663,7 +9564,15 @@ fn run_map(cfg: MapCfg) -> Result<i32> {
         )
     });
     let correlations = {
-        let mut all = fetch(json!({"term": {"doc_kind": "correlation"}}), 200, None)?;
+        let mut corr_must = vec![json!({"term": {"doc_kind": "correlation"}})];
+        if let Some(sp) = &scoped_prefix {
+            corr_must.push(json!({"prefix": {"a_index": sp}}));
+            corr_must.push(json!({"prefix": {"b_index": sp}}));
+        }
+        let mut all = fetch(json!({"bool": {"must": corr_must}}), 200, None)?;
+        if let Some(prefix) = cfg.prefix.as_deref() {
+            all.retain(|c| catalog::correlation_matches_prefix(c, prefix));
+        }
         // stale-correlation hygiene: catalog docs upsert by deterministic id,
         // so older runs' correlations linger — show only the latest run that
         // produced each corr_kind.
@@ -8697,20 +9606,25 @@ fn run_map(cfg: MapCfg) -> Result<i32> {
     // since #737; on a pre-rc.68 catalog it was inferred, where a term
     // matches only while the value has no separator — the same legacy caveat
     // the scoped sweeps in `catalog.rs` document.)
-    let prefixes: Vec<String> = runs
-        .iter()
-        .filter_map(|run| run.get("prefix"))
-        .filter_map(Value::as_str)
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .map(String::from)
-        .collect::<Vec<_>>();
+    let prefixes: Vec<String> = match cfg.prefix.as_deref() {
+        Some(prefix) => vec![prefix.to_string()],
+        None => runs
+            .iter()
+            .filter_map(|run| run.get("prefix"))
+            .filter_map(Value::as_str)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>(),
+    };
     let prefix_filter = (!prefixes.is_empty()).then(|| {
+        let mut should = Vec::with_capacity(prefixes.len() * 2);
+        for prefix in &prefixes {
+            should.push(json!({"term": {"prefix": prefix}}));
+            should.push(json!({"term": {catalog::CORPUS_SCOPE_FIELD: prefix}}));
+        }
         json!({"bool": {
-            "should": prefixes
-                .iter()
-                .map(|prefix| json!({"term": {"prefix": prefix}}))
-                .collect::<Vec<_>>(),
+            "should": should,
             "minimum_should_match": 1
         }})
     });
@@ -8718,7 +9632,7 @@ fn run_map(cfg: MapCfg) -> Result<i32> {
     if let Some(filter) = prefix_filter.clone() {
         junk_must.push(filter);
     }
-    let junk_files = fetch(
+    let mut junk_files = fetch(
         json!({"bool": {"must": junk_must,
             "must_not": [
                 {"term": {"status": "indexed"}},
@@ -8734,29 +9648,62 @@ fn run_map(cfg: MapCfg) -> Result<i32> {
     if let Some(filter) = prefix_filter {
         duplicate_must.push(filter);
     }
-    let duplicate_files = fetch(json!({"bool": {"must": duplicate_must}}), 500, None)?;
+    let mut duplicate_files = fetch(json!({"bool": {"must": duplicate_must}}), 500, None)?;
+    if let Some(prefix) = cfg.prefix.as_deref() {
+        junk_files.retain(|f| catalog::file_matches_prefix(f, prefix));
+        duplicate_files.retain(|f| catalog::file_matches_prefix(f, prefix));
+    }
     if cfg.json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&json!({
+        let (start, end) =
+            catalog::detail_bounds(datasets.len(), cfg.detail_offset, cfg.detail_limit);
+        let truncated = start > 0 || end < datasets.len();
+        let body = if truncated {
+            let summary: Vec<Value> = datasets
+                .iter()
+                .map(|d| {
+                    json!({
+                        "index_name": d.get("index_name"),
+                        "slug": d.get("slug"),
+                        "record_count": d.get("record_count"),
+                        "file_count": d.get("file_count"),
+                    })
+                })
+                .collect();
+            json!({
+                "run": runs.first(),
+                "datasets_total": datasets.len(),
+                "detail_offset": start,
+                "datasets": &datasets[start..end],
+                "datasets_summary": summary,
+                "detail_note": "field detail is paged; `autoindex map --dataset <slug>` or `--offset`/`--limit`",
+                "correlations": correlations,
+                "junk_files": junk_files,
+                "duplicate_files": duplicate_files,
+                "gotchas": catalog::GOTCHAS,
+            })
+        } else {
+            json!({
                 "run": runs.first(),
                 "datasets": datasets,
                 "correlations": correlations,
                 "junk_files": junk_files,
                 "duplicate_files": duplicate_files,
                 "gotchas": catalog::GOTCHAS,
-            }))?
-        );
+            })
+        };
+        println!("{}", serde_json::to_string_pretty(&body)?);
     } else {
         print!(
             "{}",
-            catalog::render_map(
+            catalog::render_map_page(
                 runs.first(),
                 &datasets,
                 &correlations,
                 &junk_files,
                 &duplicate_files,
-                junk_files.len() as u64
+                junk_files.len() as u64,
+                cfg.detail_offset,
+                cfg.detail_limit,
             )
         );
         // Second-brain summary (§6.1): live edge count straight from the
@@ -8805,8 +9752,12 @@ fn run_map(cfg: MapCfg) -> Result<i32> {
 pub struct CatalogSummary {
     /// The most recent `doc_kind: run` document, if any run has been recorded.
     pub run: Option<Value>,
-    /// Every `doc_kind: dataset` document, most records first — the same order
-    /// `run_map` renders them in.
+    /// Dataset documents for the sentence in [`CatalogSummary::one_line`].
+    ///
+    /// When the latest run carries a `run_id` and the catalog has dataset docs
+    /// stamped with that id, this is only those docs (most records first). A
+    /// catalog that predates `run_id` on dataset docs keeps the unscoped list,
+    /// because those docs cannot be told apart from this run.
     pub datasets: Vec<Value>,
 }
 
@@ -8816,26 +9767,39 @@ impl CatalogSummary {
     /// rather than a sentence that says "0 records"). Never fabricates: every
     /// number here comes straight from the catalog the server wrote.
     pub fn one_line(&self) -> Option<String> {
-        if self.datasets.is_empty() {
+        // The record total and the dataset count have to describe the same
+        // run. Pairing `records_total` from the newest run document with
+        // `datasets.len()` counted every `doc_kind: dataset` doc on the shared
+        // catalog (other prefixes, older runs), so a field report said the
+        // last run's records were spread across the whole node.
+        let scoped = self.datasets_for_latest_run();
+        if scoped.is_empty() && self.datasets.is_empty() {
             return None;
         }
         let get = |v: &Value, k: &str| v.get(k).cloned().unwrap_or(Value::Null);
-        // Prefer the run document's own total; fall back to summing datasets so
-        // a node whose run doc predates that field still reports a real count.
-        let records = self
+        let records_from_run = self
             .run
             .as_ref()
-            .and_then(|r| get(r, "records_total").as_u64())
-            .unwrap_or_else(|| {
-                self.datasets
+            .and_then(|r| get(r, "records_total").as_u64());
+        let (records, dataset_count) = if scoped.is_empty() {
+            // Dataset docs are present, but none belong to this run. Report
+            // the run document's own total and omit the dataset count. With
+            // no total, say nothing rather than summing the other runs.
+            let records = records_from_run?;
+            (records, None)
+        } else {
+            let records = records_from_run.unwrap_or_else(|| {
+                scoped
                     .iter()
                     .filter_map(|d| d.get("record_count").and_then(Value::as_u64))
                     .sum()
             });
-        let mut sentence = format!(
-            "{records} records across {} dataset(s)",
-            self.datasets.len()
-        );
+            (records, Some(scoped.len()))
+        };
+        let mut sentence = match dataset_count {
+            Some(n) => format!("{records} records across {n} dataset(s)"),
+            None => format!("{records} records"),
+        };
         if let Some(root) = self
             .run
             .as_ref()
@@ -8855,6 +9819,42 @@ impl CatalogSummary {
             sentence.push_str(&format!(" (autoindex run {run_id})"));
         }
         Some(sentence)
+    }
+
+    /// Dataset docs that belong to the latest run.
+    ///
+    /// A matching `run_id` wins. When no dataset doc carries that id, untagged
+    /// docs (catalogs written before dataset docs stored `run_id`) are kept,
+    /// and docs tagged with a *different* run are dropped so they cannot inflate
+    /// the count.
+    fn datasets_for_latest_run(&self) -> Vec<&Value> {
+        let run_id = self
+            .run
+            .as_ref()
+            .and_then(|r| r.get("run_id"))
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty());
+        let Some(run_id) = run_id else {
+            return self.datasets.iter().collect();
+        };
+        let matched: Vec<&Value> = self
+            .datasets
+            .iter()
+            .filter(|d| d.get("run_id").and_then(Value::as_str) == Some(run_id))
+            .collect();
+        if !matched.is_empty() {
+            return matched;
+        }
+        let any_other_run = self.datasets.iter().any(|d| {
+            d.get("run_id")
+                .and_then(Value::as_str)
+                .is_some_and(|s| !s.is_empty())
+        });
+        if any_other_run {
+            Vec::new()
+        } else {
+            self.datasets.iter().collect()
+        }
     }
 }
 
@@ -8883,11 +9883,6 @@ pub fn fetch_catalog_summary(url: &str, api_key: Option<String>) -> Result<Catal
             })
             .unwrap_or_default())
     };
-    let datasets = fetch(
-        json!({"term": {"doc_kind": "dataset"}}),
-        500,
-        Some(json!([{"record_count": "desc"}])),
-    )?;
     let mut runs = fetch(json!({"term": {"doc_kind": "run"}}), 50, None)?;
     runs.sort_by_key(|r| {
         std::cmp::Reverse(
@@ -8897,13 +9892,137 @@ pub fn fetch_catalog_summary(url: &str, api_key: Option<String>) -> Result<Catal
                 .to_string(),
         )
     });
-    Ok(CatalogSummary {
-        run: runs.into_iter().next(),
-        datasets,
-    })
+    let run = runs.into_iter().next();
+    let run_id = run
+        .as_ref()
+        .and_then(|r| r.get("run_id"))
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string);
+    // Scope the dataset query to the latest run so a catalog with more than
+    // the fetch cap of older datasets cannot crowd this run's docs out of the
+    // page. An empty scoped page falls back to the unscoped list: catalogs
+    // written before dataset docs stored `run_id` have nothing to match, and
+    // [`CatalogSummary::one_line`] still refuses to count docs tagged with a
+    // different run.
+    let dataset_sort = Some(json!([{"record_count": "desc"}]));
+    let mut datasets = if let Some(id) = &run_id {
+        fetch(
+            json!({"bool": {"filter": [
+                {"term": {"doc_kind": "dataset"}},
+                {"term": {"run_id": id}},
+            ]}}),
+            500,
+            dataset_sort.clone(),
+        )?
+    } else {
+        Vec::new()
+    };
+    if datasets.is_empty() {
+        datasets = fetch(json!({"term": {"doc_kind": "dataset"}}), 500, dataset_sort)?;
+    }
+    Ok(CatalogSummary { run, datasets })
 }
 
 // ─── status subcommand ───────────────────────────────────────────────────
+
+struct JournalFacts {
+    root: String,
+    files_done: u64,
+    records: u64,
+    finished: bool,
+    generation: Option<u64>,
+    generation_files: Option<u64>,
+    generation_records: Option<u64>,
+    graph_line: Option<String>,
+    /// `url` from the `kind: run` record. Empty on a journal written before
+    /// that field existed.
+    url: String,
+}
+
+fn read_journal_facts(jp: &Path) -> JournalFacts {
+    let mut facts = JournalFacts {
+        root: String::new(),
+        files_done: 0,
+        records: 0,
+        finished: false,
+        generation: None,
+        generation_files: None,
+        generation_records: None,
+        graph_line: None,
+        url: String::new(),
+    };
+    let Ok(f) = std::fs::File::open(jp) else {
+        return facts;
+    };
+    for line in std::io::BufReader::new(f).lines().map_while(|l| l.ok()) {
+        let Ok(v) = serde_json::from_str::<Value>(&line) else {
+            continue;
+        };
+        match v.get("kind").and_then(|k| k.as_str()) {
+            Some("run") => {
+                facts.root = v.get("root").and_then(|r| r.as_str()).unwrap_or("").into();
+                if let Some(url) = v.get("url").and_then(|u| u.as_str()) {
+                    facts.url = url.to_string();
+                }
+            }
+            Some("file_done") => {
+                facts.files_done += 1;
+                facts.records += v.get("records").and_then(|r| r.as_u64()).unwrap_or(0);
+            }
+            Some("finish") => {
+                facts.finished = true;
+                facts.generation = v.pointer("/summary/generation").and_then(Value::as_u64);
+                facts.generation_files =
+                    v.pointer("/summary/files_indexed").and_then(Value::as_u64);
+                facts.generation_records =
+                    v.pointer("/summary/records_total").and_then(Value::as_u64);
+                // Latest finish wins — the summary embeds the run
+                // doc, whose `graph` block is the edge count of
+                // record for this journal.
+                if let Some(g) = v.pointer("/summary/graph").filter(|graph| !graph.is_null()) {
+                    facts.graph_line = Some(format!(
+                        "graph: {} edges written to {} (brain {})",
+                        g.get("edges_written").and_then(Value::as_u64).unwrap_or(0),
+                        g.get("edges_index").and_then(Value::as_str).unwrap_or("?"),
+                        g.get("brain").and_then(Value::as_str).unwrap_or("?"),
+                    ));
+                }
+            }
+            _ => {}
+        }
+    }
+    facts
+}
+
+/// Two endpoint strings name the same node when they match after trimming
+/// and stripping one trailing slash. `http://127.0.0.1:9200/` and
+/// `http://127.0.0.1:9200` are the same journal.
+fn urls_identify_same_endpoint(recorded: &str, current: &str) -> bool {
+    fn norm(s: &str) -> &str {
+        s.trim().trim_end_matches('/')
+    }
+    norm(recorded) == norm(current)
+}
+
+/// Status word for one journal line.
+///
+/// A journal whose `run` record names a different node is not this
+/// endpoint's run. Printing `in progress` or `FINISHED` there makes
+/// `autoindex status` look like another node's work is this node's.
+/// An empty recorded URL is a journal from before `url` was written;
+/// those keep the old words.
+fn journal_progress_label(finished: bool, journal_url: &str, current_url: &str) -> String {
+    let recorded = journal_url.trim().trim_end_matches('/');
+    if !recorded.is_empty() && !urls_identify_same_endpoint(recorded, current_url) {
+        return format!("other endpoint {recorded}");
+    }
+    if finished {
+        "FINISHED".to_string()
+    } else {
+        "in progress".to_string()
+    }
+}
 
 fn run_status(cfg: StatusCfg) -> Result<i32> {
     if let Some(note) = &cfg.xerj_url_note {
@@ -8913,8 +10032,10 @@ fn run_status(cfg: StatusCfg) -> Result<i32> {
     let dirs: Vec<std::path::PathBuf> = match &cfg.state_dir {
         Some(d) => vec![d.clone()],
         None => {
-            let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
-            let base = Path::new(&home).join(".xerj").join("autoindex");
+            let base = xerj_common::home::home_dir()
+                .unwrap_or_else(|| std::path::PathBuf::from("/tmp"))
+                .join(".xerj")
+                .join("autoindex");
             std::fs::read_dir(&base)
                 .map(|rd| rd.flatten().map(|e| e.path()).collect())
                 .unwrap_or_default()
@@ -8925,64 +10046,21 @@ fn run_status(cfg: StatusCfg) -> Result<i32> {
         if !jp.exists() {
             continue;
         }
-        let mut root = String::new();
-        let mut done = 0u64;
-        let mut records = 0u64;
-        let mut finished = false;
-        let mut generation: Option<u64> = None;
-        let mut generation_files: Option<u64> = None;
-        let mut generation_records: Option<u64> = None;
-        let mut graph_line: Option<String> = None;
-        if let Ok(f) = std::fs::File::open(&jp) {
-            use std::io::BufRead;
-            for line in std::io::BufReader::new(f).lines().map_while(|l| l.ok()) {
-                if let Ok(v) = serde_json::from_str::<Value>(&line) {
-                    match v.get("kind").and_then(|k| k.as_str()) {
-                        Some("run") => {
-                            root = v.get("root").and_then(|r| r.as_str()).unwrap_or("").into()
-                        }
-                        Some("file_done") => {
-                            done += 1;
-                            records += v.get("records").and_then(|r| r.as_u64()).unwrap_or(0);
-                        }
-                        Some("finish") => {
-                            finished = true;
-                            generation = v.pointer("/summary/generation").and_then(Value::as_u64);
-                            generation_files =
-                                v.pointer("/summary/files_indexed").and_then(Value::as_u64);
-                            generation_records =
-                                v.pointer("/summary/records_total").and_then(Value::as_u64);
-                            // Latest finish wins — the summary embeds the run
-                            // doc, whose `graph` block is the edge count of
-                            // record for this journal.
-                            if let Some(g) =
-                                v.pointer("/summary/graph").filter(|graph| !graph.is_null())
-                            {
-                                graph_line = Some(format!(
-                                    "graph: {} edges written to {} (brain {})",
-                                    g.get("edges_written").and_then(Value::as_u64).unwrap_or(0),
-                                    g.get("edges_index").and_then(Value::as_str).unwrap_or("?"),
-                                    g.get("brain").and_then(Value::as_str).unwrap_or("?"),
-                                ));
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
-        }
+        let facts = read_journal_facts(&jp);
+        let label = journal_progress_label(facts.finished, &facts.url, &cfg.url);
         println!(
             "journal {} — root {} — {} files done, {} records, {}{}",
             jp.display(),
-            root,
-            generation_files.unwrap_or(done),
-            generation_records.unwrap_or(records),
-            if finished { "FINISHED" } else { "in progress" },
-            generation
+            facts.root,
+            facts.generation_files.unwrap_or(facts.files_done),
+            facts.generation_records.unwrap_or(facts.records),
+            label,
+            facts
+                .generation
                 .map(|generation| format!(" (generation {generation})"))
                 .unwrap_or_default()
         );
-        if let Some(line) = graph_line {
+        if let Some(line) = facts.graph_line {
             println!("  {line}");
         }
     }
@@ -8999,6 +10077,77 @@ fn run_status(cfg: StatusCfg) -> Result<i32> {
         }
     }
     Ok(0)
+}
+
+#[cfg(test)]
+mod journal_status_tests {
+    use super::{journal_progress_label, read_journal_facts};
+    use std::fs;
+
+    fn write_journal(name: &str, body: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("xerj-status-{}-{name}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("journal.ndjson");
+        fs::write(&path, body).unwrap();
+        path
+    }
+
+    #[test]
+    fn another_endpoints_journal_is_not_in_progress() {
+        let path = write_journal(
+            "other-open",
+            "{\"v\":1,\"kind\":\"run\",\"root\":\"/repo\",\"url\":\"http://127.0.0.1:9201\",\"prefix\":\"ax\"}\n\
+             {\"kind\":\"file_done\",\"records\":3}\n",
+        );
+        let facts = read_journal_facts(&path);
+        assert_eq!(facts.root, "/repo");
+        assert_eq!(facts.files_done, 1);
+        assert_eq!(facts.records, 3);
+        assert!(!facts.finished);
+        let label = journal_progress_label(facts.finished, &facts.url, "http://127.0.0.1:9200");
+        assert_eq!(label, "other endpoint http://127.0.0.1:9201");
+        assert!(!label.contains("in progress"));
+        assert!(!label.contains("FINISHED"));
+
+        let finished = write_journal(
+            "other-done",
+            "{\"kind\":\"run\",\"root\":\"/other\",\"url\":\"http://10.0.0.2:9200/\"}\n\
+             {\"kind\":\"finish\",\"summary\":{\"generation\":4,\"files_indexed\":2,\"records_total\":9}}\n",
+        );
+        let facts = read_journal_facts(&finished);
+        assert!(facts.finished);
+        assert_eq!(facts.generation, Some(4));
+        assert_eq!(facts.generation_files, Some(2));
+        assert_eq!(facts.generation_records, Some(9));
+        let label = journal_progress_label(facts.finished, &facts.url, "http://127.0.0.1:9200");
+        assert_eq!(label, "other endpoint http://10.0.0.2:9200");
+        assert!(!label.contains("in progress"));
+        assert!(!label.contains("FINISHED"));
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+        let _ = fs::remove_dir_all(finished.parent().unwrap());
+    }
+
+    #[test]
+    fn this_endpoint_and_a_legacy_journal_keep_the_old_words() {
+        assert_eq!(
+            journal_progress_label(true, "http://127.0.0.1:9200/", "http://127.0.0.1:9200"),
+            "FINISHED"
+        );
+        assert_eq!(
+            journal_progress_label(false, "  http://127.0.0.1:9200  ", "http://127.0.0.1:9200/"),
+            "in progress"
+        );
+        // No `url` on the run record: a journal from before the field existed.
+        let path = write_journal("legacy", "{\"kind\":\"run\",\"root\":\"/old\"}\n");
+        let facts = read_journal_facts(&path);
+        assert!(facts.url.is_empty());
+        assert_eq!(
+            journal_progress_label(facts.finished, &facts.url, "http://127.0.0.1:9200"),
+            "in progress"
+        );
+        let _ = fs::remove_dir_all(path.parent().unwrap());
+    }
 }
 
 #[cfg(test)]
@@ -9931,6 +11080,7 @@ mod generation_contract_identity_tests {
             time_field: None,
             semantic_field: None,
             text_analyzer: None,
+            scope: None,
             sampled_records: 0,
             file_count: 0,
         }
@@ -10176,6 +11326,7 @@ mod stem_default_tests {
             time_field: None,
             semantic_field: Some("body".into()),
             text_analyzer: text_analyzer.map(str::to_string),
+            scope: None,
             sampled_records: 1,
             file_count: 1,
         }
@@ -10212,6 +11363,30 @@ mod stem_default_tests {
             Some(&json!({"type": "keyword"}))
         );
         assert!(body.pointer("/mappings/properties/body/analyzer").is_none());
+    }
+
+    /// #1198: a code dataset elected under `--code-analyzer code` declares the
+    /// built-in `code` analyzer on the CREATE body, through the same #1059
+    /// path: the mapping is byte-identical to an undeclaring dataset's, and
+    /// the frozen identities do not move (existing state dirs never abort).
+    #[test]
+    fn a_code_analyzer_dataset_declares_code_on_the_create_body_outside_the_identities() {
+        let body = dataset_create_body(&dataset("code", Some(infer::CODE_TEXT_ANALYZER)));
+        assert_eq!(
+            body.pointer("/settings/analysis/analyzer/default/type"),
+            Some(&json!("code")),
+            "{body}"
+        );
+        let undeclaring = dataset_create_body(&dataset("code", None));
+        assert_eq!(body["mappings"], undeclaring["mappings"]);
+
+        let mut plan = Plan {
+            datasets: vec![dataset("code", None)],
+            ..Plan::default()
+        };
+        let before = generation_contract_identities(&plan).unwrap();
+        plan.datasets[0].text_analyzer = Some(infer::CODE_TEXT_ANALYZER.to_string());
+        assert_eq!(before, generation_contract_identities(&plan).unwrap());
     }
 
     /// A dataset with no profiler-marked prose sends no ANALYZER settings —
@@ -10540,6 +11715,36 @@ mod unity_pipeline_tests {
         (plan, files)
     }
 
+    /// #1158's zero-text warning: a dataset whose sampled fields are all
+    /// keyword/numeric warns, one with any text-searchable spec does not.
+    #[test]
+    fn a_dataset_with_no_text_searchable_field_warns_at_plan_time() {
+        let kw = |name: &str| {
+            let mut s = pipeline_keyword_spec(name);
+            s.es_type = "keyword".into();
+            s
+        };
+        let warned = textless_dataset_note(&[kw("sha256"), kw("size")], "gitsnap");
+        let Some(note) = warned else {
+            panic!("a keyword-only dataset must warn");
+        };
+        assert!(note.contains("gitsnap"), "{note}");
+        assert!(note.contains("sha256:keyword"), "{note}");
+        assert!(note.contains("passage search"), "{note}");
+
+        let mut text = kw("summary");
+        text.es_type = "text".into();
+        assert!(
+            textless_dataset_note(&[kw("id"), text.clone()], "advisories").is_none(),
+            "a dataset with a text field is searchable"
+        );
+        text.es_type = "semantic_text".into();
+        assert!(
+            textless_dataset_note(&[kw("id"), text], "advisories").is_none(),
+            "semantic_text counts as searchable too"
+        );
+    }
+
     #[test]
     fn the_guid_map_resolves_a_meta_sidecar_to_its_asset_path() {
         let dir = tempfile::tempdir().unwrap();
@@ -10775,5 +11980,536 @@ mod container_progress_tests {
             container_extract_credit(size, 50_000),
             container_extract_credit(size, size)
         );
+    }
+}
+
+#[cfg(test)]
+mod bulk_pipe_tests {
+    use super::{AtomicU64, BulkPipe, Mutex, Ordering};
+    use crate::esclient::BulkOutcome;
+
+    fn outcome() -> BulkOutcome {
+        BulkOutcome {
+            item_errors: 0,
+            server_errors: 0,
+            first_error: None,
+            first_server_error: None,
+            throttled_out: 0,
+        }
+    }
+
+    /// A send function that records every body it was handed.
+    fn recording_send(
+        bodies: &Mutex<Vec<Vec<u8>>>,
+    ) -> impl Fn(Vec<u8>) -> anyhow::Result<BulkOutcome> + '_ {
+        move |body| {
+            bodies.lock().unwrap().push(body);
+            Ok(outcome())
+        }
+    }
+
+    /// #1147's headline: many small files share ONE bulk instead of paying
+    /// one round-trip each. With a single worker, the residual flush happens
+    /// at settle time (the "no more bytes are coming" trigger).
+    #[test]
+    fn small_files_coalesce_into_one_bulk() {
+        let bodies = Mutex::new(Vec::new());
+        let rejected = AtomicU64::new(0);
+        let errors = Mutex::new(Vec::new());
+        let pipe = BulkPipe::new(
+            recording_send(&bodies),
+            1 << 20,
+            5000,
+            &rejected,
+            &errors,
+            1,
+        );
+
+        let t1 = pipe.token();
+        let t2 = pipe.token();
+        let t3 = pipe.token();
+        pipe.submit(t1, b"action1\ndoc1\n".to_vec(), 1);
+        pipe.submit(t2, b"action2\ndoc2\n".to_vec(), 1);
+        pipe.submit(t3, b"action3\ndoc3\n".to_vec(), 1);
+        assert!(
+            bodies.lock().unwrap().is_empty(),
+            "under the cut, nothing flushes early"
+        );
+        pipe.settle(t1).expect("t1 accepted");
+        pipe.settle(t2).expect("t2 accepted");
+        pipe.settle(t3).expect("t3 accepted");
+        pipe.retire();
+
+        let bodies = bodies.lock().unwrap();
+        assert_eq!(
+            bodies.len(),
+            1,
+            "the single-worker residual flush is one body"
+        );
+        assert_eq!(
+            bodies[0],
+            b"action1\ndoc1\naction2\ndoc2\naction3\ndoc3\n".to_vec(),
+            "one body, input order"
+        );
+    }
+
+    /// A file's chunk larger than the cut flushes INLINE — one huge file must
+    /// not wait for the end of the run (and must not blow memory).
+    #[test]
+    fn an_oversized_chunk_flushes_inline() {
+        let bodies = Mutex::new(Vec::new());
+        let rejected = AtomicU64::new(0);
+        let errors = Mutex::new(Vec::new());
+        let pipe = BulkPipe::new(recording_send(&bodies), 64, 5000, &rejected, &errors, 1);
+
+        let t = pipe.token();
+        let big: Vec<u8> = vec![b'x'; 200];
+        pipe.submit(t, big, 3);
+        assert_eq!(
+            bodies.lock().unwrap().len(),
+            1,
+            "crossing the cut flushes immediately"
+        );
+        pipe.settle(t).expect("accepted");
+        pipe.retire();
+    }
+
+    /// #1122: workers whose threads never started must stop counting as
+    /// live. A pipe sized for four with three abandoned is a one-worker pipe:
+    /// that worker's residual buffer ships as soon as it settles, instead of
+    /// parking for a 30 s timeout waiting on three workers that do not exist.
+    #[test]
+    fn abandoned_workers_do_not_hold_back_the_residual_buffer() {
+        let bodies = Mutex::new(Vec::new());
+        let rejected = AtomicU64::new(0);
+        let errors = Mutex::new(Vec::new());
+        let pipe = BulkPipe::new(recording_send(&bodies), 64, 5000, &rejected, &errors, 4);
+        pipe.abandon_workers(3);
+
+        let t = pipe.token();
+        pipe.submit(t, vec![b'x'; 10], 1);
+        assert!(bodies.lock().unwrap().is_empty(), "below the cut: buffered");
+        let started = std::time::Instant::now();
+        pipe.settle(t).expect("accepted");
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(10),
+            "the lone live worker shipped its own residual, took {:?}",
+            started.elapsed()
+        );
+        assert_eq!(bodies.lock().unwrap().len(), 1);
+        pipe.retire();
+    }
+
+    /// A transport failure settles Err for EVERY file whose bytes rode that
+    /// body — the un-journaled-on-failure contract the journal's resume
+    /// depends on.
+    #[test]
+    fn a_failed_bulk_fails_every_file_it_carried() {
+        let rejected = AtomicU64::new(0);
+        let errors = Mutex::new(Vec::new());
+        let pipe = BulkPipe::new(
+            |_body| Err(anyhow::anyhow!("connection reset by peer")),
+            1 << 20,
+            5000,
+            &rejected,
+            &errors,
+            1,
+        );
+        let t1 = pipe.token();
+        let t2 = pipe.token();
+        pipe.submit(t1, b"a\n".to_vec(), 1);
+        pipe.submit(t2, b"b\n".to_vec(), 1);
+        let e1 = pipe.settle(t1).expect_err("t1 must fail");
+        let e2 = pipe.settle(t2).expect_err("t2 must fail");
+        assert_eq!(e1, e2, "one failed body, one failure for all its files");
+        assert!(
+            e1.contains("connection reset"),
+            "the cause is preserved: {e1}"
+        );
+    }
+
+    /// A file larger than one flush has bytes in SEVERAL bulks. If the first
+    /// bulk fails and a later one succeeds, the file's failure is STICKY:
+    /// settling Ok would journal the source complete while most of its
+    /// records were never accepted — the exact hole
+    /// `existing_completion_is_invalidated_and_partial_visibility_is_deleted_on_resume`
+    /// caught in the first cut of this pipe (fail on bulk 1 of 2, the tail
+    /// bulk succeeded, the file journaled complete).
+    #[test]
+    fn a_later_successful_bulk_does_not_erase_an_earlier_failure() {
+        let rejected = AtomicU64::new(0);
+        let errors = Mutex::new(Vec::new());
+        let attempts = Mutex::new(0);
+        let pipe = BulkPipe::new(
+            {
+                let attempts = &attempts;
+                move |_body| {
+                    let mut n = attempts.lock().unwrap();
+                    *n += 1;
+                    if *n == 1 {
+                        Err(anyhow::anyhow!("connection reset by peer"))
+                    } else {
+                        Ok(outcome())
+                    }
+                }
+            },
+            // doc_cap 1: every submit flushes, so one file spans two bulks.
+            1 << 20,
+            1,
+            &rejected,
+            &errors,
+            1,
+        );
+        let big_file = pipe.token();
+        let other_file = pipe.token();
+        pipe.submit(big_file, b"first-chunk\n".to_vec(), 1);
+        assert!(pipe.failed(big_file), "the failed bulk marked its file");
+        assert!(!pipe.failed(other_file));
+        // The next bulk carries the SAME file's tail plus another file, and
+        // succeeds.
+        pipe.submit(big_file, b"second-chunk\n".to_vec(), 1);
+        pipe.submit(other_file, b"other\n".to_vec(), 1);
+        let err = pipe
+            .settle(big_file)
+            .expect_err("sticky: bulk 2 succeeding must not clear bulk 1's failure");
+        assert!(
+            err.contains("connection reset"),
+            "the FIRST cause is kept: {err}"
+        );
+        pipe.settle(other_file)
+            .expect("the healthy file still settles Ok");
+        pipe.retire();
+    }
+
+    /// server_errors (the backend refused items) also settles Err — that is
+    /// the "do not journal the source file complete" arm of #944/#956.
+    #[test]
+    fn server_errors_settle_err_without_poisoning_later_batches() {
+        let rejected = AtomicU64::new(0);
+        let errors = Mutex::new(Vec::new());
+        let attempts = Mutex::new(0);
+        let pipe = BulkPipe::new(
+            {
+                let attempts = &attempts;
+                move |_body| {
+                    let mut n = attempts.lock().unwrap();
+                    *n += 1;
+                    if *n == 1 {
+                        Ok(BulkOutcome {
+                            server_errors: 2,
+                            first_server_error: Some("cluster block".into()),
+                            ..outcome()
+                        })
+                    } else {
+                        Ok(outcome())
+                    }
+                }
+            },
+            1 << 20,
+            5000,
+            &rejected,
+            &errors,
+            1,
+        );
+        let bad = pipe.token();
+        pipe.submit(bad, b"a\n".to_vec(), 1);
+        let err = pipe.settle(bad).expect_err("refused items do not journal");
+        assert!(err.contains("cluster block"), "{err}");
+
+        let good = pipe.token();
+        pipe.submit(good, b"b\n".to_vec(), 1);
+        pipe.settle(good).expect("the pipe keeps working");
+        pipe.retire();
+    }
+
+    /// Per-item rejections are counted and surfaced but stay non-fatal — the
+    /// file's OTHER records are live and it journals complete.
+    #[test]
+    fn item_errors_are_counted_and_non_fatal() {
+        let rejected = AtomicU64::new(0);
+        let errors = Mutex::new(Vec::new());
+        let pipe = BulkPipe::new(
+            |_body| {
+                Ok(BulkOutcome {
+                    item_errors: 2,
+                    first_error: Some("mapper refused field".into()),
+                    ..outcome()
+                })
+            },
+            1 << 20,
+            5000,
+            &rejected,
+            &errors,
+            1,
+        );
+        let t = pipe.token();
+        pipe.submit(t, b"a\n".to_vec(), 3);
+        pipe.settle(t).expect("item errors do not fail the file");
+        assert_eq!(rejected.load(Ordering::Relaxed), 2);
+        assert_eq!(errors.lock().unwrap().len(), 1);
+        pipe.retire();
+    }
+
+    /// A file whose staging produced nothing (all junk / unrouted) settles
+    /// instantly: the journal records zero records and no bulk is sent.
+    #[test]
+    fn a_file_with_no_records_settles_without_sending() {
+        let bodies = Mutex::new(Vec::new());
+        let rejected = AtomicU64::new(0);
+        let errors = Mutex::new(Vec::new());
+        let pipe = BulkPipe::new(
+            recording_send(&bodies),
+            1 << 20,
+            5000,
+            &rejected,
+            &errors,
+            1,
+        );
+        let t = pipe.token();
+        pipe.settle(t).expect("pre-resolved");
+        pipe.retire();
+        assert!(bodies.lock().unwrap().is_empty());
+    }
+
+    /// Sends must OVERLAP, not alternate: the first cut of this pipe held the
+    /// lock across the wire (one bulk at a time), and phase B on the rustsec
+    /// corpus measured 4.7x SLOWER than the per-file code it replaced —
+    /// extraction and sending serialized behind a full-wave barrier. Here N
+    /// cut-crossing submits from N threads must put more than one body on
+    /// the wire at once.
+    #[test]
+    fn wire_slots_overlap_instead_of_serializing() {
+        let rejected = AtomicU64::new(0);
+        let errors = Mutex::new(Vec::new());
+        let concurrent = AtomicU64::new(0);
+        let peak = AtomicU64::new(0);
+        let pipe = BulkPipe::new(
+            {
+                let concurrent = &concurrent;
+                let peak = &peak;
+                move |_body| {
+                    let now = concurrent.fetch_add(1, Ordering::SeqCst) + 1;
+                    peak.fetch_max(now, Ordering::SeqCst);
+                    std::thread::sleep(std::time::Duration::from_millis(60));
+                    concurrent.fetch_sub(1, Ordering::SeqCst);
+                    Ok(outcome())
+                }
+            },
+            64,
+            5000,
+            &rejected,
+            &errors,
+            4,
+        );
+        let tokens: Vec<_> = (0..4).map(|_| pipe.token()).collect();
+        std::thread::scope(|s| {
+            for t in tokens {
+                let pipe = &pipe;
+                s.spawn(move || {
+                    pipe.submit(t, vec![b'x'; 200], 1);
+                    pipe.settle(t).expect("accepted");
+                });
+            }
+        });
+        pipe.retire();
+        assert!(
+            peak.load(Ordering::SeqCst) >= 2,
+            "at least two bodies were on the wire together, peak={}",
+            peak.load(Ordering::SeqCst)
+        );
+    }
+
+    /// The concurrent shape phase B actually runs: many workers, many small
+    /// files. Coalescing must happen (far fewer bodies than files) with every
+    /// token settling Ok and no deadlock — the parked/live accounting is what
+    /// this test would hang on if it were wrong.
+    #[test]
+    fn many_workers_many_files_coalesce_without_deadlock() {
+        let bodies = Mutex::new(Vec::new());
+        let rejected = AtomicU64::new(0);
+        let errors = Mutex::new(Vec::new());
+        let pipe = BulkPipe::new(
+            {
+                let bodies = &bodies;
+                move |body| {
+                    std::thread::sleep(std::time::Duration::from_millis(2));
+                    bodies.lock().unwrap().push(body);
+                    Ok(outcome())
+                }
+            },
+            1 << 20,
+            5000,
+            &rejected,
+            &errors,
+            8,
+        );
+        const WORKERS: usize = 8;
+        const FILES_PER_WORKER: usize = 40;
+        std::thread::scope(|s| {
+            for w in 0..WORKERS {
+                let pipe = &pipe;
+                s.spawn(move || {
+                    for i in 0..FILES_PER_WORKER {
+                        let t = pipe.token();
+                        pipe.submit(t, format!("w{w}-f{i}\n").into_bytes(), 1);
+                        pipe.settle(t).expect("every file accepted");
+                    }
+                    pipe.retire();
+                });
+            }
+        });
+        let n = bodies.lock().unwrap().len();
+        assert!(
+            n < WORKERS * FILES_PER_WORKER,
+            "{WORKERS}x{FILES_PER_WORKER} files left as {n} bodies — no coalescing happened"
+        );
+    }
+}
+
+#[cfg(test)]
+mod legacy_rebuild_argv_tests {
+    use super::*;
+
+    fn parse_index(argv: &[String]) -> IndexCfg {
+        match cli::parse(argv.to_vec()).expect("the rebuild argv must parse") {
+            cli::Cmd::Index(cfg) => *cfg,
+            other => panic!("expected an index command, got {other:?}"),
+        }
+    }
+
+    fn strings(args: &[&str]) -> Vec<String> {
+        args.iter().map(|s| s.to_string()).collect()
+    }
+
+    /// Following the printed rebuild advice must index the same corpus the same
+    /// way: read the argv back through `cli::parse` and compare every setting
+    /// that changes what is indexed or how it is analyzed.
+    fn assert_round_trip(original: &[&str]) {
+        let cfg = parse_index(&strings(original));
+        let state = Path::new("state.generation-v1");
+        let argv = legacy_rebuild_argv(&cfg, state, "ax-generation-v1");
+        assert_eq!(&argv[..2], ["xerj", "autoindex"]);
+        let rebuilt = parse_index(&argv[2..]);
+
+        assert_eq!(rebuilt.root, cfg.root);
+        assert_eq!(rebuilt.url, cfg.url);
+        assert_eq!(rebuilt.state_dir.as_deref(), Some(state));
+        assert_eq!(rebuilt.prefix, "ax-generation-v1");
+        assert!(rebuilt.no_graph);
+        assert_eq!(rebuilt.code_analyzer, cfg.code_analyzer, "{argv:?}");
+        assert_eq!(rebuilt.stub_globs, cfg.stub_globs, "{argv:?}");
+        assert_eq!(rebuilt.ignore.enabled, cfg.ignore.enabled, "{argv:?}");
+        assert_eq!(rebuilt.ignore.defaults, cfg.ignore.defaults, "{argv:?}");
+        assert_eq!(rebuilt.label, cfg.label, "{argv:?}");
+        assert_eq!(rebuilt.no_semantic, cfg.no_semantic);
+        assert_eq!(rebuilt.follow_symlinks, cfg.follow_symlinks);
+        assert_eq!(
+            rebuilt.follow_symlinks_outside_root,
+            cfg.follow_symlinks_outside_root
+        );
+        assert_eq!(rebuilt.max_file_bytes, cfg.max_file_bytes);
+        assert_eq!(rebuilt.sample, cfg.sample);
+        assert_eq!(rebuilt.workers, cfg.workers);
+        assert_eq!(rebuilt.bulk_mb, cfg.bulk_mb);
+    }
+
+    #[test]
+    fn rebuild_argv_carries_every_setting_that_shapes_the_index() {
+        assert_round_trip(&[
+            "data",
+            "--no-graph",
+            "--code-analyzer",
+            "code",
+            "--stub",
+            "*.bin",
+            "--stub",
+            "vendor/**",
+            "--no-default-ignores",
+            "--label",
+            "questions.json",
+            "--no-semantic",
+            "--follow-symlinks",
+            "--sample",
+            "80",
+        ]);
+        assert_round_trip(&["data", "--no-graph", "--no-ignore"]);
+        // #1233: a sub-GB cap must survive the rebuild-advice round-trip, which
+        // the old integer-GB flag could not express.
+        assert_round_trip(&["data", "--no-graph", "--max-file-mb", "10"]);
+        assert_round_trip(&["data", "--no-graph", "--max-file-bytes", "4096"]);
+        assert_round_trip(&["data", "--no-graph", "--max-file-gb", "3"]);
+    }
+
+    /// #1233: the "skipped: oversized" note renders the byte cap in the
+    /// coarsest whole binary unit, so it reads `2 GB` / `10 MB` rather than a
+    /// raw byte count, and falls back to exact bytes when neither divides.
+    #[test]
+    fn human_size_reads_in_the_coarsest_whole_unit() {
+        assert_eq!(human_size(2 << 30), "2 GB");
+        assert_eq!(human_size(10 << 20), "10 MB");
+        assert_eq!(human_size(4096), "4096 bytes");
+        assert_eq!(human_size(0), "0 bytes");
+    }
+
+    /// #1233 back-compat: an index built before sub-GB caps existed serialised
+    /// its cap as the top-level `max_file_gb` integer. A whole-GB cap must still
+    /// produce that exact key (so the prepared-records digest is unchanged and
+    /// the index resumes), while a genuinely sub-GB cap gets a distinct key and
+    /// therefore a distinct, non-resumable digest.
+    #[test]
+    fn prepared_records_identity_is_byte_compatible_for_whole_gb_caps() {
+        let base = parse_index(&strings(&["data", "--no-graph"]));
+        assert_eq!(
+            base.label, None,
+            "this test assumes the default (no label set)"
+        );
+        let ident = |bytes: u64| {
+            let mut c = base.clone();
+            c.max_file_bytes = bytes;
+            prepared_records_identity(&c).unwrap()
+        };
+        let two_gb = ident(2 << 30);
+        let ten_mb = ident(10 << 20);
+        let one_gb = ident(1 << 30);
+        assert_ne!(two_gb, ten_mb, "a sub-GB cap is a different contract");
+        assert_ne!(one_gb, two_gb, "different whole-GB caps differ");
+        // The whole-GB value serialises the historical top-level `max_file_gb`
+        // integer key: the digest is the xxh3 of the JSON, so matching it to a
+        // value hand-built with that exact key (the pre-#1233 wire form) proves
+        // existing indexes still re-derive their digest and resume. serde_json
+        // sorts keys, so insertion order here is irrelevant.
+        let expected = serde_json::json!({
+            "contract": PREPARED_RECORDS_IDENTITY,
+            "sample": base.sample,
+            "no_semantic": base.no_semantic,
+            "pdf_timeout_secs": base.pdf_timeout_secs,
+            "label": serde_json::Value::Null,
+            "max_file_gb": 2,
+        });
+        let want = format!(
+            "{}-{:032x}",
+            PREPARED_RECORDS_IDENTITY,
+            xxhash_rust::xxh3::xxh3_128(&serde_json::to_vec(&expected).unwrap())
+        );
+        assert_eq!(
+            two_gb, want,
+            "whole-GB cap must keep the historical wire form"
+        );
+    }
+
+    #[test]
+    fn rebuild_argv_for_default_settings_adds_no_optional_flags() {
+        assert_round_trip(&["data", "--no-graph"]);
+        let cfg = parse_index(&strings(&["data", "--no-graph"]));
+        let argv = legacy_rebuild_argv(&cfg, Path::new("s"), "p");
+        for flag in [
+            "--code-analyzer",
+            "--stub",
+            "--no-ignore",
+            "--no-default-ignores",
+            "--label",
+        ] {
+            assert!(!argv.iter().any(|a| a == flag), "{flag} in {argv:?}");
+        }
     }
 }

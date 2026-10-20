@@ -1,0 +1,22 @@
+{
+ "corpus": "lovekeshanand--nyxen-memory",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Python queries this for how LovekeshAnand/Nyxen-Memory implements it: An advanced RAG framework that bypasses prompt-stuffing by projecting graph-structured dialogue relationships directly into the LLM's attent (selected work: cgm, tests, the project root)",
+ "repos": [
+  {
+   "repo": "Nyxen-Memory",
+   "url": "https://github.com/LovekeshAnand/Nyxen-Memory",
+   "sha": "0fa94c2a6f772b15b4c996341dd9b026229356f1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 0fa94c2a6f77: \"bugs-fixed\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

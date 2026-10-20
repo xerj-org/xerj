@@ -1,0 +1,22 @@
+{
+ "corpus": "hupo376787--hellocrab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on avalonia, chromium, csharp queries this for how hupo376787/HelloCrab implements it: A smart tool to download social media files. For learning only (selected work: src/HelloCrab.Desktop, src/HelloCrab.Core)",
+ "repos": [
+  {
+   "repo": "HelloCrab",
+   "url": "https://github.com/hupo376787/HelloCrab",
+   "sha": "70206d8cd4588f78a9d462c8513c3925de99b30c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 70206d8cd458: \"Pause collection for manual verification challenges\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "ifm-ai--xllm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how ifm-ai/xllm implements it: Light-weight infrastructure for express LLM pre-training (selected work: xllm)",
+ "repos": [
+  {
+   "repo": "xllm",
+   "url": "https://github.com/ifm-ai/xllm",
+   "sha": "737b26b5fad28441d3db5506df6e5520b9376f63",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 737b26b5fad2: \"refactor qknorm\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

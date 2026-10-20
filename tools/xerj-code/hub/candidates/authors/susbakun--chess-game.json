@@ -1,0 +1,22 @@
+{
+ "corpus": "susbakun--chess-game",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on chess, chess-engine, rust queries this for how susbakun/chess_game implements it: A chess game written in rust and bevy (selected work: shared, client, server)",
+ "repos": [
+  {
+   "repo": "chess_game",
+   "url": "https://github.com/susbakun/chess_game",
+   "sha": "3aa2c5a6338668f5625282a6f2bdaeb30af7d041",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 3aa2c5a63386: \"having multiplayer chess on two windows\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

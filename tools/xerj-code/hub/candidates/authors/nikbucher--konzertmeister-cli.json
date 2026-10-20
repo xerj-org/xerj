@@ -1,0 +1,22 @@
+{
+ "corpus": "nikbucher--konzertmeister-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api, appointments, cli queries this for how nikbucher/konzertmeister-cli implements it: Command-line tool for the Konzertmeister API: manage appointments and members, view replies and attendance (selected work: src, tests)",
+ "repos": [
+  {
+   "repo": "konzertmeister-cli",
+   "url": "https://github.com/nikbucher/konzertmeister-cli",
+   "sha": "8cef64e041f5bcae8e22cb17b68b7e020eed872c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8cef64e041f5: \"feat: add member management commands\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

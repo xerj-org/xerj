@@ -1,0 +1,22 @@
+{
+ "corpus": "hillaliy--languard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Python queries this for how hillaliy/LanGuard implements it: LAN visibility and alerting tool for home networks and small offices (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "LanGuard",
+   "url": "https://github.com/hillaliy/LanGuard",
+   "sha": "8a53ca002118464aecd28b7cd46910656713f163",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit 8a53ca002118: \"Refactor device details into focused modules\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

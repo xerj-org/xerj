@@ -1,0 +1,22 @@
+{
+ "corpus": "lucabertoncini--lbtoolkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Pascal queries this for how LucaBertoncini/LBToolkit implements it: A thread-safe, Swiss-army toolkit featuring a reactive logging engine (LBLogger), an embedded HTTP server (LBmicroWebServer), seamless integ (selected work: src/utils)",
+ "repos": [
+  {
+   "repo": "LBToolkit",
+   "url": "https://github.com/LucaBertoncini/LBToolkit",
+   "sha": "70aa81e5b72f85ea4d9e6c21fcebd54a13d5f7c2",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 70aa81e5b72f: \"Add files via upload\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

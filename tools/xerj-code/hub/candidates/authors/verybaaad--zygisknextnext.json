@@ -1,0 +1,22 @@
+{
+ "corpus": "verybaaad--zygisknextnext",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, android-root, apatch queries this for how VeryBaaad/ZygiskNextNext implements it: A from-scratch, standalone implementation of the Zygisk Next module (selected work: injector, webui)",
+ "repos": [
+  {
+   "repo": "ZygiskNextNext",
+   "url": "https://github.com/VeryBaaad/ZygiskNextNext",
+   "sha": "9e0c2922eacc6d4f082afd1d314ca393e50fe22a",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 9e0c2922eacc: \"feat(track): add a kernel event tracking mode (#89)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "mboworks--mbo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on cpp, googletest, matchers queries this for how mboworks/mbo implements it: MBO, a C++23 library: This C++23 library provides some general useful building blocks and integrates with Google's Abseil library (selected work: mbo, tools, the project root)",
+ "repos": [
+  {
+   "repo": "mbo",
+   "url": "https://github.com/mboworks/mbo",
+   "sha": "40392d84b119d9413e0e7b78cea44b08e7046259",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 40392d84b119: \"Compare Frozen reads using Mumbo Fambo and Dumbo hashes (#552)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

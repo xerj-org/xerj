@@ -1,0 +1,22 @@
+{
+ "corpus": "maksim-gr--rabbitmq-stream-source-connector",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on kafka-connect, kotlin, rabbitmq queries this for how Maksim-Gr/rabbitmq-stream-source-connector implements it: Kafka Connect source connector for RabbitMQ Streams (selected work: src/test, src/main)",
+ "repos": [
+  {
+   "repo": "rabbitmq-stream-source-connector",
+   "url": "https://github.com/Maksim-Gr/rabbitmq-stream-source-connector",
+   "sha": "085b53d31228fec671b549de5a5f64ac107e2c0e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 085b53d31228: \"feat: bound the internal buffer by bytes as well as record count\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

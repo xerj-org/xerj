@@ -1,0 +1,22 @@
+{
+ "corpus": "meanii--downly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on downloader, telegram-bot, pyrogram queries this for how meanii/downly implements it: downly is a simple telegram bot that can download files from the internet and upload them to telegram (selected work: internal/downloader, internal/e2e, internal/media)",
+ "repos": [
+  {
+   "repo": "downly",
+   "url": "https://github.com/meanii/downly",
+   "sha": "c8ca11b33207767f5ced5f57ec5b0c0762804798",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit c8ca11b33207: \"Fix Instagram downloads failing with a read-only cookies file (#30)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

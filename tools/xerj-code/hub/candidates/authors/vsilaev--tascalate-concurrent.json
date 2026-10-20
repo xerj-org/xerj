@@ -1,0 +1,22 @@
+{
+ "corpus": "vsilaev--tascalate-concurrent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on java, java8, java-library queries this for how vsilaev/tascalate-concurrent implements it: Implementation of blocking (IO-Bound) cancellable java.util.concurrent.CompletionStage and related extensions to java.util.concurrent.Execut (selected work: src/main, the project root)",
+ "repos": [
+  {
+   "repo": "tascalate-concurrent",
+   "url": "https://github.com/vsilaev/tascalate-concurrent",
+   "sha": "16fa5bc748c969e6c2b38ca503477add4e753ab0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 16fa5bc748c9: \"AsyncChannel - Go-like channels for async java\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

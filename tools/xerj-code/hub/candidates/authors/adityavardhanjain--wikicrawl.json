@@ -1,0 +1,22 @@
+{
+ "corpus": "adityavardhanjain--wikicrawl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on data-visualization, graph-visualization, graphology queries this for how Adityavardhanjain/WikiCrawl implements it: Interactive Wikipedia knowledge graph - crawl topics, visualize connections, and explore unexpected paths (selected work: lib, app/components, app/api)",
+ "repos": [
+  {
+   "repo": "WikiCrawl",
+   "url": "https://github.com/Adityavardhanjain/WikiCrawl",
+   "sha": "b5bb1cae9336e5557e7cd747238d1d5ee8aab26c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit b5bb1cae9336: \"wikilink sources\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

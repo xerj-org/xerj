@@ -1,0 +1,22 @@
+{
+ "corpus": "grit-77--done-is-a-claim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents-md, ai-agents, claude-code queries this for how Grit-77/done-is-a-claim implements it: Your coding agent says done. Show the receipt. Evidence-first workflows, practical skills, and plugins for Claude Code and Codex (selected work: tests, tools, the project root)",
+ "repos": [
+  {
+   "repo": "done-is-a-claim",
+   "url": "https://github.com/Grit-77/done-is-a-claim",
+   "sha": "5cb4b53e8467e058a4f02aa0e926ac714605c4e7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 5cb4b53e8467: \"Add shareable receipt reports and existing-project quickstart (#7)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

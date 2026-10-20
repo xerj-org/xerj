@@ -1,0 +1,22 @@
+{
+ "corpus": "awapi--awapi-compare",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how awapi/awapi-compare implements it: awapi/awapi-compare (TypeScript) (selected work: src/shellex, resources, src/desktop)",
+ "repos": [
+  {
+   "repo": "awapi-compare",
+   "url": "https://github.com/awapi/awapi-compare",
+   "sha": "f60dc4182a3092531e8aec102ba027658252ab9a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit f60dc4182a30: \"Fixing context menu on windows\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

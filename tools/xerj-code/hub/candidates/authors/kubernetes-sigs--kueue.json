@@ -1,0 +1,22 @@
+{
+ "corpus": "kubernetes-sigs--kueue",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on k8s-sig-scheduling, k8s, kubernetes queries this for how kubernetes-sigs/kueue implements it: :vertical_traffic_light: Kubernetes-native Job Queueing and Scheduling (selected work: pkg/scheduler, test, pkg/features)",
+ "repos": [
+  {
+   "repo": "kueue",
+   "url": "https://github.com/kubernetes-sigs/kueue",
+   "sha": "27b8d9f0272c198687ab0e104ed4d72a8f1c0251",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 27b8d9f0272c: \"Fix FairSharing preemption cycle bug by verifying final targets (#16343)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

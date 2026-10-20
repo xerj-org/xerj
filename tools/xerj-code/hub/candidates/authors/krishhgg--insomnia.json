@@ -1,0 +1,22 @@
+{
+ "corpus": "krishhgg--insomnia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, amphetamine-alternative, caffeinate queries this for how krishhgg/Insomnia implements it: A macOS menu bar app that safely keeps your MacBook awake with the lid closed, for timed agent sessions (selected work: Sources, Tests)",
+ "repos": [
+  {
+   "repo": "Insomnia",
+   "url": "https://github.com/krishhgg/Insomnia",
+   "sha": "52fb7cfa441c81178d0357355c8c7e32363aef25",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 52fb7cfa441c: \"Settings: show the version and check for a newer release\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "cassiomc1--forgeloopbridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how cassiomc1/ForgeLoopBridge implements it: Minimalist Markdown coordination board for Engineer \u2194 Worker agents. ForgeLoop-aware, multi-task, evidence-backed workflows (selected work: the project root, tests, static)",
+ "repos": [
+  {
+   "repo": "ForgeLoopBridge",
+   "url": "https://github.com/cassiomc1/ForgeLoopBridge",
+   "sha": "0264ec92c90e27b02010d5776cfeb8407c4835d4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 0264ec92c90e: \"feat: add continuous self-improvement subsystem with standard markdow\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

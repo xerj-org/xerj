@@ -1,0 +1,22 @@
+{
+ "corpus": "eequaled--glmproxy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-coding, anthropic, api-proxy queries this for how eequaled/GLMproxy implements it: Cross platform GLM proxy for AutoClaw's Zhipu AI models. Provides OpenAI-compatible Chat Completions and Anthropic Messages APIs for Claude  (selected work: lib, the project root, tests)",
+ "repos": [
+  {
+   "repo": "GLM_proxy",
+   "url": "https://github.com/eequaled/GLM_proxy",
+   "sha": "71bf1a2450918b17a8a14d80747e8ab8fca58421",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 71bf1a245091: \"delete the local desktop-agent fallback and retry a capacity throttle\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

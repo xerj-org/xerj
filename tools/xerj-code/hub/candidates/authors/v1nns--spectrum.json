@@ -1,0 +1,22 @@
+{
+ "corpus": "v1nns--spectrum",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on audio-player, audio-processing, audio-visualizer queries this for how v1nns/spectrum implements it: Console-based music player written in C++17 :musical_note: (selected work: test, src/util, include)",
+ "repos": [
+  {
+   "repo": "spectrum",
+   "url": "https://github.com/v1nns/spectrum",
+   "sha": "48a1d86a5d3d242d561fc52b9903e604720a9df6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 48a1d86a5d3d: \"Remote control from command-line (#53)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

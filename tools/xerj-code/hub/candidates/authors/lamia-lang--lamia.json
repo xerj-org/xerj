@@ -1,0 +1,22 @@
+{
+ "corpus": "lamia-lang--lamia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-workflow, ai, claude queries this for how lamia-lang/lamia implements it: Write your prompts once. Run them forever. Lamia guarantees the output. No hallucinations, no surprises (selected work: tests, lamia, the project root)",
+ "repos": [
+  {
+   "repo": "lamia",
+   "url": "https://github.com/lamia-lang/lamia",
+   "sha": "f16912e9f20fe92a8e0b3814cfef55fb3f4b0c7d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f16912e9f20f: \"use multi-turn communication for almost all flows, file inlining impr\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

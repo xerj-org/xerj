@@ -1,0 +1,22 @@
+{
+ "corpus": "fabriziosalmi--zion",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on edge, edge-computing, edge-gateway queries this for how fabriziosalmi/zion implements it: High-performance TLS reverse proxy with built-in WAF, written in Rust (selected work: tests, src)",
+ "repos": [
+  {
+   "repo": "zion",
+   "url": "https://github.com/fabriziosalmi/zion",
+   "sha": "6c57adcb7be4260fd5047da2a96212eee26ec08a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 6c57adcb7be4: \"feat(tls): [tls] session_tickets, default 2 (it was a fixed 4) (#656)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

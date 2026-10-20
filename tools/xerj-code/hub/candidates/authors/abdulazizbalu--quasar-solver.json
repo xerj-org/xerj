@@ -1,0 +1,22 @@
+{
+ "corpus": "abdulazizbalu--quasar-solver",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on operations-research, optimization, python queries this for how abdulazizbalu/quasar-solver implements it: Reproducible benchmark of QUBO simulated annealing vs classical heuristics on TSP and tiny CVRP: proven optima, confidence intervals, extern (selected work: quasar_solver, benchmarks, tests)",
+ "repos": [
+  {
+   "repo": "quasar-solver",
+   "url": "https://github.com/abdulazizbalu/quasar-solver",
+   "sha": "215838e0dc9a24431cd268da9f8bec8174b84ec9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 215838e0dc9a: \"Add CVRP and VRPTW models, solvers, parsers and benchmark runner\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

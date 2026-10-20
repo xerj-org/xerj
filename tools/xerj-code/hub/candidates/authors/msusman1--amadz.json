@@ -1,0 +1,22 @@
+{
+ "corpus": "msusman1--amadz",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how msusman1/Amadz implements it: Amadz is a fully modern Android calling application built with Jetpack Compose, Navigation 3, Hilt, and Paging 3. It is designed as a powerf (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "Amadz",
+   "url": "https://github.com/msusman1/Amadz",
+   "sha": "48d75c40dd442a8c3db4a4e58bbf13e7f55740a0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 48d75c40dd44: \"- Group consecutive identical call logs in paging source\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

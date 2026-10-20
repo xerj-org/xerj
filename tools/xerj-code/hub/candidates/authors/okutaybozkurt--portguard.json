@@ -1,0 +1,22 @@
+{
+ "corpus": "okutaybozkurt--portguard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Swift queries this for how okutaybozkurt/PortGuard implements it: Lightweight macOS MenuBar app to monitor active dev ports, track RAM usage, and kill processes in one click (selected work: PortGuard, portguard-devid)",
+ "repos": [
+  {
+   "repo": "PortGuard",
+   "url": "https://github.com/okutaybozkurt/PortGuard",
+   "sha": "8a39cd1cd7bde1e5b1496eedf455bdc6904cb46a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 8a39cd1cd7bd: \"feat: v1.0.3 \u2014 Network Activity, History, Rules, Project Scanner & Se\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

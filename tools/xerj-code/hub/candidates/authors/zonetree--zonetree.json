@@ -1,0 +1,22 @@
+{
+ "corpus": "zonetree--zonetree",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on lsm-tree, key-value-store, atomicity queries this for how ZoneTree/ZoneTree implements it: ZoneTree is a persistent, high-performance, transactional, ACID-compliant ordered key-value database and LSM-tree storage engine for .NET (selected work: src/ZoneTree.UnitTests, src/ZoneTree)",
+ "repos": [
+  {
+   "repo": "ZoneTree",
+   "url": "https://github.com/ZoneTree/ZoneTree",
+   "sha": "78c6440a207a56ed72633d9c8a31c7dc6a845bfe",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 78c6440a207a: \"Fix default deletion detection for `Memory<byte>` and other structs c\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

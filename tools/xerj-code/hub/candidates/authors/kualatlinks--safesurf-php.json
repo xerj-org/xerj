@@ -1,0 +1,22 @@
+{
+ "corpus": "kualatlinks--safesurf-php",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on phishing, phishing-detection, phishing-url-detector queries this for how kualatLinks/safesurf-php implements it: A PHP library for checking if a URL is safe to surf (selected work: src/Analyzer, assets, src/Checks)",
+ "repos": [
+  {
+   "repo": "safesurf-php",
+   "url": "https://github.com/DikaArdnt/safesurf-php",
+   "sha": "044319d85a2e46eb66614aff76ecf38374157af2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 044319d85a2e: \"feat: align detection logic with urlvet, harden security and reduce f\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

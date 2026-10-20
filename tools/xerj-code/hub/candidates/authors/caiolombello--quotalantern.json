@@ -1,0 +1,22 @@
+{
+ "corpus": "caiolombello--quotalantern",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how caiolombello/quotalantern implements it: AI usage, quotas, resets and costs in the Linux desktop tray. Python/GTK, independent project (selected work: codexbar_linux, tests, the project root)",
+ "repos": [
+  {
+   "repo": "quotalantern",
+   "url": "https://github.com/caiolombello/quotalantern",
+   "sha": "8c1f23f48a144e3b824fb09562b7ff1e4ec5d172",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 8c1f23f48a14: \"feat(opencode-go): replace cookie scraping with OAuth\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

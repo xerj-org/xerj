@@ -1,0 +1,22 @@
+{
+ "corpus": "adityaagarw--pantheon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-office, agent-simulation, agent-world queries this for how adityaagarw/Pantheon implements it: A 3D world where AI agents live, work and teach, and you can watch everything they do. Self-hosted, works with local models (selected work: server, the project root)",
+ "repos": [
+  {
+   "repo": "Pantheon",
+   "url": "https://github.com/adityaagarw/Pantheon",
+   "sha": "fbbbed352ab0eccd10edd4ba27c29012c8437797",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit fbbbed352ab0: \"Fix computer_shell and stuck meetings; share a host folder with the d\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

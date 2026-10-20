@@ -1,0 +1,22 @@
+{
+ "corpus": "davidnmfung--ai-stock-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how davidnmfung/ai-stock-agent implements it: 24/7 automated AI stock monitoring agent parsing real-time market data, volume surges, and catalyst signals with instant Telegram alerts (selected work: the project root, src, config)",
+ "repos": [
+  {
+   "repo": "ai-stock-agent",
+   "url": "https://github.com/davidnmfung/ai-stock-agent",
+   "sha": "0d4d10891476b9e25fb09f9c01f0a0ee6094632e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 0d4d10891476: \"refactor: complete production-grade modular architecture\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

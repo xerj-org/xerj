@@ -1,0 +1,22 @@
+{
+ "corpus": "wieslawgolec--plugin-custom-objects",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on b2b-marketing, campaign-builder, custom-objects queries this for how wieslawgolec/plugin-custom-objects implements it: Custom Objects (Custom Tables) Engine for Mautic 7.2+ with dynamic schema for infinite One-to-Many relational entities linked to Contacts (selected work: Controller, EventSubscriber)",
+ "repos": [
+  {
+   "repo": "plugin-custom-objects",
+   "url": "https://github.com/wieslawgolec/plugin-custom-objects",
+   "sha": "7599a46bc16a43bf67ade783908268308644b982",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 7599a46bc16a: \"feat: SegmentFilterSubscriber, Object/Item/ImportExport controllers, \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

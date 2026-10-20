@@ -1,0 +1,22 @@
+{
+ "corpus": "submilli--submilli-wasm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on interpreter, rust, webassembly queries this for how submilli/submilli-wasm implements it: Experimental WebAssembly interpreter for short-lived programs, with WasmGC and exceptions (selected work: tests, src/value, src/exec)",
+ "repos": [
+  {
+   "repo": "submilli-wasm",
+   "url": "https://github.com/submilli/submilli-wasm",
+   "sha": "1b73694a7566dd45d6ce18c991cb5208287709ef",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 1b73694a7566: \"SUB-1292: Add bulk limb copies, zeroed byte allocation, and lazy modu\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

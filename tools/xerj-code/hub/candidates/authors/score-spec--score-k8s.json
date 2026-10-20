@@ -1,0 +1,22 @@
+{
+ "corpus": "score-spec--score-k8s",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on kubernetes, score, platform-engineering queries this for how score-spec/score-k8s implements it: A reference Score implementation that targets Kubernetes (selected work: internal/convert)",
+ "repos": [
+  {
+   "repo": "score-k8s",
+   "url": "https://github.com/score-spec/score-k8s",
+   "sha": "6bd49d725a6ba5ec0c4a3681ea34c772039c70e3",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 6bd49d725a6b: \"fix: derive volume names from the volume source instead of the mount \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

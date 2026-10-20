@@ -1,0 +1,22 @@
+{
+ "corpus": "koksmen--portal-windows",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C# queries this for how KoksMen/Portal-Windows implements it: A custom credential provider to conveniently unlock Windows using a mobile device (selected work: src/Portal.CredentialProvider, src/Portal.Common, src/Portal.Host)",
+ "repos": [
+  {
+   "repo": "Portal-Windows",
+   "url": "https://github.com/KoksMen/Portal-Windows",
+   "sha": "72fc1b723346e3c74911a688b2d04d2201849fc1",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 72fc1b723346: \"fix(core): bluetooth account isolation, wireguard vpn wifi unlock, cr\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

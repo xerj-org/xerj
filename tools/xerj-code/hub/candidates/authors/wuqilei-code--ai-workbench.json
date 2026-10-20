@@ -1,0 +1,22 @@
+{
+ "corpus": "wuqilei-code--ai-workbench",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, ai-workbench, browser-automation queries this for how wuqilei-code/ai-workbench implements it: \u591a\u7528\u6237\u901a\u7528 AI \u5de5\u4f5c\u53f0(\u7c7b Trae):\u5bf9\u8bdd + \u667a\u80fd\u4f53\u7f16\u6392 + \u6d4f\u89c8\u5668\u63a5\u7ba1 + \u52a8\u6001 UI \u53ef\u89c6\u5316 + \u6280\u80fd/\u6a21\u677f\u4f53\u7cfb\u4e00\u4f53\u5316\u3002Spring Boot 3 + Vue 3 + deepagents(LangGraph),\u6bcf\u7528\u6237\u72ec\u7acb AIO \u6c99\u7bb1\u5bb9\u5668,\u9762\u5411\u5185\u7f51\u79c1\u6709\u5316\u90e8\u7f72\u3002 (selected work: frontend, agent-service, backend)",
+ "repos": [
+  {
+   "repo": "ai-workbench",
+   "url": "https://github.com/wuqilei-code/ai-workbench",
+   "sha": "6dccbda6308bbb7bd00339bdedc8676ccd4624db",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 6dccbda6308b: \"feat(browser): \u652f\u6301\u4ece\u672c\u673a\u5bfc\u5165 cookie \u5230\u6c99\u7bb1\u6d4f\u89c8\u5668;\u4fee\u590d AIO \u6d4f\u89c8\u5668\u5d29\u6e83\u515c\u5e95\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

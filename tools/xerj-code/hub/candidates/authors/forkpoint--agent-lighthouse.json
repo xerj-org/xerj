@@ -1,0 +1,22 @@
+{
+ "corpus": "forkpoint--agent-lighthouse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on aeo, agentic-web, ai-agents queries this for how ForkPoint/agent-lighthouse implements it: Lighthouse-style audits for AI agents, LLM crawlers, MCP clients, and the agentic web (selected work: packages/cli, scripts, packages/core)",
+ "repos": [
+  {
+   "repo": "agent-lighthouse",
+   "url": "https://github.com/ForkPoint/agent-lighthouse",
+   "sha": "c43c7ec1f157e515644bd48c96ce409e43099bbd",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit c43c7ec1f157: \"build: scope TypeScript 6 to website (#83)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

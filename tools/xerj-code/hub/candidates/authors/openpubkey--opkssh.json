@@ -1,0 +1,22 @@
+{
+ "corpus": "openpubkey--opkssh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on oidc, openid-connect, ssh queries this for how openpubkey/opkssh implements it: opkssh (OpenPubkey SSH) (selected work: commands, scripts)",
+ "repos": [
+  {
+   "repo": "opkssh",
+   "url": "https://github.com/openpubkey/opkssh",
+   "sha": "72eff679809b3057117e9a94710385208d17a2ba",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 72eff679809b: \"Fix log and installer bugs before release v0.19.0 (#648)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "nasroykh--foxmayn-frappe-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, erp, erpnext queries this for how nasroykh/foxmayn_frappe_cli implements it: Go CLI for managing Frappe/ERPNext sites (selected work: internal/cmd, internal/client, internal/frappetest)",
+ "repos": [
+  {
+   "repo": "foxmayn_frappe_cli",
+   "url": "https://github.com/nasroykh/foxmayn_frappe_cli",
+   "sha": "5678ffe95423a7383ed8dc721b786bd32206b518",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 5678ffe95423: \"T2.3: ffc aggregate, count-docs --group-by, MCP aggregate (#41)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

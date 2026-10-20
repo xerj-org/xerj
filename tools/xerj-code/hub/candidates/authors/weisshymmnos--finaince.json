@@ -1,0 +1,22 @@
+{
+ "corpus": "weisshymmnos--finaince",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how WeissHymmnos/finaince implements it: FinAlpha: fail-closed sell-side research desk (selected work: tests, src/finaince)",
+ "repos": [
+  {
+   "repo": "finaince",
+   "url": "https://github.com/WeissHymmnos/finaince",
+   "sha": "f81b8a2adf1d1f01ddb77da1134277a174d4e11c",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f81b8a2adf1d: \"fix: close SQLite handles and move blocking desk work off the event loop\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

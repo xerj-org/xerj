@@ -1,0 +1,22 @@
+{
+ "corpus": "acgetchell--causal-triangulations",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on quantum-gravity, causal-dynamical-triangulations, rust-lang queries this for how acgetchell/causal-triangulations implements it: Causal Dynamical Triangulations built on fast Delaunay triangulation primitives (selected work: src, src/cdt, src/geometry)",
+ "repos": [
+  {
+   "repo": "causal-triangulations",
+   "url": "https://github.com/acgetchell/causal-triangulations",
+   "sha": "ed3845079182e0b1ef97fa2074741dd5c1b55248",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ed3845079182: \"fix: refine typed diagnostic contracts and regressions (#297)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

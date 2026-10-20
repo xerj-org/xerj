@@ -1,0 +1,22 @@
+{
+ "corpus": "nikiomori--pretype",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on accessibility, ai, apple-silicon queries this for how nikiomori/Pretype implements it: System-wide, on-device AI autocomplete for macOS \u2014 Copilot-style suggestions in every text field, fully offline and private (selected work: Sources, Tests, Scripts)",
+ "repos": [
+  {
+   "repo": "Pretype",
+   "url": "https://github.com/nikiomori/Pretype",
+   "sha": "e8ee5a2894b041a51a262d18d2f4f97c67be6956",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit e8ee5a2894b0: \"feat(personal): community app styles in AppStyles/, shared from Settings\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

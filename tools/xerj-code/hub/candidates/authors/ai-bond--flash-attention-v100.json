@@ -1,0 +1,22 @@
+{
+ "corpus": "ai-bond--flash-attention-v100",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cuda-core, flash-attention, gpu-acceleration queries this for how ai-bond/flash-attention-v100 implements it: Implementation of FlashAttention-2 for Nvidia Tesla V100 / Titan V (selected work: utils, kernel, flash_attn_v100)",
+ "repos": [
+  {
+   "repo": "flash-attention-v100",
+   "url": "https://github.com/ai-bond/flash-attention-v100",
+   "sha": "5cb9f7cdc3dc8f99f28d420a765db914742ea504",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 5cb9f7cdc3dc: \"Entropy: add fused linear + cross-entropy kernels\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "albatroxxx--terradune",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on aws, docker, golang queries this for how albatroxxx/terradune implements it: Visualize AWS Terraform plans locally with a Resource Map, searchable Plan review, and dependency Graph. Built in Go; never runs `terraform  (selected work: internal/ingest, the project root, internal/server)",
+ "repos": [
+  {
+   "repo": "terradune",
+   "url": "https://github.com/albatroxxx/terradune",
+   "sha": "b06eaa5409e5a395526a4afb14f24eb21febb01d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit b06eaa5409e5: \"Broaden behavioral tests and enforce per-package coverage (#52)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

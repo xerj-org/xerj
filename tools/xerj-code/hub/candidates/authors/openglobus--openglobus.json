@@ -1,0 +1,22 @@
+{
+ "corpus": "openglobus--openglobus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on openglobus, javascript, maps queries this for how openglobus/openglobus implements it: TypeScript/JavaScript 3D maps and geospatial data visualization engine library (selected work: sandbox, tests, src/layer)",
+ "repos": [
+  {
+   "repo": "openglobus",
+   "url": "https://github.com/openglobus/openglobus",
+   "sha": "c545856374f6ca48846ee42251d9c3d8921c53e9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit c545856374f6: \"optimize crs re-projection\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

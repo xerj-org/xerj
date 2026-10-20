@@ -1,0 +1,22 @@
+{
+ "corpus": "funkeyyou--codex-model-router",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on anthropic, claude, codex queries this for how funkeyyou/codex-model-router implements it: Codex \u591a\u6a21\u578b\u8def\u7531\uff1a\u5728 Codex Desktop \u4f7f\u7528 Claude\u3001\u7b2c\u4e09\u65b9 API \u548c\u81ea\u5b9a\u4e49\u6a21\u578b\u3002Local LLM proxy for OpenAI Responses / Chat Completions & Anthropic Messages; experimen (selected work: the project root, src, test)",
+ "repos": [
+  {
+   "repo": "codex-model-router",
+   "url": "https://github.com/funkeyyou/codex-model-router",
+   "sha": "8dc3696dfc44059907f5bd9af68c81e231426d32",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 8dc3696dfc44: \"feat: API key mode, background task model, and usage log\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

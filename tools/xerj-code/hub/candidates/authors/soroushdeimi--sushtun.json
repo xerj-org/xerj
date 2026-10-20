@@ -1,0 +1,22 @@
+{
+ "corpus": "soroushdeimi--sushtun",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on censorship-circumvent, hotspot, multi-exit queries this for how soroushdeimi/sushTun implements it: Xray desktop client that tunnels your whole system: split routing (Iran/Russia/China), per-username multi-exit SOCKS, Wi-Fi hotspot sharing, (selected work: tests, xrayui)",
+ "repos": [
+  {
+   "repo": "sushTun",
+   "url": "https://github.com/soroushdeimi/sushTun",
+   "sha": "048c94dbe40ca6cd7c1c60f4c595021eb510e65c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 048c94dbe40c: \"feat(ui): edit HTTP and SOCKS proxy servers\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

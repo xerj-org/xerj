@@ -1,0 +1,22 @@
+{
+ "corpus": "google--syzkaller",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on linux, kernel, fuzz-testing queries this for how google/syzkaller implements it: syzkaller is an unsupervised coverage-guided kernel fuzzer (selected work: pkg/vminfo, pkg/manager, pkg/rpcserver)",
+ "repos": [
+  {
+   "repo": "syzkaller",
+   "url": "https://github.com/google/syzkaller",
+   "sha": "a6fcf337de9e64a9213671b009d4159235334641",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit a6fcf337de9e: \"syz-manager, pkg/vminfo: auto-detect CPU vendor and nested virt for b\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

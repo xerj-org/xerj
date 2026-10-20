@@ -1,0 +1,22 @@
+{
+ "corpus": "andresstw--diccionario-dev",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Papyrus queries this for how AndresStw/Diccionario-Dev implements it: Apuntes, ejercicios y retos de programaci\u00f3n en PSeInt, Java, JS y C#. Referencia r\u00e1pida para aprender a programar desde cero (selected work: ejercicios, the project root)",
+ "repos": [
+  {
+   "repo": "Diccionario-Dev",
+   "url": "https://github.com/AndresStw/Diccionario-Dev",
+   "sha": "7c81f15e5a13b01aa05c2b919872977b50aacf74",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 7c81f15e5a13: \"commit importante\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

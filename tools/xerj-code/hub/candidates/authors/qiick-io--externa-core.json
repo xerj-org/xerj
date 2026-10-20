@@ -1,0 +1,22 @@
+{
+ "corpus": "qiick-io--externa-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cms, headless-cms, inertia queries this for how qiick-io/externa-core implements it: Externa Core \u2014 Data-first headless CMS with dynamic schema, relations and file management (selected work: resources, tests, app/Http)",
+ "repos": [
+  {
+   "repo": "externa-core",
+   "url": "https://github.com/qiick-io/externa-core",
+   "sha": "529ff3a3efa62d6fc38ff7f41dcd3f6c76e6b7c5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 529ff3a3efa6: \"feat(collections): scheduled publish/unpublish (#44)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

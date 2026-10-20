@@ -1,0 +1,22 @@
+{
+ "corpus": "promptphp--intercept",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, laravel, middleware queries this for how promptphp/intercept implements it: A modular, drop-in middleware collection for Laravel AI SDK agents. Offers middleware across security, observability, performance and guidan (selected work: src/BudgetGuard, src/Support, the project root)",
+ "repos": [
+  {
+   "repo": "intercept",
+   "url": "https://github.com/promptphp/intercept",
+   "sha": "364f3132e0ff3520cd50772cab566a76b8f389c8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 364f3132e0ff: \"feat: add BudgetGuard middleware for cost control (#36)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "deepanshu-yadav--streamingasr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on asr, gemma-4-e2b, localai queries this for how deepanshu-yadav/StreamingASR implements it: Chrome extension to scan online forms and fill through voice also gets replied back and corrected by an assistant (selected work: extension, companion)",
+ "repos": [
+  {
+   "repo": "StreamingASR",
+   "url": "https://github.com/deepanshu-yadav/StreamingASR",
+   "sha": "636870ca3bc5b45625c1da5fdcbdd29ddb942c5c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 636870ca3bc5: \"fixed bugs and issue with fill forms not loading\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

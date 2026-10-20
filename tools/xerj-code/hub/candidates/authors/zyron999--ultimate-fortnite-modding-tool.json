@@ -1,0 +1,22 @@
+{
+ "corpus": "zyron999--ultimate-fortnite-modding-tool",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how zyron999/Ultimate-Fortnite-Modding-Tool implements it: A modding tool for importing the latest Fortnite assets to older Fortnite builds (selected work: UFMT)",
+ "repos": [
+  {
+   "repo": "Ultimate-Fortnite-Modding-Tool",
+   "url": "https://github.com/zyron999/Ultimate-Fortnite-Modding-Tool",
+   "sha": "014583adbfda1e7ed8b94e5cb0bc2fe3e8244602",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 014583adbfda: \"Add support for emotes with intro\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

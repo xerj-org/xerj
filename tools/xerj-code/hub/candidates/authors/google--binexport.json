@@ -1,0 +1,22 @@
+{
+ "corpus": "google--binexport",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on ida-pro, ida-plugin, reverse-engineering queries this for how google/binexport implements it: Export disassemblies into Protocol Buffers (selected work: ida, util, the project root)",
+ "repos": [
+  {
+   "repo": "binexport",
+   "url": "https://github.com/google/binexport",
+   "sha": "80ebc0e2f88aaebe8b0907b3441c44f371d35383",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 80ebc0e2f88a: \"IDA Pro plugin: Add test harness and unit tests\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

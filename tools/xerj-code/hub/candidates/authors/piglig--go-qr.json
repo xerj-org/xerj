@@ -1,0 +1,22 @@
+{
+ "corpus": "piglig--go-qr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on go, qr-code, qrcode queries this for how piglig/go-qr implements it: \u26a1\ufe0f Zero-dependency QR Code generator and decoder for Go (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "go-qr",
+   "url": "https://github.com/piglig/go-qr",
+   "sha": "dc57759728665be6df32dfbb664ad51db32a0546",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit dc5775972866: \"feat(decode): add DecodeAll to read every symbol in an image (#162)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

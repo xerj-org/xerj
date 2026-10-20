@@ -1,0 +1,22 @@
+{
+ "corpus": "red-blink--dune-awakening-selfhost-docker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on admin-panel, docker, linux queries this for how Red-Blink/dune-awakening-selfhost-docker implements it: The powerful, free, and actively maintained Docker-native platform for Dune: Awakening self-hosted servers, featuring guided deployment, adv (selected work: console)",
+ "repos": [
+  {
+   "repo": "dune-awakening-selfhost-docker",
+   "url": "https://github.com/Red-Blink/dune-awakening-selfhost-docker",
+   "sha": "5013ba752980b6b0ddbb7ee08638ad12cf37aeb2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 5013ba752980: \"Draw small Deep Desert terrain pieces with fewer triangles\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

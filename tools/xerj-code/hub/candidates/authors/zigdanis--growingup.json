@@ -1,0 +1,22 @@
+{
+ "corpus": "zigdanis--growingup",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Swift queries this for how zigdanis/GrowingUp implements it: iOS app with Today widget that shows instant age of the person in human readable format (selected work: fastlane, scripts)",
+ "repos": [
+  {
+   "repo": "GrowingUp",
+   "url": "https://github.com/zigdanis/GrowingUp",
+   "sha": "0e68be440c4a5452ff80c214ce453cc5a9232c35",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 0e68be440c4a: \"Publish and verify localized TestFlight release notes (#47)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

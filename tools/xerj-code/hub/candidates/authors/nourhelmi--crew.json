@@ -1,0 +1,22 @@
+{
+ "corpus": "nourhelmi--crew",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestration, ai-agents, claude-code queries this for how nourhelmi/crew implements it: Run an engineering team of AI coding agents across Claude Code and Codex. Agents spawn, wake and message each other natively: no server, no  (selected work: test, src, adapters)",
+ "repos": [
+  {
+   "repo": "crew",
+   "url": "https://github.com/nourhelmi/crew",
+   "sha": "5a79cfb3ba888d604eeede48dec5947d1414df26",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 5a79cfb3ba88: \"feat: switch Crew lead model and workflow within native sessions\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

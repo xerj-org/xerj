@@ -1,0 +1,22 @@
+{
+ "corpus": "sdlc-pro--spring-lens",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on java, spring-boot, developer-tools queries this for how sdlc-pro/spring-lens implements it: Spring Lens is a real-time observability and debugging tool for Spring Boot applications that helps developers understand what\u2019s happening i (selected work: spring-lens-ui)",
+ "repos": [
+  {
+   "repo": "spring-lens",
+   "url": "https://github.com/sdlc-pro/spring-lens",
+   "sha": "b12dd6b60027433f6c10eb0c48cd9d28bc6f1754",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit b12dd6b60027: \"refactored code for instance module\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

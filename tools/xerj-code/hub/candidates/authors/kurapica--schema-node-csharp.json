@@ -1,0 +1,22 @@
+{
+ "corpus": "kurapica--schema-node-csharp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how kurapica/schema-node-csharp implements it: Executable Structured Semantic Language (selected work: SchemaNode.App, SchemaNode.UnitTest, SchemaNode.Core)",
+ "repos": [
+  {
+   "repo": "schema-node-csharp",
+   "url": "https://github.com/kurapica/schema-node-csharp",
+   "sha": "d15ff631aa0a39316dc4601da2c70d47266009a9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit d15ff631aa0a: \"finish event & workflow system\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

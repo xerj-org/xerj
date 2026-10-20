@@ -1,0 +1,22 @@
+{
+ "corpus": "mixomo--virtual-hdr-osd-for-windows-11",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how Mixomo/Virtual-HDR-OSD-for-Windows-11 implements it: Virtual HDR OSD for Windows 11 is a lightweight Windows 11 HDR profile editor designed as a software counterpart to the controls that many m (selected work: tests, src/vhdr_color, src/sdr_hdr_profile_creator)",
+ "repos": [
+  {
+   "repo": "Virtual-HDR-OSD-for-Windows-11",
+   "url": "https://github.com/Mixomo/Virtual-HDR-OSD-for-Windows-11",
+   "sha": "5053f852ccc24c54b7de63da49bd58445bbe3133",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 5053f852ccc2: \"V2.0.1 Release\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

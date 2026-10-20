@@ -1,0 +1,22 @@
+{
+ "corpus": "byjg--docker-static-httpserver",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on http-server, httpserver, static-site queries this for how byjg/docker-static-httpserver implements it: Really minimal HTTP Server for static files written in GO (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "docker-static-httpserver",
+   "url": "https://github.com/byjg/docker-static-httpserver",
+   "sha": "b6867553739772085d8460db9f52e2fbbffc6a45",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit b68675537397: \"Stamp the image version and gate the chart version bumps\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

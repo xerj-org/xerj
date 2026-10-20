@@ -1,0 +1,22 @@
+{
+ "corpus": "thu-maic--openmaic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how THU-MAIC/OpenMAIC implements it: Open Multi-Agent Interactive Classroom \u2014 Get an immersive, multi-agent learning experience in just one click (selected work: tests, lib/ai, lib/agent)",
+ "repos": [
+  {
+   "repo": "OpenMAIC",
+   "url": "https://github.com/THU-MAIC/OpenMAIC",
+   "sha": "f2875426ae5712d26f0a76e54e9de763e86027a6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit f2875426ae57: \"fix: pass reasoning_content back to DeepSeek in thinking mode (multi-\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "zweisteinium--gamefleet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Zweisteinium/GameFleet implements it: Zweisteinium/GameFleet (Python) (selected work: frontend, backend)",
+ "repos": [
+  {
+   "repo": "GameFleet",
+   "url": "https://github.com/Zweisteinium/GameFleet",
+   "sha": "8e6617661950ff157d5b8e1a3fb9b3a07893b031",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8e6617661950: \"Restore from the backups game servers already make\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

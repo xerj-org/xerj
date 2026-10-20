@@ -1,0 +1,22 @@
+{
+ "corpus": "acebmxer--linux-util",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on linux-util queries this for how acebmxer/linux_util implements it: An interactive multi-select TUI for installing, uninstalling, and updating system tasks and utilities across all major Linux distributions.  (selected work: lib/installers, lib, tests)",
+ "repos": [
+  {
+   "repo": "linux_util",
+   "url": "https://github.com/acebmxer/linux_util",
+   "sha": "b9d6499e32335107408b8b33192896b1cb384761",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit b9d6499e3233: \"feat: add ArtCraft Launcher and Craft App Suite utilities\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

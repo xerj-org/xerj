@@ -1,0 +1,22 @@
+{
+ "corpus": "tanerim--ts-tokenizer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on tokenization, turkish queries this for how tanerim/ts_tokenizer implements it: TS Tokenizer is a hybrid (lexicon-based and rule-based) tokenizer designed specifically for tokenizing Turkish texts (selected work: ts_tokenizer, the project root, samples)",
+ "repos": [
+  {
+   "repo": "ts_tokenizer",
+   "url": "https://github.com/tanerim/ts_tokenizer",
+   "sha": "4c9a1c10603d0a51f530d9438d235cde2e8ec75e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 4c9a1c10603d: \"V 0.3.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

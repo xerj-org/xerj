@@ -1,0 +1,22 @@
+{
+ "corpus": "bae-alves--nihilurk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on game, rust, ascii queries this for how bae-alves/nihilurk implements it: A terminal roguelike about descending thirteen floors. Terminal only, one binary, no assets (selected work: models, engine, strings)",
+ "repos": [
+  {
+   "repo": "nihilurk",
+   "url": "https://github.com/bae-alves/nihilurk",
+   "sha": "4bd72a6d7d9e34b4a7b5924a58457994307d7890",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 4bd72a6d7d9e: \"Fix trickshot juice\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

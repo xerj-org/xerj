@@ -1,0 +1,22 @@
+{
+ "corpus": "robox2020--get-done-code",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how RoboX2020/get-done-code implements it: VS Code / Cursor / Antigravity extension: reward images unlocked by your own coding goals (selected work: src)",
+ "repos": [
+  {
+   "repo": "get-done-code",
+   "url": "https://github.com/RoboX2020/get-done-code",
+   "sha": "a053413f6517b253b488dbad0eafba622399a388",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit a053413f6517: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

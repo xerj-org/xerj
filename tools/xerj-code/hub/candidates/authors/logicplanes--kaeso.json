@@ -1,0 +1,22 @@
+{
+ "corpus": "logicplanes--kaeso",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-gateway, anthropic, kaeso queries this for how logicplanes/kaeso implements it: The open-source AI gateway you run yourself (selected work: scripts, apps/showcase, packages/ui)",
+ "repos": [
+  {
+   "repo": "kaeso",
+   "url": "https://github.com/logicplanes/kaeso",
+   "sha": "cfa3a376c401476c21f022f9db42c1f6974cf4bb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit cfa3a376c401: \"Make both sites crawlable, previewable and searchable on phones (#28)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

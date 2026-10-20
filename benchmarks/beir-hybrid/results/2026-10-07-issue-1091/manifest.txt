@@ -1,0 +1,43 @@
+Run manifest — issue #1091 (hybrid/semantic first stage on FiQA), measured 2026-10-07
+====================================================================================
+
+Builds (matched: same profile, same merge base, built on the same machine)
+  baseline  e4c6c027 (upstream main at the branch point), cargo build --release -p xerj-server
+  fix       e4c6c027 + this PR's engine/storage change, cargo build --release -p xerj-server
+  both report "xerj v1.0.0-rc.87"
+
+Dataset
+  fiqa.zip sha256 32c7df99ed21252fdfb2cf3f5673502a8d245ee0c44c4a133570d92ce2b3ad02
+  (same archive as results/2026-09-30-judge-gate/manifest.txt), corpus.jsonl 57,638 docs
+  URL https://public.ukp.informatik.tu-darmstadt.de/thakur/BEIR/datasets/fiqa.zip
+
+Node
+  xerj --insecure --port <p> -d <fresh empty data dir>   (default --embed-mode: lexical)
+  one node at a time, never both; nothing else measuring on the machine
+  Apple M5, 10 cores, 24 GB, macOS 27.0.1; auto memory limits (watermark 7,782 MB)
+
+Procedure, per build
+  1. XERJ_URL=http://localhost:<p> python3 load.py corpus.jsonl fiqa
+     (load.py now retries a 429 from the memory breaker; a first attempt of this A/B
+     lost 21,218 documents of the fix arm to one, and its numbers were discarded)
+  2. sleep 30
+  3. python3 latency_1091.py run http://localhost:<p> fiqa queries.jsonl 50 <out>.json 57638
+     (refuses to measure unless _count == 57638)
+  then: python3 latency_1091.py diff baseline-e4c6c027.json fix.json
+
+Result (ab.log, verbatim)
+  baseline  semantic  first 7,164 ms   p50 3,865 ms  p95 6,398 ms  max 6,987 ms
+            hybrid    first 10,708 ms  p50 5,772 ms  p95 7,368 ms  max 9,355 ms
+            memory-watermark crossings during the run: 25
+  fix       semantic  first 8,511 ms   p50   261 ms  p95   293 ms  max   305 ms
+            hybrid    first    377 ms  p50   289 ms  p95   330 ms  max   344 ms
+            memory-watermark crossings during the run: 0
+  ranked ids identical, baseline vs fix: semantic 50/50, hybrid 50/50 (top 30 each)
+
+Reading it
+  p50/p95/max exclude each arm's first query. The fix's first semantic query is the
+  cold one: it builds every segment's vector column from the typed projection. The
+  hybrid arm runs second and finds the columns warm.
+  Absolute values are this machine's; the 13-26 s in the issue came from a different
+  box (8 pinned cores, neural embedder, co-tenant load). Not re-measured here:
+  --embed-mode neural, and nDCG (ids are identical, so ranking quality cannot move).

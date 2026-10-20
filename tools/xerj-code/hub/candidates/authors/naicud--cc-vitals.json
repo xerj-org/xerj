@@ -1,0 +1,22 @@
+{
+ "corpus": "naicud--cc-vitals",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on TypeScript queries this for how naicud/cc-vitals implements it: Claude Code mod: a live vitals band above the prompt \u2014 tokens in/out, cache read/write and hit rate, effort, context, cost and plan limits.  (selected work: plugins)",
+ "repos": [
+  {
+   "repo": "cc-vitals",
+   "url": "https://github.com/naicud/cc-vitals",
+   "sha": "b0f0aa1cd641d4436579e0e53050af230d74a25d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit b0f0aa1cd641: \"Vitals 0.9: limiti per modello, crediti, gravit\u00e0 del server e settima\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

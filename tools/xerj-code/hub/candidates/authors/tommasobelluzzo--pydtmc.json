@@ -1,0 +1,22 @@
+{
+ "corpus": "tommasobelluzzo--pydtmc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on probability, analysis, markov-models queries this for how TommasoBelluzzo/PyDTMC implements it: Python library for analyzing, simulating, and visualizing discrete-time Markov chains and hidden Markov models (selected work: pydtmc, tests)",
+ "repos": [
+  {
+   "repo": "PyDTMC",
+   "url": "https://github.com/TommasoBelluzzo/PyDTMC",
+   "sha": "9139585834aefcb601575755765c2c16093c38a3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 9139585834ae: \"Conductance + Mixing Diagnostics\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

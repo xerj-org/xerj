@@ -1,0 +1,22 @@
+{
+ "corpus": "vacanza--holidays",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on python, holiday, calendar queries this for how vacanza/holidays implements it: Open World Holidays Framework (selected work: tests, holidays)",
+ "repos": [
+  {
+   "repo": "holidays",
+   "url": "https://github.com/vacanza/holidays",
+   "sha": "b7a2da6e03ae4b60c12d13c5c7abb1e4af5fb0d3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b7a2da6e03ae: \"Add Saudi Exchange (Tadawul) holidays (#3921)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

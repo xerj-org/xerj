@@ -1,0 +1,22 @@
+{
+ "corpus": "maurodruwel--convergence",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how MauroDruwel/convergence implements it: The autonomous semantic code fabric for 100,000+ concurrent AI agents - branchless AST-CRDT version control on Cloudflare Workers, Durable O (selected work: src/ui, src/core, src)",
+ "repos": [
+  {
+   "repo": "convergence",
+   "url": "https://github.com/MauroDruwel/convergence",
+   "sha": "b36b10e91c7e9be4d38794dc4e563b30a1bda3eb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit b36b10e91c7e: \"feat(ui): session-persistent tutorial unlock + DO SQLite rehydration\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

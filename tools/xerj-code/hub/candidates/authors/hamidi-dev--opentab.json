@@ -1,0 +1,22 @@
+{
+ "corpus": "hamidi-dev--opentab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on dashboard, opencode, python queries this for how hamidi-dev/opentab implements it: \ud83d\udcca Browse your AI coding spend in the terminal \u2014 OpenCode, Claude Code, Codex & friends (selected work: tests, src/opentab)",
+ "repos": [
+  {
+   "repo": "opentab",
+   "url": "https://github.com/hamidi-dev/opentab",
+   "sha": "52eca89e10c2456fa8195d0efd52d1119de2fbbe",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 52eca89e10c2: \"fix: address audit findings across pricing, readers, storage and web\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

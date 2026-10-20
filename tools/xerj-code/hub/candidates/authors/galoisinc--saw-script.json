@@ -1,0 +1,22 @@
+{
+ "corpus": "galoisinc--saw-script",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Haskell queries this for how GaloisInc/saw-script implements it: The Software Analysis Workbench (selected work: saw-central, saw-server, crucible-mir-comp)",
+ "repos": [
+  {
+   "repo": "saw-script",
+   "url": "https://github.com/GaloisInc/saw-script",
+   "sha": "931a864623ec4d05a51c9d00f1cb4dc0595e04d1",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 931a864623ec: \"crucible: Assorted other minor tidyups related to position handling.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

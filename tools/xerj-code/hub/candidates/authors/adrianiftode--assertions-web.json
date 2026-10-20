@@ -1,0 +1,22 @@
+{
+ "corpus": "adrianiftode--assertions-web",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on asp-net-core, fluentassertions, testserver queries this for how adrianiftode/Assertions.Web implements it: .NET Assertions for HTTP APIs (selected work: test, src/Shouldly.Web, src/Assertions.Web.Shared)",
+ "repos": [
+  {
+   "repo": "Assertions.Web",
+   "url": "https://github.com/adrianiftode/Assertions.Web",
+   "sha": "832f220d6c308028894521ecbd3d79cb44cfe0c2",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 832f220d6c30: \"Tighten Shouldly failure messages and fix the review findings\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

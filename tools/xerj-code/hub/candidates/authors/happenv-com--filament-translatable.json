@@ -1,0 +1,22 @@
+{
+ "corpus": "happenv-com--filament-translatable",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on filament, filamentphp, i18n queries this for how happenv-com/filament-translatable implements it: ilament Translatable is a flexible package that provides a complete solution for managing multilingual content in Filament admin panels. It  (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "filament-translatable",
+   "url": "https://github.com/happenv-com/filament-translatable",
+   "sha": "2a0bfe6a349f7e4b1d6381ef33ef65db680d89fb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 2a0bfe6a349f: \"build: adopt the Happenv repository configuration\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

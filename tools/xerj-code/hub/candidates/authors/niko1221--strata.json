@@ -1,0 +1,22 @@
+{
+ "corpus": "niko1221--strata",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C++ queries this for how Niko1221/Strata implements it: Qwen3.8-Flash-Next on any consumer hardware: one-click install for Windows / Linux. Strata inference engine, OpenAI/Anthropic API on localho (selected work: src/kernels, include)",
+ "repos": [
+  {
+   "repo": "Strata",
+   "url": "https://github.com/Niko1221/Strata",
+   "sha": "304d613cd03edd6ef4d0f7f62a1bf4d290863107",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 304d613cd03e: \"kernels: rope scaling config and the scaled cos/sin table (none/linea\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

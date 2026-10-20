@@ -1,0 +1,22 @@
+{
+ "corpus": "hesychia-dev--elevon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on deployment, deployment-automation, deployment-manager queries this for how hesychia-dev/elevon implements it: Simple, fast, and affordable container deployments for production infrastructure (selected work: crates/elevon-deploy, crates/elevon-config)",
+ "repos": [
+  {
+   "repo": "elevon",
+   "url": "https://github.com/hesychia-dev/elevon",
+   "sha": "791b3048881d730adc50f4fb1789ebceee683092",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 791b3048881d: \"test(deploy): add tests for agent deployments (#125)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

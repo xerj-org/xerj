@@ -1,0 +1,22 @@
+{
+ "corpus": "catvinci-studio--textus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on ai, ai-writing, editor queries this for how CatVinci-Studio/Textus implements it: The next-generation Markdown editor, with an AI writing assistant. Free and open source for macOS, Windows and Linux (selected work: src-tauri, src)",
+ "repos": [
+  {
+   "repo": "Levis",
+   "url": "https://github.com/CatVinci-Studio/Levis",
+   "sha": "ce2cde964b046dcd3c46b6d3affe80aa87030f72",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit ce2cde964b04: \"feat(export): write PDFs natively on Windows and Linux too\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

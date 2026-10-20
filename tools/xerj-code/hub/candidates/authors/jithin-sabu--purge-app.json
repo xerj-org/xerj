@@ -1,0 +1,22 @@
+{
+ "corpus": "jithin-sabu--purge-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cache-cleaner, developer-tools, mac-cleaner queries this for how jithin-sabu/purge-app implements it: Free up your Mac. Safely. A free, open-source native Mac app that clears the cache and junk your Mac piles up on its own. Files go to the Tr (selected work: PurgeTests, purge)",
+ "repos": [
+  {
+   "repo": "purge-app",
+   "url": "https://github.com/jithin-sabu/purge-app",
+   "sha": "972e0675dfce0eb557e77a3a305293a8c3b85237",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 972e0675dfce: \"feat: show orphaned agent worktrees, never ones Git still lists (#61)\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

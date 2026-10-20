@@ -1,0 +1,22 @@
+{
+ "corpus": "evaengine--evaengine-js",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dependency-injection, es2017, framework queries this for how EvaEngine/EvaEngine.js implements it: A micro service development engine for node.js (selected work: src, test, src/services)",
+ "repos": [
+  {
+   "repo": "EvaEngine.js",
+   "url": "https://github.com/EvaEngine/EvaEngine.js",
+   "sha": "14c4d2b0d2d10fe1faf842cf08b5c81a281a192e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 14c4d2b0d2d1: \"refactor!: replace the constitute DI package with a native container\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

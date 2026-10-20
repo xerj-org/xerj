@@ -1,0 +1,22 @@
+{
+ "corpus": "goslowpoke168--hermes-openrouter-free-rotator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on hermes-agent, hermes-plugin, hermes-agent-plugin queries this for how GoSlowPoke168/hermes-openrouter-free-rotator implements it: Automatically loads the best free OpenRouter models into Hermes Agent. Ranks every :free model daily by privacy (optional) and rotates your  (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "hermes-openrouter-free-rotator",
+   "url": "https://github.com/GoSlowPoke168/hermes-openrouter-free-rotator",
+   "sha": "454c33aae9e40ca2ac0c41e144b154ba61d9222a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 454c33aae9e4: \"feat: support Windows locks and default to Hermes scheduling\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

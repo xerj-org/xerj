@@ -1,0 +1,22 @@
+{
+ "corpus": "irfhakeem--go-gin-clean",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on clean-architecture, golang, template queries this for how irfhakeem/go-gin-clean implements it: Go REST API template following Clean Architecture principles for mini to intermediate production ready project (selected work: internal/infrastructure, internal/delivery, internal/application)",
+ "repos": [
+  {
+   "repo": "go-gin-clean",
+   "url": "https://github.com/irfhakeem/go-gin-clean",
+   "sha": "fdda020c0863f4b785c4b2213696baed9363dea5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit fdda020c0863: \"fix (internal): major security issues, refactoring to follow atomic d\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

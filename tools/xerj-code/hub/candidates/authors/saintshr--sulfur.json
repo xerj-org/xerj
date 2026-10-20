@@ -1,0 +1,22 @@
+{
+ "corpus": "saintshr--sulfur",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on compiler, low-level, memory-safety queries this for how saintsHr/Sulfur implements it: A systems programming language built around explicitness, predictability, and control (selected work: src/sulfur, include)",
+ "repos": [
+  {
+   "repo": "Sulfur",
+   "url": "https://github.com/saintsHr/Sulfur",
+   "sha": "84f85f75623f823af98b0737392debca31980c06",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 84f85f75623f: \"refactor(utils): full style and functionality refactor\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

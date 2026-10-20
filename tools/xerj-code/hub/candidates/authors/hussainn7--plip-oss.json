@@ -1,0 +1,22 @@
+{
+ "corpus": "hussainn7--plip-oss",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-safety, ai-agents, browser-automation queries this for how hussainn7/plip-oss implements it: Open-source runtime for grounded, model-agnostic computer-use agents with verifiable action receipts (selected work: src/mcp_vision, tests, ui)",
+ "repos": [
+  {
+   "repo": "plip-oss",
+   "url": "https://github.com/hussainn7/plip-oss",
+   "sha": "92371a10684a806657cf336f5710e8d3f24345b9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 92371a10684a: \"onboarding: sign-in comes after the first task, never before it (reba\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

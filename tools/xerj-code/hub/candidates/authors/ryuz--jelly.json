@@ -1,0 +1,22 @@
+{
+ "corpus": "ryuz--jelly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on fpga, fpga-soc, verilog queries this for how ryuz/jelly implements it: Original FPGA platform (selected work: testbench, rtl)",
+ "repos": [
+  {
+   "repo": "jelly",
+   "url": "https://github.com/ryuz/jelly",
+   "sha": "7d21e5aa6457fdbfeaba4736ed3914db946a79c2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 7d21e5aa6457: \"feat: add jelly3_integer_multiplier module and testbench for multi-cy\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

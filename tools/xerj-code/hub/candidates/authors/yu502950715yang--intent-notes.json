@@ -1,0 +1,22 @@
+{
+ "corpus": "yu502950715yang--intent-notes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on adr, agent-skills, ai-agent queries this for how yu502950715yang/intent-notes implements it: \u8ba9 AI \u5728\u9879\u76ee\u4ed3\u5e93\u91cc\u6301\u7eed\u7559\u4e0b\u51b3\u7b56\u7b14\u8bb0\uff08Agent Notes\uff09\u7684 Agent Skill \u5305 (selected work: tests, skills)",
+ "repos": [
+  {
+   "repo": "intent-notes",
+   "url": "https://github.com/yu502950715yang/intent-notes",
+   "sha": "2003fbe42c7678d5d39a6ca5910d0f43fb4a5933",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 2003fbe42c76: \"fix: \u95e8\u7981\u5224\u5b9a\u5f52\u4e00\uff0c\u5835\u4f4f\u94fe\u63a5\u4e0e\u6bb5\u5934\u7684\u5047\u7eff\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "rangermix--twitchdropsminer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on automation, bot, docker queries this for how rangermix/TwitchDropsMiner implements it: An app that allows you to AFK mine timed Twitch drops, with automatic drop claiming and channel switching. Web GUI, dockerised (selected work: tests, lang, src/auth)",
+ "repos": [
+  {
+   "repo": "TwitchDropsMiner",
+   "url": "https://github.com/rangermix/TwitchDropsMiner",
+   "sha": "191ba1c023fbf676788504d9342fb1212a7a51ba",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit 191ba1c023fb: \"Restore optional desktop helper login (#154)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

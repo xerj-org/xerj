@@ -1,0 +1,22 @@
+{
+ "corpus": "sharmao07--robin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how sharmao07/Robin implements it: Local first AI assistant for macOS with offline intelligence, computer control, memory, and other permission based actions (selected work: robin, tests, the project root)",
+ "repos": [
+  {
+   "repo": "Robin",
+   "url": "https://github.com/sharmao07/Robin",
+   "sha": "8ce0d3b9bdd7bca4f6d1771722c9a2d43d1f50ac",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8ce0d3b9bdd7: \"Prepare Robin standalone desktop release candidate\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "anynect--autonect",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai, browser-automation, deepseek queries this for how AnyNect/AutoNect implements it: Autonomous AI-Shell bridge using browser automation. No API keys, event\u2011driven, safe local execution (selected work: scripts, src/skills, tests)",
+ "repos": [
+  {
+   "repo": "AutoNect",
+   "url": "https://github.com/AnyNect/AutoNect",
+   "sha": "53f6fb214a467f140c01f44e2ab02f9f4c839c6a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 53f6fb214a46: \"feat(research): hybrid index + context builder for the local engine\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

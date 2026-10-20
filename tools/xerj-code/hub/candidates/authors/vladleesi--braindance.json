@@ -1,0 +1,22 @@
+{
+ "corpus": "vladleesi--braindance",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, compose-multiplatform, ios queries this for how vladleesi/braindance implements it: Explore games, track favorites and releases, discover giveaways, and browse news. Built with Kotlin Multiplatform & Compose Multiplatform fo (selected work: backend, shared, the project root)",
+ "repos": [
+  {
+   "repo": "braindance",
+   "url": "https://github.com/vladleesi/braindance",
+   "sha": "02a2f977df5ad53e7977d5c1966f93e37daafa10",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 02a2f977df5a: \"perf: cache public reads and warm backend on app startup\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

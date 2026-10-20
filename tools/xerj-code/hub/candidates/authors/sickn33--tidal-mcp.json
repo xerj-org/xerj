@@ -1,0 +1,22 @@
+{
+ "corpus": "sickn33--tidal-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude, codex queries this for how sickn33/tidal-mcp implements it: The complete, safety-first MCP server for TIDAL \u2014 112 tools for catalog, lyrics, recommendations, favorites, playlists, folders, discovery,  (selected work: tests, src/tidal_mcp, scripts)",
+ "repos": [
+  {
+   "repo": "tidal-mcp",
+   "url": "https://github.com/sickn33/tidal-mcp",
+   "sha": "245bf3dd50dba29c6b6627e4371eee1d7ec3d29a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 245bf3dd50db: \"feat: export a playlist summary or comparison as JSON (#28)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

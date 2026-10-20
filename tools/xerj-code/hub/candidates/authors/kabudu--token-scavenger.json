@@ -1,0 +1,22 @@
+{
+ "corpus": "kabudu--token-scavenger",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on freetokens, tokens, ai queries this for how kabudu/token-scavenger implements it: A self-hosted LLM router to help you scavenge every free token on Earth (selected work: src/providers, src/discovery, tests)",
+ "repos": [
+  {
+   "repo": "token-scavenger",
+   "url": "https://github.com/kabudu/token-scavenger",
+   "sha": "3c7b0fdfb461cd96b3cc50622a8e6d04c49883d4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 3c7b0fdfb461: \"Refresh free-tier catalog, task model groups, vision and embeddings (\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

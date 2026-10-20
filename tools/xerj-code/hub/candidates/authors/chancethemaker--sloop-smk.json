@@ -1,0 +1,22 @@
+{
+ "corpus": "chancethemaker--sloop-smk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how ChanceTheMaker/sloop-smk implements it: Sloop for the SMK Series (selected work: web, tools)",
+ "repos": [
+  {
+   "repo": "sloop-smk",
+   "url": "https://github.com/ChanceTheMaker/sloop-smk",
+   "sha": "0817faa31610152d9f27f346d630f94b2b481b08",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 0817faa31610: \"Add original firmware restore from the installer (#8)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

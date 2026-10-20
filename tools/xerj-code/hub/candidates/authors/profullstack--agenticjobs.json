@@ -1,0 +1,22 @@
+{
+ "corpus": "profullstack--agenticjobs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, federation, hiring queries this for how profullstack/agenticjobs implements it: An agent-friendly job board you self-host. Its own listings, never scraped. Web, API, MCP, CLI, TUI, desktop and PWA on one engine, and inst (selected work: test, src/views, src/core)",
+ "repos": [
+  {
+   "repo": "agenticjobs",
+   "url": "https://github.com/profullstack/agenticjobs",
+   "sha": "f35ff754afa81722e9613a8c93f55fc390a23dd9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f35ff754afa8: \"fix(applications): paginate employer inbox (#249)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "aaryaninzalkar--sentinelai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how AaryanInzalkar/SentinelAI implements it: AI-powered surveillance system using YOLOv8 detection, ML-based risk scoring, and explainable alerts to flag suspicious behavior in real tim (selected work: backend, the project root)",
+ "repos": [
+  {
+   "repo": "SentinelAI",
+   "url": "https://github.com/AaryanInzalkar/SentinelAI",
+   "sha": "2ab10a644145f25f9e146aa7d300eb82ea8d542e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 2ab10a644145: \"Security hardening, production readiness, and code quality improvements\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

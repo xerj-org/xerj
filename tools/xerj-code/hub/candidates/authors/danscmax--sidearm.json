@@ -1,0 +1,22 @@
+{
+ "corpus": "danscmax--sidearm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on gaming-mouse, keyboard-shortcuts, macros queries this for how danscMax/Sidearm implements it: Desktop workflow studio for Razer Naga mice \u2014 36 buttons, per-app profiles, macros, auto-switching. / \u0414\u0435\u0441\u043a\u0442\u043e\u043f-\u0441\u0442\u0443\u0434\u0438\u044f \u0434\u043b\u044f \u043c\u044b\u0448\u0435\u0439 Razer Naga: 3 (selected work: the project root, src-tauri)",
+ "repos": [
+  {
+   "repo": "Sidearm",
+   "url": "https://github.com/danscMax/Sidearm",
+   "sha": "fea08e930aae7dcb6e6b3754a573bb11d0b625dd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit fea08e930aae: \"fix(portfolio-1008): wave 1 \u2014 SECURITY versions, ScriptKit v4 resync,\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

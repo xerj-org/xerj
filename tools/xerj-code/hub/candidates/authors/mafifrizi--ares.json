@@ -1,0 +1,22 @@
+{
+ "corpus": "mafifrizi--ares",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on active-directory, cloud-security, defensive-validation queries this for how Mafifrizi/ARES implements it: ARES - authorized red-team engagement automation with dashboard, campaign scope, module orchestration, OPSEC controls, encrypted vault, and  (selected work: ares, tests)",
+ "repos": [
+  {
+   "repo": "ARES",
+   "url": "https://github.com/Mafifrizi/ARES",
+   "sha": "6f9bc8ffb1ba86057772eb018026ed5c5525ab11",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 6f9bc8ffb1ba: \"fix(core): remediate logic bugs, graph pathfinding, service intel sco\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

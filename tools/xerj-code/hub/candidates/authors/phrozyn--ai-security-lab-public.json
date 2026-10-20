@@ -1,0 +1,22 @@
+{
+ "corpus": "phrozyn--ai-security-lab-public",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-security, detection-engineering, llm-security queries this for how Phrozyn/ai-security-lab-public implements it: AI/ML security portfolio: gateway hardening, RAG defenses, supply-chain integrity, and detections, with CI gates and a threat model (selected work: ci-cd)",
+ "repos": [
+  {
+   "repo": "ai-security-lab-public",
+   "url": "https://github.com/Phrozyn/ai-security-lab-public",
+   "sha": "29688564074d8932b3169e8e9da4ab5eeaaa2244",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 29688564074d: \"redteam: score raw and guarded answers from one model call\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

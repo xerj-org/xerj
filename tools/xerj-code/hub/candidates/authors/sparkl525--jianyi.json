@@ -1,0 +1,22 @@
+{
+ "corpus": "sparkl525--jianyi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Java queries this for how sparkl525/JianYi implements it: \u7b80\u8bd1 \u00b7 \u6781\u7b80\u79bb\u7ebf\u4e2d\u82f1\u5b66\u4e60 Android App\uff08\u67e5\u8bcd/\u7ffb\u8bd1/\u62cd\u7167/\u542c\u529b/\u8bb0\u80cc/\u9605\u8bfb\uff09\uff0c\u7eaf\u539f\u751f Java (selected work: app/src, app, the project root)",
+ "repos": [
+  {
+   "repo": "JianYi",
+   "url": "https://github.com/sparkl525/JianYi",
+   "sha": "9fd0fcbf74bb34f92bb589467dc5d3229c062cb5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 9fd0fcbf74bb: \"ui: \u6696\u8272\u6cbb\u6108\u7cfb\u4e3b\u9898\u91cd\u6784\uff08\u7b80\u8bd1 2.0.8\uff09\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

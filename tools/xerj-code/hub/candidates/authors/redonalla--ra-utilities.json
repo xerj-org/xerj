@@ -1,0 +1,22 @@
+{
+ "corpus": "redonalla--ra-utilities",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on C# queries this for how RedonAlla/RA.Utilities implements it: RA.Utilities is a \"batteries-included\" framework for building modern .NET APIs. It provides the foundation for a clean architecture so you c (selected work: Api)",
+ "repos": [
+  {
+   "repo": "RA.Utilities",
+   "url": "https://github.com/RedonAlla/RA.Utilities",
+   "sha": "d2f0fdf0a4daffd2907568ca76a1c543c9f4129b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit d2f0fdf0a4da: \"Refactor OpenAPI documentation and transformer registration\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

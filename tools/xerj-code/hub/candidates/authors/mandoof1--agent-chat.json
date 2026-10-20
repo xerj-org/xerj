@@ -1,0 +1,22 @@
+{
+ "corpus": "mandoof1--agent-chat",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, llama-cpp, llm queries this for how mandoof1/agent-chat implements it: Local multi-agent chat harness for OpenAI-compatible servers (llama.cpp, Ollama, ...): agents that delegate to and question each other, a sh (selected work: app, tests, tui)",
+ "repos": [
+  {
+   "repo": "agent-chat",
+   "url": "https://github.com/mandoof1/agent-chat",
+   "sha": "d385bd2c3493998fc35d3700234aa67f44379f59",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit d385bd2c3493: \"Fixes from watching a 4B model work in a small window\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

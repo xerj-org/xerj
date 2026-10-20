@@ -1,0 +1,22 @@
+{
+ "corpus": "androidircx--androidircx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android-irc-client, irc, irc-client queries this for how AndroidIRCx/AndroidIRCx implements it: AndroidIRCx - A powerful and feature-rich IRC client for Android (selected work: __tests__, src/services, src/components)",
+ "repos": [
+  {
+   "repo": "AndroidIRCx",
+   "url": "https://github.com/AndroidIRCx/AndroidIRCx",
+   "sha": "8dcae4884d1adc75284bc9e4e42f4bd1d259a025",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 8dcae4884d1a: \"Ship v1.10.5: fast ZNC replay and big channels, one notification per \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

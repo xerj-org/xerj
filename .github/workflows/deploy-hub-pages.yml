@@ -15,9 +15,14 @@ on:
       - .github/workflows/deploy-hub-pages.yml
   workflow_dispatch:
 
+permissions:
+  contents: read
+  actions: read # the catalogue artifact of hub-packs.yml
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -29,6 +34,56 @@ jobs:
         run: python3 tools/corpus-hub-site/gen.py
       - name: Validate registry (site must not ship from a red registry)
         run: python3 tools/xerj-code/hub/validate_hub.py
+      # A Pages deploy REPLACES the whole site, so a site built from the generator
+      # alone would delete /api/v1/catalogue.json (the signed index clients read),
+      # which hub-packs.yml deploys. Once the owner has opted in to serving it
+      # (repository variable HUB_CATALOGUE_DEPLOY, same switch as hub-packs.yml),
+      # every deploy carries the current signed catalogue: the newest `catalogue`
+      # artifact from a corpus-hub run of hub-packs.yml (built from the published
+      # pack releases and checked against the registry there), else the one live on
+      # the site. Either must verify under the key clients embed. If neither does,
+      # fail rather than ship a site without it.
+      - name: Carry the signed catalogue into the site
+        if: vars.HUB_CATALOGUE_DEPLOY == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HUB_URL: https://hub.xerj.org
+        run: |
+          set -euo pipefail
+          pub=$(sed -n 's/^pub const HUB_PUBKEY_HEX: &str = "\([0-9a-fA-F]*\)";.*/\1/p' \
+                  engine/crates/xerj-common/src/hub.rs | head -n 1)
+          [ -n "$pub" ] || { echo "::error::HUB_PUBKEY_HEX is empty on this branch; cannot verify a catalogue"; exit 1; }
+          usable() {  # <dir>: a signed, well-formed catalogue with at least one corpus
+            [ -s "$1/catalogue.json" ] && [ -s "$1/catalogue.json.sig" ] \
+              && bash tools/hub-packs/ed25519.sh verify "$pub" "$1/catalogue.json" "$1/catalogue.json.sig" \
+              && jq -e '.format_version == 1 and (.corpora | type == "array" and length > 0)' \
+                   "$1/catalogue.json" >/dev/null
+          }
+          got=""
+          A="$RUNNER_TEMP/cat-artifact"; mkdir -p "$A"
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=catalogue&per_page=100" \
+                  --jq '[.artifacts[] | select((.expired | not) and .workflow_run.head_branch == "corpus-hub")]
+                        | sort_by(.created_at) | last | .workflow_run.id // empty' 2>/dev/null || true)
+          [[ $run =~ ^[0-9]+$ ]] || run=""  # gh prints an API error body to stdout
+          if [ -n "$run" ] && gh run download "$run" --repo "$GITHUB_REPOSITORY" --name catalogue --dir "$A" \
+             && usable "$A"; then
+            got="$A"; echo "catalogue from hub-packs run $run"
+          else
+            L="$RUNNER_TEMP/cat-live"; mkdir -p "$L"
+            if curl -fsS --max-time 60 -o "$L/catalogue.json" "$HUB_URL/api/v1/catalogue.json" \
+               && curl -fsS --max-time 60 -o "$L/catalogue.json.sig" "$HUB_URL/api/v1/catalogue.json.sig" \
+               && usable "$L"; then
+              got="$L"; echo "no usable catalogue artifact; carrying the live one forward"
+            fi
+          fi
+          if [ -z "$got" ]; then
+            echo "::error title=catalogue::no signed catalogue to carry (no usable hub-packs artifact, and the live one is missing or does not verify); refusing to deploy a site without /api/v1/catalogue.json. Run hub-packs.yml first."
+            exit 1
+          fi
+          mkdir -p tools/corpus-hub-site/out/api/v1
+          cp "$got/catalogue.json" "$got/catalogue.json.sig" tools/corpus-hub-site/out/api/v1/
+          echo "carrying $(jq '.corpora | length' "$got/catalogue.json") corpora, $(wc -c < "$got/catalogue.json") bytes"
+
       - name: Deploy to Cloudflare Pages
         run: npx wrangler@3 pages deploy tools/corpus-hub-site/out --project-name=xerj-hub --branch=corpus-hub
         env:

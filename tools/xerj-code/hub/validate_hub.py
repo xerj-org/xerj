@@ -25,6 +25,10 @@ LEGAL_USE = {"adapt-with-attribution", "approach-only", "mixed"}
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 errors: list[str] = []
+# Manifests whose pin is withdrawn are not clone recipes. `read_hub_manifest`
+# refuses them before it reads `repos`, so an empty list is the honest shape
+# (no url left to clone). They stay in the registry so `--from` can say why.
+withdrawn_names: set[str] = set()
 
 
 def err(msg: str) -> None:
@@ -47,6 +51,18 @@ for path in manifests:
     name = data.get("corpus")
     if name != path.stem:
         err(f"{rel}: corpus field {name!r} must equal the filename {path.stem!r}")
+
+    # A withdrawn pin is refused by the clone path. It must say why, and it
+    # must not be held to the clone-recipe rules (a non-empty `repos` list,
+    # a sha, a licence review). PROGRAM-100 records that state as backlog
+    # status `withdrawn`.
+    withdrawn = data.get("withdrawn")
+    if withdrawn is not None:
+        if not isinstance(withdrawn, str) or not withdrawn.strip():
+            err(f"{rel}: withdrawn must be a non-empty string")
+        else:
+            withdrawn_names.add(path.stem)
+        continue
 
     repos = data.get("repos")
     if not isinstance(repos, list) or not repos:
@@ -164,7 +180,21 @@ for i, row in enumerate(rows):
         backlog_errors.append(f"{where}: refresh {row.get('refresh')!r} not in "
                               f"backlog.refreshes")
 
-live_manifests = {p.stem for p in manifests}
+live_manifests = {p.stem for p in manifests if p.stem not in withdrawn_names}
+for name in sorted(withdrawn_names):
+    row = next((r for r in rows if r.get("slug") == name), None)
+    if row is None:
+        backlog_errors.append(f"withdrawn manifest {name}.json has no backlog row")
+    elif row.get("status") != "withdrawn":
+        backlog_errors.append(
+            f"withdrawn manifest {name}.json has backlog status "
+            f"{row.get('status')!r}, not 'withdrawn'"
+        )
+    elif row.get("lane") != "A":
+        backlog_errors.append(
+            f"withdrawn manifest {name}.json is lane A by construction; "
+            f"backlog row says {row.get('lane')!r}"
+        )
 live_recipes = {p.parent.name for p in recipes}
 for name in sorted(live_manifests):
     row = next((r for r in rows if r.get("slug") == name), None)

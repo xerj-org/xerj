@@ -1,0 +1,22 @@
+{
+ "corpus": "axeg0--codex-telegram",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how AXEG0/codex-telegram implements it: AXEG0/codex-telegram (JavaScript) (selected work: plugins, the project root)",
+ "repos": [
+  {
+   "repo": "codex-telegram",
+   "url": "https://github.com/AXEG0/codex-telegram",
+   "sha": "634193e4c162ccdde9eb8e1c00a867385a9ad10c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 634193e4c162: \"Add native Telegram setup, shared launcher and coordinated updates\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

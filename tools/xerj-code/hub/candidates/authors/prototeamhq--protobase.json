@@ -1,0 +1,22 @@
+{
+ "corpus": "prototeamhq--protobase",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how PrototeamHQ/protobase implements it: PrototeamHQ/protobase (TypeScript) (selected work: packages/ui)",
+ "repos": [
+  {
+   "repo": "protobase",
+   "url": "https://github.com/PrototeamHQ/protobase",
+   "sha": "cb7b56412a2ffb9fcea232946de085dbd9a848f8",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit cb7b56412a2f: \"feat(ui): a Sort button on lists and related sections whose records a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

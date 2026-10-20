@@ -1,0 +1,22 @@
+{
+ "corpus": "markoblogo--abvx-agent-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, codex queries this for how markoblogo/abvx-agent-skills implements it: Reviewable capability layer for coding agents: portable skills, workflow patterns, verification gates, token-efficient execution, and bounde (selected work: benchmarks, scripts, tests)",
+ "repos": [
+  {
+   "repo": "abvx-agent-skills",
+   "url": "https://github.com/markoblogo/abvx-agent-skills",
+   "sha": "fc504a3c961bd17d430787e0c7bb6371b381bfae",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit fc504a3c961b: \"publish measured Chisle comparison\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

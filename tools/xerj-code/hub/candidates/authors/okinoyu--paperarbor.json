@@ -1,0 +1,22 @@
+{
+ "corpus": "okinoyu--paperarbor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on HTML queries this for how OkinoYu/PaperArbor implements it: An AI-Powered Visual Research Knowledge Base \u2014 Where Papers Grow into Knowledge (selected work: examples, tests, assets)",
+ "repos": [
+  {
+   "repo": "PaperArbor",
+   "url": "https://github.com/OkinoYu/PaperArbor",
+   "sha": "d7094e1535e193da42478c920f8667f6b3ac3b26",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit d7094e1535e1: \"Make evidence unobtrusive and bring OPLD figures into the narrative\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

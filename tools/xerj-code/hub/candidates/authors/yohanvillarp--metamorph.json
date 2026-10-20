@@ -1,0 +1,22 @@
+{
+ "corpus": "yohanvillarp--metamorph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how yohanvillarp/metamorph implements it: Automatic technology migrator using parallel agents in Mozaik (selected work: packages/@nikelyh)",
+ "repos": [
+  {
+   "repo": "metamorph",
+   "url": "https://github.com/yohanvillarp/metamorph",
+   "sha": "78bde9347af157343d4211217c66adb6c9fc6885",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 78bde9347af1: \"feat(application): dynamically resolve entrypoint for start and dev s\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

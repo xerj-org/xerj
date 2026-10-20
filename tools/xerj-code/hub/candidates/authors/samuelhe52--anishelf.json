@@ -1,0 +1,22 @@
+{
+ "corpus": "samuelhe52--anishelf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ios, swift, swiftdata queries this for how samuelhe52/AniShelf implements it: A digital bookshelf for your anime \u2013 track, organize, and revisit your favorite series with ease (selected work: DataProvider, MyAnimeList)",
+ "repos": [
+  {
+   "repo": "AniShelf",
+   "url": "https://github.com/samuelhe52/AniShelf",
+   "sha": "388e66403e8a98858e9187cdf94b6ae1fc7db852",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 388e66403e8a: \"fix: Bound iCloud preparation and recover sync after re-enabling\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

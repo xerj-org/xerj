@@ -1,0 +1,22 @@
+{
+ "corpus": "csr1010--wappy-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-framework, ai-agent, chatbot queries this for how csr1010/wappy-kit implements it: Wappy: the open-source AI agent SDK for WhatsApp. Bring your own model, your own number, your own data. Local-first, no forced cloud, no ven (selected work: packages/connector-cognee)",
+ "repos": [
+  {
+   "repo": "wappy-kit",
+   "url": "https://github.com/csr1010/wappy-kit",
+   "sha": "e02e29929a71bc075dd31d7db6ec31eb0cd45887",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e02e29929a71: \"connector-cognee: fix the client against a real, live Cognee server\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

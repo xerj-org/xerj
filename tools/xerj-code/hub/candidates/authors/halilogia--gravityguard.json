@@ -1,0 +1,22 @@
+{
+ "corpus": "halilogia--gravityguard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, antigravity, code-quality queries this for how halilogia/GravityGuard implements it: Guardrails for AI coding agents that check secret leaks, architecture rules, and test integrity (selected work: src/webview, engine, tests)",
+ "repos": [
+  {
+   "repo": "GravityGuard",
+   "url": "https://github.com/halilogia/GravityGuard",
+   "sha": "bb63ab837e27ac0d638ee074e958c17ad33f26b3",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit bb63ab837e27: \"feat: enhance obligation attribution, dismissal actions, and prominen\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

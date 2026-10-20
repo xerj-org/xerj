@@ -1,0 +1,22 @@
+{
+ "corpus": "httpsworldview--openmeters",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on audio, audio-visualizer, linux queries this for how httpsworldview/openmeters implements it: Fast and professional audio metering/visualization for Linux (selected work: src/ui, src/infra, src/persistence)",
+ "repos": [
+  {
+   "repo": "openmeters",
+   "url": "https://github.com/httpsworldview/openmeters",
+   "sha": "e34e504a76f8d0bc2adb20eb4bd8cceec7e7d68d",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit e34e504a76f8: \"fix(ui): keep bar mode alive across output loss\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "oddbit--shrtnr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on analytics, cloudflare-workers, serverless queries this for how oddbit/shrtnr implements it: MCP server, REST API and typed SDKs for short links. Per-user ownership, bundle analytics. Self-hosted on Cloudflare Workers, free tier (selected work: src/__tests__, src, the project root)",
+ "repos": [
+  {
+   "repo": "shrtnr",
+   "url": "https://github.com/oddbit/shrtnr",
+   "sha": "de01c628c8540952b07bd4423ace20e6df145de6",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit de01c628c854: \"Fail closed when Access verification is not configured\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

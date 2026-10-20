@@ -1,0 +1,22 @@
+{
+ "corpus": "peterkocz91--esphome-wifi-csi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on breathing-rate, esp32, esp32-c5 queries this for how PeterkoCZ91/esphome-wifi-csi implements it: ESPHome external component for WiFi CSI presence, motion and breathing-rate detection on ESP32 (C3/C5/C6/S3/classic). Fork of ESPectre with  (selected work: components, the project root)",
+ "repos": [
+  {
+   "repo": "esphome-wifi-csi",
+   "url": "https://github.com/PeterkoCZ91/esphome-wifi-csi",
+   "sha": "9bde43c234eea0731ed1f5343d0bd01257e9f8ed",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 9bde43c234ee: \"fix: run all ESPHome API calls from the main loop\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "tuwaio--sdk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how TuwaIO/sdk implements it: The official server-side Node.js & Edge SDK for the TUWA Ecosystem, featuring built-in React authentication bridges (selected work: packages/quasar-sdk, scripts)",
+ "repos": [
+  {
+   "repo": "sdk",
+   "url": "https://github.com/TuwaIO/sdk",
+   "sha": "0426cb4f1661941d11d4c4abaf01a41f2d8537f5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 0426cb4f1661: \"feat: EIP-5792 batch hashes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

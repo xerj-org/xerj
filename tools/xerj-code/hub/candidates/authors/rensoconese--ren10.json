@@ -1,0 +1,22 @@
+{
+ "corpus": "rensoconese--ren10",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Rensoconese/ren10 implements it: Vanilla modern Design System (selected work: scripts, tests, themes)",
+ "repos": [
+  {
+   "repo": "ren10",
+   "url": "https://github.com/Rensoconese/ren10",
+   "sha": "f0d752aa1acd1bcaa84e6a57e4e091cefb88ed45",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit f0d752aa1acd: \"fix: complete browser and dependency release remediation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

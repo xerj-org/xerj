@@ -1,0 +1,22 @@
+{
+ "corpus": "quarto-dev--q2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how quarto-dev/q2 implements it: q2 is the experimental implementation of Quarto 2 in Rust (selected work: hub-client, claude-notes)",
+ "repos": [
+  {
+   "repo": "q2",
+   "url": "https://github.com/quarto-dev/q2",
+   "sha": "cf2f111aa60e82dca0a14b0763db9c361ec64694",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit cf2f111aa60e: \"bd-ug0doz5q: stop stale preview editor tabs from wedging Firefox's We\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

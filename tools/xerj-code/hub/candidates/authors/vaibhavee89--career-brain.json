@@ -1,0 +1,22 @@
+{
+ "corpus": "vaibhavee89--career-brain",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on groq, knowledge-base, llm queries this for how Vaibhavee89/Career-Brain implements it: personal knowledge base with an ingest pipeline and an MCP server (selected work: src/careerbrain, tests)",
+ "repos": [
+  {
+   "repo": "Career-Brain",
+   "url": "https://github.com/Vaibhavee89/Career-Brain",
+   "sha": "c62b781dc0a8a3adcad77fec8bc25ef1c5074850",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit c62b781dc0a8: \"Ingest and automation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

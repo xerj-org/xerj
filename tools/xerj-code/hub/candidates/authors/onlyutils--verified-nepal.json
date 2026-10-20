@@ -1,0 +1,22 @@
+{
+ "corpus": "onlyutils--verified-nepal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how onlyutils/verified-nepal implements it: onlyutils/verified-nepal (TypeScript) (selected work: src/desk, src/lib, src/components)",
+ "repos": [
+  {
+   "repo": "verified-nepal",
+   "url": "https://github.com/onlyutils/verified-nepal",
+   "sha": "b5c4f7d4359fae2f022fb70a2dc11e944d1f74ed",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit b5c4f7d4359f: \"feat: sponsored slot on detail pages and Desk ads manager\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

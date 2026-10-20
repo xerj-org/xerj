@@ -1,0 +1,22 @@
+{
+ "corpus": "maratshch--imagelab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how MaratShch/ImageLab implements it: MaratShch/ImageLab (C++) (selected work: AFTEREFFECT_PLUGIN.DEV)",
+ "repos": [
+  {
+   "repo": "ImageLab",
+   "url": "https://github.com/MaratShch/ImageLab",
+   "sha": "9973fd44128b723dd00b0157eafe6d71aff4025d",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 9973fd44128b: \"fix control parameters in FilmSimulation code\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

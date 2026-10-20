@@ -1,0 +1,22 @@
+{
+ "corpus": "runiq-net--runiq-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai, aspnetcore queries this for how runiq-net/Runiq.AI implements it: Build, test, and observe AI agents inside your .NET applications (selected work: tests, src/Runiq.AI.Agents, src/Runiq.AI.Memory)",
+ "repos": [
+  {
+   "repo": "Runiq.AI",
+   "url": "https://github.com/runiq-net/Runiq.AI",
+   "sha": "b5b7dc1749d0b5c57e7862da9efd33380e7d9646",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit b5b7dc1749d0: \"feat(memory): implement context budgeting and continuation (#202)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

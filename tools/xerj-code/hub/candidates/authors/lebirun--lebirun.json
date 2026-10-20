@@ -1,0 +1,22 @@
+{
+ "corpus": "lebirun--lebirun",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Lebirun/Lebirun implements it: A recreation of Lebirun (selected work: kernel)",
+ "repos": [
+  {
+   "repo": "Lebirun",
+   "url": "https://github.com/Lebirun/Lebirun",
+   "sha": "62bbe91e9d8210d36199fb9231d4748a472e02b4",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 62bbe91e9d82: \"feat: add USB tablet absolute positioning via HID report protocol\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "azure--azure-sdk-for-net",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on azure, azure-sdk, microsoft queries this for how Azure/azure-sdk-for-net implements it: This repository is for active development of the Azure SDK for .NET. For consumers of the SDK we recommend visiting our public developer doc (selected work: eng)",
+ "repos": [
+  {
+   "repo": "azure-sdk-for-net",
+   "url": "https://github.com/Azure/azure-sdk-for-net",
+   "sha": "29bfa4ffc17dd2e5de92b27636ff732d4e2837e2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 29bfa4ffc17d: \"[Mgmt Generator] Shorten regular pageable collection-result helper na\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

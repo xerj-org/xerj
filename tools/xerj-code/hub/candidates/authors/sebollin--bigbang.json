@@ -1,0 +1,22 @@
+{
+ "corpus": "sebollin--bigbang",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on cran, dependency-graph, i18n queries this for how sebollin/bigbang implements it: \ud83c\udf0c bigbang \u2014 create custom R metapackages from local packages. Builds tidyverse-style metapackages from local R package archives (.tar.gz/.zi (selected work: R, tests, man)",
+ "repos": [
+  {
+   "repo": "bigbang",
+   "url": "https://github.com/sebollin/bigbang",
+   "sha": "635d854b7a03b4b20bf79a4b5e488748e0593583",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 635d854b7a03: \"Speed up generation and keep re-export bindings lazy while attaching\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "harcochen--dsh-vsc-integration",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on dsh, dsh-plugin, dsh-plugins queries this for how HarcoChen/dsh-vsc-integration implements it: DeepSeek Harness (DSH) for VS Code \u2014 AI coding with native diffs, tool approvals, persistent sessions, and Trace insights. | AI \u7f16\u7a0b\u52a9\u624b\uff1a\u539f\u751f Diff (selected work: src, scripts, webview)",
+ "repos": [
+  {
+   "repo": "dsh-vsc-integration",
+   "url": "https://github.com/HarcoChen/dsh-vsc-integration",
+   "sha": "7dd3d77d56ee819ed32f572235f8c904d2c3fb6d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 7dd3d77d56ee: \"feat: \u652f\u6301v0.2.0 (#38)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

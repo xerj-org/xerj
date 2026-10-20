@@ -1,0 +1,22 @@
+{
+ "corpus": "valkyriesentinel--runedsp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on audio, dsp, rust queries this for how ValkyrieSentinel/runedsp implements it: SIMD-vectorized polyphonic audio DSP engine in Rust + Zig with CLAP/VST3 support (selected work: zig_dsp, src, the project root)",
+ "repos": [
+  {
+   "repo": "runedsp",
+   "url": "https://github.com/ValkyrieSentinel/runedsp",
+   "sha": "01363c76b1a302599a08ce5af8017cde3edcf9f0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 01363c76b1a3: \"add source code\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

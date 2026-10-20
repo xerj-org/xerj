@@ -1,0 +1,22 @@
+{
+ "corpus": "alexnthnz--keel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, claude-code-plugin queries this for how alexnthnz/keel implements it: An engineering loop for Claude Code: the main session leads, ponytail builds, critic reviews. Adapted from pstack by Lauren Tan (selected work: hooks, automations, bin)",
+ "repos": [
+  {
+   "repo": "keel",
+   "url": "https://github.com/alexnthnz/keel",
+   "sha": "a169d5ff01450bd32053e97c05140648d7eac3c2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit a169d5ff0145: \"feat: adapt pstack for Claude Code as keel\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

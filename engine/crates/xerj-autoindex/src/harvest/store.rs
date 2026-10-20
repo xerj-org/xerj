@@ -18,6 +18,7 @@ use std::collections::HashSet;
 use std::io;
 use std::path::{Path, PathBuf};
 
+use anyhow::{bail, Context, Result};
 use serde_json::{Map, Value};
 use xxhash_rust::xxh3::xxh3_128;
 
@@ -70,16 +71,28 @@ fn file_for(store_dir: &Path, slug: &str, key: &str) -> PathBuf {
 /// Each returned map carries the file's store key under the `KEY` sentinel
 /// so member ordering can fall back to it; `put` computes the key BEFORE
 /// injection, so the sentinel is never part of any stored content.
-pub fn read_all(store_dir: &Path, slugs: &HashSet<String>) -> Vec<Map<String, Value>> {
+///
+/// Any unreadable or non-object `<slug>.<key>.json` for a live slug is a
+/// hard error — silently skipping a corrupt store file would omit that
+/// record from the emitted pack with a green exit (#1110 gap 4).
+pub fn read_all(store_dir: &Path, slugs: &HashSet<String>) -> Result<Vec<Map<String, Value>>> {
     let mut out = Vec::new();
-    let Ok(entries) = std::fs::read_dir(store_dir) else {
-        return out;
+    let entries = match std::fs::read_dir(store_dir) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(out),
+        Err(e) => {
+            return Err(e).with_context(|| format!("cannot read store dir {}", store_dir.display()))
+        }
     };
-    let mut names: Vec<String> = entries
-        .flatten()
-        .filter(|e| e.path().extension().and_then(|x| x.to_str()) == Some("json"))
-        .filter_map(|e| e.file_name().to_str().map(str::to_string))
-        .collect();
+    let mut names: Vec<String> = Vec::new();
+    for entry in entries {
+        let e = entry.with_context(|| format!("cannot read entry in {}", store_dir.display()))?;
+        if e.path().extension().and_then(|x| x.to_str()) == Some("json") {
+            if let Some(name) = e.file_name().to_str() {
+                names.push(name.to_string());
+            }
+        }
+    }
     names.sort();
     for name in names {
         // "<slug>.<32-hex>.json" — split from the RIGHT: slugs may contain
@@ -93,14 +106,22 @@ pub fn read_all(store_dir: &Path, slugs: &HashSet<String>) -> Vec<Map<String, Va
         if !slugs.contains(slug) {
             continue;
         }
-        if let Ok(raw) = std::fs::read_to_string(store_dir.join(&name)) {
-            if let Ok(Value::Object(mut m)) = serde_json::from_str::<Value>(&raw) {
-                m.insert(super::identity::KEY.into(), Value::String(key.to_string()));
-                out.push(m);
-            }
-        }
+        let path = store_dir.join(&name);
+        let raw = std::fs::read_to_string(&path)
+            .with_context(|| format!("cannot read store envelope {}", path.display()))?;
+        let v: Value = serde_json::from_str(&raw).with_context(|| {
+            format!("corrupt store envelope {} (not valid JSON)", path.display())
+        })?;
+        let Value::Object(mut m) = v else {
+            bail!(
+                "corrupt store envelope {} (expected JSON object)",
+                path.display()
+            );
+        };
+        m.insert(super::identity::KEY.into(), Value::String(key.to_string()));
+        out.push(m);
     }
-    out
+    Ok(out)
 }
 
 /// Drop envelopes of `slug` that this run did NOT re-put — a file deleted
@@ -162,7 +183,7 @@ mod tests {
         let (_, new2) = put(&dir, "a", &env("x", "a")).unwrap();
         assert!(new1);
         assert!(!new2, "second put of identical content skips");
-        let all = read_all(&dir, &HashSet::from(["a".to_string()]));
+        let all = read_all(&dir, &HashSet::from(["a".to_string()])).unwrap();
         assert_eq!(all.len(), 1);
         assert_eq!(all[0]["id"], json!("x"));
         assert_eq!(k1.len(), 32);
@@ -175,10 +196,10 @@ mod tests {
         let dir = tmp.path().join("store");
         put(&dir, "a", &env("x", "a")).unwrap();
         put(&dir, "b", &env("x", "b")).unwrap();
-        let all = read_all(&dir, &HashSet::from(["a".to_string(), "b".to_string()]));
+        let all = read_all(&dir, &HashSet::from(["a".to_string(), "b".to_string()])).unwrap();
         assert_eq!(all.len(), 2);
         // retired source stays on disk but is not returned
-        let only_a = read_all(&dir, &HashSet::from(["a".to_string()]));
+        let only_a = read_all(&dir, &HashSet::from(["a".to_string()])).unwrap();
         assert_eq!(only_a.len(), 1);
         assert_eq!(only_a[0]["_src"], json!("a"));
     }
@@ -195,8 +216,38 @@ mod tests {
         let removed = prune(&dir, "a", &HashSet::from([ka]));
         assert_eq!(removed, 1, "y died, x lived, b untouched");
         assert_eq!(
-            read_all(&dir, &HashSet::from(["a".into(), "b".into()])).len(),
+            read_all(&dir, &HashSet::from(["a".into(), "b".into()]))
+                .unwrap()
+                .len(),
             2
         );
+    }
+
+    #[test]
+    fn read_all_refuses_corrupt_store_envelope_instead_of_dropping_it() {
+        // #1110 gap 4: a truncated or non-object file in store/ for a live
+        // slug must fail the build loudly, never silently omit the record.
+        let tmp = tempfile::tempdir().unwrap();
+        let dir = tmp.path().join("store");
+        let (k, _) = put(&dir, "a", &env("x", "a")).unwrap();
+        let path = dir.join(format!("a.{k}.json"));
+
+        std::fs::write(&path, "{truncated").unwrap();
+        let err = read_all(&dir, &HashSet::from(["a".to_string()]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("corrupt store envelope"), "{err}");
+
+        std::fs::write(&path, "[1, 2, 3]").unwrap();
+        let err = read_all(&dir, &HashSet::from(["a".to_string()]))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("expected JSON object"), "{err}");
+
+        // a corrupt file belonging to a RETIRED slug is ignored, matching the
+        // retired-source contract above.
+        assert!(read_all(&dir, &HashSet::from(["other".to_string()]))
+            .unwrap()
+            .is_empty());
     }
 }

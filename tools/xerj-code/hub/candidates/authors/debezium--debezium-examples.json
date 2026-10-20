@@ -1,0 +1,22 @@
+{
+ "corpus": "debezium--debezium-examples",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on debezium, change-data-capture, docker-compose-files queries this for how debezium/debezium-examples implements it: Examples for running Debezium (Configuration, Docker Compose files etc.). Please log issues at https://github.com/debezium/dbz/issues (selected work: apache-beam)",
+ "repos": [
+  {
+   "repo": "debezium-examples",
+   "url": "https://github.com/debezium/debezium-examples",
+   "sha": "d81ab8d21549347590df8c80d19bd04ceaf99b5b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d81ab8d21549: \"debezium/dbz#2863 add apache-beam example\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

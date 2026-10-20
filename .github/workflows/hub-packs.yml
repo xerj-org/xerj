@@ -1,0 +1,874 @@
+# Corpus Hub v2 pack pipeline (plan §8, docs/CORPUS_HUB_V2_IMPLEMENTATION.md).
+#
+#   PUSH to corpus-hub (or a manual run)
+#     every LIVE corpus whose CURRENT pin has no published release gets a pack
+#     built (`xerj hub build-pack`), signed, verified and uploaded as the release
+#     `pack-<slug>-<pin8>`; then the signed catalogue is rebuilt from those
+#     releases and, once the owner opts in (see DEPLOY), deployed to hub.xerj.org.
+#
+#   SCHEDULE
+#     for corpora whose upstream moved, open a re-pin PULL REQUEST: weekly for the
+#     `weekly` refresh class, daily for `daily` (refresh_cadence_days = 1). A human
+#     merges; the push above then builds the packs. Nothing here ever moves a pin
+#     by itself. The `pinned` class (code at a release tag; PROGRAM-100.md §3: "the
+#     pin is the promise") is not proposed automatically: its default-branch head
+#     differs from the tag for ~500 corpora every week. `include_pinned` on a
+#     manual run opts in.
+#
+# WHY "no release for the current pin" AND NOT "manifest changed in this push"
+#   Deciding from release state makes every run a reconcile: a dropped, cancelled
+#   or failed run costs nothing, because the next run sees the same unreleased pin
+#   and builds it. (GitHub replaces a queued run with a newer queued one, so a diff
+#   of "what this push touched" would lose changes.) It also covers the first
+#   backfill of ~500 packs: --max-builds spreads that over runs. For an ordinary
+#   push the two readings coincide: a changed pin is a pin with no release.
+#
+# BRANCHES
+#   This file belongs on `corpus-hub`, where the registry (tools/xerj-code/hub/,
+#   backlog/backlog-100.json) lives; `push` runs the copy in the pushed commit.
+#   `schedule` runs the DEFAULT branch's copy, so the re-pin job checks out
+#   `corpus-hub` explicitly and opens its PRs against it.
+#
+# CHAIN OF CUSTODY (the shape of pack-publish.yml)
+#   build -> sign (HUB_SIGNING_SEED: a key used ONLY for hub packs and the catalogue,
+#   deliberately separate from pack-publish.yml's PACK_SIGNING_SEED so a leak of one
+#   lane-B pack key cannot sign hub packs)
+#   -> verify against the key CLIENTS embed (HUB_PUBKEY_HEX in
+#   engine/crates/xerj-common/src/hub.rs) in the same run -> publish. A seed that
+#   does not match that key fails here instead of shipping packs no client can
+#   verify; clients independently refuse any pack whose sha256 or signature fails
+#   (`xerj hub pull`), and extract nothing before both pass.
+#
+# DORMANT WITHOUT A KEY
+#   HUB_PUBKEY_HEX holds the public half of HUB_SIGNING_SEED (derived by
+#   hub-pubkey.yml, committed in #1505). On a branch where it is empty (one
+#   that predates that commit) the `preflight` job reports "dormant" and every
+#   publishing job is skipped; the re-pin job does not need the key and runs
+#   regardless. The key and the secret change only together; preflight fails
+#   if they disagree.
+#
+# DEPLOY (opt-in)
+#   The catalogue job always builds, checks and uploads the signed catalogue as an
+#   artifact. It deploys to Cloudflare Pages only when the repository VARIABLE
+#   HUB_CATALOGUE_DEPLOY is "true" (a variable, not a secret): read the first
+#   artifact, flip it, then DISPATCH this workflow on corpus-hub with
+#   first_catalogue=true. Before that, nothing valid is live, and the delisting
+#   guard (Check the catalogue) refuses to deploy over an unreadable catalogue;
+#   first_catalogue excuses only a missing one (404, or the site's HTML page). It uses the same Pages project and secrets as
+#   deploy-hub-pages.yml, which replaces the whole site on every deploy, so the
+#   two must not disagree about whether /api/v1/catalogue.json is part of it.
+#
+# REPOSITORY SETTINGS this relies on
+#   * Settings > Actions > General > "Allow GitHub Actions to create and approve
+#     pull requests" (the re-pin job opens PRs with GITHUB_TOKEN). PRs opened that
+#     way do not trigger other workflows, so the registry's own validation does not
+#     run on them until a human pushes to the branch or closes and reopens the PR.
+#
+# NOT BUILT HERE: lane-B corpora (harvested pack recipes under tools/packs/) are
+# published by pack-publish.yml in the v1 pack format, not as hub packs.
+
+name: hub packs
+
+on:
+  push:
+    branches: [corpus-hub]
+    paths:
+      - tools/xerj-code/hub/*.json
+      - tools/xerj-code/hub/backlog/backlog-100.json
+      - tools/hub-packs/**
+      - .github/workflows/hub-packs.yml
+  schedule:
+    # Monday 05:17 UTC: re-pin the `weekly` class. Off the :00/:30 marks.
+    - cron: "17 5 * * 1"
+    # Every day 04:41 UTC: re-pin the `daily` class (feeds).
+    - cron: "41 4 * * *"
+  workflow_dispatch:
+    inputs:
+      slugs:
+        description: "Build only these corpora (comma list), or 'all' for everything due"
+        type: string
+        default: ""
+      force:
+        description: "Rebuild pins that already have a release (published under a -rN tag)"
+        type: boolean
+        default: false
+      max_builds:
+        description: "Cap on packs built in this run (the next run continues)"
+        type: string
+        default: "40"
+      dry_run:
+        description: "Build and verify, but publish nothing (no release, no deploy); works from any branch"
+        type: boolean
+        default: false
+      allow_drops:
+        description: "Let the catalogue delist corpora that are still live (after a failed pack build)"
+        type: boolean
+        default: false
+      first_catalogue:
+        description: "No signed catalogue is live yet: deploy without the delisting guard (the first deploy only)"
+        type: boolean
+        default: false
+      repin:
+        description: "Also run the re-pin job now"
+        type: boolean
+        default: false
+      repin_classes:
+        description: "Refresh classes the re-pin job may propose (weekly,daily)"
+        type: string
+        default: "weekly,daily"
+      include_pinned:
+        description: "Also re-pin the `pinned` class (release-tag corpora; expect hundreds of PRs)"
+        type: boolean
+        default: false
+      max_prs:
+        description: "Cap on re-pin PRs opened in this run"
+        type: string
+        default: "25"
+
+permissions:
+  contents: read
+
+# Never two publishes at once (a release tag is single-use under immutable
+# releases), and re-pin runs queue apart from publish runs.
+concurrency:
+  group: hub-packs-${{ github.event_name == 'schedule' && 'repin' || 'publish' }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: tools/xerj-code/hub
+  BACKLOG: tools/xerj-code/hub/backlog/backlog-100.json
+  HUB_RS: engine/crates/xerj-common/src/hub.rs
+  # Every matrix job has its own runner, so one fixed loopback port cannot collide.
+  # The node also listens on the next two ports (native REST, gRPC).
+  BUILDER_PORT: "19200"
+
+jobs:
+  # ── the scripts every job below trusts ─────────────────────────────────────
+  # The same guard deploy-hub-pages.yml puts in front of its site generator:
+  # nothing is planned, published or proposed by a script whose tests fail.
+  selftest:
+    name: unit-test the pipeline scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Plan, re-pin and catalogue-check logic
+        run: python3 tools/hub-packs/test_hub_packs.py
+
+      - name: Shell syntax
+        run: |
+          bash -n tools/hub-packs/ed25519.sh
+          bash -n tools/hub-packs/consumer_e2e.sh
+
+  # ── is there a key to sign with and verify against? ────────────────────────
+  preflight:
+    name: hub key and secret in place?
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+      pubkey: ${{ steps.check.outputs.pubkey }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - id: check
+        env:
+          HUB_SIGNING_SEED: ${{ secrets.HUB_SIGNING_SEED }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          ready=false; pub=""; why=""
+          if [ "$GITHUB_REF" != "refs/heads/corpus-hub" ] && [ "$DRY_RUN" != "true" ]; then
+            why="publishing runs only from corpus-hub, not $GITHUB_REF (a manual run with dry_run builds and verifies anywhere)"
+          elif [ ! -f engine/crates/xerj-hub/Cargo.toml ] || [ ! -f "$HUB_RS" ]; then
+            why="this branch has no Corpus Hub v2 engine code (engine/crates/xerj-hub); merge main into it first"
+          else
+            pub=$(sed -n 's/^pub const HUB_PUBKEY_HEX: &str = "\([0-9a-fA-F]*\)";.*/\1/p' "$HUB_RS" | head -n 1 | tr 'A-F' 'a-f')
+            if [ -z "$pub" ]; then
+              why="HUB_PUBKEY_HEX in $HUB_RS is empty: the hub signing key has not been provisioned (xerj corpus keygen; set HUB_SIGNING_SEED; commit the public half there)"
+            elif [ -z "$HUB_SIGNING_SEED" ]; then
+              echo "::error title=hub packs::HUB_PUBKEY_HEX is set but the HUB_SIGNING_SEED secret is not"
+              exit 1
+            else
+              # Prove the secret is the private half of the key clients embed.
+              umask 077
+              printf '%s' "$HUB_SIGNING_SEED" > "$RUNNER_TEMP/pack.key"
+              derived=$(bash tools/hub-packs/ed25519.sh derive "$RUNNER_TEMP/pack.key")
+              rm -f "$RUNNER_TEMP/pack.key"
+              if [ "$derived" != "$pub" ]; then
+                echo "::error title=hub packs::the HUB_SIGNING_SEED secret does not match HUB_PUBKEY_HEX; refusing to publish packs no client can verify"
+                exit 1
+              fi
+              ready=true
+            fi
+          fi
+          if [ "$ready" != "true" ]; then
+            echo "::notice title=hub packs dormant::$why"
+            { echo "### hub packs: dormant"; echo; echo "$why"; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+          echo "pubkey=$pub" >> "$GITHUB_OUTPUT"
+
+  # ── which live corpora have no pack for their current pin? ─────────────────
+  plan:
+    name: plan the builds
+    needs: [selftest, preflight]
+    if: needs.preflight.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      count: ${{ steps.plan.outputs.count }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Published pack releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 5000 --json tagName,isDraft \
+            --jq '.[] | select(.isDraft | not) | .tagName | select(startswith("pack-"))' \
+            > "$RUNNER_TEMP/tags.txt"
+          echo "$(wc -l < "$RUNNER_TEMP/tags.txt") published pack releases"
+
+      - id: plan
+        env:
+          SLUGS: ${{ inputs.slugs }}
+          FORCE: ${{ inputs.force }}
+          MAX_BUILDS: ${{ inputs.max_builds }}
+        run: |
+          set -euo pipefail
+          args=(plan --registry "$REGISTRY" --backlog "$BACKLOG" \
+                --published-tags "$RUNNER_TEMP/tags.txt" --max-builds "${MAX_BUILDS:-40}")
+          [ -n "${SLUGS:-}" ] && args+=(--slugs "$SLUGS")
+          [ "${FORCE:-}" = "true" ] && args+=(--force)
+          plan=$(python3 tools/hub-packs/hub_packs.py "${args[@]}")
+          # The matrix may hold only `include`: any other key would be read as a dimension.
+          echo "matrix=$(jq -c '{include: .include}' <<<"$plan")" >> "$GITHUB_OUTPUT"
+          echo "count=$(jq -r '.count' <<<"$plan")" >> "$GITHUB_OUTPUT"
+          {
+            echo "### hub packs: plan"
+            echo
+            echo "$(jq -r '.due' <<<"$plan") corpora have no pack for their current pin; $(jq -r '.count' <<<"$plan") scheduled in this run."
+            jq -r '.include[] | "- `\(.slug)` @ `\(.pin8)`"' <<<"$plan"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── one xerj binary for the matrix and the catalogue ───────────────────────
+  build-xerj:
+    name: build xerj
+    needs: preflight
+    if: needs.preflight.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: engine
+
+      # Same profile pack-publish.yml uses: opt-level 3, assertions on. The binary
+      # lands in target/ci-test/, not target/release/.
+      - name: Build the xerj binary
+        working-directory: engine
+        run: cargo build --profile ci-test -p xerj-server
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: xerj-bin
+          path: engine/target/ci-test/xerj
+          if-no-files-found: error
+          retention-days: 1
+
+  # ── build, sign, verify and release one pack per due corpus ────────────────
+  pack:
+    name: pack ${{ matrix.slug }}
+    needs: [preflight, plan, build-xerj]
+    if: needs.plan.result == 'success' && needs.plan.outputs.count != '0'
+    runs-on: ubuntu-latest
+    # The repo-wide ceiling (.github/scripts/workflow-timeout-guard.py, 1..90).
+    # This pipeline had never run for real before HUB_PUBKEY_HEX was committed,
+    # so there is no measured job time to justify more; if a real pack needs longer, that
+    # is a measured case for raising MAX_TIMEOUT there, not an exception here.
+    timeout-minutes: 90
+    permissions:
+      contents: write # release assets
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      SLUG: ${{ matrix.slug }}
+      PIN8: ${{ matrix.pin8 }}
+      HUB_PUBKEY_HEX: ${{ needs.preflight.outputs.pubkey }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        id: checkout
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        id: fetch-bin
+        with:
+          name: xerj-bin
+          path: bin
+
+      # The builder clones, indexes and snapshots into whatever node it is handed,
+      # so it gets a node of its own: loopback only, no data worth keeping, and
+      # snapshot repositories allowed under the output directory ONLY (the engine's
+      # allowlist, not a weakened check). One node PER PACK is load-bearing, not
+      # tidiness: a second build of near-identical content on the same node failed
+      # once with "exact read-back count 0 disagrees with sealed count 1" (the
+      # autoindex group already exists there).
+      - name: Start a throwaway builder node
+        id: start
+        run: |
+          set -euo pipefail
+          # Each stage's output also goes to a log the backfill report quotes on failure.
+          mkdir -p "$RUNNER_TEMP/log"
+          exec > >(tee -a "$RUNNER_TEMP/log/start.log") 2>&1
+          chmod +x bin/xerj
+          NODE="$RUNNER_TEMP/node"
+          mkdir -p "$NODE/data" "$RUNNER_TEMP/pack-out"
+          OUT="$(realpath "$RUNNER_TEMP/pack-out")"
+          printf '[limits]\nsnapshot_repo_allowlist = ["%s"]\n' "$OUT" > "$NODE/config.toml"
+          bin/xerj --insecure --bind 127.0.0.1 --port "$BUILDER_PORT" \
+            --data-dir "$NODE/data" --config "$NODE/config.toml" > "$NODE/node.log" 2>&1 &
+          echo "NODE_PID=$!" >> "$GITHUB_ENV"
+          echo "PACK_OUT=$OUT" >> "$GITHUB_ENV"
+          for _ in $(seq 1 120); do
+            if curl -fs -m1 "http://127.0.0.1:$BUILDER_PORT/_cluster/health" >/dev/null 2>&1; then
+              echo "builder node is up"; exit 0
+            fi
+            sleep 0.5
+          done
+          echo "the builder node did not become healthy"; cat "$NODE/node.log"; exit 1
+
+      - name: Build and sign the pack
+        id: build
+        env:
+          HUB_SIGNING_SEED: ${{ secrets.HUB_SIGNING_SEED }}
+          XERJ_CODE_HOME: ${{ runner.temp }}/code-home
+        run: |
+          set -euo pipefail
+          exec > >(tee -a "$RUNNER_TEMP/log/build.log") 2>&1
+          umask 077
+          printf '%s' "$HUB_SIGNING_SEED" > "$RUNNER_TEMP/pack.key"
+          # The builder parses untrusted source trees: keep the seed out of its environment.
+          unset HUB_SIGNING_SEED
+          trap 'rm -f "$RUNNER_TEMP/pack.key"' EXIT
+          bin/xerj hub build-pack "$SLUG" --registry "$REGISTRY" --out "$PACK_OUT" \
+            --url "http://127.0.0.1:$BUILDER_PORT" --sign-key "$RUNNER_TEMP/pack.key" \
+            | tee "$RUNNER_TEMP/build.txt"
+          # Last stdout line: `pack <slug> <pin8> <bytes> <indices> <defs>`
+          read -r tag slug pin8 bytes indices defs < <(tail -n 1 "$RUNNER_TEMP/build.txt")
+          if [ "$tag" != "pack" ] || [ "$slug" != "$SLUG" ] || [ "$pin8" != "$PIN8" ]; then
+            echo "::error::the builder reported '$tag $slug $pin8' but the plan expected pack $SLUG $PIN8 (did the manifest change mid-run?)"
+            exit 1
+          fi
+          echo "built $slug $pin8: $bytes bytes, $indices indices, $defs definitions"
+          if [ "$bytes" -gt 52428800 ]; then
+            echo "::notice::$SLUG's pack is $bytes bytes, over the 50 MiB auto-pull cap: clients answer from the hosted route until they run 'xerj hub pull $SLUG'"
+          fi
+
+      # The proof pack-publish.yml also makes in the publishing run: the archive
+      # verifies under the key clients embed, and carries the layout `hub pull`
+      # reads. (Clients re-verify sha256 and signature themselves.)
+      - name: Verify the signature and the layout
+        id: verify
+        run: |
+          set -euo pipefail
+          exec > >(tee -a "$RUNNER_TEMP/log/verify.log") 2>&1
+          ARCHIVE="$PACK_OUT/$SLUG-$PIN8.hubpack.tar.zst"
+          test -s "$ARCHIVE"; test -s "$ARCHIVE.sig"
+          bash tools/hub-packs/ed25519.sh verify "$HUB_PUBKEY_HEX" "$ARCHIVE" "$ARCHIVE.sig"
+          zstd -dc "$ARCHIVE" | tar -tf - | sort > "$RUNNER_TEMP/members.txt"
+          for m in pack.json SHA256SUMS defs.jsonl files.jsonl; do
+            grep -qx "$m" "$RUNNER_TEMP/members.txt" || { echo "::error::the archive lacks $m"; exit 1; }
+          done
+          grep -q '^snapshot/' "$RUNNER_TEMP/members.txt" || { echo "::error::the archive lacks snapshot/"; exit 1; }
+          zstd -dc "$ARCHIVE" | tar -xOf - pack.json | jq -e --arg slug "$SLUG" --arg pin8 "$PIN8" \
+            '.format_version == 1 and .slug == $slug and (.pin_sha | startswith($pin8))' >/dev/null
+          echo "layout ok: $(wc -l < "$RUNNER_TEMP/members.txt") members"
+
+      # Immutable releases make a tag SINGLE-USE: one that has named a release can
+      # never name another, even after the release is deleted. Pick the first tag
+      # nobody has used (pack-<slug>-<pin8>, else -r2, -r3, ...), create the
+      # release as a DRAFT, upload to the draft, publish last. Published releases
+      # are never deleted by a rebuild.
+      - name: Pick an unused release tag
+        id: tag
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          exec > >(tee -a "$RUNNER_TEMP/log/tag.log") 2>&1
+          BASE="pack-$SLUG-$PIN8"
+          TAG="$BASE"; N=1
+          while gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+             || gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; do
+            N=$((N + 1)); TAG="$BASE-r$N"
+          done
+          echo "PACK_TAG=$TAG" >> "$GITHUB_ENV"
+
+      # --prerelease and --latest=false: a pack must never become the repository's
+      # "latest" release, which the installer chain reads.
+      - name: Upload the pack to a draft release
+        id: upload
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          exec > >(tee -a "$RUNNER_TEMP/log/upload.log") 2>&1
+          ARCHIVE="$PACK_OUT/$SLUG-$PIN8.hubpack.tar.zst"
+          zstd -dc "$ARCHIVE" | tar -xOf - pack.json > "$RUNNER_TEMP/pack.json"
+          {
+            echo "Pre-indexed, signed Corpus Hub v2 pack for \`$SLUG\`."
+            echo
+            jq -r '"- pinned: `\(.pin_sha)` (\(.pin_date))\n- licence: \(.licence_spdx) (\(.licence_class))\n- definitions: \(.defs_count), files: \(.files_count)\n- built by: \(.builder_version)"' "$RUNNER_TEMP/pack.json"
+            echo
+            echo "Use it: \`xerj hub pull $SLUG\`, or just ask a question. The archive is checked against the hub key (sha256, then ed25519 signature) before anything is extracted."
+            echo
+            echo "Built by $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          } > "$RUNNER_TEMP/notes.md"
+          gh release create "$PACK_TAG" "$ARCHIVE" "$ARCHIVE.sig" --repo "$GITHUB_REPOSITORY" \
+            --draft --prerelease --latest=false --target "$GITHUB_SHA" \
+            --title "hub pack: $SLUG @ $PIN8" --notes-file "$RUNNER_TEMP/notes.md"
+
+      # §12.3: the consumer path, with the real binary, BEFORE anything is
+      # published. A real run pulls the bytes back out of the DRAFT release (what a
+      # client will download, not the builder's local copy); a dry run uses the
+      # builder's output. A fresh node, an empty HOME, `hub pull` through a signed
+      # catalogue, then `--def` for a symbol from the pack's own defs.jsonl and one
+      # question. A failure fails the job and leaves the release a draft.
+      - name: Consumer end-to-end (pull, --def, one question)
+        id: e2e
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HUB_SIGNING_SEED: ${{ secrets.HUB_SIGNING_SEED }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          exec > >(tee -a "$RUNNER_TEMP/log/e2e.log") 2>&1
+          FILE="$SLUG-$PIN8.hubpack.tar.zst"
+          SRC="$RUNNER_TEMP/e2e-src"; mkdir -p "$SRC"
+          if [ "$DRY_RUN" = "true" ]; then
+            TAG="pack-$SLUG-$PIN8"
+            cp "$PACK_OUT/$FILE" "$PACK_OUT/$FILE.sig" "$SRC/"
+          else
+            TAG="$PACK_TAG"
+            gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$SRC" \
+              --pattern "$FILE" --pattern "$FILE.sig"
+            cmp "$SRC/$FILE" "$PACK_OUT/$FILE"
+            cmp "$SRC/$FILE.sig" "$PACK_OUT/$FILE.sig"
+          fi
+          umask 077
+          printf '%s' "$HUB_SIGNING_SEED" > "$RUNNER_TEMP/e2e.key"
+          unset HUB_SIGNING_SEED
+          trap 'rm -f "$RUNNER_TEMP/e2e.key"' EXIT
+          bash tools/hub-packs/consumer_e2e.sh bin/xerj "$SLUG" "$PIN8" "$TAG" "$SRC" "$RUNNER_TEMP/e2e.key" \
+            | tee "$RUNNER_TEMP/e2e.txt"
+          { echo "### consumer e2e: $SLUG @ $PIN8"; echo; sed 's/^/    /' "$RUNNER_TEMP/e2e.txt"; } >> "$GITHUB_STEP_SUMMARY"
+
+      # Draft first, publish last: the step GitHub's own error message prescribes
+      # for immutable-release repositories. A tag whose release was DELETED is burned
+      # with no queryable trace, so the picker cannot foresee the refusal: on
+      # "tag_name was used by an immutable release" retag this draft to the next
+      # free -rN and publish that.
+      - name: Publish the draft (retag past a burned tag if refused)
+        id: publish
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          exec > >(tee -a "$RUNNER_TEMP/log/publish.log") 2>&1
+          if gh release edit "$PACK_TAG" --repo "$GITHUB_REPOSITORY" --draft=false; then
+            echo "PUBLISHED_TAG=$PACK_TAG" >> "$GITHUB_ENV"
+            echo "published $PACK_TAG"; exit 0
+          fi
+          RELID=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate \
+            --jq ".[] | select(.draft and .tag_name == \"$PACK_TAG\") | .id" | head -n 1 || true)
+          if [ -z "$RELID" ]; then
+            echo "::error::publish refused and no draft named $PACK_TAG found"; exit 1
+          fi
+          N=1; NEW="$PACK_TAG"
+          while gh release view "$NEW" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+             || gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$NEW" >/dev/null 2>&1; do
+            N=$((N + 1)); NEW="$PACK_TAG-r$N"
+          done
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELID" -f tag_name="$NEW" -F draft=false
+          echo "PUBLISHED_TAG=$NEW" >> "$GITHUB_ENV"
+          echo "published $NEW"
+
+      # Keep the newest 3 pins of THIS corpus (a client holding a slightly stale
+      # catalogue can still fetch the previous pin). Sorted by published_at: not by
+      # tag, so a -rN suffix cannot upset the order, and not by created_at, which
+      # GitHub sets to the date of the release's TARGET COMMIT. A draft has no
+      # published_at, so an abandoned one sorts oldest and is retired first. The
+      # regex is exact so a slug that is a prefix of another (lz4 / lz4-extra) never
+      # reaches the neighbour. Best effort: retention must never cost a publish.
+      - name: Retire this corpus's older pack releases
+        if: ${{ !inputs.dry_run }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --paginate \
+            | jq -s -r --arg slug "$SLUG" '
+                add
+                | [ .[] | select(.tag_name | test("^pack-" + ($slug | gsub("[.]"; "[.]")) + "-[0-9a-f]{8}(-r[0-9]+)?$")) ]
+                | sort_by(.published_at) | reverse | .[3:] | .[].tag_name' \
+            | while read -r tag; do
+                if [ -n "$tag" ]; then
+                  gh release delete "$tag" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes
+                fi
+              done
+
+      - name: Builder node log (on failure)
+        if: failure()
+        run: tail -n 100 "$RUNNER_TEMP/node/node.log" || true
+
+      # One row for the backfill report (spec §12.1), whatever happened above: the
+      # first stage that failed and its most telling log line, or the published tag.
+      - name: Record this corpus's result for the backfill report
+        if: always()
+        env:
+          STEPS: ${{ toJSON(steps) }}
+          JOB_STATUS: ${{ job.status }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          L="$RUNNER_TEMP/log"
+          args=(result-row --slug "$SLUG" --pin8 "$PIN8" --steps "$STEPS" \
+                --run-id "$GITHUB_RUN_ID" --build-out "$RUNNER_TEMP/build.txt" \
+                --published-tag "${PUBLISHED_TAG:-}" --job-status "$JOB_STATUS" \
+                --stage checkout --stage fetch-bin \
+                --stage "start=$L/start.log,$RUNNER_TEMP/node/node.log" --stage "build=$L/build.log" \
+                --stage "verify=$L/verify.log" --stage "tag=$L/tag.log" --stage "upload=$L/upload.log" \
+                --stage "e2e=$L/e2e.log" --stage "publish=$L/publish.log")
+          [ "$DRY_RUN" = "true" ] && args+=(--dry-run)
+          mkdir -p "$RUNNER_TEMP/result"
+          OUT="$RUNNER_TEMP/result/$SLUG.json"
+          if ! python3 tools/hub-packs/hub_packs.py "${args[@]}" > "$OUT"; then
+            # Never leave the report without this corpus: a minimal row naming the cause.
+            jq -cn --arg slug "$SLUG" --arg pin8 "$PIN8" --arg run "$GITHUB_RUN_ID" \
+              '{run: $run, slug: $slug, pin8: $pin8, bytes: null, defs: null, result: "failed",
+                tag: "", stage: "record", error: "result-row failed; see the job log"}' > "$OUT"
+          fi
+          cat "$OUT"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: hub-result-${{ matrix.slug }}
+          path: ${{ runner.temp }}/result/
+          overwrite: true # a re-run of this job replaces its row
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stop the builder node
+        if: always()
+        run: kill "${NODE_PID:-}" 2>/dev/null || true
+
+  # ── the backfill report (spec §12.1): one row per corpus per run ───────────
+  # Folds every pack job's result row into benchmarks/hub-backfill/ (REPORT.md and
+  # the rows.jsonl behind it) and commits them to corpus-hub. A corpus the plan
+  # scheduled that recorded nothing (its job never started, or was cut off) gets a
+  # row saying so, so a failure never vanishes silently. A commit, not a PR: the
+  # repository does not let GITHUB_TOKEN open PRs, and a push made with it starts
+  # no workflow. A dry run only writes the job summary.
+  report:
+    name: backfill report
+    needs: [plan, build-xerj, pack]
+    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.count != '0' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # commit the report to corpus-hub
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: ${{ !inputs.dry_run }}
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        continue-on-error: true # no row at all is still reported (below)
+        with:
+          pattern: hub-result-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/rows
+
+      - name: Write the report (and commit it on a real run)
+        env:
+          MATRIX: ${{ needs.plan.outputs.matrix }}
+          WHY: "the pack job recorded no result (pack jobs: ${{ needs.pack.result }}, build xerj: ${{ needs.build-xerj.result }})"
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$MATRIX" > "$RUNNER_TEMP/plan.json"
+          URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          # Scripts from this run's commit; the report itself from corpus-hub's tip.
+          cp tools/hub-packs/hub_packs.py "$RUNNER_TEMP/hub_packs.py"
+          args=(report --rows-dir "$RUNNER_TEMP/rows" --matrix "$RUNNER_TEMP/plan.json" \
+                --run-id "$GITHUB_RUN_ID" --run-url "$URL" --missing-reason "$WHY")
+          python3 "$RUNNER_TEMP/hub_packs.py" "${args[@]}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "dry run: the report is in the job summary only"; exit 0
+          fi
+          git config user.name xerj-org
+          git config user.email git@xerj.org
+          for attempt in 1 2 3 4 5; do
+            git fetch -q --depth=1 origin corpus-hub || { sleep $((attempt * 5)); continue; }
+            git checkout -q -B corpus-hub origin/corpus-hub
+            python3 "$RUNNER_TEMP/hub_packs.py" "${args[@]}" --write > /dev/null
+            git add benchmarks/hub-backfill/REPORT.md benchmarks/hub-backfill/rows.jsonl
+            if git diff --cached --quiet; then echo "report unchanged"; exit 0; fi
+            git commit -q -m "hub backfill report: run $GITHUB_RUN_ID" -m "$URL"
+            if git push -q origin corpus-hub; then echo "report committed to corpus-hub"; exit 0; fi
+            sleep $((attempt * 5))
+          done
+          echo "::error title=backfill report::could not push the report to corpus-hub; the rows are in this job's summary"
+          exit 1
+
+  # ── rebuild, check, sign and (opt-in) deploy the catalogue ─────────────────
+  catalogue:
+    name: catalogue
+    needs: [preflight, plan, build-xerj, pack]
+    # Runs even when some pack jobs failed: the catalogue is rebuilt from RELEASES,
+    # and check-catalogue refuses to delist a corpus that is still live.
+    if: ${{ !cancelled() && needs.preflight.outputs.ready == 'true' && needs.plan.result == 'success' && needs.build-xerj.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90 # the repo-wide ceiling; see the `pack` job
+    env:
+      HUB_PUBKEY_HEX: ${{ needs.preflight.outputs.pubkey }}
+      HUB_URL: https://hub.xerj.org
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: xerj-bin
+          path: bin
+
+      # `xerj hub build-catalogue` (plan §4) is the builder this job calls. If the
+      # binary has no such subcommand, say so plainly instead of failing obscurely.
+      - name: The catalogue builder exists in this binary
+        run: |
+          set -euo pipefail
+          chmod +x bin/xerj
+          if ! bin/xerj hub build-catalogue --help >/dev/null 2>&1; then
+            echo "::error title=catalogue::this xerj has no 'hub build-catalogue' subcommand (plan §4 CLI): the packs are published, but the catalogue cannot be rebuilt until the builder lands"
+            exit 1
+          fi
+
+      - name: Download the current pin's pack of every live corpus
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh release list --repo "$GITHUB_REPOSITORY" --limit 5000 --json tagName,isDraft \
+            --jq '.[] | select(.isDraft | not) | .tagName | select(startswith("pack-"))' \
+            > "$RUNNER_TEMP/tags.txt"
+          python3 tools/hub-packs/hub_packs.py fetch-list --registry "$REGISTRY" --backlog "$BACKLOG" \
+            --published-tags "$RUNNER_TEMP/tags.txt" > "$RUNNER_TEMP/fetch.tsv"
+          # A flat directory, like `hub build-pack --out`. ANY failed download aborts the
+          # job: the catalogue is a complete snapshot, and a missing pack would delist
+          # its corpus.
+          mkdir -p "$RUNNER_TEMP/packs"
+          while IFS=$'\t' read -r slug pin8 tag; do
+            for attempt in 1 2 3; do
+              if gh release download "$tag" --repo "$GITHUB_REPOSITORY" --dir "$RUNNER_TEMP/packs" \
+                   --pattern "$slug-$pin8.hubpack.tar.zst" --pattern "$slug-$pin8.hubpack.tar.zst.sig"; then
+                break
+              fi
+              [ "$attempt" = 3 ] && { echo "::error::cannot download $tag"; exit 1; }
+              sleep $((attempt * 5))
+            done
+          done < "$RUNNER_TEMP/fetch.tsv"
+          echo "$(wc -l < "$RUNNER_TEMP/fetch.tsv") packs, $(du -sh "$RUNNER_TEMP/packs" | cut -f1)"
+          # No live corpus has a PUBLISHED pack yet (a dry run before the first real
+          # publish): there is nothing to catalogue, and an empty catalogue is not
+          # fit to publish. Say so and skip the rest, rather than fail.
+          if [ ! -s "$RUNNER_TEMP/fetch.tsv" ]; then
+            echo "::notice title=catalogue::no live corpus has a published pack yet; nothing to catalogue"
+            { echo "### catalogue: skipped"; echo; echo "No live corpus has a published pack release yet."; } >> "$GITHUB_STEP_SUMMARY"
+            echo "NO_PACKS=1" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build and sign the catalogue
+        if: env.NO_PACKS != '1'
+        env:
+          HUB_SIGNING_SEED: ${{ secrets.HUB_SIGNING_SEED }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$HUB_SIGNING_SEED" > "$RUNNER_TEMP/pack.key"
+          unset HUB_SIGNING_SEED
+          trap 'rm -f "$RUNNER_TEMP/pack.key"' EXIT
+          # --tags: the release each pack came from, so a -rN retag gets its real URL.
+          bin/xerj hub build-catalogue --registry "$REGISTRY" --backlog "$BACKLOG" \
+            --packs "$RUNNER_TEMP/packs" --tags "$RUNNER_TEMP/fetch.tsv" \
+            --out catalogue.json --sign-key "$RUNNER_TEMP/pack.key"
+          test -s catalogue.json
+          test -s catalogue.json.sig || { echo "::error::build-catalogue wrote no catalogue.json.sig"; exit 1; }
+
+      # The signature proves who built it; this proves it is the right thing to
+      # publish: it verifies under the key clients embed, agrees with the registry
+      # (pins, release URLs), is under 2 MB, and drops no live corpus.
+      - name: Check the catalogue
+        if: env.NO_PACKS != '1'
+        env:
+          ALLOW_DROPS: ${{ inputs.allow_drops }}
+          FIRST_CATALOGUE: ${{ inputs.first_catalogue }}
+          DEPLOYING: ${{ !inputs.dry_run && vars.HUB_CATALOGUE_DEPLOY == 'true' }}
+        run: |
+          set -euo pipefail
+          bash tools/hub-packs/ed25519.sh verify "$HUB_PUBKEY_HEX" catalogue.json catalogue.json.sig
+          args=(check-catalogue --registry "$REGISTRY" --backlog "$BACKLOG" --catalogue catalogue.json \
+                --repo "$GITHUB_REPOSITORY")
+          # Compare with the LIVE catalogue so a half-failed build cannot delist a
+          # corpus. Only a clean 404 means "none yet". A 200 is a previous catalogue
+          # only if it is one: signed by the hub key, and JSON with a corpora list.
+          # (The site answers unknown paths with its HTML page and a 200; read as
+          # JSON-or-nothing, that switched this guard off without a word.) Anything
+          # else is UNKNOWN: fatal when this run deploys, unless the owner says this
+          # is the first catalogue (first_catalogue); a warning otherwise, since
+          # nothing is published.
+          LIVE="$RUNNER_TEMP/live.json"
+          # curl prints -w even when it fails: keep its code, note the failure.
+          code=$(curl -sS --max-time 60 -o "$LIVE" -w '%{http_code}' \
+                   "$HUB_URL/api/v1/catalogue.json") || code="000 (curl exit $?)"
+          sig_code=$(curl -sS --max-time 60 -o "$LIVE.sig" -w '%{http_code}' \
+                   "$HUB_URL/api/v1/catalogue.json.sig") || sig_code="000 (curl exit $?)"
+          # `first_catalogue` may excuse only "nothing is there": a 404, or the
+          # site's own HTML page in its place. A timeout, a 5xx or a JSON body
+          # that fails its signature stays fatal even then.
+          state=unknown; why="HTTP $code"; absent=false
+          if [ "$code" = 404 ]; then
+            state=none
+          elif [ "$code" = 200 ]; then
+            if [ "$(tr -d ' \t\r\n' < "$LIVE" | head -c 1)" != "{" ]; then
+              absent=true
+              why="200 but not JSON: $(head -c 40 "$LIVE" | tr -c '[:print:]' ' ') (the site's page, no catalogue)"
+            elif [ "$sig_code" != 200 ]; then
+              why="200 but its .sig is HTTP $sig_code (unsigned)"
+            elif ! bash tools/hub-packs/ed25519.sh verify "$HUB_PUBKEY_HEX" "$LIVE" "$LIVE.sig" >/dev/null 2>&1; then
+              why="200 but it does not verify under the hub key ($(head -c 40 "$LIVE" | tr -c '[:print:]' ' '))"
+            elif ! jq -e '.corpora | type == "array"' "$LIVE" >/dev/null 2>&1; then
+              why="200, signed, but not a catalogue"
+            else
+              state=live
+            fi
+          fi
+          case "$state" in
+            live) args+=(--previous "$LIVE"); echo "guarding against the live catalogue ($(jq '.corpora | length' "$LIVE") corpora)" ;;
+            none) echo "no live catalogue yet (404): first publish" ;;
+            unknown)
+              msg="cannot read the live catalogue at $HUB_URL/api/v1/catalogue.json: $why"
+              if [ "$FIRST_CATALOGUE" = "true" ] && [ "$absent" = "true" ]; then
+                echo "::warning title=catalogue::$msg; first_catalogue is set, so publishing without the delisting guard"
+              elif [ "$DEPLOYING" = "true" ]; then
+                echo "::error title=catalogue::$msg; not deploying without the delisting guard. If no catalogue has ever been published, dispatch hub-packs on corpus-hub with first_catalogue=true (it excuses only a missing catalogue, not an unreadable one)."
+                exit 1
+              else
+                echo "::warning title=catalogue::$msg; checked without the delisting guard (this run deploys nothing)"
+              fi
+              ;;
+          esac
+          [ "${ALLOW_DROPS:-}" = "true" ] && args+=(--allow-drops)
+          python3 tools/hub-packs/hub_packs.py "${args[@]}"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: env.NO_PACKS != '1'
+        with:
+          name: catalogue
+          path: |
+            catalogue.json
+            catalogue.json.sig
+          retention-days: 14
+
+      # Same generator, validation and Pages project as deploy-hub-pages.yml, with the
+      # catalogue added under api/v1/ (the path the client fetches).
+      - name: Generate the hub site with the catalogue
+        if: ${{ !inputs.dry_run && vars.HUB_CATALOGUE_DEPLOY == 'true' && env.NO_PACKS != '1' }}
+        run: |
+          set -euo pipefail
+          python3 tools/corpus-hub-site/test_gen.py
+          python3 tools/corpus-hub-site/gen.py
+          python3 tools/xerj-code/hub/validate_hub.py
+          mkdir -p tools/corpus-hub-site/out/api/v1
+          cp catalogue.json catalogue.json.sig tools/corpus-hub-site/out/api/v1/
+
+      - name: Deploy to Cloudflare Pages
+        if: ${{ !inputs.dry_run && vars.HUB_CATALOGUE_DEPLOY == 'true' && env.NO_PACKS != '1' }}
+        run: npx wrangler@3 pages deploy tools/corpus-hub-site/out --project-name=xerj-hub --branch=corpus-hub
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Deploy skipped
+        if: ${{ env.NO_PACKS != '1' && (inputs.dry_run || vars.HUB_CATALOGUE_DEPLOY != 'true') }}
+        run: |
+          {
+            echo "### catalogue built and checked, NOT deployed"
+            echo
+            echo "Download the \`catalogue\` artifact. To deploy from now on, set the repository variable HUB_CATALOGUE_DEPLOY to \`true\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # ── open re-pin PRs for corpora whose upstream moved ───────────────────────
+  repin:
+    name: re-pin moved upstreams (opens PRs)
+    needs: selftest
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.repin)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # push the re-pin branches
+      pull-requests: write # open the PRs
+    steps:
+      # The scripts come from the ref the workflow runs on (main for a schedule);
+      # the registry and the PR base come from corpus-hub.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          path: tools-src
+          persist-credentials: false
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: corpus-hub
+          path: registry-src
+
+      - name: Open re-pin pull requests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # schedule: the 04:41 cron is the daily class, the Monday cron the weekly one.
+          CLASSES: ${{ github.event_name == 'workflow_dispatch' && inputs.repin_classes || (github.event.schedule == '41 4 * * *' && 'daily' || 'weekly') }}
+          INCLUDE_PINNED: ${{ inputs.include_pinned }}
+          MAX_PRS: ${{ inputs.max_prs }}
+        run: |
+          set -euo pipefail
+          args=(repin
+            --registry registry-src/tools/xerj-code/hub
+            --backlog registry-src/tools/xerj-code/hub/backlog/backlog-100.json
+            --repo-root registry-src --base corpus-hub
+            --classes "$CLASSES" --max-prs "${MAX_PRS:-25}" --apply)
+          [ "${INCLUDE_PINNED:-}" = "true" ] && args+=(--include-pinned)
+          python3 tools-src/tools/hub-packs/hub_packs.py "${args[@]}"

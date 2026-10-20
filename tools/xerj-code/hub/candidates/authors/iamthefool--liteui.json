@@ -1,0 +1,22 @@
+{
+ "corpus": "iamthefool--liteui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C++ queries this for how IAmTheFool/liteui implements it: IAmTheFool/liteui (C++) (selected work: examples, the project root)",
+ "repos": [
+  {
+   "repo": "liteui",
+   "url": "https://github.com/IAmTheFool/liteui",
+   "sha": "883a792d3d1786c53353f42a3836bbf7033a850b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 883a792d3d17: \"feat:lut,gpu caching image,profiler test and corp feature in photoeditor\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

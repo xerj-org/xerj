@@ -1,0 +1,22 @@
+{
+ "corpus": "wazuh--wazuh-indexer-plugins",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Java queries this for how wazuh/wazuh-indexer-plugins implements it: Home of the Wazuh Indexer plugins (selected work: plugins)",
+ "repos": [
+  {
+   "repo": "wazuh-indexer-plugins",
+   "url": "https://github.com/wazuh/wazuh-indexer-plugins",
+   "sha": "748430a5d062cf68490aa9f882b601ccd071e151",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 748430a5d062: \"Fix promote duplicating a policy when the policy update id matches no\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

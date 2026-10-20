@@ -1,0 +1,22 @@
+{
+ "corpus": "raivaibhav--agentgate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how RaiVaibhav/agentgate implements it: Permission gateway for AI agents \u2014 enforce per-tool access control on any MCP server (GitHub, Stripe, Slack). Audit every decision. Revoke i (selected work: app/(dashboard), backend, components)",
+ "repos": [
+  {
+   "repo": "agentgate",
+   "url": "https://github.com/RaiVaibhav/agentgate",
+   "sha": "f94bb08f8a874a28be692a8af7639ac4a5a69e32",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f94bb08f8a87: \"Layer 1 update\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

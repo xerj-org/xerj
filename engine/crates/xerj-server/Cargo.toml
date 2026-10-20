@@ -24,6 +24,8 @@ xerj-compress = { path = "../xerj-compress" }
 xerj-cluster  = { path = "../xerj-cluster" }
 xerj-console-api     = { path = "../xerj-console-api" }
 xerj-autoindex = { path = "../xerj-autoindex" }
+# Corpus Hub v2 client: `xerj hub …` and the `--def` code path.
+xerj-hub     = { path = "../xerj-hub" }
 # `xerj mcp` — the MCP stdio server, in the one binary users install. Pulls in
 # only reqwest + serde_json, both already in this tree.
 xerj-mcp     = { path = "../xerj-mcp" }
@@ -109,6 +111,9 @@ protox = { workspace = true }
 # HTTPS round-trip test against the in-process rustls listener.
 reqwest = { workspace = true }
 tempfile = { workspace = true }
+# `oneshot` against the ES router: the XerjHub test compares a gRPC `Def` with
+# the HTTP `/_hub/v1/def` route field by field.
+tower = { workspace = true }
 # HTTP/2 *as a client*, so `tests/http2_small_data_frames.rs` can choose the
 # DATA-frame size — the one thing no ordinary HTTP client exposes, and the
 # whole subject of #485. It also pins the workspace floor at the h2 release

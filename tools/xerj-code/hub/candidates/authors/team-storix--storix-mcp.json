@@ -1,0 +1,22 @@
+{
+ "corpus": "team-storix--storix-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how Team-STORIX/STORIX-MCP implements it: STORIX \ub0b4\ubd80 \ub3c4\uad6c\ub97c Claude \uc5d0 \ubd99\uc774\ub294 MCP (selected work: src/modules, scripts, test)",
+ "repos": [
+  {
+   "repo": "STORIX-MCP",
+   "url": "https://github.com/Team-STORIX/STORIX-MCP",
+   "sha": "164cb8f2d89b9726a50b3d954cde14b92151580a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 164cb8f2d89b: \"Feat: [DB] prod \uc77d\uae30 \uc804\uc6a9 \uc870\ud68c \ud234\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

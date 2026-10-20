@@ -1,0 +1,22 @@
+{
+ "corpus": "cake-build--cake",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on c-sharp, cake, dotnet queries this for how cake-build/cake implements it: :cake: Cake (C# Make) is a cross platform build automation system (selected work: src/Cake.Common.Tests, src/Cake.Common)",
+ "repos": [
+  {
+   "repo": "cake",
+   "url": "https://github.com/cake-build/cake",
+   "sha": "2b8cab56f34d3d286746c1388af56a945311fae5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 2b8cab56f34d: \"(GH-4231) Resolve MSBuild Build Tools installed in Program Files and \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "lookupmark--osusume",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how LookUpMark/osusume implements it: Self-hosted anime recommendations from your AniList list \u2014 deterministic taste engine, local LLM explanations (LM Studio), hidden gems, fran (selected work: frontend, desktop)",
+ "repos": [
+  {
+   "repo": "osusume",
+   "url": "https://github.com/LookUpMark/osusume",
+   "sha": "9474e4ba7fc0b19fd56d1da782494c385cfd195f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 9474e4ba7fc0: \"feat(ui): redesign completo nello stile di Verba \u2014 design system Clau\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

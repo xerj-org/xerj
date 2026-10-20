@@ -1,0 +1,22 @@
+{
+ "corpus": "sunil56224972--stick-man",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on canvas, css, entailment queries this for how Sunil56224972/stick-man implements it: A hand-drawn arcade bridge game. Hold to grow a stick, release to drop it, and walk across. Miss the gap and you fall. Built with plain HTML (selected work: public, tests)",
+ "repos": [
+  {
+   "repo": "stick-man",
+   "url": "https://github.com/Sunil56224972/stick-man",
+   "sha": "14f8300923a6dbb2fdba0d1362351335fcd700dc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit 14f8300923a6: \"feat(maps): six playable maps with own sky, parallax, pillar material\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

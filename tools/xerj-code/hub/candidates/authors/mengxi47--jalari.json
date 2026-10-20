@@ -1,0 +1,22 @@
+{
+ "corpus": "mengxi47--jalari",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on jobs, postgresql, rust queries this for how MengXi47/jalari implements it: Background jobs and cron for Rust, backed only by PostgreSQL. Multiple workers, retries, deduplication, and crash recovery (selected work: jalari)",
+ "repos": [
+  {
+   "repo": "jalari",
+   "url": "https://github.com/MengXi47/jalari",
+   "sha": "530c05c6638ed9858605b417b875d77051d7de64",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 530c05c6638e: \"fix: Close race conditions in claiming, Replace and maintenance\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "gosuda--flats",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how gosuda/flats implements it: sites/artifacts alternative (selected work: internal/selfupdate, internal/cli, internal/clientstate)",
+ "repos": [
+  {
+   "repo": "flats",
+   "url": "https://github.com/gosuda/flats",
+   "sha": "c04c680753725d2fa5812e91f6e897fd12cd9d83",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit c04c68075372: \"feat: add agent client checks and self-update flow (#53)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "rizgarozan--turkish-rag-eval",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on benchmark, bm25, evaluation queries this for how RizgarOzan/turkish-rag-eval implements it: Which parts of a RAG pipeline earn their cost in Turkish? 12 retrieval configs measured on a hand-labelled Turkish gold set (selected work: tests, src/turkish_rag_eval, results)",
+ "repos": [
+  {
+   "repo": "turkish-rag-eval",
+   "url": "https://github.com/RizgarOzan/turkish-rag-eval",
+   "sha": "833b48ddd4bca370a1c4122615ef49ae7aaa33d4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 833b48ddd4bc: \"Add a stress test and a query normaliser\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

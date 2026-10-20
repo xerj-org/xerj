@@ -1,0 +1,22 @@
+{
+ "corpus": "brightbeamai--chap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on human-ai-collaboration, human-computer-interaction, human-in-the-loop queries this for how BrightbeamAI/chap implements it: CHAP, the Collaborative Human Agent Protocol, is a MCP/A2A-compatible runtime for auditable human-agent work: approvals, overrides, handoffs (selected work: conformance, packages/coordinator-py, packages/coordinator)",
+ "repos": [
+  {
+   "repo": "chap",
+   "url": "https://github.com/BrightbeamAI/chap",
+   "sha": "5dc54a61d49a6b095704832898f93f787fe76a9e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 5dc54a61d49a: \"fix: canonicalize control snapshot artefacts and captured-state proje\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

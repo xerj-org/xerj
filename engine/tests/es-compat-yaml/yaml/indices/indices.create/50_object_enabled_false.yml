@@ -1,0 +1,110 @@
+---
+# `"enabled": false` on an object: the subtree is kept in `_source` but is
+# neither parsed into the mapping nor indexed, and a non-object value is
+# accepted. XERJ-authored case (ES semantics: docs `enabled.html`).
+"enabled false object is stored but not mapped or indexed":
+  - skip:
+      awaits_fix: "XERJ maps and indexes the contents of an enabled:false object (fix follows in fix/es-object-enabled-false)"
+  - do:
+      indices.create:
+        index: test_enabled_false
+        body:
+          mappings:
+            properties:
+              title:
+                type: keyword
+              session_data:
+                type: object
+                enabled: false
+
+  - do:
+      index:
+        index: test_enabled_false
+        id: "1"
+        body: { "title": "t1", "session_data": { "arbitrary_object": { "some_array": ["foo", "bar"] } } }
+
+  - do:
+      index:
+        index: test_enabled_false
+        id: "2"
+        body: { "title": "t2", "session_data": "none" }
+
+  - do:
+      indices.refresh: {}
+
+  - do:
+      indices.get_mapping:
+        index: test_enabled_false
+  - match: { test_enabled_false.mappings.properties.session_data.type: object }
+  - match: { test_enabled_false.mappings.properties.session_data.enabled: false }
+  - is_false: test_enabled_false.mappings.properties.session_data.properties
+
+  - do:
+      search:
+        index: test_enabled_false
+        body: { "query": { "term": { "session_data.arbitrary_object.some_array": "foo" } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: test_enabled_false
+        body: { "query": { "match": { "session_data": "none" } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: test_enabled_false
+        body: { "query": { "exists": { "field": "session_data.arbitrary_object" } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      get:
+        index: test_enabled_false
+        id: "1"
+  - match: { _source.session_data.arbitrary_object.some_array: ["foo", "bar"] }
+
+  - do:
+      search:
+        index: test_enabled_false
+        body: { "query": { "term": { "title": "t2" } } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._source.session_data: "none" }
+
+---
+"enabled false on the whole mapping stores documents without indexing them":
+  - skip:
+      awaits_fix: "XERJ maps and indexes the contents of an enabled:false object (fix follows in fix/es-object-enabled-false)"
+  - do:
+      indices.create:
+        index: test_enabled_false_root
+        body:
+          mappings:
+            enabled: false
+
+  - do:
+      index:
+        index: test_enabled_false_root
+        id: "1"
+        body: { "x": "zz", "n": 5 }
+
+  - do:
+      indices.refresh: {}
+
+  - do:
+      indices.get_mapping:
+        index: test_enabled_false_root
+  - match: { test_enabled_false_root.mappings.enabled: false }
+  - is_false: test_enabled_false_root.mappings.properties
+
+  - do:
+      search:
+        index: test_enabled_false_root
+        body: { "query": { "term": { "x": "zz" } } }
+  - match: { hits.total.value: 0 }
+
+  - do:
+      search:
+        index: test_enabled_false_root
+        body: { "query": { "match_all": {} } }
+  - match: { hits.total.value: 1 }
+  - match: { hits.hits.0._source: { "x": "zz", "n": 5 } }

@@ -1,0 +1,22 @@
+{
+ "corpus": "d1pankarmedhi--chunkr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on chunking, data, document queries this for how d1pankarmedhi/chunkr implements it: A fast chunking library (selected work: benchmarks, packages/chunkr-pdf)",
+ "repos": [
+  {
+   "repo": "chunkr",
+   "url": "https://github.com/d1pankarmedhi/chunkr",
+   "sha": "9ca33496a051fa381bcf83efc0ac6062d70424a9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 9ca33496a051: \"fix(pdf): stop truncating documents at 1000 pages\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

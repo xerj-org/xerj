@@ -1,0 +1,22 @@
+{
+ "corpus": "landrixsoftware--xrechnung-for-delphi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on delphi, invoice, e-invoice queries this for how LandrixSoftware/XRechnung-for-Delphi implements it: XRechnung/ZUGFeRD/Peppol BIS Billing Implementation for Delphi and FreePascal (selected work: ValidXMLExamples, Samples, the project root)",
+ "repos": [
+  {
+   "repo": "XRechnung-for-Delphi",
+   "url": "https://github.com/LandrixSoftware/XRechnung-for-Delphi",
+   "sha": "a42e334f01ff029fa9b014515793aefe34447786",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit a42e334f01ff: \"F\u00fcge Lieferscheinangaben je Position f\u00fcr Sammelrechnungen hinzu (nur \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -332,8 +332,8 @@
       "canonical_url": "https://xerj.org/answers/search-jupyter-notebook-cells",
       "markdown_url": "https://xerj.org/answers/search-jupyter-notebook-cells.md",
       "cluster": "Files and formats",
-      "updated": "2026-08-21",
-      "summary": "A captured run indexed one document per notebook cell, with cell_type, execution_count and the nbformat cell id, so a hit names the exact cell."
+      "updated": "2026-10-05",
+      "summary": "A captured run indexed 2 notebooks by heading section, with the heading path and starting cell, and the .py beside them, all in one index."
     },
     {
       "title": "Search a .csv.gz or .json.gz without unzipping it",
@@ -530,7 +530,7 @@
       "canonical_url": "https://xerj.org/answers/why-autoindex-skipped-files",
       "markdown_url": "https://xerj.org/answers/why-autoindex-skipped-files.md",
       "cluster": "Operations: exclusions",
-      "updated": "2026-08-23",
+      "updated": "2026-10-05",
       "summary": "XERJ prints one line per ignore rule and stores a refusal reason per file. A capture reconciles 26 files on disk to 1 indexed, 2 refused and 23 excluded."
     },
     {

@@ -1,0 +1,22 @@
+{
+ "corpus": "searking--golang",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on golang, gogenerate, generic-template queries this for how searKing/golang implements it: various libs or tools for Golang (selected work: tools)",
+ "repos": [
+  {
+   "repo": "golang",
+   "url": "https://github.com/searKing/golang",
+   "sha": "e8ac8dd9e8f3e8b5e0cfc2bec473d4148f6df42b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e8ac8dd9e8f3: \"feat(tools/protoc-gen-go-tag): declare searking.tag.v1.field_tag of n\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

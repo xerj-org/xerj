@@ -1,0 +1,22 @@
+{
+ "corpus": "treeol--wakil",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agentic-ai, ai-coding queries this for how treeol/wakil implements it: A terminal-native coding agent (selected work: internal/agent)",
+ "repos": [
+  {
+   "repo": "wakil",
+   "url": "https://github.com/treeol/wakil",
+   "sha": "910474e0b2fee99e5e60b25d81d1756d39cb07c9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 910474e0b2fe: \"feat: collapse finished requests in long-session mode\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

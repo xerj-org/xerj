@@ -1,0 +1,22 @@
+{
+ "corpus": "l1angyun--hsrunlocker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on csharp, fov, fps-unlocker-script queries this for how L1angYun/HSRUnlocker implements it: \u539f\u751f Windows\u300a\u5d29\u574f\uff1a\u661f\u7a79\u94c1\u9053\u300b\u5e27\u7387\u89e3\u9501\u5de5\u5177\uff0c\u652f\u6301 FOV \u8c03\u6574\u3001\u79fb\u52a8\u7aef UI\u3001\u76f8\u673a\u53cd\u865a\u5316\u3001\u591a\u8bed\u8a00\u652f\u6301\u53ca\u5e94\u7528\u5185\u66f4\u65b0\u3002\u57fa\u4e8e C# / WinUI 3\uff0c\u91c7\u7528 Vibe Coding \u5f00\u53d1\u3002 (selected work: gui, tests, the project root)",
+ "repos": [
+  {
+   "repo": "HSRUnlocker",
+   "url": "https://github.com/L1angYun/HSRUnlocker",
+   "sha": "11b588f697abd0e5623ef409e5ed744e9dac7b57",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 11b588f697ab: \"Detect installed clients on first launch and prompt for updates\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

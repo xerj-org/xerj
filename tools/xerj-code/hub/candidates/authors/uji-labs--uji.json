@@ -1,0 +1,22 @@
+{
+ "corpus": "uji-labs--uji",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on coding-agent, harness, composable queries this for how uji-labs/uji implements it: God's chosen Coding Harness (selected work: lua, crates/kernel, crates/tests)",
+ "repos": [
+  {
+   "repo": "uji",
+   "url": "https://github.com/uji-labs/uji",
+   "sha": "1e2b00dd592fa68a0c0b5d4a430e52002eadae8c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 1e2b00dd592f: \"feat: make toolcall expandable (#23)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "gabrielkaos--chessenginegoobc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Gabrielkaos/ChessEngineGoobC implements it: UCI playing Chess Engine written in C (selected work: tools, src)",
+ "repos": [
+  {
+   "repo": "ChessEngineGoobC",
+   "url": "https://github.com/Gabrielkaos/ChessEngineGoobC",
+   "sha": "86f011bd0c3d56ac45639565abd6ee8d3cac23b4",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 86f011bd0c3d: \"king mirroring in nnue architecture\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "saaranshm--unsnooze",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-coding, ai-agents, anthropic queries this for how saaranshM/unsnooze implements it: Automatically resume Claude Code, Codex CLI, Grok, Qwen Code, Kimi CLI, OpenCode, and Antigravity sessions when 5-hour or weekly usage limit (selected work: src, test)",
+ "repos": [
+  {
+   "repo": "unsnooze",
+   "url": "https://github.com/saaranshM/unsnooze",
+   "sha": "da52de266baf420496b709b793e6e20447c2c632",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit da52de266baf: \"fix(prime): retry failed primes, serve wrapped slots' next day, harde\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

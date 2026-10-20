@@ -1,0 +1,22 @@
+{
+ "corpus": "lumitech-co--lumitech-node-fastify-template",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on fastify, nodejs, templates queries this for how lumitech-co/lumitech-node-fastify-template implements it: A scalable Node.js backend starter powered by Fastify, Swagger, Docker, and Awilix \u2014 built for clean architecture and future growth (selected work: test, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "lumitech-node-fastify-template",
+   "url": "https://github.com/lumitech-co/lumitech-node-fastify-template",
+   "sha": "259de666ccafa5b00af9f6c6ec9c059c03c52154",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 259de666ccaf: \"refactor(eslint): align all rules with domain repositories\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

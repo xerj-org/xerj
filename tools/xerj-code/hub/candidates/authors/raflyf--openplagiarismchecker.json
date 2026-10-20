@@ -1,0 +1,22 @@
+{
+ "corpus": "raflyf--openplagiarismchecker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Raflyf/OpenPlagiarismChecker implements it: Raflyf/OpenPlagiarismChecker (Python) (selected work: the project root, app/engine, app)",
+ "repos": [
+  {
+   "repo": "OpenPlagiarismChecker",
+   "url": "https://github.com/Raflyf/OpenPlagiarismChecker",
+   "sha": "aa926772f02f8f32645bbde890dd7f18d101cf36",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit aa926772f02f: \"feat(validation): full live-scraping validation \u2014 11 docs, 2 groups, \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

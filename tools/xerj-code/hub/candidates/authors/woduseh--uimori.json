@@ -1,0 +1,22 @@
+{
+ "corpus": "woduseh--uimori",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, chatbot queries this for how woduseh/Uimori implements it: A self-hosted AI storytelling app, heavily inspired by RisuAI (selected work: tests, core, web)",
+ "repos": [
+  {
+   "repo": "Uimori",
+   "url": "https://github.com/woduseh/Uimori",
+   "sha": "ab999eafab5e6aadd9cb02e29198b92b0d578bd1",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ab999eafab5e: \"refactor: simplify evaluation tool execution\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

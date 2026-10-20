@@ -1,0 +1,22 @@
+{
+ "corpus": "nitr0yukkuri--githubplanet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how nitr0yukkuri/githubplanet implements it: GitHub\u306e\u6d3b\u52d5\u30c7\u30fc\u30bf\u3092\u3001\u30e6\u30fc\u30b6\u30fc\u56fa\u6709\u306e3D\u60d1\u661f\u30fb\u5b9f\u7e3e\u30fb\u30ea\u30a2\u30eb\u30bf\u30a4\u30e0\u6d41\u661f\u3068\u3057\u3066\u53ef\u8996\u5316\u3059\u308bWeb\u30a2\u30d7\u30ea\u3002 (selected work: test, src/presentation, the project root)",
+ "repos": [
+  {
+   "repo": "githubplanet",
+   "url": "https://github.com/nitr0yukkuri/githubplanet",
+   "sha": "104a365b0d12018ed57d2ef1278c79226c1082f0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 104a365b0d12: \"OAuth\u5931\u6557\u7406\u7531\u3092\u79d8\u5bc6\u60c5\u5831\u306a\u3057\u3067\u8a3a\u65ad\u3059\u308b\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

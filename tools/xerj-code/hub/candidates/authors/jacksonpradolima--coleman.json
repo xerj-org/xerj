@@ -1,0 +1,22 @@
+{
+ "corpus": "jacksonpradolima--coleman",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on tcpci, ci, tcp queries this for how jacksonpradolima/coleman implements it: COLEMAN (Combinatorial VOlatiLE Multi-Armed BANdit) - and strategies for HCS context (selected work: tests, coleman)",
+ "repos": [
+  {
+   "repo": "coleman",
+   "url": "https://github.com/jacksonpradolima/coleman",
+   "sha": "7ef98a7f70649fe3a816ea1043d7b2fc5c940eff",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 7ef98a7f7064: \"fix(transports): retain interrupted ownership and share source invari\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "shaxntanu--vscode-portfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on developer-portfolio, portfolio-website, user-interface queries this for how shaxntanu/VSCode-Portfolio implements it: A VS Code-themed developer portfolio showcasing projects, tech stack, and experience. Built with Next.js, TypeScript, and Framer Motion. Fea (selected work: styles, components)",
+ "repos": [
+  {
+   "repo": "VSCode-Portfolio",
+   "url": "https://github.com/shaxntanu/VSCode-Portfolio",
+   "sha": "ee6c2e18ce266451241e609ea87900a3a063e9af",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ee6c2e18ce26: \"Redesign mobile navigation and layout\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

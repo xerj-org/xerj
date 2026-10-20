@@ -1,0 +1,22 @@
+{
+ "corpus": "studiomoob--llmoobfs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on filesystem, kernel-module, linux queries this for how studiomoob/llmoobfs implements it: Experimental Linux kernel module (GPL-2.0, no FUSE): a stacked filesystem layer over ext4, btrfs or XFS that adds typed xattr attributes, an (selected work: layer, vm, tests)",
+ "repos": [
+  {
+   "repo": "llmoobfs",
+   "url": "https://github.com/studiomoob/llmoobfs",
+   "sha": "2aadb065154f399d58e5addfe3fd3eb5e4215362",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 2aadb065154f: \"layer: index fixes from a read-only inspection; nested btrfs subvolum\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

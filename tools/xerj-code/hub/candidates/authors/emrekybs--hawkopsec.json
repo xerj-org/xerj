@@ -1,0 +1,22 @@
+{
+ "corpus": "emrekybs--hawkopsec",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on anony, anonymization, anonymize queries this for how emrekybs/hawkopsec implements it: One-tap Linux OPSEC hardening & anonymity toolkit (selected work: hawkopsec, packaging, the project root)",
+ "repos": [
+  {
+   "repo": "hawkopsec",
+   "url": "https://github.com/emrekybs/hawkopsec",
+   "sha": "4959b41aa91de4e5b525bdd107be6cc4f075fd82",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 4959b41aa91d: \"v2.1.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

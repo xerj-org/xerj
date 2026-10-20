@@ -1,0 +1,22 @@
+{
+ "corpus": "roedyrustam--vibes-plug",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on antigravity, skill-md, skills queries this for how roedyrustam/vibes-plug implements it: \u26a1 Cross-IDE AI skill collection that orchestrates 147 specialized subagents for full-stack development workflows (selected work: scripts, the project root, bin)",
+ "repos": [
+  {
+   "repo": "vibes-plug",
+   "url": "https://github.com/roedyrustam/vibes-plug",
+   "sha": "9b336081179a917a5450325561741ec5a29dc447",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 9b336081179a: \"feat: add specialized agent definitions and configure package assets \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

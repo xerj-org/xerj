@@ -1,0 +1,22 @@
+{
+ "corpus": "miltonklun--qaizen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, api-testing, claude-code queries this for how MiltonKlun/Qaizen implements it: AI-assisted QA pipeline with traceable test cases, Playwright E2E and Postman/Newman API checks, schema validation, and four human review ga (selected work: scripts, test)",
+ "repos": [
+  {
+   "repo": "Qaizen",
+   "url": "https://github.com/MiltonKlun/Qaizen",
+   "sha": "2ed445b050362a36999128f9291a0031064d38ed",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 2ed445b05036: \"feat(design): derive test cases with named test design techniques (#117)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

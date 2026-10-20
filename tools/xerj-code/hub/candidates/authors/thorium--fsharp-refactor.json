@@ -1,0 +1,22 @@
+{
+ "corpus": "thorium--fsharp-refactor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on analyser, code, formatter queries this for how Thorium/fsharp-refactor implements it: FSharp refactoring tool - The tool clarifies the (agent-generated or old) code's intent, reduces non-alphanumeric noise, and uses built-in . (selected work: src/FSharp.Refactor.Analyzers, tests, src/FSharp.Refactor.Tool)",
+ "repos": [
+  {
+   "repo": "fsharp-refactor",
+   "url": "https://github.com/Thorium/fsharp-refactor",
+   "sha": "95b1875d7d74211adb29154db7536eb277fce033",
+   "licence": "hint only: Unlicense (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Unlicense",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 95b1875d7d74: \"A few more minor rules\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

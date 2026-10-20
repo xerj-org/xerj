@@ -1,0 +1,22 @@
+{
+ "corpus": "fadersketch--promaid-mod",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, forge, llm queries this for how fadersketch/Promaid-mod implements it: \u66f4\u667a\u80fd\u7684\u8f66\u4e07\u5973\u4ec6\uff1a\u6392\u73ed\u8c03\u5ea6 / \u84dd\u56fe\u5efa\u9020 / \u6316\u77ff\u4f10\u6728\u70e7\u5236\u917f\u9020 / \u6218\u6597\u81ea\u4fdd\u4e0e\u5355\u5175\u6218\u672f / LLM \u5bf9\u8bdd\u00b7\u957f\u671f\u8bb0\u5fc6\u00b717 \u4e2a AI \u5de5\u5177 / TTS \u8bed\u97f3\uff081.20.1 Forge & 1.21.1 NeoForge\uff1b\u7eaf TLM \u524d\u7f6e\uff09 (selected work: promaid_src, promaid_src_neo)",
+ "repos": [
+  {
+   "repo": "Promaid-mod",
+   "url": "https://github.com/fadersketch/Promaid-mod",
+   "sha": "80da1a1083066ab1b3545b22e8abc2ce21a62330",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 80da1a108306: \"R857 \u4fee\u590d\uff08\u5b9e\u6d4b\u516b\u767e\u4e94\u5341\u4e03\uff09\uff1a\u843d\u5730\u6c34\u540e 2 \u79d2\u7981\u642d\u8def + \u62c6\u7b3c\u5148\u8bfb\u5237\u602a\u8868 + \u9762\u677f\u5b50\u9875\u957f\u6587\u672c\u6298\u884c\uff08\u4e24\u6811\u955c\u50cf\uff09\uff1b1.3.1 \u540c\u53f7\u91cd\u6253\u8986\u76d6\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

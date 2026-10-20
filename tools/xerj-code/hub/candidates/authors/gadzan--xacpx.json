@@ -1,0 +1,22 @@
+{
+ "corpus": "gadzan--xacpx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on acpx, claude-code, codex queries this for how gadzan/xacpx implements it: Remote agent control from chat Drive acpx agent sessions \u2014 Codex, Claude Code, Gemini \u2014 from WeChat, Feishu, Yuanbao, and other message chan (selected work: tests, src/conversations)",
+ "repos": [
+  {
+   "repo": "xacpx",
+   "url": "https://github.com/gadzan/xacpx",
+   "sha": "986c9aecc2a22a148f85686667d0d28cb3f25f75",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 986c9aecc2a2: \"fix(conversations): close PR9 upgrade teardown and trigger gaps\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

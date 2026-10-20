@@ -1,0 +1,22 @@
+{
+ "corpus": "joshyahweh--nestrs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on crates, nestjs, prisma-orm queries this for how Joshyahweh/nestrs implements it: Nestrs is a Rust web framework that lets you build structured APIs using the same architectural patterns as NestJS \u2014 modules, controllers, p (selected work: nestrs, nestrs-macros, nestrs-mcp)",
+ "repos": [
+  {
+   "repo": "nestrs",
+   "url": "https://github.com/Joshyahweh/nestrs",
+   "sha": "5930f0b22a91f3d7b4b4f95215d5569df141490c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 5930f0b22a91: \"feat: support tuple and Arc-wrapped state types in routes macro and a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

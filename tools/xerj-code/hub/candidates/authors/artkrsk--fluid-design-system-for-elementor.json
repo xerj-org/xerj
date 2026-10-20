@@ -1,0 +1,22 @@
+{
+ "corpus": "artkrsk--fluid-design-system-for-elementor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on clamp, css, elementor queries this for how artkrsk/fluid-design-system-for-elementor implements it: A small yet powerful WordPress plugin that brings fluid typography and spacing presets directly into Elementor\u2019s interface (selected work: src/php, tests)",
+ "repos": [
+  {
+   "repo": "fluid-design-system-for-elementor",
+   "url": "https://github.com/artkrsk/fluid-design-system-for-elementor",
+   "sha": "245a626a1ed813a8ee41621ad27179226cac0d72",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 245a626a1ed8: \"feat: let themes register preset groups through a filter\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

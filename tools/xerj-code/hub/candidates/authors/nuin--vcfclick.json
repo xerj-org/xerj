@@ -1,0 +1,22 @@
+{
+ "corpus": "nuin--vcfclick",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Python queries this for how nuin/vcfclick implements it: A research-bioinformatics VCF database. Embedded ClickHouse engine, embedded DuckDB annotations, MCP natural-language layer (selected work: tests, ingest, popgen)",
+ "repos": [
+  {
+   "repo": "vcfclick",
+   "url": "https://github.com/nuin/vcfclick",
+   "sha": "df047152fe98f68c554d512fb7695fe1b45b6d96",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit df047152fe98: \"Popgen review fixes: projection site counts, unfolded SFS, ingest memory\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

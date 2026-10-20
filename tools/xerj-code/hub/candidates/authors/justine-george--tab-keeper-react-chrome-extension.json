@@ -1,0 +1,22 @@
+{
+ "corpus": "justine-george--tab-keeper-react-chrome-extension",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on chrome-extension, react, tab-management queries this for how justine-george/tab-keeper-react-chrome-extension implements it: Save, organize, and sync Chrome tab sessions\u2014including tab groups\u2014across desktop devices. Featured on the Chrome Web Store (selected work: e2e, src/components, src/tests)",
+ "repos": [
+  {
+   "repo": "tab-keeper-react-chrome-extension",
+   "url": "https://github.com/justine-george/tab-keeper-react-chrome-extension",
+   "sha": "110c98758ebc94511b00ad02b3209c093bbf9828",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 110c98758ebc: \"Rows reveal their actions for keyboard focus only, not a click's (KAN\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

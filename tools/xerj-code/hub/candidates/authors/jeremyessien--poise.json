@@ -1,0 +1,22 @@
+{
+ "corpus": "jeremyessien--poise",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Dart queries this for how jeremyessien/poise implements it: Motion for Flutter apps, built so your AI agent already knows it (selected work: registry)",
+ "repos": [
+  {
+   "repo": "poise",
+   "url": "https://github.com/jeremyessien/poise",
+   "sha": "90221661a441c2b40289c7523d68cd4a295121b6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 90221661a441: \"Write the agent skill\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

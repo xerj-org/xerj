@@ -1,0 +1,22 @@
+{
+ "corpus": "lebedevkondakovsergeyvach--terminal-session-proxy-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on bash, proxy, rust queries this for how LebedevKondakovSergeyVach/Terminal-Session-Proxy-Manager implements it: Universal, high-performance terminal session proxy manager in Rust. Features an interactive TUI, speed benchmarking, and automatic failover (selected work: tests, src/cmd, src)",
+ "repos": [
+  {
+   "repo": "Terminal-Session-Proxy-Manager",
+   "url": "https://github.com/LebedevKondakovSergeyVach/Terminal-Session-Proxy-Manager",
+   "sha": "6a04329e5da67221789a9c41c8a2c129b6305e5b",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 6a04329e5da6: \"fix: keep socks4 on import and cover untested paths\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

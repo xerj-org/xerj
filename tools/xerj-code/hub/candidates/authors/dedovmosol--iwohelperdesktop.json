@@ -1,0 +1,22 @@
+{
+ "corpus": "dedovmosol--iwohelperdesktop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on csharp, desktop-app, dotnet queries this for how DedovMosol/iwoHelperDesktop implements it: Free, offline Windows app \u2014 merge Excel sheets, merge/split/compress PDFs at Acrobat quality, and turn digital PDFs back into editable Word. (selected work: src, tests)",
+ "repos": [
+  {
+   "repo": "iwoHelperDesktop",
+   "url": "https://github.com/DedovMosol/iwoHelperDesktop",
+   "sha": "8c2ed4e62fba2a5d2530b6e918c9ce894163948a",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 8c2ed4e62fba: \"PDF compare window: wheel scope, unified deletion carets, shared rend\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

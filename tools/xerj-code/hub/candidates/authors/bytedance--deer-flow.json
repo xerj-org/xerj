@@ -1,0 +1,22 @@
+{
+ "corpus": "bytedance--deer-flow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agentic, agentic-framework queries this for how bytedance/deer-flow implements it: An open-source long-horizon SuperAgent harness that researches, codes, and creates. With the help of sandboxes, memories, tools, skill, suba (selected work: backend)",
+ "repos": [
+  {
+   "repo": "deer-flow",
+   "url": "https://github.com/bytedance/deer-flow",
+   "sha": "8ca2910b39d090a6e25a15ad08d09381a4140406",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 8ca2910b39d0: \"fix(view-image): bound re-injected image context with per-request bud\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

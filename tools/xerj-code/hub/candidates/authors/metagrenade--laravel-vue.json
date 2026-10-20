@@ -1,0 +1,22 @@
+{
+ "corpus": "metagrenade--laravel-vue",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on boilerplate, laravel, saas queries this for how MetaGrenade/laravel-vue implements it: Ship faster with MetaForge: a production-ready Laravel + Vue starter kit including auth, role-based access control, Stripe billing, admin da (selected work: tests, app/Payments, resources)",
+ "repos": [
+  {
+   "repo": "laravel-vue",
+   "url": "https://github.com/MetaGrenade/laravel-vue",
+   "sha": "19b8e3934a5a82a12e771c7198ce519d4f948fbc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 19b8e3934a5a: \"Tebex catalogue: connect a store and keep a local copy of its package\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

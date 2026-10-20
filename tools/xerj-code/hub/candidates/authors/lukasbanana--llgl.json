@@ -1,0 +1,22 @@
+{
+ "corpus": "lukasbanana--llgl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on renderer, d3d11, d3d12 queries this for how LukasBanana/LLGL implements it: Low Level Graphics Library (LLGL) is a thin abstraction layer for the modern graphics APIs OpenGL, Direct3D, Vulkan, and Metal (selected work: examples, scripts)",
+ "repos": [
+  {
+   "repo": "LLGL",
+   "url": "https://github.com/LukasBanana/LLGL",
+   "sha": "aa6fb0a85e36e33431f85a6db3f0cbe96c0d9e58",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit aa6fb0a85e36: \"[Examples] Fixed transparent preview brick and added submit form popu\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

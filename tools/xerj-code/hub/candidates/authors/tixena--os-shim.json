@@ -1,0 +1,22 @@
+{
+ "corpus": "tixena--os-shim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how tixena/os-shim implements it: Mockable abstraction layer over OS and git operations for testable Rust code (selected work: src, src/bucket, the project root)",
+ "repos": [
+  {
+   "repo": "os-shim",
+   "url": "https://github.com/tixena/os-shim",
+   "sha": "988145af559c8bb4f210e09c71b4841bc720e6bd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 988145af559c: \"feat: Add a bucket interface, an in-memory bucket and a blocking wrap\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

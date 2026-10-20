@@ -1,0 +1,22 @@
+{
+ "corpus": "anwarminarso--a2n-hangfire-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on aspnetcore, background-jobs, blazor queries this for how anwarminarso/a2n.Hangfire.Dashboard implements it: Open-source Hangfire dashboard extension (Blazor Server) with console output, job tags, recurring job admin, search, filters, analytics, and (selected work: src/a2n.Hangfire.Dashboard)",
+ "repos": [
+  {
+   "repo": "a2n.Hangfire.Dashboard",
+   "url": "https://github.com/anwarminarso/a2n.Hangfire.Dashboard",
+   "sha": "804397106a433ed9d4a8e9d184c66295e8d36b4a",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 804397106a43: \"feat(ui): fit the dashboard to phones, tablets, laptops and wide screens\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "dupatanekrishna--groot-openai-api-chatbot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on JavaScript queries this for how dupatanekrishna/groot-openai-api-chatbot implements it: Reproducible documentation for a small production-style AI chatbot connected to a static portfolio. Groot is a friendly DevOps assistant emb (selected work: worker, examples, the project root)",
+ "repos": [
+  {
+   "repo": "groot-openai-api-chatbot",
+   "url": "https://github.com/dupatanekrishna/groot-openai-api-chatbot",
+   "sha": "d9bff25d65ae9ac47016bc63027d6e7a565f7800",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit d9bff25d65ae: \"Add reproducible deployment lab and implementation files\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

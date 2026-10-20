@@ -1,0 +1,22 @@
+{
+ "corpus": "gustavobaranda--portfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on framer-motion, nextjs, nodemailer queries this for how GustavoBaranda/Portfolio implements it: Portfolio Web Personal desarrollado con TypeScript (TSX), Next.js 16 (App Router), React 19, Tailwind CSS v4, Framer Motion, SEO (Sitemap &  (selected work: src/lib, src/app, src/components)",
+ "repos": [
+  {
+   "repo": "Portfolio",
+   "url": "https://github.com/GustavoBaranda/Portfolio",
+   "sha": "0de85332b1304e04a490b8cd4b6d133be58e28a4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 0de85332b130: \"fix(contact): validate submissions and preserve recovery flow\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

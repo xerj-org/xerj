@@ -1,0 +1,22 @@
+{
+ "corpus": "gngrninja--ninjabotcore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on chsarp, discord, discord-bot queries this for how gngrninja/NinjaBotCore implements it: C# Discord Bot Created Using .Net Core (selected work: ops, test, services)",
+ "repos": [
+  {
+   "repo": "NinjaBotCore",
+   "url": "https://github.com/gngrninja/NinjaBotCore",
+   "sha": "fed62fe4931c98bdcf439f9e5e62c0112886857d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit fed62fe4931c: \"Recover rejected Warcraft Logs tokens and add error alerts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

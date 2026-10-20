@@ -1,0 +1,22 @@
+{
+ "corpus": "zkpayroll--zk-payroll-sdk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on TypeScript queries this for how zkpayroll/zk-payroll-sdk implements it: zkpayroll/zk-payroll-sdk (TypeScript) (selected work: packages/core)",
+ "repos": [
+  {
+   "repo": "zk-payroll-sdk",
+   "url": "https://github.com/zkpayroll/zk-payroll-sdk",
+   "sha": "716d48adbbb8ff65850d40c8f711d8719e6bdb09",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 716d48adbbb8: \"feat: Add sdk treasury reserve release validation (#615) (#656)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

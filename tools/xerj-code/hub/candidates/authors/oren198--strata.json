@@ -1,0 +1,22 @@
+{
+ "corpus": "oren198--strata",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how oren198/Strata implements it: Shared Memory for Agent Fleets (selected work: tests, src/strata, the project root)",
+ "repos": [
+  {
+   "repo": "Strata",
+   "url": "https://github.com/oren198/Strata",
+   "sha": "7b6413fc5a4ecc57f89a26efa8c2d35e7b2299f0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 7b6413fc5a4e: \"test(1.17.1): admit-side inherited check \u2014 single, batch, operator so\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

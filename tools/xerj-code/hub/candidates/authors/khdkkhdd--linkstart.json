@@ -1,0 +1,22 @@
+{
+ "corpus": "khdkkhdd--linkstart",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on archiving, asyncio, chzzk queries this for how khdkkhdd/linkstart implements it: Multi-platform live stream recorder \u2014 detects YouTube / TwitCasting / Chzzk / CI.ME lives, records via yt-dlp, notifies on Discord (selected work: src/linkstart, tests, the project root)",
+ "repos": [
+  {
+   "repo": "linkstart",
+   "url": "https://github.com/khdkkhdd/linkstart",
+   "sha": "6726fc43456d265e5537a661894accfee3c1bc60",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 6726fc43456d: \"feat: add remote recording viewer and run --serve\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

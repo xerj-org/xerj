@@ -1,0 +1,22 @@
+{
+ "corpus": "mskazemi--yazses",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on accessibility, dictation, faster-whisper queries this for how MSKazemi/yazses implements it: Free, open-source, fully-offline-by-default voice dictation for Linux (X11 & Wayland), macOS & Windows. Hold a key, speak, release \u2014 on-devi (selected work: src/yazses, tests, the project root)",
+ "repos": [
+  {
+   "repo": "yazses",
+   "url": "https://github.com/MSKazemi/yazses",
+   "sha": "0aa7f0e8c70f4fbc033129a9411d16868f56eb8f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 0aa7f0e8c70f: \"feat: add opt-in Unicode injector backend for #329 (#364)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

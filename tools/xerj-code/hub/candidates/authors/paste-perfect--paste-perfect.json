@@ -1,0 +1,22 @@
+{
+ "corpus": "paste-perfect--paste-perfect",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on copy-paste, highlighting, prismjs queries this for how paste-perfect/paste-perfect implements it: Easily highlight and copy your code with HTML formatting for seamless pasting into Word, PowerPoint, or plain text (selected work: scripts, the project root, src/app)",
+ "repos": [
+  {
+   "repo": "paste-perfect",
+   "url": "https://github.com/paste-perfect/paste-perfect",
+   "sha": "98dbda825300cbbc4995118260fb41f0b1dd14c2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 98dbda825300: \"feat: migrate to Angular 22 and Optimus UI (#1114)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

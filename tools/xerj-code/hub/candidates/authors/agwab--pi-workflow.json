@@ -1,0 +1,22 @@
+{
+ "corpus": "agwab--pi-workflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, dynamic, extension queries this for how AgwaB/pi-workflow implements it: Workflow orchestration for Pi (selected work: test, src, the project root)",
+ "repos": [
+  {
+   "repo": "pi-workflow",
+   "url": "https://github.com/AgwaB/pi-workflow",
+   "sha": "ba49da963eef82ec6c1d3fc15e81e9a5e62a1864",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit ba49da963eef: \"feat: add opt-in OpenAI fast mode\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

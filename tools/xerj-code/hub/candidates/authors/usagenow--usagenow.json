@@ -1,0 +1,22 @@
+{
+ "corpus": "usagenow--usagenow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, claude-ai, claude-code queries this for how usagenow/usagenow implements it: AI coding usage tracker for macOS: limits, reset times, and token activity across Codex, Claude Code, Gemini CLI, and more (selected work: UsageNow, UsageNowTests, Shared)",
+ "repos": [
+  {
+   "repo": "usagenow",
+   "url": "https://github.com/usagenow/usagenow",
+   "sha": "9b01ae612ab58b8d912a400a67c58a3c59cfed62",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 9b01ae612ab5: \"Add Qwen Code, Cline, and Grok Build\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

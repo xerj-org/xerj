@@ -1,0 +1,22 @@
+{
+ "corpus": "jmuehlig--perf-cpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cpp, cpp17, library queries this for how jmuehlig/perf-cpp implements it: Lightweight recording and sampling of performance counters for specific code segments directly from your C++ application (selected work: test, include, src/sample)",
+ "repos": [
+  {
+   "repo": "perf-cpp",
+   "url": "https://github.com/jmuehlig/perf-cpp",
+   "sha": "e276d171a703c317d45ae26de870a500022142c9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit e276d171a703: \"Added info read (seqlock, index, width) for live counters to avoid th\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

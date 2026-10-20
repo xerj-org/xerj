@@ -1,0 +1,22 @@
+{
+ "corpus": "umeshcode1--lets-connect",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on achievements, claude-ai, code-review queries this for how UmeshCode1/lets-connect implements it: Turnkey GitHub Action & Claude AI PR Reviewer for tracking repository contributions, commit trailers, and achievement milestones (selected work: src/activity_lab, tests, the project root)",
+ "repos": [
+  {
+   "repo": "lets-connect",
+   "url": "https://github.com/UmeshCode1/lets-connect",
+   "sha": "3aa60c714c78bcc6abf6e4fb112641a8189c1449",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 3aa60c714c78: \"feat(action): add GitHub Marketplace action, Claude AI reviewer, and \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

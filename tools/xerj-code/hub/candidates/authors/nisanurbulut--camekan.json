@@ -1,0 +1,22 @@
+{
+ "corpus": "nisanurbulut--camekan",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on swagger-ui, netcore-webapi, angular queries this for how NisanurBulut/Camekan implements it: It is a book online shop. Frontend angular 21 Fw backend .NET Core 10 API (selected work: Camekan.Client)",
+ "repos": [
+  {
+   "repo": "Camekan",
+   "url": "https://github.com/NisanurBulut/Camekan",
+   "sha": "f3b192c87bb8bbf82566765fe42a7f675e899c8a",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-08 (reply to Corpus Hub outreach); selected commit f3b192c87bb8: \"Hotfix nisanur strict mode 071026 (#65)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "karzone--testatlas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, bdd, code-analysis queries this for how Karzone/TestAtlas implements it: Turn any .NET test-automation solution into a queryable map in one SQLite file \u2014 features, steps, API clients, page objects, and their depen (selected work: src/CodeMap.Mcp, tests, src)",
+ "repos": [
+  {
+   "repo": "TestAtlas",
+   "url": "https://github.com/Karzone/TestAtlas",
+   "sha": "ba695007cf9e29391e296f4c87dd12ce15731b4c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit ba695007cf9e: \"MCP 0.1.12: the server follows the map on disk\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

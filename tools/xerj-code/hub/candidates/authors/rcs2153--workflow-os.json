@@ -1,0 +1,22 @@
+{
+ "corpus": "rcs2153--workflow-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how rcs2153/workflow-os implements it: Local-first kernel for governed AI workflows. Public read-only integration preview (selected work: crates/workflow-local-host, crates/workflow-core)",
+ "repos": [
+  {
+   "repo": "workflow-os",
+   "url": "https://github.com/rcs2153/workflow-os",
+   "sha": "4338847eccbb773a73c4e9f162f8512b64a009c5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 4338847eccbb: \"Harden trusted-host admission negative paths (#580)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "adiyy2001--flagtide",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on angular, feature-flags, feature-toggles queries this for how adiyy2001/flagtide implements it: A self-hosted feature flag service. A Quarkus back end pushes flag changes to every open browser over WebSockets, and an Angular SDK evaluat (selected work: libs, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "flagtide",
+   "url": "https://github.com/adiyy2001/flagtide",
+   "sha": "c77cd26c401e9e69b069bb325f2a80946071d96a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c77cd26c401e: \"feat: add an OpenFeature web provider package\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "a86582751--dsh-nexttavern",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on deepseek-harness, roleplay, character-card queries this for how a86582751/dsh-nexttavern implements it: DeepSeek Harness \u957f\u7bc7\u89d2\u8272\u626e\u6f14agent\uff08DSH\u9152\u9986\u63d2\u4ef6\uff09\uff1aSillyTavern \u89d2\u8272\u5361\u5bfc\u5165\u3001\u884c\u52a8\u9009\u9879\u5361\u3001\u5206\u652f\u5bf9\u8bdd\u7ba1\u7406\u3001\u957f\u7bc7\u8bb0\u5fc6\u3001\u5173\u952e\u8bcd\u4e0e\u8bed\u4e49\u6df7\u5408\u68c0\u7d22\u3001\u4ea4\u4e92\u5f0f\u89d2\u8272\u5361\u521b\u4f5c\u3001\u4e16\u754c\u4e66\u3001\u591a\u89d2\u8272 Agent \u96c6\u7fa4\u3001\u6587\u98ce\u9884\u8bbe\u3001\u5c0f\u8bf4\u4e0e\u89d2\u8272\u5361\u5bfc\u51fa\u3001\u4e00\u952e\u5b89\u88c5\u3002 / Rolepla (selected work: src/core, lib/core, preset)",
+ "repos": [
+  {
+   "repo": "dsh-nexttavern",
+   "url": "https://github.com/a86582751/dsh-nexttavern",
+   "sha": "7d376e0ec6d9ec9372e7a5ccec79b710bab38055",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 7d376e0ec6d9: \"feat(card-reading): wire captured inputs and export selected Native o\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

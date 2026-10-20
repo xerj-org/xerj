@@ -1,0 +1,22 @@
+{
+ "corpus": "prateet-github--sentinel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on go, router, load-balancer queries this for how Prateet-Github/sentinel implements it: Sentinel is an API Gateway written in Go (selected work: internal/controlplane)",
+ "repos": [
+  {
+   "repo": "sentinel",
+   "url": "https://github.com/Prateet-Github/sentinel",
+   "sha": "1e550632dccb477de9018de8ca3bd2f008b9c27e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 1e550632dccb: \"feat: implement route management with AddRoute, RemoveRoute, and List\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

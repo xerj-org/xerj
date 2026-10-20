@@ -1,0 +1,22 @@
+{
+ "corpus": "aionhw--xezim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how aionhw/xezim implements it: Open-source SystemVerilog simulator in Rust. 4-state, event-driven, IEEE 1800-2023, runs real UVM (selected work: tests, src/compiler)",
+ "repos": [
+  {
+   "repo": "xezim",
+   "url": "https://github.com/aionhw/xezim",
+   "sha": "5e142d30ea88307b72df22e51f360164063b8001",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 5e142d30ea88: \"Deliver callback clocking events within their slot (\u00a714.4)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

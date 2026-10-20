@@ -1,0 +1,22 @@
+{
+ "corpus": "ttadev24--freshmesh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how ttadev24/FreshMesh implements it: Open-source decision support for fresh-food retail: demand forecasting, inventory optimization, delivery routing, and a Vietnamese AI assist (selected work: web)",
+ "repos": [
+  {
+   "repo": "FreshMesh",
+   "url": "https://github.com/ttadev24/FreshMesh",
+   "sha": "46225f0f23ac4abf3f1588374b1a046904a80f6c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 46225f0f23ac: \"feat(web): 'Ki\u1ec3m ch\u1ee9ng 90 gi\u00e2y' and 'B\u1eb1ng ch\u1ee9ng' pages\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

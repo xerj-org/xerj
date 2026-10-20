@@ -1,0 +1,22 @@
+{
+ "corpus": "kryptamine--herdr-auto-title",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on herdr-plugin, claude-code, developer-tools queries this for how kryptamine/herdr-auto-title implements it: Automatically name Herdr tabs and panes from your current work, Git branch, terminal activity, and Claude Code sessions (selected work: internal/reads, internal/app, internal/state)",
+ "repos": [
+  {
+   "repo": "herdr-auto-title",
+   "url": "https://github.com/kryptamine/herdr-auto-title",
+   "sha": "d3ba3c61147d8683cb298d04d858856c83390ec7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit d3ba3c61147d: \"fix(reads): retry a process read that failed within the poll\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

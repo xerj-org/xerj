@@ -1,0 +1,22 @@
+{
+ "corpus": "albertsteenstrup--sqlitegraphstudio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Swift queries this for how Albertsteenstrup/SQLiteGraphStudio implements it: Albertsteenstrup/SQLiteGraphStudio (Swift) (selected work: Sources, Tests)",
+ "repos": [
+  {
+   "repo": "SQLiteGraphStudio",
+   "url": "https://github.com/Albertsteenstrup/SQLiteGraphStudio",
+   "sha": "9b840981da0dad554e9ce94dedbdbd5df6b9e967",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 9b840981da0d: \"Expand highlighted graph cards and recover embedded startup\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

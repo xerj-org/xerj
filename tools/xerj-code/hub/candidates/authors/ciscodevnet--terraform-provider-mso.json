@@ -1,0 +1,22 @@
+{
+ "corpus": "ciscodevnet--terraform-provider-mso",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on terraform-provider, mso, terraform queries this for how CiscoDevNet/terraform-provider-mso implements it: Terraform Cisco MSO provider (selected work: mso, examples)",
+ "repos": [
+  {
+   "repo": "terraform-provider-mso",
+   "url": "https://github.com/CiscoDevNet/terraform-provider-mso",
+   "sha": "b6b527a61c4e195944b839fea6269ec322994ce6",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b6b527a61c4e: \"[minor_change] Add mso_tenant_policies_netflow_exporter_site resource\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

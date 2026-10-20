@@ -1,0 +1,22 @@
+{
+ "corpus": "adityasah15--skillshift",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on nestjs, postgresql, prisma queries this for how adityasah15/skillshift implements it: A production-oriented freelance marketplace exploring authentication, escrow, real-time chat, search, and scalable backend architecture (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "skillshift",
+   "url": "https://github.com/adityasah15/skillshift",
+   "sha": "d5a4d23a680b518d4e906d0bea19dbce57411440",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit d5a4d23a680b: \"feat(frontend): gate ordering, wallet and review actions by role\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "cooked-linux--findx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how cooked-linux/findx implements it: cooked-linux/findx (Rust) (selected work: finder)",
+ "repos": [
+  {
+   "repo": "findx",
+   "url": "https://github.com/cooked-linux/findx",
+   "sha": "d93a2bbd4a6f16abeaa183dae3954affe0b69281",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit d93a2bbd4a6f: \"feat(finder): implement deep metadata extraction and extended attribu\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

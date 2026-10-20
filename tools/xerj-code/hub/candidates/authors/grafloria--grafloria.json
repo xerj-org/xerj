@@ -1,0 +1,22 @@
+{
+ "corpus": "grafloria--grafloria",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on angular, canvas, collaboration queries this for how grafloria/grafloria implements it: The framework-agnostic diagram engine \u2014 flow charts, dashboards, UML, ERD & real-time collaboration. Native Angular, React, Vue. Obstacle-av (selected work: demos)",
+ "repos": [
+  {
+   "repo": "grafloria",
+   "url": "https://github.com/grafloria/grafloria",
+   "sha": "c3c1fac195e180e86971daafd77e3af8ccc486de",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit c3c1fac195e1: \"feat(demos): the robot cell programmer leads Featured; a landing stage\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "opennebula--one-swap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Ruby queries this for how OpenNebula/one-swap implements it: Migrate VMware workloads to OpenNebula/KVM (selected work: tests, the project root)",
+ "repos": [
+  {
+   "repo": "one-swap",
+   "url": "https://github.com/OpenNebula/one-swap",
+   "sha": "1cd57fa91830b6da10d95d84f687fd80673928e6",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 1cd57fa91830: \"B #8113: Propagate libguestfs appliance environment (#134)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

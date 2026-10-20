@@ -1,0 +1,22 @@
+{
+ "corpus": "wysking--postgrad-study-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Python queries this for how wysking/postgrad-study-engine implements it: Reusable study engine, schemas, workflows, and learning protocols (selected work: tests, scripts, schemas)",
+ "repos": [
+  {
+   "repo": "postgrad-study-engine",
+   "url": "https://github.com/wysking/postgrad-study-engine",
+   "sha": "05b0487e146a1863c4e7c80126f9bccf8fdd19c9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 05b0487e146a: \"Add compact study records independently of assessed learning events\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

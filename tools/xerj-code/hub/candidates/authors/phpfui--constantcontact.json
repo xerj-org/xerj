@@ -1,0 +1,22 @@
+{
+ "corpus": "phpfui--constantcontact",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how phpfui/ConstantContact implements it: phpfui/ConstantContact (PHP) (selected work: src/ConstantContact, yaml)",
+ "repos": [
+  {
+   "repo": "ConstantContact",
+   "url": "https://github.com/phpfui/ConstantContact",
+   "sha": "1476395361da87a476ef64e44d9be245232efc0b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 1476395361da: \"V26.9.0 - 2026-09-24\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

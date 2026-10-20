@@ -1,0 +1,22 @@
+{
+ "corpus": "szl-holdings--a11oy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on policy-gates, governance, szl-holdings queries this for how szl-holdings/a11oy implements it: a11oy \u2014 governed-AI Command Center. Deny by default. Signed receipts. Trust ceiling 0.97. \u039b = Conjecture 1 (selected work: the project root, tests, routers)",
+ "repos": [
+  {
+   "repo": "a11oy",
+   "url": "https://github.com/szl-holdings/a11oy",
+   "sha": "9abdc3d41ba5e2d2becc968d2e2880da062c2747",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 9abdc3d41ba5: \"feat(storage): local a11oy state store with immutable bucket snapshot\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

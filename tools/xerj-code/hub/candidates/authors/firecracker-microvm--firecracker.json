@@ -1,0 +1,22 @@
+{
+ "corpus": "firecracker-microvm--firecracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on virtual-machine, sandbox, virtualization queries this for how firecracker-microvm/firecracker implements it: Secure and fast microVMs for serverless computing (selected work: src/vmm)",
+ "repos": [
+  {
+   "repo": "firecracker",
+   "url": "https://github.com/firecracker-microvm/firecracker",
+   "sha": "84499f4d60735e67555c792efda8162e20672798",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 84499f4d6073: \"refactor(virtio): Bounds-check all ring accesses\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

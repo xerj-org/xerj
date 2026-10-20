@@ -1,0 +1,22 @@
+{
+ "corpus": "zhujhua--moodiary",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on cross-platform, diary-app, flutter-app queries this for how ZhuJHua/moodiary implements it: A fully open source cross-platform diary app written in Flutter and Rust (selected work: packages/feature, packages/foundation, packages/feature_base)",
+ "repos": [
+  {
+   "repo": "moodiary",
+   "url": "https://github.com/ZhuJHua/moodiary",
+   "sha": "ce9627ecb5784a450b63538181eab112a04eb184",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit ce9627ecb578: \"feat(sync): reset a forgotten E2E password and gate sensitive actions\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

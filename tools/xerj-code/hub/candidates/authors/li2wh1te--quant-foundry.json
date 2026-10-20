@@ -1,0 +1,22 @@
+{
+ "corpus": "li2wh1te--quant-foundry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Li2Wh1te/quant-foundry implements it: A personal quantitative platform for market data, factor research, backtesting, paper trading, and live account tracking (selected work: engine)",
+ "repos": [
+  {
+   "repo": "quant-foundry",
+   "url": "https://github.com/Li2Wh1te/quant-foundry",
+   "sha": "98ca1d23fa73961e23615972fa06dee99e145eec",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 98ca1d23fa73: \"fix(s3-d03): close timer activation and bounded result boundaries\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

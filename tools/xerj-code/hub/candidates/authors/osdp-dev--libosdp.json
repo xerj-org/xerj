@@ -1,0 +1,22 @@
+{
+ "corpus": "osdp-dev--libosdp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on osdp, osdp-rust, osdp-python queries this for how osdp-dev/libosdp implements it: OSDP (Open Supervised Device Protocol) library; this project provides a C library for OSDP with bindings/glues for various platforms and lan (selected work: examples, dotnet, the project root)",
+ "repos": [
+  {
+   "repo": "libosdp",
+   "url": "https://github.com/osdp-dev/libosdp",
+   "sha": "7d39dd71262141632e125313a4cfa6a6659c4a9c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 7d39dd712621: \"dotnet: Add examples and package readme\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

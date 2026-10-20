@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--kudu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on big-data, cplusplus, kudu queries this for how apache/kudu implements it: Mirror of Apache Kudu (selected work: src/kudu)",
+ "repos": [
+  {
+   "repo": "kudu",
+   "url": "https://github.com/apache/kudu",
+   "sha": "8cb97df913c7d1b22aed844b1bfb10739fefd11c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 8cb97df913c7: \"[util] less memory allocation & copying for tracing output\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "onetest-ai--applied-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, ai, memory queries this for how onetest-ai/applied_skills implements it: Generic, corpus-agnostic agent skills for building and querying a local, truthful Brain \u2014 hybrid RAG + governed metrics + knowledge graph ov (selected work: mcp, bundles)",
+ "repos": [
+  {
+   "repo": "applied_skills",
+   "url": "https://github.com/onetest-ai/applied_skills",
+   "sha": "30c3c97935b44238c52267f2c748e5f69a0976e9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 30c3c97935b4: \"feat: document read tools, metric history, workbook caveats + kb:ask \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

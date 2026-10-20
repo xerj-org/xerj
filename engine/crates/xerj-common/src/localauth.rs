@@ -68,12 +68,81 @@ pub fn url_is_loopback(url: &str) -> bool {
 /// against the current directory before being returned: the announcement
 /// must name a path the reader can act on even when the calling process was
 /// spawned with an arbitrary cwd, which is exactly what MCP hosts do.
+fn read_admin_key(path: &std::path::Path) -> Option<(String, PathBuf)> {
+    std::fs::read_to_string(path)
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .map(|k| (k, path.to_path_buf()))
+}
+
+/// `~/.xerj/by-port/<port>` — one line, the absolute path of that listener's
+/// `admin.key`. The server writes it on boot. Discovery reads the path, not
+/// a second copy of the key.
+fn port_pointer(port: u16) -> Option<PathBuf> {
+    crate::home::home_dir().map(|home| home.join(".xerj").join("by-port").join(port.to_string()))
+}
+
+/// Record which data dir is serving `port`, so a later command on this
+/// machine can find that node's admin key without guessing `--data-dir`.
+/// The file holds the key's path. A missing home directory is not an error.
+pub fn publish_admin_key_for_port(
+    port: u16,
+    admin_key_file: &std::path::Path,
+) -> std::io::Result<()> {
+    let Some(dest) = port_pointer(port) else {
+        return Ok(());
+    };
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let abs =
+        std::fs::canonicalize(admin_key_file).unwrap_or_else(|_| admin_key_file.to_path_buf());
+    std::fs::write(&dest, format!("{}\n", abs.display()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&dest, std::fs::Permissions::from_mode(0o600))?;
+    }
+    Ok(())
+}
+
+/// Port of a XERJ URL. An explicit port wins; a URL with none is the product
+/// default `9200` (not the scheme default 80/443).
+pub fn xerj_url_port(url: &str) -> u16 {
+    // A schemeless `localhost:9207` parses as scheme `localhost`, so retry
+    // through `http://` the same way `url_is_loopback` does. An explicit port
+    // wins; a URL with none is the product default 9200, not 80/443.
+    let parsed = match url::Url::parse(url) {
+        Ok(u) if matches!(u.scheme(), "http" | "https") => Some(u),
+        _ => url::Url::parse(&format!("http://{url}")).ok(),
+    };
+    parsed.and_then(|u| u.port()).unwrap_or(9200)
+}
+
+/// [`discover_local_admin_key`], but the server's per-port pointer is tried
+/// first. Callers must still refuse to send the key anywhere but loopback.
+pub fn discover_local_admin_key_for_url(url: &str) -> Option<(String, PathBuf)> {
+    let port = xerj_url_port(url);
+    if let Some(pointer) = port_pointer(port) {
+        if let Ok(text) = std::fs::read_to_string(&pointer) {
+            let target = PathBuf::from(text.trim());
+            if let Some(found) = read_admin_key(&target) {
+                return Some(found);
+            }
+        }
+    }
+    discover_local_admin_key()
+}
+
 pub fn discover_local_admin_key() -> Option<(String, PathBuf)> {
     // Relative candidates resolve against the current directory (the "./"
-    // prefix is dropped so the announced path reads cleanly); the first two
-    // are the quickstart's own `--data-dir ./data` and its sibling spelling.
+    // prefix is dropped so the announced path reads cleanly). `./data` is the
+    // quickstart; `./.xerj-data` is what `xerj search` / `xerj def` tell you
+    // to start; `./xerj-data` is the same name without the dot.
     const CANDIDATES: &[&str] = &[
         "data/admin.key",
+        ".xerj-data/admin.key",
         "xerj-data/admin.key",
         "/var/lib/xerj/admin.key",
     ];
@@ -88,15 +157,11 @@ pub fn discover_local_admin_key() -> Option<(String, PathBuf)> {
             }
         })
         .collect();
-    if let Some(home) = std::env::var_os("HOME") {
-        paths.push(PathBuf::from(&home).join(".xerj/brain/admin.key"));
-        paths.push(PathBuf::from(&home).join(".xerj/admin.key"));
+    if let Some(home) = crate::home::home_dir() {
+        paths.push(home.join(".xerj/brain/admin.key"));
+        // llms.txt: `xerj --data-dir ~/xerj-data`.
+        paths.push(home.join("xerj-data/admin.key"));
+        paths.push(home.join(".xerj/admin.key"));
     }
-    paths.into_iter().find_map(|p| {
-        std::fs::read_to_string(&p)
-            .ok()
-            .map(|s| s.trim().to_string())
-            .filter(|s| !s.is_empty())
-            .map(|k| (k, p))
-    })
+    paths.into_iter().find_map(|p| read_admin_key(&p))
 }

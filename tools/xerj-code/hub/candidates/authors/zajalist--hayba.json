@@ -1,0 +1,22 @@
+{
+ "corpus": "zajalist--hayba",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, mcp, procedural-generation queries this for how zajalist/hayba implements it: Agentic MCP toolkit for UE5 \u2014 100+ tools across 34 domains, PCG SQLite registry, cognitive map, SpatialCLIP grounding. The ultimate engine f (selected work: unreal)",
+ "repos": [
+  {
+   "repo": "hayba",
+   "url": "https://github.com/zajalist/hayba",
+   "sha": "9c272a4fef49205a9fac4e8d2b71e2eb5d407dd3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 9c272a4fef49: \"Add bounded multi-view World observation fusion and regional LOD\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

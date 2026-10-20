@@ -1,0 +1,22 @@
+{
+ "corpus": "dev-hydrogen--oxygen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how dev-hydrogen/oxygen implements it: Oxygen \u2014 a Bedrock-faithful particle IDE (ground-up fork of Snowstorm) (selected work: apps/mcp, apps/desktop, tools)",
+ "repos": [
+  {
+   "repo": "oxygen",
+   "url": "https://github.com/dev-hydrogen/oxygen",
+   "sha": "fab1eadab6eeeea2f36649cc990e3bdd1c2ae5b0",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit fab1eadab6ee: \"MCP: write_effect, scene effects, open_in_editor; fix paused redraws\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

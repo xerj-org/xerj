@@ -1,0 +1,22 @@
+{
+ "corpus": "jaydhole16--chief-of-staff",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how JayDhole16/Chief-of-Staff implements it: JayDhole16/Chief-of-Staff (Python) (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "Chief-of-Staff",
+   "url": "https://github.com/JayDhole16/Chief-of-Staff",
+   "sha": "33d2bdd05fcf78f2f839515358675a7921191f04",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 33d2bdd05fcf: \"prevent blank screen from MSW failure\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

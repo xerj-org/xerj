@@ -1,0 +1,22 @@
+{
+ "corpus": "jayzeng--agentmemory",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-memory, agentmemory, ai-agents queries this for how jayzeng/agentmemory implements it: agentmemory: persistent memory for coding agents (Claude Code, OpenAI Codex, Cursor, Agent) with local markdown storage, daily logs, scratch (selected work: src, test, the project root)",
+ "repos": [
+  {
+   "repo": "agentmemory",
+   "url": "https://github.com/jayzeng/agentmemory",
+   "sha": "a6c256bf3eb0ef63c6bab78f528136a882d45f10",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit a6c256bf3eb0: \"feat: install SessionStart/UserPromptSubmit/Stop hooks for detected a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

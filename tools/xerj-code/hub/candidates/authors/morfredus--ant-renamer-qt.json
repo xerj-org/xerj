@@ -1,0 +1,22 @@
+{
+ "corpus": "morfredus--ant-renamer-qt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on arm64, batch-rename, bulk-rename queries this for how morfredus/ant-renamer-qt implements it: C++/Qt 6 port of Ant Renamer 2.13: batch file renaming (replace, enumerate, case, regex, EXIF, MP3 tags) for Windows and Linux. Unofficial,  (selected work: app, core, tests)",
+ "repos": [
+  {
+   "repo": "ant-renamer-qt",
+   "url": "https://github.com/morfredus/ant-renamer-qt",
+   "sha": "a5ffb9bf0fdd4d94d18dfb44b223900b1e986466",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a5ffb9bf0fdd: \"feat: add new-version check feature\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

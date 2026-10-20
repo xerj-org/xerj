@@ -1,0 +1,22 @@
+{
+ "corpus": "alexfurkay--desksaw-vllm-en",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on GDScript queries this for how AlexFurkay/DeskSaw-VLLM-EN implements it: DeskSaw fork EN (selected work: defaults, Scripts, assets)",
+ "repos": [
+  {
+   "repo": "DeskSaw-VLLM-EN",
+   "url": "https://github.com/AlexFurkay/DeskSaw-VLLM-EN",
+   "sha": "0d8284c90f5e05309876bbad2f210e8daf709a5f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 0d8284c90f5e: \"Initial EN upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -108,7 +108,8 @@ def main(argv: list[str] | None = None) -> int:
     root = pathlib.Path(args.root) if args.root else urlmap.landing_dir()
     dates = urlmap.DateSource(urlmap.repo_root())
     if not dates.git_ok:
-        print("WARNING: git is unusable here — every <lastmod> below falls back "
+        print("WARNING: git history is unavailable or shallow — "
+              "every <lastmod> below falls back "
               "to the filesystem mtime, which Google will not be able to verify",
               file=sys.stderr)
 

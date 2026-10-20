@@ -1,0 +1,22 @@
+{
+ "corpus": "hiburger--wearstral",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on mistral, mistral-ai, mistral-vibe queries this for how Hiburger/Wearstral implements it: Native Mistral Vibe (le chat) app for WearOS ! Chat and talk with Mistral AI from your wrist using your Mistral API and set it as your main  (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "Wearstral",
+   "url": "https://github.com/Hiburger/Wearstral",
+   "sha": "71e0fe36c8e66443d226b2cca3fe5c316af08a12",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 71e0fe36c8e6: \"feat: v2 ui overhaul with haptics and greetings\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

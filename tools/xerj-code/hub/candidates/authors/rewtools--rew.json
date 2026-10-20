@@ -1,0 +1,22 @@
+{
+ "corpus": "rewtools--rew",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on build-tools, cli, debugging queries this for how rewtools/rew implements it: Capture failed Go builds into portable capsules. Replay them offline with Docker (selected work: cmd/rew)",
+ "repos": [
+  {
+   "repo": "rew",
+   "url": "https://github.com/rewtools/rew",
+   "sha": "30b88417cd6c53765fc85defc154604fb57ba02f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 30b88417cd6c: \"security: reject sensitive workspace paths before v3 capture (#73)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

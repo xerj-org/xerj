@@ -1,0 +1,22 @@
+{
+ "corpus": "flamki--stellarmind",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how Flamki/stellarmind implements it: AI Agent Marketplace with x402 Micropayments on Stellar \u2014 Claude-powered agents that buy, sell, and earn autonomously (selected work: src/stellar, tests, src)",
+ "repos": [
+  {
+   "repo": "stellarmind",
+   "url": "https://github.com/Flamki/stellarmind",
+   "sha": "d3ff04883af7bcc36391f68324f683a65d9c68b1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit d3ff04883af7: \"feat(network): validate one Stellar network profile across wallet and\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

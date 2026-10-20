@@ -1,0 +1,22 @@
+{
+ "corpus": "onurtas1993--promptlet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how onurtas1993/promptlet implements it: A lightweight desktop chat client for LLMs that lets you use your own API keys instead of paying for multiple subscriptions (selected work: promptlet_client, tests, the project root)",
+ "repos": [
+  {
+   "repo": "promptlet",
+   "url": "https://github.com/onurtas1993/promptlet",
+   "sha": "0bdccd79151f0ab8e095f444189e1bb8f6bca759",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 0bdccd79151f: \"Added support for locally PDF reading\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

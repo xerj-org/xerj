@@ -1,0 +1,22 @@
+{
+ "corpus": "ose-id--velocity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on electron, react, velocity queries this for how ose-id/velocity implements it: \ud83e\udde9 Quickly clone Git repositories and open them in your favorite editor (selected work: src/hooks, src, the project root)",
+ "repos": [
+  {
+   "repo": "velocity",
+   "url": "https://github.com/ose-id/velocity",
+   "sha": "d80f82e29bf5ecd073024b503f5fff6c775e8946",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit d80f82e29bf5: \"refactor(hooks): migrate useAppConfig and useGitOperations with full \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

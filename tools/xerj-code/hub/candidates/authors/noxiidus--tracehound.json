@@ -1,0 +1,22 @@
+{
+ "corpus": "noxiidus--tracehound",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on blue-team, dfir, digital-forensics queries this for how Noxiidus/tracehound implements it: Linux DFIR triage - parses auth.log, wtmp, lastlog, cron, shell history and systemd journal into one UTC timeline, then surfaces attacker be (selected work: src/tracehound, tests, collect)",
+ "repos": [
+  {
+   "repo": "tracehound",
+   "url": "https://github.com/Noxiidus/tracehound",
+   "sha": "ed2afaae7a027af594392ec2f95c850e3b39d6d7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit ed2afaae7a02: \"Add incremental scanning (0.9.2)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

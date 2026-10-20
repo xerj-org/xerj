@@ -1,0 +1,22 @@
+{
+ "corpus": "nielsonrolim--wt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Rust queries this for how nielsonrolim/wt implements it: Git worktrees with their own databases and web port, for any app (selected work: src, src/cmd, tests)",
+ "repos": [
+  {
+   "repo": "wt",
+   "url": "https://github.com/nielsonrolim/wt",
+   "sha": "63d9175d7b4288bf3cd9249587c89d7f734b272a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 63d9175d7b42: \"Clone the source's shm size and ulimits, and fix review findings\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

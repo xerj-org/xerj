@@ -1,0 +1,22 @@
+{
+ "corpus": "kindbob--smartchat-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how kindBob/smartchat-ai implements it: SmartChat with an AI api integration (selected work: frontend, nest-backend)",
+ "repos": [
+  {
+   "repo": "smartchat-ai",
+   "url": "https://github.com/kindBob/smartchat-ai",
+   "sha": "4bd2674e7f140e140521fd561346678f3d519f79",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 4bd2674e7f14: \"refactor: remove chatId from DTOs and add pinnedAt field to Chat model\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

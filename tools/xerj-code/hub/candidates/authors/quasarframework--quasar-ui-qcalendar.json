@@ -1,0 +1,22 @@
+{
+ "corpus": "quasarframework--quasar-ui-qcalendar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on calendar, agenda, events queries this for how quasarframework/quasar-ui-qcalendar implements it: QCalendar - Quasar App Extension, Vue CLI plug-in and UMD distributions available (selected work: packages/ui, the project root)",
+ "repos": [
+  {
+   "repo": "quasar-ui-qcalendar",
+   "url": "https://github.com/quasarframework/quasar-ui-qcalendar",
+   "sha": "d3ad0a74a9c4a1b7558b7e3e57018a00b6344f9e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit d3ad0a74a9c4: \"fix(types): preserve QCalendar types across public imports\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

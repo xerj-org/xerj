@@ -1,0 +1,22 @@
+{
+ "corpus": "l3gitfoxy--momento",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how L3gitFoxy/Momento implements it: A cool lil' app / website to help you plan out your days! (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "Momento",
+   "url": "https://github.com/L3gitFoxy/Momento",
+   "sha": "d3149fa62eb7b6431856aa2c7fb40505b709b051",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit d3149fa62eb7: \"Updated files\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

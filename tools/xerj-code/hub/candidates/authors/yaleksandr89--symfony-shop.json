@@ -1,0 +1,22 @@
+{
+ "corpus": "yaleksandr89--symfony-shop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on symfony, vue, php queries this for how yaleksandr89/symfony-shop implements it: \u0418\u043d\u0442\u0435\u0440\u043d\u0435\u0442-\u043c\u0430\u0433\u0430\u0437\u0438\u043d \u043d\u0430 Symfony 8.1 \u0438 PHP 8.5 \u0441 PostgreSQL, Docker, API Platform, OAuth, Doctrine ORM \u0438 Vue 2 (selected work: tests, src/OAuthBundle, the project root)",
+ "repos": [
+  {
+   "repo": "symfony-shop",
+   "url": "https://github.com/yaleksandr89/symfony-shop",
+   "sha": "7678cfc541279872fcace125f04a0bf897f8d391",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 7678cfc54127: \"fix: \u0437\u0430\u0449\u0438\u0442\u0438\u0442\u044c \u043f\u0440\u0438\u0432\u044f\u0437\u043a\u0443 \u0438 \u043e\u0442\u0432\u044f\u0437\u043a\u0443 OAuth \u043e\u0442 \u0433\u043e\u043d\u043e\u043a\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

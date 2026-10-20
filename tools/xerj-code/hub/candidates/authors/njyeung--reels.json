@@ -1,0 +1,22 @@
+{
+ "corpus": "njyeung--reels",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on brainrot, doomscrolling, instagram queries this for how njyeung/reels implements it: instagram reels in your terminal (selected work: shazam, tui, backend)",
+ "repos": [
+  {
+   "repo": "reels",
+   "url": "https://github.com/njyeung/reels",
+   "sha": "7a9912e3e0868e2ff6b1aab742bbd4329a92d672",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 7a9912e3e086: \"shazam support\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

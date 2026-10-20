@@ -1,0 +1,22 @@
+{
+ "corpus": "ningbottle--bottleplayer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on C++ queries this for how Ningbottle/BottlePlayer implements it: BottleMusic\uff1aWindows \u684c\u9762\u97f3\u4e50\u64ad\u653e\u5668\uff0cQt Quick / C++20 / QML (selected work: desktop, tools, native)",
+ "repos": [
+  {
+   "repo": "BottlePlayer",
+   "url": "https://github.com/Ningbottle/BottlePlayer",
+   "sha": "e5571e06a597f0971cefd0cac49a2456035914f1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e5571e06a597: \"perf(qt): cache view projections and enforce native boundaries\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

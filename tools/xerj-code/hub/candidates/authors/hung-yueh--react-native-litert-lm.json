@@ -1,0 +1,22 @@
+{
+ "corpus": "hung-yueh--react-native-litert-lm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, ios, llm queries this for how hung-yueh/react-native-litert-lm implements it: High-performance on-device LLM inference for React Native, powered by LiteRT-LM and Nitro Modules (selected work: ios, android, src/__tests__)",
+ "repos": [
+  {
+   "repo": "react-native-litert-lm",
+   "url": "https://github.com/hung-yueh/react-native-litert-lm",
+   "sha": "a43c5f1105c3b760d5e03f43f617ff24131bece2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit a43c5f1105c3: \"feat: on-device embeddings with createEmbedder() and useEmbedder()\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

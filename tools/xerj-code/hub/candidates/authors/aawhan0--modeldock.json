@@ -1,0 +1,22 @@
+{
+ "corpus": "aawhan0--modeldock",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on fastapi, machine-learning, mlops queries this for how aawhan0/ModelDock implements it: Open-source ML model registry and inference platform with versioned artifacts, predictions, metrics, and observability (selected work: backend)",
+ "repos": [
+  {
+   "repo": "ModelDock",
+   "url": "https://github.com/aawhan0/ModelDock",
+   "sha": "2ffe0116d906e57ba2a8e327aa0c04a41cdd5b4f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 2ffe0116d906: \"feat(inference): add asynchronous inference jobs (#104)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

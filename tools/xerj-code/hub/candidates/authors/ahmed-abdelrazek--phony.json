@@ -1,0 +1,22 @@
+{
+ "corpus": "ahmed-abdelrazek--phony",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on wpf, mvvm queries this for how ahmed-abdelrazek/Phony implements it: Arabic Mobile Store Management App (selected work: src/ViewModels, src/DTOs, src/Helpers)",
+ "repos": [
+  {
+   "repo": "Phony",
+   "url": "https://github.com/ahmed-abdelrazek/Phony",
+   "sha": "6b19c905dfd506bde846c71eb0a510d5924fa4b3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 6b19c905dfd5: \"Enable Nullable project wide and fix the warnings\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

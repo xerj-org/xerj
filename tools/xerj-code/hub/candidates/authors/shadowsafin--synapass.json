@@ -1,0 +1,22 @@
+{
+ "corpus": "shadowsafin--synapass",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-gateway, api-gateway queries this for how ShadowSafin/Synapass implements it: AI inference gateway and control plane for multi-provider routing, policies, caching, tools, and observability (selected work: internal/api, internal/tokens, internal/domain)",
+ "repos": [
+  {
+   "repo": "Synapass",
+   "url": "https://github.com/ShadowSafin/Synapass",
+   "sha": "0feb9dd5cb60e80a1acdd9bd1d2335b3042baaac",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 0feb9dd5cb60: \"feat(gateway): stream metrics wiring, async store and cancel accounting\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

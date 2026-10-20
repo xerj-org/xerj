@@ -1,0 +1,22 @@
+{
+ "corpus": "anekenonso--fixloop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, bug-reporting, bugfix queries this for how Anekenonso/FixLoop implements it: FixLoop is an AI bug-fixer with a strict gatekeeper. It refuses to open a PR unless the exact test that failed now passes. The model propose (selected work: evidence, src/fixloop)",
+ "repos": [
+  {
+   "repo": "FixLoop",
+   "url": "https://github.com/Anekenonso/FixLoop",
+   "sha": "c4fd8d4cc56a52e53ccbacf647ce46ad5d7b853b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit c4fd8d4cc56a: \"feat(phase-11): execute live demo run on Issue 03, open sandbox PR #1\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

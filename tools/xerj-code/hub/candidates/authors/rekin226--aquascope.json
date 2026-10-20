@@ -1,0 +1,22 @@
+{
+ "corpus": "rekin226--aquascope",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, environmental-science, hydrology queries this for how Rekin226/aquascope implements it: Explore river records and run reproducible water analyses in your browser. Open hydrology data, methods, and exports (selected work: aquascope, tests)",
+ "repos": [
+  {
+   "repo": "aquascope",
+   "url": "https://github.com/Rekin226/aquascope",
+   "sha": "e2a9a0e326b7a50135b1e28469101c91b735608a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit e2a9a0e326b7: \"collectors: drop duplicate status extraction and regex fallback (#165)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

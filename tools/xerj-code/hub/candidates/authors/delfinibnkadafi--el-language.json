@@ -1,0 +1,22 @@
+{
+ "corpus": "delfinibnkadafi--el-language",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how DelfinIbnKadafi/El-Language implements it: High Level Programming Language Using Virtual Machine (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "El-Language",
+   "url": "https://github.com/DelfinIbnKadafi/El-Language",
+   "sha": "5df1ebfe8d12e9e9fd9b8b99f79ed23ad3393231",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 5df1ebfe8d12: \"Add module and library file systems\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

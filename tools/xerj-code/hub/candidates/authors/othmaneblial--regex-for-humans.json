@@ -1,0 +1,22 @@
+{
+ "corpus": "othmaneblial--regex-for-humans",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on regex, command-line-tool, developer-tools queries this for how OthmaneBlial/Regex-For-Humans implements it: Write clear rules. Get a JavaScript regex you can inspect and test (selected work: src, test, scripts)",
+ "repos": [
+  {
+   "repo": "Regex-For-Humans",
+   "url": "https://github.com/OthmaneBlial/Regex-For-Humans",
+   "sha": "612dc18fddfec60121157bf14735dcab98f56052",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 612dc18fddfe: \"feat: preserve nested native Unicode set operations\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

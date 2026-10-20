@@ -1,0 +1,22 @@
+{
+ "corpus": "pateldeepb--spatialtrack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how PatelDeepB/spatialtrack implements it: CPU-Optimized Spatial Telemetry, Multi-Object Tracking, and Metric Speed Estimation Engine (selected work: app/components, src/spatialtrack, app)",
+ "repos": [
+  {
+   "repo": "spatialtrack",
+   "url": "https://github.com/PatelDeepB/spatialtrack",
+   "sha": "add4d067c9c4cd43199ecaa362ce7881c12b5f80",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit add4d067c9c4: \"feat(tracking): enhance model accuracy, tracking recall, and universa\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

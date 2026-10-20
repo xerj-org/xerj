@@ -1,0 +1,22 @@
+{
+ "corpus": "loong-git--fresh-pickup",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Vue queries this for how loong-git/fresh-pickup implements it: \u751f\u9c9c\u914d\u9001 \u00b7 \u591a\u591a\u4e70\u83dc\u98ce\u683c\u793e\u533a\u56e2\u8d2d\uff08uniapp Vue3 + Spring Boot 3 + MySQL\uff09\uff5c\u81ea\u63d0\u6a21\u5f0f \u00b7 \u79d2\u6740 \u00b7 \u5238\u6838\u9500 \u00b7 \u591a\u95e8\u5e97 \u00b7 JWT \u00b7 \u5b57\u5178\u7cfb\u7edf\u5bf9\u63a5 (selected work: backEnd)",
+ "repos": [
+  {
+   "repo": "fresh-pickup",
+   "url": "https://github.com/loong-git/fresh-pickup",
+   "sha": "03a70cf7127d82cbe7f9821de84e272d08f5d9f0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 03a70cf7127d: \"F-51 addReview \u6536\u8fdb\u7edf\u4e00\u4fe1\u5c01\uff1aT-M1-02 \u6700\u540e\u4e00\u4e2a\u88f8 Map \u51fa\u53e3\uff0c\u53d6\u8bc1\u5148\u8bc1 C \u7aef\u65e0\u611f\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "ardacankyaa--rimvo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how ardacankyaa/rimvo implements it: A local-first browser DJ console with two decks, creative transitions and stereo WAV/MP3 recording exports (selected work: src/features, tests, src/session)",
+ "repos": [
+  {
+   "repo": "rimvo",
+   "url": "https://github.com/ardacankyaa/rimvo",
+   "sha": "69ee46c0a486355538ce2eba321d91b6f80efa41",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 69ee46c0a486: \"Add saved sessions, safer recording, Turkish UI and headphone monitoring\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

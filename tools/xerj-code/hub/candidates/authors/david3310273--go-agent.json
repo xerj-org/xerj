@@ -1,0 +1,22 @@
+{
+ "corpus": "david3310273--go-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how David3310273/go-agent implements it: Light-weighted golang agent framework, simple but not easy (selected work: agent, core)",
+ "repos": [
+  {
+   "repo": "go-agent",
+   "url": "https://github.com/David3310273/go-agent",
+   "sha": "03d297be80a8eb2b2370503152ccad5619352139",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 03d297be80a8: \"fix(agent): upgrade mcp and kb find method\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "lucianodperez--agent-devs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on coding-agent, developer-tools, llama-cpp queries this for how LucianoDPerez/agent-devs implements it: Open-source local coding agent designed to make Small Language Models (4B\u201335B) useful for real-world software development. AgentDevs maximiz (selected work: orchestration, display, tests)",
+ "repos": [
+  {
+   "repo": "agent-devs",
+   "url": "https://github.com/LucianoDPerez/agent-devs",
+   "sha": "7d91143417f3018b5b2679f07be91bcdd80a2c6d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 7d91143417f3: \"feat: tasks-pool autonomo, commit con mensaje AI y menu slash navegable\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "mochinek0--dsh-desktop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dsh-plugin, dsh-plugins, desktop queries this for how MochiNek0/dsh-desktop implements it: Unofficial lightweight desktop client for DeepSeek Harness (dsh web), built with Tauri. A few-MB installer that runs dsh in a native window  (selected work: src-tauri, plugin)",
+ "repos": [
+  {
+   "repo": "dsh-desktop",
+   "url": "https://github.com/MochiNek0/dsh-desktop",
+   "sha": "e7bb3dfec5efa85b57ab4da5cb1c2203d3e6ad7d",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit e7bb3dfec5ef: \"Feat/convenience 2 (#15)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

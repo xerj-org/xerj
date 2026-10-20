@@ -470,7 +470,7 @@ footer .links { display: flex; gap: 28px; flex-wrap: wrap; }
   http://localhost:9200/_xerj-console/setup#token=T8AC0tmun3Ca-DNrepOawL42uOZaDSTkXBoFI6TIPZg
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│ Need a fresh link?  `xerj admin magic-link --role owner`                    │
+│ Need a fresh link?  Restart this node: a new one is printed on boot.         │
 └──────────────────────────────────────────────────────────────────────────────┘
 <span class="prompt">$ </span># From a second shell — first /_cluster/health 200 in <span class="num">47 ms</span> (median of 5 cold-boots, 5ms poll)
 <span class="prompt">$ </span>curl -s localhost:9200/_cluster/health | jq .status
@@ -688,7 +688,7 @@ node demo/scripts/full-demo-flow.js
   http://localhost:9200/_xerj-console/setup#token=T8AC0tmun3Ca-DNrepOawL42uOZaDSTkXBoFI6TIPZg
 ├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│ Need a fresh link?  `xerj admin magic-link --role owner`                    │
+│ Need a fresh link?  Restart this node: a new one is printed on boot.         │
 └──────────────────────────────────────────────────────────────────────────────┘
 ↑ captured live 2026-04-27 19:11:41Z · single-use · token never lands on disk (only sha256 in .xerj_magic_links)</code></pre>
 
@@ -1347,9 +1347,7 @@ node demo/scripts/full-demo-flow.js
   <div>
     <div>Xerj · <a href="https://github.com/xerj-org/xerj">github.com/xerj-org/xerj</a></div>
     <div style="margin-top: 8px;">All numbers on this page are real, captured live on
-      a 32-core box with a single NVMe SSD.  Reproduce in &lt; 5 min with the
-      <a href="https://github.com/xerj-org/xerj/tree/main/engine/demo-data">demo-data scripts</a>:
-      <code>build_corpus.py</code> + <code>xerj index</code> + the curls above.
+      a 32-core box with a single NVMe SSD.
       Source dataset: <a href="https://github.com/logpai/loghub">loghub OpenSSH</a>
       (LabSZ, 2017, 71 MB / 655 K real lines).</div>
   </div>

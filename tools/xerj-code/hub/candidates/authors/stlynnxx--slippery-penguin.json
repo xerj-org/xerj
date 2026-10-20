@@ -1,0 +1,22 @@
+{
+ "corpus": "stlynnxx--slippery-penguin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on suid-enumeration, async-tools, automation queries this for how stlynnxx/Slippery-Penguin implements it: Slippery Penguin is an SUID enumeration tool built in Python (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "Slippery-Penguin",
+   "url": "https://github.com/stlynnxx/Slippery-Penguin",
+   "sha": "2a6ae8b0a10871d18226c95ad2a95a12967d4e14",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 2a6ae8b0a108: \"Formatting via Ruff\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

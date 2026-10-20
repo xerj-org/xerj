@@ -1,0 +1,22 @@
+{
+ "corpus": "mariomlll--ecnu-timetable-calendar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on calendar, chrome-extension, ecnu queries this for how marioMLLL/ecnu-timetable-calendar implements it: \ud83d\udcc5 Export ECNU timetables to macOS Calendar and Windows Outlook (selected work: mobile, lib, the project root)",
+ "repos": [
+  {
+   "repo": "ecnu-timetable-calendar",
+   "url": "https://github.com/marioMLLL/ecnu-timetable-calendar",
+   "sha": "e4d03dc637b9e18a10cf729b0c9022501ac9f5b6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit e4d03dc637b9: \"feat: add iPhone QR calendar import\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

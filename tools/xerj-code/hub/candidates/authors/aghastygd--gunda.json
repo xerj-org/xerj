@@ -1,0 +1,22 @@
+{
+ "corpus": "aghastygd--gunda",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how AghastyGD/gunda implements it: download manager for the stubborn (selected work: apps/desktop, crates/gunda-http, crates/gunda-core)",
+ "repos": [
+  {
+   "repo": "gunda",
+   "url": "https://github.com/AghastyGD/gunda",
+   "sha": "c1ac46df94686e7eaa54bc09245b00fdbc39f78e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit c1ac46df9468: \"fix retries and recovery actions\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

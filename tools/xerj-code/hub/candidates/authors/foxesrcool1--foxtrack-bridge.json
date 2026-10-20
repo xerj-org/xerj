@@ -1,0 +1,22 @@
+{
+ "corpus": "foxesrcool1--foxtrack-bridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how FoxesRCool1/FoxTrack-Bridge implements it: A bridge to connect printers to FoxTrack (selected work: ai, the project root, web)",
+ "repos": [
+  {
+   "repo": "FoxTrack-Bridge",
+   "url": "https://github.com/FoxesRCool1/FoxTrack-Bridge",
+   "sha": "395731d1f55c3216cdb73957af93636ffdd6d01e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 395731d1f55c: \"Add an assistant that can diagnose printers and look at the camera\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

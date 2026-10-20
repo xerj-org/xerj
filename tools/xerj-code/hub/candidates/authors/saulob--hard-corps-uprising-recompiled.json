@@ -1,0 +1,22 @@
+{
+ "corpus": "saulob--hard-corps-uprising-recompiled",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on recompilation, xbox-360, game queries this for how saulob/hard-corps-uprising-recompiled implements it: Hard Corps: Uprising native PC port via static recompilation, the Xbox 360 XBLA Contra spin-off, with TRG launcher (selected work: src, tests)",
+ "repos": [
+  {
+   "repo": "hard-corps-uprising-recompiled",
+   "url": "https://github.com/saulob/hard-corps-uprising-recompiled",
+   "sha": "f66eecaf2dce9d24dfa7acbd7bdce85bb0a22412",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit f66eecaf2dce: \"feat: add DLC character installation and management\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

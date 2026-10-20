@@ -1,0 +1,22 @@
+{
+ "corpus": "ctrlaltdevelop--ohlcv-chart",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on candlestick-chart, charts, custompainter queries this for how CtrlAltDevelop/ohlcv_chart implements it: Candlestick charts for Flutter: 31 indicators, 29 drawing tools, 55 more chart types. Pure CustomPainter, no WebView (selected work: test, example, lib/src)",
+ "repos": [
+  {
+   "repo": "ohlcv_chart",
+   "url": "https://github.com/CtrlAltDevelop/ohlcv_chart",
+   "sha": "a94ae68f256e4079945eef282702af6b8fd7013d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a94ae68f256e: \"feat: add ProgressCard and a Progress and goals gallery group\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

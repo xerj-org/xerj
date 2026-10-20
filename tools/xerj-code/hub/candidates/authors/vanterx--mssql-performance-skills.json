@@ -1,0 +1,22 @@
+{
+ "corpus": "vanterx--mssql-performance-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on claude-code, database-tuning, execution-plans queries this for how vanterx/mssql-performance-skills implements it: SQL Server performance tuning skills for LLMs \u2014 829 checks across 26 skills covering T-SQL, execution plans, wait stats, deadlocks, Query St (selected work: skills, mcp-server, scripts)",
+ "repos": [
+  {
+   "repo": "mssql-performance-skills",
+   "url": "https://github.com/vanterx/mssql-performance-skills",
+   "sha": "86bfc4e80d12c3e00dd8c148f3031f5e1106a6f1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 86bfc4e80d12: \"feat: add sqlperfmon-review \u2014 Windows Perfmon counter analysis (PM1\u2013P\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

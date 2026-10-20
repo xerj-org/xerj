@@ -1,0 +1,22 @@
+{
+ "corpus": "opengrep--opengrep",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on OCaml queries this for how opengrep/opengrep implements it: \ud83d\udd0e Static code analysis engine to find security issues in code (selected work: tests, languages, src/naming)",
+ "repos": [
+  {
+   "repo": "opengrep",
+   "url": "https://github.com/opengrep/opengrep",
+   "sha": "566bdf9127762086d9616a465f8dff9025911379",
+   "licence": "hint only: LGPL-2.1 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-2.1",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 566bdf912776: \"frontends: represent switch value labels as values\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

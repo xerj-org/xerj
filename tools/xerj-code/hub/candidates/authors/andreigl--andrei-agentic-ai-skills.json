@@ -1,0 +1,22 @@
+{
+ "corpus": "andreigl--andrei-agentic-ai-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how andreiGl/andrei-agentic-ai-skills implements it: andreiGl/andrei-agentic-ai-skills (Python) (selected work: mods)",
+ "repos": [
+  {
+   "repo": "andrei-agentic-ai-skills",
+   "url": "https://github.com/andreiGl/andrei-agentic-ai-skills",
+   "sha": "7627abf4c5c63b9e9888acc8fed4f4a9fdc7c182",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 7627abf4c5c6: \"mods: add session-keeper, plan-progress, self-critique, collision-guard\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

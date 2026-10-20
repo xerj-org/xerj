@@ -1,0 +1,22 @@
+{
+ "corpus": "samdevlab--s3",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how SamDevlab/S3 implements it: SamDevlab/S3 (Python) (selected work: selfhost, tests, bootstrap)",
+ "repos": [
+  {
+   "repo": "S3",
+   "url": "https://github.com/SamDevlab/S3",
+   "sha": "5b9b40dd51cde01a082cca7cc9ca6846b8a41113",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 5b9b40dd51cd: \"feat(compiler-ng): close aggregate vector pop lowering\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

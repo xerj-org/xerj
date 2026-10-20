@@ -1,0 +1,22 @@
+{
+ "corpus": "shaypat112--krythiq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on ai, cybersecurity, swe queries this for how shaypat112/Krythiq implements it: Cybersecurty X AI x SWE Startup Service (selected work: supabase, the project root, tests)",
+ "repos": [
+  {
+   "repo": "Krythiq",
+   "url": "https://github.com/shaypat112/Krythiq",
+   "sha": "c4859c8564f192a0532c492e2ac32408a219533b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c4859c8564f1: \"feat: docker local containers integration\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

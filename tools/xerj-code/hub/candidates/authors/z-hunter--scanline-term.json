@@ -1,0 +1,22 @@
+{
+ "corpus": "z-hunter--scanline-term",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on console, crt, mcp queries this for how z-hunter/Scanline-Term implements it: Retro-futuristic terminal emulator for Windows with (optional) CRT simulation, AI assistant, MCP, and built-in minimalistic web browser, opt (selected work: src-tauri, src/terminal, src)",
+ "repos": [
+  {
+   "repo": "Scanline-Term",
+   "url": "https://github.com/z-hunter/Scanline-Term",
+   "sha": "c6550366449603559d7b7b60dc885e8ed2b06c83",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit c65503664496: \"feat(mcp): add agent-controlled terminal sessions\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

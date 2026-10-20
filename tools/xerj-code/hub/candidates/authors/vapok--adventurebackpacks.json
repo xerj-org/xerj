@@ -1,0 +1,22 @@
+{
+ "corpus": "vapok--adventurebackpacks",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how Vapok/AdventureBackpacks implements it: A Valheim Mod to add Adventuring Backpacks to the Game. These packs grow and become more useful as the game progresses (selected work: UnityProjects, AdventureBackpacks, the project root)",
+ "repos": [
+  {
+   "repo": "AdventureBackpacks",
+   "url": "https://github.com/Vapok/AdventureBackpacks",
+   "sha": "55acfbea18a08a98ce9dcb986632438faf14fba5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 55acfbea18a0: \"feat: Ashlands and Deep North backpacks, visual model overhaul, and p\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

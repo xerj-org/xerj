@@ -1,0 +1,22 @@
+{
+ "corpus": "pollinations--pollinations",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on generative, colaboratory, colaboratory-notebook queries this for how pollinations/pollinations implements it: Your Friendly Open-Source Gen-AI Platform (selected work: packages/polli-cli)",
+ "repos": [
+  {
+   "repo": "pollinations",
+   "url": "https://github.com/pollinations/pollinations",
+   "sha": "82c495c01d98392967c94483149eac07df952b1e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 82c495c01d98: \"feat(polli): add Codex and Claude Code router harnesses (#15289)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

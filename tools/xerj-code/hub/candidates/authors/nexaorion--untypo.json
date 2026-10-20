@@ -1,0 +1,22 @@
+{
+ "corpus": "nexaorion--untypo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Nexaorion/UnTypo implements it: Zero typing, zero typos (selected work: tests, src/main, src/core)",
+ "repos": [
+  {
+   "repo": "UnTypo",
+   "url": "https://github.com/Nexaorion/UnTypo",
+   "sha": "a72fbeb16e747ddef23fd70d16fca8e5bfe3de83",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit a72fbeb16e74: \"perf: async PBKDF2, diagnostic log queue, and abort tests\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

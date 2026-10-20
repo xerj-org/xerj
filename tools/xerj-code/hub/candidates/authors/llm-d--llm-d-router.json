@@ -1,0 +1,22 @@
+{
+ "corpus": "llm-d--llm-d-router",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on inference, kubernetes, networking queries this for how llm-d/llm-d-router implements it: llm-d Router: The intelligent entry point for inference requests (selected work: pkg/epp, cmd/epp)",
+ "repos": [
+  {
+   "repo": "llm-d-router",
+   "url": "https://github.com/llm-d/llm-d-router",
+   "sha": "6d1959a8e28a96a9899d3fc1ed4fac5f89e4fe58",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 6d1959a8e28a: \"feat(datalayer): confine per-request attribute access to declarations\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

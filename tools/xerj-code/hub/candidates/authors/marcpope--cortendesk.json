@@ -1,0 +1,22 @@
+{
+ "corpus": "marcpope--cortendesk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on admin-dashboard, anydesk, laravel queries this for how marcpope/cortendesk implements it: A web based, open-source console for managing the RustDesk OSS Server and Client (selected work: app/Services, app/Livewire, resources)",
+ "repos": [
+  {
+   "repo": "cortendesk",
+   "url": "https://github.com/marcpope/cortendesk",
+   "sha": "79a307979506c7482c122e6561ea01d0f1b05f42",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 79a307979506: \"1.12.0: duplicate device flags, theme saved per account, dependency s\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

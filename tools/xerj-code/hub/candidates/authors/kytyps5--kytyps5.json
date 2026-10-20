@@ -1,0 +1,22 @@
+{
+ "corpus": "kytyps5--kytyps5",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on windows, cpp, playstation5 queries this for how KytyPS5/KytyPS5 implements it: PlayStation 5 translation layer for Windows, Linux and macOS (selected work: tests, src/graphics)",
+ "repos": [
+  {
+   "repo": "KytyPS5",
+   "url": "https://github.com/KytyPS5/KytyPS5",
+   "sha": "d247d3d60c6a2f3c38552b53bb1a4e9d1bc15311",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit d247d3d60c6a: \"shader: complete signed 64-bit integer comparisons\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

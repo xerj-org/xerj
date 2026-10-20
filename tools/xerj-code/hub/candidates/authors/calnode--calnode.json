@@ -1,0 +1,22 @@
+{
+ "corpus": "calnode--calnode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on booking, calendly-alternative, go queries this for how Calnode/calnode implements it: Lean, self-hostable Calendly & Cal.com alternative \u2014 a single Go binary + SQLite, API-first and MCP-native. Apache-2.0 (selected work: packaging)",
+ "repos": [
+  {
+   "repo": "calnode",
+   "url": "https://github.com/Calnode/calnode",
+   "sha": "45b569f8ee78eec35c07c6c0a757ece060fcb2d3",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 45b569f8ee78: \"packaging: add in-tree NS8 module (packaging/ns8)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

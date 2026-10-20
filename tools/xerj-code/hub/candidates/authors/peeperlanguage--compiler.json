@@ -1,0 +1,22 @@
+{
+ "corpus": "peeperlanguage--compiler",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how PeeperLanguage/compiler implements it: Peeper is a systems programming language with memory safety and less complex than other systems languages (selected work: internal/frontend, x_test, internal/semantics)",
+ "repos": [
+  {
+   "repo": "compiler",
+   "url": "https://github.com/PeeperLanguage/compiler",
+   "sha": "a145d6465443f5b0984a0ad7ed6f13f746613dfb",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit a145d6465443: \"Fix qualified range and literal recovery\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

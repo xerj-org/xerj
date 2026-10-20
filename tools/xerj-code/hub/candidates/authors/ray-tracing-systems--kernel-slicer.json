@@ -1,0 +1,22 @@
+{
+ "corpus": "ray-tracing-systems--kernel-slicer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how Ray-Tracing-Systems/kernel_slicer implements it: kernel_slicer (selected work: apps/tests, templates_slang, the project root)",
+ "repos": [
+  {
+   "repo": "kernel_slicer",
+   "url": "https://github.com/Ray-Tracing-Systems/kernel_slicer",
+   "sha": "e46b73bd3b045fa9c75ff29f24f56876ecf0eac8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit e46b73bd3b04: \"InterlockedAdd3f\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

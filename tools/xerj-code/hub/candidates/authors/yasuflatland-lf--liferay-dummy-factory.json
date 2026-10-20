@@ -1,0 +1,22 @@
+{
+ "corpus": "yasuflatland-lf--liferay-dummy-factory",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on dummy-data, liferay, debugging-tool queries this for how yasuflatland-lf/liferay-dummy-factory implements it: \ud83c\udfed Generate realistic dummy data for Liferay DXP (selected work: modules/liferay-dummy-factory, integration-test)",
+ "repos": [
+  {
+   "repo": "liferay-dummy-factory",
+   "url": "https://github.com/yasuflatland-lf/liferay-dummy-factory",
+   "sha": "0db1e378009511ee35130ed7197b3d1e7fa16f01",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 0db1e3780095: \"fix(security): check the Blogs author and temp-file groupId against t\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

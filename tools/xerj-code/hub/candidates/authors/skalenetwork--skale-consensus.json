@@ -1,0 +1,22 @@
+{
+ "corpus": "skalenetwork--skale-consensus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on bft, consensus, cryptography queries this for how skalenetwork/skale-consensus implements it: Consensus is a high-performance, provably secure, EVM-compatible protocol that achieves single-block finality. It powers the SKL Gas-Free Ne (selected work: tests, blockfinalize, chains)",
+ "repos": [
+  {
+   "repo": "skale-consensus",
+   "url": "https://github.com/skalenetwork/skale-consensus",
+   "sha": "74c7c424852c57e12425ed069ccbfabbddb9240d",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 74c7c424852c: \"fix decryption share merge; add retry path on failed shares; improve \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

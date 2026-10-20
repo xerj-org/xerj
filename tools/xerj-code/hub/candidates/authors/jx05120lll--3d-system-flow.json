@@ -1,0 +1,22 @@
+{
+ "corpus": "jx05120lll--3d-system-flow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how JX05120LLL/3D-System-Flow implements it: \u9762\u5411\u8f6f\u4ef6\u67b6\u6784\u4e0e\u8fd0\u884c\u6d41\u7a0b\u7684\u53ef\u590d\u7528\u672c\u5730 Skill\uff0c\u53ef\u751f\u62103D\u6c99\u76d8\u56fe\uff0c\u63d0\u4f9b\u4e30\u5bcc\u7684\u4ea4\u4e92 (selected work: system-flow, tests, src/cli)",
+ "repos": [
+  {
+   "repo": "3D-System-Flow",
+   "url": "https://github.com/JX05120LLL/3D-System-Flow",
+   "sha": "bc389405406d77ace1b79cc242c6e207323748a3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit bc389405406d: \"feat: release source-verified hierarchical skill v2.2.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

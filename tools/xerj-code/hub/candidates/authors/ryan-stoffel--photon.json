@@ -1,0 +1,22 @@
+{
+ "corpus": "ryan-stoffel--photon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how ryan-stoffel/photon implements it: Fast, minimal macOS launcher: applications, clipboard history, notes, file search, and keybinds (selected work: Sources, Tests, Scripts)",
+ "repos": [
+  {
+   "repo": "photon",
+   "url": "https://github.com/ryan-stoffel/photon",
+   "sha": "1e7455b2dbb76c8d7dfa3b129363650127863c0f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 1e7455b2dbb7: \"fix(launcher): keep Finder.app above file hits (#235)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

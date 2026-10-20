@@ -1,0 +1,22 @@
+{
+ "corpus": "matheussoranco--speech-synthesis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, artificial-intelligence, deep-learning queries this for how Matheussoranco/Speech_synthesis implements it: System implementing VITS2 with ECAPA-TDNN zero-shot voice cloning. Synthesises natural 22 kHz speech from raw text in a single forward pass  (selected work: electron, studio, backend)",
+ "repos": [
+  {
+   "repo": "Speech_synthesis",
+   "url": "https://github.com/Matheussoranco/Speech_synthesis",
+   "sha": "fd79f27f004a97153ac2892e7752c0d11e8ad6a2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit fd79f27f004a: \"Add desktop, backend, and standalone Python studio\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

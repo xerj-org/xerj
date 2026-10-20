@@ -1,0 +1,22 @@
+{
+ "corpus": "alymaklad--saei",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents queries this for how alymaklad/saei implements it: An AI career companion that finds jobs, matches them to your CV, tailors it, and applies only where you allow (selected work: frontend, tests, agents)",
+ "repos": [
+  {
+   "repo": "saei",
+   "url": "https://github.com/alymaklad/saei",
+   "sha": "d49f1d78eeeada183d7aded470acaa1487f41917",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit d49f1d78eeea: \"Anthropic (Claude) and OpenAI as AI model providers, with their API k\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

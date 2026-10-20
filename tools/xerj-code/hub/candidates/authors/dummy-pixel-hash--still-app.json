@@ -1,0 +1,22 @@
+{
+ "corpus": "dummy-pixel-hash--still-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on react, rust, ssh queries this for how Dummy-pixel-hash/still-app implements it: Still \u2014 a persistent remote terminal. SSH in, work in tmux that survives disconnects, reattach anytime (selected work: src-tauri, src/screens, src/components)",
+ "repos": [
+  {
+   "repo": "still-app",
+   "url": "https://github.com/Dummy-pixel-hash/still-app",
+   "sha": "01456aab443860559fde94e056976c6b227fd349",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 01456aab4438: \"orb redo: fixed 96px glossy orb, tail-scoped classifier, tmux-correla\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

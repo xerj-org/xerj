@@ -1,0 +1,22 @@
+{
+ "corpus": "aruintelligence--aml-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on artificial-intelligence, cognitive-architecture, compiler queries this for how aruintelligence/aml-core implements it: \u0100ML: inspectable policy and evidence for AI interfaces and agent actions. Try the live labs, reproduce the 13-case challenge, and wire a hos (selected work: pilots, test)",
+ "repos": [
+  {
+   "repo": "aml-core",
+   "url": "https://github.com/aruintelligence/aml-core",
+   "sha": "6644018b23dab9c89bbb7af0d52a29652fb6de70",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 6644018b23da: \"Bind action receipts to one validated dispatch snapshot (#340)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

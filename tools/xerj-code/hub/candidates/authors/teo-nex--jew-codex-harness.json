@@ -1,0 +1,22 @@
+{
+ "corpus": "teo-nex--jew-codex-harness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how teo-nex/jew-codex-harness implements it: teo-nex/jew-codex-harness (JavaScript) (selected work: tests, integrations)",
+ "repos": [
+  {
+   "repo": "jew-codex-harness",
+   "url": "https://github.com/teo-nex/jew-codex-harness",
+   "sha": "4c52c296c31ed5f2caf9fc9b15151c1b47271d3f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 4c52c296c31e: \"feat: enable guarded Jev coding workers on all platforms (#6)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

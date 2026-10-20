@@ -1,0 +1,22 @@
+{
+ "corpus": "prajwalbhatia--frontend-skill-up",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on frontend, interview-questions, javascript queries this for how prajwalbhatia/frontend_skill_up implements it: A public repositry that contains question, concepts, mini projects everything related to frontend interview preparation but not limited to i (selected work: machine-coding)",
+ "repos": [
+  {
+   "repo": "frontend_skill_up",
+   "url": "https://github.com/prajwalbhatia/frontend_skill_up",
+   "sha": "99a08c04c2d7a969061cb4f913705f079aaa9414",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 99a08c04c2d7: \"Add product details exercise with TTL cache\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

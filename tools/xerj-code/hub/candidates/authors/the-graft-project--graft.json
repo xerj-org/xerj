@@ -1,0 +1,22 @@
+{
+ "corpus": "the-graft-project--graft",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on aws-ec2, cli-tool, deployment queries this for how The-Graft-Project/Graft implements it: CLI tool, agentless deployment engine that extends the Docker Compose workflow to cloud infrastructure via SSH. With features like Deploymen (selected work: internal/server, cmd/graft)",
+ "repos": [
+  {
+   "repo": "Graft",
+   "url": "https://github.com/The-Graft-Project/Graft",
+   "sha": "646bfc10372a34a548de72c496e508bdc786881c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 646bfc10372a: \"Add per-database backups with verified restore and Telegram alerts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

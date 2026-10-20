@@ -1,0 +1,22 @@
+{
+ "corpus": "huggingface--lerobot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how huggingface/lerobot implements it: \ud83e\udd17 LeRobot: Making AI for Robotics more accessible with end-to-end learning (selected work: tests, src/lerobot)",
+ "repos": [
+  {
+   "repo": "lerobot",
+   "url": "https://github.com/huggingface/lerobot",
+   "sha": "b64fe1ed9f11eeac53ee821356d2797601701054",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b64fe1ed9f11: \"feat(train): add support for fp16 mixed precision (#4652)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

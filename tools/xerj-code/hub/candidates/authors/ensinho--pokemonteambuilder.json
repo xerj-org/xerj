@@ -1,0 +1,22 @@
+{
+ "corpus": "ensinho--pokemonteambuilder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on firebase, javascript, pokemon-api queries this for how ensinho/pokemonTeamBuilder implements it: Fast Pok\u00e9mon team builder with real-time type-coverage math, a full Pok\u00e9dex with encounter maps, daily word games, and Showdown export. Reac (selected work: src/styles, src/components, src)",
+ "repos": [
+  {
+   "repo": "pokemonTeamBuilder",
+   "url": "https://github.com/ensinho/pokemonTeamBuilder",
+   "sha": "9d0deb4cdfdcb894fdac374b8550957bb741c195",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 9d0deb4cdfdc: \"refactor(design): major changes on desig system for better organizati\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

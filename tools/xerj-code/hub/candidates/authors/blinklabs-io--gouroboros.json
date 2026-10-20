@@ -1,0 +1,22 @@
+{
+ "corpus": "blinklabs-io--gouroboros",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on cardano, golang, go queries this for how blinklabs-io/gouroboros implements it: Go implementation of the Cardano Ouroboros family of protocols (selected work: ledger)",
+ "repos": [
+  {
+   "repo": "gouroboros",
+   "url": "https://github.com/blinklabs-io/gouroboros",
+   "sha": "b1712de0e0e082d88f9b5e73036073f25674fbc5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit b1712de0e0e0: \"fix(ledger): correct certificate CBOR encoding and decoding (#2642)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "jingxuanc--factor-miner-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how JingxuanC/factor-miner-mcp implements it: A\u80a1\u56e0\u5b50\u6316\u6398 MCP \u670d\u52a1\uff1a\u6c99\u7bb1\u6267\u884c/qlib\u56de\u6d4b/OOS\u51c6\u5165/\u65e5\u9891\u8ba1\u7b97/\u8870\u51cf\u5de1\u68c0\uff0clicense \u9274\u6743 + \u5f02\u6b65\u4efb\u52a1\u961f\u5217 (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "factor-miner-mcp",
+   "url": "https://github.com/JingxuanC/factor-miner-mcp",
+   "sha": "41eda3bd42df3c916eb15d969f2cb7acfdfd5f32",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 41eda3bd42df: \"feat: \u8d1f IC \u8bca\u65ad + SQLite \u95ed\u73af\u8bb0\u5fc6 + \u62a5\u544a\u7d22\u5f15\u9875 (#4)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

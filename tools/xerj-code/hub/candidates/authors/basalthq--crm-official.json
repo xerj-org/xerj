@@ -1,0 +1,22 @@
+{
+ "corpus": "basalthq--crm-official",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on multi-agent, nextjs16, tailwindcss queries this for how BasaltHQ/crm-official implements it: BasaltCRM: A high-performance, enterprise-grade CRM and outreach engine. Built on Next.js 16, TypeScript, Shadcn/ui, and Prisma. Features AI (selected work: app/(routes), lib, app/api)",
+ "repos": [
+  {
+   "repo": "crm-official",
+   "url": "https://github.com/BasaltHQ/crm-official",
+   "sha": "950a7bac7e58c539f1bea5c48b3b98ee272a0dbc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 950a7bac7e58: \"v1.3.2m - feat: add Google Calendar event support to project calendar\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

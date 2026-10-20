@@ -1,0 +1,22 @@
+{
+ "corpus": "holt-os--holt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude, cli queries this for how holt-os/holt implements it: An open-source personal agent OS - any LLM, private memory you can see and walk (selected work: src, scripts, src/commands)",
+ "repos": [
+  {
+   "repo": "holt",
+   "url": "https://github.com/holt-os/holt",
+   "sha": "91f5955e771be1a1482b9f7f1429d7e09b6e875d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 91f5955e771b: \"memory: dated context recall with hybrid scoring, neighbours and a ch\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

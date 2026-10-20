@@ -1,0 +1,22 @@
+{
+ "corpus": "workhmz--r2filebox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cloudflare-d1, cloudflare-r2, cloudflare-workers queries this for how workHMZ/r2filebox implements it: A lightweight, serverless file and text sharing app built on Cloudflare Workers, R2, and D1. A Cloudflare-native alternative to FileCodeBox  (selected work: frontend, worker, scripts)",
+ "repos": [
+  {
+   "repo": "r2filebox",
+   "url": "https://github.com/workHMZ/r2filebox",
+   "sha": "ff635c71ac7598ada8a9f5e75bf15851c22e380c",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit ff635c71ac75: \"feat: release R2FileBox 2.9.0\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

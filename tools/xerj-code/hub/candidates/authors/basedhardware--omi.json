@@ -1,0 +1,22 @@
+{
+ "corpus": "basedhardware--omi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai, app, flutter queries this for how BasedHardware/omi implements it: AI that sees your screen, listens to your conversations and tells you what to do (selected work: desktop)",
+ "repos": [
+  {
+   "repo": "omi",
+   "url": "https://github.com/BasedHardware/omi",
+   "sha": "47ca7a398ea77a2582ea77e0c2ffb89478fc5fba",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 47ca7a398ea7: \"fix(windows): distinguish LLM and transcription BYOK in settings (#20\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

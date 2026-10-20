@@ -1,0 +1,22 @@
+{
+ "corpus": "elixpo--packages-elixpo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on clipboard-manager, emoji-picker, linux queries this for how elixpo/packages.elixpo implements it: Source, releases, signed APT distribution, and public catalogue for Elixpo Linux applications and maintained packages (selected work: web, scripts, tests)",
+ "repos": [
+  {
+   "repo": "packages.elixpo",
+   "url": "https://github.com/elixpo/packages.elixpo",
+   "sha": "2c28ccbf231a2234be2cefa65250a163b7d689f3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 2c28ccbf231a: \"feat: publish a signed multi-package APT repository\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

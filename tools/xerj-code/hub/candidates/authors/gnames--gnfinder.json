@@ -1,0 +1,22 @@
+{
+ "corpus": "gnames--gnfinder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on biodiversity-informatics, biodiversity-heritage-library, bioinformatics queries this for how gnames/gnfinder implements it: GNfinder finds scientific names in UTF8 texts, PDF files, MS Word/Excel documents, URLs etc (selected work: pkg/io, internal/iodoc, pkg/config)",
+ "repos": [
+  {
+   "repo": "gnfinder",
+   "url": "https://github.com/gnames/gnfinder",
+   "sha": "b73b9fa9f49c2f2657b22ff03ab521187d242713",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit b73b9fa9f49c: \"mostly substitute Tika with local document handling\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

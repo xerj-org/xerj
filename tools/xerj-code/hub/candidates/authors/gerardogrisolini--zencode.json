@@ -1,0 +1,22 @@
+{
+ "corpus": "gerardogrisolini--zencode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on acp, agentic-coding, cli queries this for how gerardogrisolini/ZenCODE implements it: Native-Swift coding agent for the terminal and ACP. One binary, no Node runtime \u2014 customizable tools, parallel agentic workflows with capabi (selected work: Tests, Sources)",
+ "repos": [
+  {
+   "repo": "ZenCODE",
+   "url": "https://github.com/gerardogrisolini/ZenCODE",
+   "sha": "04b2a59fb93269d1fd9ef13d9ab0c45642bc32a4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 04b2a59fb932: \"Propagation of tools to subagents\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

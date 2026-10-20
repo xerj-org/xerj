@@ -1,0 +1,22 @@
+{
+ "corpus": "crhis-cp--ai-mine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Crhis-CP/AI-MINE implements it: Crhis-CP/AI-MINE (TypeScript) (selected work: deploy, scripts, tests)",
+ "repos": [
+  {
+   "repo": "AI-MINE",
+   "url": "https://github.com/Crhis-CP/AI-MINE",
+   "sha": "a56ec85c2b17bdf859aef44f937e514133415232",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit a56ec85c2b17: \"fix: \u8865\u9f50\u66f4\u65b0\u65e5\u5fd7\u3001\u53cd\u9988\u8868\u5355\u53ca\u91d1\u5c5e\u65e5\u4ef7\u53d6\u4ef6 (#218)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

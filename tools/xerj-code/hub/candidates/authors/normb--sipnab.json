@@ -1,0 +1,22 @@
+{
+ "corpus": "normb--sipnab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on packet-analysis, pcap, rtp queries this for how NormB/sipnab implements it: SIP & RTP capture, analysis, and security tool. One binary, one dependency (libpcap), built in Rust (selected work: tests, src, src/output)",
+ "repos": [
+  {
+   "repo": "sipnab",
+   "url": "https://github.com/NormB/sipnab",
+   "sha": "a26c1edf4a5d3d4a47cabcf2175edb77cd76f8dd",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit a26c1edf4a5d: \"Serve MCP and metrics over HTTPS, add --hep-tls-extra-ca, and give ev\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

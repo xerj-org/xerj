@@ -1,0 +1,22 @@
+{
+ "corpus": "ferrismind--iconflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bootstrap-icons, cross-platform, desktop queries this for how FerrisMind/iconflow implements it: \ud83c\udfa8 Unified icon library for Rust GUI apps with 10+ embedded icon packs (Bootstrap, Heroicons, Phosphor, Lucide, Tabler). Type-safe API for eg (selected work: assets, src/core, scripts)",
+ "repos": [
+  {
+   "repo": "iconflow",
+   "url": "https://github.com/FerrisMind/iconflow",
+   "sha": "ae1d8e4b68aadbd37c849658da473a81e9b6ed18",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ae1d8e4b68aa: \"fix(phosphor): register IcoMoon alias icons under canonical names\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

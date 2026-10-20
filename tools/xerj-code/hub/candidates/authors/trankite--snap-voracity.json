@@ -1,0 +1,22 @@
+{
+ "corpus": "trankite--snap-voracity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on qrcode-encoder, console-app, ehentai queries this for how Trankite/Snap.Voracity implements it: \u300c\u8d2a\u9955\u300d\u5de5\u5177\u7bb1 | \u7c73\u6e38\u793e\u81ea\u52a8\u5316\u4efb\u52a1 | E-Hentai / ExHentai \u753b\u5eca\u6279\u91cf\u4e0b\u8f7d (selected work: Common)",
+ "repos": [
+  {
+   "repo": "Snap.Voracity",
+   "url": "https://github.com/Trankite/Snap.Voracity",
+   "sha": "471fe1aa4e3085d403d67bfc6134aa40f72c818d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 471fe1aa4e30: \"\u7f51\u9875\u5f02\u6b65\u6d41\u5f0f\u89e3\u6790\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

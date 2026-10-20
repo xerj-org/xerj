@@ -1,0 +1,22 @@
+{
+ "corpus": "xerj-org--xerj",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-search, ai-search-algorithms, ai-search-engine queries this for how xerj-org/xerj implements it: XERJ is the new way for AI to search data. Its autoindex capability activates agents to know your data without the token waste of grep (1974 (selected work: engine)",
+ "repos": [
+  {
+   "repo": "xerj",
+   "url": "https://github.com/xerj-org/xerj",
+   "sha": "5d71865ecd6cd42309d5690948a1b978d8dabb52",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 5d71865ecd6c: \"fix(query): lenient-aware type check for full-text clauses (#1284, pa\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

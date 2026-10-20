@@ -1,0 +1,22 @@
+{
+ "corpus": "truman-duo--gitgo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on mcp, vibe-coding-tool, agent-runtime queries this for how Truman-Duo/Gitgo implements it: Local-first runtime for governing AI-assisted software projects. Gitgo acts as a state governance layer between agents and repositories, man (selected work: backend, tests, scripts)",
+ "repos": [
+  {
+   "repo": "Gitgo",
+   "url": "https://github.com/Truman-Duo/Gitgo",
+   "sha": "00745dbf30f0c2dd475721a16fc78bbc2c447f2a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 00745dbf30f0: \"[GITGO-73] feat(daemon): \u81ea\u52a8\u91c7\u96c6\u53ef\u7528\u6027\u57fa\u7ebf\u5e76\u4fdd\u5b58\u8bca\u65ad\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

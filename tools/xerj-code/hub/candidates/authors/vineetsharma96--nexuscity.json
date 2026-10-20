@@ -1,0 +1,22 @@
+{
+ "corpus": "vineetsharma96--nexuscity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how vineetsharma96/NexusCity implements it: Production-quality procedural 3D cyberpunk open-world built entirely from code with React, TypeScript, Three.js, WebGL, custom shaders, phys (selected work: src/rendering, src/components, src/ui)",
+ "repos": [
+  {
+   "repo": "NexusCity",
+   "url": "https://github.com/vineetsharma96/NexusCity",
+   "sha": "5d53d71404b3e1b909ae3d73518accbec2dfba1f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 5d53d71404b3: \"fix(rendering): eliminate crash on mobile/VirGL, add WebGL capability\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "xin-yi33--rxycode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, cli, coding-assistant queries this for how xin-yi33/RxyCode implements it: RxyCode is a local multi-agent for real work, not just code. \u672c\u5730\u591a\u667a\u80fd\u4f53\uff0c\u80fd\u5e72\u7684\u4e0d\u53ea\u662f\u5199\u4ee3\u7801\u3002 (selected work: tests, core, tools)",
+ "repos": [
+  {
+   "repo": "RxyCode",
+   "url": "https://github.com/xin-yi33/RxyCode",
+   "sha": "79d935432b895d9e533fe96635140b409134080d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 79d935432b89: \"fix(timeout): complete P8 TodoSnapshot evidence handoff after FIX5\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

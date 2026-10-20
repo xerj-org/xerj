@@ -1,0 +1,22 @@
+{
+ "corpus": "sinceaihq--ai-shipcheck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-coding, cli queries this for how sinceaihq/ai-shipcheck implements it: Know if your AI-built app is actually ready to ship. Local-first production readiness scanner for security, auth, reliability, tests, observ (selected work: tests, src/baseline, src/rules)",
+ "repos": [
+  {
+   "repo": "ai-shipcheck",
+   "url": "https://github.com/sinceaihq/ai-shipcheck",
+   "sha": "d61ce359a91320aef88732916c7d72352ae03d9b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit d61ce359a913: \"fix: stabilize baseline matching\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

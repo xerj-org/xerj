@@ -1,0 +1,22 @@
+{
+ "corpus": "kureinmaxim--vpn-server-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on cryptography, encryption, flask queries this for how kureinmaxim/vpn-server-manager implements it: Encrypted desktop app for managing VPN servers. Local Fernet vault, SSH monitoring, PIN lock, import/export. Windows, macOS, and Linux \u2014 no  (selected work: app/services, tests, the project root)",
+ "repos": [
+  {
+   "repo": "vpn-server-manager",
+   "url": "https://github.com/kureinmaxim/vpn-server-manager",
+   "sha": "534155d9b0662c31dee07d677e4f5d3b7ace092d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 534155d9b066: \"Add guarded Hysteria2 management for 4.10.2\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

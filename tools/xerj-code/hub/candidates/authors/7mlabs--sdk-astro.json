@@ -1,0 +1,22 @@
+{
+ "corpus": "7mlabs--sdk-astro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how 7mLabs/sdk-astro implements it: 7mLabs/sdk-astro (Rust) (selected work: scripts, neutral-engine)",
+ "repos": [
+  {
+   "repo": "sdk-astro",
+   "url": "https://github.com/7mLabs/sdk-astro",
+   "sha": "a17850e01507485312e5cb584ed1eb82a786fcbc",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a17850e01507: \"Prepare verified npm release and stabilize Swiss initialization\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

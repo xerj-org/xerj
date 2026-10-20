@@ -1,0 +1,22 @@
+{
+ "corpus": "guillebouix--yagua-image-processor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on customtkinter, desktop-app, packaging queries this for how GuilleBouix/Yagua-Image-Processor implements it: Procesador de im\u00e1genes gratuito. Comprime, convierte, remueve el fondo, extrae paleta de colores, y m\u00e1s con este proyecto open-source desarr (selected work: app/ui, tests, app)",
+ "repos": [
+  {
+   "repo": "Yagua-Image-Processor",
+   "url": "https://github.com/GuilleBouix/Yagua-Image-Processor",
+   "sha": "31096be957ebeb75d7b1e35c87f0b867a3bb7cb3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 31096be957eb: \"Add interruption-safe conversion operations\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

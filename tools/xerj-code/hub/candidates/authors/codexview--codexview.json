@@ -1,0 +1,22 @@
+{
+ "corpus": "codexview--codexview",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how codexview/codexview implements it: React viewer, transcript adapters and Markdown CLI for Codex CLI, Claude Code, OpenCode, AgentWeb codex-team and GitHub Copilot. Supports in (selected work: packages/react, packages/runtime, packages/adapters)",
+ "repos": [
+  {
+   "repo": "codexview",
+   "url": "https://github.com/codexview/codexview",
+   "sha": "892fb9cb4dac79f47861c2522d7a25510c145b97",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 892fb9cb4dac: \"feat: embed persistent Codex app-server sessions\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

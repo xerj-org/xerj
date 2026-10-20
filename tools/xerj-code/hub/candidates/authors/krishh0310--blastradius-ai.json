@@ -1,0 +1,22 @@
+{
+ "corpus": "krishh0310--blastradius-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how krishh0310/Blastradius-ai implements it: krishh0310/Blastradius-ai (Python) (selected work: src, tests)",
+ "repos": [
+  {
+   "repo": "Blastradius-ai",
+   "url": "https://github.com/krishh0310/Blastradius-ai",
+   "sha": "8cf11b26cb65e1a03255ff4bdff070355e01ffac",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8cf11b26cb65: \"feat: show MCP tool trace and require fictional action consent\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

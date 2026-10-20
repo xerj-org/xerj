@@ -1,0 +1,22 @@
+{
+ "corpus": "kaellybot--kaelly-amqp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on go, protobuf, rabbitmq queries this for how kaellybot/kaelly-amqp implements it: Library to discuss with RabbitMQ via Protobuf, built in Go (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "kaelly-amqp",
+   "url": "https://github.com/kaellybot/kaelly-amqp",
+   "sha": "d3939231fb18b23b0d4bca789c8bb3503fc17331",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d3939231fb18: \"Game isolation\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

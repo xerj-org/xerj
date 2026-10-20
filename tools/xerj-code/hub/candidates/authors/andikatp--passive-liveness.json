@@ -1,0 +1,22 @@
+{
+ "corpus": "andikatp--passive-liveness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how andikatp/passive_liveness implements it: andikatp/passive_liveness (Dart) (selected work: lib/src, test, example)",
+ "repos": [
+  {
+   "repo": "passive_liveness",
+   "url": "https://github.com/andikatp/passive_liveness",
+   "sha": "21a65df19db3c63207762ada349fcb3da1365b35",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 21a65df19db3: \"refactor: clean up codebase and improve lint compliance across librar\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

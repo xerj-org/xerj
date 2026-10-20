@@ -1,0 +1,22 @@
+{
+ "corpus": "steadyx--kairo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, application, configuration queries this for how Steadyx/Kairo implements it: RSVP Ebook Reader App (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "Kairo",
+   "url": "https://github.com/Steadyx/Kairo",
+   "sha": "1ffe0bc60f08459e342e0b69a1a21a7662ce0f2b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 1ffe0bc60f08: \"feat(updates): add localized changelog and tour content\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

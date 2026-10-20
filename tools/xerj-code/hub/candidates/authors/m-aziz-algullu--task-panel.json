@@ -1,0 +1,22 @@
+{
+ "corpus": "m-aziz-algullu--task-panel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on docker, dokploy, drizzle-orm queries this for how m-aziz-algullu/task-panel implements it: Self-hosted single-user kanban board with tags, story points and a day-by-day archive of finished tasks. Next.js + PostgreSQL, English/Turki (selected work: src/lib, src/components, src/app)",
+ "repos": [
+  {
+   "repo": "task-panel",
+   "url": "https://github.com/m-aziz-algullu/task-panel",
+   "sha": "e99608b048375c23e64f382cbe98aa2dd5c4570a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e99608b04837: \"Hand tasks to the bundled agent and report back in comments\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

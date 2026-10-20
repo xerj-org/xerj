@@ -1,0 +1,22 @@
+{
+ "corpus": "faghy--sonic-core-scope-pci-x64-linux-driver",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on alsa, ardour, audio queries this for how faghy/SONIC_CORE_SCOPE_PCI_x64-Linux-driver implements it: Open-source Linux driver for the Creamware / Sonic Core Pulsar II DSP card: ALSA, PipeWire, SCOPE effects and mixers, modular rack GUI (selected work: tools)",
+ "repos": [
+  {
+   "repo": "SONIC_CORE_SCOPE_PCI_x64-Linux-driver",
+   "url": "https://github.com/faghy/SONIC_CORE_SCOPE_PCI_x64-Linux-driver",
+   "sha": "7dd001b24d5e9b4801cd75206452f82c876727f5",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 7dd001b24d5e: \"SCOPE factory mixers as one device (dynamic channels, voice counts, h\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "1640675651--cppminer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how 1640675651/CPPminer implements it: Open source Cross-Platform Pearl miner written in C++ (selected work: rust, src/common, src/cpu)",
+ "repos": [
+  {
+   "repo": "CPPminer",
+   "url": "https://github.com/1640675651/CPPminer",
+   "sha": "5f99190fc99ae981c104e53c841fc4f797a02efe",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 5f99190fc99a: \"[pearl][cpu] reduce memory usage\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

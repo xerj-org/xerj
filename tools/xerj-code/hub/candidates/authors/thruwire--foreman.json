@@ -1,0 +1,22 @@
+{
+ "corpus": "thruwire--foreman",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-supervision, codex, jev queries this for how thruwire/foreman implements it: An agent supervisor and software factory foreman powered by decision models (selected work: integrations)",
+ "repos": [
+  {
+   "repo": "foreman",
+   "url": "https://github.com/thruwire/foreman",
+   "sha": "3abc35bdaccc79d3922d14cb6f713d3ef5212d46",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 3abc35bdaccc: \"feat: add Codex plugin integration\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "fadhlirahim--simple-agent-collabs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how fadhlirahim/simple-agent-collabs implements it: A file-based research loop for one human and N LLM subagents. Inspired by HF agent-collabs (selected work: src/eval, eval, test)",
+ "repos": [
+  {
+   "repo": "simple-agent-collabs",
+   "url": "https://github.com/fadhlirahim/simple-agent-collabs",
+   "sha": "a5cd95ae4cfb495ac54051e847b538930b3e16fd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit a5cd95ae4cfb: \"Add a 30-finding eval comparing the old gate, the new gate, and an LL\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

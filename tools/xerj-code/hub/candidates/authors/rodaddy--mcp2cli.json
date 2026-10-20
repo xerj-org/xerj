@@ -1,0 +1,22 @@
+{
+ "corpus": "rodaddy--mcp2cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-tools, claude, claude-code queries this for how rodaddy/mcp2cli implements it: CLI bridge that wraps MCP servers as bash-invokable commands, recovering ~11K tokens of context window per session (selected work: scripts, tests, the project root)",
+ "repos": [
+  {
+   "repo": "mcp2cli",
+   "url": "https://github.com/rodaddy/mcp2cli",
+   "sha": "54fc19cc55655bee8c9fa2e5d87d77ddb6155f27",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 54fc19cc5565: \"mcp2cli: sync with current (scrubbed public snapshot)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

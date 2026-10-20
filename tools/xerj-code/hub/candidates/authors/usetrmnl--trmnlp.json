@@ -1,0 +1,22 @@
+{
+ "corpus": "usetrmnl--trmnlp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Ruby queries this for how usetrmnl/trmnlp implements it: a local dev server for building TRMNL plugins (selected work: lib/trmnlp, spec)",
+ "repos": [
+  {
+   "repo": "trmnlp",
+   "url": "https://github.com/usetrmnl/trmnlp",
+   "sha": "5d09fa64f1e815e36c37c4a5de392de0d479a535",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 5d09fa64f1e8: \"Report lint rule IDs, source locations and JSON diagnostics (#153)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

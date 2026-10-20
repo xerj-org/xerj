@@ -1,0 +1,22 @@
+{
+ "corpus": "toddler-boy--ultrasid",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on c64, sid, hvsc queries this for how Toddler-Boy/ultraSID implements it: Open source SID player deluxe (selected work: Source, Tools, the project root)",
+ "repos": [
+  {
+   "repo": "ultraSID",
+   "url": "https://github.com/Toddler-Boy/ultraSID",
+   "sha": "bb32f2353678ed66980cc048be2aff4e3c18b04d",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit bb32f2353678: \"Added Find similar tunes\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

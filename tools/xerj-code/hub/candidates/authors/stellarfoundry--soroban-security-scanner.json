@@ -1,0 +1,22 @@
+{
+ "corpus": "stellarfoundry--soroban-security-scanner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on cli, code-scanning, devsecops queries this for how StellarFoundry/soroban-security-scanner implements it: Deterministic security analysis for Stellar Soroban smart contracts and Rust projects (selected work: crates/soroban-scan-core, crates/soroban-scan-cli)",
+ "repos": [
+  {
+   "repo": "soroban-security-scanner",
+   "url": "https://github.com/StellarFoundry/soroban-security-scanner",
+   "sha": "d2954740c235102c92af9333916384b87e7deaf8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit d2954740c235: \"feat(engine): apply inline suppressions and report suppressed counts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

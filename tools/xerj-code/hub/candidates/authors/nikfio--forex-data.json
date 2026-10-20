@@ -1,0 +1,22 @@
+{
+ "corpus": "nikfio--forex-data",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on arrow, forex, pandas queries this for how nikfio/forex_data implements it: Simple API to aggregate data from the Forex market into a dataframe (selected work: tests, forex_data)",
+ "repos": [
+  {
+   "repo": "forex_data",
+   "url": "https://github.com/nikfio/forex_data",
+   "sha": "3d8b900e5588e3ac7d18ac1a465d6e186de7d273",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 3d8b900e5588: \"Closes #28\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

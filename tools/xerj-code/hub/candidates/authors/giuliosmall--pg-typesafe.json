@@ -1,0 +1,22 @@
+{
+ "corpus": "giuliosmall--pg-typesafe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on C queries this for how giuliosmall/pg_typesafe implements it: Pre-alpha PostgreSQL extension for TypeSafe AI (Jev) categorical classification (selected work: t, test, expected)",
+ "repos": [
+  {
+   "repo": "pg_typesafe",
+   "url": "https://github.com/giuliosmall/pg_typesafe",
+   "sha": "ad76be41097f95540e9b59665d53f4b2d46d6803",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit ad76be41097f: \"Production hardening: PG16+17 CI matrix, TAP gauntlet, Retry-After fix\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

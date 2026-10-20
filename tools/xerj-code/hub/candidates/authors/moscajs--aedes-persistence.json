@@ -1,0 +1,22 @@
+{
+ "corpus": "moscajs--aedes-persistence",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on aedes queries this for how moscajs/aedes-persistence implements it: In-memory implementation of an Aedes persistence, with abstract tests (selected work: the project root, test, types)",
+ "repos": [
+  {
+   "repo": "aedes-persistence",
+   "url": "https://github.com/moscajs/aedes-persistence",
+   "sha": "a7d9bd3b2400adf145266b6e2244e67d4e5953c3",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit a7d9bd3b2400: \"feat!: add cleanIncoming(client) to drop QoS 2 dedup state on session\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

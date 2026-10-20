@@ -1,0 +1,22 @@
+{
+ "corpus": "lennielan--ag-pet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how lennielan/AG_Pet implements it: Pet for Google Antigravity (selected work: scripts, sprite-engine, desktop-overlay)",
+ "repos": [
+  {
+   "repo": "AG_Pet",
+   "url": "https://github.com/lennielan/AG_Pet",
+   "sha": "a45a817fd5390d8112126fd6f7e005e1ea7d9e38",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a45a817fd539: \"feat: enhance running state with laptop typing animation, thought bub\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "latentcollapse--palette",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how latentcollapse/Palette implements it: Persistent working memory for models and a fully programmable Julia laboratory that functions as a Bash replacement. Similar to IPython in P (selected work: runtime, the project root)",
+ "repos": [
+  {
+   "repo": "Palette",
+   "url": "https://github.com/latentcollapse/Palette",
+   "sha": "48b717e7722b8c9d441d4e99ca529a1e3f8f92b0",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 48b717e7722b: \"fix: project lineage, source transport, and primary depot\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

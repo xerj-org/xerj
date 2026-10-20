@@ -1,0 +1,22 @@
+{
+ "corpus": "piyush97--piyushmehta-com",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on react, blog, astro queries this for how piyush97/PiyushMehta.com implements it: Portfolio, technical blog, and Ask Piyush: a streaming AI assistant grounded in my work and writing, powered by Cloudflare Workers AI. Built (selected work: tests, src/utils, scripts)",
+ "repos": [
+  {
+   "repo": "PiyushMehta.com",
+   "url": "https://github.com/piyush97/PiyushMehta.com",
+   "sha": "934f966b2cbf829c06814a6e25335c7447cdd683",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 934f966b2cbf: \"Use Clef Flash for scope classification and expand security evals\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

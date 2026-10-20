@@ -1,0 +1,22 @@
+{
+ "corpus": "writeopia--writeopia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on compose-multiplatform, confluence-alternative, documentation queries this for how Writeopia/Writeopia implements it: Write like nobody\u2019s watching. Because they aren't (selected work: application, iosAppNat, backend)",
+ "repos": [
+  {
+   "repo": "Writeopia",
+   "url": "https://github.com/Writeopia/Writeopia",
+   "sha": "1bc865ca30714880539775cb9234935e6616dd93",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 1bc865ca3071: \"Showing presentations in search (#883)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

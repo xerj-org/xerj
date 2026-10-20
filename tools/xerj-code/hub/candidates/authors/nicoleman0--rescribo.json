@@ -1,0 +1,22 @@
+{
+ "corpus": "nicoleman0--rescribo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how nicoleman0/rescribo implements it: Internal customer feedback inbox connecting Slack, GitHub, and human follow-up (selected work: frontend, openspec)",
+ "repos": [
+  {
+   "repo": "rescribo",
+   "url": "https://github.com/nicoleman0/rescribo",
+   "sha": "b69826b6b11572768f39199f7a1b58aa0a29004e",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit b69826b6b115: \"Add a command palette (#210)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

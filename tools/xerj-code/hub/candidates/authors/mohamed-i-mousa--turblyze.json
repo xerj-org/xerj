@@ -1,0 +1,22 @@
+{
+ "corpus": "mohamed-i-mousa--turblyze",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cfd, finite-volume-method, turbulence queries this for how mohamed-i-mousa/Turblyze implements it: CFD solver for 3D unstructured grids using the finite volume method (selected work: src/Solver, src/Case, src/Application)",
+ "repos": [
+  {
+   "repo": "Turblyze",
+   "url": "https://github.com/mohamed-i-mousa/Turblyze",
+   "sha": "859406ad4ef93f99e81d665d5a44191fbd00752f",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 859406ad4ef9: \"Add PotentialFlow intialization\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "alimarchal--laravel-chart-of-accounts-package",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on accounting, blade, chart-of-accounts queries this for how alimarchal/laravel-chart-of-accounts-package implements it: Laravel enterprise accounting package: chart of accounts, double-entry journals, multi-company, AR/AP, payroll, tax & FBR, WhatsApp, with Re (selected work: src/Services, resources, tests)",
+ "repos": [
+  {
+   "repo": "laravel-chart-of-accounts-package",
+   "url": "https://github.com/alimarchal/laravel-chart-of-accounts-package",
+   "sha": "4bbc54b42b7c011a2c7456da7236a76185d61249",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 4bbc54b42b7c: \"Payroll operations: attendance, leave, overtime, loans, contributions\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "achilleterzo--openwriter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how achilleterzo/OpenWriter implements it: achilleterzo/OpenWriter (JavaScript) (selected work: electron, src/components, the project root)",
+ "repos": [
+  {
+   "repo": "OpenWriter",
+   "url": "https://github.com/achilleterzo/OpenWriter",
+   "sha": "1b36af2dd733c3061e3c67d0f868bd8c4be030d6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 1b36af2dd733: \"feat(mcp): add a read-only MCP server for external agents\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

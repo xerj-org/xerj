@@ -1,0 +1,22 @@
+{
+ "corpus": "fenghuolinshan--ai-writing-assist",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how FengHuoLinShan/ai-writing-assist implements it: \u91cd\u6784ai\u521b\u4f5c\u7cfb\u7edf (selected work: frontend-console)",
+ "repos": [
+  {
+   "repo": "ai-writing-assist",
+   "url": "https://github.com/FengHuoLinShan/ai-writing-assist",
+   "sha": "b6009d695f7c50de62f45c1a1af80712b95a4a53",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit b6009d695f7c: \"feat(frontend): add invalidation notice and recompute panel (P2-C)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "aprilnea--openlogi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dpi, gpui, hid queries this for how AprilNEA/OpenLogi implements it: \u26a1\ufe0fA native, local-first alternative to Logitech Options+, written in Rust \ud83e\udd80 \u2014 remap buttons, DPI, and SmartShift over HID++. No account, no  (selected work: crates/openlogi-hook, crates/openlogi-desktop, crates/openlogi-agent-core)",
+ "repos": [
+  {
+   "repo": "OpenLogi",
+   "url": "https://github.com/AprilNEA/OpenLogi",
+   "sha": "c58808f037dd099365f391dbab58b39f2e25fe48",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit c58808f037dd: \"feat(hook): reverse the wheel in software for devices without 0x2121 \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

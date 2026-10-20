@@ -1,0 +1,22 @@
+{
+ "corpus": "omarfarouk228--genui-catalog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Dart queries this for how omarfarouk228/genui_catalog implements it: Community catalog extension for Flutter's GenUI SDK \u2014 business-ready CatalogItems so you can skip the boilerplate and ship AI-powered UIs fa (selected work: lib/src, test, the project root)",
+ "repos": [
+  {
+   "repo": "genui_catalog",
+   "url": "https://github.com/omarfarouk228/genui_catalog",
+   "sha": "6914328e1ac604649ce41f2017757592e6ea6573",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 6914328e1ac6: \"Rating value, submit mode, full-width table, translatable labels (v0.\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

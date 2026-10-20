@@ -1,0 +1,22 @@
+{
+ "corpus": "reguiguimohamed--mediterraneanwillforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on air-quality, data-engineering, dbt queries this for how ReguiguiMohamed/MediterraneanWillForge implements it: Production-style Mediterranean air-quality lakehouse with real APIs, Delta Lake, quality gates, dbt CI, Grafana observability, and automated (selected work: data, the project root, tests)",
+ "repos": [
+  {
+   "repo": "MediterraneanWillForge",
+   "url": "https://github.com/ReguiguiMohamed/MediterraneanWillForge",
+   "sha": "1f1df28c07d3e1cc54ff8df07e29b4f4e30e10f4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 1f1df28c07d3: \"feat(sqlmesh): replace the dbt layer with SQLMesh on DuckDB\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

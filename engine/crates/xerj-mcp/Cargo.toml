@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Model Context Protocol (MCP) stdio server exposing the 12 canonical XERJ agent operations (search, memory, second-brain graph, field map, reference-code) as thin proxies to an ES-compatible XERJ endpoint"
+description = "Model Context Protocol (MCP) stdio server exposing the canonical XERJ agent operations (search, memory, second-brain graph, field map, reference-code) as thin proxies to an ES-compatible XERJ endpoint, plus the Corpus Hub ask/def/find tools"
 
 # Library first: the `xerj mcp` subcommand on the main binary calls
 # `xerj_mcp::run`, so a user with the installed `xerj` binary already has the
@@ -45,9 +45,18 @@ xerj-rerank = { path = "../xerj-rerank" }
 # stack into this thin proxy; the count is identical by construction.
 # See src/token_budget.rs.
 unicode-segmentation = "1"
+# Corpus Hub v2 (plan §7): the `xerj_hub_*` tools run the `xerj ask` flow
+# itself (`xerj_hub::ask`), the one implementation the CLI and the gRPC
+# service share — the tools are adapters, not a second copy of the flow.
+xerj-hub = { path = "../xerj-hub" }
 
 [dev-dependencies]
 # The loopback admin-key fallback tests sandbox cwd + HOME so discovery sees
 # only the key files the test wrote (same pattern as xerj-autoindex's cli
 # tests, where the helper was born).
 tempfile = { workspace = true }
+# The hub tools' end-to-end test answers from a real in-process node holding a
+# restored fixture corpus (the keystone's mini-c), as `xerj-hub`'s own tests do.
+xerj-api = { path = "../xerj-api" }
+xerj-engine = { path = "../xerj-engine" }
+axum.workspace = true

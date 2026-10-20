@@ -1,0 +1,22 @@
+{
+ "corpus": "p-r-a-v-i-n--django-native-postgres",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Python queries this for how p-r-a-v-i-n/django-native-postgres implements it: p-r-a-v-i-n/django-native-postgres (Python) (selected work: src)",
+ "repos": [
+  {
+   "repo": "django-native-postgres",
+   "url": "https://github.com/p-r-a-v-i-n/django-native-postgres",
+   "sha": "ef164758885f608f279dcd67acaffc63be652ae7",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit ef164758885f: \"Stream transaction query results\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "imboy-pub--erlang-pay",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Erlang queries this for how imboy-pub/erlang_pay implements it: imboy-pub/erlang_pay (Erlang) (selected work: test, src)",
+ "repos": [
+  {
+   "repo": "erlang_pay",
+   "url": "https://github.com/imboy-pub/erlang_pay",
+   "sha": "890faef16fc17bb9e1b83cadae23ec88f81445c9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 890faef16fc1: \"fix: harden gateway contracts \u2014 verify, validate, and fail closed\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

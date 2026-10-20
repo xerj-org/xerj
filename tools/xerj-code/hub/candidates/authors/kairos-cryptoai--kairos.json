@@ -1,0 +1,22 @@
+{
+ "corpus": "kairos-cryptoai--kairos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how Kairos-cryptoAI/kairos implements it: Kairos AI Futures Trader \u2014 umbrella repo. System architecture, layer specification, ADRs and links to all component repositories (selected work: development)",
+ "repos": [
+  {
+   "repo": "kairos",
+   "url": "https://github.com/Kairos-cryptoAI/kairos",
+   "sha": "07f6d6d27e885aa8da231833cf6fdd97067a3ada",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 07f6d6d27e88: \"research: add atomic native financial journal and core codec\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "nitrocloudofficial--nitrostack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, ai, chatgpt queries this for how nitrocloudofficial/nitrostack implements it: The full-stack TypeScript framework to build, test, and deploy production-ready MCP servers and AI-native apps (selected work: sample-apps)",
+ "repos": [
+  {
+   "repo": "nitrostack",
+   "url": "https://github.com/nitrocloudofficial/nitrostack",
+   "sha": "b10b3333c1730d44ca55d2680d356a9a6529d52c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit b10b3333c173: \"[Hackathon] Team DROS - Agentic_Food_Rescue_System (#117)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

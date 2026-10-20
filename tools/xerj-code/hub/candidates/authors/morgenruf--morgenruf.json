@@ -1,0 +1,22 @@
+{
+ "corpus": "morgenruf--morgenruf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on bot, daily-standup, devtools queries this for how morgenruf/morgenruf implements it: \ud83c\udf05 Self-hosted Slack app for team rituals \u2014 async standups, coffee chats, kudos and the insights they add up to. Kubernetes-ready, MIT, free  (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "morgenruf",
+   "url": "https://github.com/morgenruf/morgenruf",
+   "sha": "9d2d3659262b2d13044b372f7fe4822a6ea782c7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 9d2d3659262b: \"test(frontend): cover routing and static Nginx deployment\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

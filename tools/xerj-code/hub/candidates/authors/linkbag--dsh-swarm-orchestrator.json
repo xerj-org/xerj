@@ -1,0 +1,22 @@
+{
+ "corpus": "linkbag--dsh-swarm-orchestrator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cordis, dashboard, dsh queries this for how linkbag/dsh-swarm-orchestrator implements it: Role-based AI swarm orchestration for DeepSeek Harness: per-role model pinning with fallbacks, parallel task DAG with review loops, live Swa (selected work: client, tests, src)",
+ "repos": [
+  {
+   "repo": "dsh-swarm-orchestrator",
+   "url": "https://github.com/linkbag/dsh-swarm-orchestrator",
+   "sha": "f3a7b32639e01124e5b2ddb5b10d4fb0aed39c2e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f3a7b32639e0: \"v0.6.28: show the task drawer in the Flow view (0.6.27 selected a tas\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

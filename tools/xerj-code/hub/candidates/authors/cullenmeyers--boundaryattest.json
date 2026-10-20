@@ -1,0 +1,22 @@
+{
+ "corpus": "cullenmeyers--boundaryattest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, attestation, provenance queries this for how cullenmeyers/BoundaryAttest implements it: Portable signed attestations for consequential agent actions crossing trust boundaries (selected work: examples, tests, the project root)",
+ "repos": [
+  {
+   "repo": "BoundaryAttest",
+   "url": "https://github.com/cullenmeyers/BoundaryAttest",
+   "sha": "bb15e57c0089d66f45febec0e8d7e73a251bece2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit bb15e57c0089: \"feat: add ShipFrame release handoff fixture\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

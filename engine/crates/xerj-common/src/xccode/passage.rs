@@ -39,12 +39,23 @@ pub fn query_terms(query: &str) -> Vec<String> {
 
 /// `[(name, kind, start_line, end_line)]` from the record's own `symbols`.
 /// A definition runs until the next definition starts — a coarse but honest
-/// bound: it never claims a range the index did not report.
+/// bound: it never claims a range the index did not report. When the record
+/// carries the symbol's own `end_line` (#1237), the span also stops there, so
+/// trailing non-definition lines (comments, top-level statements) after a
+/// function are not scored as part of it.
+///
+/// The recorded `end_line` only ever TIGHTENS the next-definition bound; it
+/// never extends a span past a nested definition. A container (`class`,
+/// `impl`, `module`, ...) records an `end_line` covering every method inside
+/// it, so its full extent is a superset of each method's text: it would
+/// out-score (or tie and, being earlier, beat) the method that actually
+/// matches, and the 800-char truncation would then show the container's head
+/// instead of the matching method.
 fn symbol_spans(src: &Value) -> Vec<(String, String, i64, Option<i64>)> {
     let Some(syms) = src.get("symbols").and_then(Value::as_array) else {
         return Vec::new();
     };
-    let mut got: Vec<(String, String, i64)> = syms
+    let mut got: Vec<(String, String, i64, Option<i64>)> = syms
         .iter()
         .filter(|s| s.is_object())
         .filter_map(|s| {
@@ -53,6 +64,10 @@ fn symbol_spans(src: &Value) -> Vec<(String, String, i64, Option<i64>)> {
             if name.is_empty() {
                 return None;
             }
+            let end_line = s
+                .get("end_line")
+                .and_then(Value::as_i64)
+                .filter(|&e| e >= line);
             Some((
                 name.to_string(),
                 s.get("kind")
@@ -60,19 +75,27 @@ fn symbol_spans(src: &Value) -> Vec<(String, String, i64, Option<i64>)> {
                     .unwrap_or("")
                     .to_string(),
                 line,
+                end_line,
             ))
         })
         .collect();
-    got.sort_by_key(|(_, _, line)| *line);
+    got.sort_by_key(|(_, _, line, _)| *line);
     got.windows(2)
         .map(|w| {
-            let (name, kind, line) = w[0].clone();
-            let end = w.get(1).map(|(_, _, l)| *l - 1);
+            let (name, kind, line, end_line) = w[0].clone();
+            let next_def = w.get(1).map(|(_, _, l, _)| *l - 1);
+            let end = match (end_line, next_def) {
+                (Some(e), Some(n)) => Some(e.min(n)),
+                (e, n) => e.or(n),
+            };
             (name, kind, line, end)
         })
         .collect::<Vec<_>>()
         .into_iter()
-        .chain(got.last().map(|(n, k, l)| (n.clone(), k.clone(), *l, None)))
+        .chain(
+            got.last()
+                .map(|(n, k, l, end_line)| (n.clone(), k.clone(), *l, *end_line)),
+        )
         .collect()
 }
 
@@ -372,5 +395,40 @@ mod tests {
         assert_eq!(commaus(1_000), "1,000");
         assert_eq!(commaus(21_461), "21,461");
         assert_eq!(commaus(1_234_567), "1,234,567");
+    }
+
+    /// A container's recorded `end_line` covers its methods; it must not let
+    /// the container swallow (and out-rank) the method that actually matches.
+    #[test]
+    fn recorded_end_line_does_not_let_a_container_swallow_its_methods() {
+        let mut body = String::from("class Widget:\n");
+        for i in 0..60 {
+            body.push_str(&format!("    pad_{i} = {i}\n"));
+        }
+        body.push_str("    def render(self):\n        return needle\n");
+        let render_line = 62;
+        let src = json!({
+            "symbols": [
+                { "name": "Widget", "kind": "class", "line": 1, "end_line": 63 },
+                { "name": "render", "kind": "method", "line": render_line, "end_line": 63 }
+            ]
+        });
+        let (text, label) = symbol_passage(&body, &src, "needle", 800).unwrap();
+        assert_eq!(label, format!("method render @ line {render_line}"));
+        assert!(text.contains("return needle"), "{text}");
+    }
+
+    #[test]
+    fn symbol_passage_bounds_span_by_recorded_end_line() {
+        let body = "fn alpha() {\n    let needle = 1;\n}\n// trailing comment mentioning needle needle needle\nfn beta() {}\n";
+        let src = json!({
+            "symbols": [
+                { "name": "alpha", "kind": "function", "line": 1, "end_line": 3 },
+                { "name": "beta", "kind": "function", "line": 5, "end_line": 5 }
+            ]
+        });
+        let (text, label) = symbol_passage(body, &src, "needle", 800).unwrap();
+        assert_eq!(label, "function alpha @ line 1");
+        assert_eq!(text, "fn alpha() {\n    let needle = 1;\n}");
     }
 }

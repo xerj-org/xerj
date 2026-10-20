@@ -1,0 +1,22 @@
+{
+ "corpus": "kylebrowning--apnswift",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on swift, swift-nio-http2, swift-nio queries this for how kylebrowning/APNSwift implements it: \ud83d\udcf1HTTP/2 Apple Push Notification Service built with swift - send push notifications to iOS, iPadOS, tvOS, macOS, watchOS, visionOS, and Safar (selected work: Sources, Tests)",
+ "repos": [
+  {
+   "repo": "APNSwift",
+   "url": "https://github.com/kylebrowning/APNSwift",
+   "sha": "f1873be0bd05884102fd2a21478c10440577edb0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit f1873be0bd05: \"Add accessory notifications (#267)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "damienbod--aspnetcorebackchannellogout",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on aspnet-core, oidc, identityserver4 queries this for how damienbod/AspNetCoreBackChannelLogout implements it: ASP.NET Core Back-Channel Logout for Hybrid Clients, Redis, Key Vault, Azure (selected work: Idp.Swiyu.Passkeys.Sts.Domain.Migrations, the project root)",
+ "repos": [
+  {
+   "repo": "AspNetCoreBackChannelLogout",
+   "url": "https://github.com/damienbod/AspNetCoreBackChannelLogout",
+   "sha": "66a48878924b0c374b985f58d86d6d694c011587",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 66a48878924b: \"migrations db\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

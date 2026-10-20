@@ -1,0 +1,22 @@
+{
+ "corpus": "ilbertt--nibrunner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on firecracker-sandbox, microvm, rust queries this for how ilbertt/nibrunner implements it: MicroVM orchestrator for your VPS with built-in sleep/wake policies, backups, snapshots, HTTPS, custom image, logs and metrics (selected work: crates/nibrunnerd)",
+ "repos": [
+  {
+   "repo": "nibrunner",
+   "url": "https://github.com/ilbertt/nibrunner",
+   "sha": "11e934d01f01f486c2ce82f31534e1e951ab61c6",
+   "licence": "hint only: Unlicense (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Unlicense",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit 11e934d01f01: \"feat: require the Firecracker jailer for every microVM (#232)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

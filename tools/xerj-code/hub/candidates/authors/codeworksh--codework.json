@@ -1,0 +1,22 @@
+{
+ "corpus": "codeworksh--codework",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, ai-coding-agent, anthropic queries this for how codeworksh/codework implements it: AI agent toolkit for coding agents, unified LLM APIs, agentic workflows, tool harness and more (selected work: packages/harness, packages/plugin)",
+ "repos": [
+  {
+   "repo": "codework",
+   "url": "https://github.com/codeworksh/codework",
+   "sha": "aaada19884348a86dddc9774500eb827e168aebc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit aaada1988434: \"feat(harness): edit built-in tool (#63)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

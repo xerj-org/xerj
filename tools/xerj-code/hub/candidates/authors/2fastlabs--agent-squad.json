@@ -1,0 +1,22 @@
+{
+ "corpus": "2fastlabs--agent-squad",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on aws, aws-bedrock, anthropic-claude queries this for how 2FastLabs/agent-squad implements it: Flexible and powerful framework for managing multiple AI agents and handling complex conversations (selected work: python, typescript)",
+ "repos": [
+  {
+   "repo": "agent-squad",
+   "url": "https://github.com/2FastLabs/agent-squad",
+   "sha": "cc3f6e0288d937c01f6aa139b3043953c779f456",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit cc3f6e0288d9: \"updated code\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

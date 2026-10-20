@@ -1,0 +1,22 @@
+{
+ "corpus": "johnmachado11--gpt-2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on educational, from-scratch, gpt-2 queries this for how JohnMachado11/GPT-2 implements it: A readable GPT-2 built from scratch in PyTorch. Train it on your own text, or load OpenAI's weights into it and get the same outputs as the  (selected work: src/tests, src/gpt2, src/run)",
+ "repos": [
+  {
+   "repo": "GPT-2",
+   "url": "https://github.com/JohnMachado11/GPT-2",
+   "sha": "69ccfce6fdd54e66bc5e85283cc6a8c0a71176e4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 69ccfce6fdd5: \"Save each run to its own folder, and resume an interrupted run\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

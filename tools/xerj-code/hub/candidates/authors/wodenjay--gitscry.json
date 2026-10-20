@@ -1,0 +1,22 @@
+{
+ "corpus": "wodenjay--gitscry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cli, git, rust queries this for how WodenJay/GitScry implements it: Local Git history intelligence for developers and coding agents \u2014 find precedents, explain code, trace regressions, and discover related tes (selected work: src/analysis, tests, src/render)",
+ "repos": [
+  {
+   "repo": "GitScry",
+   "url": "https://github.com/WodenJay/GitScry",
+   "sha": "15471f880d4ff1f5a357fe689033fbdac472a9d6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 15471f880d4f: \"refactor(analysis): localize failure lead data\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

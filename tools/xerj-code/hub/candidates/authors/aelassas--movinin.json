@@ -1,0 +1,22 @@
+{
+ "corpus": "aelassas--movinin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on property-management, property-rental, real-estate queries this for how aelassas/movinin implements it: Rental Property Management Platform with Mobile App (selected work: backend, admin, frontend)",
+ "repos": [
+  {
+   "repo": "movinin",
+   "url": "https://github.com/aelassas/movinin",
+   "sha": "0b6c6d585d1315072c620d996191bc606d058e1a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 0b6c6d585d13: \"feat: implement development database seeding, safe cleanup, and dummy\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

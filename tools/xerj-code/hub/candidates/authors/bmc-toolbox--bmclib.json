@@ -1,0 +1,22 @@
+{
+ "corpus": "bmc-toolbox--bmclib",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bmc, supermicro, dell queries this for how bmc-toolbox/bmclib implements it: Library to abstract Baseboard Management Controller interactions (selected work: providers, bmc, internal/redfishwrapper)",
+ "repos": [
+  {
+   "repo": "bmclib",
+   "url": "https://github.com/bmc-toolbox/bmclib",
+   "sha": "2e99cf75e04cd388eb070945559186a8effa2f9a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 2e99cf75e04c: \"refactor: name the chassis power API after the Chassis resource\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "namekun--nunsseop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dynamic-island, macos, menubar queries this for how namekun/Nunsseop implements it: Your MacBook notch, finally useful: now playing, file shelf, quick search, AI usage, calendar and system HUDs. Free, native, 7 languages (selected work: Tests, Sources, scripts)",
+ "repos": [
+  {
+   "repo": "Nunsseop",
+   "url": "https://github.com/namekun/Nunsseop",
+   "sha": "7abf87db9f1385aff6f104e0c93205734cd71544",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 7abf87db9f13: \"Show a weekly recap of the agents' work on Mondays\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "martinhdeez--zenithenterprise",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on fastapi, hybrid-search, multi-tenancy queries this for how Martinhdeez/zenithEnterprise implements it: Multi-tenant RAG over a private document corpus. Postgres RLS is the only access control; every answer carries a citation or there is no ans (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "zenithEnterprise",
+   "url": "https://github.com/Martinhdeez/zenithEnterprise",
+   "sha": "a75ad7e3a4e7573200ec44d94bd1becd96bbc0de",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit a75ad7e3a4e7: \"fix(admin): refresh group catalogs without losing membership drafts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

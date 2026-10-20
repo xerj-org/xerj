@@ -1,0 +1,22 @@
+{
+ "corpus": "niksativa--sprykit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ios, swift, testing queries this for how NikSativa/SpryKit implements it: Spry is a framework that allows spying and stubbing in Apple's Swift language. Also included is a XCTAsserts for the spied objects (selected work: Tests, Source, MacroAndCompilerPlugin)",
+ "repos": [
+  {
+   "repo": "SpryKit",
+   "url": "https://github.com/NikSativa/SpryKit",
+   "sha": "22e03739eb16767452de05c429b8784ecbb7e97d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 22e03739eb16: \"Add waiting for calls and deferred stub responses\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

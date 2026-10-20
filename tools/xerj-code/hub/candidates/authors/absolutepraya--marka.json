@@ -1,0 +1,22 @@
+{
+ "corpus": "absolutepraya--marka",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bookmark-manager, pwa, browser-extension queries this for how absolutepraya/marka implements it: Everything you want to come back to. A self-hosted library for bookmarks, watchlists, wishlists, notes, and files (selected work: apps/web, packages/shared-react)",
+ "repos": [
+  {
+   "repo": "marka",
+   "url": "https://github.com/absolutepraya/marka",
+   "sha": "fd07a400e279822e876aec04575374ab83afa34d",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit fd07a400e279: \"feat(ui): refresh shared controls and deepen the navy dark theme (#132)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

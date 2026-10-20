@@ -1,0 +1,22 @@
+{
+ "corpus": "ggml-org--llama-cpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ggml queries this for how ggml-org/llama.cpp implements it: LLM inference in C/C++ (selected work: ggml, tests)",
+ "repos": [
+  {
+   "repo": "llama.cpp",
+   "url": "https://github.com/ggml-org/llama.cpp",
+   "sha": "fda186661304735bb9027abd472c1403a9902081",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit fda186661304: \"CUDA: fix norm family kernels when ne[2]/ne[3] exceed grid dim limits\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

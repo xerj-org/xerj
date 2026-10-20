@@ -1,0 +1,22 @@
+{
+ "corpus": "wisdoverse--dsh-inline-media-viewer-plugin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on audio-preview, comfyui, deepseek-harness queries this for how Wisdoverse/dsh-inline-media-viewer-plugin implements it: Inline image, video, and audio previews for DeepSeek Harness Web, with workspace-safe local files, direct web media, and an optional ComfyUI (selected work: the project root, client)",
+ "repos": [
+  {
+   "repo": "dsh-inline-media-viewer-plugin",
+   "url": "https://github.com/Wisdoverse/dsh-inline-media-viewer-plugin",
+   "sha": "93c7b7ff71c7e23f30e3e3403a4b7243f2b65d4b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 93c7b7ff71c7: \"fix: support DSH 0.1.7 inline media previews\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

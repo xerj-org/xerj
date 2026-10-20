@@ -229,6 +229,13 @@ fn search_http(path: &str, body: &[u8], state: &Mutex<NodeState>) -> Value {
                         values.iter().any(|value| doc.get(field) == Some(value))
                     });
                 }
+                if let Some(field) = filter
+                    .get("exists")
+                    .and_then(|exists| exists.get("field"))
+                    .and_then(Value::as_str)
+                {
+                    return doc.get(field).is_some();
+                }
                 false
             })
         })
@@ -240,9 +247,44 @@ fn search_http(path: &str, body: &[u8], state: &Mutex<NodeState>) -> Value {
         .take(size)
         .map(|(_, id, doc)| json!({"_id": id, "_source": doc}))
         .collect::<Vec<_>>();
+    // The batched finalize-verify (#1183's count lane) reads per-digest counts
+    // as an exact `terms` aggregation; evaluate that one shape over the
+    // matched set the way the engine's precise terms `doc_count` would.
+    let aggregations = query
+        .get("aggs")
+        .or_else(|| query.get("aggregations"))
+        .and_then(Value::as_object)
+        .map(|aggs| {
+            let mut body = serde_json::Map::new();
+            for (name, spec) in aggs {
+                let Some(field) = spec
+                    .get("terms")
+                    .and_then(|terms| terms.get("field"))
+                    .and_then(Value::as_str)
+                else {
+                    continue;
+                };
+                let mut counts: std::collections::BTreeMap<&str, u64> =
+                    std::collections::BTreeMap::new();
+                for (_, _, doc) in &matching {
+                    if let Some(key) = doc.get(field).and_then(Value::as_str) {
+                        *counts.entry(key).or_insert(0) += 1;
+                    }
+                }
+                body.insert(
+                    name.clone(),
+                    json!({"buckets": counts
+                        .into_iter()
+                        .map(|(key, doc_count)| json!({"key": key, "doc_count": doc_count}))
+                        .collect::<Vec<_>>()}),
+                );
+            }
+            Value::Object(body)
+        })
+        .unwrap_or_else(|| json!({}));
     json!({
         "hits": {"total": {"value": total, "relation": "eq"}, "hits": hits},
-        "aggregations": {},
+        "aggregations": aggregations,
     })
 }
 
@@ -332,9 +374,10 @@ fn cfg(root: &Path, state_dir: &Path, url: &str, label: &Path) -> IndexCfg {
         follow_symlinks: false,
         follow_symlinks_outside_root: false,
         ignore: crate::ignore_rules::IgnoreOptions::default(),
-        max_file_gb: 1,
+        max_file_bytes: 1 << 30,
         sample: 100,
         no_semantic: true,
+        code_analyzer: Default::default(),
         brain: None,
         no_graph: true,
         max_minutes: 0,
@@ -347,6 +390,7 @@ fn cfg(root: &Path, state_dir: &Path, url: &str, label: &Path) -> IndexCfg {
         watch: false,
         debounce: std::time::Duration::from_millis(0),
         label: Some(label.to_owned()),
+        exclude_rels: Vec::new(),
     }
 }
 

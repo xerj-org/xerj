@@ -1,0 +1,22 @@
+{
+ "corpus": "yuhp--opencode-models-discovery",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on api-gateway, llm-gateway, lm-studio queries this for how yuhp/opencode-models-discovery implements it: A universal OpenCode plugin for dynamic model discovery with flexible configuration for OpenAI-compatible providers (selected work: test, src, src/v2)",
+ "repos": [
+  {
+   "repo": "opencode-models-discovery",
+   "url": "https://github.com/yuhp/opencode-models-discovery",
+   "sha": "43bb7e41514b1f51b0955e7b2e3a550dd118e7ba",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 43bb7e41514b: \"feat(v2): add native TUI discovery status command\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

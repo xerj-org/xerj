@@ -1,0 +1,22 @@
+{
+ "corpus": "cccjhuan--spatial-task-graph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on TypeScript queries this for how CccJhuan/spatial-task-graph implements it: Spatial Task Graph turns Markdown checklists and TaskNotes into an interactive task map with hierarchy syncing, smart layout, filters, compa (selected work: src, the project root, scripts)",
+ "repos": [
+  {
+   "repo": "spatial-task-graph",
+   "url": "https://github.com/CccJhuan/spatial-task-graph",
+   "sha": "0d02b1336cfd549dc8d43c9db2f0b9bdcb0399fd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 0d02b1336cfd: \"feat: add condition-based filters and refine board controls\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

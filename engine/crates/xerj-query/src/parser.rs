@@ -39,9 +39,14 @@ use crate::sort::{SortField, SortMissing, SortMode, SortOrder};
 // workers each get their own counter.
 const MAX_QUERY_DEPTH: usize = 64;
 
-/// Cap on `from + size`. Mirrors ES's `index.max_result_window` default.
-/// Deep pagination beyond this should use `search_after`/PIT instead.
-pub const MAX_RESULT_WINDOW: usize = 10_000;
+/// Parse-time ceiling on `from + size`: the largest value ES's
+/// `index.max_result_window` can take (a Java `int`). The real limit is the
+/// index's `index.max_result_window`, else the node's
+/// `limits.max_result_window` (default 10,000), and the engine enforces it
+/// before anything is materialised. This bound only keeps the arithmetic
+/// sane; it used to be a hardcoded 10,000, which silently overrode a larger
+/// per-index setting. Deep pagination should use `search_after`/PIT.
+pub const MAX_RESULT_WINDOW: usize = i32::MAX as usize;
 
 // ── Boolean clause limit ──────────────────────────────────────────────────────
 //
@@ -262,10 +267,9 @@ pub fn parse_request(body: &Value) -> Result<SearchRequest> {
         None => 10,
     };
 
-    // ES default `index.max_result_window` is 10_000. Without this cap a
-    // single request with `size=2_000_000_000` allocates a Vec<Hit> for two
-    // billion entries before pagination. Trust the user the same way ES
-    // does — i.e., not at all.
+    // The per-index / per-node window is checked by the engine (it needs the
+    // index settings, which the parser does not have), ahead of every
+    // allocation sized by `from + size`; see `MAX_RESULT_WINDOW`.
     if from.saturating_add(size) > MAX_RESULT_WINDOW {
         return invalid(format!(
             "from + size must be <= {MAX_RESULT_WINDOW} (got {})",
@@ -523,6 +527,7 @@ fn parse_match(params: &Value) -> Result<QueryNode> {
             analyzer: None,
             boost: None,
             minimum_should_match: None,
+            lenient: false,
         });
     }
 
@@ -561,8 +566,33 @@ fn parse_match(params: &Value) -> Result<QueryNode> {
         analyzer,
         boost,
         minimum_should_match,
+        lenient: parse_lenient(vobj.get("lenient")).unwrap_or(false),
     };
     Ok(maybe_named(node, name))
+}
+
+/// Read a clause's `lenient` flag (#1284). ES takes a JSON boolean or the
+/// strings `"true"` / `"false"`; `None` means the caller applies its default.
+fn parse_lenient(v: Option<&Value>) -> Option<bool> {
+    match v? {
+        Value::Bool(b) => Some(*b),
+        Value::String(s) if s == "true" => Some(true),
+        Value::String(s) if s == "false" => Some(false),
+        _ => None,
+    }
+}
+
+/// Whether a field list means "every field", the case where ES defaults
+/// `lenient` to true for `multi_match`, `query_string` and
+/// `simple_query_string` (#1284). An empty list counts: with no fields those
+/// clauses fall back to `index.query.default_field`, whose default is `*`.
+/// A narrower pattern (`b*`) does not, and ES stays strict for it.
+fn targets_every_field(fields: &[String]) -> bool {
+    match fields {
+        [] => true,
+        [only] => qs_split_boost(only).0 == "*",
+        _ => false,
+    }
 }
 
 /// Best-effort conversion of a JSON scalar to a string for query
@@ -602,6 +632,7 @@ fn parse_match_phrase(params: &Value) -> Result<QueryNode> {
             slop: 0,
             analyzer: None,
             boost: None,
+            lenient: false,
         });
     }
 
@@ -632,12 +663,15 @@ fn parse_match_phrase(params: &Value) -> Result<QueryNode> {
         .and_then(|v| v.as_str())
         .map(str::to_string);
 
+    // `match_phrase` has no `lenient` option in ES (it answers `[match_phrase]
+    // query does not support [lenient]`), so a parsed phrase is always strict.
     let node = QueryNode::MatchPhrase {
         field,
         query,
         slop,
         analyzer,
         boost,
+        lenient: false,
     };
     Ok(maybe_named(node, name))
 }
@@ -775,6 +809,9 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
     if fields.is_empty() {
         return invalid("`multi_match.fields` must not be empty");
     }
+    // #1284: explicit `lenient`, else ES's default: lenient only when the
+    // clause targets every field (`["*"]`).
+    let lenient = parse_lenient(obj.get("lenient")).unwrap_or_else(|| targets_every_field(&fields));
 
     let type_str = obj
         .get("type")
@@ -909,6 +946,7 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
                         boost: None,
                         analyzer: analyzer_opt.clone(),
                         minimum_should_match: None,
+                        lenient,
                     }
                 }
             };
@@ -983,6 +1021,7 @@ fn parse_multi_match(params: &Value) -> Result<QueryNode> {
         boost,
         slop,
         max_expansions,
+        lenient,
     })
 }
 
@@ -1229,6 +1268,7 @@ fn parse_range(params: &Value) -> Result<QueryNode> {
         lte,
         lt,
         boost,
+        lenient: false,
     })
 }
 
@@ -1436,6 +1476,14 @@ fn parse_query_string(params: &Value) -> Result<QueryNode> {
         .unwrap_or_default();
     let default_operator = parse_bool_operator(obj.get("default_operator")).ok();
     let boost = obj.get("boost").and_then(|v| v.as_f64()).map(|b| b as f32);
+    // #1284: explicit `lenient`, else ES's default, which is lenient only when
+    // the clause's field set is every field. That is why `bytes:abc` with no
+    // `default_field` is a 200 on ES even though the clause names `bytes`.
+    let lenient =
+        parse_lenient(obj.get("lenient")).unwrap_or_else(|| match default_field.as_deref() {
+            Some(df) if fields.is_empty() => df == "*",
+            _ => targets_every_field(&fields),
+        });
 
     // Try to lower the query string into a Bool tree so downstream matchers
     // can honor `field:value` + OR/AND syntax.  Fall back to the opaque
@@ -1447,6 +1495,7 @@ fn parse_query_string(params: &Value) -> Result<QueryNode> {
         QsFields {
             default_field: default_field.as_deref(),
             fields: &fields,
+            lenient,
         },
         default_operator,
     )? {
@@ -1502,6 +1551,10 @@ fn qs_split_boost(spec: &str) -> (String, Option<f32>) {
 struct QsFields<'a> {
     default_field: Option<&'a str>,
     fields: &'a [String],
+    /// The clause's effective `lenient` (#1284), stamped on every leaf the
+    /// string lowers to, field-qualified ones included: ES decides leniency
+    /// once per `query_string`, not per clause.
+    lenient: bool,
 }
 
 impl QsFields<'_> {
@@ -1586,11 +1639,24 @@ fn try_lower_query_string(
     // Range clauses must target a concrete field: resolve unqualified
     // ranges against default_field / fields up-front so `>10` with no usable
     // target errors instead of degrading to a term match.
+    // An unqualified range inside `field:( … )` lands on that field (#1298),
+    // so track which open parens belong to a field group.
     let mut has_range = false;
+    let mut groups: Vec<bool> = Vec::new();
+    let mut pending_field_group = false;
     for t in &tokens {
+        match t {
+            QsTok::FieldGroup(_) => pending_field_group = true,
+            QsTok::LParen => groups.push(std::mem::take(&mut pending_field_group)),
+            QsTok::RParen => {
+                groups.pop();
+            }
+            _ => {}
+        }
         if let QsTok::Range { field, .. } = t {
             has_range = true;
-            if field.is_empty() && !ctx.has_concrete_target() {
+            let in_field_group = groups.iter().any(|g| *g);
+            if field.is_empty() && !in_field_group && !ctx.has_concrete_target() {
                 return Err(qerr(
                     "query_string range requires an explicit field (e.g. `price:>10`) or a non-wildcard default_field",
                 ));
@@ -1624,6 +1690,9 @@ enum QsTok {
         lt: Option<Value>,
         lte: Option<Value>,
     },
+    /// `field:` directly before a `(`: the group that follows is scoped to
+    /// `field` (#1298). Always immediately followed by `LParen`.
+    FieldGroup(String),
     Or,
     And,
     Not,
@@ -1940,6 +2009,19 @@ fn tokenize_query_string(q: &str) -> Result<Option<Vec<QsTok>>> {
                 let (rtok, next) = qs_parse_cmp_range(q, field, rest, i)?;
                 out.push(rtok);
                 i = next;
+            } else if rest.is_empty()
+                && q[i..]
+                    .trim_start_matches(|c: char| c.is_ascii_whitespace())
+                    .starts_with('(')
+            {
+                // `field:(a OR b)` (also `field: (…)`): the bare-token scan
+                // stopped at the `(`, leaving `field:` with no value. Lucene
+                // scopes the whole group to `field`; before #1298 this became
+                // an empty-valued term and the group searched every field.
+                out.push(QsTok::FieldGroup(field.to_string()));
+                while bytes[i].is_ascii_whitespace() {
+                    i += 1;
+                }
             } else {
                 out.push(QsTok::Term(field.to_string(), unescape_qs(rest)));
             }
@@ -1955,124 +2037,154 @@ fn tokenize_query_string(q: &str) -> Result<Option<Vec<QsTok>>> {
     Ok(Some(out))
 }
 
+/// How one clause of a query-string boolean takes part in it.
+#[derive(Clone, Copy, PartialEq)]
+enum QsOccur {
+    Must,
+    Should,
+    MustNot,
+}
+
+/// The conjunction written before a clause.
+#[derive(Clone, Copy, PartialEq)]
+enum QsConj {
+    None,
+    And,
+    Or,
+}
+
+/// Parse one boolean level of a query string: clauses up to the end of the
+/// input or the closing `)` of the current group.
+///
+/// Every clause of one level lands in ONE boolean, with an occur decided the
+/// way Lucene's classic query parser decides it (`QueryParserBase.addClause`,
+/// Apache-2.0; approach only, nothing copied), which is what ES 8.13.4 runs:
+///
+/// - `AND` before a clause makes the clause before it required too, unless
+///   that one is prohibited;
+/// - with `default_operator: AND`, `OR` before a clause makes the clause
+///   before it optional, unless it is prohibited;
+/// - `-` / `NOT` make a clause prohibited (MUST_NOT) whatever the operator;
+/// - otherwise, under `OR` a clause is required only with `+` or after
+///   `AND`; under `AND` every clause not introduced by `OR` is required.
+///
+/// So `kiwi OR lime AND plum` is `kiwi +lime +plum`, not
+/// `kiwi OR (lime AND plum)`. A prohibited clause excludes from the whole
+/// level: before #1299, `alpha -beta` built `alpha OR (NOT beta)`, whose
+/// pure-negative branch matched every document without `beta`.
 fn parse_qs_or(
     toks: &[QsTok],
     pos: &mut usize,
     ctx: QsFields<'_>,
     default_op: Option<BoolOperator>,
 ) -> Option<QueryNode> {
-    let mut left = parse_qs_and(toks, pos, ctx, default_op)?;
-    // `A OR B` — explicit OR operator.
-    while *pos < toks.len() && matches!(toks[*pos], QsTok::Or) {
-        *pos += 1;
-        let right = parse_qs_and(toks, pos, ctx, default_op)?;
-        left = QueryNode::Bool {
-            must: vec![],
-            must_not: vec![],
-            filter: vec![],
-            should: vec![left, right],
-            minimum_should_match: Some(MinShouldMatch::Fixed(1)),
+    let default_and = matches!(default_op, Some(BoolOperator::And));
+    let mut clauses: Vec<(QsOccur, QueryNode)> = Vec::new();
+    while *pos < toks.len() && !matches!(toks[*pos], QsTok::RParen) {
+        let mut conj = QsConj::None;
+        while let Some(t) = toks.get(*pos) {
+            match t {
+                QsTok::And => conj = QsConj::And,
+                QsTok::Or => conj = QsConj::Or,
+                _ => break,
+            }
+            *pos += 1;
+        }
+        let (mut req_mod, mut not_mod) = (false, false);
+        while let Some(t) = toks.get(*pos) {
+            match t {
+                QsTok::Must => req_mod = true,
+                QsTok::Not => not_mod = true,
+                _ => break,
+            }
+            *pos += 1;
+        }
+        // A dangling operator (`kiwi AND`, `kiwi -`) has no clause to apply
+        // to: decline, and the caller falls back to the opaque node.
+        // `default_op` is threaded so a `field:( … )` group inside a clause
+        // (#1298) keeps the operator in effect.
+        let node = parse_qs_unary(toks, pos, ctx, default_op)?;
+
+        if let Some(prev) = clauses.last_mut() {
+            if prev.0 != QsOccur::MustNot {
+                if conj == QsConj::And {
+                    prev.0 = QsOccur::Must;
+                } else if conj == QsConj::Or && default_and {
+                    prev.0 = QsOccur::Should;
+                }
+            }
+        }
+        let required = if default_and {
+            !not_mod && conj != QsConj::Or
+        } else {
+            req_mod || (conj == QsConj::And && !not_mod)
         };
+        let occur = if not_mod {
+            QsOccur::MustNot
+        } else if required {
+            QsOccur::Must
+        } else {
+            QsOccur::Should
+        };
+        clauses.push((occur, node));
     }
-    // When default_operator is OR (the ES default when unset) and
-    // parse_qs_and stopped because it hit a juxtaposed clause, fold the
-    // remaining clauses into a should-bool. Without this, `field:foo
-    // field:xyz` only evaluates the first clause and drops `field:xyz`.
-    let implicit_or = matches!(default_op, None | Some(BoolOperator::Or));
-    if implicit_or {
-        while *pos < toks.len() && !matches!(toks[*pos], QsTok::RParen | QsTok::Or | QsTok::And) {
-            let right = parse_qs_and(toks, pos, ctx, default_op)?;
-            left = QueryNode::Bool {
-                must: vec![],
-                must_not: vec![],
-                filter: vec![],
-                should: vec![left, right],
-                minimum_should_match: Some(MinShouldMatch::Fixed(1)),
-            };
+
+    if clauses.len() == 1 && clauses[0].0 != QsOccur::MustNot {
+        return clauses.pop().map(|(_, n)| n);
+    }
+    if clauses.is_empty() {
+        return None;
+    }
+    let (mut must, mut should, mut must_not) = (Vec::new(), Vec::new(), Vec::new());
+    for (occur, node) in clauses {
+        match occur {
+            QsOccur::Must => must.push(node),
+            QsOccur::Should => should.push(node),
+            QsOccur::MustNot => must_not.push(node),
         }
     }
-    Some(left)
+    // With a required clause, the optional ones only add score (Lucene and
+    // ES `bool`); with none, at least one of them must match.
+    let minimum_should_match =
+        (must.is_empty() && !should.is_empty()).then_some(MinShouldMatch::Fixed(1));
+    Some(QueryNode::Bool {
+        must,
+        should,
+        must_not,
+        filter: vec![],
+        minimum_should_match,
+    })
 }
 
-fn parse_qs_and(
+fn parse_qs_unary(
     toks: &[QsTok],
     pos: &mut usize,
     ctx: QsFields<'_>,
     default_op: Option<BoolOperator>,
 ) -> Option<QueryNode> {
-    let mut clauses: Vec<QueryNode> = Vec::new();
-    let mut not_clauses: Vec<QueryNode> = Vec::new();
-    let mut explicit_and = false;
-    loop {
-        // Optional + / - / NOT prefix for each clause.
-        let mut force_not = false;
-        while *pos < toks.len() {
-            match &toks[*pos] {
-                QsTok::Must => {
-                    *pos += 1;
-                }
-                QsTok::Not => {
-                    force_not = true;
-                    *pos += 1;
-                }
-                _ => break,
-            }
-        }
-        let node = parse_qs_unary(toks, pos, ctx)?;
-        if force_not {
-            not_clauses.push(node);
-        } else {
-            clauses.push(node);
-        }
-        if *pos >= toks.len() {
-            break;
-        }
-        match &toks[*pos] {
-            QsTok::And => {
-                explicit_and = true;
-                *pos += 1;
-                continue;
-            }
-            QsTok::Or | QsTok::RParen => break,
-            _ => {
-                // Juxtaposition — treat as OR unless default_op is AND.
-                if matches!(default_op, Some(BoolOperator::And)) || explicit_and {
-                    continue;
-                }
-                break;
-            }
-        }
-    }
-    if clauses.len() == 1 && not_clauses.is_empty() {
-        return Some(clauses.pop().unwrap());
-    }
-    let should_mode =
-        !explicit_and && !clauses.is_empty() && !matches!(default_op, Some(BoolOperator::And));
-    let node = if should_mode {
-        QueryNode::Bool {
-            must: vec![],
-            filter: vec![],
-            must_not: not_clauses,
-            should: clauses,
-            minimum_should_match: Some(MinShouldMatch::Fixed(1)),
-        }
-    } else {
-        QueryNode::Bool {
-            must: clauses,
-            filter: vec![],
-            must_not: not_clauses,
-            should: vec![],
-            minimum_should_match: None,
-        }
-    };
-    Some(node)
-}
-
-fn parse_qs_unary(toks: &[QsTok], pos: &mut usize, ctx: QsFields<'_>) -> Option<QueryNode> {
     if *pos >= toks.len() {
         return None;
     }
     match toks[*pos].clone() {
+        QsTok::FieldGroup(field) => {
+            // `field:( … )` (#1298): parse the group as if `field` were the
+            // only default field, so every unqualified clause inside it
+            // (terms, phrases, wildcards, ranges, nested groups) targets
+            // `field`. A clause inside that names its own field keeps it,
+            // as in ES. The tokenizer always emits `LParen` next.
+            *pos += 1;
+            if !matches!(toks.get(*pos), Some(QsTok::LParen)) {
+                return None;
+            }
+            let scoped = QsFields {
+                default_field: Some(&field),
+                fields: &[],
+                // Leniency is decided once per `query_string` (#1284), so the
+                // scoped group inherits the parent clause's setting.
+                lenient: ctx.lenient,
+            };
+            parse_qs_unary(toks, pos, scoped, default_op)
+        }
         QsTok::LParen => {
             *pos += 1;
             // Bound paren-nesting depth. The shared thread-local `QUERY_DEPTH`
@@ -2086,7 +2198,10 @@ fn parse_qs_unary(toks: &[QsTok], pos: &mut usize, ctx: QsFields<'_>) -> Option<
             // opaque `QueryNode::QueryString` path (iterative tokenizer, no
             // recursion). The guard decrements on drop when this arm returns.
             let _depth_guard = DepthGuard::enter().ok()?;
-            let n = parse_qs_or(toks, pos, ctx, None)?;
+            // `default_operator` applies inside a group too: on ES 8.13.4
+            // `(alpha beta)` with `AND` needs both terms. Passing `None`
+            // here made every group implicitly OR.
+            let n = parse_qs_or(toks, pos, ctx, default_op)?;
             if *pos >= toks.len() || !matches!(toks[*pos], QsTok::RParen) {
                 return None;
             }
@@ -2143,6 +2258,7 @@ fn parse_qs_unary(toks: &[QsTok], pos: &mut usize, ctx: QsFields<'_>) -> Option<
                         analyzer: None,
                         boost,
                         minimum_should_match: None,
+                        lenient: ctx.lenient,
                     })
                     .collect(),
             )
@@ -2158,6 +2274,7 @@ fn parse_qs_unary(toks: &[QsTok], pos: &mut usize, ctx: QsFields<'_>) -> Option<
                         slop: 0,
                         analyzer: None,
                         boost,
+                        lenient: ctx.lenient,
                     })
                     .collect(),
             )
@@ -2188,6 +2305,7 @@ fn parse_qs_unary(toks: &[QsTok], pos: &mut usize, ctx: QsFields<'_>) -> Option<
                         lte: lte.clone(),
                         lt: lt.clone(),
                         boost,
+                        lenient: ctx.lenient,
                     })
                     .collect(),
             )
@@ -2394,6 +2512,8 @@ fn parse_simple_query_string(params: &Value) -> Result<QueryNode> {
     let mm: Option<MinShouldMatch> = obj
         .get("minimum_should_match")
         .and_then(|v| parse_min_should_match(v).ok());
+    // #1284: same default as `multi_match` / `query_string`.
+    let lenient = parse_lenient(obj.get("lenient")).unwrap_or_else(|| targets_every_field(&fields));
 
     // Tokenize the query: split on whitespace; leading +/-/| signal per-term operators.
     let mut must: Vec<QueryNode> = Vec::new();
@@ -2414,7 +2534,7 @@ fn parse_simple_query_string(params: &Value) -> Result<QueryNode> {
         if term_text.is_empty() {
             continue;
         }
-        let node = make_simple_query_node(term_text, &fields);
+        let node = make_simple_query_node(term_text, &fields, lenient);
         match sign {
             '+' => must.push(node),
             '-' => must_not.push(node),
@@ -2432,7 +2552,7 @@ fn parse_simple_query_string(params: &Value) -> Result<QueryNode> {
 
     // No tokens parsed (rare empty query): treat query as a literal term.
     if must.is_empty() && should.is_empty() && must_not.is_empty() {
-        let node = make_simple_query_node(&query, &fields);
+        let node = make_simple_query_node(&query, &fields, lenient);
         return Ok(node);
     }
 
@@ -2453,7 +2573,7 @@ fn parse_simple_query_string(params: &Value) -> Result<QueryNode> {
 }
 
 /// Build a Match or MultiMatch node for a term in a simple_query_string.
-fn make_simple_query_node(term: &str, fields: &[String]) -> QueryNode {
+fn make_simple_query_node(term: &str, fields: &[String], lenient: bool) -> QueryNode {
     if fields.len() == 1 {
         QueryNode::Match {
             field: fields[0].clone(),
@@ -2462,6 +2582,7 @@ fn make_simple_query_node(term: &str, fields: &[String]) -> QueryNode {
             analyzer: None,
             boost: None,
             minimum_should_match: None,
+            lenient,
         }
     } else if fields.is_empty() {
         // No fields specified — use a match_all-like placeholder.
@@ -2481,6 +2602,7 @@ fn make_simple_query_node(term: &str, fields: &[String]) -> QueryNode {
             boost: None,
             slop: 0,
             max_expansions: 50,
+            lenient,
         }
     }
 }
@@ -2945,12 +3067,16 @@ fn parse_hybrid(params: &Value) -> Result<QueryNode> {
         .iter()
         .enumerate()
         .map(|(i, v)| {
-            let entry = v
-                .as_object()
-                .ok_or_else(|| qerr(format!("`hybrid.queries[{i}]` must be an object")))?;
-            let q_val = entry
-                .get("query")
-                .ok_or_else(|| qerr(format!("`hybrid.queries[{i}]` missing `query`")))?;
+            let entry = v.as_object().ok_or_else(|| {
+                qerr(format!(
+                    "`hybrid.queries[{i}]` must be an object {{\"query\": <clause>, \"weight\": <number>}}"
+                ))
+            })?;
+            let q_val = entry.get("query").ok_or_else(|| {
+                qerr(format!(
+                    "`hybrid.queries[{i}]` missing `query`; each item is {{\"query\": <clause>, \"weight\": <number>}} (weight defaults to 1)"
+                ))
+            })?;
             let query = parse_query(q_val)?;
             let weight = entry.get("weight").and_then(|v| v.as_f64()).unwrap_or(1.0) as f32;
             Ok(WeightedQuery { query, weight })
@@ -3685,6 +3811,10 @@ fn parse_more_like_this(params: &Value) -> Result<QueryNode> {
                     analyzer: None,
                     boost: None,
                     minimum_should_match: None,
+                    // ES refuses a numeric `more_like_this` field with a
+                    // different error (`only supports text/keyword fields`);
+                    // #1284's type check is not that refusal, so stay out.
+                    lenient: true,
                 });
             }
         }
@@ -4360,6 +4490,8 @@ fn parse_match_bool_prefix(params: &Value) -> Result<QueryNode> {
                 boost: None,
                 analyzer: analyzer.clone(),
                 minimum_should_match: None,
+                // `match_bool_prefix` has no `lenient` option in ES.
+                lenient: false,
             }
         }
     };
@@ -4672,6 +4804,17 @@ mod tests {
 
     fn q(j: serde_json::Value) -> QueryNode {
         parse_query(&j).expect("parse failed")
+    }
+
+    /// The window is the engine's to enforce (per-index setting, then the node
+    /// limit); the parser only bounds the arithmetic at the setting's largest
+    /// value. A hardcoded 10,000 here overruled `index.max_result_window`.
+    #[test]
+    fn parser_leaves_the_result_window_to_the_index() {
+        let r = parse_request(&json!({ "from": 20_000, "size": 10 }))
+            .expect("from 20,000 is legal for an index whose window allows it");
+        assert_eq!((r.from, r.size), (20_000, 10));
+        assert!(parse_request(&json!({ "from": i32::MAX as u64, "size": 1 })).is_err());
     }
 
     // ── #846: minimum_should_match negative / combination specs ───────────────
@@ -5474,6 +5617,214 @@ mod tests {
         assert_eq!(lte, Some(json!(5)));
     }
 
+    /// The `query` of each bare `Match` in `nodes`, in order.
+    fn match_terms(nodes: &[QueryNode]) -> Vec<&str> {
+        nodes
+            .iter()
+            .map(|n| match n {
+                QueryNode::Match { query, .. } => query.as_str(),
+                other => panic!("expected a bare match, got {other:?}"),
+            })
+            .collect()
+    }
+
+    /// One query-string boolean level as (must, should, must_not, msm).
+    fn occurs(
+        query: &str,
+        default_operator: Option<&str>,
+    ) -> (
+        Vec<String>,
+        Vec<String>,
+        Vec<String>,
+        Option<MinShouldMatch>,
+    ) {
+        let mut body = json!({"query": query, "default_field": "t"});
+        if let Some(op) = default_operator {
+            body["default_operator"] = json!(op);
+        }
+        match q(json!({ "query_string": body })) {
+            QueryNode::Bool {
+                must,
+                should,
+                must_not,
+                minimum_should_match,
+                ..
+            } => {
+                let own = |v: &[QueryNode]| match_terms(v).into_iter().map(String::from).collect();
+                (
+                    own(&must),
+                    own(&should),
+                    own(&must_not),
+                    minimum_should_match,
+                )
+            }
+            other => panic!("{query}: expected a Bool, got {other:?}"),
+        }
+    }
+
+    fn strs(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    /// #1299: a prohibited clause excludes from its whole level. `alpha
+    /// -beta` used to lower to `alpha OR (NOT beta)`, whose pure-negative
+    /// branch matched every document without `beta`.
+    #[test]
+    fn query_string_negation_excludes_from_the_whole_level() {
+        let one = Some(MinShouldMatch::Fixed(1));
+        for query in [
+            "alpha -beta",
+            "-beta alpha",
+            "alpha NOT beta",
+            "alpha OR -beta",
+        ] {
+            assert_eq!(
+                occurs(query, None),
+                (vec![], strs(&["alpha"]), strs(&["beta"]), one.clone()),
+                "{query}"
+            );
+        }
+        assert_eq!(
+            occurs("alpha beta -gamma", None),
+            (vec![], strs(&["alpha", "beta"]), strs(&["gamma"]), one)
+        );
+        // `+` makes a clause required and the rest only score.
+        assert_eq!(
+            occurs("+alpha beta -gamma", None),
+            (strs(&["alpha"]), strs(&["beta"]), strs(&["gamma"]), None)
+        );
+    }
+
+    /// Mixed `AND` / `OR` follow Lucene's classic parser, as ES 8.13.4 does:
+    /// `AND` makes the clause before it required too, and under
+    /// `default_operator: AND` an `OR` makes the clause before it optional.
+    #[test]
+    fn query_string_mixed_operators_follow_the_classic_parser() {
+        assert_eq!(
+            occurs("kiwi OR lime AND plum", None),
+            (strs(&["lime", "plum"]), strs(&["kiwi"]), vec![], None)
+        );
+        assert_eq!(
+            occurs("kiwi AND lime OR plum", None),
+            (strs(&["kiwi", "lime"]), strs(&["plum"]), vec![], None)
+        );
+        assert_eq!(
+            occurs("kiwi AND NOT lime OR plum", None),
+            (strs(&["kiwi"]), strs(&["plum"]), strs(&["lime"]), None)
+        );
+        assert_eq!(
+            occurs("kiwi OR lime plum", Some("AND")),
+            (strs(&["plum"]), strs(&["kiwi", "lime"]), vec![], None)
+        );
+        assert_eq!(
+            occurs("-kiwi lime OR plum", Some("AND")),
+            (
+                vec![],
+                strs(&["lime", "plum"]),
+                strs(&["kiwi"]),
+                Some(MinShouldMatch::Fixed(1))
+            )
+        );
+    }
+
+    /// Every (field, value) leaf of a lowered query_string, in tree order.
+    fn qs_leaves(node: &QueryNode) -> Vec<(String, String)> {
+        fn walk(n: &QueryNode, out: &mut Vec<(String, String)>) {
+            match n {
+                QueryNode::Match { field, query, .. }
+                | QueryNode::MatchPhrase { field, query, .. } => {
+                    out.push((field.clone(), query.clone()))
+                }
+                QueryNode::Wildcard { field, value, .. } => {
+                    out.push((field.clone(), value.clone()))
+                }
+                QueryNode::Range { field, .. } => out.push((field.clone(), "<range>".into())),
+                QueryNode::Bool {
+                    must,
+                    should,
+                    must_not,
+                    filter,
+                    ..
+                } => {
+                    for c in must.iter().chain(should).chain(must_not).chain(filter) {
+                        walk(c, out);
+                    }
+                }
+                QueryNode::DisMax { queries, .. } => queries.iter().for_each(|c| walk(c, out)),
+                QueryNode::Boosted { query, .. } => walk(query, out),
+                other => panic!("unexpected leaf {other:?}"),
+            }
+        }
+        let mut out = Vec::new();
+        walk(node, &mut out);
+        out
+    }
+
+    fn pairs(v: &[(&str, &str)]) -> Vec<(String, String)> {
+        v.iter()
+            .map(|(f, q)| (f.to_string(), q.to_string()))
+            .collect()
+    }
+
+    /// #1298: `field:( … )` scopes the whole group to `field`. It used to
+    /// lower to an empty-valued `Match` on `field` plus the group's terms on
+    /// the `*` placeholder, so the group searched every field.
+    #[test]
+    fn query_string_field_group_is_scoped_to_the_field() {
+        assert_eq!(qs_leaves(&qs("title:(beta)")), pairs(&[("title", "beta")]));
+        assert_eq!(qs_leaves(&qs("title: (beta)")), pairs(&[("title", "beta")]));
+        assert_eq!(
+            qs_leaves(&qs("title:(alpha OR (beta AND gamma))")),
+            pairs(&[("title", "alpha"), ("title", "beta"), ("title", "gamma")])
+        );
+        // Phrases and wildcards inside the group land on the field too.
+        assert_eq!(
+            qs_leaves(&qs("title:(\"alpha beta\" alp*)")),
+            pairs(&[("title", "alpha beta"), ("title", "alp*")])
+        );
+        // A clause that names its own field keeps it, as in ES.
+        assert_eq!(
+            qs_leaves(&qs("title:(alpha OR body:gamma)")),
+            pairs(&[("title", "alpha"), ("body", "gamma")])
+        );
+        // The group's field beats `default_field` / `fields`.
+        let with_default =
+            q(json!({"query_string": {"query": "title:(beta)", "default_field": "body"}}));
+        assert_eq!(qs_leaves(&with_default), pairs(&[("title", "beta")]));
+        let with_fields =
+            q(json!({"query_string": {"query": "title:(beta)", "fields": ["body", "x"]}}));
+        assert_eq!(qs_leaves(&with_fields), pairs(&[("title", "beta")]));
+    }
+
+    /// #1298: an unqualified range inside `n:( … )` has a concrete field and
+    /// lowers to a `Range` on it. It used to be refused ("requires an
+    /// explicit field").
+    #[test]
+    fn query_string_range_inside_a_field_group_targets_the_field() {
+        assert_eq!(qs_leaves(&qs("n:(>4)")), pairs(&[("n", "<range>")]));
+        assert_eq!(qs_leaves(&qs("n:([2 TO 8])")), pairs(&[("n", "<range>")]));
+        // Outside any field group the old refusal still holds.
+        assert!(parse_query(&json!({"query_string": {"query": "(>4)"}})).is_err());
+    }
+
+    /// `default_operator` reaches inside a group: ES 8.13.4 requires both
+    /// terms for `(alpha beta)` with `AND`. Groups used to be implicitly OR.
+    #[test]
+    fn query_string_default_operator_applies_inside_a_group() {
+        for query in ["title:(alpha beta)", "(alpha beta)"] {
+            let node = q(json!({"query_string": {
+                "query": query, "default_field": "title", "default_operator": "AND"
+            }}));
+            match node {
+                QueryNode::Bool { must, should, .. } => {
+                    assert_eq!(must.len(), 2, "{query}: {must:?}");
+                    assert!(should.is_empty(), "{query}: {should:?}");
+                }
+                other => panic!("{query}: expected a Bool, got {other:?}"),
+            }
+        }
+    }
+
     /// `query_string`'s `fields` was accepted and ignored — the key never
     /// reached this parser, so the query ran over every field regardless. It
     /// now selects the targets for an unqualified clause, the same way
@@ -5821,6 +6172,38 @@ mod tests {
         } else {
             panic!("wrong variant");
         }
+    }
+
+    #[test]
+    fn hybrid_item_missing_query_names_the_query_weight_shape() {
+        let err = parse_query(&json!({
+            "hybrid": {
+                "queries": [
+                    {"weight": 1.0},
+                    {"query": {"match_all": {}}}
+                ]
+            }
+        }))
+        .unwrap_err();
+        let msg = err.to_string();
+        assert!(msg.contains("`hybrid.queries[0]` missing `query`"), "{msg}");
+        assert!(
+            msg.contains("{\"query\": <clause>, \"weight\": <number>}"),
+            "{msg}"
+        );
+        assert!(msg.contains("weight defaults to 1"), "{msg}");
+
+        let err = parse_query(&json!({
+            "hybrid": { "queries": ["rotate keys"] }
+        }))
+        .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains(
+                "`hybrid.queries[0]` must be an object {\"query\": <clause>, \"weight\": <number>}"
+            ),
+            "{msg}"
+        );
     }
 
     #[test]

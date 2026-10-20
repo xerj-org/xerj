@@ -1,0 +1,22 @@
+{
+ "corpus": "smartdoca--doca",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-assistant, canvas, collaborative-editing queries this for how smartdoca/doca implements it: Doca\uff5c\u5f00\u6e90\u6587\u6863\u7ba1\u7406\u4e0e\u77e5\u8bc6\u5e93\uff0c\u652f\u6301\u591a\u4eba\u534f\u540c\u7f16\u8f91\u3001\u5728\u7ebf\u6587\u6863\u3001Markdown\u3001\u8868\u683c\u3001\u5e7b\u706f\u7247\u3001\u753b\u5e03\u548c AI \u52a9\u624b\u3002Self-hosted document management, knowledge base & real-time collaborative editing fo (selected work: apps/server, tests, scripts)",
+ "repos": [
+  {
+   "repo": "doca",
+   "url": "https://github.com/smartdoca/doca",
+   "sha": "5880f890ef8ca6ed3f7424670743934a6ff42ada",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 5880f890ef8c: \"fix: share one plugin business database (0.1.26) (#58)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

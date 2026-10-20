@@ -1,0 +1,22 @@
+{
+ "corpus": "runnfla--runformula",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on expression-evaluator, lazarus, parser queries this for how runnfla/RunFormula implements it: A lightweight open-source unit-aware math and physics scripting engine for FreePascal and Lazarus (selected work: Demo, RunFormula, Help)",
+ "repos": [
+  {
+   "repo": "RunFormula",
+   "url": "https://github.com/runnfla/RunFormula",
+   "sha": "cb9fc347e576f737179889e0d8f2d1e835cd6c5a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit cb9fc347e576: \"Update for version 1.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

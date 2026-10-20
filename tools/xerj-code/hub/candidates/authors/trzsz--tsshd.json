@@ -1,0 +1,22 @@
+{
+ "corpus": "trzsz--tsshd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on lrzsz, mosh, rz queries this for how trzsz/tsshd implements it: tsshd is a UDP-based SSH server built for unreliable networks. It supports seamless roaming across networks and IP changes, and works well o (selected work: tsshd)",
+ "repos": [
+  {
+   "repo": "tsshd",
+   "url": "https://github.com/trzsz/tsshd",
+   "sha": "2a2d435e754e3d05d3f27178f6bd934fe19ad22f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 2a2d435e754e: \"fix session output loss caused by cmd.Wait closing pipe readers #45\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

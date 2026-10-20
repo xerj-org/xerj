@@ -1,0 +1,22 @@
+{
+ "corpus": "microsoft--thinkingbox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how microsoft/thinkingbox implements it: thinkingbox is a framework for defining tool as MCP servers, running LLM agents against them, and evaluating agent behavior \u2014 for offline tr (selected work: thinkingbox, tests)",
+ "repos": [
+  {
+   "repo": "thinkingbox",
+   "url": "https://github.com/microsoft/thinkingbox",
+   "sha": "ef2546974a286afa3f189dc711d31bc5aa6d1f39",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit ef2546974a28: \"Adding pass@k, pass^k and hierarchical aggregation with se  (#39)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

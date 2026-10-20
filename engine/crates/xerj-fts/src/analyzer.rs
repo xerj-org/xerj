@@ -1898,7 +1898,7 @@ impl AnalyzerRegistry {
         Self::analysis_block_with_binding(settings, AnalysisBinding::Canonical)
     }
 
-    fn analysis_block_with_binding(
+    pub fn analysis_block_with_binding(
         settings: &serde_json::Value,
         binding: AnalysisBinding,
     ) -> Option<&serde_json::Value> {

@@ -1,0 +1,22 @@
+{
+ "corpus": "jenolaszlo-sketch--gagamba",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on C# queries this for how jenolaszlo-sketch/gagamba implements it: Cross-platform .NET process sandbox with fail-closed execution policies for Windows, Linux, and macOS (selected work: tests, src/Gagamba.Execution.Windows, src/Gagamba.Execution.MacOS)",
+ "repos": [
+  {
+   "repo": "gagamba",
+   "url": "https://github.com/jenolaszlo-sketch/gagamba",
+   "sha": "03f5b4da88e4ed590fcc68035fa5a70f309a0f07",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 03f5b4da88e4: \"GP-3 Amendment 2: WaitForCompletionAsync domain completion (0.1.0-pre\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

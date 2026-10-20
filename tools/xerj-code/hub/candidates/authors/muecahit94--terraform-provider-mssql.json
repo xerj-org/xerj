@@ -1,0 +1,22 @@
+{
+ "corpus": "muecahit94--terraform-provider-mssql",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on go, terraform-provider queries this for how muecahit94/terraform-provider-mssql implements it: Terraform/Opentofu provider for Microsoft SQL Server and Azure SQL - manage databases, users, roles, permissions, and Azure AD authenticatio (selected work: internal/provider, internal/mssql, examples)",
+ "repos": [
+  {
+   "repo": "terraform-provider-mssql",
+   "url": "https://github.com/muecahit94/terraform-provider-mssql",
+   "sha": "0128426de36b99f2851746085d2260d92ca95ffc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 0128426de36b: \"feat(login): 29 - add per-resource server override and multi-server s\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

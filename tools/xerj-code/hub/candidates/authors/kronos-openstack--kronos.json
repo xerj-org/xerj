@@ -1,0 +1,22 @@
+{
+ "corpus": "kronos-openstack--kronos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on live-migration, nova, openstack queries this for how kronos-openstack/kronos implements it: PromQL-driven VM placement optimization engine for OpenStack: policies are raw Prometheus queries; the engine plans Nova live migrations to  (selected work: tests, kronos, etc)",
+ "repos": [
+  {
+   "repo": "kronos",
+   "url": "https://github.com/kronos-openstack/kronos",
+   "sha": "23e8e5c45f16af48ded7ad7d111cb2a785f76218",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 23e8e5c45f16: \"engine: enforce optional cpu trait compatibility\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

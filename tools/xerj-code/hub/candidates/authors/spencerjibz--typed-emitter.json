@@ -1,0 +1,22 @@
+{
+ "corpus": "spencerjibz--typed-emitter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on async, event-emitter, rust queries this for how spencerjibz/typed-emitter implements it: A simple and concurrent event-emitter (selected work: benches, the project root)",
+ "repos": [
+  {
+   "repo": "typed-emitter",
+   "url": "https://github.com/spencerjibz/typed-emitter",
+   "sha": "7be084a0992c4d8e14b1e31a6129115a612bea69",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 7be084a0992c: \"test: merge the benchmark suites\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

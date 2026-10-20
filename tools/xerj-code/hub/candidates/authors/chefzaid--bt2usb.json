@@ -1,0 +1,22 @@
+{
+ "corpus": "chefzaid--bt2usb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Rust queries this for how chefzaid/bt2usb implements it: Firmware for a Bluetooth-KVM dongle to connect to a PC monitor with a USB hub (selected work: src)",
+ "repos": [
+  {
+   "repo": "bt2usb",
+   "url": "https://github.com/chefzaid/bt2usb",
+   "sha": "1c22207df3974c0dd0a77646b1deeaf90850ed10",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 1c22207df397: \"Close the gaps a review found in the stack guard\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

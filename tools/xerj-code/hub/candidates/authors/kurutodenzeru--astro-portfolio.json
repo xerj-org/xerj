@@ -1,0 +1,22 @@
+{
+ "corpus": "kurutodenzeru--astro-portfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on astro, portfolio, tailwindcss queries this for how KurutoDenzeru/astro-portfolio implements it: \ud83c\udf10 Dynamic portfolio showcasing projects, skills and expertise, powered by Astro, Tailwind, shadcn/ui, TypeScript, MDX, RSS, and React for se (selected work: src/components, public, src/lib)",
+ "repos": [
+  {
+   "repo": "astro-portfolio",
+   "url": "https://github.com/KurutoDenzeru/astro-portfolio",
+   "sha": "e8578d74ce0424534ade7d7388da28189375542f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit e8578d74ce04: \"perf(site): reduce initial page payload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

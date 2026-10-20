@@ -1,0 +1,22 @@
+{
+ "corpus": "lmol-4--alert-my-human",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how LMol-4/alert-my-human implements it: Lightweight MCP server for sending multichannel alerts from agents to humans (selected work: src/lib, tests, src/app)",
+ "repos": [
+  {
+   "repo": "alert-my-human",
+   "url": "https://github.com/LMol-4/alert-my-human",
+   "sha": "d4a024d4ff50d78347fb7cef7231793f2be0f12b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit d4a024d4ff50: \"Extract alert core with per-destination results and safe errors\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

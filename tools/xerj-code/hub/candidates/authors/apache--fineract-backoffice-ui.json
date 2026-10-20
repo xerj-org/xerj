@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--fineract-backoffice-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on angular, apache, backoffice queries this for how apache/fineract-backoffice-ui implements it: Angular back-office UI for Apache Fineract, the open-source core banking platform (selected work: e2e, src/app)",
+ "repos": [
+  {
+   "repo": "fineract-backoffice-ui",
+   "url": "https://github.com/apache/fineract-backoffice-ui",
+   "sha": "31c26526eef714ef011768ba2e4f822f4ca4f97a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 31c26526eef7: \"test(e2e): expect record views after form mutations.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

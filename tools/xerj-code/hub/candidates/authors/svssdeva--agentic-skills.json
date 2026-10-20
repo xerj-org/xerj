@@ -1,0 +1,22 @@
+{
+ "corpus": "svssdeva--agentic-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how svssdeva/agentic-skills implements it: Skills (selected work: engineering, frontend)",
+ "repos": [
+  {
+   "repo": "agentic-skills",
+   "url": "https://github.com/svssdeva/agentic-skills",
+   "sha": "116874c1f0ec5a88f0e370952fddf273832669e1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 116874c1f0ec: \"feat: sync mattpocock skills to v1.3.1, add REA, Hallmark, Scroll Wor\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

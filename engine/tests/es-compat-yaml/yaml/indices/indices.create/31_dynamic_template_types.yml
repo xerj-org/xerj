@@ -1,0 +1,61 @@
+---
+# A matching dynamic template's `mapping` decides how a new field is mapped.
+# XERJ-authored case (ES semantics: docs `dynamic-templates.html`).
+"dynamic template mapping type is applied to new fields":
+  - skip:
+      awaits_fix: "XERJ applies only copy_to from dynamic templates, not the mapping type (fix follows in fix/es-dynamic-template-mapping)"
+  - do:
+      indices.create:
+        index: test_dyn_tmpl
+        body:
+          mappings:
+            dynamic_templates:
+              - ints:
+                  match: "i_*"
+                  mapping:
+                    type: integer
+              - nested_text:
+                  path_match: "user.*"
+                  path_unmatch: "*.id"
+                  mapping:
+                    type: text
+                    meta:
+                      origin: "{name}"
+              - no_tmp:
+                  match: "*"
+                  unmatch: "*_tmp"
+                  match_mapping_type: string
+                  mapping:
+                    type: keyword
+              - typed:
+                  match_mapping_type: long
+                  mapping:
+                    type: "{dynamic_type}"
+                    doc_values: false
+
+  - do:
+      index:
+        index: test_dyn_tmpl
+        id: "1"
+        refresh: true
+        body: { "s": "Hello World", "i_x": 5, "s_tmp": "x y", "user": { "name": "Ann Lee", "id": "u1" }, "n": 7 }
+
+  - do:
+      indices.get_mapping:
+        index: test_dyn_tmpl
+  - match: { test_dyn_tmpl.mappings.properties.s.type: keyword }
+  - is_false: test_dyn_tmpl.mappings.properties.s.fields
+  - match: { test_dyn_tmpl.mappings.properties.i_x.type: integer }
+  - match: { test_dyn_tmpl.mappings.properties.s_tmp.type: text }
+  - match: { test_dyn_tmpl.mappings.properties.user.properties.id.type: keyword }
+  - match: { test_dyn_tmpl.mappings.properties.user.properties.name.type: text }
+  - match: { test_dyn_tmpl.mappings.properties.user.properties.name.meta.origin: name }
+  - match: { test_dyn_tmpl.mappings.properties.n.type: long }
+  - match: { test_dyn_tmpl.mappings.properties.n.doc_values: false }
+
+  # `s` is a keyword now: the whole value is one term.
+  - do:
+      search:
+        index: test_dyn_tmpl
+        body: { "query": { "term": { "s": "Hello World" } } }
+  - match: { hits.total.value: 1 }

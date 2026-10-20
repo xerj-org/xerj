@@ -1,0 +1,22 @@
+{
+ "corpus": "agentic-os-org--anolisa",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-os, linux, skill queries this for how agentic-os-org/ANOLISA implements it: ANOLISA (Agentic Nexus Operating Layer & Interface System Architecture) | Agentic OS with runtime, security, observability, and Tokenless re (selected work: src/agentsight)",
+ "repos": [
+  {
+   "repo": "ANOLISA",
+   "url": "https://github.com/agentic-os-org/ANOLISA",
+   "sha": "c54e33c7b4bb30204a59cb07f73da6884862bff5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit c54e33c7b4bb: \"feat(sight): default the dashboard to Agent Health\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "sharkyii--chakravyuh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Sharkyii/Chakravyuh implements it: Build the fraud, then catch it. A closed-loop system for GenAI-powered payment attacks (selected work: web)",
+ "repos": [
+  {
+   "repo": "Chakravyuh",
+   "url": "https://github.com/Sharkyii/Chakravyuh",
+   "sha": "45203835fbe089203af3b9bb89fa340c1b91ed4c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 45203835fbe0: \"feat: integrate PayPal sandbox and Hugging Face upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

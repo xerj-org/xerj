@@ -71,7 +71,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{LittleEndian, WriteBytesExt};
 use crc32fast::Hasher as Crc32Hasher;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
@@ -199,35 +199,6 @@ impl WalCheckpoint {
         h.update(&buf);
         w.write_u32::<LittleEndian>(h.finalize())?;
         Ok(())
-    }
-
-    fn read_from(r: &mut impl Read) -> io::Result<Self> {
-        let generation = r.read_u64::<LittleEndian>()?;
-        let offset = r.read_u64::<LittleEndian>()?;
-        let max_seq_no = r.read_u64::<LittleEndian>()?;
-        let stored_crc = r.read_u32::<LittleEndian>()?;
-
-        let mut h = Crc32Hasher::new();
-        let mut buf = [0u8; 24];
-        let mut c = std::io::Cursor::new(&mut buf[..]);
-        c.write_u64::<LittleEndian>(generation).unwrap();
-        c.write_u64::<LittleEndian>(offset).unwrap();
-        c.write_u64::<LittleEndian>(max_seq_no).unwrap();
-        h.update(&buf);
-        let computed = h.finalize();
-        if stored_crc != computed {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!(
-                    "checkpoint CRC mismatch: expected {stored_crc:#010x}, got {computed:#010x}"
-                ),
-            ));
-        }
-        Ok(Self {
-            generation,
-            offset,
-            max_seq_no,
-        })
     }
 }
 
@@ -2583,17 +2554,6 @@ fn create_wal_file(path: &Path, generation: u64) -> io::Result<File> {
     file.sync_all()?;
     // Re-open for append
     OpenOptions::new().append(true).open(path)
-}
-
-/// Read a generation's checkpoint file.  Replay no longer consumes
-/// checkpoints (RC4 W1 #8); they are still WRITTEN — with verified-safe
-/// values only — for data-dir compatibility with older binaries whose
-/// replay/prune still read them.  Kept for tests and offline tooling.
-#[allow(dead_code)]
-fn read_checkpoint(dir: &Path, generation: u64) -> io::Result<WalCheckpoint> {
-    let path = checkpoint_path(dir, generation);
-    let mut f = File::open(&path)?;
-    WalCheckpoint::read_from(&mut f)
 }
 
 fn parse_wal_generation(name: &str) -> Option<u64> {

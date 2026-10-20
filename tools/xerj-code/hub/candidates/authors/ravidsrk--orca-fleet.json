@@ -1,0 +1,22 @@
+{
+ "corpus": "ravidsrk--orca-fleet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, autonomous-agents, claude-code queries this for how ravidsrk/orca-fleet implements it: Outcome-named autonomous fleets for the Orca runtime \u2014 SHA-bound evidence definition of done, best-of-breed worker recipes, one router per w (selected work: scripts, tests, evals)",
+ "repos": [
+  {
+   "repo": "orca-fleet",
+   "url": "https://github.com/ravidsrk/orca-fleet",
+   "sha": "00a7219f908507bbee3adc751c044f43eac4dcf2",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 00a7219f9085: \"feat: re-pin Orca v1.4.229, ship VAL-01 obedience drill evals (#560),\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

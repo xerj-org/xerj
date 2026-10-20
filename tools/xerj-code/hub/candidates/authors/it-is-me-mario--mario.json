@@ -1,0 +1,22 @@
+{
+ "corpus": "it-is-me-mario--mario",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how it-is-me-mario/MARIO implements it: Multifunctional Analysis of Regions through Input-Output (selected work: tests, mario)",
+ "repos": [
+  {
+   "repo": "MARIO",
+   "url": "https://github.com/it-is-me-mario/MARIO",
+   "sha": "9e8fdadcb1772741ed66f1bd98743255df61f99e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 9e8fdadcb177: \"fix(parsers): reconcile MRIO layouts and source metadata\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

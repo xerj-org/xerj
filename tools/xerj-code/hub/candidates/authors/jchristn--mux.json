@@ -1,0 +1,22 @@
+{
+ "corpus": "jchristn--mux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on C# queries this for how jchristn/Mux implements it: mux provides a Claude Code / Codex-like experience over user-specified model runner backends (Ollama, vLLM, OpenAI, or any OpenAI-compatible (selected work: scripts, src/Mux.Publisher)",
+ "repos": [
+  {
+   "repo": "Mux",
+   "url": "https://github.com/jchristn/Mux",
+   "sha": "3a3cf5a7785799c1995d04f0558d817935b82ea6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 3a3cf5a77857: \"Support framework selection across platform scripts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

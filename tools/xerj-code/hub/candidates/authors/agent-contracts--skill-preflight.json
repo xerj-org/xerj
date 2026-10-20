@@ -1,0 +1,22 @@
+{
+ "corpus": "agent-contracts--skill-preflight",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how agent-contracts/skill-preflight implements it: One-command pre-install scorecard for AI agent skills: security, permissions, token cost, footprint, and maintainability (selected work: test, src/core, src)",
+ "repos": [
+  {
+   "repo": "skill-preflight",
+   "url": "https://github.com/agent-contracts/skill-preflight",
+   "sha": "821a87db2706a5a1809a0823d2f33a0798f5c82c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 821a87db2706: \"Add per-skill token budgets and improve local compatibility (#12)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

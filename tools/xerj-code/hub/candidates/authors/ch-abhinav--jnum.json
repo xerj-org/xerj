@@ -1,0 +1,22 @@
+{
+ "corpus": "ch-abhinav--jnum",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on high-performance, high-performance-computing, java queries this for how CH-Abhinav/JNum implements it: Java numerations - a library which has various numerical analysis (High-performance pure Java 25 & Kotlin numerical computing and tensor lib (selected work: kotlin-core, the project root, core)",
+ "repos": [
+  {
+   "repo": "JNum",
+   "url": "https://github.com/CH-Abhinav/JNum",
+   "sha": "e99c658832dd8446bad47065dc4012cfcd03fb85",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit e99c658832dd: \"kotlin operator overloading\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

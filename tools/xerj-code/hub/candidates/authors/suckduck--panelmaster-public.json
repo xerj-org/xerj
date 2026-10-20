@@ -1,0 +1,22 @@
+{
+ "corpus": "suckduck--panelmaster-public",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on C queries this for how SuckDuck/PanelMaster_public implements it: A lightweight, portable parametric CAD application for electrical control panel layout design and documentation https://panelmaster.app (selected work: src, help, include)",
+ "repos": [
+  {
+   "repo": "PanelMaster_public",
+   "url": "https://github.com/SuckDuck/PanelMaster_public",
+   "sha": "09be5e7465c925e01ed2d6a50132faf7d9170cb1",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 09be5e7465c9: \"VBETA1.1.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

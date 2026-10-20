@@ -1,0 +1,22 @@
+{
+ "corpus": "salekurpolas--mmm-pinfo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on module, magicmirror, raspberrypi queries this for how SalekurPolas/MMM-Pinfo implements it: An informational module for MagicMirror (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "MMM-Pinfo",
+   "url": "https://github.com/SalekurPolas/MMM-Pinfo",
+   "sha": "edf3b989237e6905b4efc0fed46a079c19f9cf4d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit edf3b989237e: \"feat: release v1.1.0 with critical bug fixes, optimizations, and icon\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "danny7d--maildesk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on email, nextauth, nextjs queries this for how Danny7d/MailDesk implements it: a no-code email platform on top of Resend. Send and receive from a Gmail-style inbox. Next.js, Prisma, Supabase (selected work: src/app, the project root, apps/api)",
+ "repos": [
+  {
+   "repo": "MailDesk",
+   "url": "https://github.com/Danny7d/MailDesk",
+   "sha": "c1e8600a040d9303088a780036435041b0c6aa03",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit c1e8600a040d: \"adds a domain column to ConnectedProvider\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

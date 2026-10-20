@@ -1,0 +1,22 @@
+{
+ "corpus": "shreyas-kamat--iris",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, android, dart queries this for how shreyas-kamat/iris implements it: Free, open-source phone app for your own Hermes Agent. Connects directly to your server: no relay, no account, no analytics (selected work: test, lib/design, lib/features)",
+ "repos": [
+  {
+   "repo": "iris",
+   "url": "https://github.com/shreyas-kamat/iris",
+   "sha": "1d9f1e7f27acfaa052a76293785294f45e2363c6",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 1d9f1e7f27ac: \"feat(phase5): maths, attachments and dictation (#23)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

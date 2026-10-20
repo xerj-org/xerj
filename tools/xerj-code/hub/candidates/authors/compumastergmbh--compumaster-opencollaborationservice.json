@@ -1,0 +1,22 @@
+{
+ "corpus": "compumastergmbh--compumaster-opencollaborationservice",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on C# queries this for how CompuMasterGmbH/CompuMaster.OpenCollaborationService implements it: An implementation for OpenCollaborationService (OCS) client for use with e.g. OwnCloud, NextCloud (selected work: Ocs, Ocs.Tests.OwnCloudSharp)",
+ "repos": [
+  {
+   "repo": "CompuMaster.OpenCollaborationService",
+   "url": "https://github.com/CompuMasterGmbH/CompuMaster.OpenCollaborationService",
+   "sha": "c48ab1b73edb7419fcf8a0607c90ab39d98b36be",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit c48ab1b73edb: \"Add native DAV chunk uploads with verified session cleanup (#9)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

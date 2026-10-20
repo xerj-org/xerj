@@ -1,0 +1,22 @@
+{
+ "corpus": "matiasinsaurralde--rimeno",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-framework, ai-agent, go queries this for how matiasinsaurralde/rimeno implements it: Embeddable LLM-agent harness for Go \u2014 tool-calling, budgets, multi-agent fan-out, stdlib-only core (selected work: memory, examples, the project root)",
+ "repos": [
+  {
+   "repo": "rimeno",
+   "url": "https://github.com/matiasinsaurralde/rimeno",
+   "sha": "27619e8d52c437ced6ae3ea3a2ebfdea1f9bf118",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 27619e8d52c4: \"Add rimeno/memory: generic durable memory layer for agents (#6)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

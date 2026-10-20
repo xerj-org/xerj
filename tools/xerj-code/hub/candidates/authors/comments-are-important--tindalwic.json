@@ -1,0 +1,22 @@
+{
+ "corpus": "comments-are-important--tindalwic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how comments-are-important/tindalwic implements it: Text in Nested Dictionaries and Lists - with Important Comments (selected work: macros, core/src, serde)",
+ "repos": [
+  {
+   "repo": "tindalwic",
+   "url": "https://github.com/comments-are-important/tindalwic",
+   "sha": "30f1caed7444b2abb634b27df0bd7a9cef6797fe",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 30f1caed7444: \"started macros to catch inconsistencies early\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

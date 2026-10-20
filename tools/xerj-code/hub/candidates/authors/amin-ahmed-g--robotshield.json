@@ -1,0 +1,22 @@
+{
+ "corpus": "amin-ahmed-g--robotshield",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on cybersecurity, dds, nids queries this for how Amin-Ahmed-G/robotshield implements it: Embedded out-of-band NIDS for ROS 2 RTPS/DDS networks in Rust with libpcap packet inspection and topic spoofing detection (selected work: rust, src/monitor_py, deploy)",
+ "repos": [
+  {
+   "repo": "robotshield",
+   "url": "https://github.com/Amin-Ahmed-G/robotshield",
+   "sha": "f925f3e4924b0a7a8a8a6ce42ba8a3fac9835347",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f925f3e4924b: \"SIEM export and MITRE ATT&CK for ICS tags\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

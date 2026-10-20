@@ -1,0 +1,22 @@
+{
+ "corpus": "thecodefighter--taxbrokerreport",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how TheCodeFighter/TaxBrokerReport implements it: Automated Tax Reporting: From Broker Statements to Slovenian Tax Filings (selected work: tools, tests, src/processors)",
+ "repos": [
+  {
+   "repo": "TaxBrokerReport",
+   "url": "https://github.com/TheCodeFighter/TaxBrokerReport",
+   "sha": "0550ef38b52d37cb62cf5fe719450e599df5f90a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 0550ef38b52d: \"TBR-0045: Fifo basis (#240)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

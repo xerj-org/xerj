@@ -1,0 +1,22 @@
+{
+ "corpus": "7amo10--helix-jvm-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bytecode, java, jvm queries this for how 7amo10/helix-jvm-engine implements it: Production-grade JVM internals exploration platform - Dynamic rules engine with bytecode generation and deep profiling capabilities (selected work: engine-experiments, the project root)",
+ "repos": [
+  {
+   "repo": "helix-jvm-engine",
+   "url": "https://github.com/7amo10/helix-jvm-engine",
+   "sha": "4d3787c62835baeaac216532b9d479876c7ae8de",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4d3787c62835: \"feat(benchmarks): implement JMH microbenchmarks for L4 cache and Disr\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

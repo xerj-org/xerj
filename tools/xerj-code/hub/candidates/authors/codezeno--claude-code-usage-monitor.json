@@ -1,0 +1,22 @@
+{
+ "corpus": "codezeno--claude-code-usage-monitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, claude-code, codex queries this for how CodeZeno/Claude-Code-Usage-Monitor implements it: Windows taskbar widget for Claude Code, Codex, Cursor and more. Track usage limits and reset times. Free and open source (selected work: tests, src/window, src)",
+ "repos": [
+  {
+   "repo": "Claude-Code-Usage-Monitor",
+   "url": "https://github.com/CodeZeno/Claude-Code-Usage-Monitor",
+   "sha": "2e60d0daaaba5552467bceb04152cd36f6e5f395",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 2e60d0daaaba: \"v2.16.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

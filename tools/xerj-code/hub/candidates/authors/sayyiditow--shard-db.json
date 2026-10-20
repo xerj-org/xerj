@@ -1,0 +1,22 @@
+{
+ "corpus": "sayyiditow--shard-db",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on c, crud, database queries this for how sayyiditow/shard-db implements it: A high-performance database in C (selected work: src/db, src/test, the project root)",
+ "repos": [
+  {
+   "repo": "shard-db",
+   "url": "https://github.com/sayyiditow/shard-db",
+   "sha": "363bc2a9d552d571037ed4f82ae77f54766ec739",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 363bc2a9d552: \"fix(schema): lift field-definition cap to 64 KiB, enforced end-to-end\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

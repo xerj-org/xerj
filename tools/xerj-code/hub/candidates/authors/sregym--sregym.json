@@ -1,0 +1,22 @@
+{
+ "corpus": "sregym--sregym",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how SREGym/SREGym implements it: Can AI agents resolve production incidents? (selected work: sregym, tests)",
+ "repos": [
+  {
+   "repo": "SREGym",
+   "url": "https://github.com/SREGym/SREGym",
+   "sha": "0e9d921ff1606d61a828f262dfdae4e82ecb31d1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 0e9d921ff160: \"missing_stale_cache_fallback problem (astronomy-shop) (#1058)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

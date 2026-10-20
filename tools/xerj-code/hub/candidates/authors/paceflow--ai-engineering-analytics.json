@@ -1,0 +1,22 @@
+{
+ "corpus": "paceflow--ai-engineering-analytics",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how PaceFlow/ai-engineering-analytics implements it: Local-first CLI for answering the questions that matter after you use coding agents (selected work: crates/vca, crates/paceflow, packaging)",
+ "repos": [
+  {
+   "repo": "ai-engineering-analytics",
+   "url": "https://github.com/PaceFlow/ai-engineering-analytics",
+   "sha": "2b6a9ade646106eebd44e597391b4006edf19141",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 2b6a9ade6461: \"Split VCA and Paceflow into separately published crates (#27)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

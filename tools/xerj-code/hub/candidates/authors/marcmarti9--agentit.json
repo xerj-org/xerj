@@ -1,0 +1,22 @@
+{
+ "corpus": "marcmarti9--agentit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-harness, ai-agents, antigravity queries this for how marcmarti9/agentit implements it: Open-source, provider-neutral reliability layer for AI coding agents: independent review, JIT skills, resumable state, and verifiable execut (selected work: router)",
+ "repos": [
+  {
+   "repo": "agentit",
+   "url": "https://github.com/marcmarti9/agentit",
+   "sha": "a98942f9b98ba4a5fc3b125708e0f91a2957466c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit a98942f9b98b: \"feat: private cross-machine continuity for Agentit (#60)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

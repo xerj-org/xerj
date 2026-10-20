@@ -1,0 +1,22 @@
+{
+ "corpus": "berkayturanci--keel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, code-review, developer-tools queries this for how berkayturanci/keel implements it: Turn coding agents into work owners. A vendor-neutral backbone that takes a GitHub issue to a merged PR: readiness check, isolated worktree, (selected work: tests, src/keel)",
+ "repos": [
+  {
+   "repo": "keel",
+   "url": "https://github.com/berkayturanci/keel",
+   "sha": "1c3a05d9b0d39ebfeec78f6c5d5ebf1d8a249723",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 1c3a05d9b0d3: \"fix(merge): report drift only when an overtaking PR's added lines wer\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

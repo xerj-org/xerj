@@ -1,0 +1,22 @@
+{
+ "corpus": "tech-mop--cue2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on audio, cue, cuelist queries this for how Tech-mop/Cue2 implements it: Playback software for events (selected work: src/UI, src/Domain, src/Services)",
+ "repos": [
+  {
+   "repo": "Cue2",
+   "url": "https://github.com/Tech-mop/Cue2",
+   "sha": "512ecb98691651dcc265d2a30a93d9f1a3a13bde",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 512ecb986916: \"feat: multiple cuelist support\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "cupidthecat--cupid-nes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on c, nes, nes-emulator queries this for how cupidthecat/cupid-nes implements it: High-accuracy NES/Famicom emulator with NTSC, PAL & Dendy timing, FDS, VS System, NSF/NSFe, broad mapper and peripheral support, TAS editing (selected work: src/tests, src/ui, the project root)",
+ "repos": [
+  {
+   "repo": "cupid-nes",
+   "url": "https://github.com/cupidthecat/cupid-nes",
+   "sha": "0016d4c5a891c5d04095ede631c449191f70ee8a",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 0016d4c5a891: \"Route GTK keyboard shortcuts through the active input profile\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

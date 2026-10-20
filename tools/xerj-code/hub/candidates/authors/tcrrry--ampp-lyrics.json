@@ -1,0 +1,22 @@
+{
+ "corpus": "tcrrry--ampp-lyrics",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ampp, android, apple-music queries this for how tcrrry/AMPP-Lyrics implements it: \u3010\u6574\u5408\u5b89\u88c5\u5305\u3011Apple Music + AM++ + Tcrrry \u6b4c\u8bcd\u589e\u5f3a\uff1b\u63d0\u4f9b APK/APKS/\u6a21\u5757\uff0c\u4e0d\u662f\u63d2\u4ef6 ZIP\u3002 (selected work: app/src, scripts, app)",
+ "repos": [
+  {
+   "repo": "AMPP-Lyrics",
+   "url": "https://github.com/tcrrry/AMPP-Lyrics",
+   "sha": "6fdc93d15d95a615441027540f3a23d6bc396fd8",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 6fdc93d15d95: \"Apply lyric offsets and retain settings scroll position in v1.3 [skip\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

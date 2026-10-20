@@ -1,0 +1,22 @@
+{
+ "corpus": "zademy--lu-query",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-tools, ai-agents-automation, auditing-data queries this for how zademy/lu-query implements it: MCP server that exposes an Oracle database to AI agents over stdio: 75 tools to query, change, inspect and triage it, with zero-install thin (selected work: src/tools, src/sql, test)",
+ "repos": [
+  {
+   "repo": "lu-query",
+   "url": "https://github.com/zademy/lu-query",
+   "sha": "386bbfc788eedb3c45a137c8229c3586b53e3306",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 386bbfc788ee: \"Un solo camino de registro para las 75 tools\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

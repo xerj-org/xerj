@@ -1,0 +1,22 @@
+{
+ "corpus": "ai-scarlett--dsh-store",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, cordis, deepseek-harness queries this for how AI-Scarlett/DSH-Store implements it: DSH STORE \u2014 third-party plugin marketplace and guarded lifecycle manager for DeepSeek Harness (selected work: src, test, scripts)",
+ "repos": [
+  {
+   "repo": "DSH-Store",
+   "url": "https://github.com/AI-Scarlett/DSH-Store",
+   "sha": "a246f47f06ef998cb2e08269b42b191c89bcb16d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit a246f47f06ef: \"fix: validate generated discovery data in Catalog scans (#1416)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

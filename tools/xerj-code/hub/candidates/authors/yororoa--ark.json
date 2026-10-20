@@ -1,0 +1,22 @@
+{
+ "corpus": "yororoa--ark",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on arknights, blog, nextjs queries this for how yororoA/Ark implements it: \u660e\u65e5\u65b9\u821f\u98ce\u683c\u7684\u535a\u5ba2 (selected work: src/components, src/app)",
+ "repos": [
+  {
+   "repo": "Ark",
+   "url": "https://github.com/yororoA/Ark",
+   "sha": "b54456289e91c7054cf7d68aeb9275b0f8c05e7b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit b54456289e91: \"feat(prism): refine record sleeves, tabs and eclipse login\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

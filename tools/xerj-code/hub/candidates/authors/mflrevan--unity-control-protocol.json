@@ -1,0 +1,22 @@
+{
+ "corpus": "mflrevan--unity-control-protocol",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on C# queries this for how mflRevan/unity-control-protocol implements it: Rust-based Unity Control CLI + C# bridge layer. Exposes editor, debugging and lifecycle structured tool access outside of Unity. Highly reco (selected work: cli, unity-package)",
+ "repos": [
+  {
+   "repo": "unity-control-protocol",
+   "url": "https://github.com/mflRevan/unity-control-protocol",
+   "sha": "d1b593f19d7071aac180dcecce42b1c5e5e04367",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit d1b593f19d70: \"feat(cli): cut default output to the token budget an agent needs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "odpi--egeria-python",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on egeria, data-governance queries this for how odpi/egeria-python implements it: Python library for Egeria (selected work: tests, pyegeria)",
+ "repos": [
+  {
+   "repo": "egeria-python",
+   "url": "https://github.com/odpi/egeria-python",
+   "sha": "ecb6e31f0f1b4ec8c6c7cb2d5d891c4b9d5b3e85",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit ecb6e31f0f1b: \"fix(omvs): by-name wrappers accept a body-only call (ISSUE-135) (#445)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

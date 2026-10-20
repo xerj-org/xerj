@@ -1,0 +1,22 @@
+{
+ "corpus": "facyndev--opencollab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how facyndev/opencollab implements it: OpenCollab is a desktop collaboration tool that lets you share and interact with AI agent sessions with other people in real time (selected work: apps/web, apps/desktop)",
+ "repos": [
+  {
+   "repo": "opencollab",
+   "url": "https://github.com/facyndev/opencollab",
+   "sha": "7f64c06dd75fe0d30b1eb831f462680115f11747",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 7f64c06dd75f: \"refactor(apps): modularize frontend directory structure and decompose\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "omerfaruk-aydn--atlas-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, ai-agents, ai-coding-assistant queries this for how Omerfaruk-aydn/Atlas-Agent implements it: Blazing-fast, terminal-native AI coding agent \u2014 one static Go binary, zero runtime deps, works on any codebase in any language. Multi-provid (selected work: internal/agent)",
+ "repos": [
+  {
+   "repo": "Atlas-Agent",
+   "url": "https://github.com/Omerfaruk-aydn/Atlas-Agent",
+   "sha": "1ed07ff1303654baf2e5857933ebb5e594d6ac56",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 1ed07ff13036: \"fix(browser): handle unavailable local pages and oversized image deli\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

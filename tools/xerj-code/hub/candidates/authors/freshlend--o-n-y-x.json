@@ -1,0 +1,22 @@
+{
+ "corpus": "freshlend--o-n-y-x",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on api-testing, dns-lookup, http-client queries this for how FreshLend/O.N.Y.X. implements it: SWARM / O.N.Y.X. \u2014 a modular toolkit for network analysis (selected work: modules/vault, modules/http_client, modules/collections)",
+ "repos": [
+  {
+   "repo": "O.N.Y.X.",
+   "url": "https://github.com/FreshLend/O.N.Y.X.",
+   "sha": "d5563cfb3e823ad73b09a557332a4e2963299ab2",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit d5563cfb3e82: \"v1.1.1\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

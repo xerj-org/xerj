@@ -1,0 +1,22 @@
+{
+ "corpus": "pradumnasaraf--aviationstack-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on mcp, mcp-server, python queries this for how Pradumnasaraf/aviationstack-mcp implements it: An MCP server using the AviationStack API to fetch real-time flight data including airline flights, airport schedules, future flights and ai (selected work: tests, src/aviationstack_mcp, scripts)",
+ "repos": [
+  {
+   "repo": "aviationstack-mcp",
+   "url": "https://github.com/Pradumnasaraf/aviationstack-mcp",
+   "sha": "1235c985258ebd675a164110199aa86c750909cb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 1235c985258e: \"feat: add flight lookup, redact API key from errors, unify tool respo\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

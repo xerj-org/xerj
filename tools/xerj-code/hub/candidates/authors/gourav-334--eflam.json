@@ -1,0 +1,22 @@
+{
+ "corpus": "gourav-334--eflam",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Makefile queries this for how Gourav-334/eflam implements it: EFLAM (Embeddable Formal Language & Automata Models) is an embeddable library implementing the core computational models of formal language  (selected work: c)",
+ "repos": [
+  {
+   "repo": "eflam",
+   "url": "https://github.com/Gourav-334/eflam",
+   "sha": "91bc6e10695c8450d5416b3b21769f63e8fd0ff4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 91bc6e10695c: \"add: Character serializer added.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

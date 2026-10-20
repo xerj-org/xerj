@@ -5931,6 +5931,7 @@ async fn test_rescore_changes_ranking() {
                 analyzer: None,
                 boost: None,
                 minimum_should_match: None,
+                lenient: false,
             },
             query_weight: 0.1,
             rescore_query_weight: 10.0,
@@ -6091,6 +6092,7 @@ async fn rescore_keyword_query_is_mapping_aware() {
                 analyzer: None,
                 boost: None,
                 minimum_should_match: None,
+                lenient: false,
             },
             query_weight: 0.1,
             rescore_query_weight: 10.0,
@@ -9104,6 +9106,14 @@ async fn reopening_a_pre_sweep_index_does_not_silently_change_how_it_analyses() 
 
     let engine = make_engine(&dir);
     let idx = engine.get_index("legacy_idx").unwrap();
+    // #1092: the declared-but-not-honoured block is not reported as in force,
+    // so `GET /{index}/_settings` does not advertise an analyzer that
+    // analyses nothing.
+    assert_eq!(
+        idx.analysis_in_force().await,
+        None,
+        "a canonical block a pre-sweep index never honoured is not in force"
+    );
     // The document already on disk is still findable…
     let result = idx
         .search(&make_search(json!({"match": {"name": "basketball"}})))
@@ -9217,6 +9227,18 @@ async fn a_freshly_created_index_honours_the_canonical_analysis_nesting() {
     assert_eq!(
         result.total.value, 1,
         "a NEW index must honour `index.analysis` — that half of the fix stands"
+    );
+    // #1092: and reports that block as the one in force, and `_analyze`
+    // without an analyzer runs it.
+    assert_eq!(
+        idx.analysis_in_force().await.as_ref(),
+        namespaced_ngram_settings().pointer("/index/analysis")
+    );
+    let (name, tokens) = idx.analyze(None, None, "ket").await.unwrap();
+    assert_eq!(name, "default");
+    assert_eq!(
+        tokens.iter().map(|t| t.text.as_str()).collect::<Vec<_>>(),
+        ["ket"]
     );
     assert!(
         dir.path()

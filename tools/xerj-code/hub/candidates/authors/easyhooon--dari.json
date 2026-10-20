@@ -1,0 +1,22 @@
+{
+ "corpus": "easyhooon--dari",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, android-library, bridge queries this for how easyhooon/dari implements it: Android library for inspecting WebView bridge messages in real time, inspired by Chucker (selected work: dari-desktop-app, gradle)",
+ "repos": [
+  {
+   "repo": "dari",
+   "url": "https://github.com/easyhooon/dari",
+   "sha": "d3a22c3ab1eed065a3fdfd00801cceff90cb05d2",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d3a22c3ab1ee: \"desktop: add opt-in Sentry crash reports\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

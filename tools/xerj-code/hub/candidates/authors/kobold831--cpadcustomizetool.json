@@ -1,0 +1,22 @@
+{
+ "corpus": "kobold831--cpadcustomizetool",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on benesse queries this for how Kobold831/CPadCustomizeTool implements it: \u3053\u306e\u30a2\u30d7\u30ea\u30b1\u30fc\u30b7\u30e7\u30f3\u306f\u30c1\u30e3\u30ec\u30f3\u30b8\u30d1\u30c3\u30c9\u306e\u8a2d\u5b9a\u3092\u5909\u66f4\u3059\u308b\u3053\u3068\u304c\u3067\u304d\u307e\u3059\u3002\u5b66\u7fd2\u517c\u7528\u74b0\u5883\u3067\u306e\u6539\u9020\u30b5\u30dd\u30fc\u30c8\u3092\u63d0\u4f9b\u3057\u307e\u3059\u3002 (selected work: app/src, the project root, app)",
+ "repos": [
+  {
+   "repo": "CPadCustomizeTool",
+   "url": "https://github.com/Kobold831/CPadCustomizeTool",
+   "sha": "d21354af1e17c707296ee243b400be95f5a9bfa1",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit d21354af1e17: \"v2.8.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

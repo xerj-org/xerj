@@ -1,0 +1,22 @@
+{
+ "corpus": "edilsonvilarinho--usage-monitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, analytics, anthropic queries this for how edilsonvilarinho/usage-monitor implements it: Desktop app that shows usage, quotas and cost of every AI coding tool in one panel \u2014 Claude Code, Codex, MiniMax, DeepSeek, OpenCode and Kil (selected work: src/desktopTest, src/desktopMain, src/commonTest)",
+ "repos": [
+  {
+   "repo": "usage-monitor",
+   "url": "https://github.com/edilsonvilarinho/usage-monitor",
+   "sha": "8fd848b44eb9ef3dc3ae8d667b62cb5d259ddaf6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8fd848b44eb9: \"fix(hud): show observed activity counts instead of quotas (#377) (#378)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

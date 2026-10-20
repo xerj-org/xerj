@@ -1,0 +1,22 @@
+{
+ "corpus": "demowinter--unitykernel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how Demowinter/UnityKernel implements it: Simple C++17 system kernel (selected work: portable, include)",
+ "repos": [
+  {
+   "repo": "UnityKernel",
+   "url": "https://github.com/Demowinter/UnityKernel",
+   "sha": "774be481207587db49290dd2b4a1f145c045471e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 774be4812075: \"Implement FAT32 disk formatting utility and shell command; enhance do\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

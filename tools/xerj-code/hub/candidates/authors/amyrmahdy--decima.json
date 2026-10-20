@@ -1,0 +1,22 @@
+{
+ "corpus": "amyrmahdy--decima",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on calibration, decision-model, jev queries this for how amyrmahdy/decima implements it: Open, CPU-sized Jev-style (System One) decision model: situation + question + options \u2192 calibrated probabilities. 122M, ~20 ms on one CPU co (selected work: decima, tests, bench)",
+ "repos": [
+  {
+   "repo": "decima",
+   "url": "https://github.com/amyrmahdy/decima",
+   "sha": "efaefe2a3069d0085eeb73b95717efec5d92be94",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit efaefe2a3069: \"2.2.0: decima command, Router and presets, MCP / LangChain / Docker, \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

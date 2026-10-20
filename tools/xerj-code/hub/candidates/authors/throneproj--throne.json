@@ -1,0 +1,22 @@
+{
+ "corpus": "throneproj--throne",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on clash, linux, macos queries this for how throneproj/Throne implements it: Cross-platform GUI proxy utility (Empowered by sing-box) (selected work: core/internal, src/sys, src/ui)",
+ "repos": [
+  {
+   "repo": "Throne",
+   "url": "https://github.com/throneproj/Throne",
+   "sha": "866e13a44eb35808ce13cf44fe4cd3250a8436f3",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 866e13a44eb3: \"experimental: Add kill switch\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

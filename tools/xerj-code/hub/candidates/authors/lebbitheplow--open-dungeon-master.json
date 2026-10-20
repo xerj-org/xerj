@@ -1,0 +1,22 @@
+{
+ "corpus": "lebbitheplow--open-dungeon-master",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Lebbitheplow/open-dungeon-master implements it: Open Dungeon Master, the first easy-to-use, fully local AI DND 5e app. Story and inline scene images generated 100% on your machine (or with (selected work: src/lib, scripts, src/app)",
+ "repos": [
+  {
+   "repo": "open-dungeon-master",
+   "url": "https://github.com/Lebbitheplow/open-dungeon-master",
+   "sha": "ae59e8a8fa7800fe562c0793468bdc28bfd5f4e6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit ae59e8a8fa78: \"Close the 2014 D&D rules audit gaps\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

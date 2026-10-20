@@ -1,0 +1,22 @@
+{
+ "corpus": "rbprsp--pinry-android",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on images, kotlin, kotlin-android queries this for how rbprsp/pinry-android implements it: An unofficial Android app for Pinry (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "pinry-android",
+   "url": "https://github.com/rbprsp/pinry-android",
+   "sha": "fe3dca39f8eaeb12cbd29995fc7e3bb55a8926da",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit fe3dca39f8ea: \"Swipe between pins in the full-screen viewer\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -65,7 +65,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-21",
-  "dateModified": "2026-08-23",
+  "dateModified": "2026-10-05",
   "author": {
     "@type": "Person",
     "name": "XERJ documentation team"
@@ -128,7 +128,10 @@
   <a href="/docs/" class="active">DOCS</a>
   <a href="/docs/recipes/">RECIPES</a>
   <a href="/playground">DASHBOARDS</a>
+  <a href="https://hub.xerj.org" rel="external">HUB</a>
   <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
+  <a href="https://x.com/xerj_org" rel="external" title="XERJ on X" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+  <a href="https://discord.com/invite/yetXFusXfs" rel="external" title="XERJ on Discord" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.79 19.79 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.74 19.74 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.1 13.1 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.3 12.3 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.84 19.84 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
   <span class="spacer"></span>
   <span class="theme">
     <button type="button" data-theme="day" class="active">DAY</button>
@@ -243,7 +246,7 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>WHY WOULD A FOLDER SEARCH MISS FILES THAT I CAN SEE ON DISK?</div>
   <div class="kicker"><span>ANSWERS · OPERATIONS: EXCLUSIONS</span></div>
   <h1>Why would a folder search miss files that I can see on disk?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-08-23</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-10-05</div>
   <p><strong>TL;DR</strong> — XERJ prints one line per ignore rule with an exact file count, and stores a refusal reason for every file it opened. A capture over 26 files on disk indexed 1, refused 2 with named reasons, and excluded 23 through ignore rules. The run exited 3 with <code class="inline">reason=completed-with-junk</code>.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
@@ -274,7 +277,7 @@
     <thead><tr><th>Cause</th><th>Where the evidence is</th><th>Captured example</th></tr></thead>
     <tbody>
       <tr><td>Ignore rule</td><td>stderr, one line per rule</td><td><code class="inline">.gitignore:*.tmp — 1 file</code></td></tr>
-      <tr><td>Extractor refusal</td><td><code class="inline">autoindex-catalog</code>, <code class="inline">reason</code> field</td><td><code class="inline">binary content (zip)</code></td></tr>
+      <tr><td>Extractor refusal</td><td><code class="inline">autoindex-catalog</code>, <code class="inline">reason</code> field</td><td><code class="inline">binary content (unknown)</code></td></tr>
     </tbody>
   </table>
   <h2>Read the ignore accounting first</h2>
@@ -299,10 +302,10 @@ autoindex: ignore rules:   .gitignore:*.tmp — 1 file
     <tbody>
       <tr><td><code class="inline">README.txt</code></td><td><code class="inline">txt-prose</code></td><td><code class="inline">indexed</code></td><td>none</td></tr>
       <tr><td><code class="inline">assets/logo.bin</code></td><td><code class="inline">binary</code></td><td><code class="inline">junk</code></td><td><code class="inline">binary content (unknown)</code></td></tr>
-      <tr><td><code class="inline">books/manual.epub</code></td><td><code class="inline">binary</code></td><td><code class="inline">junk</code></td><td><code class="inline">binary content (zip)</code></td></tr>
+      <tr><td><code class="inline">data/events.parquet</code></td><td><code class="inline">binary</code></td><td><code class="inline">junk</code></td><td><code class="inline">unsupported data format (Parquet): autoindex has no reader for it — export it to CSV or JSON Lines to index it now</code></td></tr>
     </tbody>
   </table>
-  <p>An unsupported format is refused as binary rather than partially extracted. The EPUB above has no extractor, so XERJ detects a zip container and stops.</p>
+  <p>Nothing is partially extracted. A format XERJ recognizes but cannot read is refused with a reason that names the fix: the Parquet file above says which export makes it indexable. A file XERJ cannot identify at all is refused as <code class="inline">binary content (unknown)</code>.</p>
   <h2>The arithmetic that closes the gap</h2>
   <p>26 files sat on disk, 22 of them non-hidden. 18 lived inside pruned directories, 3 more matched a skip rule, 2 were refused as binary, and 1 was indexed. Every path has a rule name or a reason string attached to it.</p>
   <p>Publish that arithmetic in your own runbook. A folder that "lost" files almost always has a <code class="inline">.gitignore</code> entry or a build directory behind the difference.</p>
@@ -311,9 +314,10 @@ autoindex: ignore rules:   .gitignore:*.tmp — 1 file
   <p>Treat that as a default, not as a guarantee. Ignore rules are a content filter, and XERJ is single-node, so anything you do index sits in one process on one host.</p>
   <h2>The exit code carries the verdict</h2>
   <p>The captured run ended with a terminal line that names both the outcome and the refusal count.</p>
-  <pre class="code"><code class="language-text">xerj-done ok=true exit=3 reason=completed-with-junk wall=0.8s files=1 records=2 datasets=1 junk_files=2
+  <pre class="code"><code class="language-text">xerj-done ok=true exit=3 reason=completed-with-junk wall=3.1s files=1 records=2 datasets=1 junk_files=2 code_files=0 code_files_indexed=0 code_files_junked=0
 </code></pre>
   <p>Exit 0 with <code class="inline">reason=completed</code> means nothing was refused. Exit 3 with <code class="inline">reason=completed-with-junk</code> means the catalog holds at least one reason worth reading.</p>
+  <p>Every number above comes from a capture on 2026-10-05, on a build of <code class="inline">main</code> after v1.0.0-rc.82 (commit <code class="inline">06185966</code>). The Parquet hint is not in the v1.0.0-rc.82 release itself: that release reports such a file as <code class="inline">binary content (unknown)</code>. The binary was a <code class="inline">quick</code> profile build, so the <code class="inline">wall</code> figure is not a performance number.</p>
   <h2>FAQ</h2>
   <h3>Why would a folder search miss files that I can see on disk?</h3>
   <p>An ignore rule pruned them or an extractor refused them. XERJ prints one line per ignore rule and stores a refusal reason for every file it opened.</p>

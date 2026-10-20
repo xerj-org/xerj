@@ -12,11 +12,17 @@ use anyhow::Result;
 use serde_json::{Map, Value};
 use std::path::Path;
 
+/// What the tokenizer reads from one page. The EPUB extractor reads each
+/// chapter through [`parse`] and uses `headings` and `body`.
 #[derive(Default)]
-struct Doc {
-    title: String,
-    headings: Vec<String>,
-    body: String,
+pub(crate) struct Doc {
+    pub(crate) title: String,
+    pub(crate) headings: Vec<String>,
+    pub(crate) body: String,
+    /// `(id, byte offset in body)` for each element carrying an `id` (or an
+    /// `<a name>`), in document order: where that element's text begins. EPUB
+    /// splits a chapter file at its table-of-contents anchors with these.
+    pub(crate) anchors: Vec<(String, usize)>,
     tables: Vec<Vec<Vec<String>>>, // tables → rows → cells
     header_cells: Vec<Vec<bool>>,  // per table: was first row <th>?
 }
@@ -153,7 +159,7 @@ fn dominant_table(doc: &Doc) -> Option<(&Vec<Vec<String>>, bool)> {
     })
 }
 
-fn parse(html: &str) -> Doc {
+pub(crate) fn parse(html: &str) -> Doc {
     let mut doc = Doc::default();
     let bytes = html.as_bytes();
     let mut i = 0usize;
@@ -224,6 +230,11 @@ fn parse(html: &str) -> Doc {
             let (tag_end, self_closing) = scan_tag(bytes, j);
 
             flush_text(&mut cur_text, &text_sink, &mut doc, &mut cur_cell);
+            if !close {
+                if let Some(id) = anchor_id(&html[j..tag_end], &name) {
+                    doc.anchors.push((id, doc.body.len()));
+                }
+            }
 
             // Raw-text elements. Their contents are code, so jump the cursor
             // straight to the literal close tag rather than tokenizing them:
@@ -274,6 +285,18 @@ fn parse(html: &str) -> Doc {
                         cur_table.push(std::mem::take(&mut cur_row));
                     }
                     if !cur_table.is_empty() {
+                        // The rows also go to the body, in place, one
+                        // ` | `-joined line per row as PPTX tables do: cell
+                        // text never reaches the body any other way, and a
+                        // table that is not the dominant one is not emitted
+                        // as rows. An empty cell keeps its column.
+                        line_break(&mut doc.body, 2);
+                        for row in &cur_table {
+                            if row.iter().any(|c| !c.is_empty()) {
+                                doc.body.push_str(&row.join(" | "));
+                                doc.body.push('\n');
+                            }
+                        }
                         doc.header_cells
                             .push(vec![table_header_flags.first().copied().unwrap_or(false)]);
                         doc.tables.push(std::mem::take(&mut cur_table));
@@ -298,16 +321,16 @@ fn parse(html: &str) -> Doc {
                     cur_row_th.push(name == "th");
                     cur_cell = Some(String::new());
                 }
-                (false, "br")
-                | (false, "p")
-                | (true, "p")
-                | (false, "div")
-                | (true, "div")
-                | (false, "li")
-                | (true, "tr")
-                    if !doc.body.ends_with('\n') && !doc.body.is_empty() =>
-                {
-                    doc.body.push('\n');
+                // Block boundaries are blank lines: `split_sections` packs
+                // paragraphs at `\n\n`, so a single newline here made a page
+                // of paragraphs one paragraph, hard-cut mid-word. Line-level
+                // breaks (`br`, list items, table rows) stay single newlines,
+                // so a list or a table stays one block.
+                (_, "p") | (_, "div") | (true, "ul") | (true, "ol") => {
+                    line_break(&mut doc.body, 2);
+                }
+                (false, "br") | (false, "li") | (true, "tr") => {
+                    line_break(&mut doc.body, 1);
                 }
                 _ => {}
             }
@@ -416,6 +439,79 @@ fn raw_text_end(bytes: &[u8], from: usize, name: &[u8]) -> usize {
         p = at + 1;
     }
     bytes.len()
+}
+
+/// The anchor an opening tag defines: its `id`, or the `name` of an `<a>`
+/// (the pre-HTML5 form many EPUB 2 books still link to). `attrs` is the tag
+/// text after the element name.
+fn anchor_id(attrs: &str, element: &str) -> Option<String> {
+    let b = attrs.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        let start = i;
+        while i < b.len() && (b[i].is_ascii_whitespace() || b[i] == b'/') {
+            i += 1;
+        }
+        let key_start = i;
+        while i < b.len() && !b[i].is_ascii_whitespace() && !matches!(b[i], b'=' | b'/') {
+            i += 1;
+        }
+        let key = &attrs[key_start..i];
+        while i < b.len() && b[i].is_ascii_whitespace() {
+            i += 1;
+        }
+        let mut value = None;
+        if i < b.len() && b[i] == b'=' {
+            i += 1;
+            while i < b.len() && b[i].is_ascii_whitespace() {
+                i += 1;
+            }
+            if i < b.len() && matches!(b[i], b'"' | b'\'') {
+                let q = b[i];
+                let v = i + 1;
+                i = v;
+                while i < b.len() && b[i] != q {
+                    i += 1;
+                }
+                value = Some(&attrs[v..i]);
+                i = (i + 1).min(b.len());
+            } else {
+                let v = i;
+                while i < b.len() && !b[i].is_ascii_whitespace() {
+                    i += 1;
+                }
+                value = Some(&attrs[v..i]);
+            }
+        }
+        if let Some(v) = value {
+            if key.eq_ignore_ascii_case("id")
+                || (element == "a" && key.eq_ignore_ascii_case("name"))
+            {
+                let v = decode_entities(v.trim());
+                if !v.is_empty() {
+                    return Some(v);
+                }
+            }
+        }
+        if i == start {
+            i += 1;
+        }
+    }
+    None
+}
+
+/// End the body's current line (`n` = 1) or paragraph (`n` = 2): drop the
+/// space `flush_text` leaves after a run of text, then make the body end in
+/// at least `n` newlines. Nothing is added to an empty body.
+fn line_break(body: &mut String, n: usize) {
+    body.truncate(body.trim_end_matches(' ').len());
+    if body.is_empty() {
+        return;
+    }
+    let have = body.len() - body.trim_end_matches('\n').len();
+    for _ in have..n {
+        body.push('\n');
+    }
 }
 
 fn normalize_ws(s: &str) -> String {
@@ -716,28 +812,95 @@ mod tests {
         );
     }
 
-    /// DEFECT, pinned as CURRENT behaviour.
-    ///
-    /// A table under the 5-row dominance threshold loses its content twice
-    /// over: it is not emitted as rows, and `flush_text` has already diverted
-    /// every cell into `cur_cell` instead of `doc.body`, so the cells are not
-    /// in the document record either. Small tables — the common case on a
-    /// documentation page — are silently unindexed.
+    /// A table that is not emitted as rows (under the 5-row dominance
+    /// threshold here) used to lose its content twice over: `flush_text`
+    /// diverts every cell into `cur_cell`, so the cells never reached
+    /// `doc.body` either. Its rows now land in the body where the table
+    /// stood, one ` | `-joined line per row, as PPTX tables do.
     #[test]
-    fn a_table_below_the_dominance_threshold_leaves_its_cells_unindexed() {
+    fn a_table_below_the_dominance_threshold_keeps_its_rows_in_the_body() {
         let (stats, recs) = run(
             "small.html",
             "<html><body><h1>Head</h1><p>prose</p>\
-             <table><tr><td>cellA</td><td>cellB</td></tr></table>\
+             <table><tr><th>Region</th><th>Q3</th></tr>\
+             <tr><td>North</td><td>12</td></tr>\
+             <tr><td>  </td><td></td></tr>\
+             <tr><td>South <b>East</b></td><td></td></tr></table>\
              <p>after</p></body></html>",
         );
         assert_eq!(stats.records, 1, "falls back to the document record");
         let body = body_of(&recs[0]);
-        assert!(body.contains("prose") && body.contains("after"));
-        assert!(
-            !body.contains("cellA") && !body.contains("cellB"),
-            "small-table cells are now indexed — flip this assertion: {body:?}"
+        let lines: Vec<&str> = body.lines().map(str::trim).collect();
+        let at = |s: &str| {
+            lines
+                .iter()
+                .position(|l| *l == s)
+                .unwrap_or_else(|| panic!("no line {s:?} in {body:?}"))
+        };
+        // In place, in order: after the prose before it, before the prose
+        // after it. An empty cell keeps its column; an all-empty row is
+        // dropped.
+        let (head, north, south) = (at("Region | Q3"), at("North | 12"), at("South East |"));
+        assert!(at("prose") < head && head < north && north < south && south < at("after"));
+        assert_eq!(
+            lines.iter().filter(|l| l.contains('|')).count(),
+            3,
+            "{body:?}"
         );
+    }
+
+    /// `split_sections` packs paragraphs at blank lines. A `<p>` used to end
+    /// with a single newline, so a page of paragraphs was ONE paragraph to it
+    /// and was hard-cut every `SECTION_CHARS` bytes, mid-word; the heading
+    /// before such a run was emitted as a section on its own. Paragraph and
+    /// div ends are now blank lines, so sections end where paragraphs do.
+    #[test]
+    fn sections_of_a_long_page_end_at_paragraph_ends() {
+        let para = |i: usize| format!("Paragraph {i} {} end{i}.", "lorem ipsum dolor ".repeat(24));
+        let html: String = std::iter::once("<html><body><h1>Title</h1>".to_string())
+            .chain((0..10).map(|i| format!("<p>{}</p>", para(i))))
+            .chain(std::iter::once(
+                "<ul><li>one</li><li>two</li></ul><p>tail</p></body></html>".into(),
+            ))
+            .collect();
+        let (stats, recs) = run("long.html", &html);
+        assert!(stats.records > 1, "{} bytes split", html.len());
+        for r in &recs[..recs.len() - 1] {
+            let body = body_of(r).trim_end();
+            assert!(
+                (0..10).any(|i| body.ends_with(&format!("end{i}."))),
+                "section ends mid-paragraph: ...{:?}",
+                &body[body.len().saturating_sub(40)..]
+            );
+        }
+        assert!(
+            body_of(&recs[0]).len() > 100,
+            "the heading is not a section of its own"
+        );
+        let last = body_of(recs.last().unwrap());
+        assert!(last.contains("one\ntwo"), "list items stay lines: {last:?}");
+    }
+
+    /// EPUB splits chapter files at table-of-contents anchors, so `parse`
+    /// records where each `id` (and each `<a name>`) begins in the body.
+    #[test]
+    fn anchors_record_ids_and_a_names_where_their_text_begins() {
+        let doc = parse(
+            "<p>intro</p><h2 id=\"c1\">One</h2><p data-id=\"no\" class=x>a</p>             <a name='c2'></a><p id=c3 >b</p><span name=\"no\">c</span>             <div ID = \"Q&amp;A\">d</div>",
+        );
+        let ids: Vec<&str> = doc.anchors.iter().map(|(id, _)| id.as_str()).collect();
+        assert_eq!(ids, ["c1", "c2", "c3", "Q&A"]);
+        for (id, at) in &doc.anchors {
+            let rest = doc.body[*at..].trim_start();
+            let want = match id.as_str() {
+                "c1" => "One",
+                "c2" | "c3" => "b",
+                _ => "d",
+            };
+            assert!(rest.starts_with(want), "{id} at {at}: {rest:?}");
+        }
+        assert_eq!(anchor_id(" id", "p"), None, "a bare attribute has no value");
+        assert_eq!(anchor_id(" id=\"\"", "p"), None);
     }
 
     #[test]

@@ -1,0 +1,22 @@
+{
+ "corpus": "xia-2005--archify-skill",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how XIA-2005/archify-skill implements it: Standalone Archify Skill package maintained by XIA-2005 (selected work: draft, examples, editor)",
+ "repos": [
+  {
+   "repo": "archify-skill",
+   "url": "https://github.com/XIA-2005/archify-skill",
+   "sha": "a6fa498ebe0473c28fd381184cac9b7d9dda6c94",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a6fa498ebe04: \"feat: default Live HTML and GIF relay; add Architecture draft CLI\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

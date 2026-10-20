@@ -1,0 +1,22 @@
+{
+ "corpus": "omesser--fidget",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agentic-ai, ai queries this for how omesser/fidget implements it: :mage: AI desktop character for rich dilly-dallying... I mean \"productivity enhancement\" (selected work: scripts, tests, src-tauri)",
+ "repos": [
+  {
+   "repo": "fidget",
+   "url": "https://github.com/omesser/fidget",
+   "sha": "a2cfa82b041909a60058e05d90380116714a2599",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit a2cfa82b0419: \"test(verify): Prove macOS Chat perch clicks with command traces (#1512)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

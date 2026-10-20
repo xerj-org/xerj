@@ -1,0 +1,22 @@
+{
+ "corpus": "sunilnarayan419-ui--sunil-mandloi-portfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how sunilnarayan419-ui/sunil-mandloi-portfolio implements it: This is my portfolio (selected work: src/components, the project root, src/data)",
+ "repos": [
+  {
+   "repo": "sunil-mandloi-portfolio",
+   "url": "https://github.com/sunilnarayan419-ui/sunil-mandloi-portfolio",
+   "sha": "5dd4f56cff7ab6383ec7eea8e9d0dbb2b158decd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 5dd4f56cff7a: \"V2: add Experience, Research, Certifications; enrich About & Projects\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

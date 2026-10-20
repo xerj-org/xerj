@@ -1,0 +1,22 @@
+{
+ "corpus": "klusik--php-gallery",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on gallery, gallery-app, gallery-viewer queries this for how klusik/PHP_gallery implements it: Self-hosted PHP photo gallery CMS with web administration, photo uploader and Windows desktop uploader (selected work: tests, app, app/views)",
+ "repos": [
+  {
+   "repo": "PHP_gallery",
+   "url": "https://github.com/klusik/PHP_gallery",
+   "sha": "57e71fbbdddb1f5519fad7f3c766fd2d71c2e491",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 57e71fbbdddb: \"Fix Settings loading, search, Theme deep links and sidebar selection\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "winsznx--routedock",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on micropayments, mpp, payment-channels queries this for how winsznx/routedock implements it: Unified payment execution layer for Stellar x402, MPP charge, MPP session behind one client.pay() call (selected work: packages/nulth-sdk, packages/sdk)",
+ "repos": [
+  {
+   "repo": "routedock",
+   "url": "https://github.com/winsznx/routedock",
+   "sha": "98fc671b25d858010a5bc52c451b936852028be7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 98fc671b25d8: \"fix(nulth): verify auth entry matches payment context before signing\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

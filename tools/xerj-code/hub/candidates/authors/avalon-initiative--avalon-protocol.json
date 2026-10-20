@@ -1,0 +1,22 @@
+{
+ "corpus": "avalon-initiative--avalon-protocol",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on csharp, game-development, identity queries this for how avalon-initiative/avalon-protocol implements it: An open, self-hostable identity and social layer: one identity, friends, guilds, and achievements that travel across games, apps, and servic (selected work: crates/server, crates/protocol)",
+ "repos": [
+  {
+   "repo": "avalon-protocol",
+   "url": "https://github.com/avalon-initiative/avalon-protocol",
+   "sha": "27190f7423722d48f55e2a9c375a2b2376ec51ef",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 27190f742372: \"[#1388] - Document GET /ledger/entries and test route-table coverage \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

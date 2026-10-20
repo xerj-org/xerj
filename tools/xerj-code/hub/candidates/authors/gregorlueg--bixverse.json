@@ -1,0 +1,22 @@
+{
+ "corpus": "gregorlueg--bixverse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on bioinformatics, computational-biology, single-cell queries this for how GregorLueg/bixverse implements it: An R package that provides Rust-based interfaces into your favourite bioinformatics, computational biology methods. Also, analyse 1m cells o (selected work: R, inst, man)",
+ "repos": [
+  {
+   "repo": "bixverse",
+   "url": "https://github.com/GregorLueg/bixverse",
+   "sha": "1d9e0773d11eed73c6c3c5965d8ecc98c3cea1e7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 1d9e0773d11e: \"fix: read nullable and boolean h5ad obs/var columns (#252)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "wkhadgar--zview",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on developer-tools, tooling, zephyr-rtos queries this for how wkhadgar/zview implements it: ZView - A real-time thread (and more!) viewer for Zephyr RTOS. Just like htop, but for Zephyr (selected work: src/kernel, tests, src)",
+ "repos": [
+  {
+   "repo": "zview",
+   "url": "https://github.com/wkhadgar/zview",
+   "sha": "39d6f2cb4f70758cb4b8c347ff77e67f2d61c3f0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 39d6f2cb4f70: \"orchestrator: find the threads of a build without the thread list\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "sm-bello--lifestone-church-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Sm-bello/Lifestone-church-ai implements it: A Real-Time Sermon Intelligence System - essentially a live AI co-pilot for church services that listens to the pastor, detects scripture re (selected work: src/lib, src/components, src/stores)",
+ "repos": [
+  {
+   "repo": "Lifestone-church-ai",
+   "url": "https://github.com/Sm-bello/Lifestone-church-ai",
+   "sha": "61737a930580706bd6e714266ad2b10cd10869ff",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 61737a930580: \"feat: v1.0.6 - hymnal worship console, media controls (loop/audio mut\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

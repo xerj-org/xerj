@@ -1,0 +1,22 @@
+{
+ "corpus": "atnexuslab--tightship",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, claude-code-plugin queries this for how ATNexusLab/tightship implements it: A workflow for AI coding agents, from requirement to release. Ships as a native Claude Code plugin (selected work: xtask, harnesses)",
+ "repos": [
+  {
+   "repo": "tightship",
+   "url": "https://github.com/ATNexusLab/tightship",
+   "sha": "64a2b260a1dbc2ece39ccb0e178e76e64497e4ca",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 64a2b260a1db: \"feat: publish a pre-release from a tag (closes #37)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

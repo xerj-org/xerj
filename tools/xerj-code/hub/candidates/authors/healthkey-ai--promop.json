@@ -1,0 +1,22 @@
+{
+ "corpus": "healthkey-ai--promop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how healthkey-ai/promop implements it: Django/PostgreSQL project with models for OMOP+oncology plus a flat denormalized table to support fast clinical trial matching, clinical dec (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "promop",
+   "url": "https://github.com/healthkey-ai/promop",
+   "sha": "4dcdae133da34e0710f8427855a1d2b507a0415e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4dcdae133da3: \"Preserve patient edits across refresh and navigation (#1815)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

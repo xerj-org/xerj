@@ -1,0 +1,22 @@
+{
+ "corpus": "bowlofdata--maki",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how BowlOfData/maki implements it: An AI Framework to interact with local models (selected work: maki, the project root)",
+ "repos": [
+  {
+   "repo": "maki",
+   "url": "https://github.com/BowlOfData/maki",
+   "sha": "da45657826db5c9e8ae2fbe6eb159cf0536b6e9c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit da45657826db: \"llama.cpp support and various fixes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

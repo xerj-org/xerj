@@ -1,0 +1,22 @@
+{
+ "corpus": "samyak9109--abhyas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Samyak9109/Abhyas implements it: Free, open-source voice mock interview agent. Resume + JD aware, bring your own AI model (Gemini, OpenAI, Claude, Ollama, HuggingFace) (selected work: apps/web, packages/core, tests)",
+ "repos": [
+  {
+   "repo": "Abhyas",
+   "url": "https://github.com/Samyak9109/Abhyas",
+   "sha": "64db5260131df4751e3dafcc82270ca0972004c7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 64db5260131d: \"feat(p1): M1.1 storage adapters, settings screen, export v1, delete-a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

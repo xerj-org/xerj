@@ -1,0 +1,22 @@
+{
+ "corpus": "youxi-huang--pi-context-compaction",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on coding-agent, context-management, pi queries this for how youxi-huang/pi-context-compaction implements it: Source-linked context compaction for Pi. Checkpoints cite original session records so agents can retrieve earlier messages after compaction (selected work: scripts, packages/coding-agent)",
+ "repos": [
+  {
+   "repo": "pi-context-compaction",
+   "url": "https://github.com/youxi-huang/pi-context-compaction",
+   "sha": "016a64229e157727c1710d9964992986eab3119c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 016a64229e15: \"fix: support Pi 1.2.0 in extension v0.4.2\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "mingling-rs--mingling",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, framework, rust queries this for how mingling-rs/mingling implements it: A state-driven and data-driven CLI framework built in Rust (selected work: mingling, mingling_core, examples)",
+ "repos": [
+  {
+   "repo": "mingling",
+   "url": "https://github.com/mingling-rs/mingling",
+   "sha": "5b272c34f9a25ee40372021d251b4c33654c7da0",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 5b272c34f9a2: \"feat(setup)!: add version/verbose flags and query mode\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

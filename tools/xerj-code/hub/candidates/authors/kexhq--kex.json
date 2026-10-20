@@ -1,0 +1,22 @@
+{
+ "corpus": "kexhq--kex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on beam, compiler, functional queries this for how kexhq/kex implements it: Pragmatically functional BEAM language (selected work: spec, src/semantic, src/ir)",
+ "repos": [
+  {
+   "repo": "kex",
+   "url": "https://github.com/kexhq/kex",
+   "sha": "101157b767f10df788515b3dca73fbef937bfabd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 101157b767f1: \"Fix overloads\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

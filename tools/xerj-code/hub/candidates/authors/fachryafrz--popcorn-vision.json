@@ -1,0 +1,22 @@
+{
+ "corpus": "fachryafrz--popcorn-vision",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on tailwindcss, tmdb-api, nextjs-14 queries this for how fachryafrz/popcorn-vision implements it: Movie & TV Show Streaming and Discovery (selected work: lib, convex, the project root)",
+ "repos": [
+  {
+   "repo": "popcorn-vision",
+   "url": "https://github.com/fachryafrz/popcorn-vision",
+   "sha": "118cda8d39c0e08d61ac0057a033385ce7bc5ff7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 118cda8d39c0: \"feat(tmdb): migrate to client-side fetching with Cloudflare edge prox\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

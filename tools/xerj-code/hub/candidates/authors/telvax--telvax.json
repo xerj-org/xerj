@@ -1,0 +1,22 @@
+{
+ "corpus": "telvax--telvax",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on apache-arrow, compiler, data-processing queries this for how telvax/telvax implements it: Telvax: a statically typed, compiled language for data, ML pipelines and AI serving. Tensor shapes in the type system, a pipeline operator,  (selected work: python, runtime, tools)",
+ "repos": [
+  {
+   "repo": "telvax",
+   "url": "https://github.com/telvax/telvax",
+   "sha": "d5918b3773a29b150f9442c237b20b524e4ab9ca",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d5918b3773a2: \"feat: notebooks, a Jupyter kernel and the %%telvax magic (#100)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

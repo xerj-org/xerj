@@ -1,0 +1,22 @@
+{
+ "corpus": "aniketsidhu123--ghostshield",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how aniketsidhu123/GhostShield implements it: aniketsidhu123/GhostShield (TypeScript) (selected work: server, src, src/components)",
+ "repos": [
+  {
+   "repo": "GhostShield",
+   "url": "https://github.com/aniketsidhu123/GhostShield",
+   "sha": "8d57558af89fb478859be78a85d363194ab3e2a4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 8d57558af89f: \"Feature's Improvement\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

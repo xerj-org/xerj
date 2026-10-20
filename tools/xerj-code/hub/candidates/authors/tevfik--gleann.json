@@ -1,0 +1,22 @@
+{
+ "corpus": "tevfik--gleann",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, memgpt queries this for how tevfik/gleann implements it: A lightweight, high-performance AI/RAG workspace and autonomous agent framework implemented in Go. Inspired by the Leann RAG backend archite (selected work: internal/tui, cmd/gleann)",
+ "repos": [
+  {
+   "repo": "gleann",
+   "url": "https://github.com/tevfik/gleann",
+   "sha": "2242d7c5e17e3f0fa5f4b0aa4f14256821b84248",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 2242d7c5e17e: \"fix(eif): preserve custom Ollama port when selecting EIF and fix setu\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

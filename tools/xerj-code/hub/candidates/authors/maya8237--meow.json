@@ -1,0 +1,22 @@
+{
+ "corpus": "maya8237--meow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-agent-sdk, claude-code queries this for how maya8237/MEOW implements it: Simple harness engineering for Claude Code and the Claude Agent SDK. One request in, a verified branch out (selected work: tests, src/meow, frontend)",
+ "repos": [
+  {
+   "repo": "MEOW",
+   "url": "https://github.com/maya8237/MEOW",
+   "sha": "8d1ed950d4c2441d07a517432d0188c587211cfe",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 8d1ed950d4c2: \"fix: close review, delivery, permission and session UI gaps\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

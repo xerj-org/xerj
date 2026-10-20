@@ -1,0 +1,22 @@
+{
+ "corpus": "hypostasis-cat--hypomux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on fluent, network, windows-10 queries this for how Hypostasis-Cat/HypoMux implements it: CN Windows \u591a\u7f51\u5361\u805a\u5408\u4e0e\u7f51\u7edc\u52a0\u901f\u5de5\u5177\u3002\u4e00\u952e\u878d\u5408\u6709\u7ebf\u3001Wi-Fi\u3001\u70ed\u70b9\u7b49\u8fde\u63a5\uff0c\u5b9e\u73b0\u591a\u8def\u5f84\u4f20\u8f93\u4e0e\u667a\u80fd\u6d41\u91cf\u8c03\u5ea6\u3002 EN Windows multi-NIC network accelerator. Combine Ethernet, Wi-Fi, hotspots and m (selected work: engine)",
+ "repos": [
+  {
+   "repo": "HypoMux",
+   "url": "https://github.com/Hypostasis-Cat/HypoMux",
+   "sha": "ef9311b102ef3063f51c4757086a5ab7f27d3ed4",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit ef9311b102ef: \"feat(engine): support IPv6-only DNS and dual-stack egress\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

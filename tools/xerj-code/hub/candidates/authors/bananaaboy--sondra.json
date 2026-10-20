@@ -1,0 +1,22 @@
+{
+ "corpus": "bananaaboy--sondra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how bananaaboy/Sondra implements it: bananaaboy/Sondra (TypeScript) (selected work: src/components, src/lib, src/styles)",
+ "repos": [
+  {
+   "repo": "Sondra",
+   "url": "https://github.com/bananaaboy/Sondra",
+   "sha": "551f093c6a372c331af31198650b393dafef8f11",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 551f093c6a37: \"Zerschneiden: Pads und Pattern als ein Rack, Schneiden mit vielen Opt\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

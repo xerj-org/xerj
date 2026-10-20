@@ -133,6 +133,10 @@ struct MockState {
     /// Accept every data bulk (`errors: false`) but persist nothing — the
     /// shape of any rejection path the client-side classifier misses.
     swallow_data_bulks: bool,
+    /// `_count` answers 200 with no `count`, and a size:0 `_search` answers
+    /// `timed_out`. Models a node that accepted the writes and then could
+    /// not finish a count (merge, deadline). Must not look like zero docs.
+    fail_counts: bool,
     /// Answer the catalog's duplicate-alias sweep — and ONLY that request —
     /// with a 500 whose body names the condition. Scoped to the one call so
     /// the fixture proves the sweep is what wedged the run (#345), not that a
@@ -422,7 +426,26 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<MockState>>) {
         }
         (200, json!({"deleted": ids.len(), "failures": []}))
     } else if method == "GET" && path.ends_with("/_count") {
-        (200, json!({"count": state.lock().unwrap().docs.len()}))
+        if state.lock().unwrap().fail_counts {
+            (200, json!({"error": "count unavailable"}))
+        } else {
+            (200, json!({"count": state.lock().unwrap().docs.len()}))
+        }
+    } else if method == "POST"
+        && path.ends_with("/_search")
+        && serde_json::from_slice::<Value>(&body)
+            .ok()
+            .is_some_and(|query| query.get("size").and_then(Value::as_u64) == Some(0))
+        && state.lock().unwrap().fail_counts
+    {
+        (
+            200,
+            json!({
+                "took": 1,
+                "timed_out": true,
+                "hits": {"total": {"value": 0, "relation": "gte"}, "hits": []}
+            }),
+        )
     } else if method == "POST" && path.ends_with("/_search") {
         // Report the REAL number of stored docs: `run_index` verifies live
         // counts against the journal (#195), so a mock that always answered 0
@@ -775,9 +798,10 @@ fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         follow_symlinks_outside_root: false,
         stub_globs: Vec::new(),
         ignore: crate::ignore_rules::IgnoreOptions::default(),
-        max_file_gb: 1,
+        max_file_bytes: 1 << 30,
         sample: 50,
         no_semantic: true,
+        code_analyzer: Default::default(),
         // This module preserves legacy graph-enabled failure behavior;
         // incremental non-graph behavior has its own HTTP suite.
         brain: None,
@@ -796,6 +820,7 @@ fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         watch: false,
         label: None,
         debounce: std::time::Duration::from_millis(0),
+        exclude_rels: Vec::new(),
     }
 }
 
@@ -3020,6 +3045,46 @@ fn zero_live_documents_after_journaled_records_fails_the_run() {
     assert!(error.contains("verification failed"), "{error}");
     assert!(error.contains("0 documents are live"), "{error}");
     assert!(error.contains("--fresh"), "{error}");
+    let state = state_dir.path().display().to_string();
+    assert!(
+        error.contains(&format!("Journal state dir: {state}")),
+        "the refusal must name the journal directory: {error}"
+    );
+    assert!(
+        error.contains("may belong to another data dir"),
+        "a reused journal must say it may belong to another data dir: {error}"
+    );
+}
+
+/// A node that accepted the bulks and then could not count (the size:0
+/// fallback comes back `timed_out` with total 0) must not abort finalize.
+/// Treating that 0 as "nothing is live" is the count-mismatch abort: the
+/// journal is right, the count is not a measurement.
+#[test]
+fn a_count_that_does_not_answer_does_not_fail_a_run_that_wrote_records() {
+    let _guard = FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _io_guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("records.csv"),
+        "id,value\n0,kept\n1,kept\n",
+    )
+    .unwrap();
+    let endpoint = MockEndpoint::start(usize::MAX);
+    endpoint.state.lock().unwrap().fail_counts = true;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+
+    let code = run_index(config).expect("an unanswered count is not an empty index");
+    assert_eq!(code, 0, "the records were accepted");
+    assert!(
+        endpoint.state.lock().unwrap().docs.len() >= 2,
+        "the mock kept the documents the count could not see"
+    );
 }
 
 /// #241 regression: a run must never be silent.
@@ -3211,7 +3276,7 @@ fn the_resource_plan_is_announced_on_the_progress_surface_with_the_width_it_got(
 
     // Build the process-global scan pool first, so the width below is one this
     // run cannot possibly be granted.
-    let installed = crate::pool::scan_pool().current_num_threads();
+    let installed = crate::pool::width();
     let endpoint = MockEndpoint::start(usize::MAX);
     let mut config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
     config.quiet = false;
@@ -3446,7 +3511,7 @@ printf '%s' '{"schema":1,"extractor":"xerj-autoindex/__XERJ_VERSION__","parser":
             tally: &crate::ScanTally::default(),
         },
         100,
-        1,
+        1 << 30,
         false,
     );
     assert!(scan.pdf_spool.is_none());
@@ -3535,7 +3600,7 @@ printf '%s' '{"schema":1,"extractor":"xerj-autoindex/__XERJ_VERSION__","parser":
             tally: &crate::ScanTally::default(),
         },
         100,
-        1,
+        1 << 30,
         false,
     );
 
@@ -3615,7 +3680,7 @@ fn verified_but_junk_pdf_spool_is_created_then_discarded_not_eligible() {
             tally: &crate::ScanTally::default(),
         },
         100,
-        1,
+        1 << 30,
         false,
     );
     assert!(scan.junk.is_some());

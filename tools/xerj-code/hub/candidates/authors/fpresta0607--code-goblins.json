@@ -1,0 +1,22 @@
+{
+ "corpus": "fpresta0607--code-goblins",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how fpresta0607/code-goblins implements it: Talk to one agent. Ship with a team (selected work: internal/proc, internal/supervisor)",
+ "repos": [
+  {
+   "repo": "code-goblins",
+   "url": "https://github.com/fpresta0607/code-goblins",
+   "sha": "cab28b404a40380e6972564558bd36b9e015b290",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit cab28b404a40: \"fix(supervisor): hide a careless console by the window windows names\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

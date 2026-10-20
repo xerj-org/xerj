@@ -1,0 +1,22 @@
+{
+ "corpus": "lmliheng--adelie",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, llm, local-first queries this for how lmliheng/Adelie implements it: A local-first multi-agent app development platform, built on PenguinHarness (selected work: packages/core, packages/server, packages/cli)",
+ "repos": [
+  {
+   "repo": "Adelie",
+   "url": "https://github.com/lmliheng/Adelie",
+   "sha": "83acbdf07424563bcd5e6ddc1bc56cd9e1592181",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 83acbdf07424: \"feat(core,server,cli): \u8fb9\u754c\u9762\u90e8\u7f72\u53d8\u91cf\u8bfb\u4fa7\u540c\u65f6\u8ba4 ADELIE_* \u4e0e\u65e7\u540d\uff082.2c \u524d\u534a\uff09\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

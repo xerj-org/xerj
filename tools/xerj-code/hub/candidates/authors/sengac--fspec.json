@@ -1,0 +1,22 @@
+{
+ "corpus": "sengac--fspec",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on bdd, cucumber, kanban queries this for how sengac/fspec implements it: FSPEC: The Spec-Driven, Multi-Agent Harness. It is infrastructure for the \"Dark Factory\" - the emerging model of fully autonomous software d (selected work: spec, rust)",
+ "repos": [
+  {
+   "repo": "fspec",
+   "url": "https://github.com/sengac/fspec",
+   "sha": "c5b38a97f4d8cc9ebf6f3f5c940ca319c62c5d7e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit c5b38a97f4d8: \"feat(tui): mux board-pane ring edges \u2014 continuous columns\u21c4items\u21c4chips\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

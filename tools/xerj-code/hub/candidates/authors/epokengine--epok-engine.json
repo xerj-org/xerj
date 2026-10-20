@@ -1,0 +1,22 @@
+{
+ "corpus": "epokengine--epok-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how epokengine/epok-engine implements it: A native game engine and visual editor for retro console development (selected work: src, runtime, tests)",
+ "repos": [
+  {
+   "repo": "epok-engine",
+   "url": "https://github.com/epokengine/epok-engine",
+   "sha": "4c58e6a0825b764b553f7bcf4ecf56a01c1952a8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4c58e6a0825b: \"Draw HUD text from imported fonts with per-glyph advance and alignment\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

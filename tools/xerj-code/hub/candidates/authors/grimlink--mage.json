@@ -1,0 +1,22 @@
+{
+ "corpus": "grimlink--mage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on magento2, bash-script, warden queries this for how GrimLink/mage implements it: Simplifies bin/magento commands by adding helpful shortcuts and time-saving tools to enhance your productivity (selected work: src/commands, tests, src/core)",
+ "repos": [
+  {
+   "repo": "mage",
+   "url": "https://github.com/GrimLink/mage",
+   "sha": "fc3aa5e7369bc2be69f847cd5bb06db0faaf897c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit fc3aa5e7369b: \"ADD: Scripts and agents support, no silent defaults and json output\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

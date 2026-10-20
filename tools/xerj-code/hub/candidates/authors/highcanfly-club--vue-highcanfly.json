@@ -1,0 +1,22 @@
+{
+ "corpus": "highcanfly-club--vue-highcanfly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on vuejs, vue3, tailwindcss queries this for how highcanfly-club/vue-highcanfly implements it: Le code source de notre site internet (selected work: _sensitive_datas)",
+ "repos": [
+  {
+   "repo": "vue-highcanfly",
+   "url": "https://github.com/highcanfly-club/vue-highcanfly",
+   "sha": "2a502a108f404dbc82c7d1a21c73bbba61f80fa8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 2a502a108f40: \"update sensitive datas\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

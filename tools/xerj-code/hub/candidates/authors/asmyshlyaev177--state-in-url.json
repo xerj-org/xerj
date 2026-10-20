@@ -1,0 +1,22 @@
+{
+ "corpus": "asmyshlyaev177--state-in-url",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on client-components, nextjs, query-params queries this for how asmyshlyaev177/state-in-url implements it: Store any user state in query parameters; imagine JSON in a browser URL, while keeping types and structure of data, e.g.numbers will be deco (selected work: packages/consumer-tests, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "state-in-url",
+   "url": "https://github.com/asmyshlyaev177/state-in-url",
+   "sha": "feee6d57d83392cf7cd936841cada7dedd11139c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit feee6d57d833: \"fix: esm as default output format\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

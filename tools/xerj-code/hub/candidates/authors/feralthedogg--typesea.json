@@ -1,0 +1,22 @@
+{
+ "corpus": "feralthedogg--typesea",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Feralthedogg/TypeSea implements it: Feralthedogg/TypeSea (TypeScript) (selected work: src/evaluate, test, bench)",
+ "repos": [
+  {
+   "repo": "TypeSea",
+   "url": "https://github.com/Feralthedogg/TypeSea",
+   "sha": "6ee71ba7ebaeb9d3c2250e4b9223d224667cc790",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 6ee71ba7ebae: \"Optimize native checkFirst validation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

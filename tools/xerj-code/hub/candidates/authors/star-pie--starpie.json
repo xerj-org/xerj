@@ -1,0 +1,22 @@
+{
+ "corpus": "star-pie--starpie",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on lightweight, pie, local-first queries this for how Star-Pie/StarPie implements it: StarPie \u73b0\u4ee3\u5316 Windows \u9f20\u6807\u8f6e\u76d8\u624b\u52bf\u7cfb\u7edf (selected work: WinPieGestures)",
+ "repos": [
+  {
+   "repo": "StarPie",
+   "url": "https://github.com/Star-Pie/StarPie",
+   "sha": "676cc429a9e322cdb2607b2656fe7fed9313ec53",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 676cc429a9e3: \"fix(i18n): \u89c4\u8303\u5316\u89e6\u53d1\u952e\u5fbd\u7ae0\u3001\u5f55\u5236\u6309\u94ae\u72b6\u6001\u4e0e\u786c\u4ef6\u611f\u77e5\u5668\u56db\u8bed\u7cfb\u56fd\u9645\u5316\u53ca\u6309\u952e\u683c\u5f0f\u5316\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

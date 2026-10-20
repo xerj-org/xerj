@@ -1,0 +1,22 @@
+{
+ "corpus": "rekursiv-ai--priml",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on machine-learning, machine-learning-algorithms, machinelearning queries this for how rekursiv-ai/priml implements it: Strongly typed configurable building blocks for A/B testing ML research (selected work: priml, typings)",
+ "repos": [
+  {
+   "repo": "priml",
+   "url": "https://github.com/rekursiv-ai/priml",
+   "sha": "2bae58248b5e0f0f05d2793ae4b9254641551f53",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 2bae58248b5e: \"Add exp000 inference baseline (#485)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

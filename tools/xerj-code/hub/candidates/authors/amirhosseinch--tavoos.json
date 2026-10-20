@@ -1,0 +1,22 @@
+{
+ "corpus": "amirhosseinch--tavoos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how AmirHosseinCH/Tavoos implements it: A C++23/OpenGL 2D UI framework, built around a fluent, declarative widget-builder API (selected work: src/include, src/widget)",
+ "repos": [
+  {
+   "repo": "Tavoos",
+   "url": "https://github.com/AmirHosseinCH/Tavoos",
+   "sha": "b66e2523beac1cc3c30c3f026b3bf53a5ed29568",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit b66e2523beac: \"Add ScrollAreaWidget with ScrollAreaStyle, Theme::scrollArea and TB::\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

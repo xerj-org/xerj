@@ -1,0 +1,22 @@
+{
+ "corpus": "pingsnest--pingsnest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on TypeScript queries this for how PingsNest/PingsNest implements it: Open-source AWS API Gateway, Lambda serverless fleet & synthetic endpoint observability platform with real-time telemetry, auto-remediation  (selected work: src/components, server, dist-server)",
+ "repos": [
+  {
+   "repo": "PingsNest",
+   "url": "https://github.com/PingsNest/PingsNest",
+   "sha": "9b9371182ad63ffed118fd04c677b4c86bb9b24d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit 9b9371182ad6: \"feat: add server visibility configuration for public status page\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

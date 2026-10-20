@@ -1,0 +1,22 @@
+{
+ "corpus": "omniaevo--mqtt5-explorer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on electron, mqtt-5, mqtt-5-client queries this for how Omniaevo/mqtt5-explorer implements it: MQTT5 Explorer is a simple yet feature-rich client to visualize data of any MQTT broker (selected work: src/renderer)",
+ "repos": [
+  {
+   "repo": "mqtt5-explorer",
+   "url": "https://github.com/Omniaevo/mqtt5-explorer",
+   "sha": "5b343d7448cdd9a74a9fcf3401ff90f0b721ce82",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 5b343d7448cd: \"feat(history): add History panel with chart, field picker and raw list\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

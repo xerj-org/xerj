@@ -1,0 +1,22 @@
+{
+ "corpus": "zachpmanson--pi-msg",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how zachpmanson/pi-msg implements it: Drive Pi entirely from XMPP (selected work: internal/pimsg)",
+ "repos": [
+  {
+   "repo": "pi-msg",
+   "url": "https://github.com/zachpmanson/pi-msg",
+   "sha": "9702457907d280d0956caff4bd403b6a842ad232",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 9702457907d2: \"Send composing state from streamed message destination\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

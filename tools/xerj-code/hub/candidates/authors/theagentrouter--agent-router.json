@@ -1,0 +1,22 @@
+{
+ "corpus": "theagentrouter--agent-router",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-gateway, api-gateway queries this for how theagentrouter/agent-router implements it: Manages Unified Access to Generative AI Services built on Envoy Gateway (selected work: internal/controller, cmd/aigw, examples)",
+ "repos": [
+  {
+   "repo": "agent-router",
+   "url": "https://github.com/theagentrouter/agent-router",
+   "sha": "01142d5739fd599b5a7d273cef9efe105d2adbdb",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 01142d5739fd: \"fix(backendsecuritypolicy): enforce ReferenceGrant for static credent\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

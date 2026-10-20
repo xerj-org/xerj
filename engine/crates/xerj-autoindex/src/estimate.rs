@@ -120,6 +120,11 @@ pub fn exact_scan_bytes(
         | Family::TxtProse
         | Family::Code
         | Family::Docx
+        | Family::Doc
+        | Family::Pptx
+        | Family::Epub
+        | Family::Ipynb
+        | Family::Man
         | Family::Eml
         | Family::Pdf => Some(size),
         // Streaming, byte-capped and record-capped.
@@ -138,8 +143,9 @@ pub fn exact_scan_bytes(
         // `read_whole` up to META_CAP: under the cap the read is complete,
         // over it the file is junked after reading only cap+1 bytes.
         Family::UnityMeta => (size <= UNITY_META_CAP).then_some(size),
-        // Row-capped per table; bytes read bear no fixed relation to `size`.
-        Family::Sqlite => None,
+        // Row-capped per table (per sheet); bytes read bear no fixed relation
+        // to `size`.
+        Family::Sqlite | Family::Xlsx | Family::Xls => None,
         // Deliberately partial: `bvh::extract` stops at `Frame Time:` and
         // never pulls the motion block off disk, so `size` is not the number
         // of bytes this machine demonstrated it can chew through.
@@ -609,6 +615,10 @@ mod tests {
             Family::TxtProse,
             Family::Code,
             Family::Docx,
+            Family::Pptx,
+            Family::Epub,
+            Family::Ipynb,
+            Family::Man,
             Family::Pdf,
         ] {
             assert_eq!(exact_scan_bytes(family, false, 900, 500, 500), Some(900));
@@ -659,6 +669,7 @@ mod tests {
         );
         // Never measurable.
         assert_eq!(exact_scan_bytes(Family::Sqlite, false, 100, 1, 500), None);
+        assert_eq!(exact_scan_bytes(Family::Xlsx, false, 100, 1, 500), None);
         assert_eq!(exact_scan_bytes(Family::Binary, false, 100, 1, 500), None);
         // BVH stops at the motion header by design, so `size` is never the
         // number of bytes it read; `--stub` files are never opened at all.
@@ -697,6 +708,11 @@ mod tests {
             Family::Eml,
             Family::Mbox,
             Family::Docx,
+            Family::Pptx,
+            Family::Epub,
+            Family::Ipynb,
+            Family::Man,
+            Family::Xlsx,
             Family::Sqlite,
             Family::SqlDump,
             Family::Code,

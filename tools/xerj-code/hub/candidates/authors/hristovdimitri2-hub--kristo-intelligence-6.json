@@ -1,0 +1,22 @@
+{
+ "corpus": "hristovdimitri2-hub--kristo-intelligence-6",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, base, defi queries this for how hristovdimitri2-hub/kristo-intelligence-6 implements it: Pay-per-call DeFi intelligence API on Base: trading signals, whale flow, arbitrage radar - x402 micropayments in USDC at $0.003-$0.005 per c (selected work: scripts, tests, the project root)",
+ "repos": [
+  {
+   "repo": "kristo-intelligence-6",
+   "url": "https://github.com/hristovdimitri2-hub/kristo-intelligence-6",
+   "sha": "7abb25c6d9c133474468f04e0590d765b047080d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 7abb25c6d9c1: \"feat(radar): email delivery for RADAR-DIGEST (Gmail SMTP, dry-run def\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

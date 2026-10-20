@@ -18,11 +18,12 @@ members = [
     "crates/xerj-cluster",
     "crates/xerj-console-api",
     "crates/xerj-autoindex",
+    "crates/xerj-hub",
     "tests/es-compat-yaml",
 ]
 
 [workspace.package]
-version = "1.0.0-rc.80"
+version = "1.0.0-rc.96"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["xerj Contributors"]

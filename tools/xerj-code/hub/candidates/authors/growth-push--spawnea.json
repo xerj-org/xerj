@@ -1,0 +1,22 @@
+{
+ "corpus": "growth-push--spawnea",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on TypeScript queries this for how Growth-Push/spawnea implements it: Desktop control plane for launching, monitoring, and managing persistent coding-agent sessions across local and remote workspaces (selected work: apps/desktop, packages/db, packages/domain)",
+ "repos": [
+  {
+   "repo": "spawnea",
+   "url": "https://github.com/Growth-Push/spawnea",
+   "sha": "cb099647b3a8f8e91a7fc6edc8c5e8eeb766bfac",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit cb099647b3a8: \"Add explicit model selection for root sessions (#68)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

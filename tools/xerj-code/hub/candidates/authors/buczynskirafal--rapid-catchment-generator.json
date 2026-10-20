@@ -1,0 +1,22 @@
+{
+ "corpus": "buczynskirafal--rapid-catchment-generator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on epa-swmm, fuzzy-logic, hydrology queries this for how BuczynskiRafal/rapid-catchment-generator implements it: Desktop GUI (PySide6) & CLI tool for rapid prototyping of EPA SWMM hydraulic models using fuzzy logic (MDPI Water 2025) (selected work: tests, rcg)",
+ "repos": [
+  {
+   "repo": "rapid-catchment-generator",
+   "url": "https://github.com/BuczynskiRafal/rapid-catchment-generator",
+   "sha": "f18a23b5d36df2ea55357881183ae2561525c3c7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit f18a23b5d36d: \"refactor(gui): encapsulate cards, debounce path input, and run undo a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

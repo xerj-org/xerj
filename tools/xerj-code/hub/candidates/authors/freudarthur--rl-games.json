@@ -1,0 +1,22 @@
+{
+ "corpus": "freudarthur--rl-games",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on box2d, gymnasium, juypter-notebook queries this for how FreudArthur/RL-Games implements it: Un projet personnel d'exploration de l'Apprentissage par Renforcement (Reinforcement Learning), construit comme un laboratoire pratique pour (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "RL-Games",
+   "url": "https://github.com/FreudArthur/RL-Games",
+   "sha": "d52353eb22f947df95b6fd54c1802adfcf2220c4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit d52353eb22f9: \"Add new gameplay videos and update existing video file\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

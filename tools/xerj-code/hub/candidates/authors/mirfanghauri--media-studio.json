@@ -1,0 +1,22 @@
+{
+ "corpus": "mirfanghauri--media-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how mirfanghauri/media-studio implements it: High-performance media studio & AI generation pipeline combining Fastify, BullMQ, React, Imaginary (Libvips), FFmpeg, Faster-Whisper, and mu (selected work: tests, api, shared)",
+ "repos": [
+  {
+   "repo": "media-studio",
+   "url": "https://github.com/mirfanghauri/media-studio",
+   "sha": "c28de955e3a8e15ace1ed4f2964aff1a34f58b0c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit c28de955e3a8: \"fix(security): resolve all audit findings for v1.0.3 (jobs auth, uplo\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

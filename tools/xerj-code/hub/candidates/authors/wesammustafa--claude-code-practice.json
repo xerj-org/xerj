@@ -1,0 +1,22 @@
+{
+ "corpus": "wesammustafa--claude-code-practice",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how wesammustafa/claude-code-practice implements it: Practice repository for Claude Code: Everything You Need to Know, with a check for every exercise (selected work: checks, learn)",
+ "repos": [
+  {
+   "repo": "claude-code-practice",
+   "url": "https://github.com/wesammustafa/claude-code-practice",
+   "sha": "ba0849b651a99413bceb1b4a5502254aeb799663",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit ba0849b651a9: \"Learn: the check-only card names its page and fills its item window, \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

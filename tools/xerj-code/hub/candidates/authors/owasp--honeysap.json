@@ -1,0 +1,22 @@
+{
+ "corpus": "owasp--honeysap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cbas, honeypot, python queries this for how OWASP/HoneySAP implements it: HoneySAP: SAP Low-interaction research honeypot (selected work: honeysap, tests, bin)",
+ "repos": [
+  {
+   "repo": "HoneySAP",
+   "url": "https://github.com/OWASP/HoneySAP",
+   "sha": "66bdde60fa0807ceb1b3c50b85222fcd9b1a4ca0",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 66bdde60fa08: \"Harden HoneySAP core configuration, event delivery and lifecycle\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

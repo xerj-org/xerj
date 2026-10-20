@@ -1,0 +1,22 @@
+{
+ "corpus": "hustquick--heattransfer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Jupyter Notebook queries this for how hustquick/HeatTransfer implements it: \u5de5\u7a0b\u4f20\u70ed\u5b66\u8ba1\u7b97\u9898\u89e3\u9898python\u4ee3\u7801 (selected work: Batch_test, Examples, Problems)",
+ "repos": [
+  {
+   "repo": "HeatTransfer",
+   "url": "https://github.com/hustquick/HeatTransfer",
+   "sha": "8a2a0d1f23543cd9d4d38bfad8d89aea2a5ebabc",
+   "licence": "hint only: Zlib (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Zlib",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8a2a0d1f2354: \"Fix numerical examples and batch plotting; standardize Chinese fonts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

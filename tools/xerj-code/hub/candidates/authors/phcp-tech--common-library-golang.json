@@ -1,0 +1,22 @@
+{
+ "corpus": "phcp-tech--common-library-golang",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on component, env, go queries this for how phcp-tech/common-library-golang implements it: Common-library-golang is a ready-to-use library of functional components (selected work: redis)",
+ "repos": [
+  {
+   "repo": "common-library-golang",
+   "url": "https://github.com/phcp-tech/common-library-golang",
+   "sha": "1ba38d7b34cc8ef67631b76a096762913266192a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 1ba38d7b34cc: \"add PoolSize to Redis Config\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

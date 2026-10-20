@@ -1,0 +1,22 @@
+{
+ "corpus": "quixvpn--quix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on cryptography, iroh, mesh queries this for how quixvpn/quix implements it: P2P Mesh VPN based in QUIC with Iroh. End-to-end encrypted (selected work: cli, daemon, proto)",
+ "repos": [
+  {
+   "repo": "quix",
+   "url": "https://github.com/quixvpn/quix",
+   "sha": "97efc0b21a779739faa217dc99adf26d57fa173d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 97efc0b21a77: \"feat(file): wormhole-style peer-to-peer file transfer\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

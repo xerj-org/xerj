@@ -1,0 +1,22 @@
+{
+ "corpus": "krishanth7--everyo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-framework, ai-frameworks, artificial-intelligence queries this for how krishanth7/EveryO implements it: EveryO is an open-source neural computing and AI experimentation framework built with Python, NumPy, TensorFlow, CUDA and C++. Build, train, (selected work: everyo, tests, examples)",
+ "repos": [
+  {
+   "repo": "EveryO",
+   "url": "https://github.com/krishanth7/EveryO",
+   "sha": "b0cc5d627df07d4a1e1823629938378ed686ed8f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b0cc5d627df0: \"feat: add model profiling and trace export (#19)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

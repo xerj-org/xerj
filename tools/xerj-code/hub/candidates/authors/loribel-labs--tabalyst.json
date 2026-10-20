@@ -1,0 +1,22 @@
+{
+ "corpus": "loribel-labs--tabalyst",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on csv, csv-analysis, data-analysis queries this for how loribel-labs/tabalyst implements it: Open-source, local-first Python toolkit for data profiling and quality analysis. Generate interactive HTML reports from CSV, Excel, JSON and (selected work: examples, src/tabalyst, tests)",
+ "repos": [
+  {
+   "repo": "tabalyst",
+   "url": "https://github.com/loribel-labs/tabalyst",
+   "sha": "043ba73fd130bce4eb9851cafc717704ed2c0df9",
+   "licence": "hint only: MPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 043ba73fd130: \"fix(report): libell\u00e9s des findings et des signaux, th\u00e8me, d\u00e9mos r\u00e9g\u00e9n\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

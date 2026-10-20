@@ -1,0 +1,22 @@
+{
+ "corpus": "mintniu--local-code-audit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how MintNiu/local-code-audit implements it: Local Ollama-powered code audit workflow with reproducible evaluation and privacy-safe project tooling (selected work: evals, bin)",
+ "repos": [
+  {
+   "repo": "local-code-audit",
+   "url": "https://github.com/MintNiu/local-code-audit",
+   "sha": "c2b3997fa3dd21f94254af1b98896bb6283de70e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit c2b3997fa3dd: \"feat\uff1a\u589e\u52a0\u6709\u754c Java \u65b9\u6cd5 sidecar \u5e76\u5b8c\u5584\u56de\u5f52\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

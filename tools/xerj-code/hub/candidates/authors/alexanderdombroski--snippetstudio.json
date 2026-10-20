@@ -1,0 +1,22 @@
+{
+ "corpus": "alexanderdombroski--snippetstudio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on snippets, vscode-extension, developer-tools queries this for how alexanderdombroski/snippetstudio implements it: A Snippet Manager Extension for vscode to streamline creating, editing, deleting, viewing, and sharing custom code snippets for code complet (selected work: packages/extension)",
+ "repos": [
+  {
+   "repo": "snippetstudio",
+   "url": "https://github.com/alexanderdombroski/snippetstudio",
+   "sha": "b53a3f9c70f5505e023f067bb93548340143e80c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit b53a3f9c70f5: \"feat: add reset snippets command\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

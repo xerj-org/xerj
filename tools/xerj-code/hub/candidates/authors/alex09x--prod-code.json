@@ -1,0 +1,22 @@
+{
+ "corpus": "alex09x--prod-code",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on code-intelligence, developer-tools, go queries this for how alex09x/prod-code implements it: Remote code intelligence and build server for AI coding agents via MCP: semantic navigation, safe refactoring, builds and tests on remote no (selected work: crates/prod-code-mcp)",
+ "repos": [
+  {
+   "repo": "prod-code",
+   "url": "https://github.com/alex09x/prod-code",
+   "sha": "5db473fe8b85bb3416dcfa73a00f6e481cf1e84b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 5db473fe8b85: \"fix(mcp, gateway): resolve type aliases, stdlib symbols, swift call s\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

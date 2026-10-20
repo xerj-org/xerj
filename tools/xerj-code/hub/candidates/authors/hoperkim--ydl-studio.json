@@ -1,0 +1,22 @@
+{
+ "corpus": "hoperkim--ydl-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how hoperkim/ydl-studio implements it: Windows GUI for yt-dlp (selected work: app/core, app/ui, app/utils)",
+ "repos": [
+  {
+   "repo": "ydl-studio",
+   "url": "https://github.com/hoperkim/ydl-studio",
+   "sha": "8d58e886d4c73e2630bec1f4039ffbfd8982be51",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 8d58e886d4c7: \"feat: upgrade to YDL Studio v2.0.0 Smart Zero-Click Universal Edition\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

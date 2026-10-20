@@ -1,0 +1,22 @@
+{
+ "corpus": "xuhuahuang--embeddedprogramming",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cpp, c, modern-cpp queries this for how XuhuaHuang/EmbeddedProgramming implements it: Applied modern C/C++ in calculus, discrete mathematics, robotics and machine learning with CMake (selected work: IntroductionToRobotics)",
+ "repos": [
+  {
+   "repo": "EmbeddedProgramming",
+   "url": "https://github.com/XuhuaHuang/EmbeddedProgramming",
+   "sha": "bc3a38e49a9df1abe06c82b66eef2899b068465a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit bc3a38e49a9d: \"Fixed decimal constant predictors, large offsets, tiny variance, and \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "nichsedge--idx-bei",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bei, bursa-efek-indonesia, financial-data queries this for how nichsedge/idx-bei implements it: Indonesia Stock Exchange (Bursa Efek Indonesia) Scraper (selected work: pkg/engine, pkg/api, cmd/idx)",
+ "repos": [
+  {
+   "repo": "idx-bei",
+   "url": "https://github.com/nichsedge/idx-bei",
+   "sha": "ea795eb497dda4b999d44aae35f99c39c3a91272",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-04 (reply to Corpus Hub outreach); selected commit ea795eb497dd: \"feat(go): implement native Go engine, REST/WebSocket server, and unif\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

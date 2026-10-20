@@ -1,0 +1,22 @@
+{
+ "corpus": "startyr--calculatorx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on arkts, calculator, cpp queries this for how StartYR/CalculatorX implements it: HarmonyOS\u7aef\u7684\u4e13\u4e1a\u79d1\u5b66\u7b26\u53f7\u8ba1\u7b97\u5668 (selected work: tools)",
+ "repos": [
+  {
+   "repo": "CalculatorX",
+   "url": "https://github.com/StartYR/CalculatorX",
+   "sha": "bf5db1b8052912a6ed3349a5bd0edf3672d4c6f9",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit bf5db1b80529: \"feat: \u6539\u4e3a\u4e34\u65f6\u4e2d\u8f6c\u5e76\u79fb\u9664\u6301\u4e45\u7f13\u5b58\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

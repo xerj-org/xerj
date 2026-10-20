@@ -1,0 +1,22 @@
+{
+ "corpus": "hyscaler--hycanvas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on design-editor, design-tool, graphic-design queries this for how hyscaler/HyCanvas implements it: Free, open-source, AI-native design software for creating graphics, social posts, and more, with no paywalls or watermarks (selected work: backend, frontend, packages/sdk)",
+ "repos": [
+  {
+   "repo": "HyCanvas",
+   "url": "https://github.com/hyscaler/HyCanvas",
+   "sha": "5b2709cdd55834488ee91d5b88415cca3d0a0009",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 5b2709cdd558: \"AI: a personal provider in user settings, tested before saving\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

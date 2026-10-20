@@ -1,0 +1,22 @@
+{
+ "corpus": "ccxt--ccxt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on altcoin, api, arbitrage queries this for how ccxt/ccxt implements it: A unified trading API with more than 100 crypto exchanges and prediction markets in JavaScript / TypeScript / Python / C# / PHP / Go / Java  (selected work: rust, the project root, examples)",
+ "repos": [
+  {
+   "repo": "ccxt",
+   "url": "https://github.com/ccxt/ccxt",
+   "sha": "ab01bbb1780afa451e8bc017a54fa3f5317ea5b6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit ab01bbb1780a: \"perf(rust,transpiler): optimize build memory, compile time and iterat\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

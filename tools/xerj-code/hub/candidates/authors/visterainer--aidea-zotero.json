@@ -1,0 +1,22 @@
+{
+ "corpus": "visterainer--aidea-zotero",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on academic, ai, ai-assistant queries this for how Visterainer/aidea-zotero implements it: AIdea \u2014 AI assistant for Zotero: chat with papers, translate selections, translate full PDFs. Use your existing ChatGPT/Gemini/Copilot subsc (selected work: src/modules, test, src/utils)",
+ "repos": [
+  {
+   "repo": "aidea-zotero",
+   "url": "https://github.com/Visterainer/aidea-zotero",
+   "sha": "9e8a4e5868c84ac310ef142942c7e34c6ac4e92f",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 9e8a4e5868c8: \"fix(reading): refine evidence guidance and release v3.6.1\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

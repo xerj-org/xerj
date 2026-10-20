@@ -1,0 +1,22 @@
+{
+ "corpus": "pipeshub-ai--pipeshub-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on glean, knowledge-graph, ollama queries this for how pipeshub-ai/pipeshub-ai implements it: The open-source context layer for AI agents. PipesHub turns your company's knowledge (Slack, Drive, Jira, GitHub, Microsoft 365 and 40+ conn (selected work: backend)",
+ "repos": [
+  {
+   "repo": "pipeshub-ai",
+   "url": "https://github.com/pipeshub-ai/pipeshub-ai",
+   "sha": "5cab6c5db991fa957d1f701936eb6d859331d56b",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 5cab6c5db991: \"Oauth fix (#3626)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

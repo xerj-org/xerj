@@ -1,0 +1,22 @@
+{
+ "corpus": "jzjzzzzzzz--agent-me",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on rag, agentic-ai, ai-agents queries this for how jzjzzzzzzz/agent-me implements it: Distill your knowledge, memories, and decisions into an open-source, inspectable AI Agent Twin (selected work: frontend, backend)",
+ "repos": [
+  {
+   "repo": "agent-me",
+   "url": "https://github.com/jzjzzzzzzz/agent-me",
+   "sha": "2a4c2021edb0b42c7778ddf4f3f72b2b41ffc346",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 2a4c2021edb0: \"feat(owner): add reviewed learning governance and memory maintenance \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

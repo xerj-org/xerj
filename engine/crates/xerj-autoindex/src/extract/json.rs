@@ -7,8 +7,8 @@
 //! - anything else → a single record
 
 use super::{
-    emit_document_with_fields, flatten_object, ExtractStats, FieldOrigin, RawRecord, Sink,
-    MAX_LINE, MAX_WHOLE_FILE,
+    emit_document_with_fields, ensure_text_passage, flatten_object, ExtractStats, FieldOrigin,
+    RawRecord, Sink, MAX_LINE, MAX_WHOLE_FILE,
 };
 use anyhow::Result;
 use serde_json::{Map, Value};
@@ -85,6 +85,7 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
                             for (k, v) in flatten_object(m) {
                                 fields.insert(k, v); // element wins collisions
                             }
+                            ensure_text_passage(&mut fields);
                             stats.records += 1;
                             if !sink(RawRecord {
                                 fields,
@@ -279,9 +280,11 @@ fn jsonl_fallback(bytes: &[u8], sink: Sink) -> Result<ExtractStats> {
         }
         match serde_json::from_slice::<Value>(trimmed) {
             Ok(Value::Object(m)) => {
+                let mut fields = flatten_object(m);
+                ensure_text_passage(&mut fields);
                 stats.records += 1;
                 if !sink(RawRecord {
-                    fields: flatten_object(m),
+                    fields,
                     locator: format!("b{start}"),
                     group: None,
                     origin: FieldOrigin::Data,
@@ -298,7 +301,7 @@ fn jsonl_fallback(bytes: &[u8], sink: Sink) -> Result<ExtractStats> {
 }
 
 fn emit(v: Value, locator: &str, sink: Sink, stats: &mut ExtractStats) -> bool {
-    let fields = match v {
+    let mut fields = match v {
         Value::Object(m) => flatten_object(m),
         other => {
             let mut m = Map::new();
@@ -306,6 +309,7 @@ fn emit(v: Value, locator: &str, sink: Sink, stats: &mut ExtractStats) -> bool {
             m
         }
     };
+    ensure_text_passage(&mut fields);
     stats.records += 1;
     sink(RawRecord {
         fields,
@@ -461,7 +465,13 @@ mod tests {
             serde_json::json!(["a", "b"]),
             "an array of scalars stays an array"
         );
-        assert_eq!(recs[1].fields.len(), 1, "absent keys are not filled in");
+        assert_eq!(
+            recs[1].fields.len(),
+            2,
+            "absent keys are not filled in — the record's own fields plus its \
+             synthesized passage (`id: 2`), nothing else"
+        );
+        assert_eq!(recs[1].fields["text"], serde_json::json!("id: 2"));
     }
 
     #[test]
@@ -562,10 +572,141 @@ mod tests {
         assert_eq!((stats.records, stats.junk), (2, 1));
     }
 
+    /// A nested array of objects is stored as one JSON string. Past
+    /// [`NESTED_JSON_FIELD_MAX`] that string is cut, so a 12 MB nested
+    /// file cannot become one analyzed text field. A value under the cap
+    /// is stored whole.
+    #[test]
+    fn a_large_nested_value_is_cut_before_it_becomes_a_field() {
+        let cap = super::super::NESTED_JSON_FIELD_MAX;
+        let big = "x".repeat(cap + 1024);
+        let text = format!(r#"{{"id":"row","payload":[{{"blob":"{big}"}}]}}"#);
+        let (stats, recs) = run(&text);
+        assert_eq!(stats.records, 1);
+        let payload = recs[0].fields["payload"].as_str().unwrap();
+        assert!(
+            payload.ends_with("…[truncated]"),
+            "over-cap nested JSON must say it was cut: {} bytes",
+            payload.len()
+        );
+        assert!(
+            payload.len() <= cap + "…[truncated]".len(),
+            "field is {} bytes, cap is {cap}",
+            payload.len()
+        );
+        assert_eq!(recs[0].fields["id"], serde_json::json!("row"));
+
+        let (stats, recs) = run(r#"{"id":"row","payload":[{"n":1}]}"#);
+        assert_eq!(stats.records, 1);
+        let payload = recs[0].fields["payload"].as_str().unwrap();
+        assert!(
+            !payload.contains("truncated"),
+            "a small nested value is stored whole: {payload}"
+        );
+        assert!(payload.contains("\"n\":1"), "{payload}");
+    }
+
     #[test]
     fn an_empty_array_yields_nothing_at_all_without_being_junk() {
         let (stats, recs) = run("[]");
         assert_eq!((stats.records, stats.junk), (0, 0));
         assert!(recs.is_empty());
+    }
+
+    // ─── #1158: synthesized text passages ────────────────────────────────
+
+    /// The ghsa-db class, in miniature: a record of ids, enums, numbers and
+    /// dates carries nothing passage search can match. Its own fields become
+    /// the passage, so a query naming any of them reaches the record.
+    #[test]
+    fn a_record_with_no_prose_gains_a_synthesized_text_passage() {
+        let (_, recs) = run(r#"[{"sha256":"a3f19c","size":123456,"severity":"HIGH",
+                 "modified":"2026-01-01","aliases":["CVE-2026-0001","GHSA-xx"]}]"#);
+        let text = recs[0].fields["text"].as_str().unwrap();
+        for expect in [
+            "sha256: a3f19c",
+            "size: 123456",
+            "severity: HIGH",
+            "modified: 2026-01-01",
+            "aliases: CVE-2026-0001, GHSA-xx",
+        ] {
+            assert!(text.contains(expect), "passage missing {expect:?}:\n{text}");
+        }
+    }
+
+    /// A record with a prose field is already reachable through it (the
+    /// query side searches text-typed fields), and a rendered key/value soup
+    /// would only outrank the real prose. No synthesis.
+    #[test]
+    fn a_record_with_prose_gains_no_synthesized_passage() {
+        let (_, recs) = run(
+            r#"[{"id":"GHSA-1","summary":"Use after free in the connection pool cleanup path"}]"#,
+        );
+        assert!(
+            recs[0].fields.get("text").is_none(),
+            "a prose record must not gain a synthesized passage: {:?}",
+            recs[0].fields
+        );
+    }
+
+    /// A record that owns a field named `text` keeps it, whatever its length:
+    /// the record named that field, and its dataset already maps it.
+    #[test]
+    fn an_existing_text_field_is_never_clobbered() {
+        let (_, recs) = run(r#"[{"text":"tiny","n":1}]"#);
+        assert_eq!(recs[0].fields["text"], serde_json::json!("tiny"));
+    }
+
+    /// The passage is bounded even for a record with hundreds of fields. The
+    /// final cut goes through `chars()`, so it lands on a character boundary
+    /// and never slices a multi-byte character in half.
+    #[test]
+    fn the_synthesized_passage_is_hard_capped() {
+        let fields: Vec<String> = (0..900)
+            .map(|i| format!(r#""f{i}":"{}""#, "v".repeat(40)))
+            .collect();
+        let (_, recs) = run(&format!("[{{{}}}]", fields.join(",")));
+        let text = recs[0].fields["text"].as_str().unwrap();
+        assert!(
+            text.chars().count() <= super::super::SYNTH_PASSAGE_MAX_CHARS,
+            "passage is {} chars, cap is {}",
+            text.chars().count(),
+            super::super::SYNTH_PASSAGE_MAX_CHARS
+        );
+
+        // A record whose values are multi-byte: 20 fields x the 256-char
+        // per-value cap pushes the pastiche past the total cap, so the FINAL
+        // truncation runs — on 設, a 3-byte character. `chars().take()` cannot
+        // produce an invalid string, which is exactly what is being pinned.
+        let mut m = serde_json::Map::new();
+        for i in 0..20 {
+            m.insert(
+                format!("k{i}"),
+                serde_json::Value::String("設".repeat(9_000)),
+            );
+        }
+        assert!(super::ensure_text_passage(&mut m));
+        let passage = m["text"].as_str().unwrap();
+        assert_eq!(
+            passage.chars().count(),
+            super::super::SYNTH_PASSAGE_MAX_CHARS,
+            "a passage over the cap is cut to exactly the cap"
+        );
+    }
+
+    /// A mixed dataset is handled per record: prose rows stay as they were,
+    /// prose-less rows gain the passage. The prose field still maps text for
+    /// the whole dataset either way.
+    #[test]
+    fn synthesis_is_per_record_inside_one_dataset() {
+        let (_, recs) = run(
+            r#"[{"id":1,"note":"a genuinely long prose sentence about pooling"},
+                {"id":2,"count":7}]"#,
+        );
+        assert!(recs[0].fields.get("text").is_none());
+        assert!(recs[1].fields["text"]
+            .as_str()
+            .unwrap()
+            .contains("count: 7"));
     }
 }

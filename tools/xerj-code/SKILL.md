@@ -78,6 +78,123 @@ Enterprise Edition** parts — check the header/path first. Read the design,
 write our own implementation. Each manifest's `review.use` field says which
 bucket a repo is in; `hub/README.md` explains the three.
 
+## Hub corpus or local corpus
+
+Two kinds of corpus sit on the same local node. Each answers a different kind
+of question:
+
+| | hub corpus | local corpus |
+|---|---|---|
+| what it holds | public material at a pinned commit: a library's source, a standard, a regulation, an advisory feed | files only this machine has: the project you are working in, private documents, exports |
+| use it when | you need a detail you cannot quote exactly from memory | the answer is in your own files |
+| add it | `xerj corpus add --from ./<slug>.json`, then `xerj corpus index <slug>` | `xerj autoindex <folder>` |
+| query it | `xerj code <slug> "<question>"` · MCP `xerj_code_search` | `xerj search "<words>"` · `xerj def "<symbol>"` · MCP `xerj_search` |
+
+Use neither for a fact you can already state exactly: on memorised content
+retrieval is overhead (see the status note above).
+
+A hub manifest comes from a checkout of the `corpus-hub` branch
+(`tools/xerj-code/hub/<slug>.json`) or, without a checkout, from its raw URL.
+Both `corpus index` and `code` talk to a running node:
+
+```sh
+curl -fsSLO https://raw.githubusercontent.com/xerj-org/xerj/corpus-hub/tools/xerj-code/hub/<slug>.json
+xerj corpus add --from ./<slug>.json   # last line: next: xerj corpus index <slug>
+xerj corpus index <slug>               # ends: corpus '<slug>' searchable: <N> records
+xerj code <slug> "<question>"          # passages headed by file path and line
+```
+
+`--from` reads a local file: v1.0.0-rc.95 does not fetch a URL, and passing one
+answers `no such manifest`.
+
+## Choosing a corpus for the project at hand
+
+The four engine corpora above are this repository's standing set. The full
+live catalogue is browsable at **[hub.xerj.org](https://hub.xerj.org)**, with
+one line per corpus in [hub.xerj.org/llms.txt](https://hub.xerj.org/llms.txt);
+what a node has loaded is `xerj corpus list --url <node>`. Every corpus is
+pinned to a commit with its licence recorded per source. **G7** (a
+five-question retrieval gate whose suite was pre-registered *before* retrieval
+ran) has been graded for some corpora and not others, and each hub page says
+which. Pick by the project's domain, not by size:
+
+| the project is… | start with | why |
+|---|---|---|
+| a search / query engine | `xerj-search` | postings, BM25, merge policy, segment layout, ES wire semantics |
+| vector search / ANN | `xerj-vector`, `faiss`, `annoy` | HNSW build, neighbour heuristics, quantisation, filtered kNN; faiss is the reference ANN implementation, annoy the forest variant |
+| storage engine / KV | `xerj-storage`, `duckdb`, `rocksdb`, `leveldb`, `badger`, `lmdb`, `pebble`, `valkey-src` | WAL, crash recovery, compaction, page allocation; LSM-vs-B trees; pebble for L0 sub-levels and range-deletion semantics; valkey for an in-memory KV server's data structures |
+| analytical / columnar | `xerj-columnar`, `duckdb`, `arrow-rs`, `parquet-format`, `iceberg` | columnar layout, codecs, vectorised scans, table formats |
+| a database server | `sqlite-src`, `postgres-src` | parsers, planners, executors — the two most-studied codebases in the field |
+| messaging / consensus | `kafka-src`, `rabbitmq`, `nats-server`, `etcd-src`, `raft-rs`, `dragonboat` | log compaction, delivery semantics, quorum/lease correctness |
+| monitoring / timeseries | `influxdb`, `prometheus-src` | TSDB layout, downsampling, scrape/ingest paths |
+| TLS / crypto / tunnels | `rustls`, `openssl`, `s2n-tls`, `boringtun` | modern-TLS-by-hand, hardening precedent, constant-time patterns |
+| QUIC / HTTP / networking | `quinn`, `nghttp2`, `curl-src`, `libuv`, `caddy`, `envoy`, `nginx` | protocol state machines, connection pooling, event loops |
+| compression / serialization | `zstd`, `lz4`, `brotli`, `zlib-ng`, `snappy`, `protobuf`, `flatbuffers`, `capnproto`, `msgpack-c` | format design, blocked/entropy coding, zero-copy schemas |
+| secrets / config serving | `openbao` | KV store with seal/unseal, lease machinery |
+| API design review | `rust-api-guidelines`, `msft-api-guidelines`, `zalando-restful-api-guidelines`, `google-eng-practices` | naming, error shape, versioning; Zalando's is the most clause-complete REST policy set, google-eng-practices owns code-review doctrine |
+| protocol/spec conformance | `openapi-spec`, `graphql-spec`, `json-schema-spec`, `w3c-css`, `whatwg-specs`, `ecma262`, `nats-protocol`, `kafka-protocol` | the normative text an implementation is judged against — HTML/DOM/URL living standards, ECMAScript grammar, wire-protocol framing |
+| locating the right RFC before reading it | withdrawn: do not `corpus add` `ietf-rfc-abstracts` | the pin pointed at xerj-org/corpus-ietf-rfc-abstracts, which returns HTTP 404 (2026-10-17) |
+| production ops / SRE | `gitlab-runbooks`, `school-of-sre`, `tldr-pages`, `mozilla-ssl-configs`, `twelve-factor` | real incident playbooks, a full SRE course curriculum, command syntax by tool, deployed TLS configs, deployment doctrine |
+| administering Unix systems | `freebsd-handbook`, `openbsd-faq` | rc/ZFS/jail/networking procedures, OpenBSD's canonical FAQ positions |
+| documenting against a hosted API | `github-api-description` | the OpenAPI description of github.rest — field semantics, enum values, preview headers |
+| datastore operations docs | `valkey-docs`, `etcd-docs` | command semantics, config knobs, tuning guidance — the operational reference for each |
+| telemetry / observability wiring | the semconv half of `otel-proto` (candidate — G7 2/5, parked to the semantic lane) | OpenTelemetry semantic conventions for attribute names; lexical rounds could not bridge paraphrase-to-normative-prose |
+| internationalisation | `unicode-cldr` | CLDR locale data structure, calendar/number/date skeletons |
+| security review of Rust dependencies | the `rust-vulns` pack (`xerj corpus add --from` the hub recipe) | RustSec advisories as records, and the vehicle for patched-pair mining (#1111's defect-class study). `rustsec-advisories` (1,963 text records) is withdrawn: its repository xerj-org/corpus-rust-vulns-txt returns HTTP 404 (2026-10-17) |
+| security review of Python dependencies | `pysec` | PYSEC advisory records with affected and fixed versions, CVE/GHSA aliases |
+| cross-ecosystem dependency audit | `ghsa-db` | GitHub-reviewed advisories (36,263 text records): CVSS vectors, patched ranges, affected packages across npm/PyPI/Go/Rust/maven and the rest |
+| security review of Go modules | `go-vulndb` | Go-team-curated advisories (4,577): affected packages and symbols, fixed versions, GO ids with CVE aliases |
+| regex denial-of-service precedent | withdrawn: do not `corpus add` `redos-precedent` | the pin pointed at xerj-org/corpus-redos-precedent, which returns HTTP 404 (2026-10-17). Those 634 records were a regex-class slice of the advisory mirrors; use `ghsa-db` and `pysec` |
+| crypto misuse precedent | withdrawn: do not `corpus add` `crypto-misuse-precedent` | the pin pointed at xerj-org/corpus-crypto-misuse-precedent, which returns HTTP 404. Those 721 records were a flatten of `ghsa-db`, osv, and `pysec`; use those |
+| vulnerability / weakness taxonomy | `mitre-cwe`, `mitre-capec` | CWE weakness definitions and CAPEC attack patterns, id-level |
+| adversary techniques / detection engineering | `mitre-attck` | ATT&CK v19.2 per-technique records: technique ids, tactics, detection data sources, procedure examples (enterprise/mobile/ics; software and group objects out of scope) |
+| patch-priority triage | `cisa-kev` | the Known Exploited Vulnerabilities catalogue, one record per CVE — exploitation status in the wild, binding remediation dates |
+| web application security how-to | `owasp-cheatsheets` | the Cheat Sheet Series' countermeasure recipes per topic — session management, authentication secrets, error handling, upload handling |
+| planning a web app penetration test | `owasp-wstg` | the Web Security Testing Guide v4.2 catalogue: per-test objectives and method, organised by category (authn, authz, session, input handling) |
+| triaging an active campaign | `cisa-alerts` | CISA advisory IOCs, required actions and mitigations (2025-05..2026-10 window) |
+| querying endpoint visibility | `osquery-config-examples` | real deployed osquery packs and scheduled-query shapes |
+| non-software (tax, employment, UK law) | `ecfr-title-12`, `ecfr-title-29`, `ecfr-title-26`, `uk-legislation` | consolidated current regulation, section-per-file |
+| aviation (FARs) | `ecfr-title-14` | 14 CFR section-per-file: visibility minimums, transponder airspace, inspection intervals, right-of-way |
+| maritime rules of the road | `navrules` | COMDTINST M16672.2D per-rule text — risk of collision, narrow channels, crossing situations, lights and sound signals |
+| accessible UI components | `govuk-design-system` | GOV.UK component options and accessibility criteria — the exact option semantics (maxwords vs maxlength, divider text, focus-on-load) |
+| pharma / drug labels | `dailymed` | FDA label sections: indications, contraindications, administration timing |
+| clinical treatment guidance | `cdc-clinical` | CDC STI treatment regimens and doses, syphilis desensitization, measles clinical signs |
+| food-service safety | `fda-food-code` | FDA Food Code 2022 provisions: hand-contact surfaces, Time as a Public Health Control, date marking, bare-hand readiness |
+| traffic control devices | `mutcd` | FHWA MUTCD 11th Ed (Rev 1): sign and signal warrants, markings, work-zone typical applications |
+| building works (England) | `uk-building-regs` | Building Regulations 2010 (SI 2010/2214) per-provision: Parts A–P requirements, Wales variants labelled, 44ZB/44ZC dual numbering documented |
+| EU digital regulation | `eurlex-core` | GDPR, AI Act, DSA, DMA, NIS2 per-article and per-recital from the EUR-Lex Cellar (annexes excluded by design) |
+| accessibility (built environment) | `ada-2010` | ADA 2010 Standards: reach ranges, clear floor space, slope ratios, per-section |
+
+**Inside the security block, pick twice — ecosystem first, defect class
+second.** Advisories about the same CVE exist in several databases; start
+with the corpus whose ecosystem matches the project (the `rust-vulns` pack
+for Rust crates, `pysec` for PyPI, `go-vulndb` for Go modules,
+`ghsa-db` when the tree is mixed or the ecosystem is unclear — it is the
+superset, GitHub-reviewed). The defect-class slices `redos-precedent` and `crypto-misuse-precedent`
+are withdrawn (their repositories return HTTP 404), and so is
+`rustsec-advisories`; a regex, cipher or key-management question stays
+on `ghsa-db`.
+
+Three rules that keep the choice honest:
+
+1. **A corpus only helps on code you have not memorised.** On popular
+   public library code the model already knows, retrieval is overhead —
+   the measured crossover is in `measure/DEVQA_RESULTS.md`. Private,
+   internal, niche and post-cutoff code is where it wins decisively
+   (bare-P 20% vs with-corpus-X 98% across 33 measured corpora —
+   `benchmarks/corpus-tasks/IMPACT.md`).
+2. **Shape beats size.** A corpus whose answer sits in one giant file
+   (a 3 MB single-page spec, a 50 MB JSON bundle) loses to a
+   section-per-file mirror of the same content — whole-file indexing skips
+   what it cannot chunk, and near-duplicate bundles crowd the answer. The
+   hub's G7 gate exists to catch exactly this; corpora that failed it were
+   demoted with the fix pre-registered, not padded into "live".
+3. **Cite what you adapted.** A retrieved hit is evidence of how *that*
+   project solved it under *its* licence and constraints — `file:line` in
+   the comment, and check the manifest's `review.use` bucket before
+   copying anything.
+
+
 ### Operational traps, both hit in practice
 
 - **Nothing under `/tmp`.** Clones live in `~/.xerj-code/corpora/`, the index in

@@ -1,0 +1,22 @@
+{
+ "corpus": "wycst02--wastnet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Java queries this for how wycst02/wastnet implements it: Lightweight high-performance Java NIO networking framework based on Reactor multi-threaded architecture. Zero external dependencies, provide (selected work: wastnet-test, wastnet-mvc, wastnet-core)",
+ "repos": [
+  {
+   "repo": "wastnet",
+   "url": "https://github.com/wycst02/wastnet",
+   "sha": "b0eadac7b7d55ed83c247626aad31a78aeb13cfb",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit b0eadac7b7d5: \"refactor(mvc): \u62c6\u5206 wastnet-mvc \u6a21\u5757\u5e76\u589e\u5f3a\u7ed3\u679c\u5904\u7406\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

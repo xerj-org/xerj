@@ -25,6 +25,12 @@ xerj-common  = { path = "../xerj-common" }
 xerj-engine  = { path = "../xerj-engine" }
 xerj-query   = { path = "../xerj-query" }
 xerj-rerank = { path = "../xerj-rerank" }
+# Corpus Hub hosted endpoints (`hub_api.rs`): `def::lookup_in` is the one `def`
+# function every surface calls, and `xerj_autoindex::xc::code_root` is where its
+# state ledger lives. `xerj-hub` dev-depends on this crate (its pack roundtrip
+# test boots a node); Cargo accepts a cycle that runs through a dev-dependency.
+xerj-hub     = { path = "../xerj-hub" }
+xerj-autoindex = { path = "../xerj-autoindex" }
 xerj-wasm    = { path = "../xerj-wasm" }
 # Local decision head (feature `decide-local`); no other purpose, so the
 # dependency itself is optional.
@@ -37,7 +43,7 @@ xerj-ai      = { path = "../xerj-ai", optional = true }
 
 tokio        = { workspace = true }
 axum         = { workspace = true }
-tower        = { workspace = true }
+tower        = { workspace = true, features = ["util"] }
 tower-http   = { workspace = true }
 serde        = { workspace = true }
 serde_json   = { workspace = true }

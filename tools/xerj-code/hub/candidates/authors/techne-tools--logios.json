@@ -1,0 +1,22 @@
+{
+ "corpus": "techne-tools--logios",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on academic-research, ai-agent, chat queries this for how techne-tools/logios implements it: An experimental Zotero plugin to leverage Hermes Agent (selected work: test, src/modules, src/views)",
+ "repos": [
+  {
+   "repo": "logios",
+   "url": "https://github.com/techne-tools/logios",
+   "sha": "95f5ed5a430e868d7e0d8808eb87229704b75d2c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 95f5ed5a430e: \"fix: resolve CodeRabbit review on #36 (note targeting, pills, runbook)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

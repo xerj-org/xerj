@@ -1,0 +1,22 @@
+{
+ "corpus": "yifan-2004--lumen-vision-460m",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on model-weights, pytorch, vision-language-model queries this for how yifan-2004/Lumen-Vision-460M implements it: Compact single-image VLM deployment edition with downloadable mirrored weights and clear provenance (selected work: scripts, tests, hf-inference)",
+ "repos": [
+  {
+   "repo": "Lumen-Vision-460M",
+   "url": "https://github.com/yifan-2004/Lumen-Vision-460M",
+   "sha": "40b4c3810f61345886b394fad361feb96df3b087",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 40b4c3810f61: \"Add offline folder inference reports and fix processor and embedding \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

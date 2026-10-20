@@ -1,0 +1,22 @@
+{
+ "corpus": "vdeviatkov--hpc-math-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on blas, cpp, hpc queries this for how vdeviatkov/hpc-math-core implements it: hpc-math-core is a production-grade compute library. Rather than just providing the fastest implementation, this repository serves as a prog (selected work: src/cuda, benchmarks, src/gemm)",
+ "repos": [
+  {
+   "repo": "hpc-math-core",
+   "url": "https://github.com/vdeviatkov/hpc-math-core",
+   "sha": "7a9adcee60bf0639410936b3d6ff17c9d65099e5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 7a9adcee60bf: \"Add SIMD/CUDA studies and retune GEMM kernels\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

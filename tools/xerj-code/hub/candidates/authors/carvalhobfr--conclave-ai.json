@@ -1,0 +1,22 @@
+{
+ "corpus": "carvalhobfr--conclave-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how carvalhobfr/conclave-ai implements it: carvalhobfr/conclave-ai (TypeScript) (selected work: web, tests, scripts)",
+ "repos": [
+  {
+   "repo": "conclave-ai",
+   "url": "https://github.com/carvalhobfr/conclave-ai",
+   "sha": "4000a39dbcb7607e2d0da408bc174da08b0e0ecb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4000a39dbcb7: \"feat(cockpit): repository intelligence screens\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

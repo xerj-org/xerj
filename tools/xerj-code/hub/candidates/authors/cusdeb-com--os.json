@@ -1,0 +1,22 @@
+{
+ "corpus": "cusdeb-com--os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on desktop-environment, linux-kernel, operating-system queries this for how cusdeb-com/os implements it: Windows-like operating system based on the Linux kernel (selected work: core/wine)",
+ "repos": [
+  {
+   "repo": "os",
+   "url": "https://github.com/cusdeb-com/os",
+   "sha": "b86019fc43fb56e5024da629d0d0f054a5262c8a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit b86019fc43fb: \"refactor(wine): add containerized incremental build workflow\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

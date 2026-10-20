@@ -6,7 +6,7 @@ use crate::correlate::KeyCorr;
 use crate::state::PlanDataset;
 use serde_json::{json, Value};
 
-pub const CATALOG_INDEX: &str = "autoindex-catalog";
+pub const CATALOG_INDEX: &str = xerj_common::AUTOINDEX_CATALOG_INDEX;
 
 /// The corpus-scope field the #737/#693 exclusion sweeps term-query (#755).
 ///
@@ -492,6 +492,78 @@ pub fn build_sample_queries(pd: &PlanDataset, correlations: &[KeyCorr]) -> Vec<V
 
 // ─── map rendering ───────────────────────────────────────────────────────
 
+/// True when `index_name` belongs to corpus `prefix`.
+///
+/// Autoindex names dataset indices `{prefix}-{slug}`. When `slug` is stored on
+/// the catalog document, reconstructing `{prefix}-{slug}` disambiguates
+/// hyphenated prefixes (`prefix = "xc"` + `slug = "tantivy-code"` vs
+/// `prefix = "xc-tantivy"` + `slug = "code"`). When `slug` is absent on a
+/// legacy document, fall back to a `{prefix}-` boundary check.
+pub fn index_matches_prefix(index_name: &str, slug: Option<&str>, prefix: &str) -> bool {
+    match slug.filter(|s| !s.is_empty()) {
+        Some(slug) => index_name
+            .strip_prefix(prefix)
+            .and_then(|rest| rest.strip_prefix('-'))
+            .is_some_and(|rest| rest == slug),
+        None => index_name
+            .strip_prefix(prefix)
+            .is_some_and(|rest| rest.starts_with('-')),
+    }
+}
+
+/// True when a `doc_kind: "dataset"` catalog document belongs to `prefix`.
+pub fn dataset_matches_prefix(doc: &Value, prefix: &str) -> bool {
+    let slug = doc.get("slug").and_then(Value::as_str);
+    doc.get("index_name")
+        .and_then(Value::as_str)
+        .is_some_and(|idx| index_matches_prefix(idx, slug, prefix))
+}
+
+/// True when both endpoints of a `doc_kind: "correlation"` catalog document
+/// belong to `prefix`.
+pub fn correlation_matches_prefix(doc: &Value, prefix: &str) -> bool {
+    let a_ok = doc
+        .get("a_index")
+        .and_then(Value::as_str)
+        .is_some_and(|idx| {
+            index_matches_prefix(idx, doc.get("a_dataset").and_then(Value::as_str), prefix)
+        });
+    let b_ok = doc
+        .get("b_index")
+        .and_then(Value::as_str)
+        .is_some_and(|idx| {
+            index_matches_prefix(idx, doc.get("b_dataset").and_then(Value::as_str), prefix)
+        });
+    a_ok && b_ok
+}
+
+/// True when a `doc_kind: "file"` catalog document belongs to `prefix`.
+pub fn file_matches_prefix(doc: &Value, prefix: &str) -> bool {
+    doc.get("prefix")
+        .or_else(|| doc.get(CORPUS_SCOPE_FIELD))
+        .and_then(Value::as_str)
+        == Some(prefix)
+}
+
+/// How many dataset detail sections the default map prints before it asks
+/// for a page. The summary table always lists every dataset; the per-dataset
+/// field tables and sample queries are what blow the map up to hundreds of
+/// kilobytes.
+pub const MAP_DETAIL_PAGE: usize = 8;
+
+/// `(start, end)` of the detail page. `limit = None` prints every dataset
+/// when there are at most [`MAP_DETAIL_PAGE`], and the first page otherwise.
+pub fn detail_bounds(total: usize, offset: usize, limit: Option<usize>) -> (usize, usize) {
+    let start = offset.min(total);
+    let limit = limit.unwrap_or(if total > MAP_DETAIL_PAGE {
+        MAP_DETAIL_PAGE
+    } else {
+        total
+    });
+    let end = start.saturating_add(limit).min(total);
+    (start, end)
+}
+
 pub fn render_map(
     run: Option<&Value>,
     datasets: &[Value],
@@ -500,12 +572,41 @@ pub fn render_map(
     duplicate_files: &[Value],
     junk_total: u64,
 ) -> String {
+    render_map_page(
+        run,
+        datasets,
+        correlations,
+        junk_files,
+        duplicate_files,
+        junk_total,
+        0,
+        None,
+    )
+}
+
+#[allow(clippy::too_many_arguments)] // paging is two extra args on the existing map renderer
+pub fn render_map_page(
+    run: Option<&Value>,
+    datasets: &[Value],
+    correlations: &[Value],
+    junk_files: &[Value],
+    duplicate_files: &[Value],
+    junk_total: u64,
+    detail_offset: usize,
+    detail_limit: Option<usize>,
+) -> String {
     let mut s = String::new();
     s.push_str("# Data map (xerj autoindex)\n\n");
     if let Some(r) = run {
         let g = |k: &str| r.get(k).map(pretty_val).unwrap_or_default();
+        let wall = g("wall_seconds");
+        let wall_clause = if wall.is_empty() {
+            String::new()
+        } else {
+            format!(", wall {wall}s")
+        };
         s.push_str(&format!(
-            "run `{}` — root `{}` — {} paths ({} unique content, {} duplicate aliases), {} records indexed, {} junk records, wall {}s\n\n",
+            "run `{}` — root `{}` — {} paths ({} unique content, {} duplicate aliases), {} records indexed, {} junk records{}\n\n",
             g("run_id"),
             g("root"),
             g("files_total"),
@@ -513,7 +614,7 @@ pub fn render_map(
             g("duplicate_files"),
             g("records_total"),
             g("junk_records_total"),
-            g("wall_seconds"),
+            wall_clause,
         ));
     }
     // #929: a corpus that lacks a dataset says so at the top of its own map,
@@ -567,7 +668,24 @@ pub fn render_map(
     }
     s.push('\n');
 
-    for d in datasets {
+    let (detail_start, detail_end) = detail_bounds(datasets.len(), detail_offset, detail_limit);
+    let detail_truncated = detail_start > 0 || detail_end < datasets.len();
+    if detail_truncated {
+        s.push_str(&format!(
+            "Field detail for datasets {}–{} of {} (largest first). \
+             One dataset: `xerj autoindex map --dataset <slug>`. \
+             Next page: `--offset {detail_end}`.\n\n",
+            detail_start + 1,
+            detail_end,
+            datasets.len()
+        ));
+    }
+
+    for d in datasets
+        .iter()
+        .skip(detail_start)
+        .take(detail_end - detail_start)
+    {
         let g = |k: &str| d.get(k).map(pretty_val).unwrap_or_default();
         s.push_str(&format!("### `{}`\n\n", g("index_name")));
         if let Some(sem) = d.get("semantic_field").filter(|v| v.is_string()) {
@@ -787,6 +905,57 @@ mod duplicate_tests {
     use super::*;
 
     #[test]
+    fn a_long_catalog_pages_field_detail_and_keeps_the_summary_table() {
+        let datasets: Vec<Value> = (0..20)
+            .map(|i| {
+                json!({
+                    "index_name": format!("ax-d{i:02}"),
+                    "slug": format!("d{i:02}"),
+                    "record_count": 100 - i,
+                    "file_count": 1,
+                    "formats": "json",
+                    "fields_json": serde_json::to_string(&vec![crate::infer::FieldSpec {
+                        name: format!("col{i}"),
+                        es_type: "keyword".into(),
+                        date_enc: None,
+                        semantic: None,
+                        cardinality_est: 1,
+                        cardinality_overflow: false,
+                        null_ratio: 0.0,
+                        avg_len: 3.0,
+                        coverage: 1.0,
+                        examples: vec!["v".into()],
+                        notes: vec![],
+                        date_min: None,
+                        date_max: None,
+                        date_evidence: vec![],
+                        num_min: None,
+                        num_max: None,
+                    }]).unwrap()
+                })
+            })
+            .collect();
+        let rendered = render_map(None, &datasets, &[], &[], &[], 0);
+        assert!(
+            rendered.contains("`ax-d00`"),
+            "summary table lists every dataset"
+        );
+        assert!(rendered.contains("`ax-d19`"));
+        assert_eq!(
+            rendered.matches("### `").count(),
+            super::MAP_DETAIL_PAGE,
+            "detail sections stop at the page: {rendered}"
+        );
+        assert!(rendered.contains("Field detail for datasets 1–8 of 20"));
+        assert!(rendered.contains("--offset 8"));
+        let page = render_map_page(None, &datasets, &[], &[], &[], 0, 8, Some(2));
+        assert!(page.contains("### `ax-d08`"));
+        assert!(page.contains("### `ax-d09`"));
+        assert!(!page.contains("### `ax-d10`"));
+        assert!(page.contains("Field detail for datasets 9–10 of 20"));
+    }
+
+    #[test]
     fn duplicate_aliases_render_separately_from_junk() {
         let duplicate = json!({
             "path": "copy.pdf",
@@ -798,6 +967,103 @@ mod duplicate_tests {
         assert_eq!(rendered.matches("## Duplicate aliases").count(), 1);
         assert!(rendered.contains("`copy.pdf` → `report.pdf`"));
         assert!(!rendered.contains("## Junk / skipped"));
+    }
+
+    #[test]
+    fn render_map_omits_blank_wall_seconds_on_generation_catalog_run_docs() {
+        // `generation_catalog.rs` omits `wall_seconds` so the run document is a
+        // deterministic projection of the generation; `render_map` must not
+        // emit a dangling `, wall s` when the field is absent.
+        let gen_run = json!({
+            "doc_kind": "run",
+            "run_id": "gen-1",
+            "root": "/corpus",
+            "prefix": "xc-tantivy",
+            "files_total": 10,
+            "unique_content_files": 9,
+            "duplicate_files": 1,
+            "records_total": 42,
+            "junk_records_total": 0
+        });
+        let rendered = render_map(Some(&gen_run), &[], &[], &[], &[], 0);
+        assert!(
+            !rendered.contains("wall s"),
+            "must not render blank `wall s` when wall_seconds is absent: {rendered}"
+        );
+        assert!(
+            rendered.contains("42 records indexed, 0 junk records\n\n"),
+            "run summary line should end cleanly at junk records: {rendered}"
+        );
+
+        // When `wall_seconds` IS present (legacy graph path), keep `, wall Xs`.
+        let legacy_run = json!({
+            "doc_kind": "run",
+            "run_id": "run-legacy",
+            "root": "/corpus",
+            "files_total": 10,
+            "unique_content_files": 9,
+            "duplicate_files": 1,
+            "records_total": 42,
+            "junk_records_total": 0,
+            "wall_seconds": 1.4
+        });
+        let rendered_legacy = render_map(Some(&legacy_run), &[], &[], &[], &[], 0);
+        assert!(
+            rendered_legacy.contains("0 junk records, wall 1.4s\n\n"),
+            "legacy wall_seconds must still render: {rendered_legacy}"
+        );
+    }
+
+    #[test]
+    fn prefix_scoping_disambiguates_hyphenated_prefixes_across_catalog_doc_kinds() {
+        let tantivy_ds = json!({
+            "doc_kind": "dataset",
+            "slug": "code",
+            "index_name": "xc-tantivy-code"
+        });
+        assert!(dataset_matches_prefix(&tantivy_ds, "xc-tantivy"));
+        assert!(!dataset_matches_prefix(&tantivy_ds, "xc"));
+        assert!(!dataset_matches_prefix(&tantivy_ds, "xc-tantivy-extra"));
+
+        let xc_hyphen_slug_ds = json!({
+            "doc_kind": "dataset",
+            "slug": "tantivy-code",
+            "index_name": "xc-tantivy-code"
+        });
+        assert!(dataset_matches_prefix(&xc_hyphen_slug_ds, "xc"));
+        assert!(!dataset_matches_prefix(&xc_hyphen_slug_ds, "xc-tantivy"));
+
+        // Legacy dataset doc without `slug` falls back to `{prefix}-` boundary.
+        let legacy_ds = json!({
+            "doc_kind": "dataset",
+            "index_name": "ax-logs"
+        });
+        assert!(dataset_matches_prefix(&legacy_ds, "ax"));
+        assert!(!dataset_matches_prefix(&legacy_ds, "ax2"));
+
+        let corr = json!({
+            "doc_kind": "correlation",
+            "a_index": "xc-tantivy-code",
+            "a_dataset": "code",
+            "b_index": "xc-tantivy-symbols",
+            "b_dataset": "symbols"
+        });
+        assert!(correlation_matches_prefix(&corr, "xc-tantivy"));
+        assert!(!correlation_matches_prefix(&corr, "xc"));
+
+        let file_with_prefix = json!({
+            "doc_kind": "file",
+            "prefix": "xc-tantivy",
+            "path": "a.rs"
+        });
+        let file_with_scope_only = json!({
+            "doc_kind": "file",
+            CORPUS_SCOPE_FIELD: "xc-tantivy",
+            "path": "b.rs"
+        });
+        assert!(file_matches_prefix(&file_with_prefix, "xc-tantivy"));
+        assert!(!file_matches_prefix(&file_with_prefix, "xc"));
+        assert!(file_matches_prefix(&file_with_scope_only, "xc-tantivy"));
     }
 }
 
@@ -837,6 +1103,7 @@ mod sample_query_tests {
             time_field: None,
             semantic_field: None,
             text_analyzer: None,
+            scope: None,
             sampled_records: 1,
             file_count: 1,
         }

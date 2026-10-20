@@ -1,0 +1,22 @@
+{
+ "corpus": "hamna-munir--07-ai-meeting-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, calendar-scheduling, google-calendar-api queries this for how Hamna-Munir/07-AI-Meeting-Agent implements it: AI Meeting Agent that extracts scheduling details from natural language, checks real Google Calendar availability via OAuth, and only books  (selected work: src)",
+ "repos": [
+  {
+   "repo": "07-AI-Meeting-Agent",
+   "url": "https://github.com/Hamna-Munir/07-AI-Meeting-Agent",
+   "sha": "69b5c9fac223ae9d42b5a47e4ace74b9b1c99d28",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 69b5c9fac223: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

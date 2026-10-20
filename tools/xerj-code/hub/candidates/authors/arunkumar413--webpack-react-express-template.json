@@ -1,0 +1,22 @@
+{
+ "corpus": "arunkumar413--webpack-react-express-template",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how arunkumar413/webpack-react-express-template implements it: A simple template to run webpack,react and express server (selected work: server, client, scripts)",
+ "repos": [
+  {
+   "repo": "webpack-react-express-template",
+   "url": "https://github.com/arunkumar413/webpack-react-express-template",
+   "sha": "ac28c1b97e4205c897caf0df3e49506dff7fb7ad",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ac28c1b97e42: \"Add package-lock.json, update package.json scripts, and enhance READM\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

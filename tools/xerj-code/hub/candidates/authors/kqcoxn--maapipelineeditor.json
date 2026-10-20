@@ -1,0 +1,22 @@
+{
+ "corpus": "kqcoxn--maapipelineeditor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on pipeline, maaframework, maa queries this for how kqcoxn/MaaPipelineEditor implements it: \u2728 \u53ef\u89c6\u5316\u6784\u5efa MaaFramework Pipeline \u7684\u4e0b\u4e00\u4ee3\u5de5\u4f5c\u6d41 \u5ba1\u9605&\u7f16\u8f91&\u8c03\u8bd5 \u5de5\u5177\uff0c\u4f60\u7684\u5de5\u7a0b\u5e08\u725b\u725b\uff01 \u2728 (selected work: Editor, LocalBridge)",
+ "repos": [
+  {
+   "repo": "MaaPipelineEditor",
+   "url": "https://github.com/kqcoxn/MaaPipelineEditor",
+   "sha": "c01c01376dc9c80e5a7c36768f789c87f461a38a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit c01c01376dc9: \"feat: MPE Recorder base\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

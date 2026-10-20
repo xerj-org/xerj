@@ -1,0 +1,22 @@
+{
+ "corpus": "utpalsinghdev--pi-extensions",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how utpalsinghdev/pi-extensions implements it: Independently installable extensions for Pi Coding Agent (selected work: packages/pi-prompt-stash, the project root)",
+ "repos": [
+  {
+   "repo": "pi-extensions",
+   "url": "https://github.com/utpalsinghdev/pi-extensions",
+   "sha": "d56c5cd94d296843e8710f257800fca77707126d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit d56c5cd94d29: \"feat: add prompt stash extension\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

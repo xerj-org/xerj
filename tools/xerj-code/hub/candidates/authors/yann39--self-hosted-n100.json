@@ -1,0 +1,22 @@
+{
+ "corpus": "yann39--self-hosted-n100",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on crowdsec, dashdot, docker queries this for how Yann39/self-hosted-n100 implements it: Personal self-hosted infrastructure setup for N100-based mini PC (selected work: apps/ghostfolio, apps/backrest, apps/traefik)",
+ "repos": [
+  {
+   "repo": "self-hosted-n100",
+   "url": "https://github.com/Yann39/self-hosted-n100",
+   "sha": "140555d6f1476fc9f98f94f39a7fc2d6bd040f25",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 140555d6f147: \"added ghostfolio\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

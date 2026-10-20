@@ -1,0 +1,22 @@
+{
+ "corpus": "amals367--inferweave",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-inference, cloud-computing, gpu queries this for how AmaLS367/InferWeave implements it: InferWeave is an open-source Python SDK for deploying and managing AI models across cloud GPU providers, including Modal, Lightning AI, RunP (selected work: src/inferweave, tests)",
+ "repos": [
+  {
+   "repo": "InferWeave",
+   "url": "https://github.com/AmaLS367/InferWeave",
+   "sha": "b745ee91f665d8625f5705dca9cb468c547dc53a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit b745ee91f665: \"fix(models): address review findings for container spec support (T1.1)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "xiaodoudou--plexiptv",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how xiaodoudou/PlexIPTV implements it: This app simulate a DVR device for Plex by providing a layer to any IPTV provider (that provide a m3u8 playlist) (selected work: src/sources, test, src)",
+ "repos": [
+  {
+   "repo": "PlexIPTV",
+   "url": "https://github.com/xiaodoudou/PlexIPTV",
+   "sha": "a7a14fda029a719a94988953685e2ea6925dc0af",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit a7a14fda029a: \"feat: take a list of sources, so several providers become one lineup\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "rrhakushi--iris",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how rrHakushi/IRIS implements it: rrHakushi/IRIS (TypeScript) (selected work: plugins, the project root)",
+ "repos": [
+  {
+   "repo": "IRIS",
+   "url": "https://github.com/rrHakushi/IRIS",
+   "sha": "8e2540de2114cdfcb5b8995b95939b245cdf525a",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 8e2540de2114: \"feat(akaromi-firefox): improve 2FA workflows, security hardening, and\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

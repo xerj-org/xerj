@@ -1,0 +1,22 @@
+{
+ "corpus": "klarkxy--dsh-spaces",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on deepseek-harness, desktop-app, dsh queries this for how klarkxy/dsh-spaces implements it: Spaces for DeepSeek Harness \u2014 switch DSH workspaces like Discord servers (selected work: packages/plugin, tests, resources)",
+ "repos": [
+  {
+   "repo": "dsh-spaces",
+   "url": "https://github.com/klarkxy/dsh-spaces",
+   "sha": "4fa5b4ded48d1d0db1f7c084cf2e4dcc8360ee9a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 4fa5b4ded48d: \"feat(plugin): add native Desktop space rail and avatar set\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

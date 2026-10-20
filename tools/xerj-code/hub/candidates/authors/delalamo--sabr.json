@@ -1,0 +1,22 @@
+{
+ "corpus": "delalamo--sabr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how delalamo/SAbR implements it: Structure-based antibody renumbering (selected work: benchmarks, tests, the project root)",
+ "repos": [
+  {
+   "repo": "SAbR",
+   "url": "https://github.com/delalamo/SAbR",
+   "sha": "4eb85b107e952c701e58e640d461f3e75c49570a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 4eb85b107e95: \"Add curated antibody benchmark and pipeline invariance tests (#221)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

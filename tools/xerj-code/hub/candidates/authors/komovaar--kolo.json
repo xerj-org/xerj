@@ -1,0 +1,22 @@
+{
+ "corpus": "komovaar--kolo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how komovaar/kolo implements it: Multiplayer AI coding agents. One machine runs them, everybody else opens a link (selected work: internal/hub, frontend, tests)",
+ "repos": [
+  {
+   "repo": "kolo",
+   "url": "https://github.com/komovaar/kolo",
+   "sha": "ddd7c668ca7e14d3205fb43fb237a17933d98cb5",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit ddd7c668ca7e: \"feat(ui): use React primitives for session switching and sharing\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

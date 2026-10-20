@@ -1,0 +1,22 @@
+{
+ "corpus": "ka9q--ka9q-radio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how ka9q/ka9q-radio implements it: Multichannel SDR based on fast convolution and IP multicasting (selected work: src)",
+ "repos": [
+  {
+   "repo": "ka9q-radio",
+   "url": "https://github.com/ka9q/ka9q-radio",
+   "sha": "d034c051413c8bc5db93f149babd3affccecdcec",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit d034c051413c: \"clean up misc.[ch], split some contents\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

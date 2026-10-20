@@ -1,0 +1,22 @@
+{
+ "corpus": "geminik23--ai-agents",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, ai, ai-agents queries this for how geminik23/ai-agents implements it: One YAML = Any Agent. Declarative AI agent framework in Rust (selected work: crates/ai-agents-eval, crates/ai-agents-runtime, the project root)",
+ "repos": [
+  {
+   "repo": "ai-agents",
+   "url": "https://github.com/geminik23/ai-agents",
+   "sha": "ebef4ebc84fcc0ecf8c34b2554c8d396f05d1b54",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-05 (reply to Corpus Hub outreach); selected commit ebef4ebc84fc: \"fix: bound eval construction stack usage (#8)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

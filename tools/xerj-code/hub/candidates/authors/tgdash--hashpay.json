@@ -1,0 +1,22 @@
+{
+ "corpus": "tgdash--hashpay",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on TypeScript queries this for how TGDash/HashPay implements it: TGDash/HashPay (TypeScript) (selected work: src/server, test, src/app)",
+ "repos": [
+  {
+   "repo": "HashPay",
+   "url": "https://github.com/TGDash/HashPay",
+   "sha": "f13188c34fa868e4ec837db9b8eade43f93e238a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f13188c34fa8: \"\u65b0\u589e\u52a8\u6001\u91d1\u989d\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

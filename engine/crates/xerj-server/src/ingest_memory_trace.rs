@@ -40,6 +40,18 @@ impl Drop for TraceRuntime {
     }
 }
 
+/// A trace thread that could not start (#1122). The trace is diagnostics
+/// only, so the node runs on without it — but say so, rather than leaving an
+/// operator who asked for a trace with an empty file and no reason.
+fn trace_spawn_failed(thread: &str, error: &std::io::Error) {
+    tracing::warn!(
+        target: "xerj::ingest_memory",
+        thread,
+        %error,
+        "ingest-memory trace disabled: could not start its {thread} thread"
+    );
+}
+
 pub fn spawn(engine: &Arc<Engine>) -> Option<TraceRuntime> {
     let config = ingest_memory::config();
     if config.mode == TraceMode::Off {
@@ -53,6 +65,7 @@ pub fn spawn(engine: &Arc<Engine>) -> Option<TraceRuntime> {
     let writer = std::thread::Builder::new()
         .name("xerj-ingest-memory-writer".into())
         .spawn(move || writer_loop(rx, writer_dropped))
+        .map_err(|error| trace_spawn_failed("writer", &error))
         .ok()?;
 
     let weak = Arc::downgrade(engine);
@@ -73,6 +86,9 @@ pub fn spawn(engine: &Arc<Engine>) -> Option<TraceRuntime> {
                 Duration::from_millis(config.sample_ms),
             );
         })
+        // The writer exits on its own: the sender it reads from was moved
+        // into the closure the failed spawn just dropped.
+        .map_err(|error| trace_spawn_failed("sampler", &error))
         .ok()?;
 
     Some(TraceRuntime {

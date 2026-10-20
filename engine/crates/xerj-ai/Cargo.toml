@@ -15,6 +15,9 @@ tokio.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
+# Only for try_join_all in the embedding proxy's batch chunking (#1190) —
+# already in the tree via xerj-engine, no new crate for the workspace.
+futures-util = "0.3"
 
 # Built-in neural embedder (candle + MiniLM), download-on-first-run.
 # Feature-gated so the default build stays dependency-light and the

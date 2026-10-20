@@ -1,0 +1,22 @@
+{
+ "corpus": "diegosalsa--opticastylo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how DiegoSalsa/OpticaStylo implements it: DiegoSalsa/OpticaStylo (JavaScript) (selected work: scripts, tests, e2e)",
+ "repos": [
+  {
+   "repo": "OpticaStylo",
+   "url": "https://github.com/DiegoSalsa/OpticaStylo",
+   "sha": "53162f971bb5896932a13d488382b7383ddbc06b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 53162f971bb5: \"test: preparar evaluaci\u00f3n con HTTP real y Playwright autenticado\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

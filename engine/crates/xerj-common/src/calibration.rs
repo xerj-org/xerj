@@ -322,7 +322,7 @@ fn t_bracket() -> (f64, f64) {
 impl TemperatureCalibration {
     /// Fit `T` by minimising the pairs' negative log-likelihood — Platt
     /// (1999) / Guo et al. (2017)'s held-out form — by golden-section search
-    /// on `ln T` over [`T_BRACKET`]. Deterministic: a fixed bracket and a
+    /// on `ln T` over `t_bracket()`. Deterministic: a fixed bracket and a
     /// fixed 100 halvings of it, no starting point, no tolerance decision, so
     /// the same pairs always fit the same `T`.
     pub fn fit(pairs: &[CalibrationPair]) -> Self {

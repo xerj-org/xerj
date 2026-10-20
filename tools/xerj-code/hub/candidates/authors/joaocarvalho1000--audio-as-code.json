@@ -1,0 +1,22 @@
+{
+ "corpus": "joaocarvalho1000--audio-as-code",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-tools, ai-agents, audio-synthesis queries this for how joaoCarvalho1000/audio-as-code implements it: Open-source music framework for AI coding agents like Claude Code and Codex. Compose editable soundtracks in Python or JSON, synthesize inst (selected work: tests, examples, src/audio_as_code)",
+ "repos": [
+  {
+   "repo": "audio-as-code",
+   "url": "https://github.com/joaoCarvalho1000/audio-as-code",
+   "sha": "d34e33d706c6bc7d06b972b600b74942b63f006e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit d34e33d706c6: \"Ship 0.4 mixing controls and verified website releases (#10)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "wahabkhan000--operating-system-simulator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how wahabkhan000/Operating-System-Simulator implements it: A C++ simulation of process management, CPU scheduling, paging, and physical memory management (selected work: Operating_System)",
+ "repos": [
+  {
+   "repo": "Operating-System-Simulator",
+   "url": "https://github.com/wahabkhan000/Operating-System-Simulator",
+   "sha": "86b8e92be1951fd6e77bb693acc4f1bd87e39438",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 86b8e92be195: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

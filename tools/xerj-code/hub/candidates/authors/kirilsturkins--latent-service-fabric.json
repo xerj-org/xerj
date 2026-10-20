@@ -1,0 +1,22 @@
+{
+ "corpus": "kirilsturkins--latent-service-fabric",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on capability-based-security, cloud-native, edge-computing queries this for how KirilsTurkins/latent-service-fabric implements it: Standalone WebAssembly runtime for stateless services and web apps. Build capsules in Rust, C, TypeScript, Go, Java or C#, with capability-b (selected work: tools, crates/latent-wasmtime, apps/latentd)",
+ "repos": [
+  {
+   "repo": "latent-service-fabric",
+   "url": "https://github.com/KirilsTurkins/latent-service-fabric",
+   "sha": "442c4cba24df285b8f7e0eb035527a4c71171c39",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 442c4cba24df: \"fix(security): backport reviewed engine, TLS and workflow fixes to re\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

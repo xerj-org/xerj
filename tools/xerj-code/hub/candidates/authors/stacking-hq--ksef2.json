@@ -1,0 +1,22 @@
+{
+ "corpus": "stacking-hq--ksef2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on invoices, ksef, sdk queries this for how stacking-hq/ksef2 implements it: Python SDK and Tools for Poland's KSeF (Krajowy System e-Faktur) v2.0 API (selected work: tests, src/ksef2)",
+ "repos": [
+  {
+   "repo": "ksef2",
+   "url": "https://github.com/stacking-hq/ksef2",
+   "sha": "87c3345a746b8a00451cffcd33dd6d138df3522e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 87c3345a746b: \"fix(batch): reattach the prepared payload when resuming a batch upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

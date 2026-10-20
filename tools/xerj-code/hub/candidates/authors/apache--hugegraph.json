@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--hugegraph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on database, graph-database, graph queries this for how apache/hugegraph implements it: A graph database that supports more than 100+ billion data, high performance and scalability (Include OLTP Engine & REST-API & Backends) (selected work: hugegraph-server, the project root, hugegraph-pd)",
+ "repos": [
+  {
+   "repo": "hugegraph",
+   "url": "https://github.com/apache/hugegraph",
+   "sha": "5162b1ac856ce8b72524d4886b8a382cef913077",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit 5162b1ac856c: \"fix(server): close upgrade review gaps\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

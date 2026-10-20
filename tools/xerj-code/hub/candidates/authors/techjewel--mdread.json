@@ -1,0 +1,22 @@
+{
+ "corpus": "techjewel--mdread",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on cloudflare-workers, local-first, markdown queries this for how techjewel/mdread implements it: A quiet reading room for your markdown \u2014 local-first, privacy-first reader. Drop a file or folder, read, edit, download. No backend. Live: h (selected work: src/modules, worker, src/styles)",
+ "repos": [
+  {
+   "repo": "mdread",
+   "url": "https://github.com/techjewel/mdread",
+   "sha": "db39056761feb7986e5a3275dcb2979134f6717e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit db39056761fe: \"feat(collab): live co-editing over encrypted CRDT updates\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

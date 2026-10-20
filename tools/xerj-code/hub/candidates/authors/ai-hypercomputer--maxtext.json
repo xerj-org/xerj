@@ -1,0 +1,22 @@
+{
+ "corpus": "ai-hypercomputer--maxtext",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on large-language-models, llm, gpt queries this for how AI-Hypercomputer/maxtext implements it: A simple, performant, and scalable Jax LLM! (selected work: tests, src/maxtext)",
+ "repos": [
+  {
+   "repo": "maxtext",
+   "url": "https://github.com/AI-Hypercomputer/maxtext",
+   "sha": "bffdb073a9ee8c74fd4cf1c72168672893a10124",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit bffdb073a9ee: \"feat(vllm): support Decode Context Parallelism (DCP) for Qwen3.5 in M\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

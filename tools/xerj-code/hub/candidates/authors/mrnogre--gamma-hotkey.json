@@ -1,0 +1,22 @@
+{
+ "corpus": "mrnogre--gamma-hotkey",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on display, dotnet, gaming queries this for how MrNogre/gamma-hotkey implements it: Switch display gamma with a hotkey \u2013 see more in dark games. Portable Windows 10/11 tray app (selected work: GammaHotkey, GammaHotkey.Tests)",
+ "repos": [
+  {
+   "repo": "gamma-hotkey",
+   "url": "https://github.com/MrNogre/gamma-hotkey",
+   "sha": "ac0b4ef81afa478f3bfe5e540b314a60c58143f5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit ac0b4ef81afa: \"feat(profile): add brightness and contrast per profile\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

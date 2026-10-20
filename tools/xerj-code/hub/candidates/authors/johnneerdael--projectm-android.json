@@ -1,0 +1,22 @@
+{
+ "corpus": "johnneerdael--projectm-android",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how johnneerdael/ProjectM-Android implements it: ProjectM Android is a music visualizer for phones and TV's. Based on unreleased projectM 4.2 master, the engine combines upstream fixes with (selected work: app/src, tools, core/src)",
+ "repos": [
+  {
+   "repo": "ProjectM-Android",
+   "url": "https://github.com/johnneerdael/ProjectM-Android",
+   "sha": "7f232d1a0139a858f4c0231adac93080f9cd6511",
+   "licence": "hint only: LGPL-2.1 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-2.1",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 7f232d1a0139: \"feat: add slim F-Droid TV and Android editions with optional presets \u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "shvdx--statsbar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how shvdx/StatsBar implements it: statusbar/menubar app for apple silicon (selected work: StatsBar)",
+ "repos": [
+  {
+   "repo": "StatsBar",
+   "url": "https://github.com/shvdx/StatsBar",
+   "sha": "1f186874f2ce7bc91755b376889fc1932bf62cea",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 1f186874f2ce: \"M5/M6 support; Dot matrix graph fill;\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

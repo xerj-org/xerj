@@ -1,0 +1,22 @@
+{
+ "corpus": "dnfui--dnf-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on cplusplus, dnf, fedora queries this for how dnfui/dnf-ui implements it: A modern, fast GTK4 frontend for DNF5 (selected work: src/ui, src/dnf5daemon_client, test)",
+ "repos": [
+  {
+   "repo": "dnf-ui",
+   "url": "https://github.com/dnfui/dnf-ui",
+   "sha": "8a746fb4ed7876aa063d34645dea139157e38ebb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 8a746fb4ed78: \"Keep prepared reboot updates visible in the main window\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

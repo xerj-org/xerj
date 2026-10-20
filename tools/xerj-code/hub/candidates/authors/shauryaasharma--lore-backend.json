@@ -1,0 +1,22 @@
+{
+ "corpus": "shauryaasharma--lore-backend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-agents-automation, fastapi queries this for how ShauryaaSharma/lore-backend implements it: Lore, an engineering team's decision memory. A GitHub App captures the why behind merged PRs; a LangGraph agent answers /why questions over  (selected work: tests, lore_backend)",
+ "repos": [
+  {
+   "repo": "lore-backend",
+   "url": "https://github.com/ShauryaaSharma/lore-backend",
+   "sha": "f2c72698df092c5b8533ffedd850f4fa348fdb60",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f2c72698df09: \"Flag decisions the code has probably moved on from\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "jannisborn--paperscraper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on medrxiv, arxiv, pubmed queries this for how jannisborn/paperscraper implements it: A bibliometrics tool for publication metadata (pubmed, arxiv, medrxiv, biorxiv, chemrxiv) and citation analyses (selected work: paperscraper)",
+ "repos": [
+  {
+   "repo": "paperscraper",
+   "url": "https://github.com/jannisborn/paperscraper",
+   "sha": "76a36fb3103055ebeddfa4f35a453c41b5d69370",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 76a36fb31030: \"Refactor: SearchAPIClient  (#124)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

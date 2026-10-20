@@ -1,0 +1,22 @@
+{
+ "corpus": "binqi20--management-research-notes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on bibliographic-metadata, bibtex, literature-review queries this for how binqi20/management-research-notes implements it: A management and business sustainability research library with AI-assisted Markdown notes, SQLite/FTS5 search, CSV and BibTeX exports, and d (selected work: index, the project root, tools)",
+ "repos": [
+  {
+   "repo": "management-research-notes",
+   "url": "https://github.com/binqi20/management-research-notes",
+   "sha": "ca1285a8cc3dc5b4d6ebdeaae2042c5a0ae2797e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ca1285a8cc3d: \"Add AMJ vol-57-no-5 notes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

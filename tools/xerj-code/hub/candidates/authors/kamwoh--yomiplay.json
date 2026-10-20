@@ -1,0 +1,22 @@
+{
+ "corpus": "kamwoh--yomiplay",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, emulator, japanese queries this for how kamwoh/yomiplay implements it: Learn Japanese while you play retro games. A PS1 emulator in your browser with an AI companion that explains the text on screen (selected work: src/yomiplay, tests, web)",
+ "repos": [
+  {
+   "repo": "yomiplay",
+   "url": "https://github.com/kamwoh/yomiplay",
+   "sha": "e949a010aef85b81833e260aa387a6b261108458",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit e949a010aef8: \"Add model and thinking picker to the Chat tab\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "mananbharti--orbit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, app-launcher, clipboard-sync queries this for how mananbharti/Orbit implements it: Orbit \u2014 Apple Continuity-style seamlessness (clipboard sync, file sharing, remote control) for any device combo. Works across iOS, Android,  (selected work: desktop, mobile, the project root)",
+ "repos": [
+  {
+   "repo": "Orbit",
+   "url": "https://github.com/mananbharti/Orbit",
+   "sha": "a837f704fdd216e0e488e55b4f36f9735973bc6a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit a837f704fdd2: \"Desktop app (Electron shell, auto address pick, pairing QR), installe\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

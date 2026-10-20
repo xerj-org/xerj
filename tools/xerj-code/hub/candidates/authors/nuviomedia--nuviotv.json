@@ -1,0 +1,22 @@
+{
+ "corpus": "nuviomedia--nuviotv",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how NuvioMedia/NuvioTV implements it: Official Nuvio Android TV Repository (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "NuvioTV",
+   "url": "https://github.com/NuvioMedia/NuvioTV",
+   "sha": "7d27c5ebd507e28b228b23971fc52f354d477666",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 7d27c5ebd507: \"Optimize custom poster URL resolving and image cache revalidation\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

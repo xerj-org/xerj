@@ -1,0 +1,22 @@
+{
+ "corpus": "sezgynus--petrel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 3d-printer, 3d-printing, display queries this for how sezgynus/Petrel implements it: Open-source local interface for Klipper using the original Ender 3 V2 DWIN T5UIC1 display, with printer controls, bed leveling and Happy Har (selected work: tests, the project root)",
+ "repos": [
+  {
+   "repo": "Petrel",
+   "url": "https://github.com/sezgynus/Petrel",
+   "sha": "8a5a276edbfd8811a426aba6658d5fa336c190ec",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 8a5a276edbfd: \"fix: trigger nonblocking fast LCD handshakes from power or Klipper re\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

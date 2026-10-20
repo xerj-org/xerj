@@ -1,0 +1,38 @@
+[package]
+name = "xerj-hub"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Corpus Hub v2 client: pull pre-indexed packs, route a question to a corpus, answer locally or through the hosted hub"
+
+[dependencies]
+xerj-common = { path = "../xerj-common" }
+serde.workspace = true
+serde_json = { workspace = true, features = ["preserve_order"] }
+anyhow.workspace = true
+base64 = "0.23.1"
+xerj-autoindex = { path = "../xerj-autoindex" }
+reqwest = { workspace = true, features = ["blocking"] }
+chrono.workspace = true
+zstd.workspace = true
+toml.workspace = true
+sha2 = "0.10"
+tar = "0.4"
+
+# `xerj hub stop` signals exactly the PID it recorded (plan §5, §11).
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+tempfile.workspace = true
+# The pack roundtrip test boots a real in-process node (ephemeral TCP port) so
+# the builder/pull snapshot+restore HTTP calls run end to end.
+xerj-api = { path = "../xerj-api" }
+xerj-engine = { path = "../xerj-engine" }
+xerj-common = { path = "../xerj-common" }
+xerj-autoindex = { path = "../xerj-autoindex" }
+tokio = { workspace = true }
+axum.workspace = true
+sha2 = "0.10"
+serde_json = { workspace = true }

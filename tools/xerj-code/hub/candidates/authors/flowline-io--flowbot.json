@@ -1,0 +1,22 @@
+{
+ "corpus": "flowline-io--flowbot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on golang, workflow, agent queries this for how flowline-io/flowbot implements it: Homelab data hub \u2014 discover apps, invoke capabilities, automate across them (selected work: internal/server, pkg/mcp, pkg/agent)",
+ "repos": [
+  {
+   "repo": "flowbot",
+   "url": "https://github.com/flowline-io/flowbot",
+   "sha": "1aeb68c38ab8533da4ef4ace75bdd4fac099ee6a",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 1aeb68c38ab8: \"Implement MCP server and client features\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

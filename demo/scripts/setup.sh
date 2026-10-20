@@ -51,7 +51,7 @@ mkdir -p "$DATA_DIR"
 
 # 4. Start the server in the background.
 echo "==> starting server"
-"$BINARY" --insecure --data-dir "$DATA_DIR" >"$LOG_FILE" 2>&1 &
+"$BINARY" --insecure --port "$PORT" --data-dir "$DATA_DIR" >"$LOG_FILE" 2>&1 &
 echo $! > "$PID_FILE"
 
 # 5. Wait for green cluster (60s budget).

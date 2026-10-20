@@ -1,0 +1,22 @@
+{
+ "corpus": "crackmesone--crackmesone-python",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on reverse-engineering queries this for how crackmesone/crackmesone_python implements it: source code for crackmes.one (selected work: tests, app/models, templates)",
+ "repos": [
+  {
+   "repo": "crackmesone_python",
+   "url": "https://github.com/crackmesone/crackmesone_python",
+   "sha": "48a364f70ea7b91dac7bc25e4f8d75293e46bb39",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 48a364f70ea7: \"Add paginated player scoreboard (#187)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

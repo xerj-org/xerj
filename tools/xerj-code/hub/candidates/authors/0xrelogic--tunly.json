@@ -1,0 +1,22 @@
+{
+ "corpus": "0xrelogic--tunly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on server, developer-tools, localhost-tunnel queries this for how 0xReLogic/Tunly implements it: Tunly is a lightweight, open-source HTTP tunnel solution for developers who want full control and instant setup. No signup. No limits. No tr (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "Tunly",
+   "url": "https://github.com/0xReLogic/Tunly",
+   "sha": "f7cdc9cf1b0a024cc5bf68174a851d2e65c82426",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit f7cdc9cf1b0a: \"feat: add dashboard page and components (tunnels, requests, stats)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

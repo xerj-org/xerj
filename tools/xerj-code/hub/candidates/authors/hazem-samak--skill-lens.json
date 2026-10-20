@@ -1,0 +1,22 @@
+{
+ "corpus": "hazem-samak--skill-lens",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, cli, developer-tools queries this for how Hazem-Samak/skill-lens implements it: Local, read-only diagnostics and resolution engine for AI agent skills (SKILL.md). See what skills you have, where they live, and which copy (selected work: tests, scripts, skill_lens)",
+ "repos": [
+  {
+   "repo": "skill-lens",
+   "url": "https://github.com/Hazem-Samak/skill-lens",
+   "sha": "4acce920dfd73b116f4359fc8842d32ca149864d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 4acce920dfd7: \"fix(packaging): verify installed TUI artifacts and dependency boundaries\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

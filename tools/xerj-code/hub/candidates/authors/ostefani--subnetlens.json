@@ -1,0 +1,22 @@
+{
+ "corpus": "ostefani--subnetlens",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Go queries this for how ostefani/subnetlens implements it: A fast, concurrent open-source network scanner with a TUI and plain-text CLI, built in Go. It discovers live hosts on your network, scans th (selected work: scanner, ui)",
+ "repos": [
+  {
+   "repo": "subnetlens",
+   "url": "https://github.com/ostefani/subnetlens",
+   "sha": "188ff4f5df8b8ec76e9700a3b59fc6d5a6cf9308",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 188ff4f5df8b: \"refactor(scanner): remove progress data race, move throttling into en\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

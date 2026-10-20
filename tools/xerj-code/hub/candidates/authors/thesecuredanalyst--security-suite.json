@@ -1,0 +1,22 @@
+{
+ "corpus": "thesecuredanalyst--security-suite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on ai, api-security, cybersecurity queries this for how TheSecuredAnalyst/security-suite implements it: Open-source security suite for OSINT, web scanning, API testing, SIEM integration, and AI-powered analysis (selected work: modules/correlation, tests, cli)",
+ "repos": [
+  {
+   "repo": "security-suite",
+   "url": "https://github.com/TheSecuredAnalyst/security-suite",
+   "sha": "b0aa40ab1ca514a97fe953845517a6686fc3e317",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit b0aa40ab1ca5: \"feat(correlation): community-extensible, provenance-aware correlation\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

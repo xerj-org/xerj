@@ -1,0 +1,22 @@
+{
+ "corpus": "ikauedev--spring-microservices-docker-kubernetes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Java queries this for how IKauedev/spring-microservices-docker-kubernetes implements it: Spring Boot microservices demo on Kubernetes (Spring Boot 4.1 / Spring Cloud 2025.1) (selected work: organization-service, gateway-service, employee-service)",
+ "repos": [
+  {
+   "repo": "spring-microservices-docker-kubernetes",
+   "url": "https://github.com/IKauedev/spring-microservices-docker-kubernetes",
+   "sha": "e748ef6f10b16504f74942c875250988d8d6ce15",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e748ef6f10b1: \"feature: cria\u00e7\u00e3o de testes + segrega\u00e7\u00e3o de responsabilidade do argocd\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "devoidfury--hotdog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, ai-agent, ai-agents queries this for how devoidfury/hotdog implements it: AI agent with zero dependencies, bring your own bun (selected work: evals, tests)",
+ "repos": [
+  {
+   "repo": "hotdog",
+   "url": "https://github.com/devoidfury/hotdog",
+   "sha": "9125d0da2fa6fe2a6be5f3b34a38c7cd96a65487",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 9125d0da2fa6: \"kielbasa-2 - update special token sweep testing\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "laoshuikaixue--voicehub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on songrequest, tailwindcss, typescript queries this for how laoshuikaixue/VoiceHub implements it: \u8fd9\u662f\u4e00\u4e2a\u4f7f\u7528Nuxt 4\u5168\u6808\u6846\u67b6\u5f00\u53d1\u7684\u4f4e\u6210\u672c\u6821\u56ed\u5e7f\u64ad\u7ad9\u70b9\u6b4c\u7cfb\u7edf\u3002\u7cfb\u7edf\u63d0\u4f9b\u5b8c\u6574\u7684\u70b9\u6b4c\u6295\u7968\u3001\u6392\u671f\u7ba1\u7406\u3001\u6743\u9650\u63a7\u5236\u548c\u6253\u5370\u5bfc\u51fa\u529f\u80fd\uff0c\u5177\u5907\u73b0\u4ee3\u5316\u7684UI\u8bbe\u8ba1\u3002\u7ba1\u7406\u5458\u53ef\u901a\u8fc7\u76f4\u89c2\u7684\u62d6\u62fd\u754c\u9762\u8fdb\u884c\u6392\u671f\u7ba1\u7406\uff0c\u652f\u6301\u591a\u64ad\u51fa\u65f6\u6bb5\u914d\u7f6e\u3002\u7cfb\u7edf\u5185\u7f6e\u5b8c\u5584\u7684\u6743\u9650\u7ba1\u7406\u4f53\u7cfb\u3001\u5b66\u671f\u7ba1\u7406\u3001\u9ed1\u540d\u5355\u63a7\u5236\u7b49\u529f\u80fd\uff0c\u540c\u65f6\u9488\u5bf9\u79fb\u52a8\u7aef\u8fdb\u884c\u4e86 (selected work: app/utils, tests, app/components)",
+ "repos": [
+  {
+   "repo": "VoiceHub",
+   "url": "https://github.com/laoshuikaixue/VoiceHub",
+   "sha": "f0d84b62e13bffb26eb65ffa5bcdde8e52258bbe",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit f0d84b62e13b: \"feat(schedule): \u81ea\u52a8\u6392\u671f\u652f\u6301\u70ed\u5ea6\u52a0\u6743\u968f\u673a (#625)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

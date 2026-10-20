@@ -1,0 +1,22 @@
+{
+ "corpus": "roboticslab-uc3m--yarp-devices",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on robotics queries this for how roboticslab-uc3m/yarp-devices implements it: A place for YARP devices (selected work: libraries, tests, examples)",
+ "repos": [
+  {
+   "repo": "yarp-devices",
+   "url": "https://github.com/roboticslab-uc3m/yarp-devices",
+   "sha": "9a9a938e4b0ec988738d5cddad3e694819f18186",
+   "licence": "hint only: LGPL-2.1 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-2.1",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 9a9a938e4b0e: \"Prepare for YARP 4.1\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

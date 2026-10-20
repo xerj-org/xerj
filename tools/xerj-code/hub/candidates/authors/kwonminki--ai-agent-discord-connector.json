@@ -1,0 +1,22 @@
+{
+ "corpus": "kwonminki--ai-agent-discord-connector",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how kwonminki/ai-agent-discord-connector implements it: kwonminki/ai-agent-discord-connector (TypeScript) (selected work: apps/discord-bot, packages/codex-adapter, the project root)",
+ "repos": [
+  {
+   "repo": "ai-agent-discord-connector",
+   "url": "https://github.com/kwonminki/ai-agent-discord-connector",
+   "sha": "17a14934cc0671d811f086b34b9923003a120af0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 17a14934cc06: \"feat: mirror progress for existing Desktop and Orca Codex sessions\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

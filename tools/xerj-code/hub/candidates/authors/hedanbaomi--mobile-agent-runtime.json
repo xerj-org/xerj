@@ -1,0 +1,22 @@
+{
+ "corpus": "hedanbaomi--mobile-agent-runtime",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how hedanbaomi/mobile-agent-runtime implements it: hedanbaomi/mobile-agent-runtime (Kotlin) (selected work: app-android, feature)",
+ "repos": [
+  {
+   "repo": "mobile-agent-runtime",
+   "url": "https://github.com/hedanbaomi/mobile-agent-runtime",
+   "sha": "e62099961ac96f8b55796bbbd907e82799d05f99",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit e62099961ac9: \"feat(chat): simplify citations and reply controls for preview 1.1.5.1\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

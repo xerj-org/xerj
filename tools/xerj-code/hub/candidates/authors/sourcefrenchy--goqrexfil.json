@@ -1,0 +1,22 @@
+{
+ "corpus": "sourcefrenchy--goqrexfil",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how sourcefrenchy/goqrexfil implements it: A mini project to exfiltrate data via QR codes (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "goqrexfil",
+   "url": "https://github.com/sourcefrenchy/goqrexfil",
+   "sha": "9c0caa4ab0e93852b2396063587efc2526f8d0db",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 9c0caa4ab0e9: \"Add pipeline modules: RaptorQ fountain coding, terminal QR, dir packi\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

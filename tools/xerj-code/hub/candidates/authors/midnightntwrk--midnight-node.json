@@ -1,0 +1,22 @@
+{
+ "corpus": "midnightntwrk--midnight-node",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on blockchain, cardano, polkadot-sdk queries this for how midnightntwrk/midnight-node implements it: Bringing rational privacy to blockchain (selected work: node, ledger)",
+ "repos": [
+  {
+   "repo": "midnight-node",
+   "url": "https://github.com/midnightntwrk/midnight-node",
+   "sha": "ef0ed5898ad1f77ad1ddc0516ca3a819812dd547",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit ef0ed5898ad1: \"feat(node): add midnight_ledgerStats RPC for ledger collection sizes \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

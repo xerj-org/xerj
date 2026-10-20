@@ -1,0 +1,22 @@
+{
+ "corpus": "haraldweiss--claude-ki-usage-tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how haraldweiss/Claude-KI-Usage-Tracker implements it: \ud83d\udcca Tool to track AI & API usage across providers| More at https://www.wolfinisoftware.de/ (selected work: server-scraper)",
+ "repos": [
+  {
+   "repo": "Claude-KI-Usage-Tracker",
+   "url": "https://github.com/haraldweiss/Claude-KI-Usage-Tracker",
+   "sha": "0c296d29ee947f23986f8e6a62e568ba185caaea",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 0c296d29ee94: \"fix(scraper): prevent scheduled Codex analytics from overwriting quot\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

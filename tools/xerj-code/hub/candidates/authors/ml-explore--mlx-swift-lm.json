@@ -1,0 +1,22 @@
+{
+ "corpus": "ml-explore--mlx-swift-lm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Swift queries this for how ml-explore/mlx-swift-lm implements it: LLMs and VLMs with MLX Swift (selected work: Tests, Libraries)",
+ "repos": [
+  {
+   "repo": "mlx-swift-lm",
+   "url": "https://github.com/ml-explore/mlx-swift-lm",
+   "sha": "3615fe461c7c8c5ff90c40c70ca30e8b46399727",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 3615fe461c7c: \"Reduce unused vocabulary projections during Qwen prefill (#614)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

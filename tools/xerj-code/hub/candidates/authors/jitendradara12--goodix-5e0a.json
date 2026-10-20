@@ -1,0 +1,22 @@
+{
+ "corpus": "jitendradara12--goodix-5e0a",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how jitendradara12/goodix-5e0a implements it: Linux libfprint driver & reverse-engineered specs for Goodix 27c6:5e0a fingerprint sensor (Realme Book / MilanF / ChicagoH) (selected work: tests, tools, legacy-experiments)",
+ "repos": [
+  {
+   "repo": "goodix-5e0a",
+   "url": "https://github.com/jitendradara12/goodix-5e0a",
+   "sha": "289107426ad5c9dc2d1b9308ccd822df2c2fbd74",
+   "licence": "hint only: LGPL-2.1 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-2.1",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 289107426ad5: \"fix(tools): address audit findings on PSK extraction and capture tool\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

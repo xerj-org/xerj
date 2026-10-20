@@ -1,0 +1,22 @@
+{
+ "corpus": "ardeyouxipianyi--workbuddy2api-hub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on api-gateway, claude-code, codebuddy queries this for how ardeyouxipianyi/workbuddy2api-hub implements it: WorkBuddy \u56fd\u9645\u56fd\u5185\u591a\u8d26\u53f7\u53cd\u4ee3\u7f51\u5173\uff0c\u652f\u6301 Codex / Claude Code / DSH\u4e0e\u6807\u51c6 OpenAI \u5ba2\u6237\u7aef\u3002 (selected work: tests, the project root)",
+ "repos": [
+  {
+   "repo": "workbuddy2api-hub",
+   "url": "https://github.com/ardeyouxipianyi/workbuddy2api-hub",
+   "sha": "72e51b4b8493e110ea2ad9a1ab79ccf5629d9fbe",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 72e51b4b8493: \"fix(proxy): [URGENT] recalibrate the 429 boundary to the captured shapes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

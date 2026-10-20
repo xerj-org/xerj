@@ -1,0 +1,22 @@
+{
+ "corpus": "jyt6640--persona-harness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, cli, code-quality queries this for how jyt6640/persona-harness implements it: Continuously refine your project\u2019s engineering philosophy \u2014 and keep AI coding agents honest with evidence-backed completion (selected work: tests, src/io, src/cli)",
+ "repos": [
+  {
+   "repo": "persona-harness",
+   "url": "https://github.com/jyt6640/persona-harness",
+   "sha": "df3dcc00bc05408b471cc55e8abd74c9d80f53e3",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit df3dcc00bc05: \"fix: preserve project source-read failure causes (#490)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "fjrevoredo--mini-diarium",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on journaling, open-source, privacy queries this for how fjrevoredo/mini-diarium implements it: A local-only journal with serious encryption. Free, open source, and never touches the internet (selected work: src/components, src/state, src/lib)",
+ "repos": [
+  {
+   "repo": "mini-diarium",
+   "url": "https://github.com/fjrevoredo/mini-diarium",
+   "sha": "d85996b33275c1a8a22ed0dcb4e691e607192836",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit d85996b33275: \"Keep Escape and app shortcuts from firing under editor dialogs (TODO-\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

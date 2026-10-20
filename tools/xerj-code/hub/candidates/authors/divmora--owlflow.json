@@ -1,0 +1,22 @@
+{
+ "corpus": "divmora--owlflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on automation, cron-scheduler, dag queries this for how divmora/owlflow implements it: Lightweight, high-performance workflow automation engine in Go with event-driven webhooks, cron scheduling, and visual DAG studio (selected work: internal/core, ui)",
+ "repos": [
+  {
+   "repo": "owlflow",
+   "url": "https://github.com/divmora/owlflow",
+   "sha": "641b3779c6fd3e6c63f7b16743528695e1ff1c97",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 641b3779c6fd: \"fix(core): quote-aware condition expression tokenizer and determinist\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "chkoreff--fexl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on c, functional-programming, interpreter queries this for how chkoreff/Fexl implements it: Function EXpression Language (interpreter for functional programs) (selected work: src/lib, src/test, src)",
+ "repos": [
+  {
+   "repo": "Fexl",
+   "url": "https://github.com/chkoreff/Fexl",
+   "sha": "691b438fe43036c7c565b128891f60899cb27952",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 691b438fe430: \"Implement sorting in terms of records.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

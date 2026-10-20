@@ -1,0 +1,22 @@
+{
+ "corpus": "yunushan--cpe-access-atlas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Yunushan/cpe-access-atlas implements it: Yunushan/cpe-access-atlas (Python) (selected work: tests, src/cpe_access_atlas)",
+ "repos": [
+  {
+   "repo": "cpe-access-atlas",
+   "url": "https://github.com/Yunushan/cpe-access-atlas",
+   "sha": "068e70834e1f147a0afe66508242620ec5915dea",
+   "licence": "hint only: 0BSD (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "0BSD",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 068e70834e1f: \"Redact complete YAML flow values before private output\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "no-world--pi-asterisk-tui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how No-World/pi-asterisk-tui implements it: Claude Code-style \u273b transcript and HUD for the Pi coding agent (selected work: tests, extensions, the project root)",
+ "repos": [
+  {
+   "repo": "pi-asterisk-tui",
+   "url": "https://github.com/No-World/pi-asterisk-tui",
+   "sha": "d130c7ebb6f069b1a9fd96b358a5b505b8048e1a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit d130c7ebb6f0: \"feat(tui): adapt to pi 0.99 \u2014 native wheel-scroll defer + native MCP \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

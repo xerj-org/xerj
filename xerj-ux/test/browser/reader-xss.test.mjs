@@ -268,6 +268,33 @@ test('operator Discover: hostile hits, facet values and FIELD NAMES stay text', 
   await page.close();
 });
 
+test('a slow render of the previous route never paints over the route the operator moved to (#1425)', { skip }, async () => {
+  // render() is async and nothing serialised it: a #/corpus render whose
+  // fetches were still in flight when the hash changed finished LAST and
+  // painted corpus (and its LIVE pill) back over the new route, for good.
+  const page = await openOperator(ctx, '#/corpus');
+  await page.waitFor(`/^LIVE/.test(document.querySelector('[data-nav-status]')?.textContent || '')`, { label: 'corpus booted' });
+  const seen = () => page.eval(`({ pill: document.querySelector('[data-nav-status]')?.textContent || '', main: document.querySelector('main.canvas')?.getAttribute('aria-label') || '' })`);
+  ctx.engine.state.slowCorpus = 300;   // per catalog/index read; the corpus home makes several in sequence
+  try {
+    await page.setHash('#/corpus?slow=1');            // a corpus render, now slow
+    await sleep(50);
+    await page.setHash('#/dashboards/ai-overview');   // moved on before it lands
+    await page.waitFor(`/MOCK FALLBACK|SAMPLE DATA/.test(document.querySelector('[data-nav-status]')?.textContent || '')`, { label: 'ai-overview painted' });
+    // Wait out every delayed read of the abandoned corpus render (and then some).
+    const t0 = Date.now();
+    while (Date.now() - t0 < 4000) {
+      const now = await seen();
+      assert.match(now.pill, /MOCK FALLBACK|SAMPLE DATA/, `the stale corpus render repainted its pill: ${now.pill}`);
+      assert.doesNotMatch(now.main, /corpus/i, `the stale corpus render repainted its view: ${now.main}`);
+      await sleep(100);
+    }
+  } finally {
+    ctx.engine.state.slowCorpus = 0;
+  }
+  await page.close();
+});
+
 test('the whole operator console runs under the shipped policy with zero violations', { skip }, async () => {
   // The policy is new; the console is not. Every section the operator can
   // reach has to keep working under `script-src 'self'; connect-src 'self'`,

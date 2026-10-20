@@ -1,0 +1,22 @@
+{
+ "corpus": "piskyrpapalo--preceptoros",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on human-in-the-loop, llm, local-first queries this for how piskyRpapalo/PreceptorOS implements it: The APP part of PreceptorOS: local-first companion \u2014 local memory, local inference, zero cloud. Doctrine, contracts and measurement tools (selected work: the project root, interface, bin)",
+ "repos": [
+  {
+   "repo": "PreceptorOS",
+   "url": "https://github.com/piskyRpapalo/PreceptorOS",
+   "sha": "cf6fcf13e5dbf662bcdc82e3573c0f3afb85a3ab",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit cf6fcf13e5db: \"REQUIERE_FIRMA: export signed node credential through gate\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

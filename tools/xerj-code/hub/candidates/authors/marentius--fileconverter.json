@@ -1,0 +1,22 @@
+{
+ "corpus": "marentius--fileconverter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, file-converter, image-conversion queries this for how Marentius/FileConverter implements it: Fast, zero-config file conversion CLI and desktop app for images, documents, PDFs, and OCR (selected work: packages/gui)",
+ "repos": [
+  {
+   "repo": "FileConverter",
+   "url": "https://github.com/Marentius/FileConverter",
+   "sha": "95dc3db7b43240fe3e92af8b8919cedb6b1b5b03",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 95dc3db7b432: \"feat: open individual desktop conversion results (#168)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

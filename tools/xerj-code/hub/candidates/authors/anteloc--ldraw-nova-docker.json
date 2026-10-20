@@ -1,0 +1,22 @@
+{
+ "corpus": "anteloc--ldraw-nova-docker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how anteloc/ldraw-nova-docker implements it: Dockerized setup and webapp for ldraw-nova (selected work: web, the project root)",
+ "repos": [
+  {
+   "repo": "ldraw-nova-docker",
+   "url": "https://github.com/anteloc/ldraw-nova-docker",
+   "sha": "0bbd5862dab9f56825cf20cf690c5f8e340a1832",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 0bbd5862dab9: \"Astra - animated .glb support both in viewer and VR\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

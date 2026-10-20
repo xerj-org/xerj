@@ -1,0 +1,22 @@
+{
+ "corpus": "anonusal--claude-fingerprint-shield",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on anti-fingerprint, brave, browser-extension queries this for how AnonUsAl/claude-fingerprint-shield implements it: Chromium MV3 \u6269\u5c55\uff1a\u5728 Claude \u76f8\u5173\u7ad9\u70b9\u628a\u65f6\u533a / \u8bed\u8a00 / \u4e2d\u6587\u5b57\u4f53 / WebRTC \u7b49\u533a\u57df\u6307\u7eb9\u4f2a\u88c5\u6210\u975e\u4e2d\u56fd\u5927\u9646\u73af\u5883\uff0c\u964d\u4f4e\u300c\u4e2d\u56fd\u7528\u6237\u98ce\u9669\u5206\u300d (selected work: tools, src, the project root)",
+ "repos": [
+  {
+   "repo": "claude-fingerprint-shield",
+   "url": "https://github.com/AnonUsAl/claude-fingerprint-shield",
+   "sha": "4c089e1f6f0339e63e141123cbe763459e45f152",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 4c089e1f6f03: \"fix: \u914d\u7f6e\u901a\u9053\u52a0\u56fa\u3001\u57df\u540d\u5355\u4e00\u771f\u6e90\u3001UA \u6b63\u5219\u6536\u655b\uff08#1 #2 #3\uff09\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

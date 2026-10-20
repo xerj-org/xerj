@@ -1,0 +1,22 @@
+{
+ "corpus": "lza6--perfectassistant-2api-cfwork",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how lza6/perfectassistant-2api-cfwork implements it: Cloudflare Worker \u5355\u6587\u4ef6\u90e8\u7f72 | \u65e0\u9700 Cookie \u81ea\u52a8\u4f1a\u8bdd\u7ba1\u7406 | \u4f2a\u6d41\u5f0f SSE \u5f15\u64ce (Pseudo-Streaming) | HTTP \u8bf7\u6c42\u4ee3\u7406 + \u8bf7\u6c42\u5934\u4f2a\u88c5 | \u81ea\u52a8\u751f\u6210 chatId \u65e0\u72b6\u6001\u8bbe\u8ba1 | OpenAI \u6807\u51c6 API \u9002\u914d | \u5185\u7f6e\u5f00\u53d1 (selected work: local, the project root, scripts)",
+ "repos": [
+  {
+   "repo": "perfectassistant-2api-cfwork",
+   "url": "https://github.com/lza6/perfectassistant-2api-cfwork",
+   "sha": "93548b2d025da9b944d9cb772c543378786cf92c",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 93548b2d025d: \"feat: \u53cc\u5f62\u6001 2API\uff08Cloudflare + \u672c\u5730 Rust\uff09\uff0c\u4fee\u590d\u4e0a\u6e38\u5951\u7ea6\u5e76\u6269\u5c55\u81f3 62 \u5de5\u5177\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

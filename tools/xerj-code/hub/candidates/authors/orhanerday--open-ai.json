@@ -1,0 +1,22 @@
+{
+ "corpus": "orhanerday--open-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on openai, gpt-3, laravel queries this for how orhanerday/open-ai implements it: A community-driven PHP SDK for OpenAI (selected work: tests, src, the project root)",
+ "repos": [
+  {
+   "repo": "open-ai",
+   "url": "https://github.com/orhanerday/open-ai",
+   "sha": "88097be0cd5fc219c6e2d7cbf29fe7fdf1ed2ac4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 88097be0cd5f: \"feat: add Response object, OpenAiException, retries, and PHPStan anal\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

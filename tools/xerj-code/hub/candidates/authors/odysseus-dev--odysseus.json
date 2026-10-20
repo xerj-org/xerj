@@ -1,0 +1,22 @@
+{
+ "corpus": "odysseus-dev--odysseus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how odysseus-dev/odysseus implements it: Self-hosted AI workspace (selected work: tests, src, the project root)",
+ "repos": [
+  {
+   "repo": "odysseus",
+   "url": "https://github.com/odysseus-dev/odysseus",
+   "sha": "6fceb6ccd365c517e251c04902e1699a5b847084",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 6fceb6ccd365: \"fix(security): deny generated-image access when ownership verificatio\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

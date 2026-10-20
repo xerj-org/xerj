@@ -1,0 +1,22 @@
+{
+ "corpus": "softenrj--rjx-template",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on boilerplate, boilerplate-template, enterprise-grade queries this for how softenrj/rjx-template implements it: \ud83d\udee0\ufe0f Production-ready Node.js + Express boilerplate templates for JavaScript and TypeScript with enterprise-grade features (selected work: monorepo)",
+ "repos": [
+  {
+   "repo": "rjx-template",
+   "url": "https://github.com/softenrj/rjx-template",
+   "sha": "653b7eba5b5f018c6e65f4b8cc46b9dc31bf09a7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 653b7eba5b5f: \"Refactor code structure for improved readability and maintainability\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

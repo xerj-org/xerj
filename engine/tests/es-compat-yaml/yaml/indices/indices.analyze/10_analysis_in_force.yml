@@ -1,0 +1,100 @@
+---
+# Issue #1092: an index's analysis configuration is observable over the wire
+# exactly as search applies it. Expected values were checked against
+# OpenSearch 3.9.0, which answers every request below identically.
+setup:
+  - do:
+      indices.create:
+        index: test_analysis
+        body:
+          settings:
+            analysis:
+              analyzer:
+                default:
+                  type: english
+          mappings:
+            properties:
+              t:
+                type: text
+              tag:
+                type: keyword
+
+---
+"get_settings reports the declared analysis block":
+  - do:
+      indices.get_settings:
+        index: test_analysis
+
+  - match: { test_analysis.settings.index.analysis.analyzer.default.type: english }
+
+---
+"analyze without an analyzer uses the index default":
+  - do:
+      indices.analyze:
+        index: test_analysis
+        body:
+          text: The running bagels
+
+  - length: { tokens: 2 }
+  - match: { tokens.0.token: run }
+  - match: { tokens.0.start_offset: 4 }
+  - match: { tokens.0.position: 1 }
+  - match: { tokens.1.token: bagel }
+
+---
+"analyze a field uses the analyzer it is indexed with":
+  - do:
+      indices.analyze:
+        index: test_analysis
+        body:
+          field: t
+          text: The running bagels
+
+  - match: { tokens.0.token: run }
+
+  - do:
+      indices.analyze:
+        index: test_analysis
+        body:
+          field: tag
+          text: The running bagels
+
+  - length: { tokens: 1 }
+  - match: { tokens.0.token: The running bagels }
+
+---
+"a named analyzer wins over the index default":
+  - do:
+      indices.analyze:
+        index: test_analysis
+        body:
+          analyzer: standard
+          text: The running bagels
+
+  - length: { tokens: 3 }
+  - match: { tokens.2.token: bagels }
+
+---
+"an ad-hoc chain with filters only runs on the keyword tokenizer":
+  - do:
+      indices.analyze:
+        body:
+          filter: [lowercase]
+          text: Foo Bar
+
+  - length: { tokens: 1 }
+  - match: { tokens.0.token: foo bar }
+
+---
+"an unknown analyzer is a 400":
+  - do:
+      catch: bad_request
+      indices.analyze:
+        index: test_analysis
+        body:
+          analyzer: no_such_analyzer
+          text: x
+
+  # The runner records but does not enforce `catch`; assert the error itself.
+  - match: { error.type: illegal_argument_exception }
+  - match: { status: 400 }

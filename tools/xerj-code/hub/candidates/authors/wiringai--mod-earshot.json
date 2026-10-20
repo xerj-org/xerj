@@ -1,0 +1,22 @@
+{
+ "corpus": "wiringai--mod-earshot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-voice, conversational-ai, deepgram queries this for how wiringai/mod_earshot implements it: FreeSWITCH module that streams live call audio to AI voice agents over WebSocket and plays their voice back \u2014 full-duplex (selected work: src, test)",
+ "repos": [
+  {
+   "repo": "mod_earshot",
+   "url": "https://github.com/wiringai/mod_earshot",
+   "sha": "1bf18b4651bc4d50afc5b821d67cbccf50b4df59",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 1bf18b4651bc: \"fix: pause semantics, whole-frame decode, channel-wide mask, position\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

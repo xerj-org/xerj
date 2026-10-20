@@ -1,0 +1,22 @@
+{
+ "corpus": "andrew-garfield101--writ",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how andrew-garfield101/writ implements it: AI native version control for LLM and multi-agent development (selected work: crates/writ-core, crates/writ-cli, bench)",
+ "repos": [
+  {
+   "repo": "writ",
+   "url": "https://github.com/andrew-garfield101/writ",
+   "sha": "68ee77f8bf81cb0d900bee924a1005f544316b3a",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 68ee77f8bf81: \"feat: act on safe findings, writ handoff and writ why, session end re\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

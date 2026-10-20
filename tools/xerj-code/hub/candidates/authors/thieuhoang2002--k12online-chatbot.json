@@ -1,0 +1,22 @@
+{
+ "corpus": "thieuhoang2002--k12online-chatbot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-assistants, chatbot, cloudflare-turnstile queries this for how thieuhoang2002/K12Online_Chatbot implements it: Dual-engine AI chatbot and automated workflow assistant for K12Online (selected work: src/app, src/lib)",
+ "repos": [
+  {
+   "repo": "K12Online_Chatbot",
+   "url": "https://github.com/thieuhoang2002/K12Online_Chatbot",
+   "sha": "6136f39e926de45872aa0d77d87a53d4677dcff5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 6136f39e926d: \"feat(admin): them nut check rieng tung API va xu ly fallback nhan die\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

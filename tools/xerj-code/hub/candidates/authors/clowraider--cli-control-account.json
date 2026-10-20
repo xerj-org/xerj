@@ -1,0 +1,22 @@
+{
+ "corpus": "clowraider--cli-control-account",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on HTML queries this for how Clowraider/cli-control-account implements it: CLIProxyAPI control-account plugin: Quota Management dashboard with account prefix support (selected work: internal/ego, internal/web)",
+ "repos": [
+  {
+   "repo": "cli-control-account",
+   "url": "https://github.com/Clowraider/cli-control-account",
+   "sha": "27e1b6f318e5266593b0ef7df1aaa6ca4e36e658",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 27e1b6f318e5: \"feat(ego): show approximate TPS per model in Top Models\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

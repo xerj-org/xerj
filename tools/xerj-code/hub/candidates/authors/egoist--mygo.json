@@ -1,0 +1,22 @@
+{
+ "corpus": "egoist--mygo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Go queries this for how egoist/mygo implements it: Develop desktop apps with native UI or web frontend in Go (selected work: ui, internal/uigen)",
+ "repos": [
+  {
+   "repo": "mygo",
+   "url": "https://github.com/egoist/mygo",
+   "sha": "ad408c0ae5ebeb5c14468620011e9eee04d4fbb9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit ad408c0ae5eb: \"Forward plain UI callbacks without generated closures (#239)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

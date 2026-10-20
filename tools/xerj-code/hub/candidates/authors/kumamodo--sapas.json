@@ -1,0 +1,22 @@
+{
+ "corpus": "kumamodo--sapas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on factory-automation, framework, hardware-testing queries this for how kumamodo/sapas implements it: \u26a1 A unified hardware test automation platform bridging the gap between RD lab verification, CI/CD HIL, and 24/7 factory production (selected work: sapas)",
+ "repos": [
+  {
+   "repo": "sapas",
+   "url": "https://github.com/kumamodo/sapas",
+   "sha": "362b7190ea93226c17180e5114c4a03bbcf3cc20",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 362b7190ea93: \"feat(reports): add collapsible script grouping, execution duration, a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

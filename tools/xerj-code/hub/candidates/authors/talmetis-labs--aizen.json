@@ -1,0 +1,22 @@
+{
+ "corpus": "talmetis-labs--aizen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, automation, rust queries this for how talmetis-labs/aizen implements it: Aizen is an AI coding agent that lives on your PC or VPS. Control it from your phone while it autonomously fixes code, runs tests, and repor (selected work: src/ui, src/features, src/agent)",
+ "repos": [
+  {
+   "repo": "aizen",
+   "url": "https://github.com/talmetis-labs/aizen",
+   "sha": "d4cb5290b186e0f01d0cb68fc1132c2a567e2698",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit d4cb5290b186: \"fix: timemachine workspace root, verify timeout 180s, diff-box header\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

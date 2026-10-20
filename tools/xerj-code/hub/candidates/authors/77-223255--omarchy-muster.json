@@ -1,0 +1,22 @@
+{
+ "corpus": "77-223255--omarchy-muster",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, bar, hyprland queries this for how 77-223255/omarchy-muster implements it: Live coding-agent sessions in the Omarchy bar: who is running, who needs you, and a chime when a run finishes (selected work: the project root, bin, pi)",
+ "repos": [
+  {
+   "repo": "omarchy-muster",
+   "url": "https://github.com/77-223255/omarchy-muster",
+   "sha": "ad72fcbd0f30560e6f894fd73e3d181b6c17fc74",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ad72fcbd0f30: \"Focus: switch tmux to the session's pane on click\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

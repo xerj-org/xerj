@@ -1,0 +1,22 @@
+{
+ "corpus": "stemtrooper--learningcode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cli, coding-agent, education queries this for how stemtrooper/learningcode implements it: Terminal coding agent for The Learning Curve students, running on TLC-Spark. Requires a personal TLC-Spark token from your teacher (selected work: test, lib/remote, the project root)",
+ "repos": [
+  {
+   "repo": "learningcode",
+   "url": "https://github.com/stemtrooper/learningcode",
+   "sha": "8b513de153dd599a06ef0d48e61123ab06a4b2cf",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 8b513de153dd: \"remote: every command works from the phone (WS5)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "samsaffron--term-llm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how SamSaffron/term-llm implements it: LLM Swiss Army Knife for your Terminal (selected work: frontend, internal/inspect, cmd)",
+ "repos": [
+  {
+   "repo": "term-llm",
+   "url": "https://github.com/SamSaffron/term-llm",
+   "sha": "b804f97016ee7a058c74f8f8e894e0bf7887c0d0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit b804f97016ee: \"FEATURE: add session inspect UX\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

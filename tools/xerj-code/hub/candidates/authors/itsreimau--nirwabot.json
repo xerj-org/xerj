@@ -1,0 +1,22 @@
+{
+ "corpus": "itsreimau--nirwabot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on whatsapp-bot queries this for how itsreimau/nirwabot implements it: Useless WhatsApp Bot (selected work: commands, lib, events)",
+ "repos": [
+  {
+   "repo": "nirwabot",
+   "url": "https://github.com/itsreimau/nirwabot",
+   "sha": "d5eea3d5cd69507838ed7d4734b96d89f289cf13",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit d5eea3d5cd69: \"refactor: Refactor error handling and code improvements\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "wonglaitung--opencode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how wonglaitung/opencode implements it: OpenCode \u4f1a\u8bdd\u7ba1\u7406\u5b9a\u5236\uff1a\u6807\u51c6\u5316\u5f00\u53d1\u6d41\u7a0b\u3001\u7406\u89e3\u4fdd\u969c\u4e0e\u6548\u80fd\u5206\u6790\u3002 \u4ee5\u63d2\u4ef6 + \u72ec\u7acb CLI + \u7ec4\u7ec7\u6536\u96c6\u670d\u52a1\u7684\u5f62\u6001\u5b9e\u73b0\uff0c\u5bf9 OpenCode \u4e0a\u6e38\u96f6\u4fee\u6539\uff0c\u4fbf\u4e8e\u6301\u7eed\u540c\u6b65\u4e0a\u6e38\u66f4\u65b0\u3002 (selected work: opencode-session-mgmt)",
+ "repos": [
+  {
+   "repo": "opencode",
+   "url": "https://github.com/wonglaitung/opencode",
+   "sha": "8250f6ddd0f45474a9644f156a9523baeb6538c0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 8250f6ddd0f4: \"feat(shared): sdlc \u5bf9\u6297\u5ba1\u6838\u4fee\u590d\u2014\u2014S1 \u81ea\u52a8\u786e\u8ba4\u5b88\u536b\u3001S2 confirm_note \u51ed\u636e\u3001S3 \u7406\u89e3\u8bb0\u5f55\u5931\u6548\u3001S4 \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "jakubmelka--pdf4qt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on pdf, pdf-viewer, pdf-editor queries this for how JakubMelka/PDF4QT implements it: PDF4QT is an open-source PDF toolkit for Windows and Linux, combining powerful desktop applications, command-line tools and a modern MIT-lic (selected work: Pdf4QtLibGui, UnitTests, Pdf4QtLibCore)",
+ "repos": [
+  {
+   "repo": "PDF4QT",
+   "url": "https://github.com/JakubMelka/PDF4QT",
+   "sha": "5b15196035138ff4e5a6248ecdb827306a8a2598",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 5b1519603513: \"Issue #85: Bugfixing\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

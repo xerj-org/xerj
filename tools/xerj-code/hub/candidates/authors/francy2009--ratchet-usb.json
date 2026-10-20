@@ -1,0 +1,22 @@
+{
+ "corpus": "francy2009--ratchet-usb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on cli, cryptography, cryptography-tools queries this for how Francy2009/Ratchet-USB implements it: Francy2009/Ratchet-USB (C++) (selected work: src, include, test)",
+ "repos": [
+  {
+   "repo": "Ratchet-USB",
+   "url": "https://github.com/Francy2009/Ratchet-USB",
+   "sha": "54276be9564728d678f2994277c8588b9fb91950",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 54276be95647: \"Open received files in a temporary folder and fix the review findings\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

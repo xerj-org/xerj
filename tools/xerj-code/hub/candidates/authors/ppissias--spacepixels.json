@@ -1,0 +1,22 @@
+{
+ "corpus": "ppissias--spacepixels",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on astronomy, astronomy-software, astrophotography queries this for how ppissias/SpacePixels implements it: Astronomical FITS image analysis tool for detecting asteroids, comets, satellites, moving objects, and transients in astrophotography data (selected work: src/main, src/test, the project root)",
+ "repos": [
+  {
+   "repo": "SpacePixels",
+   "url": "https://github.com/ppissias/SpacePixels",
+   "sha": "5186a4075816f95cbe1788ca24be69eb500889a7",
+   "licence": "hint only: BSD-2-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-2-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 5186a4075816: \"Improve report reliability and variable-star inspection\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

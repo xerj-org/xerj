@@ -1,0 +1,22 @@
+{
+ "corpus": "sorsama--deepseek-harness-mobile",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cordis, deepseek, dsh queries this for how sorsama/deepseek-harness-mobile implements it: Android companion for DeepSeek Harness | chat, goals, approvals & notifications from your phone, over your LAN. Kotlin + Jetpack Compose (selected work: app/src, core/src, mock-harness)",
+ "repos": [
+  {
+   "repo": "deepseek-harness-mobile",
+   "url": "https://github.com/sorsama/deepseek-harness-mobile",
+   "sha": "aea3f5649487fbb8565f6c377d847c555ac3acf4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit aea3f5649487: \"Make the harness on the phone itself a first-class setup; release 0.11.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

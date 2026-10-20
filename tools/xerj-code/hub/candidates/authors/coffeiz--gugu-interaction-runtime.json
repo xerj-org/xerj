@@ -1,0 +1,22 @@
+{
+ "corpus": "coffeiz--gugu-interaction-runtime",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on animation, drag-and-drop, file-manager queries this for how Coffeiz/Gugu-interaction-runtime implements it: \u5361\u7247\u4ea4\u4e92 Runtime\uff0c\u652f\u6301\u770b\u677f\u3001\u6587\u4ef6\u7ba1\u7406\u5668\u3001\u65e0\u9650\u753b\u5e03\u4e0e\u8de8\u5bb9\u5668\u62d6\u62fd\u3002 (selected work: dist-lib, src/__tests__, src/dom)",
+ "repos": [
+  {
+   "repo": "Gugu-interaction-runtime",
+   "url": "https://github.com/Coffeiz/Gugu-interaction-runtime",
+   "sha": "aa62b286d755dba6f96f66283bab86e2eb5d5a0e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit aa62b286d755: \"\u4fee\u590d\u5e95\u90e8\u79fb\u51fa\u5361\u7247\u7684\u5144\u5f1f FLIP \u52a8\u753b\u5e76\u53d1\u5e03 3.0.7\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

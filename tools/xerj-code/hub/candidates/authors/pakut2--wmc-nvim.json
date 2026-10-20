@@ -1,0 +1,22 @@
+{
+ "corpus": "pakut2--wmc-nvim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on neovim, neovim-plugin queries this for how pakut2/wmc.nvim implements it: Edit with STYLE in Neovim (selected work: lua, test, plugin)",
+ "repos": [
+  {
+   "repo": "wmc.nvim",
+   "url": "https://github.com/pakut2/wmc.nvim",
+   "sha": "afb1c74045f9de69bcff9cce4c9fd250d81400ee",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit afb1c74045f9: \"feat: progress bar\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

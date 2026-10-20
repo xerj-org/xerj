@@ -1,0 +1,22 @@
+{
+ "corpus": "boraerenerdem--pulse-coach",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how BoraErenErdem/pulse-coach implements it: A multi-agent AI health & fitness coach built with LangChain, FastAPI, and local LLMs (Ollama), featuring RAG-powered nutrition/exercise gui (selected work: mobile, the project root)",
+ "repos": [
+  {
+   "repo": "pulse-coach",
+   "url": "https://github.com/BoraErenErdem/pulse-coach",
+   "sha": "f73f2da880486925d71c38ccf3fdd716c13b2a5f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit f73f2da88048: \"mobil: App Store ekran g\u00f6r\u00fcnt\u00fcs\u00fc \u015fablonu (TR/EN)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

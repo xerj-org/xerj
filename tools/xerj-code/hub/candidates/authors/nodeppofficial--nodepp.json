@@ -1,0 +1,22 @@
+{
+ "corpus": "nodeppofficial--nodepp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on asynchronous-programming, cpp11-library, open-source queries this for how NodeppOfficial/nodepp implements it: A runtime for writing reliable asynchronous applications with C++. Provides I/O, networking, scheduling, timers,  (selected work: include, examples, test)",
+ "repos": [
+  {
+   "repo": "nodepp",
+   "url": "https://github.com/NodeppOfficial/nodepp",
+   "sha": "20646e91535a58e94ac2848fe760b25c2846f739",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 20646e91535a: \"\ud83d\udccc Nodepp | Stable Release | V1.4.7 \ud83d\udccc [merged]\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

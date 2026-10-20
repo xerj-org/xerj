@@ -1,0 +1,22 @@
+{
+ "corpus": "rafid-dev--taillaunch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on chromium, go, headscale queries this for how rafid-dev/taillaunch implements it: A lightweight browser wrapper for private Tailscale apps \u2014 no full VPN client, no system-wide networking (selected work: internal/app)",
+ "repos": [
+  {
+   "repo": "taillaunch",
+   "url": "https://github.com/rafid-dev/taillaunch",
+   "sha": "4177c0419b80169a987b47f99060aa75af201a62",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 4177c0419b80: \"app: sweep stale session folders at startup; doc fixes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "dafei-code--turbo-feed",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how dafei-code/turbo-feed implements it: dafei-code/turbo-feed (Java) (selected work: tf-counter, tf-gateway, tf-shared)",
+ "repos": [
+  {
+   "repo": "turbo-feed",
+   "url": "https://github.com/dafei-code/turbo-feed",
+   "sha": "19c7c234c44c5e249b662e0ca22accbafc476e4a",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 19c7c234c44c: \"feat(counter): P1-2 tf-counter \u8ba1\u6570\u805a\u5408\u5e95\u5ea7\uff08\u6536\u655b\u5e95\u5ea7\u65b9\u6848\uff09\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

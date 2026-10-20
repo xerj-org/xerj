@@ -1,0 +1,22 @@
+{
+ "corpus": "pkufudawei--dsh-capability-menu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on deepseek-harness, dsh-plugin, cordis queries this for how PKUfudawei/dsh-capability-menu implements it: \u7ba1\u7406 DeepSeek Harness \u4e2d\u5de5\u5177\u4e0e\u6280\u80fd\u7684\u66b4\u9732\u7b56\u7565\uff0c\u652f\u6301\u6309\u9700\u68c0\u7d22\u4e0e\u8c03\u7528\u3002Manage tool and skill exposure in DeepSeek Harness with on-demand discovery and invocation (selected work: tests, src, lib)",
+ "repos": [
+  {
+   "repo": "dsh-capability-menu",
+   "url": "https://github.com/PKUfudawei/dsh-capability-menu",
+   "sha": "1faa053936bb7ec19e1cd12c35d2f60f88b0bdaa",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 1faa053936bb: \"fix: persist only the tier moves this instance made\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "abhillashjadhav--ai-pm-essential-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-product-management, automation queries this for how Abhillashjadhav/AI-PM-essential-skills implements it: Installable Claude Code plugins for AI product evaluation, model routing, guarded loops, and MCP migration decisions (selected work: model-router)",
+ "repos": [
+  {
+   "repo": "AI-PM-essential-skills",
+   "url": "https://github.com/Abhillashjadhav/AI-PM-essential-skills",
+   "sha": "6e46696a2dfeb47b049b718644dc51fa29a6ade7",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 6e46696a2dfe: \"Port inactive Jev wording comparison\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

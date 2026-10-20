@@ -1,0 +1,22 @@
+{
+ "corpus": "xiangzi7--miraihub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Vue queries this for how XiangZi7/MiraiHub implements it: \u4e00\u7ad9\u5f0fSSH \u7ec8\u7aef \u00b7 \u8fdc\u7aef\u6587\u4ef6 \u00b7 \u6570\u636e\u5e93\u7ba1\u7406 \u00b7 \u670d\u52a1\u5668\u76d1\u63a7 \u00b7 AI Agent \u00b7 \u6ca1\u6709\u672a\u6765\u7684\u672a\u6765\u4e0d\u662f\u6211\u60f3\u8981\u7684\u672a\u6765 (selected work: src-tauri, tests, src/utils)",
+ "repos": [
+  {
+   "repo": "MiraiHub",
+   "url": "https://github.com/XiangZi7/MiraiHub",
+   "sha": "7636696e882c3ec55fe06070fd7ce7fa786d0888",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 7636696e882c: \"\u2728 feat(agent, updater): \u652f\u6301AI Agent\u56fe\u7247\u8f93\u5165\uff0c\u4f18\u5316\u81ea\u52a8\u66f4\u65b0\u4f53\u9a8c\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

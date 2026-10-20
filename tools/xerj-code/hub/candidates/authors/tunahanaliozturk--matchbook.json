@@ -1,0 +1,22 @@
+{
+ "corpus": "tunahanaliozturk--matchbook",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on aspnetcore, csharp, distributed-systems queries this for how tunahanaliozturk/matchbook implements it: Purchase-to-pay ERP as five .NET 10 microservices: encumbrance accounting, three-way match, four-eyes payment runs, reconciled across five d (selected work: web)",
+ "repos": [
+  {
+   "repo": "matchbook",
+   "url": "https://github.com/tunahanaliozturk/matchbook",
+   "sha": "21f9d2559e2ef0e50c150721b38680ef7ddfd66b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 21f9d2559e2e: \"feat(web): invoices, exceptions and payment runs\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

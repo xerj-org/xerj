@@ -1,0 +1,22 @@
+{
+ "corpus": "megayu--flow-reader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ebook-reader, epub, reader queries this for how megayu/flow-reader implements it: A modern, cross-platform EPUB and TXT reader built for fast, smooth, and distraction-free reading (selected work: src-tauri, src/settings, src/dictionary)",
+ "repos": [
+  {
+   "repo": "flow-reader",
+   "url": "https://github.com/megayu/flow-reader",
+   "sha": "454361a2ac8a8991bfc2dc1eff7378aceafb22a6",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 454361a2ac8a: \"feat(storage): support moving app data to a custom folder\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

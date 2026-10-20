@@ -1,0 +1,22 @@
+{
+ "corpus": "dino-cosic--flagrm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agent, angular queries this for how dino-cosic/flagrm implements it: Remove feature flags with your AI coding agent, safely. Skills and guardrails for Claude Code, Copilot and Codex (selected work: src/core, test)",
+ "repos": [
+  {
+   "repo": "flagrm",
+   "url": "https://github.com/dino-cosic/flagrm",
+   "sha": "eb3419168ba9d5b2ec8220dba5e678915c104886",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit eb3419168ba9: \"feat(verify): warn about declarations the removal left without refere\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

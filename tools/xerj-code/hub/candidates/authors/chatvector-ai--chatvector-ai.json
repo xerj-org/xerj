@@ -1,0 +1,22 @@
+{
+ "corpus": "chatvector-ai--chatvector-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on chatbot, document-qa, fastapi queries this for how chatvector-ai/chatvector-ai implements it: Open-source RAG engine for ingesting, indexing, and querying unstructured documents (selected work: backend)",
+ "repos": [
+  {
+   "repo": "chatvector-ai",
+   "url": "https://github.com/chatvector-ai/chatvector-ai",
+   "sha": "18057e0f46fafb6cd9ceac7ad0106939e4bf5bfe",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 18057e0f46fa: \"feat(backend): gate history-aware retrieval separately from query str\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

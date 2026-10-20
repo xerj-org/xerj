@@ -1,0 +1,22 @@
+{
+ "corpus": "yinfengwindy--shiori-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how YinFengWindy/Shiori-Agent implements it: Bring your characters into everyday life A character-centred Personal Agent. It remembers what you have talked about, reaches out to chat on (selected work: apps/desktop, tests, apps/backend)",
+ "repos": [
+  {
+   "repo": "Shiori-Agent",
+   "url": "https://github.com/YinFengWindy/Shiori-Agent",
+   "sha": "618e6f587f1a2c8c1a42b253be3d96521d8bcf8d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 618e6f587f1a: \"feat(roles): \u9884\u89c8\u5e76\u5bfc\u51fa CHARX\u3001PNG \u548c JSON \u89d2\u8272\u5361 (#672)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

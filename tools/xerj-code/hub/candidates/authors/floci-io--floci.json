@@ -1,0 +1,22 @@
+{
+ "corpus": "floci-io--floci",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on aws, aws-emulation, localstack queries this for how floci-io/floci implements it: Light, fluffy, and always free - The AWS Local Emulator alternative (selected work: src/test, src/main)",
+ "repos": [
+  {
+   "repo": "floci",
+   "url": "https://github.com/floci-io/floci",
+   "sha": "02ad6aa768219675ff5a912011af6fd11c2ea400",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 02ad6aa76821: \"fix(codepipeline): resolve effective source revisions (#3514)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

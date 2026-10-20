@@ -1,0 +1,22 @@
+{
+ "corpus": "cowdogmoo--ansible-collection-workstation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how CowDogMoo/ansible-collection-workstation implements it: CowDogMoo/ansible-collection-workstation (Python) (selected work: roles, playbooks)",
+ "repos": [
+  {
+   "repo": "ansible-collection-workstation",
+   "url": "https://github.com/CowDogMoo/ansible-collection-workstation",
+   "sha": "78b4498052d3af54b8ac7200874e759a66b7b840",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 78b4498052d3: \"feat: configure herdr and generalize its agent integrations (#1089)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

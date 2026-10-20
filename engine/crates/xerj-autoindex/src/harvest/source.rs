@@ -69,6 +69,24 @@ pub fn fetch(src: &SourceSpec, recipe_dir: &Path, cache_dir: &Path) -> Result<Fe
                 unchanged: false,
             })
         }
+        super::recipe::SourceKind::HttpJson => {
+            let url = src.url.as_deref().unwrap_or_default();
+            let root = cache_dir.join(&src.slug);
+            if root.exists() {
+                std::fs::remove_dir_all(&root)
+                    .with_context(|| format!("source '{}': clear {}", src.slug, root.display()))?;
+            }
+            std::fs::create_dir_all(&root)
+                .with_context(|| format!("source '{}': create {}", src.slug, root.display()))?;
+            let json_path = root.join(format!("{}.json", src.slug));
+            httpget::download(url, &json_path)
+                .with_context(|| format!("source '{}': fetch", src.slug))?;
+            Ok(Fetched {
+                root,
+                watermark: None,
+                unchanged: false,
+            })
+        }
         super::recipe::SourceKind::Git => {
             let url = src.url.as_deref().unwrap_or_default();
             let root = cache_dir.join(&src.slug);
@@ -170,7 +188,11 @@ pub fn extract_zip(zip: &Path, dest: &Path) -> Result<usize> {
             skipped += 1;
             continue;
         }
-        let raw = entry.name().to_string();
+        // zip 9: an entry name that cannot be decoded is skipped like an unsafe one.
+        let Ok(raw) = entry.name().map(|n| n.to_string()) else {
+            skipped += 1;
+            continue;
+        };
         let Some(safe) = sanitize_entry_path(&raw) else {
             skipped += 1;
             continue;
@@ -329,6 +351,7 @@ mod tests {
             rev: None,
             glob: "**/*.json".into(),
             format: super::super::recipe::Format::Flat,
+            records_field: None,
             licence: "CC0-1.0".into(),
         };
         let f1 = fetch(&spec, tmp.path(), &cache).unwrap();
@@ -408,6 +431,7 @@ mod tests {
             rev: Some("export".into()),
             glob: "**/*.json".into(),
             format: super::super::recipe::Format::Flat,
+            records_field: None,
             licence: "CC0-1.0".into(),
         };
         let f = fetch(&spec, tmp.path(), &tmp.path().join("cache")).unwrap();

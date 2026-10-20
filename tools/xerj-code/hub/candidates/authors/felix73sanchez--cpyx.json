@@ -1,0 +1,22 @@
+{
+ "corpus": "felix73sanchez--cpyx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how felix73sanchez/cpyx implements it: Copia archivos entre rutas con rsync (selected work: lib/cpyx, the project root, tests)",
+ "repos": [
+  {
+   "repo": "cpyx",
+   "url": "https://github.com/felix73sanchez/cpyx",
+   "sha": "25d0907c78c69ef092817ed7bc20fabe786944a6",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 25d0907c78c6: \"feat: add visual progress bar, uninstall.sh, update.sh, and auto-inst\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

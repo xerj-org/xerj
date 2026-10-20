@@ -1,0 +1,22 @@
+{
+ "corpus": "sqlmesh--sqlmesh",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on dataops, elt, etl queries this for how SQLMesh/sqlmesh implements it: Scalable and efficient data transformation framework - backwards compatible with dbt (selected work: tests, sqlmesh)",
+ "repos": [
+  {
+   "repo": "sqlmesh",
+   "url": "https://github.com/SQLMesh/sqlmesh",
+   "sha": "9bd35b774e2eb4775841ef5e37278f2b10900829",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 9bd35b774e2e: \"feat(cli): report state backend versions on rollback and info (#6088)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

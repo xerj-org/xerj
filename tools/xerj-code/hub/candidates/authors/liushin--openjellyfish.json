@@ -1,0 +1,22 @@
+{
+ "corpus": "liushin--openjellyfish",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how LiUshin/OpenJellyfish implements it: A easy and light agent management system for small companies/groups to build up own agent services (selected work: frontend, tauri-launcher)",
+ "repos": [
+  {
+   "repo": "OpenJellyfish",
+   "url": "https://github.com/LiUshin/OpenJellyfish",
+   "sha": "cd15165e56b652c749ed643a39c4285ed7afece5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit cd15165e56b6: \"feat: refine desktop host management and add settings tutorials\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "devphusion--fusionengine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on 2d-game-engine, game-engine, physics-2d queries this for how DevPhusion/FusionEngine implements it: A lightweight 2D game engine built for making reinforcement learning environment easily (selected work: FusionCore, FusionApp)",
+ "repos": [
+  {
+   "repo": "FusionEngine",
+   "url": "https://github.com/DevPhusion/FusionEngine",
+   "sha": "2737291609a2abf82d24c8333a1d9ce72d85fe1f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 2737291609a2: \"Local docs saving for docs window\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

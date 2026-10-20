@@ -29,6 +29,34 @@ pub enum Family {
     /// each message goes through the same extraction as [`Family::Eml`].
     Mbox,
     Docx,
+    /// PowerPoint deck: one record per slide, speaker notes included.
+    Pptx,
+    /// Excel workbook: one dataset per worksheet, one record per row under
+    /// the sheet's header row, typed from the stored cell values.
+    Xlsx,
+    /// Legacy Excel 97-2003 workbook (`.xls`, BIFF8 inside an OLE2 compound
+    /// file): same table model as [`Family::Xlsx`] — one dataset per
+    /// worksheet, one record per row under the header row — read through
+    /// calamine. Detected by the OLE2 magic plus a `Workbook`/`Book` stream,
+    /// never by extension.
+    Xls,
+    /// Legacy Word 97-2003 document (`.doc`, inside an OLE2 compound file):
+    /// the WordDocument stream's prose, recovered through the FIB piece table
+    /// (CLX in the 0Table/1Table stream), emitted as section records with the
+    /// title taken from SummaryInformation when present. Detected by the OLE2
+    /// magic plus a `WordDocument` stream, never by extension.
+    Doc,
+    /// EPUB e-book: chapters in reading order (spine documents, cut at their
+    /// table-of-contents anchors), with the book's metadata and each
+    /// chapter's title from the table of contents.
+    Epub,
+    /// Jupyter notebook (any kernel): one record per Markdown-heading section
+    /// of cells, code fenced in the kernel's language, text outputs capped.
+    /// Detected by content, before the JSON classifier.
+    Ipynb,
+    /// Man page (roff man(7) source, often gzipped): one record per `.SH`
+    /// section, titled from `.TH`. Detected by content, never extension.
+    Man,
     Sqlite,
     SqlDump,
     /// Source code — AST-parsed by the matching tree-sitter grammar.
@@ -67,6 +95,13 @@ impl Family {
             Family::Eml => "eml",
             Family::Mbox => "mbox",
             Family::Docx => "docx",
+            Family::Pptx => "pptx",
+            Family::Xlsx => "xlsx",
+            Family::Xls => "xls",
+            Family::Doc => "doc",
+            Family::Epub => "epub",
+            Family::Ipynb => "ipynb",
+            Family::Man => "man",
             Family::Sqlite => "sqlite",
             Family::SqlDump => "sqldump",
             Family::Code => "code",
@@ -81,7 +116,16 @@ impl Family {
     pub fn is_document(&self) -> bool {
         matches!(
             self,
-            Family::Pdf | Family::Docx | Family::TxtProse | Family::Eml | Family::Mbox
+            Family::Pdf
+                | Family::Docx
+                | Family::Doc
+                | Family::Pptx
+                | Family::Epub
+                | Family::Ipynb
+                | Family::Man
+                | Family::TxtProse
+                | Family::Eml
+                | Family::Mbox
         )
     }
 }
@@ -113,6 +157,10 @@ pub struct Sniffed {
 
 /// Bytes read for ordinary classification.
 const PREFIX: usize = 8192;
+
+/// OLE2 / Compound File Binary header signature (MS-CFB §2.2). Legacy Office
+/// (`.doc`/`.xls`/`.ppt`), 1C `.epf`, MSI and others all begin with it.
+const OLE2_MAGIC: &[u8] = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1";
 
 /// Bytes read when the file already carries GIF magic. A Comment Extension is
 /// unbounded by the format, so this is a budget rather than a guarantee: it
@@ -219,21 +267,51 @@ fn sniff_bytes(
         return Ok(mk(Family::Sqlite));
     }
     if prefix.starts_with(b"PK\x03\x04") {
-        // zip container: DOCX iff it holds word/document.xml; another known
-        // document container is named for what it is, not as an archive
+        // zip container: DOCX/PPTX/XLSX by their main part, EPUB by its
+        // `mimetype` member; another known document
+        // container is named for what it is, not as an archive
         let mut kind = "zip";
         if !gzip {
             if let Ok(f) = std::fs::File::open(content_path) {
                 if let Ok(mut z) = zip::ZipArchive::new(f) {
                     kind = zip_container_kind(&mut z);
-                    if kind == "docx" {
-                        return Ok(mk(Family::Docx));
+                    match kind {
+                        "docx" => return Ok(mk(Family::Docx)),
+                        "pptx" => return Ok(mk(Family::Pptx)),
+                        "xlsx" => return Ok(mk(Family::Xlsx)),
+                        "epub" => return Ok(mk(Family::Epub)),
+                        _ => {}
                     }
                 }
             }
         }
         let mut s = mk(Family::Binary);
         s.binary_kind = Some(kind.into());
+        return Ok(s);
+    }
+    // OLE2 / Compound File Binary (`.doc`, `.xls`, `.ppt`, 1C `.epf`, MSI, …):
+    // one 8-byte magic for a whole family of unrelated formats, so — exactly as
+    // with the zip container above — the magic alone cannot say which. Open the
+    // compound file (bounded: `cfb` reads the header, FAT and directory, never
+    // the whole file) and route by the top-level stream names a `Workbook`/
+    // `Book` stream is a legacy Excel workbook, a `WordDocument` stream a legacy
+    // Word document, anything else an OLE2 blob we name but do not parse. A
+    // crafted or truncated container must not be able to panic or hang the
+    // sniffer, so `cfb::CompoundFile::open` (which reports malformation as an
+    // `io::Err`, not a panic) is the whole mechanism and every error path lands
+    // on `Family::Binary` / `"ole2"`.
+    if prefix.starts_with(OLE2_MAGIC) {
+        if !gzip {
+            if let Ok(f) = std::fs::File::open(content_path) {
+                match ole2_family(f) {
+                    Some(Family::Xls) => return Ok(mk(Family::Xls)),
+                    Some(Family::Doc) => return Ok(mk(Family::Doc)),
+                    _ => {}
+                }
+            }
+        }
+        let mut s = mk(Family::Binary);
+        s.binary_kind = Some("ole2".into());
         return Ok(s);
     }
     // Compressed image/audio/model payloads routinely pass the NUL and
@@ -337,6 +415,22 @@ fn sniff_bytes(
             && body.lines().any(|l| l.starts_with("guid:"))
         {
             let mut s = mk(Family::UnityMeta);
+            s.encoding = encoding;
+            return Ok(s);
+        }
+        // A man(7) page: comments and a generator's roff preamble, then
+        // `.TH`. Checked before the text heuristics, which would otherwise
+        // see the page as txt-lines — or, for sqlite3(1)/psql(1), whose
+        // examples hold `CREATE TABLE …;`, as a SQL dump.
+        // A Jupyter notebook is JSON; without this it reached the generic
+        // JSON extractor (one record per cell, a dataset per notebook).
+        if crate::extract::ipynb::looks_like_notebook(body) {
+            let mut s = mk(Family::Ipynb);
+            s.encoding = encoding;
+            return Ok(s);
+        }
+        if crate::extract::man::looks_like_man(body) {
+            let mut s = mk(Family::Man);
             s.encoding = encoding;
             return Ok(s);
         }
@@ -451,7 +545,37 @@ const MAGIC_TABLE: &[MagicRow] = &[
     (b"7z\xbc\xaf\x27\x1c", "7z", accept),
     (b"Rar!\x1a\x07", "rar", accept),
     (b"\xfd7zXZ\x00", "xz", accept),
+    // Data-science containers. Never opened: reading Parquet, Arrow or HDF5
+    // takes a large format library, and a pickle runs code when loaded. Naming
+    // the kind lets the run say how to make the file indexable
+    // (`unsupported_data_advice`) instead of "binary content (unknown)".
+    // `ARROW1\0\0`, `\x93NUMPY`, `\x89HDF\r\n\x1a\n` carry a byte text cannot
+    // contain; `PAR1` and the pickle opcode are qualified.
+    (b"PAR1", "parquet", parquet_page_header),
+    (b"ARROW1\x00\x00", "arrow", accept),
+    (b"\x93NUMPY", "npy", accept),
+    (b"\x89HDF\r\n\x1a\n", "hdf5", accept),
+    (b"\x80", "pickle", pickle_protocol),
 ];
+
+/// Parquet: `PAR1` is four printable letters, so the file's first page header
+/// has to follow it — a Thrift compact struct whose first two fields are i32s,
+/// each introduced by the byte `0x15` (field delta 1, type i32), with a
+/// one-byte varint between them. `0x15` is a control byte prose does not
+/// contain. Measured on files written by pyarrow (snappy, zstd and
+/// uncompressed) and by Chroma.
+fn parquet_page_header(prefix: &[u8]) -> bool {
+    prefix.len() >= 7 && prefix[4] == 0x15 && prefix[6] == 0x15
+}
+
+/// Python pickle, protocols 2-5: the PROTO opcode `0x80` and its version byte;
+/// protocols 4 and 5 then open a FRAME (`0x95`). `0x80` cannot start UTF-8
+/// text, and a version byte of 2-5 is a control character in any single-byte
+/// encoding (a cp1252 note opening with `€` is followed by a printable byte).
+/// Protocols 0 and 1 have no header at all and are not recognized.
+fn pickle_protocol(prefix: &[u8]) -> bool {
+    prefix.len() >= 3 && (2..=5).contains(&prefix[1]) && (prefix[1] < 4 || prefix[2] == 0x95)
+}
 
 /// Magic-byte signature taken as sufficient on its own.
 ///
@@ -1070,9 +1194,9 @@ fn looks_like_tar_header(prefix: &[u8]) -> bool {
     stored == computed
 }
 
-/// Name a zip container by its members: `"docx"`, another document format
-/// autoindex has no extractor for (`"xlsx"`, `"pptx"`, `"odt"`, …), or
-/// `"zip"` for anything else.
+/// Name a zip container by its members: `"docx"`, `"pptx"`, `"xlsx"` or
+/// `"epub"` (extracted), another document format autoindex has no extractor for
+/// (`"xlsb"`, `"odt"`, …), or `"zip"` for anything else.
 ///
 /// Office Open XML, OpenDocument and EPUB are all zips, so the `PK` magic alone
 /// cannot tell a spreadsheet from a Takeout download — and calling a workbook
@@ -1080,6 +1204,34 @@ fn looks_like_tar_header(prefix: &[u8]) -> bool {
 /// folder of XML parts that is no more searchable than the file was. OOXML is
 /// identified by its main part; OpenDocument and EPUB by the `mimetype` member
 /// their container specs require, read through a bounded reader.
+/// Route an OLE2 / Compound File Binary container by its top-level stream
+/// names: [`Family::Xls`] for a `Workbook`/`Book` stream, [`Family::Doc`] for
+/// a `WordDocument` stream, and `None` for anything else (an unrecognised OLE2
+/// blob — PowerPoint, Visio, MSI, a 1C `.epf`, a crafted or truncated file).
+///
+/// `None` deliberately covers every failure: `cfb::CompoundFile::open` reports
+/// a malformed, truncated or cyclic container as an `io::Err` rather than a
+/// panic, and it reads only the header, FAT and directory (bounded by the file
+/// size, since a declared sector past EOF fails the read), so this is safe on
+/// hostile input and never has to open a stream to decide. The `.doc` ↔ `.xls`
+/// precedence (Word before Excel) matches real files, which carry only one of
+/// the two main streams.
+fn ole2_family<F: Read + std::io::Seek>(f: F) -> Option<Family> {
+    let comp = cfb::CompoundFile::open(f).ok()?;
+    let mut xls = false;
+    for entry in comp.read_root_storage() {
+        if !entry.is_stream() {
+            continue;
+        }
+        match entry.name() {
+            "WordDocument" => return Some(Family::Doc),
+            "Workbook" | "Book" => xls = true,
+            _ => {}
+        }
+    }
+    xls.then_some(Family::Xls)
+}
+
 fn zip_container_kind<R: Read + std::io::Seek>(z: &mut zip::ZipArchive<R>) -> &'static str {
     const PARTS: &[(&str, &str)] = &[
         ("word/document.xml", "docx"),
@@ -1091,6 +1243,10 @@ fn zip_container_kind<R: Read + std::io::Seek>(z: &mut zip::ZipArchive<R>) -> &'
         if z.index_for_name(part).is_some() {
             return kind;
         }
+    }
+    // numpy.savez: a zip of `.npy` members.
+    if !z.is_empty() && z.file_names().all(|n| n.is_ok_and(|n| n.ends_with(".npy"))) {
+        return "npz";
     }
     let mut mime = Vec::with_capacity(64);
     if let Ok(e) = z.by_name("mimetype") {
@@ -1112,17 +1268,43 @@ fn zip_container_kind<R: Read + std::io::Seek>(z: &mut zip::ZipArchive<R>) -> &'
 /// file into a format autoindex does index today.
 pub fn unsupported_document_advice(binary_kind: &str) -> Option<String> {
     let (what, how) = match binary_kind {
-        "xlsx" => ("Excel workbook", "export each sheet as CSV"),
-        "xlsb" => ("Excel binary workbook", "export each sheet as CSV"),
-        "pptx" => ("PowerPoint presentation", "export it as PDF"),
+        "xlsb" => ("Excel binary workbook", "save it as .xlsx"),
         "odt" => ("OpenDocument text", "export it as DOCX or PDF"),
-        "ods" => ("OpenDocument spreadsheet", "export each sheet as CSV"),
-        "odp" => ("OpenDocument presentation", "export it as PDF"),
-        "epub" => ("EPUB e-book", "convert it to PDF"),
+        "ods" => ("OpenDocument spreadsheet", "save it as .xlsx"),
+        "odp" => ("OpenDocument presentation", "save it as .pptx"),
         _ => return None,
     };
     Some(format!(
         "unsupported document format ({what}): autoindex has no extractor for it yet — \
+         {how} to index it now"
+    ))
+}
+
+/// What to tell the user about a data-science container autoindex recognizes
+/// but does not read, or `None` for any other binary kind.
+///
+/// Reading Parquet, Arrow or HDF5 would add a large format library for files
+/// whose owners can export them in one line, so the reason names the export.
+/// A pickle is never loaded at all: unpickling runs code chosen by whoever
+/// wrote the file.
+pub fn unsupported_data_advice(binary_kind: &str) -> Option<String> {
+    let (what, how) = match binary_kind {
+        "parquet" => ("Parquet", "export it to CSV or JSON Lines"),
+        "arrow" => ("Arrow IPC / Feather", "export it to CSV or JSON Lines"),
+        "npy" | "npz" => ("NumPy array", "save the arrays you need as CSV"),
+        "hdf5" => ("HDF5", "export the datasets you need to CSV"),
+        "pickle" => {
+            return Some(
+                "Python pickle: autoindex never loads pickles (loading one runs code \
+                 chosen by whoever wrote the file) — export the object to CSV or JSON \
+                 from code you trust to index it"
+                    .into(),
+            )
+        }
+        _ => return None,
+    };
+    Some(format!(
+        "unsupported data format ({what}): autoindex has no reader for it — \
          {how} to index it now"
     ))
 }
@@ -1249,7 +1431,16 @@ fn classify_text(text: &str, nonblank: &[&str]) -> Family {
             }
         }
     }
-    if leads_with_marker || yaml_line_ratio(nonblank) >= 0.6 {
+    // #1142: `yaml_line_ratio` counts `Label:` prose headers and `- ` bullets
+    // as YAML evidence, so "labeled prose" — a short `id:`/`title:` header
+    // followed by `Statement:`/`Guidance:` paragraphs, the shape of every
+    // NIST/OSCAL control file — scores ~0.7, went to the YAML extractor, and
+    // was junk-filed (measured: 400 of 722 files in one corpus silently never
+    // indexed). The discriminator the frontmatter branch already uses applies
+    // here too: labeled prose does not parse as a YAML stream, a real
+    // key:value mapping does. The parse only runs for files the line tier
+    // already judged YAML-majority, and on the sniff prefix.
+    if leads_with_marker || (yaml_line_ratio(nonblank) >= 0.6 && parses_as_yaml_stream(text)) {
         return Family::Yaml;
     }
 
@@ -1411,11 +1602,22 @@ fn classify_structured(text: &str, nonblank: &[&str]) -> Option<Family> {
     if head_lc.contains("<!doctype html") || head_lc.contains("<html") {
         return Some(Family::Html);
     }
-    if head_lc.contains("<?xml") || (trimmed.starts_with('<') && text.contains("</")) {
+    let xml_decl = head_lc.contains("<?xml");
+    if xml_decl || (trimmed.starts_with('<') && text.contains("</")) {
         // xhtml disguised as xml?
         let lc: String = text.to_lowercase();
         if lc.contains("<html") || lc.contains("<body") {
             return Some(Family::Html);
+        }
+        // #1142: markdown that merely OPENS with an HTML fragment — a Hugo
+        // `<!--- … --->` front-matter comment, an `<a name="…"></a>` anchor, a
+        // floated `<div>` — took the XML branch here, and the XML extractor
+        // junk-filed the not-well-formed document (whole chapters and every
+        // `*-spans.md` convention page of one corpus). A whole-file markdown
+        // signature outranks the leading `<`; only declared-`<?xml` documents
+        // are exempt, so XML with embedded markdown CDATA keeps its family.
+        if !xml_decl && markdown_signature(nonblank) {
+            return None;
         }
         return Some(Family::Xml);
     }
@@ -1478,6 +1680,43 @@ fn yaml_like_count(lines: &[&str]) -> usize {
             re.is_match(l) || (t.starts_with("- ") && !checkbox)
         })
         .count()
+}
+
+/// #1142: does this text carry a whole-file markdown signature — at least one
+/// ATX heading plus three further markdown marker lines (list items, table
+/// rows, fences, links/images)? Used only to keep markdown that opens with an
+/// HTML fragment out of the XML family, whose extractor junk-files
+/// not-well-formed documents. Real XML/HTML documents carry no ATX headings,
+/// so the pairing is one-sided on purpose. Measured on the corpus that exposed
+/// the defect: `cover.md` 2 headings + 13 markers, `sec5_authenticators.md`
+/// 77 markers, semconv `http-spans.md` 83 — all junked as XML before, all
+/// text afterwards.
+fn markdown_signature(nonblank: &[&str]) -> bool {
+    let atx = |t: &str| {
+        let hashes = t.chars().take_while(|c| *c == '#').count();
+        (1..=6).contains(&hashes)
+            && t[hashes..].starts_with(' ')
+            && !t[hashes + 1..].trim().is_empty()
+    };
+    let mut has_heading = false;
+    let mut markers = 0usize;
+    for l in nonblank {
+        let t = l.trim_start();
+        if atx(t) {
+            has_heading = true;
+            continue;
+        }
+        let marker = t.starts_with("- ")
+            || t.starts_with("* ")
+            || t.starts_with("+ ")
+            || t.starts_with('|')
+            || t.starts_with("```")
+            || t.contains("](");
+        if marker {
+            markers += 1;
+        }
+    }
+    has_heading && markers >= 3
 }
 
 /// Does `text` parse as a YAML stream of structured documents — i.e. was the
@@ -3442,6 +3681,111 @@ mod tests {
         );
     }
 
+    /// #1142 class 1: markdown opening with an HTML fragment (Hugo front-matter
+    /// comment, anchor) must NOT take the XML family — the XML extractor
+    /// junk-files the not-well-formed document. This is the semconv
+    /// `http-spans.md` / `database-spans.md` shape (every `*-spans.md`
+    /// convention page was silently unindexed).
+    #[test]
+    fn markdown_with_leading_html_fragment_stays_text() {
+        let hugo = "<!--- Hugo front matter used to generate the website version of this page:\n\
+                    linkTitle: Spans\n--->\n\n\
+                    # Semantic conventions for HTTP spans\n\n\
+                    **Status**: [Stable][DocumentStatus]\n\n\
+                    - one\n- two\n- three\n\n\
+                    | a | b |\n|---|---|\n| 1 | 2 |\n";
+        assert!(
+            matches!(classify(hugo), Family::TxtProse | Family::TxtLines),
+            "text, not XML: {:?}",
+            classify(hugo)
+        );
+
+        let anchor = "<a name=\"sec5\"></a>\n\n\
+                      ## 5 Authenticator Lifecycle Management\n\n\
+                      See [the spec](spec.md) for details.\n\n\
+                      - verifier action\n- claim\n- assertion\n";
+        assert!(
+            matches!(classify(anchor), Family::TxtProse | Family::TxtLines),
+            "text, not XML: {:?}",
+            classify(anchor)
+        );
+
+        let floated_div = "<div class=\"text-right\" markdown=\"1\">\n\n\
+                           # Digital Identity Guidelines\n\n\
+                           ![](media/div-1.png)\n\n\
+                           - ed1\n- ed2\n- ed3\n";
+        assert!(
+            matches!(classify(floated_div), Family::TxtProse | Family::TxtLines),
+            "text, not XML: {:?}",
+            classify(floated_div)
+        );
+    }
+
+    /// #1142 class 2: labeled prose — a short `id:`/`title:` header followed by
+    /// `Statement:`/`Guidance:` paragraphs (every NIST/OSCAL control file) —
+    /// scores ~0.7 on `yaml_line_ratio` but does not parse as YAML; it must
+    /// stay text instead of being junk-filed by the YAML extractor.
+    #[test]
+    fn labeled_prose_with_yaml_shaped_header_stays_text() {
+        let control = "id: SP_800_171_03.08.04\n\
+                       title: Media Marking\n\
+                       family: Media Protection (SP_800_171_03.08)\n\
+                       class: requirement\n\n\
+                       Statement:\n\
+                       Mark system media that contain CUI to indicate distribution limitations, handling caveats.\n\n\
+                       Guidance:\n\
+                       System media include digital and non-digital media, and marking is human-readable.\n\n\
+                       References:\n\
+                       - MP-03\n";
+        assert!(
+            matches!(classify(control), Family::TxtProse | Family::TxtLines),
+            "text, not YAML: {:?}",
+            classify(control)
+        );
+    }
+
+    /// The guards are one-sided: real XML (no ATX headings) and declared
+    /// `<?xml` documents keep their families, and a mapping that actually
+    /// parses keeps YAML.
+    #[test]
+    fn xml_and_real_yaml_survive_the_1142_guards() {
+        assert_eq!(
+            classify("<root>\n  <a>1</a>\n  <b>2</b>\n</root>"),
+            Family::Xml
+        );
+        assert_eq!(
+            classify("<?xml version='1.0'?>\n<r>\n  <a># not a heading</a>\n</r>"),
+            Family::Xml
+        );
+        assert_eq!(classify("a: 1\nb: 2\nc: 3\n"), Family::Yaml);
+        assert_eq!(
+            classify("key: value\nother: 1\nnested:\n  a: 2\n"),
+            Family::Yaml
+        );
+        // A pure `- item` list IS a valid YAML sequence and stays YAML.
+        assert_eq!(classify("- one\n- two\n- three\n- four\n"), Family::Yaml);
+    }
+
+    #[test]
+    fn markdown_signature_needs_heading_and_three_markers() {
+        fn n(s: &str) -> Vec<&str> {
+            s.lines().filter(|l| !l.trim().is_empty()).collect()
+        }
+        assert!(markdown_signature(&n("# T\n\n- a\n- b\n- c\n")));
+        assert!(
+            !markdown_signature(&n("- a\n- b\n- c\n- d\n")),
+            "no heading"
+        );
+        assert!(
+            !markdown_signature(&n("# T\n\n- a\n- b\n")),
+            "only 2 markers"
+        );
+        assert!(
+            !markdown_signature(&n("#NotAHeading\n\n- a\n- b\n- c\n")),
+            "no space"
+        );
+    }
+
     /// `[package]`-style openers are TOML/INI table headers, not JSON
     /// arrays. Before the guard, Cargo.toml sniffed as Json, the JSON
     /// extractor junked it, and cratecite's crate table stayed empty on
@@ -3493,6 +3837,83 @@ mod text_family_tests {
     fn classify_full(text: &str) -> Family {
         let nonblank: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
         classify_text(text, &nonblank)
+    }
+
+    /// #1504: `journalctl -o short-iso` output and vsftpd `xferlog` transfer
+    /// records are line-oriented logs. Both used to fall through to
+    /// `TxtProse`: the field report's syslog and transfer files were shredded
+    /// into prose chunks with no timestamp/host/program fields to filter on.
+    /// Asserted through the full classifier — `classify_text` claims the
+    /// `Logs` family before `txt_kind` is consulted.
+    #[test]
+    fn iso_syslog_and_xferlog_files_classify_as_logs() {
+        let iso = "2026-10-16T09:06:58+0200 pbx systemd[1]: Started vsftpd service\n\
+                   2026-10-16T09:06:59+0200 pbx vsftpd[1234]: CONNECT: Client \"10.0.0.7\"\n\
+                   2026-10-16T09:07:01+0200 pbx sshd[1235]: Accepted publickey for admin\n\
+                   2026-10-16T09:07:02+0200 pbx (ogon-ops)[2357880]: Unable to locate executable\n";
+        assert_eq!(classify_full(iso), Family::Logs);
+
+        let xfer = "Fri Oct 16 09:06:58 2026 1 10.0.0.7 4242 /uploads/fw.bin b _ o r admin ftp 0 * c\n\
+                    Fri Oct 16 09:07:10 2026 2 10.0.0.7 10 /uploads/invalid.bin b _ o r admin ftp 0 * i\n\
+                    Sat Oct 17 11:00:00 2026 0 10.0.0.9 0 /pub/README b _ i a guest ftp 0 * c\n";
+        assert_eq!(classify_full(xfer), Family::Logs);
+
+        // The RFC3164 control keeps classifying (no regression).
+        let rfc = "Oct 16 09:06:58 pbx vsftpd[1234]: CONNECT: Client \"10.0.0.7\"\n\
+                   Oct 16 09:07:01 pbx sshd[1235]: Accepted publickey for admin\n\
+                   Oct 16 09:07:02 pbx pbx-phone[990]: SIP engine not registered\n";
+        assert_eq!(classify_full(rfc), Family::Logs);
+    }
+
+    /// #1504 review: the ISO-syslog template must not steal files from Csv or
+    /// TxtProse. Each shape below matched a looser draft of the template
+    /// (`\s+` separators, any `word:` tag) and changed family; they are CSV
+    /// or prose, never logs. The chosen rule is stated in the `isosyslog`
+    /// template comment: single spaces, a tag starting with a letter or `(`,
+    /// and either a numeric `[pid]` bracket or a bare `kernel`/`sudo`/`su`/
+    /// `audit`/`(unit)` tag.
+    #[test]
+    fn iso_stamped_non_syslog_files_do_not_classify_as_logs() {
+        let tsv = "2026-10-16T09:06:58Z\tGET\thttps://example.com/a\t200\n\
+                   2026-10-16T09:06:59Z\tPOST\thttps://example.com/b\t201\n\
+                   2026-10-16T09:07:00Z\tGET\thttps://example.com/c\t404\n";
+        assert_ne!(classify_full(tsv), Family::Logs, "TSV is Csv, not Logs");
+
+        let zap = "2026-10-16T09:06:58.123+0200\tINFO\tapp/main.go:42\tstarted\n\
+                   2026-10-16T09:06:59.456+0200\tWARN\tapp/db.go:17\tslow query\n\
+                   2026-10-16T09:07:00.789+0200\tERROR\tapp/api.go:88\tpanic\n";
+        assert_ne!(
+            classify_full(zap),
+            Family::Logs,
+            "zap dev log is Csv, not Logs"
+        );
+
+        let elb = "2015-05-13T23:39:43.945958Z my-lb 192.168.131.39:2817 10.0.0.1:80 0.000022 0.086224 0.000021 200 200 0 57 \"GET http://www.example.com:80/ HTTP/1.1\" \"curl/7.38.0\" - -\n\
+                   2015-05-13T23:39:44.945958Z my-lb 192.168.131.39:2817 10.0.0.1:80 0.000022 0.086224 0.000021 200 200 0 57 \"GET http://www.example.com:80/ HTTP/1.1\" \"curl/7.38.0\" - -\n\
+                   2015-05-13T23:39:45.945958Z my-lb 192.168.131.39:2817 10.0.0.1:80 0.000022 0.086224 0.000021 200 200 0 57 \"GET http://www.example.com:80/ HTTP/1.1\" \"curl/7.38.0\" - -\n";
+        assert_ne!(
+            classify_full(elb),
+            Family::Logs,
+            "ELB access log is prose, not Logs"
+        );
+
+        let git = "2026-10-16T09:06:58+02:00 a1b2c3d feat: add x\n\
+             2026-10-16T09:06:59+02:00 b2c3d4e fix: correct y\n\
+             2026-10-16T09:07:00+02:00 c3d4e5f docs: describe z\n";
+        assert_ne!(
+            classify_full(git),
+            Family::Logs,
+            "git log is prose, not Logs"
+        );
+
+        let notes = "2026-10-16T09:06:58 retro notes: we shipped rc.96\n\
+                     2026-10-16T09:07:00 retro notes: the bench held\n\
+                     2026-10-16T09:07:05 retro notes: next is review\n";
+        assert_ne!(
+            classify_full(notes),
+            Family::Logs,
+            "timestamped notes are prose, not Logs"
+        );
     }
 
     /// Regression: a markdown document with `## Headings` averages ~50 chars
@@ -4033,12 +4454,12 @@ mod zip_container_sniff_tests {
         );
         assert_eq!(
             kind(&[ct, ("xl/workbook.xml", "<workbook/>")]),
-            binary("xlsx")
+            (Family::Xlsx, None)
         );
         assert_eq!(kind(&[ct, ("xl/workbook.bin", "\u{1}")]), binary("xlsb"));
         assert_eq!(
             kind(&[ct, ("ppt/presentation.xml", "<p:presentation/>")]),
-            binary("pptx")
+            (Family::Pptx, None)
         );
     }
 
@@ -4068,7 +4489,7 @@ mod zip_container_sniff_tests {
                 ("mimetype", "application/epub+zip"),
                 ("META-INF/container.xml", "<container/>"),
             ]),
-            binary("epub")
+            (Family::Epub, None)
         );
     }
 
@@ -4094,7 +4515,7 @@ mod zip_container_sniff_tests {
 
     #[test]
     fn unsupported_documents_get_an_export_hint_not_archive_advice() {
-        for k in ["xlsx", "xlsb", "pptx", "odt", "ods", "odp", "epub"] {
+        for k in ["xlsb", "odt", "ods", "odp"] {
             assert_eq!(archive_advice(k, false), None, "{k}");
             let advice = unsupported_document_advice(k).unwrap();
             assert!(
@@ -4104,11 +4525,189 @@ mod zip_container_sniff_tests {
             );
             assert!(!advice.contains("unzip"), "{k}: {advice}");
         }
-        assert!(unsupported_document_advice("xlsx")
+        assert!(unsupported_document_advice("xlsb")
             .unwrap()
-            .contains("Excel workbook"));
-        for k in ["zip", "tar", "png", "docx", "unknown", ""] {
+            .contains("Excel binary workbook"));
+        // The hint names the format autoindex extracts best for that kind of
+        // document: a presentation saved as .pptx keeps one record per slide,
+        // which a PDF export also gives but without the slide titles and notes.
+        assert!(unsupported_document_advice("ods")
+            .unwrap()
+            .contains(".xlsx"));
+        assert!(unsupported_document_advice("odp")
+            .unwrap()
+            .contains(".pptx"));
+        for k in [
+            "zip", "tar", "png", "docx", "pptx", "xlsx", "epub", "unknown", "",
+        ] {
             assert_eq!(unsupported_document_advice(k), None, "{k}");
         }
+    }
+}
+
+#[cfg(test)]
+mod data_container_tests {
+    use super::*;
+    use std::io::Write;
+
+    fn sniffed(bytes: &[u8], name: &str) -> Sniffed {
+        let p = Path::new(name);
+        sniff_bytes(bytes, p, p, false).unwrap()
+    }
+
+    /// Prefixes copied from real files: pyarrow 17 (Parquet snappy/zstd/none,
+    /// Feather v2), a Chroma Parquet store, numpy.save, h5py, pickle.dumps.
+    #[test]
+    fn data_containers_are_named_from_real_file_prefixes() {
+        for (bytes, kind) in [
+            (&b"PAR1\x15\x04\x150\x15.rest"[..], "parquet"),
+            (&b"PAR1\x15\x00\x15\x5crest"[..], "parquet"),
+            (&b"ARROW1\x00\x00\xff\xffrest"[..], "arrow"),
+            (&b"\x93NUMPY\x01\x00v\x00rest"[..], "npy"),
+            (&b"\x89HDF\r\n\x1a\n\x00\x00rest"[..], "hdf5"),
+            (&b"\x80\x02}q\x00X\x01\x00rest"[..], "pickle"),
+            (&b"\x80\x05\x95\n\x00\x00\x00\x00rest"[..], "pickle"),
+        ] {
+            let s = sniffed(bytes, "data.bin");
+            assert_eq!(s.family, Family::Binary, "{kind}");
+            assert_eq!(s.binary_kind.as_deref(), Some(kind));
+        }
+        // A protocol-4 opcode without its FRAME, and protocol 0 (no header):
+        // not claimed as pickles.
+        for bytes in [&b"\x80\x04}rest of it"[..], &b"(dp0\nS'k'\nI1\ns."[..]] {
+            assert_ne!(
+                sniffed(bytes, "x.bin").binary_kind.as_deref(),
+                Some("pickle")
+            );
+        }
+    }
+
+    #[test]
+    fn a_zip_of_npy_members_is_an_npz() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("arrays.npz");
+        {
+            let mut w = zip::ZipWriter::new(std::fs::File::create(&path).unwrap());
+            let opts = zip::write::SimpleFileOptions::default();
+            for m in ["x.npy", "y.npy"] {
+                w.start_file(m, opts).unwrap();
+                w.write_all(b"\x93NUMPY\x01\x00").unwrap();
+            }
+            w.finish().unwrap();
+        }
+        assert_eq!(sniff(&path).unwrap().binary_kind.as_deref(), Some("npz"));
+    }
+
+    #[test]
+    fn data_containers_get_an_export_hint() {
+        for k in ["parquet", "arrow", "npy", "npz", "hdf5"] {
+            let advice = unsupported_data_advice(k).unwrap();
+            assert!(
+                advice.starts_with("unsupported data format (")
+                    && advice.contains("to index it now"),
+                "{k}: {advice}"
+            );
+        }
+        let pickle = unsupported_data_advice("pickle").unwrap();
+        assert!(pickle.contains("never loads pickles"), "{pickle}");
+        for k in ["zip", "png", "xlsx", "unknown", ""] {
+            assert_eq!(unsupported_data_advice(k), None, "{k}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod ole2_sniff_tests {
+    use super::*;
+    use std::io::Write;
+    use std::path::Path;
+
+    /// Write a synthetic OLE2 compound file carrying exactly the named streams
+    /// (each with a byte of content), and return its path inside `dir`. Built
+    /// with cfb's own writer, so no real Office file is ever needed.
+    fn write_ole2(dir: &tempfile::TempDir, file: &str, streams: &[&str]) -> std::path::PathBuf {
+        let path = dir.path().join(file);
+        {
+            let mut comp = cfb::create(&path).unwrap();
+            for name in streams {
+                let mut s = comp.create_stream(name).unwrap();
+                s.write_all(b"x").unwrap();
+                s.flush().unwrap();
+            }
+            comp.flush().unwrap();
+        }
+        path
+    }
+
+    /// A `Workbook` stream inside an OLE2 container routes to `Xls`, by content
+    /// and not by the file's extension.
+    #[test]
+    fn a_workbook_stream_is_detected_as_xls() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_ole2(&dir, "legacy.bin", &["Workbook"]);
+        assert_eq!(sniff(&path).unwrap().family, Family::Xls);
+        // The pre-BIFF8 name `Book` also counts.
+        let path = write_ole2(&dir, "old.bin", &["Book"]);
+        assert_eq!(sniff(&path).unwrap().family, Family::Xls);
+    }
+
+    /// A `WordDocument` stream routes to `Doc`.
+    #[test]
+    fn a_worddocument_stream_is_detected_as_doc() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_ole2(
+            &dir,
+            "report.bin",
+            &["WordDocument", "\u{5}SummaryInformation"],
+        );
+        assert_eq!(sniff(&path).unwrap().family, Family::Doc);
+    }
+
+    /// Any other OLE2 container (PowerPoint, Visio, a 1C `.epf`, …) is named
+    /// `ole2` and left for the skip report — never parsed, never a panic.
+    #[test]
+    fn an_unrecognised_ole2_container_is_named_but_not_parsed() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = write_ole2(&dir, "deck.bin", &["PowerPoint Document"]);
+        let sn = sniff(&path).unwrap();
+        assert_eq!(sn.family, Family::Binary);
+        assert_eq!(sn.binary_kind.as_deref(), Some("ole2"));
+    }
+
+    /// The OLE2 magic followed by garbage (a truncated/crafted compound file)
+    /// must classify as binary `ole2` without panicking or hanging.
+    #[test]
+    fn a_truncated_ole2_header_is_binary_not_a_panic() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("broken.bin");
+        let mut bytes = OLE2_MAGIC.to_vec();
+        bytes.extend_from_slice(&[0xFF; 600]); // nonsense header fields
+        std::fs::write(&path, &bytes).unwrap();
+        let sn = sniff(&path).unwrap();
+        assert_eq!(sn.family, Family::Binary);
+        assert_eq!(sn.binary_kind.as_deref(), Some("ole2"));
+    }
+
+    /// A `.ssc`-style spreadsheet export is a TEXT XML body, not an OLE2
+    /// container, and must stay `Xml` — pinned so the new OLE2 routing (and any
+    /// future "spreadsheet" heuristic) never steals it.
+    #[test]
+    fn an_ssc_xml_spreadsheet_body_stays_xml() {
+        let body = concat!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>"#,
+            "\n",
+            r#"<spreadsheet-workbook-data version="2" generator="xerj">"#,
+            "\n  <sheet name=\"Totals\"><row><cell>Region</cell><cell>Revenue</cell></row></sheet>\n",
+            r#"</spreadsheet-workbook-data>"#,
+        );
+        let fam = sniff_bytes(
+            body.as_bytes(),
+            Path::new("export.ssc"),
+            Path::new("export.ssc"),
+            false,
+        )
+        .unwrap()
+        .family;
+        assert_eq!(fam, Family::Xml);
     }
 }

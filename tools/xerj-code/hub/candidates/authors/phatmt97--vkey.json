@@ -1,0 +1,22 @@
+{
+ "corpus": "phatmt97--vkey",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how phatMT97/VKey implements it: Vietnamese Input for Windows - B\u1ed9 g\u00f5 Ti\u1ebfng Vi\u1ec7t ngu\u1ed3n m\u1edf (selected work: tests, src/core, the project root)",
+ "repos": [
+  {
+   "repo": "VKey",
+   "url": "https://github.com/phatMT97/VKey",
+   "sha": "d36704594a61cd4e368dafa90b4090adf8ca666c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit d36704594a61: \"fix: preserve config across interrupted saves\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

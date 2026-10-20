@@ -1,0 +1,22 @@
+{
+ "corpus": "opendqv--opendqv",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on data-contracts, data-governance, data-quality queries this for how OpenDQV/OpenDQV implements it: Open-source, contract-driven data quality validation. Shift-left enforcement at the point of write \u2014 before data enters your pipeline (selected work: tests, opendqv, scripts)",
+ "repos": [
+  {
+   "repo": "OpenDQV",
+   "url": "https://github.com/OpenDQV/OpenDQV",
+   "sha": "6455bf98c1977ae17412136ccb8af21162cd4469",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 6455bf98c197: \"engine: `$` is the end of the value \u2014 rewrite `$` \u2192 `\\Z` at compile t\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

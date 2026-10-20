@@ -1,0 +1,22 @@
+{
+ "corpus": "totoshko88--cloud-architecture",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on architecture-diagrams, aws, azure queries this for how totoshko88/Cloud_Architecture implements it: Cloud-agnostic Kiro rule engine that deterministically generates architecture diagrams and inventory docs across AWS, Azure, GCP, OCI, and a (selected work: examples, src/rule_engine, tests)",
+ "repos": [
+  {
+   "repo": "Cloud_Architecture",
+   "url": "https://github.com/totoshko88/Cloud_Architecture",
+   "sha": "0487c0d6e4ccaa3db5fa7b120b999f4b3daa8b88",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit 0487c0d6e4cc: \"fix(routing): flag chain-pair corridor merges + stretch short approac\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

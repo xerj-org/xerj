@@ -1,0 +1,22 @@
+{
+ "corpus": "paxx12-snapmaker-u1--snapmakeru1-extended-firmware",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on firmware, snapmaker, ssh queries this for how paxx12-snapmaker-u1/SnapmakerU1-Extended-Firmware implements it: Custom and repackaged Snapmaker U1 firmware (selected work: overlays)",
+ "repos": [
+  {
+   "repo": "SnapmakerU1-Extended-Firmware",
+   "url": "https://github.com/paxx12-snapmaker-u1/SnapmakerU1-Extended-Firmware",
+   "sha": "1c075c48c004468018c30958245ad15a0fe2114c",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 1c075c48c004: \"Add rolling-only multiACE build (#738)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

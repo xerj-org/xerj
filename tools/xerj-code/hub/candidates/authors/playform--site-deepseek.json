@@ -1,0 +1,22 @@
+{
+ "corpus": "playform--site-deepseek",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on deepseek, deepseek-harness, website queries this for how PlayForm/Site-DeepSeek implements it: Site for the DeepSeek \ud83d\udc33 Harness Plugin family for PlayForm \u2601\ufe0f (selected work: Scripts, Source)",
+ "repos": [
+  {
+   "repo": "Site-DeepSeek",
+   "url": "https://github.com/PlayForm/Site-DeepSeek",
+   "sha": "0fdb5742d9f2b75ccda9f75c291996f272b7f790",
+   "licence": "hint only: CC0-1.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "CC0-1.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 0fdb5742d9f2: \"fix(site): Close the raw-marker __normalize token in the exemption pr\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

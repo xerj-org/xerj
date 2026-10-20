@@ -1,0 +1,22 @@
+{
+ "corpus": "hatefsystems--search-engine-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on search-engine, c-plus-plus, hatef queries this for how hatefsystems/search-engine-core implements it: Our mission is to forge a more open, reliable, and user-focused future for internet search. We advocate for inclusive participation, improve (selected work: tests, scripts, src/controllers)",
+ "repos": [
+  {
+   "repo": "search-engine-core",
+   "url": "https://github.com/hatefsystems/search-engine-core",
+   "sha": "b855d11566e9c55d6d90fe2b3f4a784aa42d2dc4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit b855d11566e9: \"feat: add profile uploads migration script and enhance error handling\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

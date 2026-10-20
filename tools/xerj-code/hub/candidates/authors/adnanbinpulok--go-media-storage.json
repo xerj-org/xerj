@@ -1,0 +1,22 @@
+{
+ "corpus": "adnanbinpulok--go-media-storage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on fast-storage, image-storage, media-storage queries this for how AdnanBinPulok/Go-Media-Storage implements it: A self-hosted media storage server built with Go. Upload, organise, and serve files through a vault-based access model with a built-in dashb (selected work: avatar_generator, pages, tmp_avatarpreview)",
+ "repos": [
+  {
+   "repo": "Go-Media-Storage",
+   "url": "https://github.com/AdnanBinPulok/Go-Media-Storage",
+   "sha": "377ea3d413d449adee7978940d4d4d4957ddf66e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 377ea3d413d4: \"refactor: optimize avatar shape rendering by introducing minRad and m\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "mayankbansal12--bb-plugin-usage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on bb-plugin, bb-plugin-marketplace queries this for how MayankBansal12/bb-plugin-usage implements it: bb plugin for visualizing codex, claude code and other agents usage across all enrolled machines (selected work: the project root, scripts)",
+ "repos": [
+  {
+   "repo": "bb-plugin-usage",
+   "url": "https://github.com/MayankBansal12/bb-plugin-usage",
+   "sha": "2e30fb62bd4a618a13ae8fa24e7b08ffb76ea885",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 2e30fb62bd4a: \"fix: collect usage on Windows and bump to 0.3.21 (#91)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "tocharianou--mcp-server-kibana",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how TocharianOU/mcp-server-kibana implements it: MCP server for Kibana, Access search and manage Kibana in MCP Client (selected work: test, the project root, src/utils)",
+ "repos": [
+  {
+   "repo": "mcp-server-kibana",
+   "url": "https://github.com/TocharianOU/mcp-server-kibana",
+   "sha": "1fe0eb9a54c7eb7845122c51232e16a93e7a8b39",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 1fe0eb9a54c7: \"fix: security release v0.11.1\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

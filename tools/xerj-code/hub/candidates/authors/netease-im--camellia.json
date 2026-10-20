@@ -1,0 +1,22 @@
+{
+ "corpus": "netease-im--camellia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on redis-proxy, netty4, double-write queries this for how netease-im/camellia implements it: Camellia provide easy-to-use server toolkits, such as: redis proxy\u3001delay queue\u3001id gen\u3001hot key and more (selected work: camellia-toolkits, camellia-core)",
+ "repos": [
+  {
+   "repo": "camellia",
+   "url": "https://github.com/netease-im/camellia",
+   "sha": "3608cc944122c022852aa9b692171312769c1ac1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 3608cc944122: \"feat: support merging executor\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

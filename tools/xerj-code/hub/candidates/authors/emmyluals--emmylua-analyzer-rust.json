@@ -1,0 +1,22 @@
+{
+ "corpus": "emmyluals--emmylua-analyzer-rust",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how EmmyLuaLs/emmylua-analyzer-rust implements it: EmmyLuaLs/emmylua-analyzer-rust (Rust) (selected work: crates/emmylua_code_analysis)",
+ "repos": [
+  {
+   "repo": "emmylua-analyzer-rust",
+   "url": "https://github.com/EmmyLuaLs/emmylua-analyzer-rust",
+   "sha": "8242da72948afa09c3e8b59a0802b29c6d0e1190",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 8242da72948a: \"refactor(infer): encode index operands and strengthen cast regressions\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

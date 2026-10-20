@@ -1,0 +1,22 @@
+{
+ "corpus": "felipe-dos-santos81--fifa-96-re",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on decompilation, decompiled, game queries this for how felipe-dos-santos81/fifa-96-re implements it: Reverse Engineer of Fifa96 Game (selected work: tests, src/fifa96_engine, include)",
+ "repos": [
+  {
+   "repo": "fifa-96-re",
+   "url": "https://github.com/felipe-dos-santos81/fifa-96-re",
+   "sha": "0adbbdd51541698104d694948d206cd596eb8850",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 0adbbdd51541: \"feat(engine,fu217): the sit-8 actor-cell bind + action row 0x20 \u2014 55/\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

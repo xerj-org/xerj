@@ -1,0 +1,22 @@
+{
+ "corpus": "anivaryam--proc-compose",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on process-compose, process-orchestration, processes queries this for how anivaryam/proc-compose implements it: proc-compose is a local process orchestrator for development and small deployments. It starts every service in your stack from one YAML file (selected work: internal/update, cmd/proc-compose)",
+ "repos": [
+  {
+   "repo": "proc-compose",
+   "url": "https://github.com/anivaryam/proc-compose",
+   "sha": "a6eba41dd068c6da09e76eca7f9586a45d422f0f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit a6eba41dd068: \"fix: target update guidance at the running copy\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "birdr-app--birdr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how birdr-app/birdr implements it: Birdr - Bird ID Quiz App (selected work: jizz, app/src, mobile)",
+ "repos": [
+  {
+   "repo": "birdr",
+   "url": "https://github.com/birdr-app/birdr",
+   "sha": "38c98e7a39e233755d261467838478e3e994d17b",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 38c98e7a39e2: \"Country League\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

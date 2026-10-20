@@ -1,0 +1,22 @@
+{
+ "corpus": "almasumdev--excel-plus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on csv, dart, dart-package queries this for how almasumdev/excel_plus implements it: Fast, low-memory Excel library for Dart & Flutter: read, create, edit and style .xlsx spreadsheets (and read legacy .xls) with charts, formu (selected work: test, lib/src, the project root)",
+ "repos": [
+  {
+   "repo": "excel_plus",
+   "url": "https://github.com/almasumdev/excel_plus",
+   "sha": "2ea9d958f2472ba7db5a0d1ae285b32ec4b99ee8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 2ea9d958f247: \"fix: read a workbook whose parts prefix every element\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

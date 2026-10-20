@@ -1,0 +1,22 @@
+{
+ "corpus": "jtad009--flagmint-js-sdk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how jtad009/flagmint-js-sdk implements it: This SDK provides a framework-agnostic client for evaluating feature flags, with pluggable caching (sync or async) and transport strategies  (selected work: sdk)",
+ "repos": [
+  {
+   "repo": "flagmint-js-sdk",
+   "url": "https://github.com/jtad009/flagmint-js-sdk",
+   "sha": "3beb8c32c5479f060586ccdced31ed8ff2dd3406",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 3beb8c32c547: \"fix(config-sync): fail closed when PII salt or encoding is unusable\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

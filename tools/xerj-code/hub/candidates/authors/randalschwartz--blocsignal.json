@@ -1,0 +1,22 @@
+{
+ "corpus": "randalschwartz--blocsignal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how RandalSchwartz/BlocSignal implements it: RandalSchwartz/BlocSignal (JavaScript) (selected work: bloc_signals_flutter, bloc_signals_jaspr)",
+ "repos": [
+  {
+   "repo": "BlocSignal",
+   "url": "https://github.com/RandalSchwartz/BlocSignal",
+   "sha": "ecffb975a910a638a263d4b37fea3e8170a86e8f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit ecffb975a910: \"fix(flutter, jaspr): Provider lazy rebuild, factory error handling, a\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

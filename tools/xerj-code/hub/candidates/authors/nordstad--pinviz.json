@@ -1,0 +1,22 @@
+{
+ "corpus": "nordstad--pinviz",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on diagram, esp32, gpio-pins queries this for how nordstad/PinViz implements it: Programmatically generate GPIO connection diagrams in SVG format (selected work: src/pinviz, tests, examples)",
+ "repos": [
+  {
+   "repo": "PinViz",
+   "url": "https://github.com/nordstad/PinViz",
+   "sha": "8f996053e2f8fcd68bffba40675ae0d67058ef7e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 8f996053e2f8: \"Breadboard layout and stepper parts (builds on #350) (#351)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

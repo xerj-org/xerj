@@ -1,0 +1,22 @@
+{
+ "corpus": "mangit955--nap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, code-generation, agent-runtime queries this for how mangit955/nap implements it: Durable runtime for long-running coding agents. A prompt becomes a running app in an isolated sandbox; each turn is committed, verified agai (selected work: apps/web)",
+ "repos": [
+  {
+   "repo": "nap",
+   "url": "https://github.com/mangit955/nap",
+   "sha": "4930e97dab644af952c318e70dcdfa9e2ab7cc31",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 4930e97dab64: \"fix(chat): recover refused first prompts with media\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

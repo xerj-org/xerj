@@ -1,0 +1,22 @@
+{
+ "corpus": "thehoho--owo-boss-helper-discord-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how thehoho/owo-boss-helper-discord-bot implements it: An automatic OwO boss command generator and guild-boss cooldown tracker for Discord (selected work: cogs, tests)",
+ "repos": [
+  {
+   "repo": "owo-boss-helper-discord-bot",
+   "url": "https://github.com/thehoho/owo-boss-helper-discord-bot",
+   "sha": "316b466a8893cd5aff05dd24ccaf1b4905a121dc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 316b466a8893: \"Add interactive team XP forecasting\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

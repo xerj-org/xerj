@@ -1,0 +1,22 @@
+{
+ "corpus": "coreryblack--astrallight-next",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how CoreryBlack/AstralLight.Next implements it: CoreryBlack/AstralLight.Next (Rust) (selected work: tests-suite, astral-db, scripts)",
+ "repos": [
+  {
+   "repo": "AstralLight.Next",
+   "url": "https://github.com/CoreryBlack/AstralLight.Next",
+   "sha": "ef5d9e3131beebebc20de3dd5e7ddedea0608a21",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit ef5d9e3131be: \"test(testsuite): consolidate classified suite with multi-tenant extre\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

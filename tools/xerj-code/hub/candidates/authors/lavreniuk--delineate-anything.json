@@ -1,0 +1,22 @@
+{
+ "corpus": "lavreniuk--delineate-anything",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Lavreniuk/Delineate-Anything implements it: [ECCV 2026] Delineate Anything v2: Resolution-Agnostic Global Foundation Model For Precise Field Boundary Detection From Any Imagery Source (selected work: methods, the project root)",
+ "repos": [
+  {
+   "repo": "Delineate-Anything",
+   "url": "https://github.com/Lavreniuk/Delineate-Anything",
+   "sha": "d272693fa77acf3b09cf005c47ae32d3ffe9ef14",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit d272693fa77a: \"Join fields split by region borders (merge_region_seams)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

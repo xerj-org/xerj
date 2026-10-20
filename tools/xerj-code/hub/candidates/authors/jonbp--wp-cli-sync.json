@@ -1,0 +1,22 @@
+{
+ "corpus": "jonbp--wp-cli-sync",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on wp-cli, wordpress, php queries this for how jonbp/wp-cli-sync implements it: A WP-CLI command for syncing a live site to a development environment (selected work: includes, tasks, core)",
+ "repos": [
+  {
+   "repo": "wp-cli-sync",
+   "url": "https://github.com/jonbp/wp-cli-sync",
+   "sha": "0cdecce9df00c6841767e52f5f10dfbca17db18a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit 0cdecce9df00: \"Rework into WordPress-standard classes with faster syncs + v1.6.0\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

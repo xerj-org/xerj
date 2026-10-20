@@ -1,0 +1,22 @@
+{
+ "corpus": "madebyoutloud--adonis-openapi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on adonisjs, generator, openapi queries this for how madebyoutloud/adonis-openapi implements it: OpenAPI generator for AdonisJS 7 (selected work: packages/generator, packages/openapi, the project root)",
+ "repos": [
+  {
+   "repo": "adonis-openapi",
+   "url": "https://github.com/madebyoutloud/adonis-openapi",
+   "sha": "84820650e0a2de4c38036e0686d99a5779950d74",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 84820650e0a2: \"feat: improve type generation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

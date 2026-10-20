@@ -1,0 +1,22 @@
+{
+ "corpus": "trooper15a--collect-them-all",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on card-scanner, machine-learning, nextjs queries this for how Trooper15a/collect_them_all implements it: Free, open-source AI-powered TCG portfolio tracker with on-device card scanning (selected work: web)",
+ "repos": [
+  {
+   "repo": "collect_them_all",
+   "url": "https://github.com/Trooper15a/collect_them_all",
+   "sha": "69d2810069eaddeb57ed1932f93d236adf83bc5f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 69d2810069ea: \"Fix scanner capture, guide alignment, and scan recovery\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

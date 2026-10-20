@@ -1,0 +1,22 @@
+{
+ "corpus": "wusui1325-dotcom--android-find-with-orientation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how wusui1325-dotcom/android-find-with-orientation implements it: android find with Orientation (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "android-find-with-orientation",
+   "url": "https://github.com/wusui1325-dotcom/android-find-with-orientation",
+   "sha": "e956b4dcf1cbf2577fb29eea87135615bfbf98b5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit e956b4dcf1cb: \"\u52a0\u5165\u5e38\u99d0\u88ab\u767c\u73fe\u8207\u878d\u5408\u5b9a\u4f4d\u5f8c\u5099\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

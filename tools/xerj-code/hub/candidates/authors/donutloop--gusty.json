@@ -1,0 +1,22 @@
+{
+ "corpus": "donutloop--gusty",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how donutloop/gusty implements it: Gusty is a statically typed, programming language designed for creating high-performance, scalable applications (selected work: pkg/lang, integration, the project root)",
+ "repos": [
+  {
+   "repo": "gusty",
+   "url": "https://github.com/donutloop/gusty",
+   "sha": "83c9f72af5da3c7400cfd0e0d92205741ce3c330",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 83c9f72af5da: \"test(parallelism): measure the overlap rather than asserting it (ADR \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

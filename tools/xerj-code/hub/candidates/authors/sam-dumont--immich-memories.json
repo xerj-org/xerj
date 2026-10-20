@@ -1,0 +1,22 @@
+{
+ "corpus": "sam-dumont--immich-memories",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on ffmpeg, immich, memories queries this for how sam-dumont/immich-memories implements it: Turn your Immich photos and videos into memory films. Self-hosted, with titles and music (selected work: src/immich_memories, tests, scripts)",
+ "repos": [
+  {
+   "repo": "immich-memories",
+   "url": "https://github.com/sam-dumont/immich-memories",
+   "sha": "e19fd1a178bfd95249beb26a8bbdc28fc44ff4a6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-07 (reply to Corpus Hub outreach); selected commit e19fd1a178bf: \"feat(selection): a finger over the lens is a rank-only warning, never\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

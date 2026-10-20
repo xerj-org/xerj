@@ -1,0 +1,22 @@
+{
+ "corpus": "arsenyspb--walkmansync-for-mac",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on mac, macos, music-sync queries this for how arsenyspb/walkmansync-for-mac implements it: Native Mac port and modern SonicStage alternative for Sony Network Walkman (NW-E405, NW-E400 series) with 3rd-generation OMGAUDIO database i (selected work: WalkmanSync, Tests, the project root)",
+ "repos": [
+  {
+   "repo": "walkmansync-for-mac",
+   "url": "https://github.com/arsenyspb/walkmansync-for-mac",
+   "sha": "cad41c2f3b98d166d480c7ed8ba4b38089f09d3e",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit cad41c2f3b98: \"Implement Device Maintenance Suite (Erase / Reset & Reverse-Descrambl\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

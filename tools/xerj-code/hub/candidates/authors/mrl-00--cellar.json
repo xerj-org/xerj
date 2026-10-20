@@ -1,0 +1,22 @@
+{
+ "corpus": "mrl-00--cellar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Rust queries this for how MRL-00/cellar implements it: Cellar \u2014 open-source universal desktop database client written in GPUI (selected work: apps/cellar-browser, crates/cellar-extension-service, plugins)",
+ "repos": [
+  {
+   "repo": "cellar",
+   "url": "https://github.com/MRL-00/cellar",
+   "sha": "f2f221284b39bb175fa160dae51869ec7d710e41",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f2f221284b39: \"feat: distribute Cellar database workspace as a Codex plugin\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

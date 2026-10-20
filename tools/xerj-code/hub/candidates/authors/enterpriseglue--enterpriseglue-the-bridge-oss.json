@@ -1,0 +1,22 @@
+{
+ "corpus": "enterpriseglue--enterpriseglue-the-bridge-oss",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on TypeScript queries this for how EnterpriseGlue/enterpriseglue-the-bridge-oss implements it: Unified portal to design, deploy and manage processes designed in BPMN & DMN (selected work: scripts, backend, packages/shared)",
+ "repos": [
+  {
+   "repo": "enterpriseglue-the-bridge-oss",
+   "url": "https://github.com/EnterpriseGlue/enterpriseglue-the-bridge-oss",
+   "sha": "e6ef51a85fa094698908638c55ad533ad6371174",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit e6ef51a85fa0: \"feat(oracle): add optional required AES256 native network encryption\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

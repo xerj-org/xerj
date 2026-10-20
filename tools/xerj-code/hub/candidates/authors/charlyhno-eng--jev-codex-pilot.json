@@ -1,0 +1,22 @@
+{
+ "corpus": "charlyhno-eng--jev-codex-pilot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on codex, jev, ai-agents queries this for how Charlyhno-eng/jev-codex-pilot implements it: AI Software Factory for Codex. Intelligent task routing, contextual orchestration, and automated Kanban workflows. Transform AI-powered deve (selected work: tests, src/web, src/core)",
+ "repos": [
+  {
+   "repo": "jev-codex-pilot",
+   "url": "https://github.com/Charlyhno-eng/jev-codex-pilot",
+   "sha": "0414a5715ba2dffb0dbef57a154b328d89f3270e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 0414a5715ba2: \"new features optimized\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

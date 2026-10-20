@@ -1,0 +1,22 @@
+{
+ "corpus": "ruan1027--cmc-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how Ruan1027/cmc-lab implements it: \u5168\u56fd\u5927\u5b66\u751f\u6570\u5b66\u7ade\u8d5b\uff08CMC\uff09\u5907\u8003\u5e94\u7528\uff1a\u771f\u9898\u7ec3\u4e60\u3001\u9650\u65f6\u6a21\u8003\u3001\u9519\u9898\u672c\u3001\u516c\u5f0f\u624b\u518c\u3002React + TypeScript + Vite + Capacitor \u8de8\u7aef\u5de5\u7a0b\uff0cWeb / iOS / Android \u4e09\u7aef\u590d\u7528\u3002 (selected work: src/storage, src/components, src/store)",
+ "repos": [
+  {
+   "repo": "cmc-lab",
+   "url": "https://github.com/Ruan1027/cmc-lab",
+   "sha": "d79c56ce00d8d9eb8dd026f4165812adaa5cf5ed",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit d79c56ce00d8: \"fix(sync): \u5b57\u6bb5\u7ea7\u5e76\u96c6\u5408\u5e76\uff0c\u6839\u6cbb\u8de8\u7aef\u4e22\u6570\u636e\u4e0e 202 \u9898\u6c61\u67d3 v2.0.2\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

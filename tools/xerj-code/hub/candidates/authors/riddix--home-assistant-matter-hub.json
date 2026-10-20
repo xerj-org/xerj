@@ -1,0 +1,22 @@
+{
+ "corpus": "riddix--home-assistant-matter-hub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how RiDDiX/home-assistant-matter-hub implements it: Publish your Home-Assistant Instance using Matter (selected work: packages/backend)",
+ "repos": [
+  {
+   "repo": "home-assistant-matter-hub",
+   "url": "https://github.com/RiDDiX/home-assistant-matter-hub",
+   "sha": "0b50cd7d3ffd4d1e6dc07c68183acbfc2e06a132",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 0b50cd7d3ffd: \"feat(plugins): add a VeSync plugin for Levoit, Cosori and Etekcity de\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "siddharthvkutty--pdfx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how siddharthvkutty/pdfx implements it: A desktop pdf toolkit that works locally (selected work: tests, src/pdfx, the project root)",
+ "repos": [
+  {
+   "repo": "pdfx",
+   "url": "https://github.com/siddharthvkutty/pdfx",
+   "sha": "b8aee82d1842f437810286059ac50ca0fab652fd",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit b8aee82d1842: \"Added image to PDF functionality\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "openmachinelabs--openmachine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-runtime, agent-tools, ai-agents queries this for how OpenMachineLabs/openmachine implements it: An open-source runtime that lets your existing AI agent operate your machines (selected work: test, openmachine, examples)",
+ "repos": [
+  {
+   "repo": "openmachine",
+   "url": "https://github.com/OpenMachineLabs/openmachine",
+   "sha": "0417578b7f0bfbb89640dad59d757e8caddc4ec4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 0417578b7f0b: \"runtime(updates): surface non-blocking release notices (#158)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

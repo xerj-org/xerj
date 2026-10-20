@@ -1,0 +1,22 @@
+{
+ "corpus": "michaleiatrak-star--lex-machina",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on analiza, b2b, kancelaria queries this for how michaleiatrak-star/Lex-Machina implements it: Analityka polskiego prawa, przygotowanie pism procesowych, weryfikacja przepis\u00f3w prawa polskiego i orzecznictwa z oficjalnych \u017ar\u00f3de\u0142 z zakaz (selected work: Wersja rozwojowa rozpakowana)",
+ "repos": [
+  {
+   "repo": "Lex-Machina",
+   "url": "https://github.com/michaleiatrak-star/Lex-Machina",
+   "sha": "f77be079d937e571c6a68d6740d3f9493e9b89fc",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit f77be079d937: \"dr-02 3.89, shared 3.99.22: akty pomocnicze PrUp/PrRestr bez PDF (lis\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

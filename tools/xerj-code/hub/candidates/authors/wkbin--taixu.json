@@ -1,0 +1,22 @@
+{
+ "corpus": "wkbin--taixu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how wkbin/taixu implements it: Android No-Root Linux Runtime \u00b7 Native Agent Harness \u00b7 PTY Terminal \u00b7 Workspace & Tool Ecosystem (selected work: harness, feature, runtime)",
+ "repos": [
+  {
+   "repo": "taixu",
+   "url": "https://github.com/wkbin/taixu",
+   "sha": "fc010a38d8de1dec12d1719cbd3ae1ad8254a461",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit fc010a38d8de: \"refactor(harness): \u5de5\u5177\u6267\u884c\u62c6\u5206\u4e3a\u80fd\u529b\u540e\u7aef\u63d2\u69fd\u5e76\u7edf\u4e00\u53c2\u6570\u6821\u9a8c\u4e0e\u8f6c\u4e49\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

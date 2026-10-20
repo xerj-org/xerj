@@ -1,0 +1,22 @@
+{
+ "corpus": "youcongress--youcongress",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, aigovernance, elixir queries this for how youcongress/youcongress implements it: Database of sourced quotes on AI governance + participation layer with liquid democracy (selected work: lib/you_congress_web, test)",
+ "repos": [
+  {
+   "repo": "youcongress",
+   "url": "https://github.com/youcongress/youcongress",
+   "sha": "dbb950b0d91831aa6681c5e1584c82bb9afe1c3b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit dbb950b0d918: \"Add Moloch explainer and clarify YouCongress theory of change\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

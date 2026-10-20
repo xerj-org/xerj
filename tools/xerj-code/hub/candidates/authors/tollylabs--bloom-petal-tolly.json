@@ -1,0 +1,22 @@
+{
+ "corpus": "tollylabs--bloom-petal-tolly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Rust queries this for how TollyLabs/bloom-petal-tolly implements it: walletFS makes onchain actions safe, understandable, and easy to approve, without giving agents direct access to your keys (selected work: route, the project root)",
+ "repos": [
+  {
+   "repo": "bloom-petal-tolly",
+   "url": "https://github.com/TollyLabs/bloom-petal-tolly",
+   "sha": "60bac1d9ed39dab3a2fc466ee400692529ee4618",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 60bac1d9ed39: \"Scope Tolly routes to selected wallet account\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

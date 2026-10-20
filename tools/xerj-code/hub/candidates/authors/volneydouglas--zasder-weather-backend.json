@@ -1,0 +1,22 @@
+{
+ "corpus": "volneydouglas--zasder-weather-backend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how volneydouglas/zasder-weather-backend implements it: Self-hosted weather backend for the Zasder Weather iOS app \u2014 AmbientWeather, Davis WeatherLink, or direct 433/915 MHz RF capture (LilyGO ESP (selected work: tests, app)",
+ "repos": [
+  {
+   "repo": "zasder-weather-backend",
+   "url": "https://github.com/volneydouglas/zasder-weather-backend",
+   "sha": "dfe915bdcc462963eff9d2e3ed97c153e3abb7fc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit dfe915bdcc46: \"2.6.1\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

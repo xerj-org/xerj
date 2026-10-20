@@ -1,0 +1,22 @@
+{
+ "corpus": "songfengyunhe--inkwell",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-novel-writing, novel queries this for how SongFengYunHe/inkwell implements it: Inkwell \u00b7 \u672c\u5730\u4f18\u5148\u7684 AI \u957f\u7bc7\u5c0f\u8bf4\u751f\u4ea7\u5de5\u4f5c\u53f0\uff08TypeScript + Electron\uff09 (selected work: src/main, src/renderer, src/shared)",
+ "repos": [
+  {
+   "repo": "inkwell",
+   "url": "https://github.com/SongFengYunHe/inkwell",
+   "sha": "fd89bea03cd9ecac93ea195b401fbbc8db3f601a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit fd89bea03cd9: \"M12-C: \u5411\u91cf\u7d22\u5f15\u540e\u53f0\u961f\u5217\u4e0e\u7a7a\u95f2\u6267\u884c + \u589e\u91cf\u7ef4\u62a4\uff08v10 embedding_queue\uff09+ \u8bbe\u7f6e\u9875\u5f85\u7d22\u5f15/\u6682\u505c\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

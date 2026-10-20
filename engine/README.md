@@ -53,7 +53,7 @@ HTTP wire payloads, single-node, tmpfs data dir, both freshly started
 | Per-batch (5K) bulk p99 | **34.8 ms** | 80.3 ms | ES 2.3× |
 | Data loss on restart | 0% | 0% | tied |
 | GC pauses | 20–40 ms (JVM) | **0** (no GC) | **xerj** |
-| Config surface | 3,000+ knobs | **115**, all optional | **xerj** |
+| Config surface | 3,000+ knobs | **134**, all optional | **xerj** |
 
 xerj wins on every operational and read-path metric. ES still wins
 bulk-ingest throughput on warm Lucene `IndexWriter` (perf-backlog item
@@ -86,7 +86,7 @@ The resulting binary is at `target/release/xerj`.
 ## Configuration
 
 See [`xerj.default.toml`](xerj.default.toml) for the commonly-tuned settings, and
-[`crates/xerj-common/src/config.rs`](crates/xerj-common/src/config.rs) for all 115
+[`crates/xerj-common/src/config.rs`](crates/xerj-common/src/config.rs) for all 134
 — every one of them optional.
 
 The minimal config to get started:
@@ -103,8 +103,9 @@ enabled = false   # NOT the default — the default is true
 `auth.enabled` defaults to **true**; `enabled = false` above is an explicit
 opt-out, appropriate only for a trusted private network or local development.
 Leave it out (or set it to `true`) and the server mints an admin key on first
-boot, prints it, and writes it to `<data_dir>/admin.key`. Every client then has
-to send it — including `xerj autoindex`, which never reads the key out of
+boot and writes it to `<data_dir>/admin.key` (mode 0600). The key is not
+printed: the first-run notice names that path. Every client then has to send
+it — including `xerj autoindex`, which never reads the key out of
 `xerj.toml`; give it `--api-key` or `XERJ_API_KEY`:
 
 ```bash
@@ -316,6 +317,7 @@ HTTP Request
 | `xerj-cluster` | Embedded Raft consensus for cluster metadata, written from scratch |
 | `xerj-mcp` | MCP stdio server exposing XERJ's REST surface to agent hosts as tools |
 | `xerj-rerank` | Second-stage reranking client for `_search`: strict `rerank` block parser, provider call with batching and a deadline, degrade-on-deadline / surface-on-contract failure policy. A leaf the API layer calls; the engine does not link it |
+| `xerj-hub` | Corpus Hub v2 client behind `xerj ask` / `xerj "<question>"`, `xerj hub …` and `xerj code <corpus> --def`: pulls, verifies and restores signed pre-indexed packs, builds them for CI, and routes a question to a corpus. Depends on `xerj-autoindex`; the engine does not link it |
 | `xerj-wasm` | Pluggable ingest-time document transform pipeline |
 
 Every crate under `crates/` appears in this table — `crates/xerj-engine/tests/docs_capability_lists.rs`
@@ -378,7 +380,8 @@ limit of 4,096.  This accommodates current and next-generation embedding models:
 | GPT-4o embeddings       | 3,072      |
 | Custom / future models  | ≤ 16,384   |
 
-Set `max_dimensions` in `xerj.toml` (default is 16,384).
+There is no enforced dimension cap: `[vector] max_dimensions` (default 16,384) is accepted
+but not wired in this build, and setting it logs a warning at startup.
 
 ## Embedding Token Limits
 
@@ -445,4 +448,4 @@ cargo clippy -- -D warnings
 
 ## License
 
-Apache 2.0 — see [LICENSE](LICENSE).
+Apache 2.0 — see [LICENSE](../LICENSE).

@@ -1,0 +1,22 @@
+{
+ "corpus": "shift-editor--shift",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on fonts, rust, typescript queries this for how shift-editor/shift implements it: A cross-platform font editor built in Rust and TypeScript (selected work: crates/shift-font, crates/shift-slug, packages/glyph-state)",
+ "repos": [
+  {
+   "repo": "shift",
+   "url": "https://github.com/shift-editor/shift",
+   "sha": "433a6604b0f5a38dd08aaa4ca5e934f2000bd907",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 433a6604b0f5: \"build(types): generate binary layout constants from Rust (#663)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

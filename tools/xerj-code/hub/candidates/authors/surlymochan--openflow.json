@@ -1,0 +1,22 @@
+{
+ "corpus": "surlymochan--openflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, cli, coding-agents queries this for how surlymochan/openflow implements it: Executable delivery workflows for AI coding agents: YAML phases, red/green TDD proof gates checked by code, and the xflow CLI (Codex, Claude (selected work: bench, the project root)",
+ "repos": [
+  {
+   "repo": "openflow",
+   "url": "https://github.com/surlymochan/openflow",
+   "sha": "1d77a690e6d0c57472a2fc1e0d6266ae5c3c5a61",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 1d77a690e6d0: \"0.2.2: README leads with regraded SWE-bench Verified result, CHANGELO\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

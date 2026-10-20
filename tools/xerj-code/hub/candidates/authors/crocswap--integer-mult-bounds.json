@@ -1,0 +1,22 @@
+{
+ "corpus": "crocswap--integer-mult-bounds",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how CrocSwap/integer-mult-bounds implements it: Conditional integer multiplication: kappa > 2^-15. Community proofs, exact certificates and reproducible audits; assumes the OpenAI #109 fra (selected work: certificates, references, scripts)",
+ "repos": [
+  {
+   "repo": "integer-mult-bounds",
+   "url": "https://github.com/CrocSwap/integer-mult-bounds",
+   "sha": "e7a492dd8bee4e6f574ced784a62af2ce735edc4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit e7a492dd8bee: \"Prefer larger retired frames for checked joint reclamation\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "leon-ai--leon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on leon, personal-assistant, nodejs queries this for how leon-ai/leon implements it: \ud83e\udde0 Leon is your open-source personal assistant (selected work: server, test)",
+ "repos": [
+  {
+   "repo": "leon",
+   "url": "https://github.com/leon-ai/leon",
+   "sha": "5de2b301828a83b2fdbf4bc56a0d485e68ba3ce1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 5de2b301828a: \"fix(server): transfer large Satellite results over HTTP\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

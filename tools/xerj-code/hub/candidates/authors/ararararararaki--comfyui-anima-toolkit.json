@@ -1,0 +1,22 @@
+{
+ "corpus": "ararararararaki--comfyui-anima-toolkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on anima, civitai, comfyui queries this for how Ararararararaki/comfyui-anima-toolkit implements it: TK Toolkit (formerly Anima Toolkit) \u2014 all-in-one Anima/SD toolkit for ComfyUI: LoRA manager (batch apply + Civitai metadata & downloads), Da (selected work: anima_backend, services, web)",
+ "repos": [
+  {
+   "repo": "comfyui-anima-toolkit",
+   "url": "https://github.com/Ararararararaki/comfyui-anima-toolkit",
+   "sha": "05d1b7efc21d0a5bbc80463e9a79ed793cca9dca",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 05d1b7efc21d: \"feat: integrate reviewed Pixiv rankings and gallery source memory (2.\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

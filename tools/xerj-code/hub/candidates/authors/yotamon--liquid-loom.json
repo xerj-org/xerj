@@ -1,0 +1,22 @@
+{
+ "corpus": "yotamon--liquid-loom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on developer-tools, ecommerce, frontend queries this for how yotamon/Liquid-Loom implements it: Source-first Shopify theme tooling with transactional builds, portable collision safety, Vite, Tailwind, typed config, and a production-read (selected work: build-scripts, tests, types)",
+ "repos": [
+  {
+   "repo": "Liquid-Loom",
+   "url": "https://github.com/yotamon/Liquid-Loom",
+   "sha": "f1d28409cb74ff94b4dae4cd36a92963e19314b9",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit f1d28409cb74: \"Add agent-readable project intelligence and preview-aware Liquid supp\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

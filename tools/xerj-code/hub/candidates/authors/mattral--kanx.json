@@ -1,0 +1,22 @@
+{
+ "corpus": "mattral--kanx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on deep-learning, gpu-acceleration, interpretability queries this for how Mattral/KANX implements it: One library, four surfaces. Production-grade Kolmogorov-Arnold Networks || TensorFlow + PyTorch + ONNX. || A small KAN beats a 10\u00d7 larger ML (selected work: charts, tests, k8s)",
+ "repos": [
+  {
+   "repo": "KANX",
+   "url": "https://github.com/Mattral/KANX",
+   "sha": "50f1fad47a6283d1595ac237864dfdb494454057",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 50f1fad47a62: \"feat: add a Helm chart for the KANX API\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "jothsnapraveena--microsoft-foundry-labs-handson",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how jothsnapraveena/Microsoft-Foundry-labs-handson implements it: A hands-on, module-by-module build of the agentic AI + generative AI stack on Azure \u2014 from a single Azure OpenAI call to a production-shaped (selected work: session-13-Agentic-RAG-Foundry)",
+ "repos": [
+  {
+   "repo": "Microsoft-Foundry-labs-handson",
+   "url": "https://github.com/jothsnapraveena/Microsoft-Foundry-labs-handson",
+   "sha": "bb3fef8ed65ef9c6b01a7abc1d58461a96a56b18",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit bb3fef8ed65e: \"Agentic RAG On Froundry\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

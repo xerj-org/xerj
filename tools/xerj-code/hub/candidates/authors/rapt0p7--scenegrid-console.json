@@ -1,0 +1,22 @@
+{
+ "corpus": "rapt0p7--scenegrid-console",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on daw, fmod, webaudio queries this for how rapt0p7/scenegrid-console implements it: Audio Observability & Runtime Platform (selected work: packages/debugger)",
+ "repos": [
+  {
+   "repo": "scenegrid-console",
+   "url": "https://github.com/rapt0p7/scenegrid-console",
+   "sha": "c4251fd4239e5a5f5836675e6f630cef4bb5a7eb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit c4251fd4239e: \"fix(debug): improve voice counting and display logic (#84)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

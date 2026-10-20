@@ -1,0 +1,22 @@
+{
+ "corpus": "rust-dd--stochastic-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on quant, quantitative-finance, rust queries this for how rust-dd/stochastic-rs implements it: High-performance quantitative finance in Rust and Python \u2014 130+ stochastic processes, option pricing, calibration, fixed income, risk & copu (selected work: stochastic-rs-stochastic, stochastic-rs-quant, stochastic-rs-stats)",
+ "repos": [
+  {
+   "repo": "stochastic-rs",
+   "url": "https://github.com/rust-dd/stochastic-rs",
+   "sha": "8df05b0466570ca26980c931f572a32b1f5f6b24",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 8df05b046657: \"fix: raise python exceptions from hand-written constructors and samplers\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

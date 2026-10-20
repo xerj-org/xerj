@@ -1,0 +1,22 @@
+{
+ "corpus": "stabrise--scaledp-ts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on document-processing, ocr, paddleocr queries this for how StabRise/ScaleDP-TS implements it: ScaleDP-TS processes PDFs and images entirely in the browser: PDF rendering, text detection, OCR and named-entity recognition, composed as a (selected work: src/stages, test, src/core)",
+ "repos": [
+  {
+   "repo": "ScaleDP-TS",
+   "url": "https://github.com/StabRise/ScaleDP-TS",
+   "sha": "73d5e2f7f08801eaf47bc6293b68960b02828cc6",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 73d5e2f7f088: \"feat: RegexNer, ink-fitted boxes and cleaner hybrid PDF reading\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

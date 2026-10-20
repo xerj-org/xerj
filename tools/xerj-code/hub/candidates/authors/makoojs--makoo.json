@@ -1,0 +1,22 @@
+{
+ "corpus": "makoojs--makoo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on component-injection, mutationobserver, tampermonkey queries this for how makoojs/Makoo implements it: A userscript development framework for building, injecting, and managing Vue/React components on existing web pages, designed for Tampermonk (selected work: packages/core, packages/vue, packages/react)",
+ "repos": [
+  {
+   "repo": "Makoo",
+   "url": "https://github.com/makoojs/Makoo",
+   "sha": "938b301adf18310bb05a195f14d7efd4d498c96d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 938b301adf18: \"refactor(core,vue,react): call the status entry statusHandle\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

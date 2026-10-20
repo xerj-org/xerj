@@ -1,0 +1,22 @@
+{
+ "corpus": "rajnishsubedi0--netcut",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how rajnishsubedi0/Netcut implements it: This app cuts the internet using arp (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "Netcut",
+   "url": "https://github.com/rajnishsubedi0/Netcut",
+   "sha": "1f6ea112fcd63050eed2199c1233dc858c23020a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 1f6ea112fcd6: \"feat: added repair netcut engine option\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

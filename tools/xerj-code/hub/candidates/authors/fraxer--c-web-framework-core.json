@@ -1,0 +1,22 @@
+{
+ "corpus": "fraxer--c-web-framework-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on c, framework, high-performance queries this for how fraxer/C-web-framework-core implements it: A high-performance web server and framework for creating web applications in C for Linux (selected work: protocols, src/config, src/route)",
+ "repos": [
+  {
+   "repo": "C-web-framework-core",
+   "url": "https://github.com/fraxer/C-web-framework-core",
+   "sha": "20f3559c0bfae13eccc8af94145695cec72a27db",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 20f3559c0bfa: \"refactor: refactor timeout handling and improve code readability\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

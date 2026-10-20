@@ -1,0 +1,22 @@
+{
+ "corpus": "shelpuk-ai-technology-consulting--kitty-bridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on anthropic, claude-code, codex queries this for how Shelpuk-AI-Technology-Consulting/kitty-bridge implements it: Universal LLM bridge for AI agents. Use Claude Code with MiniMax, Codex with GLM, or Gemini CLI with OpenRouter \u2014 one command, any provider. (selected work: tests, src/kitty)",
+ "repos": [
+  {
+   "repo": "kitty-bridge",
+   "url": "https://github.com/Shelpuk-AI-Technology-Consulting/kitty-bridge",
+   "sha": "128729ae40e247477a5501fc530ee53110a4b6fb",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 128729ae40e2: \"KBR-308: hop-1 cache_control product carry-through\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

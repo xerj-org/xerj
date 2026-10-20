@@ -1,0 +1,22 @@
+{
+ "corpus": "shankarsai000--pqc-factory",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how shankarsai000/pqc-factory implements it: Production-Qualified Change Factory \u2013 Multi-agent system that turns tickets into production-ready PRs using Nebius Token Factory Sandboxes + (selected work: pqc_factory)",
+ "repos": [
+  {
+   "repo": "pqc-factory",
+   "url": "https://github.com/shankarsai000/pqc-factory",
+   "sha": "2fddf5a34ed06793fedae6548a7fbe83282f718d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 2fddf5a34ed0: \"Add deterministic quality gates + token budget (vs coding-agent gaps)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

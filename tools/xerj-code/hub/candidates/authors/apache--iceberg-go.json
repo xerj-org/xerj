@@ -1,0 +1,22 @@
+{
+ "corpus": "apache--iceberg-go",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on apache, golang, iceberg queries this for how apache/iceberg-go implements it: Apache Iceberg - Go (selected work: catalog)",
+ "repos": [
+  {
+   "repo": "iceberg-go",
+   "url": "https://github.com/apache/iceberg-go",
+   "sha": "97720316a4a206c600b9357c18d158d8eda570be",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 97720316a4a2: \"feat(catalog): add table lifecycle conformance tests and fix rename-t\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

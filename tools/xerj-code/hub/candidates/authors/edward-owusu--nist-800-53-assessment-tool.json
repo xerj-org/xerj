@@ -1,0 +1,22 @@
+{
+ "corpus": "edward-owusu--nist-800-53-assessment-tool",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Edward-Owusu/Nist-800-53-assessment-tool implements it: Open-source tool that assesses system configurations against NIST SP 800-53 Rev. 5 baselines (low, moderate, high) and produces prioritized, (selected work: src/grc_assess, app, tests)",
+ "repos": [
+  {
+   "repo": "Nist-800-53-assessment-tool",
+   "url": "https://github.com/Edward-Owusu/Nist-800-53-assessment-tool",
+   "sha": "7e2a671f7c0ab2db02611ee5c99fd63103976bf8",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 7e2a671f7c0a: \"Add files via upload\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "vibecook-dev--truffle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on cli, cross-platform, mesh-networking queries this for how vibecook-dev/truffle implements it: Simple network programming on top of Tailscale (selected work: crates/truffle-bench, packages/sidecar-slim, crates/truffle-core)",
+ "repos": [
+  {
+   "repo": "truffle",
+   "url": "https://github.com/vibecook-dev/truffle",
+   "sha": "975e416b77d9e9cb3cf8e0b93208a2db74340483",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 975e416b77d9: \"fix(tailscale): upgrade dependencies and authenticate UDP relays (#197)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

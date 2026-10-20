@@ -1,0 +1,22 @@
+{
+ "corpus": "kidus-yahun--anti-phishing-extension",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on ai-security, browser-extension, cybersecurity queries this for how Kidus-yahun/anti_phishing_extension implements it: Free, open-source real-time phishing protection: MV3 browser extension + AI/NLP engine. Homograph & typosquat detection, email header forens (selected work: extension, the project root)",
+ "repos": [
+  {
+   "repo": "anti_phishing_extension",
+   "url": "https://github.com/Kidus-yahun/anti_phishing_extension",
+   "sha": "b3322f254c1da971778e4380a6d2c0c1a334c1b9",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit b3322f254c1d: \"feat(ui): redesign extension UI with frosted glassmorphism and Shadow\u2026\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

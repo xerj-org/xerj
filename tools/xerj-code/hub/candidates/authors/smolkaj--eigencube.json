@@ -1,0 +1,22 @@
+{
+ "corpus": "smolkaj--eigencube",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on artificial-intelligence, astar-algorithm, python queries this for how smolkaj/eigencube implements it: A linear-algebra-based Rubik's cube solver (selected work: rust)",
+ "repos": [
+  {
+   "repo": "eigencube",
+   "url": "https://github.com/smolkaj/eigencube",
+   "sha": "c481b80937d01cc909403ea92306d40c5406452e",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit c481b80937d0: \"feat(rust): high-performance discrete linear algebra solver (#46)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

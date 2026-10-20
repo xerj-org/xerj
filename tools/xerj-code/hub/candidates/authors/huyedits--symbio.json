@@ -1,0 +1,22 @@
+{
+ "corpus": "huyedits--symbio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, self-hosted, self-learning queries this for how huyedits/Symbio implements it: Symbio is a self fine tuning AI agent that gives power to users through seamless interaction with their machines. This flexible system adapt (selected work: symbio, tests)",
+ "repos": [
+  {
+   "repo": "Symbio",
+   "url": "https://github.com/huyedits/Symbio",
+   "sha": "7af6fc460b0403ab3b8a5f5cca7cb988f962e2cf",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 7af6fc460b04: \"The mechanical repair loop, and the watcher that spots failures unasked\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

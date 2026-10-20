@@ -1,0 +1,22 @@
+{
+ "corpus": "azure06--clipsx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how azure06/clipsx implements it: ClipsX \u2014 the next-generation Clips app rewrite in Rust, with semantic search and local-first snippet management (selected work: src/features, src-tauri)",
+ "repos": [
+  {
+   "repo": "clipsx",
+   "url": "https://github.com/azure06/clipsx",
+   "sha": "fce7d310778d09e2765130903aa41fbd95db9275",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit fce7d310778d: \"feat(mcp): improve setup and retrieval guidance\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

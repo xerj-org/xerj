@@ -1,0 +1,22 @@
+{
+ "corpus": "john0n1--camsniff",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on arp, camera-monitor, ip-camera queries this for how John0n1/CamSniff implements it: Automated IP Camera & Network Video Stream Reconnaissance Toolkit (selected work: data, scripts, tests)",
+ "repos": [
+  {
+   "repo": "CamSniff",
+   "url": "https://github.com/John0n1/CamSniff",
+   "sha": "6bbeae7d9e24e0a4a32dd0cf5424d97da1024703",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 6bbeae7d9e24: \"data: add guarded upstream intelligence sync\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

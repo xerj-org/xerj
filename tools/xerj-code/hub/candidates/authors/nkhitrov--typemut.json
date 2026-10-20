@@ -1,0 +1,22 @@
+{
+ "corpus": "nkhitrov--typemut",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how nkhitrov/typemut implements it: Mutation testing for type annotation in python projects (selected work: tests, src/typemut)",
+ "repos": [
+  {
+   "repo": "typemut",
+   "url": "https://github.com/nkhitrov/typemut",
+   "sha": "6e4f77a03b2ba7b2522875e75bff668e4a19d07e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 6e4f77a03b2b: \"Carry the type checker cache into worktrees (#41)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

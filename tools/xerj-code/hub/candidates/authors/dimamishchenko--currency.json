@@ -1,0 +1,22 @@
+{
+ "corpus": "dimamishchenko--currency",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how DimaMishchenko/currency implements it: Currency Converter Widgets App (selected work: Domain, Apps/Currency)",
+ "repos": [
+  {
+   "repo": "currency",
+   "url": "https://github.com/DimaMishchenko/currency",
+   "sha": "00acb6b0ae0bcb6133022a34b5307d3520eb0daa",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 00acb6b0ae0b: \"\u2728 history: add hourly crypto week charts\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

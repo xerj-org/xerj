@@ -1,0 +1,22 @@
+{
+ "corpus": "rahuldrabit--genetic-algorithm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how Rahuldrabit/Genetic_algorithm implements it: This repo include simple genetic algorithm simulation (selected work: tests, python, benchmark)",
+ "repos": [
+  {
+   "repo": "Genetic_algorithm",
+   "url": "https://github.com/Rahuldrabit/Genetic_algorithm",
+   "sha": "337354c89704c73a9a96e7fea33f41254cbc8db9",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 337354c89704: \"Fix wheel build: modernize include paths to ga/ namespace and align C\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

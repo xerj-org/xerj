@@ -432,3 +432,45 @@ Read the run top to bottom:
 - **Wire-compatible.** Because a namespace is a real index, you can inspect or
   operate on it with the standard ES-compatible surface if you ever need to — the
   memory API is a thin, honest adapter over the same machinery.
+
+### Before you trust a recall number
+
+The recall@1 and recall@3 above come from six hand-labelled probes. That is a
+smoke test. Before you use a recall number to choose an embedder, a chunking
+scheme or a recall path for your own agent, apply these field lessons. They
+were contributed by Chunxiao Wang (Assay /
+[nautilus-compass](https://github.com/chunxiaoxx/nautilus-compass)) in
+[#1138](https://github.com/xerj-org/xerj/issues/1138), from a production
+agent-memory system, and are written up with their measurements in
+[Six eval scars from a production agent-memory system](https://xerj.org/blog/eval-scars-from-agent-memory).
+
+- **Probe with situations, not questions.** An agent recalls from memory using
+  its current state ("deploy failed again with 401"), not an information need
+  ("how do 401s work?"). This recipe's probes are questions. Add probes taken
+  from your own agent's transcripts.
+- **Score on your own memories.** In their runs, slicing memories by topic
+  instead of by token window moved recall@1 by double digits, a bigger effect
+  than moving from dense-only to hybrid retrieval. Their own data also ranked
+  two embedding models in the opposite order to their MTEB scores. Freeze a
+  sample of your own memories and probes, and compare candidates on that
+  sample.
+- **If every probe scores zero, check the harness first.** A masking bug that
+  drops the gold item from the candidate pool turns an eval into a constant
+  zero, or a constant pass. In this recipe, the equivalent check is that each
+  probe's expected id was stored in the namespace you recall from.
+- **Small n needs a baseline and an interval.** With six probes, 5/6 against
+  6/6 is a single probe. Report counts next to percentages. Compute what a
+  trivial strategy scores, for example `recency_weight: 1.0` (always the
+  newest memory). Below about 100 probes, give a confidence interval.
+- **Compare recall paths on the same probes.** kNN against BM25 on one probe
+  set is a paired comparison. Count the probes where the two disagree
+  (McNemar) instead of comparing two percentages.
+- **Freeze the criteria before the run.** Write down the metric, the
+  threshold and the artifact that will prove each claim before you run
+  anything. Criteria may tighten mid-run but must not loosen.
+
+The same team donated a corpus of real multi-session agent trajectories, with
+the failure turns kept, to the corpus hub as
+[`agent-session-trajectories`](https://github.com/xerj-org/xerj/releases/tag/pack-agent-session-trajectories-2026-10-09).
+It is a starting point for testing recall on agent history instead of
+reference docs.

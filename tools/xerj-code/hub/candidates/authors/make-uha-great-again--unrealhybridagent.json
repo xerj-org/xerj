@@ -1,0 +1,22 @@
+{
+ "corpus": "make-uha-great-again--unrealhybridagent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-runtime, ai-agent, automation queries this for how Make-Uha-Great-Again/UnrealHybridAgent implements it: UnrealHybridAgent (UHA) \u2014 a hybrid AI-agent runtime for Unreal Engine 5 with structured tools, Computer Use fallback, post-action verificati (selected work: tests, src/core, the project root)",
+ "repos": [
+  {
+   "repo": "UnrealHybridAgent",
+   "url": "https://github.com/Make-Uha-Great-Again/UnrealHybridAgent",
+   "sha": "f853a0a3980442883b10a0955561c13c6c0c0eda",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit f853a0a39804: \"Add offline run reports with timelines and HTML export\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

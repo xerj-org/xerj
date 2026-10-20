@@ -1,0 +1,22 @@
+{
+ "corpus": "appdeveloper777--typeeasy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on C queries this for how appdeveloper777/TypeEasy implements it: Lenguaje de programaci\u00f3n para crear APIs REST r\u00e1pido: servidor HTTP, JSON, SQL (MySQL/MariaDB, PostgreSQL, SQL Server, SQLite), JWT y WebSoc (selected work: tests, src, tools)",
+ "repos": [
+  {
+   "repo": "TypeEasy",
+   "url": "https://github.com/appdeveloper777/TypeEasy",
+   "sha": "7ee6ed729c650656e3210248302f1abeb4181b58",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit 7ee6ed729c65: \"0.1.10: url_encode/url_decode/html_escape, suite de conformidad HTTP,\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

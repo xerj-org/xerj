@@ -1,0 +1,22 @@
+{
+ "corpus": "enessubass--mobiloop-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-agents, android, appium queries this for how enessubass/mobiloop-mcp implements it: Guarded MCP tools for AI-assisted mobile build, Appium testing, security scanning, verification, and fix-retest loops (selected work: test, scripts, src)",
+ "repos": [
+  {
+   "repo": "mobiloop-mcp",
+   "url": "https://github.com/enessubass/mobiloop-mcp",
+   "sha": "14a93893d22a825030bf3cfb9df632cd81450167",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 14a93893d22a: \"feat: guarded mobile QA skill, safe setup and cross-platform validati\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

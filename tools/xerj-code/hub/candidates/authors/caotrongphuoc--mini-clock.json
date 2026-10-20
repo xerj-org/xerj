@@ -1,0 +1,22 @@
+{
+ "corpus": "caotrongphuoc--mini-clock",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how caotrongphuoc/mini-clock implements it: A smart desk clock built on the AK Embedded Kit (STM32L151), using the hardware RTC (selected work: application)",
+ "repos": [
+  {
+   "repo": "mini-clock",
+   "url": "https://github.com/caotrongphuoc/mini-clock",
+   "sha": "81149124dbb96ebb27105eabf8a70f82f6dd2a2d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 81149124dbb9: \"[FIX] move world clock country table to flash to stop stack overflow\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

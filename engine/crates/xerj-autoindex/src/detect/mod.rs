@@ -803,7 +803,12 @@ pub fn scan_by_id(
         if let Some(after) = &search_after {
             body["search_after"] = after.clone();
         }
-        let Some(resp) = es.search_present(index, &body)? else {
+        // #1212: `search_page_present`, not `search_present` — the engine
+        // answers a missed default search deadline with a partial 200
+        // (`timed_out`), and this walk's short-page return read one partial
+        // page as the end of the index. The page variant retries a timed-out
+        // page instead of returning it; a missing index is still an answer.
+        let Some(resp) = es.search_page_present(index, &body)? else {
             return Ok(seen);
         };
         let hits = resp

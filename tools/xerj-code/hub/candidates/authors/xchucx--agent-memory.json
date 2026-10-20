@@ -1,0 +1,22 @@
+{
+ "corpus": "xchucx--agent-memory",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude, cli queries this for how xChuCx/agent-memory implements it: Local, searchable project memory for AI coding agents. Markdown source of truth, MCP interface, safe structured updates \u2014 no cloud (selected work: internal/config, internal/lock, internal/cli)",
+ "repos": [
+  {
+   "repo": "agent-memory",
+   "url": "https://github.com/xChuCx/agent-memory",
+   "sha": "f3e18a10f0db4f06202fc2dd0074874316852b52",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit f3e18a10f0db: \"fix(concurrency): add shared reader locks, unconditional CAS, and man\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "ethanchan050430--saki-panel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on ai-agent, devops, mcp queries this for how EthanChan050430/Saki-Panel implements it: Next-gen AI-native server ops panel with an in-workspace SRE agent. Crash self-healing, safe rollbacks, Docker/game servers, and local Ollam (selected work: scripts, apps/panel, apps/web)",
+ "repos": [
+  {
+   "repo": "Saki-Panel",
+   "url": "https://github.com/EthanChan050430/Saki-Panel",
+   "sha": "e04bff2e7ebad49491f5149988e5328088220a00",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e04bff2e7eba: \"perf: optimize streaming text memory, strip DSML markup, and prune ex\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

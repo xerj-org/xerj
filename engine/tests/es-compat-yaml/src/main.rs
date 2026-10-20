@@ -41,6 +41,8 @@ struct Stats {
     passed: usize,
     failed: usize,
     skipped: usize,
+    /// Every case run, by its `catch_lenient::key`.
+    ran: std::collections::BTreeSet<String>,
 }
 
 fn main() {
@@ -71,6 +73,7 @@ fn main() {
         passed: 0,
         failed: 0,
         skipped: 0,
+        ran: Default::default(),
     };
 
     for path in &files {
@@ -89,6 +92,19 @@ fn main() {
         format!("{}", total.skipped).yellow(),
         total.passed + total.failed + total.skipped,
     );
+    let lenient = catch_lenient::hits();
+    if lenient > 0 {
+        println!(
+            "{} cases ran catch-lenient (an expected error XERJ does not raise yet; see catch-lenient.txt)",
+            format!("{lenient}").yellow()
+        );
+    }
+    for k in catch_lenient::stale(&total.ran) {
+        println!(
+            "{} stale catch-lenient entry, delete it: {k}",
+            "NOTE".yellow()
+        );
+    }
     // CI's "0 failures required" gate consumes this exit code — without it a
     // regressing PR shows a green conformance check (bit us on PR #23, which
     // went 1360→1345 passing with the job still SUCCESS).
@@ -219,6 +235,9 @@ fn run_file(
 
     for (name, steps) in &tests {
         cleanup_indices(client, base_url);
+        let key = catch_lenient::key(path, name);
+        stats.ran.insert(key.clone());
+        catch_lenient::enter(key);
 
         let mut setup_ok = true;
         let mut setup_response: Value = Value::Null;
@@ -774,8 +793,14 @@ fn execute_do(
             resp_json = Value::Bool(status.is_success());
         }
 
-        if catch.is_some() {
-            // Expected error — don't fail on non-2xx
+        if let Some(c) = &catch {
+            let code = status.as_u16();
+            if let Some(why) = catch_mismatch(c, code, &resp_text) {
+                let msg = format!("catch: {c} — {method} {path} → {code}: {why}");
+                if !catch_lenient::tolerate(&msg) {
+                    return Err(msg);
+                }
+            }
             *last_response = resp_json;
             return Ok(());
         }
@@ -805,6 +830,121 @@ fn execute_do(
     }
 
     Ok(())
+}
+
+/// The ratchet for `catch:` expectations XERJ does not meet yet.
+///
+/// Until this existed the runner ignored `catch:` entirely: an expected
+/// error step passed whatever the server answered, so a case asserting
+/// "this request must be rejected" passed against a server that accepted it
+/// with a 200. Checking every catch at once turned 151 of those vacuous
+/// passes into failures, across areas owned by different people, so the
+/// cases failing on the day the check landed are listed in
+/// `catch-lenient.txt` (one `<path under yaml/> · <test name>` per line).
+/// A listed case keeps its old behaviour — the mismatch is tolerated and
+/// the case runs on — and is counted in the summary as `catch-lenient`;
+/// every other case must now get the error it asks for. Fixing a gap means
+/// deleting its line; entries that no longer mismatch are reported as stale.
+mod catch_lenient {
+    use std::cell::RefCell;
+    use std::collections::BTreeSet;
+    use std::sync::OnceLock;
+
+    thread_local! {
+        static CURRENT: RefCell<String> = const { RefCell::new(String::new()) };
+        static HITS: RefCell<BTreeSet<String>> = const { RefCell::new(BTreeSet::new()) };
+    }
+
+    fn list() -> &'static BTreeSet<String> {
+        static LIST: OnceLock<BTreeSet<String>> = OnceLock::new();
+        LIST.get_or_init(|| {
+            let path = concat!(env!("CARGO_MANIFEST_DIR"), "/catch-lenient.txt");
+            std::fs::read_to_string(path)
+                .unwrap_or_default()
+                .lines()
+                .map(str::trim)
+                .filter(|l| !l.is_empty() && !l.starts_with('#'))
+                .map(String::from)
+                .collect()
+        })
+    }
+
+    /// The key a case is listed under: its path below the `yaml/` root,
+    /// so the list is independent of where the runner is invoked from.
+    pub fn key(path: &std::path::Path, name: &str) -> String {
+        let p = path.to_string_lossy().replace('\\', "/");
+        let rel = p.rsplit_once("yaml/").map(|(_, r)| r).unwrap_or(&p);
+        format!("{rel} · {name}")
+    }
+
+    pub fn enter(key: String) {
+        CURRENT.with(|c| *c.borrow_mut() = key);
+    }
+
+    /// Should this catch mismatch be tolerated for the case now running?
+    pub fn tolerate(msg: &str) -> bool {
+        let key = CURRENT.with(|c| c.borrow().clone());
+        if list().contains(&key) {
+            if std::env::var("XERJ_DEBUG_CATCH").is_ok() {
+                eprintln!("  catch-lenient {key}: {msg}");
+            }
+            HITS.with(|h| h.borrow_mut().insert(key));
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Cases tolerated so far.
+    pub fn hits() -> usize {
+        HITS.with(|h| h.borrow().len())
+    }
+
+    /// Listed cases among `ran` that never needed tolerating.
+    pub fn stale(ran: &BTreeSet<String>) -> Vec<String> {
+        HITS.with(|h| {
+            let h = h.borrow();
+            list()
+                .iter()
+                .filter(|k| ran.contains(*k) && !h.contains(*k))
+                .cloned()
+                .collect()
+        })
+    }
+}
+
+/// Does a response satisfy a YAML `catch:` expectation? `None` when it does,
+/// otherwise the reason it does not. Semantics follow the ES REST test spec:
+/// a named catch pins the status code, `/regex/` requires an error status
+/// whose body matches, and `param` is a client-side validation error the
+/// runner cannot observe (accepted as-is).
+fn catch_mismatch(catch: &str, code: u16, body: &str) -> Option<String> {
+    let want: Option<&[u16]> = match catch {
+        "bad_request" => Some(&[400]),
+        "unauthorized" => Some(&[401]),
+        "forbidden" => Some(&[403]),
+        "missing" => Some(&[404]),
+        "request_timeout" => Some(&[408]),
+        "conflict" => Some(&[409]),
+        "unavailable" => Some(&[503]),
+        "request" => None,
+        "param" => return None,
+        _ => None,
+    };
+    if let Some(codes) = want {
+        return (!codes.contains(&code)).then(|| format!("expected status {codes:?}"));
+    }
+    if code < 400 {
+        return Some("expected an error status".into());
+    }
+    if let Some(pat) = catch.strip_prefix('/').and_then(|s| s.strip_suffix('/')) {
+        return match regex::Regex::new(&format!("(?s){}", pat.trim())) {
+            Ok(re) if re.is_match(body) => None,
+            Ok(_) => Some("error body does not match".into()),
+            Err(e) => Some(format!("bad catch regex: {e}")),
+        };
+    }
+    None
 }
 
 // ES date-math path segments start with `<` and contain `/` or `|` which
@@ -860,6 +1000,14 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
                 path.push_str(&qp.join("&"));
             }
             ("DELETE".into(), path, None)
+        }
+        "indices.analyze" => {
+            let path = if index.is_empty() {
+                "/_analyze".to_string()
+            } else {
+                format!("/{}/_analyze", index)
+            };
+            ("POST".into(), path, body)
         }
         "indices.refresh" => (
             "POST".into(),
@@ -1291,8 +1439,17 @@ fn resolve_action(action: &str, params: &serde_yaml::Mapping) -> (String, String
             ("GET".into(), path, None)
         }
         "cluster.state" => ("GET".into(), "/_cluster/state".into(), None),
-        "cluster.get_settings" => ("GET".into(), "/_cluster/settings".into(), None),
-        "cluster.put_settings" => ("PUT".into(), "/_cluster/settings".into(), body),
+        "cluster.get_settings" | "cluster.put_settings" => {
+            let path = match get_param_str(params, "flat_settings") {
+                Some(v) => format!("/_cluster/settings?flat_settings={}", v),
+                None => "/_cluster/settings".to_string(),
+            };
+            if action == "cluster.get_settings" {
+                ("GET".into(), path, None)
+            } else {
+                ("PUT".into(), path, body)
+            }
+        }
 
         // Cat
         "cat.indices" => ("GET".into(), "/_cat/indices".into(), None),

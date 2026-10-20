@@ -1,0 +1,22 @@
+{
+ "corpus": "abapgit--abapgit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on abap, abapgit, sap queries this for how abapGit/abapGit implements it: Git client for ABAP (selected work: src/ui, test)",
+ "repos": [
+  {
+   "repo": "abapGit",
+   "url": "https://github.com/abapGit/abapGit",
+   "sha": "8fa219c4aadf2d88009ae3ed77b06077f13a0e3f",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 8fa219c4aadf: \"feat: continue patching after committing selected changes (#7952)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

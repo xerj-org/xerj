@@ -1,0 +1,22 @@
+{
+ "corpus": "brian-card--nanoos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how brian-card/NanoOs implements it: A multitasking nanokernel OS for embedded or small devices (selected work: usr)",
+ "repos": [
+  {
+   "repo": "NanoOs",
+   "url": "https://github.com/brian-card/NanoOs",
+   "sha": "8554b36db6707766c3511ff01d2afb8c5c71233c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8554b36db670: \"Adding 'ed' command.\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "joseleno--incognito",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on C# queries this for how Joseleno/Incognito implements it: Copia bases PostgreSQL e SQL Server substituindo dados pessoais por dados brasileiros v\u00e1lidos (CPF, CNPJ alfanum\u00e9rico, chaves de DF-e). .NET (selected work: testes, src/CodeProcess.Incognito, src/CodeProcess.Incognito.Motor)",
+ "repos": [
+  {
+   "repo": "Incognito",
+   "url": "https://github.com/Joseleno/Incognito",
+   "sha": "8cd8104058c0f01a391892bad16ef4ea0e99c1b4",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 8cd8104058c0: \"INC-031: Registrar os transformadores e o contrato de extens\u00e3o\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "crusoecloud--crusoe-developer-hub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, gpu, llm queries this for how crusoecloud/crusoe-developer-hub implements it: The Crusoe Developer Hub is the technical home for developers building AI applications and infrastructure on Crusoe Cloud. We publish three  (selected work: foundations)",
+ "repos": [
+  {
+   "repo": "crusoe-developer-hub",
+   "url": "https://github.com/crusoecloud/crusoe-developer-hub",
+   "sha": "9bf31c5713734e481f3f7fab6683f359f714edb1",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 9bf31c571373: \"updated the gpu engg code for vector add\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

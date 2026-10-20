@@ -1,0 +1,22 @@
+{
+ "corpus": "contexte-tech--contexte-python",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on datasets, few-shot, fine-tuning queries this for how contexte-tech/contexte-python implements it: Load AI datasets, prompts and few-shot contexts from Contexte Tech in one line of Python. No dependencies (selected work: contexte, tests, the project root)",
+ "repos": [
+  {
+   "repo": "contexte-python",
+   "url": "https://github.com/contexte-tech/contexte-python",
+   "sha": "bc50ccfe4f7fc50c25890e84d9fa7e9696ab093c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit bc50ccfe4f7f: \"contexte 0.5.1: MCP server (online at https://contextetech.com/mcp, l\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

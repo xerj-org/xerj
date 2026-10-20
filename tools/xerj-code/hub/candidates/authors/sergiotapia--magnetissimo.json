@@ -1,0 +1,22 @@
+{
+ "corpus": "sergiotapia--magnetissimo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on self-hosted, p2p, search-engine queries this for how sergiotapia/magnetissimo implements it: Web application that indexes all popular torrent sites, and saves it to the local database (selected work: lib/magnetissimo_web, test, lib/magnetissimo)",
+ "repos": [
+  {
+   "repo": "magnetissimo",
+   "url": "https://github.com/sergiotapia/magnetissimo",
+   "sha": "1730d72ba7c9b0f6c525d45e907a49e078421853",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 1730d72ba7c9: \"Read search operators and refine fields on the home page\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

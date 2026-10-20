@@ -1,0 +1,22 @@
+{
+ "corpus": "tracer-cloud--opensre",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on ai-sre, alerting, datadog queries this for how Tracer-Cloud/opensre implements it: Build your own AI SRE agents. The open source toolkit for the AI era (selected work: tests, surfaces, tools)",
+ "repos": [
+  {
+   "repo": "opensre",
+   "url": "https://github.com/Tracer-Cloud/opensre",
+   "sha": "2d47937f519392ce11f1fd54af2a2b92abbdceb1",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 2d47937f5193: \"fix(sessions): add arrow-key navigation and resume to /sessions (#6477)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

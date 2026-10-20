@@ -1,0 +1,22 @@
+{
+ "corpus": "danglingpointer--mtorrent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on bittorrent, rust, tokio-rs queries this for how DanglingPointer/mtorrent implements it: Bittorrent engine in Rust (selected work: mtorrent, mtorrent-cli, mtorrent-base)",
+ "repos": [
+  {
+   "repo": "mtorrent",
+   "url": "https://github.com/DanglingPointer/mtorrent",
+   "sha": "369b6c269718c5df15114fd8d2eb6dfd011a75e8",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 369b6c269718: \"Selective download (#58)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

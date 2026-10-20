@@ -1,0 +1,22 @@
+{
+ "corpus": "madmatt112--tradr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on ai, docker, finance queries this for how madmatt112/tradr implements it: Self-hostable trading journal and analysis platform (selected work: apps/api, e2e, the project root)",
+ "repos": [
+  {
+   "repo": "tradr",
+   "url": "https://github.com/madmatt112/tradr",
+   "sha": "4a07d7ff563dd9351e1f18777b24dcba629b6532",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 4a07d7ff563d: \"feat: self-host experience (TLS recipes, web healthcheck, provider ba\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

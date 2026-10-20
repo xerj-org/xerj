@@ -36,7 +36,7 @@
 use serde_json::{json, Value};
 use tempfile::TempDir;
 use xerj_common::config::Config;
-use xerj_common::types::Schema;
+use xerj_common::types::{FieldConfig, FieldType, Schema};
 use xerj_engine::Engine;
 use xerj_query::parse_request;
 
@@ -44,6 +44,19 @@ fn make_engine(dir: &TempDir) -> Engine {
     let mut config = Config::default();
     config.server.data_dir = dir.path().to_str().unwrap().to_string();
     Engine::new(config).expect("engine::new")
+}
+
+/// `kw` is an explicit `FieldType::Keyword` (`doc_values: true`); `body` and
+/// `kind` remain dynamically mapped as `FieldType::Text` (`doc_values: false`
+/// since #1329), so `term` on `kind` exercises the non-authoritative stored
+/// scan while `term` on `kw` exercises the keyword doc-values / columnar routes
+/// (#1359).
+fn tied_schema() -> Schema {
+    let mut schema = Schema::empty();
+    schema
+        .fields
+        .push(FieldConfig::new("kw", FieldType::Keyword));
+    schema
 }
 
 fn req(from: usize, size: usize, q: &Value) -> xerj_query::ast::SearchRequest {
@@ -63,6 +76,7 @@ async fn tied_corpus(idx: &std::sync::Arc<xerj_engine::index::Index>) -> Vec<Str
                 json!({
                     "body": "listpack encoding for small collections",
                     "kind": "same",
+                    "kw": "same",
                 }),
             )
             .await
@@ -82,18 +96,20 @@ fn page_ids(hits: &[xerj_query::Hit]) -> Vec<String> {
 async fn tied_scores_bounded_pages_are_prefixes_of_the_full_page() {
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
-    engine.create_index("tie", Schema::empty()).unwrap();
+    engine.create_index("tie", tied_schema()).unwrap();
     let idx = engine.get_index("tie").unwrap();
     let inserted = tied_corpus(&idx).await;
 
     // Each shape exercises a different collector:
     //   match           → scored FTS admission walk (`page_worst`)
-    //   term            → count-authoritative stored scan (`scan_page_worst`)
+    //   term            → non-authoritative dynamic-text stored scan (#1359)
+    //   term_keyword    → keyword columnar / doc-values prefiltered scan (#1359)
     //   match_all       → columnar top-k
     //   constant_score  → columnar top-k with the wrapper's constant score
     for (label, q) in [
         ("match", json!({"match": {"body": "listpack"}})),
         ("term", json!({"term": {"kind": "same"}})),
+        ("term_keyword", json!({"term": {"kw": "same"}})),
         ("match_all", json!({"match_all": {}})),
         (
             "constant_score",
@@ -250,7 +266,7 @@ async fn tie_straddling_a_page_boundary_resolves_the_same_way_at_every_size() {
 async fn tied_scores_page_the_same_way_with_an_unflushed_memtable() {
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
-    engine.create_index("mixed", Schema::empty()).unwrap();
+    engine.create_index("mixed", tied_schema()).unwrap();
     let idx = engine.get_index("mixed").unwrap();
 
     let mut inserted = Vec::new();
@@ -259,7 +275,7 @@ async fn tied_scores_page_the_same_way_with_an_unflushed_memtable() {
             let id = format!("seg{batch}{i:03}");
             idx.index_document(
                 Some(id.clone()),
-                json!({"body": "listpack encoding", "kind": "same"}),
+                json!({"body": "listpack encoding", "kind": "same", "kw": "same"}),
             )
             .await
             .unwrap();
@@ -274,7 +290,7 @@ async fn tied_scores_page_the_same_way_with_an_unflushed_memtable() {
         let id = format!("mem{i:03}");
         idx.index_document(
             Some(id.clone()),
-            json!({"body": "listpack encoding", "kind": "same"}),
+            json!({"body": "listpack encoding", "kind": "same", "kw": "same"}),
         )
         .await
         .unwrap();
@@ -285,6 +301,7 @@ async fn tied_scores_page_the_same_way_with_an_unflushed_memtable() {
     for (label, q) in [
         ("match", json!({"match": {"body": "listpack"}})),
         ("term", json!({"term": {"kind": "same"}})),
+        ("term_keyword", json!({"term": {"kw": "same"}})),
         ("match_all", json!({"match_all": {}})),
         (
             "constant_score",
@@ -343,7 +360,7 @@ async fn tied_scores_page_the_same_way_with_an_unflushed_memtable() {
 async fn tied_scores_page_the_same_way_with_no_flush_at_all() {
     let dir = TempDir::new().unwrap();
     let engine = make_engine(&dir);
-    engine.create_index("memonly", Schema::empty()).unwrap();
+    engine.create_index("memonly", tied_schema()).unwrap();
     let idx = engine.get_index("memonly").unwrap();
 
     // Comfortably past the 256-hit floor.  `size:300` implies a 400-hit cap
@@ -355,7 +372,7 @@ async fn tied_scores_page_the_same_way_with_no_flush_at_all() {
         let id = format!("m{i:04}");
         idx.index_document(
             Some(id.clone()),
-            json!({"body": "listpack encoding", "kind": "same"}),
+            json!({"body": "listpack encoding", "kind": "same", "kw": "same"}),
         )
         .await
         .unwrap();
@@ -365,6 +382,7 @@ async fn tied_scores_page_the_same_way_with_no_flush_at_all() {
     for (label, q) in [
         ("match", json!({"match": {"body": "listpack"}})),
         ("term", json!({"term": {"kind": "same"}})),
+        ("term_keyword", json!({"term": {"kw": "same"}})),
         ("match_all", json!({"match_all": {}})),
         (
             "constant_score",

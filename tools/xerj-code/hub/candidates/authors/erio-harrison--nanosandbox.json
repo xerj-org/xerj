@@ -1,0 +1,22 @@
+{
+ "corpus": "erio-harrison--nanosandbox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on code-execution, rust, sandbox queries this for how Erio-Harrison/nanosandbox implements it: Lightweight embeddable sandbox for running untrusted code, built on OS-native isolation (namespaces, cgroups, seccomp, Landlock, Seatbelt).  (selected work: tests, src/platform, src)",
+ "repos": [
+  {
+   "repo": "nanosandbox",
+   "url": "https://github.com/Erio-Harrison/nanosandbox",
+   "sha": "d23b4d2d8b29a95222f88eeb26514482a31a1af0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-10 (reply to Corpus Hub outreach); selected commit d23b4d2d8b29: \"feat: host_uid()/host_gid() let a root caller pick the host user its \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

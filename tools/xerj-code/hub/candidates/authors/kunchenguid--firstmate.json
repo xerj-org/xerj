@@ -1,0 +1,22 @@
+{
+ "corpus": "kunchenguid--firstmate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Shell queries this for how kunchenguid/firstmate implements it: Talk to one agent. Ship with a crew (selected work: tests, bin)",
+ "repos": [
+  {
+   "repo": "firstmate",
+   "url": "https://github.com/kunchenguid/firstmate",
+   "sha": "20dcbf91520b1816663b81873ad67d0b93b3e4d6",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 20dcbf91520b: \"feat(bin): support Forgejo/Gitea as a forge via the tea CLI (#4395)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

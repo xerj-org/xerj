@@ -1,0 +1,22 @@
+{
+ "corpus": "johalputt--vayupress",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on pgp, blog-engine, golang queries this for how johalputt/VayuPress implements it: Your whole online presence in one sovereign Go binary \u2014 website, blog, PGP mail, E2E-encrypted chat, anti-DDoS bot shield, privacy analytics (selected work: internal/vayuos, cmd/vayupress, the project root)",
+ "repos": [
+  {
+   "repo": "VayuPress",
+   "url": "https://github.com/johalputt/VayuPress",
+   "sha": "8628befb10bebcbcc2466d3947f7a2c94cc468c5",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 8628befb10be: \"Mail: S/MIME signing with an uploaded certificate, and signatures che\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

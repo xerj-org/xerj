@@ -1,0 +1,22 @@
+{
+ "corpus": "hadasbro--idict",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how hadasbro/idict implements it: Extended Default Dict in Python [ Python 3 ] (selected work: lib, tests, the project root)",
+ "repos": [
+  {
+   "repo": "idict",
+   "url": "https://github.com/hadasbro/idict",
+   "sha": "22a4812e247857a3bad54815697ef29580a0ed0f",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 22a4812e2478: \"prep to pypi\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

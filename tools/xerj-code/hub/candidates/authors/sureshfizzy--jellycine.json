@@ -1,0 +1,22 @@
+{
+ "corpus": "sureshfizzy--jellycine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on jellyfin, jellyfin-client, emby queries this for how sureshfizzy/JellyCine implements it: A Jellyfin + Emby Client App with modern UI (selected work: phone, tv, data)",
+ "repos": [
+  {
+   "repo": "JellyCine",
+   "url": "https://github.com/sureshfizzy/JellyCine",
+   "sha": "3b35bce70215c261b919667c3f10feaaef146c94",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 3b35bce70215: \"feat: Add LAN network support with server discovery\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

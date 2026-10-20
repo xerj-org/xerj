@@ -1,0 +1,22 @@
+{
+ "corpus": "alanforester--remote-llm-gateway",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how AlanForester/remote-llm-gateway implements it: Remote LLM Gateway \u2014 \u043e\u0434\u0438\u043d \u0448\u043b\u044e\u0437 \u0434\u043b\u044f Grok Build, Claude Code \u0438 GPT. \u041f\u043b\u0430\u0433\u0438\u043d \u0432 VS Code \u0438 Cursor \u0438 CLI remote-llm \u0440\u0430\u0431\u043e\u0442\u0430\u044e\u0442 \u0441 \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u044b\u043c \u043f\u0440\u043e\u0435\u043a\u0442\u043e\u043c,  (selected work: admin)",
+ "repos": [
+  {
+   "repo": "remote-llm-gateway",
+   "url": "https://github.com/AlanForester/remote-llm-gateway",
+   "sha": "32ff25239c80854d52964da35708696fa4cabc6a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 32ff25239c80: \"feat: show model selectors and provider status in the admin\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "haowei2000--arabica",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how haowei2000/Arabica implements it: Headless AI coding agent runtime in Rust, with CLI, ACP, and HTTP/SSE hosts (selected work: crates/arabica-runtime, crates/arabica-runner, crates/arabica-adapters)",
+ "repos": [
+  {
+   "repo": "Arabica",
+   "url": "https://github.com/haowei2000/Arabica",
+   "sha": "48f5c2ae534a5754ee8d8d4875103f52e6d89710",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 48f5c2ae534a: \"perf(runtime): optimize execution speed, memory allocations, and conn\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

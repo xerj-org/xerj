@@ -1,0 +1,22 @@
+{
+ "corpus": "xeind--vallow-nvim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on code-quality, dead-code, developer-tools queries this for how xeind/vallow.nvim implements it: fallow for Neovim \u2014 see your unused code, dups, and health in a native split (selected work: lua, tests)",
+ "repos": [
+  {
+   "repo": "vallow.nvim",
+   "url": "https://github.com/xeind/vallow.nvim",
+   "sha": "c9d7913570222192cab432440ca380c1aedcfaee",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit c9d791357022: \"flags: add Stale Flags from fallow flags --retirement\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

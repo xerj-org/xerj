@@ -1,0 +1,22 @@
+{
+ "corpus": "dzultra--modlistpacketdisabler",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how DZultra/ModListPacketDisabler implements it: A lightweight Minecraft Fabric Client Mod that lets you toggle whether the newer minecraft:mod_list packet is sent to servers and allows you (selected work: src/main, the project root, gradle)",
+ "repos": [
+  {
+   "repo": "ModListPacketDisabler",
+   "url": "https://github.com/DZultra/ModListPacketDisabler",
+   "sha": "7301f9659f0ce4706090dc7be5c9ab09d7094cef",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 7301f9659f0c: \"feat: Update to 26.4-snapshot-3\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "xuxyyy--terminal-coding-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, coding-agent, llm queries this for how Xuxyyy/terminal-coding-agent implements it: A small terminal coding agent that reads, edits, and runs code in the current directory. TypeScript, 888 tests, one permission gate (selected work: src/tests, src/core)",
+ "repos": [
+  {
+   "repo": "terminal-coding-agent",
+   "url": "https://github.com/Xuxyyy/terminal-coding-agent",
+   "sha": "09a43feca14d3c02b5d913520c029e9b84590378",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit 09a43feca14d: \"fix(loop): persist reminders and preserve conversation prefixes\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

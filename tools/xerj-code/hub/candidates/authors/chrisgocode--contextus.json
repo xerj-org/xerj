@@ -1,0 +1,22 @@
+{
+ "corpus": "chrisgocode--contextus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how chrisgocode/contextus implements it: chrisgocode/contextus (TypeScript) (selected work: convex, tests, app/_components)",
+ "repos": [
+  {
+   "repo": "contextus",
+   "url": "https://github.com/chrisgocode/contextus",
+   "sha": "93c90b7498dc3d5e95f7f5d34ef3dc49fa0c1e2b",
+   "licence": "hint only: AGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 93c90b7498dc: \"feat: friend requests and the friends panel (#248)\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

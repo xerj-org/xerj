@@ -35,6 +35,7 @@ ck()   { local desc="$1"; shift; if "$@" >/dev/null 2>&1; then ok "$desc"; else 
 req() {
   local method="$1" path="$2" body="${3:-}"
   shift; shift; [ $# -gt 0 ] && shift
+  [ "${1:-}" = "--" ] && shift   # the separator is not a query pair
   local args=(-s -o "$WORK/resp.json" -w '%{http_code}' -X "$method" "${AUTH[@]}")
   if [ -n "$body" ]; then
     args+=(-H 'Content-Type: application/json' -d "$body")

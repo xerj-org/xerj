@@ -1,0 +1,22 @@
+{
+ "corpus": "oueslatighaith--stm32wb-hci",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how OueslatiGhaith/stm32wb-hci implements it: Bluetooth HCI implementation for embedded Rust (selected work: crates/stm32wb-catalog-extract, crates/stm32wb-catalog)",
+ "repos": [
+  {
+   "repo": "stm32wb-hci",
+   "url": "https://github.com/OueslatiGhaith/stm32wb-hci",
+   "sha": "1402b4b44cdff0cabd3544944434c10302ee5d88",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 1402b4b44cdf: \"catalog, extractor: lean on crates for parsing, serde and errors\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -603,6 +603,7 @@ fn parse_condition(tokens: &[Token], pos: &mut usize, depth: usize) -> Result<Qu
                     boost: None,
                     minimum_should_match: None,
                     analyzer: None,
+                    lenient: false,
                 }
             } else {
                 QueryNode::Term {
@@ -681,6 +682,7 @@ fn make_range(
         lt,
         lte,
         boost: None,
+        lenient: false,
     }
 }
 

@@ -1,0 +1,22 @@
+{
+ "corpus": "utopia-php--database",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on utopia-framework, hacktoberfest queries this for how utopia-php/database implements it: Lite & fast micro PHP database abstraction library that is **easy to use** (selected work: tests, src/Database)",
+ "repos": [
+  {
+   "repo": "database",
+   "url": "https://github.com/utopia-php/database",
+   "sha": "1f4ad1b36609a27e2a8e3407875e7ee274c37e12",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-06 (reply to Corpus Hub outreach); selected commit 1f4ad1b36609: \"feat: fire an event for related documents a delete changed\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

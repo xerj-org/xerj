@@ -1,0 +1,22 @@
+{
+ "corpus": "stac-utils--stac-fastapi-elasticsearch-opensearch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on elasticsearch, stac-api, stac-fastapi queries this for how stac-utils/stac-fastapi-elasticsearch-opensearch implements it: Elasticsearch backend for stac-fastapi with Opensearch support (selected work: stac_fastapi)",
+ "repos": [
+  {
+   "repo": "stac-fastapi-elasticsearch-opensearch",
+   "url": "https://github.com/stac-utils/stac-fastapi-elasticsearch-opensearch",
+   "sha": "0428257917efa77aaa77a2ee20e97af55fb59c65",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 0428257917ef: \"fix: validate item transaction targets before writes (#881)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

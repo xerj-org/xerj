@@ -1,0 +1,22 @@
+{
+ "corpus": "yeachan-heo--gajae-code",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Yeachan-Heo/gajae-code implements it: Gajae Code MVP (selected work: packages/coding-agent)",
+ "repos": [
+  {
+   "repo": "gajae-code",
+   "url": "https://github.com/Yeachan-Heo/gajae-code",
+   "sha": "28083402829f6a5efafc3544725f999eb653ddc5",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 28083402829f: \"fix(session): generate the automatic title for busy and startup first\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

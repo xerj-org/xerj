@@ -1,0 +1,22 @@
+{
+ "corpus": "neevcloudai--neev-sdk-js",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, ai-agents, code-execution queries this for how NeevCloudAI/neev-sdk-js implements it: Official NeevCloud SDK for the platform access (selected work: tests, src, src/agent-tools)",
+ "repos": [
+  {
+   "repo": "neev-sdk-js",
+   "url": "https://github.com/NeevCloudAI/neev-sdk-js",
+   "sha": "f94a631f421302608b7be1b22ba8df146c94b70d",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit f94a631f4213: \"feat(agent-tools): path tools, paged reads, tool specs and framework \u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

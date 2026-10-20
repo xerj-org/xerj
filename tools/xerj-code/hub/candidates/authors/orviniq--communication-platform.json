@@ -1,0 +1,22 @@
+{
+ "corpus": "orviniq--communication-platform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on censorship-resistance, cryptography, django queries this for how Orviniq/communication-platform implements it: Self-hosted, end-to-end encrypted messenger built to keep working through a national internet shutdown. Pairwise Double Ratchet DMs and grou (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "communication-platform",
+   "url": "https://github.com/Orviniq/communication-platform",
+   "sha": "30d31ed1defdade743a92089f28115a2fe5d1427",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 30d31ed1defd: \"fix(messaging): quote, copy and delete an attachment message\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

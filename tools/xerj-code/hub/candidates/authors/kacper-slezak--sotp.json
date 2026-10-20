@@ -1,0 +1,22 @@
+{
+ "corpus": "kacper-slezak--sotp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how Kacper-Slezak/SOTP implements it: System Observability & Telemetry Platform (selected work: the project root, apps/network_worker, apps/web_frontend)",
+ "repos": [
+  {
+   "repo": "SOTP",
+   "url": "https://github.com/Kacper-Slezak/SOTP",
+   "sha": "2b9620c934bd2155f11cc804a0e054f68e72a43c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-12 (reply to Corpus Hub outreach); selected commit 2b9620c934bd: \"Remove english\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

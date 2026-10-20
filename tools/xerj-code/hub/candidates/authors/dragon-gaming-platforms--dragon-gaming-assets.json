@@ -1,0 +1,22 @@
+{
+ "corpus": "dragon-gaming-platforms--dragon-gaming-assets",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on game-hosting, game-hosting-platform, html-games queries this for how Dragon-Gaming-Platforms/Dragon-Gaming-Assets implements it: Game file hosting for Dragon-Gaming-Platforms/Dragon-Gaming-Platforms (selected work: games)",
+ "repos": [
+  {
+   "repo": "Dragon-Gaming-Assets",
+   "url": "https://github.com/Dragon-Gaming-Platforms/Dragon-Gaming-Assets",
+   "sha": "4202caf69ad7548749fa399f2b03fce6cc4e2bbc",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 4202caf69ad7: \"Replace duplicate Asteroids with Tennis\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

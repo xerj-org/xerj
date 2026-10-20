@@ -1,0 +1,22 @@
+{
+ "corpus": "openamrobot--openamr-platform-sw",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on gazebo, nav2, open-source queries this for how openAMRobot/openamr-platform-sw implements it: ROS 2 Jazzy software for the OpenAMRobot mobile base: simulation, Nav2, SLAM, docking, control, drivers, and bringup (selected work: ros2)",
+ "repos": [
+  {
+   "repo": "openamr-platform-sw",
+   "url": "https://github.com/openAMRobot/openamr-platform-sw",
+   "sha": "6be74390ebf745c661646290f531f264a0ad2e7d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 6be74390ebf7: \"feat(nav2): mirror navigation status on /diagnostics (part of #34) (#52)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

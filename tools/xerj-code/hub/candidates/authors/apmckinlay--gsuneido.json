@@ -1,0 +1,22 @@
+{
+ "corpus": "apmckinlay--gsuneido",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on go, language, interpreter queries this for how apmckinlay/gsuneido implements it: Go implementation of Suneido (selected work: llm, builtin, dbms)",
+ "repos": [
+  {
+   "repo": "gsuneido",
+   "url": "https://github.com/apmckinlay/gsuneido",
+   "sha": "48646ab0ddc723e6a20fd079d362c4e3e964850a",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 48646ab0ddc7: \"propagate permissions through threads\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

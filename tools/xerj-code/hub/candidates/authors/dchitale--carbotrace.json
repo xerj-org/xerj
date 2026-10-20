@@ -1,0 +1,22 @@
+{
+ "corpus": "dchitale--carbotrace",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how DChitale/Carbotrace implements it: DChitale/Carbotrace (JavaScript) (selected work: landing-page)",
+ "repos": [
+  {
+   "repo": "Carbotrace",
+   "url": "https://github.com/DChitale/Carbotrace",
+   "sha": "e4be1e01fb6b5807e69ed7fdb7d4c4ab9486a266",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit e4be1e01fb6b: \"Created separate Landing page\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

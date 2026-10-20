@@ -1,0 +1,22 @@
+{
+ "corpus": "ahmedthebest31--navsounds",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on accessibility, assistive-technology, audio-feedback queries this for how ahmedthebest31/navsounds implements it: NVDA add-on providing navigation and typing sound effects with customizable sound packs, browse mode support, and mouse hover feedback (selected work: tests, navsounds)",
+ "repos": [
+  {
+   "repo": "navsounds",
+   "url": "https://github.com/ahmedthebest31/navsounds",
+   "sha": "ddcf49db1e77d3ff514970b2f5a9479dc30476c1",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit ddcf49db1e77: \"feat(donate): donation reminder, themes folder, NVDA API fixes\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

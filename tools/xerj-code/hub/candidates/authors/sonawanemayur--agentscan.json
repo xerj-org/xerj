@@ -1,0 +1,22 @@
+{
+ "corpus": "sonawanemayur--agentscan",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-security, llm-security, mcp queries this for how SonawaneMayur/agentscan implements it: SonawaneMayur/agentscan (Python) (selected work: research)",
+ "repos": [
+  {
+   "repo": "agentscan",
+   "url": "https://github.com/SonawaneMayur/agentscan",
+   "sha": "d85d11975cd6f6737c1bd6995fd27324a3e75d5e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit d85d11975cd6: \"Fix MCP001 false positive on key-file paths; add secret classificatio\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

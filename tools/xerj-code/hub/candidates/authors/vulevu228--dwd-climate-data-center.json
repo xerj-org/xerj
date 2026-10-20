@@ -1,0 +1,22 @@
+{
+ "corpus": "vulevu228--dwd-climate-data-center",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how vulevu228/DWD-Climate-Data-Center implements it: DWD-Klimadaten Deutschland: Downloader, Parser und Power-BI-Report fuer Jahrzehnte an Wetterdaten (selected work: dwd-weather-soil-temperature.Report, dwd-weather-soil-temperature.SemanticModel, the project root)",
+ "repos": [
+  {
+   "repo": "DWD-Climate-Data-Center",
+   "url": "https://github.com/vulevu228/DWD-Climate-Data-Center",
+   "sha": "8eed1f251cca5bf9177c673af5e73b8b4926ee29",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-13 (reply to Corpus Hub outreach); selected commit 8eed1f251cca: \"Add second Power BI report: soil temperature network (491 stations)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

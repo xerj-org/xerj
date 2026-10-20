@@ -1,0 +1,22 @@
+{
+ "corpus": "dmvieira--appacadabra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, ai-coding queries this for how dmvieira/appacadabra implements it: Build AI-generated web tools and micro-apps that seamlessly integrate with mobile device capabilities (selected work: firebase)",
+ "repos": [
+  {
+   "repo": "appacadabra",
+   "url": "https://github.com/dmvieira/appacadabra",
+   "sha": "73505eba71b18e7137da894e38a17f2c27ddb217",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 73505eba71b1: \"feat(store): server-render Store pages for AI agents and social previews\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

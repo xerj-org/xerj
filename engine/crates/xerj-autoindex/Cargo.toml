@@ -101,8 +101,11 @@ tree-sitter-haskell = "0.23"
 tree-sitter-elixir = "0.3"
 # --- #295 Tier 2: common in ecosystems we already serve.
 # NOT tree-sitter-clojure: its only release (0.1.0) hard-links core ^0.25.6,
-# mutually exclusive with the core 0.26 that Tier 1's perl grammar forces —
-# revisit when a clojure release against 0.26 exists.
+# mutually exclusive with the core 0.26 that Tier 1's perl grammar forces.
+# The -orchard crate packages the same sogaiu grammar through
+# tree-sitter-language (core is a dev-dependency only), so it loads fine.
+tree-sitter-clojure-orchard = "0.2"
+tree-sitter-scheme = "0.24"
 # NOT tree-sitter-sql: 0.0.2 is immature (the issue itself says evaluate
 # first or defer) and `.sql` routing must not steal sqldump files — deferred.
 tree-sitter-erlang = "0.20"
@@ -129,7 +132,25 @@ flate2 = "1"                                     # gzip streaming (rust backend)
 pdf_oxide = { version = "=0.3.75", default-features = false, features = ["legacy-crypto"] }
 csv = "1"                                        # streaming CSV with sniffed dialect
 quick-xml = "0.41"                               # XML pull parser + DOCX internals
-zip = { version = "2", default-features = false, features = ["deflate"] }  # DOCX container
+zip = { version = "9", default-features = false, features = ["deflate"] }  # DOCX container
+# --- Legacy Microsoft Office binary formats (OLE2 / Compound File Binary) ---
+# calamine reads the legacy BIFF `.xls` worksheet stream (it ships its own CFB
+# reader internally); pinned to 0.37.0, which depends on `zip ^9` (the
+# zip 8.x line carries RUSTSEC-2026-0367/0368/0369, fixed in 9.0.0) so it
+# shares this crate's `zip 9` major, and never retains `quick-xml 0.31.0`
+# (RUSTSEC-2026-0194 / 0195); it brings `quick-xml 0.42` alongside our 0.41.
+# Licence: MIT. Its transitive adds are codepage (MIT, for the legacy 8-bit
+# cell codepage) and log (MIT/Apache-2.0); byteorder and encoding_rs are
+# already here.
+calamine = { version = "=0.37.0", features = ["dates"] }
+# `cfb` reads the OLE2/Compound File Binary container directly: used by the
+# content sniffer to route a `.doc`/`.xls`/other OLE2 file by its stream names,
+# and by the `.doc` extractor to pull the WordDocument + Table streams and the
+# SummaryInformation title. `open()` returns `io::Result` and treats malformed
+# or truncated input as an error (never a panic), which the fuzz-minded sniffer
+# relies on. Licence: MIT. Runtime deps (fnv, uuid) are already in the lock
+# file; web-time is a tiny wasm-time shim. Pinned exact.
+cfb = "=0.15.0"
 serde_yaml = "0.9"                               # YAML multi-doc
 # The one C dependency (bundled SQLite), isolated to this crate.
 rusqlite = { version = "0.32", features = ["bundled"] }

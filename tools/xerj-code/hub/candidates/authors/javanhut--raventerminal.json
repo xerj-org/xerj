@@ -1,0 +1,22 @@
+{
+ "corpus": "javanhut--raventerminal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how javanhut/RavenTerminal implements it: Raven Terminal is a GPU-accelerated terminal emulator written in Go (selected work: src/render, src/config, src)",
+ "repos": [
+  {
+   "repo": "RavenTerminal",
+   "url": "https://github.com/javanhut/RavenTerminal",
+   "sha": "695f08dd0858218ae1da58491be5165f6d40ae4b",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 695f08dd0858: \"feat: bound theme to setting ui\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

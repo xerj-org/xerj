@@ -1,0 +1,22 @@
+{
+ "corpus": "hodgesds--narf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how hodgesds/narf implements it: Not Another Rust Framekernel (selected work: drivers, userspace)",
+ "repos": [
+  {
+   "repo": "narf",
+   "url": "https://github.com/hodgesds/narf",
+   "sha": "a09574f45632f6dec70bfb33a78138d211f1e30d",
+   "licence": "hint only: GPL-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit a09574f45632: \"fix: harden browser I/O and virtio networking\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

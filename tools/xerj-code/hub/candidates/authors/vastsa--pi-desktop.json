@@ -1,0 +1,22 @@
+{
+ "corpus": "vastsa--pi-desktop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on pi-desktop, ai-agent, coding-agent queries this for how vastsa/PI-Desktop implements it: Local-first AI coding agent desktop: Electron + Rust host core + pi Agent Harness + user-installable plugins (selected work: apps/desktop, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "PI-Desktop",
+   "url": "https://github.com/vastsa/PI-Desktop",
+   "sha": "5a74d3a8588ee939f9dd257a5d2b1447a8ea6852",
+   "licence": "hint only: LGPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit 5a74d3a8588e: \"fix(chat): copy rendered formulas as round-trippable TeX\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

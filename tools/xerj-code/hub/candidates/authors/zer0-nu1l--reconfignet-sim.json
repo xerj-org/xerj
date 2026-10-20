@@ -1,0 +1,22 @@
+{
+ "corpus": "zer0-nu1l--reconfignet-sim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on bmv2, gnmi, grpc queries this for how ZER0-Nu1L/ReconfigNet-Sim implements it: An emulation platform for exposing and de-risking system-integration problems around reconfigurable optical networks before real OCS hardwar (selected work: blog)",
+ "repos": [
+  {
+   "repo": "ReconfigNet-Sim",
+   "url": "https://github.com/ZER0-Nu1L/ReconfigNet-Sim",
+   "sha": "a5e8c2555f3bae24cae118633b4b14e4f58ec9fe",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit a5e8c2555f3b: \"Add bilingual research blog and Pages deployment (#24)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

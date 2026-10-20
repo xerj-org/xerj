@@ -1,0 +1,22 @@
+{
+ "corpus": "baranylcn--ronnyx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, langchain, langgraph queries this for how baranylcn/ronnyx implements it: A flexible AI assistant framework with tool-based orchestration and API interface (selected work: ronnyx, tests, the project root)",
+ "repos": [
+  {
+   "repo": "ronnyx",
+   "url": "https://github.com/baranylcn/ronnyx",
+   "sha": "1ddd89bdd03be4087cda401cca018b30a6f7d07d",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 1ddd89bdd03b: \"feat: add optional GraphRAG knowledge base\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

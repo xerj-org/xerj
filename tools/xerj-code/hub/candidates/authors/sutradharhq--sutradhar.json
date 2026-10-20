@@ -1,0 +1,22 @@
+{
+ "corpus": "sutradharhq--sutradhar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-harness, ai-agents, claude-code queries this for how sutradharhq/sutradhar implements it: An engineering harness for AI coding agents: a doctrine and stdlib-only, copy-in guards that keep an agent-built codebase honest (selected work: python, action, plugin)",
+ "repos": [
+  {
+   "repo": "sutradhar",
+   "url": "https://github.com/sutradharhq/sutradhar",
+   "sha": "f9e30c86bd9de968eb7e4a5828c51febb4f647b7",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-17 (reply to Corpus Hub outreach); selected commit f9e30c86bd9d: \"Ratchet baselines are judged against the base branch; skips fail on CI\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

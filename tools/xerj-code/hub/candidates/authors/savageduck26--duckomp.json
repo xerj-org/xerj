@@ -1,0 +1,22 @@
+{
+ "corpus": "savageduck26--duckomp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how SavageDuck26/Duckomp implements it: De-entropy concepts for passes before Zstd (selected work: Duckomp-v7, the project root)",
+ "repos": [
+  {
+   "repo": "Duckomp",
+   "url": "https://github.com/SavageDuck26/Duckomp",
+   "sha": "6b5fe53d03daa926301a8b86a1fd34467e98a21f",
+   "licence": "hint only: GPL-3.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 6b5fe53d03da: \"Duckomp-v7 update.\". suggested use: approach-only \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

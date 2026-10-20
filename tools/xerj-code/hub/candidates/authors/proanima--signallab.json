@@ -1,0 +1,22 @@
+{
+ "corpus": "proanima--signallab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on chaos-engineering, desktop-app, fault-injection queries this for how ProAnima/SignalLab implements it: Test the protocols your show, installation or IoT gear speaks: send, capture, emulate and impair OSC, UDP/TCP, HTTP, WebSocket and MQTT \u2014 by (selected work: cli, the project root, deploy)",
+ "repos": [
+  {
+   "repo": "SignalLab",
+   "url": "https://github.com/ProAnima/SignalLab",
+   "sha": "4959e746f7c4fa5f9a4a6654021a336a5bc0654e",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 4959e746f7c4: \"Add localized documentation site and integrate contextual help\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

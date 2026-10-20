@@ -1,0 +1,22 @@
+{
+ "corpus": "kagent-dev--kagent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, ai, cncf queries this for how kagent-dev/kagent implements it: Cloud Native Agentic AI | Discord: https://bit.ly/kagentdiscord (selected work: go)",
+ "repos": [
+  {
+   "repo": "kagent",
+   "url": "https://github.com/kagent-dev/kagent",
+   "sha": "0a0c3bd6c87ae6aa354131314fed222974719de8",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit 0a0c3bd6c87a: \"fix(checkpoint): allow failed checkpoint cleanup (#3199)\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

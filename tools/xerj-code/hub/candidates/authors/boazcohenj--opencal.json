@@ -1,0 +1,22 @@
+{
+ "corpus": "boazcohenj--opencal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, calendar, expo queries this for how BoazCohenJ/OpenCal implements it: A calm, local-first calendar app for Android built with Expo: schedule/day/week/month views, stamps, quiet time & DND, dark mode, over-the-a (selected work: src/widgets, the project root, src/context)",
+ "repos": [
+  {
+   "repo": "OpenCal",
+   "url": "https://github.com/BoazCohenJ/OpenCal",
+   "sha": "1dde8896d49ca648580b43a7a1322accd71d0793",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit 1dde8896d49c: \"Make the app respond to taps right after it opens\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

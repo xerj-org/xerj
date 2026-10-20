@@ -1,0 +1,22 @@
+{
+ "corpus": "zwl467135974--lumina",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Java queries this for how zwl467135974/lumina implements it: Lumina \u662f\u4e00\u4e2a\u4f01\u4e1a\u7ea7 AI Agent \u5f00\u53d1\u6846\u67b6\uff0c\u57fa\u4e8e AgentScope Java \u548c Spring Cloud \u6784\u5efa\uff0c\u63d0\u4f9b\u5f00\u7bb1\u5373\u7528\u7684 Agent \u80fd\u529b\u3001\u5fae\u670d\u52a1\u67b6\u6784\u548c\u4f01\u4e1a\u7ea7\u7279\u6027\u3002 (selected work: lumina-modules, lumina-agent-core, nacos-config)",
+ "repos": [
+  {
+   "repo": "lumina",
+   "url": "https://github.com/zwl467135974/lumina",
+   "sha": "83bf6364e1f5e6f8237e3aab796741dcc8f05ca8",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-11 (reply to Corpus Hub outreach); selected commit 83bf6364e1f5: \"feat(memory,schedule): \u8bb0\u5fc6\u6574\u7406\u4ee3\u7406\u4e0e\u6279\u6b21 4 \u5236\u5ea6\u6536\u53e3\u2014\u2014v3.14 \u6279\u6b21 4\uff08ZCode/DSH\uff09\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

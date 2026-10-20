@@ -1,0 +1,22 @@
+{
+ "corpus": "kandada--fastbrowser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how kandada/fastbrowser implements it: A cross-platform browser-automation kernel built for AI agents \u2014 the browser-domain counterpart of [fastshell](https://github.com/kandada/fa (selected work: src/tools, src/engine, src/bin)",
+ "repos": [
+  {
+   "repo": "fastbrowser",
+   "url": "https://github.com/kandada/fastbrowser",
+   "sha": "11bba09a6e0aa08c266877bc282fd6708d31ecf8",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-09 (reply to Corpus Hub outreach); selected commit 11bba09a6e0a: \"0.1.9\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

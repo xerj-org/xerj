@@ -1,0 +1,22 @@
+{
+ "corpus": "dreamor--memvault",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-memory, ai-agents, ai-memory queries this for how dreamor/MemVault implements it: MemVault \u2014 The Shared Memory Layer for Every AI Agent You Run. Self-hosted, open-source MCP memory server with auto-injection, hybrid (BM25+ (selected work: crates/memvault-core, crates/memvault-cli, crates/memvault-mcp)",
+ "repos": [
+  {
+   "repo": "MemVault",
+   "url": "https://github.com/dreamor/MemVault",
+   "sha": "f1caa7dcb180b7841f758cb37f417036e6e9d7b0",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-19 (reply to Corpus Hub outreach); selected commit f1caa7dcb180: \"feat: markdown-as-source-of-truth storage backend, export-skill, benc\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "corpus": "cjrdz--githints",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how cjrdz/githints implements it: Lightweight, local change tracking for AI coding agents (selected work: internal/index, internal/cli, internal/config)",
+ "repos": [
+  {
+   "repo": "githints",
+   "url": "https://github.com/cjrdz/githints",
+   "sha": "49c1ff3d15134e137940a611dee3e2de2a4c4965",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-18 (reply to Corpus Hub outreach); selected commit 49c1ff3d1513: \"feat: framework packs, new languages and a faster index\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

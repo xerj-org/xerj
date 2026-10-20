@@ -1,0 +1,22 @@
+{
+ "corpus": "jhowliu--codex-cage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how jhowliu/codex-cage implements it: This feature provides an isolated Docker-based sandbox environment where an AI agent can repeatedly develop, run, test, debug, and improve c (selected work: web)",
+ "repos": [
+  {
+   "repo": "codex-cage",
+   "url": "https://github.com/jhowliu/codex-cage",
+   "sha": "aa382e106f6e4a00905825b0f4fba6506bc35ab4",
+   "licence": "hint only: Apache-2.0 (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-16 (reply to Corpus Hub outreach); selected commit aa382e106f6e: \"feat: add inline repository details\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

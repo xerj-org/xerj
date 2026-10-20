@@ -1,0 +1,22 @@
+{
+ "corpus": "endika--mintza",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ddd, meeting-transcription, openai queries this for how Endika/mintza implements it: From talk to insight \u2014 client-only PWA that transcribes meetings and generates summaries, sentiment and a mind map. BYO API keys (OpenAI req (selected work: test, src/infrastructure, src/bootstrap)",
+ "repos": [
+  {
+   "repo": "mintza",
+   "url": "https://github.com/Endika/mintza",
+   "sha": "e7dd515c8af06da08b3ad5446232ee48eb12e28c",
+   "licence": "hint only: MIT (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "MIT",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-15 (reply to Corpus Hub outreach); selected commit e7dd515c8af0: \"fix: transcribe with gpt-transcribe before whisper-1 is removed\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}

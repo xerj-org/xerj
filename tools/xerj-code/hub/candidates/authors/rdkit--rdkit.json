@@ -1,0 +1,22 @@
+{
+ "corpus": "rdkit--rdkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cheminformatics, c-plus-plus, python queries this for how rdkit/rdkit implements it: The official sources for the RDKit library (selected work: Code)",
+ "repos": [
+  {
+   "repo": "rdkit",
+   "url": "https://github.com/rdkit/rdkit",
+   "sha": "50f9bcca3566f7afb6b7377034de8eb23c459859",
+   "licence": "hint only: BSD-3-Clause (GitHub licenseInfo 2026-10-19; verify at pin)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "UNREVIEWED",
+    "by": "",
+    "at": "",
+    "note": "author permission by email 2026-10-14 (reply to Corpus Hub outreach); selected commit 50f9bcca3566: \"Allow blocking atoms from being included in the tautomerization enume\u2026\". suggested use: adapt-with-attribution \u2014 G4 review of the LICENSE file at this pin still required."
+   }
+  }
+ ]
+}
