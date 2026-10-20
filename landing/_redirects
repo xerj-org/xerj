@@ -32,6 +32,14 @@
 # to the removed file get the real 404 page, which is the honest answer.
 /benchmarks/decisions  /blog/does-xerj-beat-jev  301
 
+# Site remake 2026-10 (stack #1925): enterprise-era use-case pages retired.
+# They carried the retracted 1M-doc / 91-cell board and Tier C numbers
+# (factcheck FC-NUM-TIERC); each now points at the doc that does the job.
+/use-cases/security-analytics         /docs/playbooks/siem           301
+/use-cases/elasticsearch-replacement  /docs/migration-from-es        301
+/use-cases/operational-intelligence   /docs/recipes/log-analytics    301
+/use-cases/unified-observability      /docs/playbooks/observability  301
+
 # Installer fallback (#740). /get.sh is normally answered by functions/get.js
 # (it's in _routes.json), which counts the request and serves the installer.
 # This 200-rewrite only fires if Functions are disabled, so /get.sh serves the

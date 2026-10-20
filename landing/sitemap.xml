@@ -342,7 +342,7 @@
   </url>
   <url>
     <loc>https://xerj.org/architecture/</loc>
-    <lastmod>2026-08-30</lastmod>
+    <lastmod>2026-10-20</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/benchmarks/</loc>
@@ -698,7 +698,7 @@
   </url>
   <url>
     <loc>https://xerj.org/for-agents</loc>
-    <lastmod>2026-10-19</lastmod>
+    <lastmod>2026-10-20</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/industries/</loc>
@@ -738,7 +738,7 @@
   </url>
   <url>
     <loc>https://xerj.org/security/</loc>
-    <lastmod>2026-08-30</lastmod>
+    <lastmod>2026-10-20</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/solutions/</loc>
@@ -746,7 +746,7 @@
   </url>
   <url>
     <loc>https://xerj.org/use-cases</loc>
-    <lastmod>2026-08-30</lastmod>
+    <lastmod>2026-10-13</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/use-cases/ai-search-retrieval</loc>
@@ -757,27 +757,11 @@
     <lastmod>2026-08-30</lastmod>
   </url>
   <url>
-    <loc>https://xerj.org/use-cases/elasticsearch-replacement</loc>
-    <lastmod>2026-08-30</lastmod>
-  </url>
-  <url>
-    <loc>https://xerj.org/use-cases/operational-intelligence</loc>
-    <lastmod>2026-08-30</lastmod>
-  </url>
-  <url>
     <loc>https://xerj.org/use-cases/second-brain</loc>
     <lastmod>2026-08-30</lastmod>
   </url>
   <url>
-    <loc>https://xerj.org/use-cases/security-analytics</loc>
-    <lastmod>2026-08-30</lastmod>
-  </url>
-  <url>
     <loc>https://xerj.org/use-cases/semantic-analytics</loc>
-    <lastmod>2026-08-30</lastmod>
-  </url>
-  <url>
-    <loc>https://xerj.org/use-cases/unified-observability</loc>
     <lastmod>2026-08-30</lastmod>
   </url>
   <url>

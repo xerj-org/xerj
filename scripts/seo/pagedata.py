@@ -72,8 +72,10 @@ PAGES: dict[str, dict[str, str]] = {
     ),
     "for-agents.html": dict(
         label="For AI agents", kind="software",
-        title="XERJ.ai — For AI agents: search, data & memory",
-        description="The search, data and memory layer for AI agents. One binary: zero-config folder indexing, keyword, semantic, vector and hybrid search, per-agent memory.",
+        title="XERJ for AI agents: MCP search server, xerj ask, memory",
+        description='MCP server and CLI for coding agents: xerj ask cites file:line from signed repo packs, xerj autoindex searches your folder, 17 MCP tools, agent memory.',
+        og_image="og/page-for-agents.png",
+        og_image_alt="Cover: 17 halftone dots, one per MCP tool, grouped search, memory, brain, map/code/plan, hub (in yellow) and field report",
     ),
     "playground.html": dict(
         label="Playground", kind="software",
@@ -256,12 +258,18 @@ PAGES: dict[str, dict[str, str]] = {
         og_image_alt="Cover: a large yellow halftone disc reading $0 beside four rows: binary Apache-2.0, corpus packs on GitHub Releases, MCP server in the same binary, your hardware",
     ),
     "security/index.html": dict(
-        label="Security", kind="software",
-        description="XERJ's security posture — mutual TLS, RBAC, audit logging, BYOK encryption and certification status for a zero-trust-ready, self-hosted data plane.",
+        label='Security', kind='software',
+        title='XERJ security model: loopback, API key, signed packs',
+        description='Is XERJ safe to run? Loopback bind and API-key auth by default, fail-closed SHA-256 installer, ed25519-signed packs, what leaves your machine, how to report.',
+        og_image='og/page-security.png',
+        og_image_alt='Cover: four dot-screen gates labelled 127.0.0.1 bind, API key auth on, SHA-256 installer and ed25519 packs',
     ),
     "architecture/index.html": dict(
-        label="Architecture", kind="software",
-        description="XERJ deployment topologies — single node, HA cluster, multi-region and air-gapped — all from the same ~36 MB binary, with RTO and RPO targets each.",
+        label='Architecture', kind='software',
+        title='How XERJ works: architecture of one binary, one node',
+        description='How XERJ works: one Rust binary that is an Elasticsearch-compatible search node plus its clients (autoindex, MCP, xerj ask), on one machine, no replication.',
+        og_image='og/page-architecture.png',
+        og_image_alt='Cover: a yellow halftone disc labelled xerj with dotted paths to port 9200, port 9300, the MCP stdio server and signed packs from GitHub Releases',
     ),
     "solutions/index.html": dict(
         label="Solutions", kind="collection",
@@ -286,32 +294,15 @@ PAGES: dict[str, dict[str, str]] = {
     # All six shared one title and one description before this pass.
     "use-cases.html": dict(
         label="Use cases", kind="collection",
-        description="Seven enterprise retrieval workloads on one binary — no Logstash, no Beats, no separate vector database — each with a reproducible ES 8.13 benchmark.",
+        title="XERJ use cases: reference coding, audits, repo Q&A",
+        description='What coding agents use XERJ for: reference coding with 2.7x fewer tokens than grep, repo Q&A without cloning, code-security audits, local file search, memory.',
+        og_image="og/page-use-cases.png",
+        og_image_alt="Cover: three dot-bars of output tokens from the reference-coding case study: 260,916 from memory, 26,477 grep-driven, 9,982 with XERJ",
     ),
     "use-cases/ai-search-retrieval.html": dict(
         label="AI search & retrieval", kind="webpage",
         title="XERJ.ai — Use case: AI-native search & retrieval",
         description="XERJ runs BM25 and exact vector kNN in one query tree and one execution pass, so hybrid retrieval for RAG is a feature rather than an integration project.",
-    ),
-    "use-cases/elasticsearch-replacement.html": dict(
-        label="Elasticsearch replacement", kind="webpage",
-        title="XERJ.ai — Use case: Elasticsearch replacement",
-        description="A drop-in Elasticsearch replacement — same :9200 API, same query DSL, same client libraries — on one binary instead of a JVM cluster. Measured vs ES 8.13.",
-    ),
-    "use-cases/operational-intelligence.html": dict(
-        label="Operational intelligence", kind="webpage",
-        title="XERJ.ai — Use case: operational intelligence",
-        description="Replace Beats, Logstash, Elasticsearch and cold storage with one ingest endpoint, one storage engine and one retention number. Measured against ES 8.13.",
-    ),
-    "use-cases/security-analytics.html": dict(
-        label="Security analytics", kind="webpage",
-        title="XERJ.ai — Use case: security analytics at scale",
-        description="SOC search-and-aggregate workloads — filters, term lookups, aggregations — on a single XERJ node instead of a four-node Elasticsearch 8.13 cluster.",
-    ),
-    "use-cases/unified-observability.html": dict(
-        label="Unified observability", kind="webpage",
-        title="XERJ.ai — Use case: unified observability",
-        description="Logs, metrics and traces in one engine with one query language and one bill, instead of Loki or Splunk plus Prometheus plus Tempo. Measured vs ES 8.13.",
     ),
     "use-cases/code-security-audit.html": dict(
         label="AI code-security audit", kind="webpage",
