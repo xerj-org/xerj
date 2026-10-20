@@ -104,6 +104,17 @@ HREF_FIXUPS: dict[str, str] = {
     "/get/index.html": "/docs/install",
     # Cloudflare 308s /benchmarks -> /benchmarks/; link the served form.
     "/benchmarks": "/benchmarks/",
+    # Enterprise-era pages retired 2026-10 (site remake, see _redirects).
+    # The 301s cover external links; these keep internal hrefs (including the
+    # hand-copied footer in blog/jev-vs-a-bm25-vote.html) pointing at a
+    # served page instead of through a redirect.
+    "/solutions/": "/use-cases",
+    "/industries/": "/use-cases",
+    "/industries/finserv": "/use-cases",
+    "/industries/healthcare": "/use-cases",
+    "/industries/public-sector": "/use-cases",
+    "/industries/retail": "/use-cases",
+    "/resources/": "/use-cases",
 }
 
 #: href prefixes/suffixes that are assets, not pages.  Anything matching is

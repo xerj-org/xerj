@@ -68,11 +68,6 @@ ALLOWED_SCRIPT_SRC = frozenset({
 #: Internal links that are known-broken and consciously left that way.
 #: Every entry needs a reason and an owner decision, not just a path.
 KNOWN_BROKEN: dict[str, str] = {
-    "/resources/xerj-sales-kit.zip":
-        "the ZIP has never existed; the page promises '12 PDFs, ~2.4 MB' but the "
-        "12 PDFs on disk total 4.4 MB, so building it would contradict visible "
-        "copy this pass is not allowed to edit. Needs a human: ship a real kit "
-        "and correct the size, or repoint the CTA at the individual briefs.",
 }
 
 #: Rule 64 — file types under `landing/` that are not text and are therefore

@@ -40,6 +40,21 @@
 /use-cases/operational-intelligence   /docs/recipes/log-analytics    301
 /use-cases/unified-observability      /docs/playbooks/observability  301
 
+# Site remake 2026-10: the enterprise funnel is retired. These pages sold
+# tiers, SLAs, HA topologies, RBAC/SSO and a 12-PDF sales kit the repo does not
+# ship (factcheck FC-SLA / FC-HA / FC-RBAC / FC-SSO / FC-NUM-TIERC); /use-cases
+# is where an agent-era visitor finds the measured work instead.
+/solutions                 /use-cases   301
+/solutions/                /use-cases   301
+/industries                /use-cases   301
+/industries/               /use-cases   301
+/industries/finserv        /use-cases   301
+/industries/healthcare     /use-cases   301
+/industries/public-sector  /use-cases   301
+/industries/retail         /use-cases   301
+/resources                 /use-cases   301
+/resources/*               /use-cases   301
+
 # Installer fallback (#740). /get.sh is normally answered by functions/get.js
 # (it's in _routes.json), which counts the request and serves the installer.
 # This 200-rewrite only fires if Functions are disabled, so /get.sh serves the

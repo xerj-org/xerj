@@ -271,20 +271,6 @@ PAGES: dict[str, dict[str, str]] = {
         og_image='og/page-architecture.png',
         og_image_alt='Cover: a yellow halftone disc labelled xerj with dotted paths to port 9200, port 9300, the MCP stdio server and signed packs from GitHub Releases',
     ),
-    "solutions/index.html": dict(
-        label="Solutions", kind="collection",
-        description="XERJ by solution — SIEM, RAG, observability, Elasticsearch replacement, operational intelligence, AI security review and semantic analytics.",
-    ),
-    "resources/index.html": dict(
-        label="Resources", kind="collection",
-    ),
-    "industries/index.html": dict(
-        label="Industries", kind="collection",
-    ),
-    "industries/finserv.html": dict(label="Financial services", kind="webpage"),
-    "industries/healthcare.html": dict(label="Healthcare", kind="webpage"),
-    "industries/public-sector.html": dict(label="Public sector", kind="webpage"),
-    "industries/retail.html": dict(label="Retail", kind="webpage"),
 
     # ── brand ───────────────────────────────────────────────────────────────
     "brand.html": dict(label="Brand", kind="webpage"),
@@ -587,7 +573,6 @@ SECTION_HUBS: dict[str, tuple[str, str]] = {
     "docs/agents": ("For AI", "/docs/agents/"),
     "use-cases": ("Use cases", "/use-cases"),
     "case-studies": ("Case studies", "/case-studies"),
-    "industries": ("Industries", "/industries/"),
     "blog": ("Blog", "/blog/"),
     "answers": ("Answers", "/answers/"),
     "compare": ("Comparisons", "/compare/"),

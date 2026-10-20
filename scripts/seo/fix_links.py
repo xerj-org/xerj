@@ -59,48 +59,43 @@ FOOTER_END = "<!-- seo:footer-end -->"
 FOOTER_MAP: list[tuple[str, list[tuple[str, str]]]] = [
     ("PRODUCT", [
         ("/product", "PRODUCT"),
+        ("/docs/ask", "XERJ ASK"),
         ("/architecture/", "ARCHITECTURE"),
-        ("/benchmarks/", "BENCHMARKS"),
-        ("/pricing/", "PRICING"),
         ("/security/", "SECURITY"),
+        ("/pricing/", "PRICING"),
         ("/playground", "DASHBOARDS"),
         ("/demo/", "REAL-DATA DEMO"),
         ("/aise-demo", "PRODUCT TOUR"),
     ]),
-    ("SOLUTIONS", [
-        ("/solutions/", "SOLUTIONS"),
-        ("/use-cases", "USE CASES"),
-        ("/case-studies", "CASE STUDIES"),
-        ("/industries/", "INDUSTRIES"),
-        ("/industries/finserv", "FINANCIAL SERVICES"),
-        ("/industries/public-sector", "PUBLIC SECTOR"),
-        ("/industries/healthcare", "HEALTHCARE"),
-        ("/industries/retail", "RETAIL"),
-        # The two flagship long-form use cases that the /use-cases hub's own
-        # sub-nav omits — without a hub-level link they hang off one sibling
-        # article each, which is the shape orphans grow from.
-        ("/use-cases/code-security-audit", "AI CODE-SECURITY AUDIT"),
-        ("/use-cases/semantic-analytics", "SEMANTIC ANALYTICS"),
-    ]),
     ("DOCS", [
         ("/docs/", "DOCUMENTATION"),
-        ("/docs/quickstart", "QUICKSTART"),
         ("/docs/install", "INSTALL"),
-        ("/docs/migration-from-es", "MIGRATE FROM ELASTICSEARCH"),
+        ("/docs/quickstart", "QUICKSTART"),
         ("/docs/recipes/", "RECIPES"),
+        ("/docs/migration-from-es", "MIGRATE FROM ELASTICSEARCH"),
         ("/docs/agents/", "DOCS FOR AI"),
         ("/for-agents", "FOR AI AGENTS"),
+        ("/llms.txt", "LLMS.TXT"),
+    ]),
+    ("USE CASES & PROOF", [
+        ("/use-cases", "USE CASES"),
+        ("/case-studies", "CASE STUDIES"),
+        # The two flagship long-form use cases: without a footer link they
+        # hang off one sibling article each, the shape orphans grow from.
+        ("/use-cases/code-security-audit", "AI CODE-SECURITY AUDIT"),
+        ("/use-cases/semantic-analytics", "SEMANTIC ANALYTICS"),
+        ("/benchmarks/", "BENCHMARKS"),
         ("/agent-search/", "AGENTIC SEARCH DEMO"),
         ("/answers/", "ANSWERS"),
         ("/compare/", "COMPARISONS"),
     ]),
-    ("RESOURCES", [
-        ("/resources/", "SALES KIT"),
+    ("COMMUNITY", [
         ("/blog/", "BLOG"),
+        ("https://github.com/xerj-org/xerj", "GITHUB"),
+        ("https://hub.xerj.org", "CORPUS HUB"),
+        ("https://discord.com/invite/yetXFusXfs", "DISCORD"),
         ("/brand", "BRAND"),
         ("/brandbook/", "BRAND BOOK"),
-        ("/llms.txt", "LLMS.TXT"),
-        ("https://github.com/xerj-org/xerj", "GITHUB"),
     ]),
 ]
 
