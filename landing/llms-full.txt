@@ -1334,11 +1334,12 @@ autoindex, which is CLI-only):
   OpenAI .................. https://xerj.org/docs/agents/schemas/openai-tools.json
   Anthropic ............... https://xerj.org/docs/agents/schemas/anthropic-tools.json
 The OpenAI and Anthropic files carry the six HTTP operations above; the MCP file
-carries thirteen (those six plus xerj_brain_ego / _link / _unlink / _overview,
-xerj_map, xerj_code_search and xerj_plan) and is generated from a real
+carries seventeen (those six plus xerj_brain_ego / _link / _unlink / _overview,
+xerj_map, xerj_code_search, xerj_plan, xerj_field_report and the three Corpus Hub
+tools xerj_hub_find / _def / _ask) and is generated from a real
 tools/list of the server that serves them. The three are
 therefore NOT interchangeable, and they are not even the same shape: the MCP file
-is an object, so count `.tools` in it (`jq '.tools | length'` → 13) and the bare
+is an object, so count `.tools` in it (`jq '.tools | length'` → 17) and the bare
 array in the other two (`jq 'length'` → 6). `jq 'length'` on the MCP file returns
 1, the object's key count — not a tool count.
 If you can run a process, `xerj mcp` is that stdio server, inside the same binary

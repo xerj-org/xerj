@@ -250,7 +250,10 @@ PAGES: dict[str, dict[str, str]] = {
     # ── enterprise funnel ───────────────────────────────────────────────────
     "pricing/index.html": dict(
         label="Pricing", kind="software",
-        description="XERJ editions — Community, Professional and Enterprise. Every tier ships the same binary; deployment footprint, support and compliance are what differ.",
+        title="XERJ pricing: free and open source, Apache-2.0",
+        description='Is XERJ free? Yes: one Apache-2.0 binary with the MCP server and Corpus Hub packs included, no account or API key. What it costs you, and what is not offered.',
+        og_image="og/page-pricing.png",
+        og_image_alt="Cover: a large yellow halftone disc reading $0 beside four rows: binary Apache-2.0, corpus packs on GitHub Releases, MCP server in the same binary, your hardware",
     ),
     "security/index.html": dict(
         label="Security", kind="software",
@@ -362,7 +365,10 @@ PAGES: dict[str, dict[str, str]] = {
     # ── docs · hubs ─────────────────────────────────────────────────────────
     "docs/index.html": dict(
         label="Docs", kind="collection",
-        description="XERJ documentation — install, configure and operate the engine. Every key, flag and default here comes out of the Rust crates under engine/crates/.",
+        title="XERJ docs: install, ask a repo, index a folder, MCP",
+        description='XERJ docs: install the binary, ask a GitHub repo with xerj ask, index a folder with xerj autoindex, connect agents over MCP, and run the node.',
+        og_image="og/page-docs.png",
+        og_image_alt="Cover: the XERJ docs ladder, Get started, Guides, Reference and Operate, drawn as rows of dots",
     ),
     "docs/recipes/index.html": dict(
         label="Recipes", kind="collection",

@@ -104,12 +104,13 @@ def m_tokens(w, h, rng):
 
 def m_docs(w, h, rng):
     """docs: the four-step ladder of the docs index, step width = the number
-    of pages the index lists under it (Get started 5, Guides 20, Reference 9,
-    CLI 1 page covering every subcommand)."""
-    steps = [("GET STARTED", 5, "y"), ("GUIDES", 20, "w"), ("REFERENCE", 9, "w"), ("CLI", 1, "w")]
+    of distinct pages the index links under it (Get started 4; Guides 21 =
+    the recipes hub, Corpus Hub, Migrate from ES, 13 recipes, 5 playbooks;
+    Reference 15 = reference 5, data model 4, engine 6; Operate 4)."""
+    steps = [("GET STARTED", 4, "y"), ("GUIDES", 21, "w"), ("REFERENCE", 15, "w"), ("OPERATE", 4, "w")]
     out = []
     sh = (h - 60) / len(steps)
-    unit = (w - 160) / 20
+    unit = (w - 200) / 21
     for k, (name, n, ink) in enumerate(steps):
         y = 20 + k * sh
         x = k * 40
@@ -200,7 +201,7 @@ PAGES = [
          alt="Cover: a question routed to the lz4 tile among the 14 corpora of the signed catalogue, its 4.4 MB pack pulled once to a local node on port 9300, answering with lz4/lib/lz4frame.h:186; 1.75 s first ask, 0.022 s next lookup"),
     dict(slug="docs", path="docs/", motif=m_docs, kicker="XERJ · DOCUMENTATION",
          title="The docs", subtitle="Install, ask, index, connect.",
-         alt="Cover: a four-step ladder of dot screens labelled Get started, Guides, Reference and CLI, each as wide as its page count"),
+         alt="Cover: the XERJ docs ladder, Get started, Guides, Reference and Operate, drawn as rows of dots"),
     dict(slug="use-cases", path="use-cases", motif=m_tokens, kicker="XERJ · USE CASES",
          title="What agents use it for", subtitle="2.7× fewer output tokens than grep.",
          alt="Cover: three dot-bars of output tokens from the reference-coding case study: 260,916 from memory, 26,477 grep-driven, 9,982 with XERJ"),

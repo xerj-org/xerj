@@ -14,8 +14,8 @@
 <!-- ga4:end -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>XERJ.ai · Docs · Read the source.</title>
-<meta name="description" content="XERJ documentation — install, configure and operate the engine. Every key, flag and default here comes out of the Rust crates under engine/crates/.">
+<title>XERJ docs: install, ask a repo, index a folder, MCP</title>
+<meta name="description" content="XERJ docs: install the binary, ask a GitHub repo with xerj ask, index a folder with xerj autoindex, connect agents over MCP, and run the node.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -25,18 +25,18 @@
 <link rel="canonical" href="https://xerj.org/docs/">
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="website">
-<meta property="og:title" content="XERJ.ai · Docs · Read the source.">
-<meta property="og:description" content="XERJ documentation — install, configure and operate the engine. Every key, flag and default here comes out of the Rust crates under engine/crates/.">
+<meta property="og:title" content="XERJ docs: install, ask a repo, index a folder, MCP">
+<meta property="og:description" content="XERJ docs: install the binary, ask a GitHub repo with xerj ask, index a folder with xerj autoindex, connect agents over MCP, and run the node.">
 <meta property="og:url" content="https://xerj.org/docs/">
-<meta property="og:image" content="https://xerj.org/og/xerj-card.png">
+<meta property="og:image" content="https://xerj.org/og/page-docs.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="XERJ.ai — the search engine built for AI agents">
+<meta property="og:image:alt" content="Cover: the XERJ docs ladder, Get started, Guides, Reference and Operate, drawn as rows of dots">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="XERJ.ai · Docs · Read the source.">
-<meta name="twitter:description" content="XERJ documentation — install, configure and operate the engine. Every key, flag and default here comes out of the Rust crates under engine/crates/.">
-<meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
+<meta name="twitter:title" content="XERJ docs: install, ask a repo, index a folder, MCP">
+<meta name="twitter:description" content="XERJ docs: install the binary, ask a GitHub repo with xerj ask, index a folder with xerj autoindex, connect agents over MCP, and run the node.">
+<meta name="twitter:image" content="https://xerj.org/og/page-docs.png">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -68,10 +68,10 @@
 {
   "@context": "https://schema.org",
   "@type": "CollectionPage",
-  "name": "XERJ.ai · Docs · Read the source.",
-  "description": "XERJ documentation — install, configure and operate the engine. Every key, flag and default here comes out of the Rust crates under engine/crates/.",
+  "name": "XERJ docs: install, ask a repo, index a folder, MCP",
+  "description": "XERJ docs: install the binary, ask a GitHub repo with xerj ask, index a folder with xerj autoindex, connect agents over MCP, and run the node.",
   "url": "https://xerj.org/docs/",
-  "image": "https://xerj.org/og/xerj-card.png",
+  "image": "https://xerj.org/og/page-docs.png",
   "inLanguage": "en",
   "dateModified": "2026-09-08",
   "isPartOf": {
@@ -107,25 +107,14 @@
 <body>
 
 
-<nav class="nav" aria-label="Primary">
-  <a href="/" class="brand">XERJ</a>
-  <a href="/">HOME</a>
-  <a href="/product">PRODUCT</a>
-  <span class="nav-drop">
-    <a href="/use-cases">USE CASES</a>
-  </span>
-  <a href="/case-studies">CASE STUDIES</a>
-  <a href="/benchmarks/">BENCHMARKS</a>
-  <span class="spacer"></span>
+<nav class="nav" aria-label="Primary" id="top">
+  <a href="/" class="brand" aria-label="XERJ home">XERJ</a>
+  <a href="/docs/" class="active" aria-current="page">DOCS</a>
+  <a href="https://hub.xerj.org" rel="external">CORPUS HUB ↗</a>
+  <a href="/use-cases">USE CASES</a>
   <a href="/for-agents">FOR AGENTS</a>
-  <a href="/docs/" class="active">DOCS</a>
-  <a href="/docs/recipes/">RECIPES</a>
-  <a href="/playground">DASHBOARDS</a>
-  <a href="https://hub.xerj.org" rel="external">HUB</a>
-  <a href="https://github.com/xerj-org/xerj" rel="external">GITHUB</a>
-  <a href="https://x.com/xerj_org" rel="external" title="XERJ on X" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
-  <a href="https://discord.com/invite/yetXFusXfs" rel="external" title="XERJ on Discord" style="display:inline-flex;align-items:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.317 4.37a19.79 19.79 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.74 19.74 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.1 13.1 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.3 12.3 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.84 19.84 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/></svg></a>
   <span class="spacer"></span>
+  <a class="nav-gh" href="https://github.com/xerj-org/xerj" rel="external" aria-label="XERJ on GitHub" title="XERJ on GitHub"><svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
   <span class="theme">
     <button type="button" data-theme="day" class="active">DAY</button>
     <span class="dash">·</span>
@@ -217,27 +206,187 @@
       PDF
     </button>
   </div>
-  <div class="kicker"><span>V0.1 · 2026-04</span></div>
-  <h1>Read the source.</h1>
+  <div class="kicker"><span>DOCS · V1.0.0-RC.97</span></div>
+  <h1>XERJ docs: install, ask, index, connect</h1>
 
+  <p><strong>XERJ is one Rust binary that gives coding agents search: <code class="inline">xerj ask</code> answers questions about catalogued open-source projects from signed, pre-indexed packs, <code class="inline">xerj autoindex</code> makes your own folders searchable, and <code class="inline">xerj mcp</code> exposes both to any MCP client.</strong> The node speaks the Elasticsearch wire protocol on :9200 and runs on a single machine. Every key, flag and default on these pages comes out of the Rust crates under <code class="inline">engine/crates/</code>; if the docs and the code disagree, the code is right, and a bug report gets the docs fixed.</p>
 
-  <p>Every key, every flag, every default in these docs comes out of the Rust crates under <code class="inline">engine/crates/</code>. If the docs and the code disagree, the code is right. File a bug; we'll reconcile the docs.</p>
+  <h2 style="border-top:0; padding-top:0;" id="get-started">Get started</h2>
+  <div class="recipes">
+    <a class="recipe" href="/docs/install">
+      <span class="num">01</span>
+      <span class="title">Install</span>
+      <p class="lead"><code class="inline">curl -fsSL https://xerj.org/get | sh</code>. One static binary, SHA-256 verified; Linux, macOS, Windows on x86_64 and arm64.</p>
+      <span class="meta">ONE BINARY · <span class="accent">FAIL-CLOSED CHECKSUM</span></span>
+    </a>
+    <a class="recipe" href="/docs/ask">
+      <span class="num">02</span>
+      <span class="title">Ask a hub corpus</span>
+      <p class="lead"><code class="inline">xerj "how does lz4 frame format work"</code> pulls one signed pack and answers with file:line, pin and licence.</p>
+      <span class="meta">NO CLONE · <span class="accent">FILE:LINE</span> · SIGNED PACKS</span>
+    </a>
+    <a class="recipe" href="/docs/recipes/zero-config-autoindex">
+      <span class="num">03</span>
+      <span class="title">Index your own folder</span>
+      <p class="lead">Start a node, then <code class="inline">xerj autoindex &lt;folder&gt;</code> and <code class="inline">xerj search "&lt;words&gt;"</code>. Formats are sniffed by content.</p>
+      <span class="meta">ZERO CONFIG · <span class="accent">CODE + DOCUMENTS</span></span>
+    </a>
+    <a class="recipe" href="/docs/agents/">
+      <span class="num">04</span>
+      <span class="title">Connect an agent</span>
+      <p class="lead"><code class="inline">xerj init</code> registers <code class="inline">xerj mcp</code> (17 tools) for Claude Code and Cursor. Tool schemas for MCP, OpenAI and Anthropic.</p>
+      <span class="meta">MCP · <span class="accent">17 TOOLS</span> · LLMS.TXT</span>
+    </a>
+  </div>
 
-  <h2 style="border-top:0; padding-top:0;">Playbooks</h2>
-  <p>The top Elasticsearch use cases, written as complete recipes: a schema, an ingest command, a query, and the dashboard to visualize it.</p>
+  <h2 id="all-docs">All docs</h2>
+  <div class="docs-toc-grid">
+    <div class="group">
+      <span class="label">GET STARTED</span>
+      <a href="/docs/install">Install<span class="d">Download, verify, first boot, systemd</span></a>
+      <a href="/docs/ask">xerj ask<span class="d">Ask a hub corpus · file:line, pin, licence · no clone</span></a>
+      <a href="/docs/quickstart">Quickstart<span class="d">First index and query over the HTTP API</span></a>
+      <a href="/docs/agents/">Docs for AI agents<span class="d">MCP setup, endpoints, tool schemas</span></a>
+    </div>
+    <div class="group">
+      <span class="label">GUIDES</span>
+      <a href="/docs/recipes/">Recipes<span class="d">13 task guides, each run against a live node</span></a>
+      <a href="/docs/playbooks/siem">Playbooks<span class="d">SIEM · logs · vector RAG · full text · observability</span></a>
+      <a href="/docs/corpus-hub">Corpus Hub<span class="d">Use and contribute reference corpora</span></a>
+      <a href="/docs/migration-from-es">Migrate from ES<span class="d">What swaps cleanly · what needs rewriting</span></a>
+    </div>
+    <div class="group">
+      <span class="label">REFERENCE</span>
+      <a href="/docs/cli">CLI<span class="d">Server flags · every subcommand · MCP tools</span></a>
+      <a href="/docs/config">Config TOML<span class="d">Every key, type and default</span></a>
+      <a href="/docs/env">Environment<span class="d">Overrides, secrets and client vars</span></a>
+      <a href="/docs/api-native">Native REST API<span class="d">Port 8080</span></a>
+      <a href="/docs/api-es-compat">ES-compat API<span class="d">Port 9200 · Elasticsearch wire protocol</span></a>
+    </div>
+    <div class="group">
+      <span class="label">DATA MODEL</span>
+      <a href="/docs/queries">Query types<span class="d">Full text, term, range, kNN, hybrid</span></a>
+      <a href="/docs/aggregations">Aggregations<span class="d">Exact buckets · t-digest percentiles</span></a>
+      <a href="/docs/analyzers">Analyzers<span class="d">Standard · whitespace · simple · english</span></a>
+      <a href="/docs/vectors">Vectors &amp; kNN<span class="d">HNSW + exact kNN · measured recall · SQ8</span></a>
+    </div>
+    <div class="group">
+      <span class="label">ENGINE</span>
+      <a href="/docs/ingest">Ingest pipelines<span class="d">Turbo, logs, syslog, OTLP · in-process</span></a>
+      <a href="/docs/storage">Storage &amp; WAL<span class="d">WAL + immutable segments</span></a>
+      <a href="/docs/compression">Compression<span class="d">Zstd levels and column encodings</span></a>
+      <a href="/docs/clustering">Clustering<span class="d">Embedded Raft ring · data is not replicated</span></a>
+      <a href="/docs/metrics">Metrics<span class="d">Prometheus text · counters · histograms · gauges</span></a>
+      <a href="/docs/security">Auth &amp; TLS<span class="d">API-key auth · PEM certs</span></a>
+    </div>
+    <div class="group">
+      <span class="label">OPERATE</span>
+      <a href="/docs/operations">Running a node<span class="d">Systemd · probes · log levels · scraping</span></a>
+      <a href="/docs/backup-restore">Backup &amp; restore<span class="d">Hot rsync of the data dir · local-disk backups</span></a>
+      <a href="/docs/upgrades">Upgrades<span class="d">Patch · minor · format migration</span></a>
+      <a href="/docs/troubleshooting">Troubleshooting<span class="d">Symptom → metric → log → config key</span></a>
+    </div>
+  </div>
+
+  <h2 id="recipes">Recipes</h2>
+  <p>Task guides, each run end-to-end against a live XERJ node, stdlib-only and reproducible. <a href="/docs/recipes/">Browse all recipes →</a></p>
+
+  <div class="recipes">
+    <a class="recipe" href="/docs/recipes/zero-config-autoindex">
+      <span class="num">01</span>
+      <span class="title">Zero-config autoindex</span>
+      <p class="lead">One command turns JSONL, CSV, SQLite, PDF, DOCX, HTML and log files into typed, queryable indices.</p>
+      <span class="meta">XERJ AUTOINDEX · <span class="accent">CONTENT-SNIFFED</span></span>
+    </a>
+    <a class="recipe" href="/docs/recipes/document-folder-index">
+      <span class="num">02</span>
+      <span class="title">Index a folder of documents</span>
+      <p class="lead">A recursive folder of PDF, DOCX, HTML, Markdown and TXT files, extracted, chunked and embedded in one pass.</p>
+      <span class="meta">PDF · DOCX · <span class="accent">CHUNKED</span></span>
+    </a>
+    <a class="recipe" href="/docs/recipes/air-gapped-deployment">
+      <span class="num">03</span>
+      <span class="title">Air-gapped deployment</span>
+      <p class="lead">Stage a release and an optional neural model on a connected machine, then run the node with no runtime internet access.</p>
+      <span class="meta">OFFLINE · <span class="accent">NO NETWORK</span></span>
+    </a>
+    <a class="recipe" href="/docs/recipes/semantic-search-rag">
+      <span class="num">04</span>
+      <span class="title">Semantic search &amp; RAG</span>
+      <p class="lead">Retrieval by meaning with <code class="inline">semantic_text</code> — auto-embed on ingest, no separate vector DB.</p>
+      <span class="meta">SEMANTIC_TEXT · <span class="accent">AUTO-EMBED</span> · RAG</span>
+    </a>
+    <a class="recipe" href="/docs/recipes/agentic-memory">
+      <span class="num">05</span>
+      <span class="title">Agent memory</span>
+      <p class="lead">Long-term memory for agents via the <code class="inline">/_memory</code> API — store, recall, forget, per-agent isolation.</p>
+      <span class="meta">/_MEMORY · <span class="accent">RECALL + FORGET</span> · PER-AGENT</span>
+    </a>
+    <a class="recipe" href="/docs/recipes/passage-retrieval">
+      <span class="num">06</span>
+      <span class="title">Passage retrieval</span>
+      <p class="lead">Auto-chunk long docs; a doc competes on its best passage via max-sim scoring.</p>
+      <span class="meta">CHUNKING · <span class="accent">MAX-SIM PASSAGES</span></span>
+    </a>
+    <a class="recipe" href="/docs/recipes/vector-search-knn">
+      <span class="num">07</span>
+      <span class="title">Vector search · kNN</span>
+      <p class="lead">Nearest-neighbor similarity over <code class="inline">dense_vector</code> (HNSW-served unfiltered; exact scan with filters).</p>
+      <span class="meta">DENSE_VECTOR · HNSW + EXACT · <span class="accent">FILTERED kNN</span></span>
+    </a>
+    <a class="recipe" href="/docs/recipes/vector-quantization">
+      <span class="num">08</span>
+      <span class="title">Vector quantization</span>
+      <p class="lead">Opt a <code class="inline">dense_vector</code> into scalar8 (ES <code class="inline">int8_hnsw</code> alias) — int8 scoring precision, recall measured in the recipe. Not a memory saving.</p>
+      <span class="meta">SCALAR8 · <span class="accent">INT8 PRECISION</span> · MEASURED RECALL</span>
+    </a>
+    <a class="recipe" href="/docs/recipes/hybrid-search">
+      <span class="num">09</span>
+      <span class="title">Hybrid search</span>
+      <p class="lead">Keyword + vector in one query — results neither BM25 nor kNN ranks first alone.</p>
+      <span class="meta">BM25 + kNN · <span class="accent">RRF FUSION</span></span>
+    </a>
+    <a class="recipe" href="/docs/recipes/log-analytics">
+      <span class="num">10</span>
+      <span class="title">Log analytics</span>
+      <p class="lead">From raw logs to dashboards — error rates, p95 latency, top services via aggregations.</p>
+      <span class="meta">DATE_HISTOGRAM · P95 · <span class="accent">TOP SERVICES</span></span>
+    </a>
+    <a class="recipe" href="/docs/recipes/anomaly-detection">
+      <span class="num">11</span>
+      <span class="title">Anomaly detection</span>
+      <p class="lead">Statistical <code class="inline">_ml</code> detectors that flag spikes in metrics and logs.</p>
+      <span class="meta">_ML · <span class="accent">SPIKE DETECTION</span> · STATISTICAL</span>
+    </a>
+    <a class="recipe" href="/docs/recipes/continuous-anomaly-datafeeds">
+      <span class="num">12</span>
+      <span class="title">Anomaly datafeeds</span>
+      <p class="lead">A live <code class="inline">_ml</code> datafeed re-scores an index on a timer and stores anomaly records you poll.</p>
+      <span class="meta">_ML DATAFEED · <span class="accent">CONTINUOUS</span> · POLL</span>
+    </a>
+    <a class="recipe" href="/docs/recipes/migrate-from-elasticsearch">
+      <span class="num">13</span>
+      <span class="title">Migrate from Elasticsearch</span>
+      <p class="lead">Point your existing ES client at XERJ — same wire, change the URL.</p>
+      <span class="meta">SAME WIRE · <span class="accent">CHANGE THE URL</span></span>
+    </a>
+  </div>
+
+  <h2 id="playbooks">Playbooks</h2>
+  <p>Classic Elasticsearch workloads, written as complete walk-throughs: a schema, an ingest command, a query, and the dashboard to visualize it.</p>
 
   <div class="recipes">
     <a class="recipe" href="/docs/playbooks/siem">
       <span class="num">01</span>
       <span class="title">SIEM · Security Analytics</span>
-      <p class="lead">Detect auth spikes, top attacker IPs, and anomalies at millions of events per second.</p>
-      <span class="meta">MILLIONS OF EVENTS · <span class="accent">SUB-SECOND TOP-N</span> · TERMS AGG</span>
+      <p class="lead">Detect auth spikes, top attacker IPs and anomalies with terms aggregations and detection rules.</p>
+      <span class="meta">TERMS AGG · <span class="accent">TOP-N</span> · DETECTION RULES</span>
     </a>
     <a class="recipe" href="/docs/playbooks/log-analytics">
       <span class="num">02</span>
       <span class="title">Log Analytics</span>
-      <p class="lead">Nginx, JSON, syslog, OTLP — ingest at line rate, query hot logs, drop cold to cheap storage.</p>
-      <span class="meta">LINE RATE · <span class="accent">NO LOGSTASH</span> · ZSTD</span>
+      <p class="lead">Nginx, JSON, syslog, OTLP: ingest in-process, query recent logs, aggregate by service.</p>
+      <span class="meta">IN-PROCESS INGEST · <span class="accent">NO LOGSTASH</span> · ZSTD</span>
     </a>
     <a class="recipe" href="/docs/playbooks/vector-search">
       <span class="num">03</span>
@@ -259,115 +408,6 @@
     </a>
   </div>
 
-  <h2>AI &amp; search recipes</h2>
-  <p>Task-oriented guides for building real things — every one verified end-to-end against a live XERJ, stdlib-only, reproducible. <a href="/docs/recipes/">Browse all recipes →</a></p>
-
-  <div class="recipes">
-    <a class="recipe" href="/docs/recipes/semantic-search-rag">
-      <span class="num">01</span>
-      <span class="title">Semantic search &amp; RAG</span>
-      <p class="lead">Retrieval by meaning with <code class="inline">semantic_text</code> — auto-embed on ingest, no separate vector DB.</p>
-      <span class="meta">SEMANTIC_TEXT · <span class="accent">AUTO-EMBED</span> · RAG</span>
-    </a>
-    <a class="recipe" href="/docs/recipes/agentic-memory">
-      <span class="num">02</span>
-      <span class="title">Agent memory</span>
-      <p class="lead">Long-term memory for agents via the <code class="inline">/_memory</code> API — store, recall, forget, per-agent isolation.</p>
-      <span class="meta">/_MEMORY · <span class="accent">RECALL + FORGET</span> · PER-AGENT</span>
-    </a>
-    <a class="recipe" href="/docs/recipes/passage-retrieval">
-      <span class="num">03</span>
-      <span class="title">Passage retrieval</span>
-      <p class="lead">Auto-chunk long docs; a doc competes on its best passage via max-sim scoring.</p>
-      <span class="meta">CHUNKING · <span class="accent">MAX-SIM PASSAGES</span></span>
-    </a>
-    <a class="recipe" href="/docs/recipes/vector-search-knn">
-      <span class="num">04</span>
-      <span class="title">Vector search · kNN</span>
-      <p class="lead">Nearest-neighbor similarity over <code class="inline">dense_vector</code> (HNSW-served unfiltered; exact scan with filters).</p>
-      <span class="meta">DENSE_VECTOR · HNSW + EXACT · <span class="accent">FILTERED kNN</span></span>
-    </a>
-    <a class="recipe" href="/docs/recipes/vector-quantization">
-      <span class="num">05</span>
-      <span class="title">Vector quantization</span>
-      <p class="lead">Opt a <code class="inline">dense_vector</code> into scalar8 (ES <code class="inline">int8_hnsw</code> alias) — int8 scoring precision, recall measured in the recipe. Not a memory saving.</p>
-      <span class="meta">SCALAR8 · <span class="accent">INT8 PRECISION</span> · MEASURED RECALL</span>
-    </a>
-    <a class="recipe" href="/docs/recipes/hybrid-search">
-      <span class="num">06</span>
-      <span class="title">Hybrid search</span>
-      <p class="lead">Keyword + vector in one query — results neither BM25 nor kNN ranks first alone.</p>
-      <span class="meta">BM25 + kNN · <span class="accent">RRF FUSION</span></span>
-    </a>
-    <a class="recipe" href="/docs/recipes/log-analytics">
-      <span class="num">07</span>
-      <span class="title">Log analytics</span>
-      <p class="lead">From raw logs to dashboards — error rates, p95 latency, top services via aggregations.</p>
-      <span class="meta">DATE_HISTOGRAM · P95 · <span class="accent">TOP SERVICES</span></span>
-    </a>
-    <a class="recipe" href="/docs/recipes/anomaly-detection">
-      <span class="num">08</span>
-      <span class="title">Anomaly detection</span>
-      <p class="lead">Statistical <code class="inline">_ml</code> detectors that flag spikes in metrics and logs.</p>
-      <span class="meta">_ML · <span class="accent">SPIKE DETECTION</span> · STATISTICAL</span>
-    </a>
-    <a class="recipe" href="/docs/recipes/continuous-anomaly-datafeeds">
-      <span class="num">09</span>
-      <span class="title">Anomaly datafeeds</span>
-      <p class="lead">A live <code class="inline">_ml</code> datafeed re-scores an index on a timer and stores anomaly records you poll.</p>
-      <span class="meta">_ML DATAFEED · <span class="accent">CONTINUOUS</span> · POLL</span>
-    </a>
-    <a class="recipe" href="/docs/recipes/migrate-from-elasticsearch">
-      <span class="num">10</span>
-      <span class="title">Migrate from Elasticsearch</span>
-      <p class="lead">Point your existing ES client at XERJ — same wire, change the URL.</p>
-      <span class="meta">SAME WIRE · <span class="accent">CHANGE THE URL</span></span>
-    </a>
-  </div>
-
-  <h2>Start here</h2>
-  <p>New to XERJ? Pick a path below. The quickstart is the fastest way to see something work; the install guide is for a real deployment.</p>
-
-  <div class="docs-toc-grid">
-    <div class="group">
-      <span class="label">START</span>
-      <a href="/docs/quickstart">Quickstart<span class="d">First index, first query, first metrics scrape</span></a>
-      <a href="/docs/install">Install<span class="d">Download, system requirements, first boot</span></a>
-      <a href="/docs/ask">xerj ask<span class="d">Ask a hub corpus · file:line, pin, licence · no clone</span></a>
-      <a href="/docs/migration-from-es">Migrate from ES<span class="d">What swaps cleanly · what needs rewriting</span></a>
-    </div>
-    <div class="group">
-      <span class="label">REFERENCE</span>
-      <a href="/docs/cli">CLI<span class="d">Server flags · client subcommands</span></a>
-      <a href="/docs/config">Config TOML<span class="d">Every key, type and default</span></a>
-      <a href="/docs/env">Environment<span class="d">Overrides, secrets and client vars</span></a>
-      <a href="/docs/api-native">Native REST API<span class="d">Port 8080 · anything new goes here</span></a>
-      <a href="/docs/api-es-compat">ES-compat API<span class="d">Port 9200 · migration path</span></a>
-    </div>
-    <div class="group">
-      <span class="label">DATA MODEL</span>
-      <a href="/docs/queries">Query types<span class="d">32 variants · one planner</span></a>
-      <a href="/docs/aggregations">Aggregations<span class="d">Exact buckets · t-digest percentiles</span></a>
-      <a href="/docs/analyzers">Analyzers<span class="d">Standard · whitespace · simple · english</span></a>
-      <a href="/docs/vectors">Vectors & kNN<span class="d">HNSW + exact kNN · measured recall · SQ8</span></a>
-    </div>
-    <div class="group">
-      <span class="label">ENGINE</span>
-      <a href="/docs/ingest">Ingest pipelines<span class="d">Turbo, logs, syslog, OTLP — in-process</span></a>
-      <a href="/docs/storage">Storage & WAL<span class="d">WAL + immutable segments · three files per segment</span></a>
-      <a href="/docs/compression">Compression<span class="d">Zstd L1 · L3 · L6 · 9 encodings</span></a>
-      <a href="/docs/clustering">Clustering<span class="d">Embedded Raft ring · leader election · replication is roadmap</span></a>
-      <a href="/docs/metrics">Metrics<span class="d">Prometheus text · counters · histograms · gauges</span></a>
-      <a href="/docs/security">Auth & TLS<span class="d">API-key auth · PEM certs</span></a>
-    </div>
-    <div class="group">
-      <span class="label">OPERATIONS</span>
-      <a href="/docs/operations">Running in production<span class="d">Systemd · probes · log levels · scraping</span></a>
-      <a href="/docs/backup-restore">Backup & restore<span class="d">Hot rsync · S3 backup · per-index · clustered</span></a>
-      <a href="/docs/upgrades">Upgrades<span class="d">Patch · minor · rolling cluster · format migration</span></a>
-      <a href="/docs/troubleshooting">Troubleshooting<span class="d">Symptom → metric → log → config key</span></a>
-    </div>
-  </div>
 
   <p class="source-note">Source · engine/README.md · engine/xerj.default.toml · engine/crates/*</p>
   
@@ -376,9 +416,9 @@
 
   <!-- Print-only branded footer (hidden on screen, visible in PDF) -->
   <div class="print-footer" style="display:none;">
-    <span>XERJ.AI · V1.0.0-RC.97 · 2026-08-11</span>
+    <span>XERJ.AI · V1.0.0-RC.97 · 2026-10-19</span>
     <a href="https://xerj.org/docs/">https://xerj.org/docs/</a>
-    <span>Read the source.</span>
+    <span>XERJ docs</span>
   </div>
 </main>
 </div>
