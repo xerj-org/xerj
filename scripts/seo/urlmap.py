@@ -303,7 +303,7 @@ class DateSource:
         except (OSError, subprocess.SubprocessError):
             return False
 
-    def _git_date(self, path: pathlib.Path, first: bool = False) -> str | None:
+    def git_date(self, path: pathlib.Path, first: bool = False) -> str | None:
         if not self.git_ok:
             return None
         # %cs renders the committer date in the COMMIT's own timezone, so a
@@ -335,14 +335,14 @@ class DateSource:
         return _dt.datetime.fromtimestamp(ts, _dt.timezone.utc).strftime("%Y-%m-%d")
 
     def last_modified(self, path: pathlib.Path) -> str:
-        d = self._git_date(path)
+        d = self.git_date(path)
         if d:
             return d
         self.fallbacks.append(str(path))
         return self._mtime_date(path)
 
     def first_published(self, path: pathlib.Path) -> str:
-        d = self._git_date(path, first=True)
+        d = self.git_date(path, first=True)
         if d:
             return d
         return self.last_modified(path)

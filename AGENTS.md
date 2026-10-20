@@ -198,9 +198,11 @@ ships. Four rules keep a merge gate green:
 
 - **Do not hand-edit generated HTML.** `landing/answers/**`, `landing/compare/**`
   and their `.md` twins are rendered from `content/answers/*.md` and
-  `content/compare/*.md` by `scripts/seo/build_articles.py`; `sitemap.xml` is
-  derived from the filesystem and from `git log`. Every generated file says so on
-  its first line. Edit the source, run the generator, commit the output.
+  `content/compare/*.md` by `scripts/seo/build_articles.py`. Every generated file
+  says so on its first line. Edit the source, run the generator, commit the
+  output. `sitemap.xml` is derived the same way but is **not** committed: it is
+  a deploy artifact (`deploy-pages.yml` writes it before the upload, and it is
+  gitignored), so there is nothing to run or commit for it.
 - **Never write a `.html` internal link.** Pages serves this site
   extensionless — `/product.html` 308s to `/product`. `scripts/seo/urlmap.py` is
   the single source of truth, and canonical, `og:url` and the sitemap `<loc>`

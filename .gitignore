@@ -182,6 +182,13 @@ __pycache__/
 # would silently drop this file and nothing would say so.
 !scripts/seo/README.md
 
+# sitemap.xml is a deploy artifact, not a source file: `Deploy site (Cloudflare
+# Pages)` runs `gen_sitemap.py --write` on a full checkout and uploads it with
+# the rest of landing/. Keeping it in git meant every landing edit that forgot
+# to re-run the generator turned main red and added a two-line <lastmod>
+# conflict to the PR. Run the generator locally to inspect it; do not commit it.
+landing/sitemap.xml
+
 # Working record for agent sessions. Never committed: the captures and
 # research notes under .dogfood/ are the session's scratch record, not
 # repository material, and the blanket *.md rule above does not cover

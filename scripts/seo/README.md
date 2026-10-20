@@ -25,7 +25,7 @@ scripts/seo/urlmap.py       ─┘                      └─> a spliced block 
 
 landing/**/*.html  ── fix_heads.py ──> the <!-- seo:begin --> … <!-- seo:end --> block in every <head>
 landing/**/*.html  ── fix_links.py ──> every internal <a href>, plus the site-map footer block
-landing/**/*.html  ── gen_sitemap.py ─> landing/sitemap.xml
+landing/**/*.html  ── gen_sitemap.py ─> landing/sitemap.xml   (deploy only — gitignored)
 (brand tokens)     ── mk_og_card.py ──> landing/og/xerj-card.png
 ```
 
@@ -41,7 +41,7 @@ landing/**/*.html  ── gen_sitemap.py ─> landing/sitemap.xml
 | the block between `<!-- seo:begin … -->` and `<!-- seo:end -->` in every page's `<head>` | `fix_heads.py` | edit `scripts/seo/pagedata.py` |
 | the block between `<!-- seo:footer-begin … -->` and `<!-- seo:footer-end -->` | `fix_links.py` | edit `FOOTER_MAP` in `fix_links.py` |
 | every internal `<a href>` in `landing/` | `fix_links.py` | write the href you mean; the pass rewrites it to the served form |
-| `landing/sitemap.xml` | `gen_sitemap.py` | it is derived from the filesystem and from git |
+| `landing/sitemap.xml` | `gen_sitemap.py` at deploy time | nothing: it is gitignored and `deploy-pages.yml` writes it before the upload |
 | `landing/og/xerj-card.png` | `mk_og_card.py` | edit the rasteriser; the brand tokens come from `landing/style.css` |
 
 Generated article pages and twins carry a first-line marker:
@@ -447,12 +447,23 @@ count, the release version or a kNN exactness claim is also subject to
 
 ---
 
-## 5. How to regenerate the sitemap
+## 5. The sitemap
+
+`sitemap.xml` is a **deploy artifact, not a committed file**:
+`.github/workflows/deploy-pages.yml` runs the generator on a full checkout and
+uploads the result with the rest of `landing/`. It is in `.gitignore`, so a
+local run never shows up as a change.
 
 ```sh
-python3 scripts/seo/gen_sitemap.py --write     # regenerate
-python3 scripts/seo/gen_sitemap.py --check     # CI gate; exit 1 on any difference
+python3 scripts/seo/gen_sitemap.py --write     # write landing/sitemap.xml locally
+python3 scripts/seo/gen_sitemap.py --check     # CI gate: the derivation still validates
 ```
+
+Why it is not committed: every landing edit that forgot to re-run the generator
+turned `main` red from `seo.yml` (which reads the file), and every such pull
+request carried a two-line `<lastmod>` conflict. `seo_lint.py`, `audit.py` and
+`verify_live.py` build the document from the tree when the file is absent, so
+they check what the deploy would ship rather than a copy in git.
 
 The file is a **derivation**, not a document:
 
@@ -460,24 +471,21 @@ The file is a **derivation**, not a document:
   minus any article whose frontmatter sets `noindex: true`;
 * `<loc>` = `urlmap.deployed_url(file)` — absolute, https, extensionless,
   byte-identical to that page's canonical and `og:url`;
-* `<lastmod>` = `git log -1 --format=%cs -- <file>`;
+* `<lastmod>` = the page's UTC-normalised git commit date (`urlmap.DateSource`);
 * **no `<priority>`, no `<changefreq>`.** Google ignores both; Bing stated in
   July 2025 that both are ignored and influence nothing. Emitting them is noise;
 * **no non-HTML assets.** A `.txt` or `.json` URL produces no search result.
   `llms.txt` is advertised in `robots.txt`, which is where it belongs;
-* one flat sitemap, no index file — 139 URLs against a 50,000-URL limit.
+* one flat sitemap, no index file — 185 URLs against a 50,000-URL limit.
 
-**Never hand-edit it.** Two independent reasons:
-
-1. `--check` regenerates and byte-compares. A hand edit fails the merge gate.
-2. `<lastmod>` is the reason. Google uses `lastmod` only "if it's consistently
-   and verifiably accurate", and the judgement is **sitewide**: one page whose
-   `lastmod` drifts from reality teaches the crawler to ignore the field for
-   every page. Deriving it from `git log` makes it verifiable by construction.
-   The predecessor of this file was hand-maintained — 24 entries for an 80-page
-   site, 18 of which were URLs that 308-redirected rather than pages, four of
-   which were non-HTML assets, and all 24 carrying a `lastmod` that disagreed
-   with git. That is the failure this script exists to prevent.
+**Never hand-edit it.** `<lastmod>` is the reason. Google uses `lastmod` only
+"if it's consistently and verifiably accurate", and the judgement is
+**sitewide**: one page whose `lastmod` drifts from reality teaches the crawler to
+ignore the field for every page. Deriving it from `git log` makes it verifiable
+by construction. The predecessor of this file was hand-maintained — 24 entries
+for an 80-page site, 18 of which were URLs that 308-redirected rather than
+pages, four of which were non-HTML assets, and all 24 carrying a `lastmod` that
+disagreed with git. That is the failure this script exists to prevent.
 
 When git cannot answer (uncommitted file, shallow clone, no git), the tool falls
 back to the filesystem mtime and prints `WARNING: <lastmod> fell back to
@@ -495,7 +503,7 @@ see trap 3.
 | `pagedata.py` | hand-written per-page title/description/JSON-LD-kind/breadcrumb table for non-article pages; falls through to article frontmatter | library | `KeyError` — register the page |
 | `seo_head.py` | the one implementation of the `<head>` block, shared by `fix_heads.py` and the article generator | library | n/a |
 | `build_articles.py` | renders `content/**/*.md` into pages, Markdown twins, hubs, `index.json` and the `llms.txt` article tree | `--write` / `--check`, `--only SLUG`, `--json`, `--allow-ste-errors` | committed HTML is not what the sources produce, or a source is invalid. Run `--write` and commit |
-| `gen_sitemap.py` | derives `landing/sitemap.xml` from the filesystem and git | `--write` / `--check` | the committed sitemap is stale or hand-edited. Run `--write` |
+| `gen_sitemap.py` | derives `landing/sitemap.xml` (a deploy artifact, gitignored) from the filesystem and git | `--write` (deploy) / `--check` (validate only) | the derivation no longer produces a valid sitemap |
 | `fix_heads.py` | owns canonical, the full Open Graph + Twitter set, JSON-LD and `<title>`/description in every page's `<head>` | `--write` / `--check` | a `<head>` was hand-edited or a page is unregistered. Run `--write` |
 | `fix_links.py` | rewrites internal `.html` hrefs to the served extensionless form and regenerates the site-map footer | `--write` / `--check` | someone hand-wrote a `.html` link or edited the footer block. Run `--write` |
 | `mk_og_card.py` | deterministically rasterises `landing/og/xerj-card.png` (stdlib scanline rasteriser + zlib PNG writer — no Pillow) | `--write` / `--check` | the committed PNG is not the current render. Run `--write` |
@@ -520,7 +528,7 @@ fixtures, 14 `bad_` and 7 `good_`, every rule required to own at least one.
 | Step | Catches |
 |---|---|
 | `build_articles.py --check` | committed article HTML/twins/hubs/`index.json`/`llms.txt` block differ from what the sources render; an orphaned generated page; an invalid source; STE ERRORs in any article |
-| `gen_sitemap.py --check` | a stale or hand-edited `sitemap.xml`, including a drifted `<lastmod>` |
+| `gen_sitemap.py --check` | the derivation no longer produces a valid `sitemap.xml` (served URL form, Markdown twins, dead entries). The file itself is built by the deploy, not committed |
 | `fix_heads.py --check` | a hand-edited `<head>`; a missing canonical/OG/JSON-LD; a page with no `pagedata.py` entry |
 | `fix_links.py --check` | a hand-written `.html` internal link; an edited footer block; a link to a page that does not exist |
 | `mk_og_card.py --check` | the committed OG card is not the current render |
@@ -548,9 +556,10 @@ python3 scripts/seo/verify_live.py                    # https://xerj.org
 python3 scripts/seo/verify_live.py https://staging.example.com --jobs 4
 ```
 
-It reads the **committed** `landing/sitemap.xml`, never `<base>/sitemap.xml` —
-the question is whether what was committed reached production, and a stale
-deploy must not be allowed to answer for itself. `seo_lint.py`'s header reserves
+It reads the sitemap this tree produces — the generated one, since
+`landing/sitemap.xml` is not committed — never `<base>/sitemap.xml`: the
+question is whether this tree reached production, and a stale deploy must not
+be allowed to answer for itself. `seo_lint.py`'s header reserves
 rules 15, 22 and 63 for exactly these three checks; this is where they live.
 
 ### The gate that is easy to miss
@@ -616,7 +625,7 @@ to it.
 
 Since #974 an article's `dateModified` comes from its **required `updated:`
 frontmatter field** — author-controlled data, immune to the loop below. What
-still comes from `git log -1 --format=%cs -- <file>` (`urlmap.DateSource`) is
+still comes from git (`urlmap.DateSource`, UTC-normalised) is
 the sitemap's `<lastmod>`, which dates the *generated* HTML file itself. That
 is deliberate: it is the condition Google states for trusting the field. It
 also means:
@@ -629,11 +638,11 @@ edit source  ->  build (date = today's mtime fallback)  ->  commit
 ```
 
 **It converges in exactly one extra round.** The loop is: commit your work, then
-immediately re-run `build_articles.py --write` and `gen_sitemap.py --write`, and
-`--amend` (or add) the resulting diff. After that, re-running the generators
-produces a zero diff, because the second commit does not change the *source*
-file's date — only the generated file's, and the generated file's own date is
-not an input.
+immediately re-run `build_articles.py --write`, and `--amend` (or add) the
+resulting diff. After that, re-running the generator produces a zero diff,
+because the second commit does not change the *source* file's date — only the
+generated file's, and the generated file's own date is not an input. The
+sitemap needs no round at all: it is not committed.
 
 The stderr warning `WARNING: <lastmod> fell back to filesystem mtime` is the
 signal that a file is not committed yet. It is expected locally on new work and
