@@ -79,3 +79,9 @@
 /compare/*.md
   Content-Type: text/markdown; charset=utf-8
   X-Robots-Tag: noindex
+/index.md
+  Content-Type: text/markdown; charset=utf-8
+  X-Robots-Tag: noindex
+/docs/ask.md
+  Content-Type: text/markdown; charset=utf-8
+  X-Robots-Tag: noindex

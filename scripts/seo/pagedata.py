@@ -51,7 +51,10 @@ PAGES: dict[str, dict[str, str]] = {
     # ── root / product ──────────────────────────────────────────────────────
     "index.html": dict(
         label="Home", kind="software",
-        description="The unified search engine for AI: connect it, run xerj autoindex, and it works. One Rust binary replaces search, vector DB, embeddings and agent memory.",
+        title='XERJ: search for AI agents, answers cited to file and line',
+        description='A new way for AI to search data. Give your coding agent one prompt; it answers from a local index with file:line citations. CLI and MCP server, Apache-2.0.',
+        og_image="og/page-home.png",
+        og_image_alt='Cover: a question routed to the lz4 tile among the 14 corpora of the signed catalogue, its 4.4 MB pack pulled once to a local node on port 9300, answering with lz4/lib/lz4frame.h:186',
     ),
     # `404.html` is what makes Cloudflare Pages return a real HTTP 404.  With
     # no top-level 404.html the project is treated as a single-page app and
@@ -378,6 +381,13 @@ PAGES: dict[str, dict[str, str]] = {
     "docs/install.html": dict(
         label="Install", kind="techarticle",
         description="Install XERJ from its single static binary — system requirements, checksum verification, directory layout and a systemd unit, on Linux, macOS or Windows.",
+    ),
+    # Zero-setup hub path (#1402, rc.97): every output on the page was
+    # captured from rc.97 on 2026-10-19 (fresh $HOME, isolated netns).
+    "docs/ask.html": dict(
+        label="xerj ask", kind="techarticle",
+        title="xerj ask: query a GitHub repo without cloning it",
+        description="Ask an open-source repo a question without cloning it: xerj ask pulls one signed, pre-indexed pack and answers on your machine with file:line, pin and licence.",
     ),
     "docs/migration-from-es.html": dict(
         label="Migrate from Elasticsearch", kind="techarticle",

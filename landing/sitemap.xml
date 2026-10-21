@@ -10,7 +10,7 @@
   </url>
   <url>
     <loc>https://xerj.org/aise-demo</loc>
-    <lastmod>2026-08-23</lastmod>
+    <lastmod>2026-10-20</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/answers/</loc>
@@ -426,19 +426,19 @@
   </url>
   <url>
     <loc>https://xerj.org/compare/best-grep-alternative-for-ai-coding-agents-2026</loc>
-    <lastmod>2026-10-20</lastmod>
+    <lastmod>2026-10-19</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/compare/best-lightweight-elasticsearch-compatible-server-2026</loc>
-    <lastmod>2026-10-20</lastmod>
+    <lastmod>2026-10-19</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/compare/best-local-full-text-search-jsonl-csv-2026</loc>
-    <lastmod>2026-10-20</lastmod>
+    <lastmod>2026-10-19</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/compare/best-mcp-server-local-code-search-2026</loc>
-    <lastmod>2026-10-20</lastmod>
+    <lastmod>2026-10-19</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/compare/xerj-vs-ast-grep</loc>
@@ -506,7 +506,7 @@
   </url>
   <url>
     <loc>https://xerj.org/demo/</loc>
-    <lastmod>2026-10-17</lastmod>
+    <lastmod>2026-10-20</lastmod>
   </url>
   <url>
     <loc>https://xerj.org/docs/</loc>
@@ -538,6 +538,10 @@
   </url>
   <url>
     <loc>https://xerj.org/docs/api-native</loc>
+    <lastmod>2026-09-08</lastmod>
+  </url>
+  <url>
+    <loc>https://xerj.org/docs/ask</loc>
     <lastmod>2026-09-08</lastmod>
   </url>
   <url>
