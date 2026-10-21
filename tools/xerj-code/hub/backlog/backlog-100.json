@@ -13,6 +13,16 @@
   "WRITE"
  ],
  "corpora": [
+    {
+      "cat": "AI",
+      "domain": "an agent building natural-language or voice control for a React/Next.js data grid queries this for how YuktAI maps user phrases (English and Telugu) to grid tools through custom rules, an agent loop and WebMCP registration",
+      "lane": "A",
+      "refresh": "pinned",
+      "slug": "sandeepmiriyala03--yuktai",
+      "sources": [{"licence_hint": "LICENSE GPL-3.0 (package.json says ISC), approach-only; review block in the manifest", "url": "see hub/sandeepmiriyala03--yuktai.json"}],
+      "status": "candidate",
+      "tags": {"region": "GLOBAL", "topics": ["ai-agents", "accessibility", "web"]}
+    },
   {
    "cat": "DB",
    "domain": "an agent working on full-text search internals queries this for how lucene/tantivy/quickwit/meilisearch/sonic/elasticsearch do BM25, merge policy and the ES wire",

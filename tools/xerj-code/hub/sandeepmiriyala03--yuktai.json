@@ -1,0 +1,5 @@
+{"corpus":"sandeepmiriyala03--yuktai","cloned_at":"2026-10-21T16:47:00Z","repos":[
+  {"repo":"yuktai","url":"https://github.com/sandeepmiriyala03/yuktai","licence":"GPL","sha":"d65019c09c0d1b054c5fa0b1169a60c1b2ed60ac","files":94,"bytes":2860887,
+   "review":{"spdx":"GPL-3.0-only","use":"approach-only","by":"@sandeepmiriyala03","at":"2026-10-21",
+             "note":"Author's own repo. LICENSE file at the pin is GPL-3.0 (checked by hand). package.json and README still declare ISC; until the author aligns them, the stricter LICENSE file governs, so use = approach-only. Unused Tesseract data removed before pinning (560 MB to 2.9 MB)."}}
+]}
