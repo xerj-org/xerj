@@ -1,5 +1,9 @@
 # XERJ
 
+**面向 AI 智能体的本地优先搜索引擎与 MCP 服务。**一个 Rust 二进制程序即可为代码、文档、日志、JSONL/CSV 和 PDF 建立索引，提供 BM25 全文、向量与混合搜索、代码搜索和智能体记忆，接口兼容 Elasticsearch API。可配合 Claude Code、Cursor 和任意 MCP 客户端使用。
+
+<a href="https://trendshift.io/repositories/116361?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-116361" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/116361" alt="xerj-org%2Fxerj | Trendshift" width="250" height="55"/></a>
+
 [English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja-JP.md) | [العربية](./README.ar.md) | [Español](./README.es.md)
 
 [![CI](https://img.shields.io/github/actions/workflow/status/xerj-org/xerj/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/xerj-org/xerj/actions/workflows/ci.yml)
@@ -227,7 +231,114 @@ xerj mcp                                # 2. MCP stdio server (your client runs 
 
 `command` 应使用绝对路径。安装器默认将 `xerj` 放在 `~/.local/bin`，可用 `command -v xerj` 确认；从桌面图标启动的 MCP 宿主不会继承 shell 的 `PATH`。若节点开启认证，即未使用 `--insecure`，还需在 `XERJ_URL` 旁加入 `"XERJ_AUTH": "ApiKey <key>"`，密钥位于 `<data-dir>/admin.key`。
 
-共提供十三个工具，其中十一个是已有 XERJ 端点的薄代理：
+### 支持的智能体
+
+二十六个客户端可以把 `xerj mcp` 注册为本地 stdio 服务。配置条目始终只有两个字段：二进制程序的绝对路径，以及作为唯一参数的 `mcp`。各客户端的差别在于条目写进哪个文件、包在哪个键下。“已测试”指在该客户端里注册过此服务，`xerj_search` 出现在了它的工具列表里；“未测试”表示路径和写法照抄自该客户端自己的文档，还没有人实际跑过。目前只有 OpenCode 一行跑过：Windows 上的 v2.1.2 对接 `xerj` v1.0.0-rc.97，`initialize` 和 `tools/list` 都得到应答，工具列表完整。修正任何一行“未测试”都是很好的第一个 PR。
+
+| 客户端 | 配置文件 | 键 | 说明 | 测试状态 |
+|---|---|---|---|---|
+| OpenCode | 项目内的 `opencode.json`，或 `~/.config/opencode/opencode.json` | `mcp.servers` | 单个 command 数组；用 `environment` 而非 `env`；需要项目根目录 | 已测试 |
+| Claude Code | `.mcp.json`（项目）或 `~/.claude.json`（用户）；`claude mcp add` 会写入其中之一 | `mcpServers` | 命令前必须加 `--` | 未测试 |
+| Cursor | 项目内的 `.cursor/mcp.json`，或 `~/.cursor/mcp.json` | `mcpServers` | stdio 不写 `type` | 未测试 |
+| Codex | `~/.codex/config.toml`，或受信任项目内的 `.codex/config.toml` | `[mcp_servers.xerj]` | TOML，不是 JSON | 未测试 |
+| Gemini CLI | `.gemini/settings.json` 或 `~/.gemini/settings.json` | `mcpServers` | 先对文件夹执行 `gemini trust`，否则 stdio 显示 Disconnected | 未测试 |
+| GitHub Copilot in VS Code | `.vscode/mcp.json` | `servers` | 需要 `"type": "stdio"`；可移植的 `.mcp.json` 用的是 `mcpServers` | 未测试 |
+| Windsurf | `%APPDATA%\devin\mcp_config.json`、`~/.config/devin/mcp_config.json` | `mcpServers` | 路径现在属于 Devin，不再是 `~/.codeium/windsurf` | 未测试 |
+| Claude Desktop | `%APPDATA%\Claude\claude_desktop_config.json`、`~/Library/Application Support/Claude/claude_desktop_config.json`、`~/.config/Claude/claude_desktop_config.json` | `mcpServers` | 要完全退出应用，只关窗口不行 | 未测试 |
+| Cline | `~/.cline/data/settings/cline_mcp_settings.json`（CLI）；IDE 可从 MCP Servers > Configure 打开 | `mcpServers` | `disabled` 和 `autoApprove` 是 Cline 特有字段 | 未测试 |
+| Roo Code | 项目内的 `.roo/mcp.json`，或 `<VS Code User>/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json` | `mcpServers` | 名称冲突时项目条目优先 | 未测试 |
+| Kilo Code | 项目内的 `kilo.jsonc` 或 `.kilo/kilo.jsonc`，全局为 `~/.config/kilo/kilo.jsonc` | `mcp` | 单个 command 数组，同 OpenCode | 未测试 |
+| Continue | `~/.continue/config.yaml`，或 `.continue/mcpServers/` 下的任意文件 | `mcpServers` | YAML 列表而非映射；仅 Agent 模式 | 未测试 |
+| Zed | `~/.config/zed/settings.json`（Windows 上运行 `zed: open settings file`） | `context_servers` | 键名不是 `mcpServers` | 未测试 |
+| JetBrains AI Assistant | 仅设置界面：Settings > Tools > AI Assistant > Model Context Protocol | `mcpServers` | 与 Junie 分开存储 | 未测试 |
+| Junie | 项目内的 `.junie/mcp/mcp.json`，用户级为 `~/.junie/mcp/mcp.json` | `mcpServers` | 较早的文章漏了 `mcp/` 目录 | 未测试 |
+| Amp | `~/.config/amp/settings.json`、工作区内的 `.amp/settings.json`，或 `amp mcp add` | `amp.mcpServers` | 键名保留 `amp.` 前缀 | 未测试 |
+| Goose | `~/.config/goose/config.yaml`、`%APPDATA%\Block\goose\config\config.yaml` | `extensions` | `cmd` 而非 `command`，且是 YAML | 未测试 |
+| Kiro | 工作区内的 `.kiro/settings/mcp.json`，用户级为 `~/.kiro/settings/mcp.json` | `mcpServers` | `${VAR}` 展开需要批准 | 未测试 |
+| Antigravity | `~/.gemini/config/mcp_config.json`，或工作区内的 `.agents/mcp_config.json` | `mcpServers` | 远程服务用 `serverUrl` | 未测试 |
+| OpenClaw | `~/.openclaw/openclaw.json`（JSON5） | `mcp.servers` | `transport: "stdio"` | 未测试 |
+| DeepSeek Harness (dsh) | `$DSH_HOME/cordis.patch.yml`，或某个 profile 补丁 | 带 `@deepseek-ai/dsh-mcp-client` 的 `- insert:` | 每个服务一个插件实例 | 未测试 |
+| Warp | Settings > Agents > MCP servers，或 `~/.warp/.mcp.json` 与项目内的 `.warp/.mcp.json` | `mcpServers` | `working_directory` 而非 `cwd` | 未测试 |
+| Augment Code | Auggie CLI 用 `~/.augment/settings.json`；IDE 有自己的面板 | `mcpServers` | 该文件不控制 IDE | 未测试 |
+| Qwen Code | `~/.qwen/settings.json`，或项目内的 `.qwen/settings.json` | `mcpServers` | `mcp.allowed` 可能悄悄隐藏它 | 未测试 |
+| Kimi CLI | `~/.kimi-code/mcp.json`，或项目内的 `.kimi-code/mcp.json` | `mcpServers` | 指当前的 Kimi Code CLI，不是已归档的 `~/.kimi/mcp.json` | 未测试 |
+| Grok CLI | `~/.grok/config.toml`，或项目内的 `.grok/config.toml` | `[mcp_servers.xerj]` | Grok Bot 没有本地 stdio 注册 | 未测试 |
+
+Codex 和 Grok CLI 读取 TOML，条目写成一个表：
+
+```toml
+[mcp_servers.xerj]
+command = "/abs/path/to/xerj"
+args = ["mcp"]
+```
+
+OpenCode 和 Kilo Code 接受单个 `command` 数组，Kilo 的写法相同但少一层嵌套：
+
+```json
+{"mcp": {"servers": {"xerj": {"type": "local", "command": ["/abs/path/to/xerj", "mcp"], "environment": {"XERJ_URL": "http://localhost:9200"}}}}
+```
+
+```json
+{"mcp": {"xerj": {"type": "local", "command": ["/abs/path/to/xerj", "mcp"]}}}
+```
+
+Continue 和 Goose 读取 YAML：
+
+```yaml
+# ~/.continue/config.yaml
+mcpServers:
+  - name: xerj
+    command: /abs/path/to/xerj
+    args:
+      - mcp
+```
+
+```yaml
+# ~/.config/goose/config.yaml
+extensions:
+  xerj:
+    type: stdio
+    cmd: /abs/path/to/xerj
+    args:
+      - mcp
+    enabled: true
+```
+
+Amp 的键带命名空间前缀，VS Code 和 Copilot 需要 `servers` 加传输类型，Zed 把它们叫作 context servers，OpenClaw 则嵌在 `mcp` 下：
+
+```json
+{"amp.mcpServers": {"xerj": {"command": "/abs/path/to/xerj", "args": ["mcp"]}}}
+```
+
+```json
+{"servers": {"xerj": {"type": "stdio", "command": "/abs/path/to/xerj", "args": ["mcp"]}}}
+```
+
+```json
+{"context_servers": {"xerj": {"command": "/abs/path/to/xerj", "args": ["mcp"], "env": {}}}}
+```
+
+```json5
+{mcp: {servers: {xerj: {command: "/abs/path/to/xerj", args: ["mcp"], transport: "stdio"}}}}
+```
+
+DeepSeek Harness 在它的 Cordis 补丁文件里把 MCP 作为插件加载：
+
+```yaml
+- insert:
+    - id: mcp-xerj
+      name: "@deepseek-ai/dsh-mcp-client"
+      config:
+        serverName: xerj
+        transport: stdio
+        command: /abs/path/to/xerj
+        args:
+          - mcp
+```
+
+最初名单里有三个候选被有意排除。Aider 完全没有 MCP 客户端支持（[Aider-AI/aider#3314](https://github.com/Aider-AI/aider/issues/3314) 仍未关闭）。T3 Code 方向相反：它自己托管一个供其他智能体连接的 MCP 端点，其会话从底层 harness 继承服务配置。Grok Bot 没有文档记载的本地 stdio 注册方式；Grok CLI 有，见上表对应一行。
+
+共提供二十个工具，其中十一个是已有 XERJ 端点的薄代理：
 
 | 工具 | 用途 |
 |---|---|
@@ -239,7 +350,9 @@ xerj mcp                                # 2. MCP stdio server (your client runs 
 | `xerj_brain_overview` / `xerj_brain_ego` / `xerj_brain_link` / `xerj_brain_unlink` | 操作“第二大脑”链接索引：查看概况、展开某个节点有证据支持的邻域、建立和撤销链接 |
 | `xerj_plan` | 输入自然语言筛选条件，返回经过校验的查询 DSL（`POST /_ask`；确定性的规则处理，不使用 LLM） |
 
-另外两个工具不只是简单代理：`xerj_map` 从 autoindex 目录读取各索引的字段映射，除按字节上限裁剪外原样返回；`xerj_code_search` 执行 `xerj code` 参考代码检索流程（[`tools/xerj-code/`](tools/xerj-code/)），返回渲染后的文本。
+调用 `xerj_search` 时传入 `{"prefix":"project","query":"retry policy"}` 可搜索 `project-*`，等同于 `xerj search --prefix project`。要指定具体索引名或模式，改用 `index`；`index` 和 `prefix` 不能同时非空。`prefix` 会被去掉首尾空白，且不能为空。两个参数都不传时，工具搜索 `ax-*`。
+
+另外两个工具不只是简单代理：`xerj_map` 从 autoindex 目录读取各索引的字段映射，除按字节上限裁剪外原样返回；`xerj_code_search` 执行 `xerj code` 参考代码检索流程（[`tools/xerj-code/`](tools/xerj-code/)），返回渲染后的文本。`xerj_index_budget` 在 `xerj autoindex` 计算哈希之前统计文件夹，按节点的磁盘预算估算索引大小，本身不做索引。`xerj_autoindex_remove` 删除一个已 autoindex 的文件夹，删前先列出其内容，`confirm` 不为 true 时什么都不删。`xerj_corpus_feedback` 为 hub 语料评分。`xerj_field_report` 提交使用反馈；`xerj_hub_find`、`xerj_hub_def` 和 `xerj_hub_ask` 用本机已有的 Corpus Hub 语料包作答（即 `xerj ask` 流程）。
 
 `xerj mcp --help` 会输出相同的配置示例及完整选项。机器可读的工具 schema 发布在 [xerj.org/docs/agents/schemas/mcp-tools.json](https://xerj.org/docs/agents/schemas/mcp-tools.json)，由实际运行的 `tools/list` 生成，并通过 CI 中的 `scripts/mcp-schema-check.sh` 和单元测试检查，防止公开列表与服务实际提供的工具不一致。
 
@@ -305,7 +418,7 @@ cargo run --release -p es-yaml-runner -- --dir tests/es-compat-yaml/yaml
 ## 文档
 
 - [指南与 API 参考](https://xerj.org/docs/)
-- [常见任务示例](https://xerj.org/recipes)
+- [常见任务示例](https://xerj.org/docs/recipes/)
 - [路线图](./ROADMAP.md)：对照发布的二进制程序核验已交付功能与计划。按版本查看[里程碑](https://github.com/xerj-org/xerj/milestones)，当前进展见[项目看板](https://github.com/users/xerj-org/projects/1)，固定入口为[置顶路线图 issue](https://github.com/xerj-org/xerj/issues/298)。
 - [更新日志](./CHANGELOG.md)
 
