@@ -171,10 +171,12 @@ do not inherit a shell `PATH`. Add `"XERJ_AUTH": "ApiKey <key>"` when the node
 is not running `--insecure` — the key is `<data-dir>/admin.key`. `--url` and
 `--auth` flags override the two environment variables.
 
-Thirteen tools: `xerj_search`, `xerj_semantic_search`, `xerj_vector_search`,
+Twenty tools: `xerj_search`, `xerj_semantic_search`, `xerj_vector_search`,
 `xerj_hybrid_search`, `xerj_memory_store`, `xerj_memory_recall`,
 `xerj_brain_overview`, `xerj_brain_ego`, `xerj_brain_link`, `xerj_brain_unlink`,
-`xerj_plan`, `xerj_map`, `xerj_code_search`. The first eleven are each a *thin
+`xerj_plan`, `xerj_map`, `xerj_code_search`, `xerj_index_budget`,
+`xerj_autoindex_remove`, `xerj_field_report`, `xerj_corpus_feedback`,
+`xerj_hub_find`, `xerj_hub_def`, `xerj_hub_ask`. The first eleven are each a *thin
 proxy*: they build exactly the request the ES-compatible surface already accepts
 (`xerj_plan` is `POST /_ask`, the deterministic rule-based planner) and hand back
 whatever the engine returned, errors and refusals verbatim — no capability of
@@ -185,6 +187,16 @@ field map, trimmed to a byte cap but otherwise verbatim. `xerj_code_search`
 the `xerj code` reference-coding pipeline ([`tools/xerj-code/`](tools/xerj-code/))
 — staleness refusal, licence warnings, no-match-as-guidance — and returns its
 rendered text rather than a raw response.
+
+The remaining seven are not proxies either. `xerj_index_budget` counts a folder
+and estimates its index against the node's flood-stage budget before
+`xerj autoindex` hashes anything; it does not index. `xerj_autoindex_remove`
+lists what one autoindexed folder owns and deletes nothing unless `confirm` is
+true. `xerj_field_report` files an agent field report (a GitHub PR first, the
+`/api/field-report` endpoint when GitHub is unavailable). `xerj_corpus_feedback`
+rates a hub corpus. `xerj_hub_find`, `xerj_hub_def` and `xerj_hub_ask` answer
+from Corpus Hub packs already on the machine, the `xerj ask` flow. A binary with
+no hub key omits the three hub tools and serves seventeen.
 
 Two honesty notes that bind how you describe results: `xerj_semantic_search`
 embeds server-side with the **lexical feature-hashing** embedder unless the node
