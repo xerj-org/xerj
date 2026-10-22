@@ -72,6 +72,9 @@ NOINDEX: frozenset[str] = frozenset({
     "404.html",
     "brandbook/index.html",
     "playground/index.html",
+    # /osd: design preview of the home page on a 32 px square matrix, shared
+    # by link only. Not a page to rank, so noindex and out of sitemap.xml.
+    "osd.html",
 })
 
 #: Pages deliberately kept out of sitemap.xml.  Google: a `noindex` page must
@@ -92,6 +95,7 @@ FOOTER_SKIP: frozenset[str] = frozenset({
     "aise-demo.html",         # standalone <style> block, video-only page
     "demo/index.html",        # own design system + own <footer>, no /style.css
     "playground/index.html",  # dashboards SPA shell, own assets/*.css
+    "osd.html",               # grid preview: self-contained CSS, own footer
 })
 
 #: Internal hrefs that must not be touched by the .html -> extensionless

@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XERJ.ai — Home page on a square grid (preview)</title>
+<meta name="description" content="Preview of the XERJ home page on a 32 px square matrix: every box, baseline and chart cell snaps to the grid. Switch on OSD mode to see it.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@900&family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 5 5' shape-rendering='crispEdges'><rect width='5' height='5' fill='%230b0b0d'/><path fill='%23ffc400' d='M0 0h1v1H0zM4 0h1v1H4zM1 1h1v1H1zM3 1h1v1H3zM2 2h1v1H2zM1 3h1v1H1zM3 3h1v1H3zM0 4h1v1H0zM4 4h1v1H4z'/></svg>">
+<style>
+/* ==========================================================================
+   /osd: the square-matrix home page.
+   One module: 8 px. One cell: 32 px = 4 modules. Every box on this page
+   (x, y, width, height, padding that shapes a box, gap, margin) is a whole
+   number of cells. 1 px brand rules are painted ON grid lines with inset
+   box-shadows, so they never add a pixel to a box.
+   Type sits on the matrix:
+     display caps (Big Shoulders Display, cap-height 0.800 em) are sized to
+     fill whole cells: cap-top and baseline are both cell lines;
+     running text (IBM Plex Sans / Plex Mono, cap-height 0.698 em) has one
+     line per cell row and its baseline on the row's baseline line, 24 px
+     (3 modules) below the cell line; the dense terminal transcript runs two
+     lines per cell at +8 and +24.
+   Exactness comes from `text-box: trim-both cap alphabetic` (the box edge
+   becomes the font's real cap-height and baseline) plus padding computed
+   from the cap-height metric read from the font files.
+   ========================================================================== */
+:root{
+  --m:8px; --c:32px; --n:40;
+  --white:#ffffff; --paper:#f6f4ee; --faint:#cfcbbf; --line:#d4d1c7;
+  --mute:#4a4843; --ink:#11120f; --gold:#ffc400; --ochre:#6b4400; --ochre-mark:#a06800;
+  --osd:#a06800;
+  --f-d:'Big Shoulders Display','IBM Plex Sans',sans-serif;
+  --f-t:'IBM Plex Sans',system-ui,sans-serif;
+  --f-m:'IBM Plex Mono',ui-monospace,monospace;
+  --cap-d:.8; --cap-t:.698;
+}
+@media (max-width:1343.98px){ :root{--n:30} }
+@media (max-width:1023.98px){ :root{--n:20} }
+@media (max-width:703.98px){ :root{--n:11} }
+@media (max-width:383.98px){ :root{--n:10} }
+
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--white);color:var(--ink);font:400 20px/32px var(--f-t);
+  -webkit-font-smoothing:antialiased;font-kerning:normal}
+a{color:var(--ochre);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px}
+a:hover{color:var(--ink)}
+:focus-visible{outline:2px solid var(--ochre-mark);outline-offset:-2px}
+p,h1,h2,ul,li,pre,figure{margin:0}
+ul{padding:0;list-style:none}
+code{font-family:var(--f-m)}
+span.nw{white-space:nowrap}
+code.inline{font-size:.85em;line-height:1;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line);padding:2px 4px;white-space:nowrap}
+
+/* the matrix ------------------------------------------------------------- */
+.wrap{width:calc(var(--n) * var(--c));margin:0 auto}
+.g{display:grid;grid-template-columns:repeat(var(--n), var(--c));align-items:start}
+.full{grid-column:1 / -1}
+
+/* type on the matrix ----------------------------------------------------- */
+/* running text: baseline at +24 in every 32 px row; box = n rows exactly */
+.tx{font-size:var(--fs,20px);line-height:var(--c);
+  text-box:trim-both cap alphabetic;
+  padding-top:calc(24px - var(--fs,20px) * var(--cap,var(--cap-t)));padding-bottom:8px}
+/* display: caps fill whole cells, baseline on a cell line */
+.td{font-family:var(--f-d);font-weight:900;text-transform:uppercase;letter-spacing:-.01em;
+  font-size:var(--fs);line-height:var(--lh);
+  text-box:trim-both cap alphabetic;
+  padding-top:calc(var(--lh) - var(--fs) * var(--cap-d));padding-bottom:0}
+.lbl{--fs:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.mute{color:var(--mute)}
+
+/* nav: three cell rows, content on the middle row, one shared baseline ---- */
+.nav{box-shadow:inset 0 -1px 0 var(--line)}
+.nav-in{height:calc(3 * var(--c));align-content:center}
+.logo{grid-column:1 / span 6;--fs:40px;--lh:32px;letter-spacing:.24em;color:var(--ink);text-decoration:none}
+.logo .la{color:var(--ochre-mark)}
+.nav-links{grid-column:9 / span 14;display:flex;flex-wrap:wrap}
+.nav-links a{display:block;--fs:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);text-decoration:none;
+  font-size:13px;line-height:32px;text-box:trim-both cap alphabetic;padding-top:calc(32px - 13px * var(--cap-t));padding-bottom:0}
+.nav-links a:hover{text-decoration:underline}
+.w2{width:calc(2 * var(--c))} .w6{width:calc(6 * var(--c))} .w7{width:calc(7 * var(--c))} .w10{width:calc(10 * var(--c))} .w3{width:calc(3 * var(--c))} .w4{width:calc(4 * var(--c))} .w5{width:calc(5 * var(--c))}
+.osd-sw{grid-column:-9 / span 5;display:grid;grid-template-columns:calc(3 * var(--c)) calc(2 * var(--c));height:var(--c);padding:0;margin:0;border:0;background:none;color:var(--ink);cursor:pointer;font:inherit;text-align:left}
+.osd-sw .t{display:block;font-size:13px;line-height:32px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  text-box:trim-both cap alphabetic;padding-top:calc(32px - 13px * var(--cap-t))}
+.osd-track{display:grid;grid-template-columns:var(--c) var(--c);height:var(--c);box-shadow:inset 0 0 0 1px var(--ink)}
+.osd-knob{display:block;width:var(--c);height:var(--c);background:var(--ink)}
+.osd-sw[aria-checked="true"] .osd-knob{grid-column:2;background:var(--gold);box-shadow:inset 0 0 0 1px var(--ink)}
+.gh{grid-column:-2 / -1;display:block;width:var(--c);height:var(--c);color:var(--ink)}
+.gh svg{display:block;width:var(--c);height:var(--c)}
+
+/* hero ------------------------------------------------------------------- */
+.hero{padding:calc(2 * var(--c)) 0 calc(4 * var(--c))}
+.hero-l{grid-column:1 / span 17}
+h1{--fs:120px;--lh:128px}
+/* gold rule one module thick, exactly baseline+8 .. baseline+16: the inline box ends
+   0.213 em (hhea descent) below the baseline, so a white inset masks the tail */
+h1 .hl{box-shadow:inset 0 calc(16px - .213 * var(--fs)) 0 var(--white),inset 0 calc(8px - .213 * var(--fs)) 0 var(--gold)}
+.sub{--fs:22px;width:calc(15 * var(--c));margin-top:var(--c)}
+.go{grid-column:19 / span 22}
+.go-btn{display:block;width:100%;height:calc(3 * var(--c));margin:0;border:0;cursor:pointer;
+  background:var(--gold);color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);
+  font:900 40px/32px var(--f-d);letter-spacing:.08em;text-transform:uppercase;
+  /* caps 32 px = one cell, centred: cap-top on row 2, baseline on row 3.
+     Without trim a 32 px line puts the BSD baseline 31.42 px down
+     ((32 - 1.197*40)/2 + 0.984*40), so 64 - 31.42 = 32.58 on top. */
+  padding:32.58px 0 31.42px}
+.go-btn:hover{background:var(--ink);color:var(--white)}
+.go-text{background:var(--paper);box-shadow:inset 1px 0 0 var(--line),inset -1px 0 0 var(--line),inset 0 -1px 0 var(--line);
+  padding:var(--c) 0}
+.go-text code{display:block;--fs:16px;overflow-wrap:break-word;padding-left:var(--c);padding-right:var(--c)}
+.go-alt{display:flex;flex-wrap:wrap;margin-top:var(--c)}
+.go-alt > *{display:block;--fs:16px}
+.go-alt .chip{--fs:14px}
+.chip{background:var(--paper);box-shadow:inset 0 0 0 1px var(--line);padding-left:8px;white-space:nowrap;overflow:hidden}
+.copy{display:block;height:var(--c);width:calc(2 * var(--c));margin:0;border:0;cursor:pointer;
+  background:var(--gold);color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink);
+  font:600 13px/16px var(--f-t);letter-spacing:.08em;text-transform:uppercase;
+  /* baseline at +24: (16 - 1.3*13)/2 + 1.025*13 = 12.875 -> 24 - 12.875 */
+  padding:12px 0 4px}
+.copy:hover{background:var(--ink);color:var(--white)}
+
+/* sections --------------------------------------------------------------- */
+.sec{padding:calc(3 * var(--c)) 0 calc(4 * var(--c));box-shadow:inset 0 1px 0 var(--line)}
+.sh{grid-column:1 / span 28;margin-bottom:calc(2 * var(--c))}
+h2{--fs:80px;--lh:96px}
+.eyebrow{margin-bottom:var(--c)}
+.note{--fs:18px;color:var(--mute)}
+
+/* terminal frame: outlined cells, a one-row bar, two lines per cell ------ */
+.term{grid-column:1 / -1;min-width:0;box-shadow:inset 0 0 0 1px var(--ink)}
+.term-bar{display:flex;justify-content:space-between;height:var(--c);box-shadow:inset 0 -1px 0 var(--line)}
+.term-bar span{display:block;width:calc(12 * var(--c));padding-left:var(--c)} .term-bar span + span{text-align:right;padding-left:0;padding-right:var(--c)}
+.term pre{font:400 13px/16px var(--f-m);color:var(--ink);overflow-x:auto;scrollbar-width:none;white-space:pre;
+  text-box:trim-both cap alphabetic;
+  /* first baseline on cell 1 +8; 31 lines -> last baseline at +520; 520 + 24 = 544 = 17 cells */
+  padding:calc(40px - 13px * var(--cap-t)) var(--c) 24px}
+.term .p,.term .m{color:var(--mute)} .term .p{user-select:none} .term .c{font-weight:400;color:var(--ink)}
+.term .hit{background:var(--gold)}
+.s-quick .note{grid-column:1 / span 28;margin-top:var(--c)}
+
+/* three ways: three columns of 12 cells, the index drawn as cells --------- */
+.ways{grid-column:1 / -1;display:grid;grid-template-columns:repeat(3, calc(12 * var(--c)));column-gap:calc(2 * var(--c))}
+.way{display:flex;flex-direction:column;min-width:0;color:var(--ink);text-decoration:none}
+.idx{display:flex;height:var(--c);margin-bottom:var(--c)}
+.idx i{display:block;width:var(--c);height:var(--c);box-shadow:inset 0 0 0 1px var(--ink)}
+.idx i.on{background:var(--ink)}
+.way .lbl{margin-bottom:0}
+.way p{margin-top:0}
+.way pre{background:var(--paper);box-shadow:inset 0 0 0 1px var(--line);margin-top:var(--c);
+  font:400 14px/32px var(--f-m);white-space:pre-wrap;overflow-wrap:anywhere;
+  text-box:trim-both cap alphabetic;padding:calc(24px - 14px * var(--cap-t)) 16px 8px}
+.more{display:block;--fs:16px;font-weight:600;color:var(--ochre);text-decoration:underline;text-decoration-thickness:1px;text-underline-offset:4px}
+.way .more{margin-top:auto;padding-top:calc(32px + 24px - 16px * var(--cap-t))}
+a.way:hover .more,a.use:hover .more{color:var(--ink)}
+
+/* proof: one row per number, the chart is cells ------------------------- */
+.proof{grid-column:1 / -1;display:grid;row-gap:calc(2 * var(--c))}
+.pr{display:grid;grid-template-columns:repeat(var(--n), var(--c));box-shadow:inset 0 1px 0 var(--ink);padding-top:var(--c)}
+.pr-t{grid-column:1 / span 12}
+.n{--fs:80px;--lh:96px;display:block;letter-spacing:0}
+.pr .what{margin-top:var(--c)}
+.pr .src{--fs:16px;color:var(--mute)}
+.chart{grid-column:15 / -1;display:flex;flex-wrap:wrap;column-gap:var(--c);row-gap:var(--c);padding-top:var(--c)}
+.blk{display:grid;grid-template-columns:repeat(var(--w), var(--c));grid-auto-rows:var(--c)}
+.w17{--w:17} .w9{--w:9} .w5b{--w:5}
+.blk i{display:block;width:var(--c);height:var(--c)}
+.blk i.g{background:var(--gold);box-shadow:inset 0 0 0 4px var(--white)}
+.blk i.o{box-shadow:inset 0 0 0 4px var(--white),inset 0 0 0 5px var(--ink)}
+.blk i.k{background:var(--ink);box-shadow:inset 0 0 0 4px var(--white)}
+.blk i.p{background:var(--faint);box-shadow:inset 0 0 0 4px var(--white)}
+
+/* hub ------------------------------------------------------------------- */
+.hubmark b{font-weight:600;background:#ff9900;color:var(--ink);padding:2px 4px}
+.s-hub .prose{grid-column:1 / span 24}
+.s-hub .note,.s-uses .note{grid-column:1 / span 24;margin-top:var(--c)}
+
+/* use cases: four columns of ten cells, rule on the top cell line ------- */
+.uses{grid-column:1 / -1;display:grid;grid-template-columns:repeat(4, calc(10 * var(--c)))}
+.use{display:flex;flex-direction:column;min-width:0;padding-right:var(--c);box-shadow:inset 0 1px 0 var(--ink);color:var(--ink);text-decoration:none}
+.use .lbl{margin-top:var(--c)}
+.use .more{margin-top:auto;padding-top:calc(32px + 24px - 16px * var(--cap-t))}
+
+.limits{grid-column:1 / -1;display:grid;grid-template-columns:repeat(2, calc(20 * var(--c)));row-gap:calc(2 * var(--c))}
+.limits li{min-width:0;padding-right:calc(2 * var(--c));box-shadow:inset 0 1px 0 var(--line)}
+.limits li .tx{margin-top:var(--c)}
+.limits strong{font-weight:600}
+
+.s-cta .sh{margin-bottom:var(--c)}
+.cmd{grid-column:1 / span 30;display:grid;grid-template-columns:calc(28 * var(--c)) calc(2 * var(--c))}
+.cmd code{display:block;--fs:15px;background:var(--paper);box-shadow:inset 0 0 0 1px var(--line);padding-left:16px;padding-right:16px;overflow-wrap:anywhere}
+.s-cta .note{grid-column:1 / span 28;margin-top:var(--c)}
+
+/* footer ---------------------------------------------------------------- */
+.foot{padding:calc(2 * var(--c)) 0 var(--c);box-shadow:inset 0 1px 0 var(--ink)}
+.fmap{grid-column:1 / -1;display:grid;grid-template-columns:repeat(4, calc(10 * var(--c)))}
+.fmap > div{display:flex;flex-direction:column}
+.fmap .lbl{margin-bottom:var(--c)}
+.fmap a{display:block;--fs:16px;color:var(--ink);text-decoration:none}
+.fmap a:hover{text-decoration:underline}
+.fline{grid-column:1 / -1;display:grid;grid-template-columns:repeat(var(--n), var(--c));margin-top:calc(2 * var(--c));box-shadow:inset 0 1px 0 var(--line);padding-top:var(--c)}
+.fline span{display:block;--fs:12px}
+.fline .f1{grid-column:1 / span 10} .fline .f2{grid-column:15 / span 8} .fline .f3{grid-column:-15 / -1;text-align:right}
+.fline a{color:var(--mute)}
+
+/* OSD overlay: cell lines, baseline lines, cell numbers ------------------- */
+.osd-layer{display:none;position:absolute;top:0;pointer-events:none;z-index:50}
+body.osd .osd-layer{display:block}
+.osd-cells{position:absolute;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Crect width='32' height='1' fill='%23a06800' fill-opacity='.35'/%3E%3Crect width='1' height='32' fill='%23a06800' fill-opacity='.35'/%3E%3Cpath d='M0 24.5h32' stroke='%2311120f' stroke-opacity='.3' stroke-dasharray='2 2'/%3E%3C/svg%3E");
+  background-size:32px 32px;box-shadow:inset -1px 0 0 rgba(160,104,0,.35)}
+.osd-nums{position:absolute;left:0;top:0;display:flex}
+.osd-nums b{display:block;width:32px;height:16px;font:500 9px/16px var(--f-m);color:var(--osd);padding-left:3px}
+body.osd .gi{outline:1px dashed rgba(160,104,0,.55);outline-offset:-1px}
+
+/* below 40 cells: one column, same cell -------------------------------- */
+@media (max-width:1343.98px){
+  .nav-links{grid-column:8 / span 14}
+  .hero-l{grid-column:1 / -1}
+  .sub{width:calc(20 * var(--c))}
+  .go{grid-column:1 / span 24;grid-row:auto;margin-top:calc(2 * var(--c))}
+  .ways{grid-template-columns:repeat(2, calc(14 * var(--c)));row-gap:calc(2 * var(--c))}
+  .chart{grid-column:1 / -1}
+  .pr-t{grid-column:1 / span 20}
+  .uses{grid-template-columns:repeat(3, calc(10 * var(--c)));row-gap:calc(2 * var(--c))}
+  .limits{grid-template-columns:repeat(2, calc(15 * var(--c)))}
+  .cmd{grid-column:1 / -1;grid-template-columns:calc(28 * var(--c)) calc(2 * var(--c))}
+  .fmap{grid-template-columns:repeat(4, calc(7 * var(--c)))}
+}
+@media (max-width:1023.98px){
+  .nav-in{height:auto;padding:var(--c) 0;row-gap:0}
+  .nav-links{grid-column:1 / -1;grid-row:2;flex-wrap:wrap;margin-top:var(--c)}
+  .osd-sw{grid-column:-8 / span 5;grid-row:1}
+  .gh{grid-row:1}
+  .sub{width:auto}
+  .go,.sh,.s-quick .note,.s-hub .prose,.s-hub .note,.s-uses .note,.s-cta .note,.pr-t{grid-column:1 / -1}
+  .ways,.uses,.limits,.fmap{grid-template-columns:repeat(var(--n), var(--c));column-gap:0}
+  .way,.use,.limits li{min-width:0;grid-column:1 / -1}
+  .fmap > div{grid-column:span 10;margin-bottom:var(--c)}
+  .cmd{grid-template-columns:calc((var(--n) - 2) * var(--c)) calc(2 * var(--c))}
+}
+@media (max-width:703.98px){
+  .logo{--fs:40px}
+  h1{--fs:80px;--lh:96px}
+  h2{--fs:40px;--lh:64px}
+  .sub{--fs:20px}
+  .hero{padding:var(--c) 0 calc(3 * var(--c))}
+  .sec{padding:calc(2 * var(--c)) 0 calc(3 * var(--c))}
+  .sh{margin-bottom:var(--c)}
+  .go-btn{font-size:40px}
+  .go-text code{padding-left:16px;padding-right:16px}
+  .go-text code{--fs:15px}
+  .term-bar{height:calc(2 * var(--c));flex-direction:column}
+  .term-bar span{width:auto;padding-left:16px} .term-bar span + span{text-align:left;padding-left:16px;padding-right:0}
+  .term pre{padding-left:16px;padding-right:16px}
+  .ways,.uses,.limits{row-gap:calc(2 * var(--c))}
+  .way pre{font-size:13px;padding-top:calc(24px - 13px * var(--cap-t))}
+  .n{--fs:80px}
+  .fmap > div{grid-column:1 / -1}
+  .fline .f1,.fline .f2,.fline .f3{grid-column:1 / -1;text-align:left}
+  .osd-sw{grid-column:-6 / span 5;grid-row:1}
+  .gh{grid-column:-2 / -1;grid-row:2;margin-top:var(--c)}
+  .nav-links{grid-column:1 / span 10;grid-row:2}
+  .go-alt .chip{width:calc(11 * var(--c))}
+  .blk.w17{--w:11}
+}
+
+@media (max-width:383.98px){ .blk.w17{--w:10} }
+
+</style>
+<!-- seo:begin — generated by scripts/seo/fix_heads.py · do not hand-edit -->
+<link rel="canonical" href="https://xerj.org/osd">
+<meta name="robots" content="noindex">
+<meta property="og:site_name" content="XERJ.ai">
+<meta property="og:type" content="website">
+<meta property="og:title" content="XERJ.ai — Home page on a square grid (preview)">
+<meta property="og:description" content="Preview of the XERJ home page on a 32 px square matrix: every box, baseline and chart cell snaps to the grid. Switch on OSD mode to see it.">
+<meta property="og:url" content="https://xerj.org/osd">
+<meta property="og:image" content="https://xerj.org/og/xerj-card.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="XERJ.ai — the search engine built for AI agents">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="XERJ.ai — Home page on a square grid (preview)">
+<meta name="twitter:description" content="Preview of the XERJ home page on a 32 px square matrix: every box, baseline and chart cell snaps to the grid. Switch on OSD mode to see it.">
+<meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": "https://xerj.org/#organization",
+  "name": "XERJ",
+  "alternateName": "XERJ.ai",
+  "url": "https://xerj.org/",
+  "logo": "https://xerj.org/brandbook/xerj-mark.svg",
+  "sameAs": [
+    "https://github.com/xerj-org/xerj"
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": "https://xerj.org/#website",
+  "name": "XERJ.ai",
+  "url": "https://xerj.org/",
+  "inLanguage": "en",
+  "publisher": {
+    "@id": "https://xerj.org/#organization"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "name": "XERJ.ai — Home page on a square grid (preview)",
+  "description": "Preview of the XERJ home page on a 32 px square matrix: every box, baseline and chart cell snaps to the grid. Switch on OSD mode to see it.",
+  "url": "https://xerj.org/osd",
+  "image": "https://xerj.org/og/xerj-card.png",
+  "inLanguage": "en",
+  "dateModified": "2026-10-20",
+  "isPartOf": {
+    "@id": "https://xerj.org/#website"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://xerj.org/osd"
+  }
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "https://xerj.org/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Grid preview"
+    }
+  ]
+}
+</script>
+<!-- seo:end -->
+</head>
+<body>
+<header class="nav" id="top" data-bleed>
+  <div class="wrap g nav-in">
+    <a href="/" class="logo td gi" aria-label="XERJ home"><span class="lx">XERJ</span><span class="la">.AI</span></a>
+    <nav class="nav-links gi" aria-label="Primary">
+      <a class="w2" href="/docs/">Docs</a>
+      <a class="w4" href="https://hub.xerj.org" rel="external">Corpus Hub ↗</a>
+      <a class="w3" href="/use-cases">Use cases</a>
+      <a class="w3" href="/for-agents">For agents</a>
+    </nav>
+    <button type="button" class="osd-sw gi" role="switch" aria-checked="false" id="osd-switch"><span class="t">OSD mode</span><span class="osd-track"><span class="osd-knob"></span></span></button>
+    <a class="gh gi" href="https://github.com/xerj-org/xerj" rel="external" aria-label="XERJ on GitHub" title="XERJ on GitHub"><svg viewBox="-8 -8 32 32" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+  </div>
+</header>
+
+<main data-bleed>
+
+<section class="hero" aria-labelledby="h1" data-bleed>
+  <div class="wrap g">
+    <div class="hero-l gi">
+      <h1 id="h1" class="td">Search for <span class="hl">AI agents.</span></h1>
+      <p class="sub tx">A new way for AI to search data: give your coding agent one prompt, and it answers from a local index, citing the file and line.</p>
+    </div>
+    <div class="go gi" id="prompt">
+      <button type="button" class="go-btn" data-copy="Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, and set up reference coding: clone and index the open-source repos closest to what we're building, and search how they solved a problem before writing code.">Copy the prompt</button>
+      <div class="go-text"><code class="tx">Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, and set up reference coding: clone and index the open-source repos closest to what we're building, and search how they solved a problem before writing code.</code></div>
+      <p class="go-alt" id="get"><span class="tx w6">Or install it yourself:</span><code class="tx chip w10">curl -fsSL https://xerj.org/get | sh</code><button type="button" class="copy" data-copy="curl -fsSL https://xerj.org/get | sh">Copy</button><span class="tx w4">&nbsp;· <a href="/docs/install">All platforms</a></span></p>
+    </div>
+  </div>
+</section>
+
+<section class="sec s-quick" aria-labelledby="quickstart" data-bleed>
+  <div class="wrap g">
+    <div class="sh gi">
+      <p class="tx lbl mute eyebrow">Real output · xerj v1.0.0-rc.97</p>
+      <h2 id="quickstart" class="td">From install to a cited answer in 30 seconds</h2>
+    </div>
+    <div class="term gi">
+      <div class="term-bar"><span class="tx lbl mute">xerj v1.0.0-rc.97 · Linux x86_64</span><span class="tx lbl mute">Captured 2026-10-19, fresh $HOME</span></div>
+<pre><span class="p">$ </span><span class="c">curl -fsSL https://xerj.org/get | sh</span>
+==> resolving latest release of xerj-org/xerj…
+==> installing xerj v1.0.0-rc.97 for x86_64-unknown-linux-musl
+<span class="m">…</span>
+ ok  sha256 verified
+<span class="m">…</span>
+ ok  installed ~/bin/xerj
+<span class="m">…</span>
+<span class="m">real 0m2.923s</span>
+
+<span class="p">$ </span><span class="c">xerj "how does lz4 frame format work"</span>
+xerj hub: no node answers at http://localhost:9200; starting a local node on port 9300 (data: ~/.xerj/hub/node, …)
+xerj hub: node ready on port 9300 (pid 77)
+xerj hub: pulling 'lz4' (4.4 MB) — one-time download, later questions answer locally
+xerj hub: pulled lz4 0774d055 4623814 → 4 indices, 1702 definitions
+lz4  pin 2026-10-02 (18 days old)  mixed: BSD-2 (lib) / GPL-2.0+ (rest)  lz4/doc/lz4_Block_format.md:0
+LZ4 Block Format Description
+<span class="m">…</span>
+lz4  pin 2026-10-02 (18 days old)  mixed: BSD-2 (lib) / GPL-2.0+ (rest)  <span class="hit">lz4/lib/lz4frame.h:186</span>
+#define LZ4F_INIT_FRAMEINFO   { LZ4F_max64KB, LZ4F_blockLinked, LZ4F_noContentChecksum, LZ4F_frame, 0ULL, 0U, LZ4F_noBlockChecksum }    /* v1.8.3+ */
+  approach-only licence (mixed: BSD-2 (lib) / GPL-2.0+ (rest)): read, do not copy
+<span class="m">…</span>
+answered from: local pack
+<span class="m">real 0m1.750s</span>
+
+<span class="p">$ </span><span class="c">xerj ask --def LZ4_compress_default</span>
+lz4  pin 2026-10-02 (18 days old)  mixed: BSD-2 (lib) / GPL-2.0+ (rest)  <span class="hit">lz4/lib/lz4.c:1481</span>
+int LZ4_compress_default(const char* src, char* dst, int srcSize, int dstCapacity)
+<span class="m">…</span>
+answered from: local pack
+<span class="m">real 0m0.022s</span></pre>
+    </div>
+    <p class="note tx gi">One captured run: <code class="inline">…</code> marks cuts, <code class="inline">~</code> is the home directory, installed with <code class="inline">XERJ_INSTALL_DIR=~/bin</code> (default <code class="inline">~/.local/bin</code>). An approach-only licence means read for the design, do not copy.</p>
+  </div>
+</section>
+
+<section class="sec s-ways" aria-labelledby="ways" data-bleed>
+  <div class="wrap g">
+    <div class="sh gi">
+      <p class="tx lbl mute eyebrow">Three ways in</p>
+      <h2 id="ways" class="td">Ask a library, search your files, or connect over MCP</h2>
+    </div>
+    <div class="ways">
+      <a class="way gi" href="/docs/corpus-hub">
+        <span class="idx" aria-hidden="true"><i class="on"></i><i></i><i></i></span>
+        <span class="tx lbl">01 · Ask a library</span>
+        <p class="tx">A library's source at a pinned commit, without cloning. One signed pack, pulled once.</p>
+<pre>xerj "how does zstd pick a window size"
+xerj ask --def ZSTD_compressBound</pre>
+        <span class="tx more">xerj ask reference →</span>
+      </a>
+      <a class="way gi" href="/docs/recipes/zero-config-autoindex">
+        <span class="idx" aria-hidden="true"><i class="on"></i><i class="on"></i><i></i></span>
+        <span class="tx lbl">02 · Search your files</span>
+        <p class="tx">Code, PDF, DOCX, SQLite, CSV, mail and logs in one local index. Nothing leaves the machine.</p>
+<pre>xerj --insecure --data-dir ~/xerj-data &amp;
+xerj autoindex ~/my-project
+xerj search "how do we rotate the WAL segment"</pre>
+        <span class="tx more">Zero-config indexing →</span>
+      </a>
+      <a class="way gi" href="/for-agents">
+        <span class="idx" aria-hidden="true"><i class="on"></i><i class="on"></i><i class="on"></i></span>
+        <span class="tx lbl">03 · Connect over MCP</span>
+        <p class="tx">17 tools for Claude Code, Cursor and any MCP host. <code class="inline">xerj init</code> registers the server.</p>
+<pre>xerj init
+# or by hand: "command": "xerj", "args": ["mcp"]</pre>
+        <span class="tx more">For agents →</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="sec s-proof" aria-labelledby="proof" data-bleed>
+  <div class="wrap g">
+    <div class="sh gi">
+      <p class="tx lbl mute eyebrow">Proof · every number names its source</p>
+      <h2 id="proof" class="td">Measured, losses included</h2>
+    </div>
+    <div class="proof">
+      <div class="pr">
+        <div class="pr-t gi"><span class="n td">2.7×</span>
+          <p class="what tx">fewer output tokens than a grep-driven agent, same 16/16 solve rate.</p>
+          <p class="src tx"><a href="/case-studies/reference-coding">Case study</a></p></div>
+        <div class="chart gi" role="img" aria-label="27 cells for the grep-driven agent against 10 cells for XERJ"><div class="blk" style="--w:9"><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i></div><div class="blk" style="--w:5"><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i></div></div>
+      </div>
+      <div class="pr">
+        <div class="pr-t gi"><span class="n td">9/9</span>
+          <p class="what tx">tasks solved on an unseen Rust library with retrieval, 0/9 from memory.</p>
+          <p class="src tx">Companion run, <a href="https://github.com/xerj-org/xerj#how-the-prompt-works" rel="external">README</a></p></div>
+        <div class="chart gi" role="img" aria-label="9 of 9 cells filled with retrieval, 0 of 9 from memory"><div class="blk" style="--w:9"><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i></div><div class="blk" style="--w:9"><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i><i class="o"></i></div></div>
+      </div>
+      <div class="pr">
+        <div class="pr-t gi"><span class="n td">55 / 26 / 4</span>
+          <p class="what tx">wins, ties and losses against Elasticsearch 8.13.4.</p>
+          <p class="src tx"><a href="/benchmarks/">Benchmarks</a></p></div>
+        <div class="chart gi" role="img" aria-label="85 cells: 55 wins, 26 ties, 4 losses"><div class="blk w17"><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="p"></i><i class="k"></i><i class="k"></i><i class="k"></i><i class="k"></i></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec s-hub" aria-labelledby="hub" data-bleed>
+  <div class="wrap g">
+    <div class="sh gi">
+      <p class="tx lbl mute eyebrow"><span class="hubmark">Corpus <b>Hub</b></span> · hub.xerj.org</p>
+      <h2 id="hub" class="td">Open data, pre-indexed for agents</h2>
+    </div>
+    <p class="prose tx gi">513 live corpora in 11 domains (fetched 2026-10-19): library source, standards, advisory feeds. Each is pinned to one commit, licence-reviewed and signed. <code class="inline">xerj ask</code> routes over the 14 in the signed catalogue.</p>
+    <p class="note tx gi"><a href="https://hub.xerj.org" rel="external">Browse the hub</a> · <a href="/docs/corpus-hub">Add a corpus</a></p>
+  </div>
+</section>
+
+<section class="sec s-uses" aria-labelledby="uses" data-bleed>
+  <div class="wrap g">
+    <div class="sh gi">
+      <p class="tx lbl mute eyebrow">Use cases</p>
+      <h2 id="uses" class="td">What agents point it at</h2>
+    </div>
+    <div class="uses">
+      <a class="use gi" href="/use-cases/code-security-audit"><span class="tx lbl">Code-security audits</span><p class="tx">Index a target tree once, then query it for sinks, secrets and dangerous calls.</p><span class="tx more">Audit write-up →</span></a>
+      <a class="use gi" href="/use-cases/second-brain"><span class="tx lbl">Agent memory</span><p class="tx">Store what an agent learns and recall it next session, one namespace per agent.</p><span class="tx more">Memory and links →</span></a>
+      <a class="use gi" href="/use-cases/ai-search-retrieval"><span class="tx lbl">RAG retrieval</span><p class="tx">BM25, kNN and hybrid in one query.</p><span class="tx more">AI search →</span></a>
+      <a class="use gi" href="/docs/migration-from-es"><span class="tx lbl">Elasticsearch-compatible</span><p class="tx">The REST API on :9200 speaks the Elasticsearch wire protocol, on a single node.</p><span class="tx more">Migrate from ES →</span></a>
+    </div>
+    <p class="note tx gi"><a href="/use-cases">All use cases</a></p>
+  </div>
+</section>
+
+<section class="sec s-limits" aria-labelledby="limits" data-bleed>
+  <div class="wrap g">
+    <div class="sh gi">
+      <p class="tx lbl mute eyebrow">Before you rely on it</p>
+      <h2 id="limits" class="td">When XERJ does not help</h2>
+    </div>
+    <ul class="limits">
+      <li class="gi"><p class="tx"><strong>Libraries the model already knows.</strong> There retrieval only adds cost (<a href="/case-studies/reference-coding">case study</a>).</p></li>
+      <li class="gi"><p class="tx"><strong>Lexical by default.</strong> The built-in embedder is feature hashing; start the node with <code class="inline">--embed-mode neural</code> for a neural model.</p></li>
+      <li class="gi"><p class="tx"><strong>One node.</strong> No replication or failover. Choose Elasticsearch if you need a cluster or steady read p99 under heavy concurrent writes (<a href="/benchmarks/">benchmarks</a>).</p></li>
+      <li class="gi"><p class="tx"><strong><code class="inline">--insecure</code> is for one user on one machine.</strong> It turns off TLS and API keys (<a href="/security/">security model</a>).</p></li>
+    </ul>
+  </div>
+</section>
+
+<section class="sec s-cta" aria-labelledby="cta" data-bleed>
+  <div class="wrap g">
+    <div class="sh gi">
+      <h2 id="cta" class="td">Ask your first question</h2>
+    </div>
+    <div class="cmd gi"><code class="tx">curl -fsSL https://xerj.org/get | sh &amp;&amp; ~/.local/bin/xerj "how does lz4 frame format work"</code><button type="button" class="copy" data-copy="curl -fsSL https://xerj.org/get | sh &amp;&amp; ~/.local/bin/xerj &quot;how does lz4 frame format work&quot;">Copy</button></div>
+    <p class="note tx gi">Or <a href="#prompt">copy the prompt</a> for your agent. <a href="/docs/">Docs</a> · <a href="/llms.txt">llms.txt</a> · <a href="https://discord.com/invite/yetXFusXfs" rel="external">Discord</a> · <a href="https://x.com/xerj_org" rel="external">X</a> · <a href="/blog/">Blog</a></p>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot" data-bleed>
+  <div class="wrap g">
+    <nav class="fmap" aria-label="Site map">
+      <div class="gi"><span class="tx lbl mute">Product</span>
+        <a class="tx" href="/product">Product</a><a class="tx" href="/architecture/">Architecture</a><a class="tx" href="/benchmarks/">Benchmarks</a><a class="tx" href="/pricing/">Pricing</a><a class="tx" href="/security/">Security</a><a class="tx" href="/playground">Dashboards</a><a class="tx" href="/demo/">Real-data demo</a><a class="tx" href="/aise-demo">Product tour</a></div>
+      <div class="gi"><span class="tx lbl mute">Solutions</span>
+        <a class="tx" href="/solutions/">Solutions</a><a class="tx" href="/use-cases">Use cases</a><a class="tx" href="/case-studies">Case studies</a><a class="tx" href="/industries/">Industries</a><a class="tx" href="/industries/finserv">Financial services</a><a class="tx" href="/industries/public-sector">Public sector</a><a class="tx" href="/industries/healthcare">Healthcare</a><a class="tx" href="/industries/retail">Retail</a><a class="tx" href="/use-cases/code-security-audit">AI code-security audit</a><a class="tx" href="/use-cases/semantic-analytics">Semantic analytics</a></div>
+      <div class="gi"><span class="tx lbl mute">Docs</span>
+        <a class="tx" href="/docs/">Documentation</a><a class="tx" href="/docs/quickstart">Quickstart</a><a class="tx" href="/docs/install">Install</a><a class="tx" href="/docs/migration-from-es">Migrate from Elasticsearch</a><a class="tx" href="/docs/recipes/">Recipes</a><a class="tx" href="/docs/agents/">Docs for AI</a><a class="tx" href="/for-agents">For AI agents</a><a class="tx" href="/agent-search/">Agentic search demo</a><a class="tx" href="/answers/">Answers</a><a class="tx" href="/compare/">Comparisons</a></div>
+      <div class="gi"><span class="tx lbl mute">Resources</span>
+        <a class="tx" href="/resources/">Sales kit</a><a class="tx" href="/blog/">Blog</a><a class="tx" href="/brand">Brand</a><a class="tx" href="/brandbook/">Brand book</a><a class="tx" href="/llms.txt">llms.txt</a><a class="tx" href="https://github.com/xerj-org/xerj" rel="external">GitHub</a></div>
+    </nav>
+    <div class="fline">
+      <span class="tx lbl mute f1 gi">XERJ.AI · v1.0.0-rc.97 · 2026</span>
+      <span class="tx lbl mute f2 gi">Search for the agent era</span>
+      <span class="tx lbl mute f3 gi"><a href="/product">Product</a> · <a href="/docs/">Docs</a> · <a href="/brand">Brand</a> · <a href="/playground">Dashboards</a> · <a href="/llms.txt">llms.txt</a></span>
+    </div>
+  </div>
+</footer>
+
+<div class="osd-layer" aria-hidden="true" id="osd-layer"><div class="osd-cells"></div><div class="osd-nums"></div></div>
+
+<script>
+(function () {
+  /* copy buttons: same contract and feedback as /interact.js */
+  document.querySelectorAll('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var text = btn.getAttribute('data-copy');
+      var done = function () { var o = btn.textContent; btn.textContent = 'COPIED'; setTimeout(function () { btn.textContent = o; }, 1400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done, done); }
+      else { var t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly', ''); t.style.position = 'absolute'; t.style.left = '-9999px'; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(t); done(); }
+    });
+  });
+
+  /* OSD mode: overlay of the matrix. State lives in ?osd=1 and localStorage;
+     the URL wins when present so a shared link shows what the sender saw. */
+  var KEY = 'xerj-osd', sw = document.getElementById('osd-switch'), layer = document.getElementById('osd-layer');
+  var wrap = document.querySelector('.wrap');
+  function place() {
+    var r = wrap.getBoundingClientRect(), cells = Math.round(r.width / 32);
+    layer.style.left = (r.left + window.scrollX) + 'px';
+    layer.style.width = r.width + 'px';
+    layer.style.height = '0px';
+    layer.style.height = document.documentElement.scrollHeight + 'px';
+    var nums = layer.querySelector('.osd-nums');
+    if (nums.childElementCount !== cells) {
+      nums.textContent = '';
+      for (var i = 1; i <= cells; i++) { var b = document.createElement('b'); b.textContent = i; nums.appendChild(b); }
+    }
+  }
+  function set(on, persist) {
+    document.body.classList.toggle('osd', on);
+    sw.setAttribute('aria-checked', on ? 'true' : 'false');
+    if (on) place();
+    if (persist) {
+      try { localStorage.setItem(KEY, on ? '1' : '0'); } catch (e) {}
+      var u = new URL(location.href);
+      if (on) u.searchParams.set('osd', '1'); else u.searchParams.delete('osd');
+      history.replaceState(null, '', u.pathname + u.search + u.hash);
+    }
+  }
+  var q = new URL(location.href).searchParams.get('osd'), on = false;
+  if (q === '1' || q === '0') on = q === '1';
+  else { try { on = localStorage.getItem(KEY) === '1'; } catch (e) {} }
+  set(on, false);
+  sw.addEventListener('click', function () { set(!document.body.classList.contains('osd'), true); });
+  window.addEventListener('resize', function () { if (document.body.classList.contains('osd')) place(); });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { if (document.body.classList.contains('osd')) place(); });
+})();
+
+</script>
+</body>
+</html>

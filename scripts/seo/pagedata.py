@@ -275,6 +275,13 @@ PAGES: dict[str, dict[str, str]] = {
     # ── brand ───────────────────────────────────────────────────────────────
     "brand.html": dict(label="Brand", kind="webpage"),
     "brandbook/index.html": dict(label="Brand book", kind="webpage"),
+    # Design preview (noindex, see urlmap.NOINDEX): the home page rebuilt on a
+    # 32 px square matrix with an "OSD mode" grid overlay.
+    "osd.html": dict(
+        label="Grid preview", kind="webpage",
+        title="XERJ.ai — Home page on a square grid (preview)",
+        description="Preview of the XERJ home page on a 32 px square matrix: every box, baseline and chart cell snaps to the grid. Switch on OSD mode to see it.",
+    ),
 
     # ── use cases ───────────────────────────────────────────────────────────
     # All six shared one title and one description before this pass.
