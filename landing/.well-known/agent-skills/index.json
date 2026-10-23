@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "xerj",
+      "type": "skill-md",
+      "description": "Find current XERJ documentation and API contracts for folder indexing, code retrieval, search, and agent memory. Use when integrating or operating a user-selected XERJ node.",
+      "url": "/.well-known/agent-skills/xerj/SKILL.md",
+      "digest": "sha256:cd91749e16fb1b715ee26b37a11654dc2331683800d5a2d5528b68a5fad7f3ea"
+    }
+  ]
+}

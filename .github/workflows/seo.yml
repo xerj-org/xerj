@@ -71,6 +71,11 @@ jobs:
       - name: Field-report section and permission line
         run: python3 scripts/seo/test_llms_field_report.py
 
+      - name: Public skill discovery metadata and digest
+        run: |
+          python3 scripts/seo/test_build_skills.py
+          python3 scripts/seo/build_skills.py --check
+
       - name: generated articles are current
         run: python3 scripts/seo/build_articles.py --check
 
