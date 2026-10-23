@@ -1,0 +1,21 @@
+{
+ "corpus": "plan-and-act",
+ "cloned_at": "2026-10-23T08:16:37Z",
+ "repos": [
+  {
+   "repo": "plan-and-act",
+   "url": "https://github.com/kamwoh/plan-and-act",
+   "licence": "MIT",
+   "sha": "1c000d6adb7aaa7a69038989cd54f3860a0e21e1",
+   "files": 125,
+   "bytes": 3745327,
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "@kamwoh",
+    "at": "2026-10-23",
+    "note": "The detector said MIT. I confirmed MIT against LICENSE at the pin (MIT, (c) 2026 kamwoh). The author owns all tracked files. The Panda model (Apache-2.0) and the object scans (CC-BY-4.0) are not in the repo: scripts/fetch_*.sh download them at setup."
+   }
+  }
+ ]
+}

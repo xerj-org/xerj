@@ -13343,6 +13343,29 @@
      "java"
     ]
    }
+  },
+  {
+   "cat": "AI",
+   "domain": "an agent building an LLM that plans and controls a robot arm queries this for how plan-and-act has Claude imagine a plan as timed 3D keyframes, run it on a MuJoCo Franka Panda with straight-line IK, compare the result and re-plan in one Claude Code CLI session",
+   "lane": "A",
+   "refresh": "pinned",
+   "slug": "plan-and-act",
+   "sources": [
+    {
+     "licence_hint": "MIT \u2014 per-repo review block in the manifest",
+     "url": "see hub/plan-and-act.json"
+    }
+   ],
+   "status": "live",
+   "tags": {
+    "region": "GLOBAL",
+    "topics": [
+     "llm-agents",
+     "robotics",
+     "mujoco",
+     "planning"
+    ]
+   }
   }
  ],
  "lanes": [
