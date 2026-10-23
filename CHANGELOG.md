@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Public Agent Skills Discovery v0.2.0 index and a documentation-routing skill
+  at `/.well-known/agent-skills/`. The index is generated from the published
+  skill's metadata and exact-byte SHA-256, with a CI drift check.
+
 - MCP `xerj_def` exposes local definition lookup, completing #2080 after the
   `xerj_search` prefix support. It shares `xerj def --json` query construction,
   mapping guards, ranking and location deduplication; accepts `symbol`,
