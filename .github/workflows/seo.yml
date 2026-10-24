@@ -66,6 +66,10 @@ jobs:
       - name: Date-source unit tests (full, shallow, untracked, no repo)
         run: python3 scripts/seo/test_urlmap.py
 
+      # Fixture HTTP server only: production verification runs after deploy.
+      - name: Agent-discovery delivery regressions
+        run: python3 scripts/seo/test_verify_agent_discovery.py
+
       # The field report has its own section, ahead of Optional, and the
       # homepage prompt asks before sending.
       - name: Field-report section and permission line

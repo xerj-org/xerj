@@ -83,6 +83,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   arguments and empty or non-string prefixes are rejected before HTTP requests.
   The default remains `ax-*` (#2080, prefix support only).
 
+- Read-only post-deployment agent-discovery verifier for final GET/HEAD Link
+  headers, documentation targets and optional public-skill digest checks.
+  CI exercises local HTTP fixtures rather than contacting production.
+
 ### Fixed
 
 - A full process memtable budget now flushes instead of leaving `xerj autoindex`
