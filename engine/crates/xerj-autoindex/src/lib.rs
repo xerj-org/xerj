@@ -16,6 +16,7 @@ pub mod detect;
 pub mod esclient;
 pub mod estimate;
 pub mod extract;
+mod family_junk;
 pub mod feedback;
 pub mod flood;
 pub mod gain;
@@ -1469,7 +1470,7 @@ const STALE_RESUME_PLAN_FILE_REASON: &str =
      published for it. Re-run with --fresh to rebuild the plan in place and include it (ids stay \
      idempotent), or index it under a new --state-dir and --prefix";
 
-fn is_stale_resume_skip(junk: &JunkFile) -> bool {
+pub(crate) fn is_stale_resume_skip(junk: &JunkFile) -> bool {
     junk.status == STALE_RESUME_PLAN_STATUS || junk.reason.contains("not in the frozen resume plan")
 }
 
@@ -1678,6 +1679,12 @@ fn finish_generated_progress(pr: &Progress, code: i32, summary: &Value, skipped_
     if let Some(warning) = coverage.warning() {
         pr.note(&warning);
     }
+    // #2370: a family that was entirely or mostly junked is a warning, not a
+    // count the reader has to notice. `warn` still prints under `--quiet`.
+    let family_lines = family_junk::lines_from_summary(summary);
+    for line in &family_lines {
+        pr.warn(line);
+    }
     let mut extra = vec![
         ("files", count("files_indexed")),
         ("records", count("records_total")),
@@ -1706,6 +1713,9 @@ fn finish_generated_progress(pr: &Progress, code: i32, summary: &Value, skipped_
     // corpus with none prints the line it always did.
     if skipped_dataless > 0 {
         extra.push(("skipped_dataless", skipped_dataless));
+    }
+    if !family_lines.is_empty() {
+        extra.push(("family_junk_warnings", family_lines.len() as u64));
     }
     extra.extend(coverage.fields());
     note_worker_address_space_cap(pr);
@@ -6536,6 +6546,14 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
         let refs: Vec<&JunkFile> = committed.plan.junk_files.iter().collect();
         skipped_json(&refs)
     };
+    // #2370: owned here, while `committed` still borrows the journal. A no-op
+    // re-run's catalog document may predate the field; the summary below is
+    // recomputed from the sealed generation either way.
+    let family_warnings = family_junk::from_groups(&committed.plan, &committed.groups);
+    let family_warning_lines: Vec<String> = family_warnings
+        .iter()
+        .map(|warning| warning.line())
+        .collect();
     let sync::SourceExecutionPolicy::DurableSnapshot { reference, .. } = &execution.source_policy
     else {
         anyhow::bail!("generated run does not reference a durable snapshot");
@@ -6594,6 +6612,12 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
     if let Some(n) = committed.plan.pdf_worker_unavailable_count() {
         summary["pdf_worker_unavailable"] = json!(n);
     }
+    // Absent when no family tripped the threshold, so a clean run document
+    // keeps the fields it already had (#2370).
+    if !family_warnings.is_empty() {
+        summary["family_junk_warnings"] = serde_json::to_value(&family_warnings)
+            .expect("family junk warnings are strings and counts");
+    }
     journal.finish(&summary)?;
     if cfg.json {
         println!("{summary}");
@@ -6616,6 +6640,9 @@ fn finish_generated_run(es: &Es, journal: &mut state::Journal, cfg: &IndexCfg) -
                 0,
             )
         );
+        for line in &family_warning_lines {
+            println!("{line}");
+        }
         for line in &skip_lines {
             println!("{line}");
         }
@@ -11387,6 +11414,9 @@ fn run_index_report_inner(
     // slice, so a resume reports what is live rather than what it re-parsed.
     let mut code_coverage = CodeCoverage::default();
     let mut completed_keys: HashSet<String> = HashSet::new();
+    // Format strings of files this run actually indexed. The family warning
+    // uses the same set the catalog file docs do, including deletions left out.
+    let mut indexed_formats: Vec<String> = Vec::new();
     {
         let j = journal_mx.lock().unwrap();
         for fd in j.done.values() {
@@ -11413,6 +11443,7 @@ fn run_index_report_inner(
                 })
                 .unwrap_or_else(|| "unknown".into());
             code_coverage.observe(&fmt, fd.records);
+            indexed_formats.push(fmt.clone());
             let (id, doc) = catalog::file_doc(
                 &cfg.prefix,
                 &fd.file_key,
@@ -11468,6 +11499,16 @@ fn run_index_report_inner(
         ));
         all_junk.retain(|jf| !completed_keys.contains(&jf.file_key));
     }
+    // #2370: indexed formats and the junk list are both final here. Stale-plan
+    // skips stay in `all_junk` for the catalog and are ignored by the warning.
+    let family_warnings = family_junk::warnings(
+        indexed_formats.iter().map(String::as_str),
+        all_junk.iter().copied(),
+    );
+    let family_warning_lines: Vec<String> = family_warnings
+        .iter()
+        .map(|warning| warning.line())
+        .collect();
     // Counted now: every later reader of this number outlives the borrows
     // `all_junk` holds on `plan` and `new_unplanned`, which the durable
     // junk-plan update below mutates.
@@ -11730,6 +11771,12 @@ fn run_index_report_inner(
     if let Some(n) = pdf_worker_unavailable {
         run_doc["pdf_worker_unavailable"] = json!(n);
     }
+    // #2370: omitted when no family tripped the threshold, so a clean run
+    // document keeps every field it had. Added, not renamed.
+    if !family_warnings.is_empty() {
+        run_doc["family_junk_warnings"] = serde_json::to_value(&family_warnings)
+            .expect("family junk warnings are strings and counts");
+    }
     // Owned lines: the resume-plan update below mutates `plan.junk_files`,
     // which `all_junk` borrows. The summary prints these after that update.
     let skip_lines = skipped_lines(&all_junk);
@@ -11851,6 +11898,9 @@ fn run_index_report_inner(
                 files_removed,
             )
         );
+        for line in &family_warning_lines {
+            println!("{line}");
+        }
         for line in &skip_lines {
             println!("{line}");
         }
@@ -12003,6 +12053,13 @@ fn run_index_report_inner(
     if let Some(n) = pdf_worker_unavailable {
         done_fields.push(("pdf_worker_unavailable", n));
         pr.note(&pdf_worker_unavailable_note(n));
+    }
+    // #2370: same lines as stdout, on the progress stream, including `--quiet`.
+    for line in &family_warning_lines {
+        pr.warn(line);
+    }
+    if !family_warnings.is_empty() {
+        done_fields.push(("family_junk_warnings", family_warnings.len() as u64));
     }
     note_worker_address_space_cap(&pr);
     pr.finish(
@@ -14495,6 +14552,128 @@ mod code_coverage_tests {
                 .starts_with("xerj-done "),
             "the warning precedes the terminal line: {text}"
         );
+    }
+
+    /// #2370: the terminal line of a run that dropped a family is not the line
+    /// of a clean run. The warning names the family, the count, and the reason,
+    /// and it precedes `xerj-done`.
+    #[test]
+    fn a_junked_family_is_warned_on_the_terminal_line() {
+        let (pr, buffer) = progress::Progress::capture(
+            progress::Surface::Plain,
+            std::time::Duration::from_secs(3600),
+        );
+        finish_generated_progress(
+            &pr,
+            3,
+            &json!({
+                "files_indexed": 2,
+                "records_total": 4,
+                "generation": 1,
+                "code_files": 2,
+                "code_files_indexed": 2,
+                "code_files_junked": 0,
+                "files_junk": 4,
+                "family_junk_warnings": [{
+                    "family": "pdf",
+                    "files": 4,
+                    "junk_files": 4,
+                    "indexed_files": 0,
+                    "extent": "all",
+                    "top_reason": "could not start the isolated PDF parser",
+                    "top_reason_files": 4
+                }]
+            }),
+            0,
+        );
+        let text = captured(&buffer);
+        let done = text
+            .lines()
+            .find(|line| line.starts_with("xerj-done "))
+            .unwrap_or_else(|| panic!("{text}"));
+        assert!(done.contains("family_junk_warnings=1"), "{done}");
+        assert!(done.contains("exit=3"), "{done}");
+        assert!(
+            text.lines().any(|line| {
+                line.starts_with("warning: pdf family:")
+                    && line.contains("all 4 files")
+                    && line.contains("could not start the isolated PDF parser")
+            }),
+            "{text}"
+        );
+        assert!(
+            text.trim_end()
+                .lines()
+                .next_back()
+                .unwrap()
+                .starts_with("xerj-done "),
+            "the warning precedes the terminal line: {text}"
+        );
+    }
+
+    /// `--quiet` drops notes and the terminal line. A dropped family is a
+    /// safety warning: it still has to reach stderr (#2370).
+    #[test]
+    fn a_junked_family_warning_is_not_silenced_by_quiet() {
+        let (pr, buffer) = progress::Progress::capture(
+            progress::Surface::Silent,
+            std::time::Duration::from_secs(3600),
+        );
+        finish_generated_progress(
+            &pr,
+            3,
+            &json!({
+                "files_indexed": 1,
+                "records_total": 1,
+                "generation": 1,
+                "code_files": 1,
+                "code_files_indexed": 1,
+                "code_files_junked": 0,
+                "family_junk_warnings": [{
+                    "family": "pdf",
+                    "files": 4,
+                    "junk_files": 4,
+                    "indexed_files": 0,
+                    "extent": "all",
+                    "top_reason": "worker down",
+                    "top_reason_files": 4
+                }]
+            }),
+            0,
+        );
+        let text = captured(&buffer);
+        assert!(
+            text.contains("warning: pdf family:") && text.contains("worker down"),
+            "{text}"
+        );
+        assert!(
+            !text.contains("xerj-done"),
+            "quiet still prints no terminal line: {text}"
+        );
+    }
+
+    #[test]
+    fn a_clean_summary_does_not_grow_a_family_warning_on_the_terminal_line() {
+        let (pr, buffer) = progress::Progress::capture(
+            progress::Surface::Plain,
+            std::time::Duration::from_secs(3600),
+        );
+        finish_generated_progress(
+            &pr,
+            0,
+            &json!({
+                "files_indexed": 3,
+                "records_total": 9,
+                "generation": 1,
+                "code_files": 3,
+                "code_files_indexed": 3,
+                "code_files_junked": 0,
+            }),
+            0,
+        );
+        let text = captured(&buffer);
+        assert!(!text.contains("family_junk_warnings"), "{text}");
+        assert!(!text.contains("warning:"), "{text}");
     }
 
     #[test]

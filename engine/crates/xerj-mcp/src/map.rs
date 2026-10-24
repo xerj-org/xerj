@@ -30,6 +30,8 @@
 //!    `fields_omitted`. A single field that alone exceeds the cap is dropped
 //!    whole, which is what guarantees the ladder terminates.
 
+use std::collections::BTreeMap;
+
 use serde_json::{json, Map, Value};
 
 use crate::{tool_text, Ctx};
@@ -623,6 +625,130 @@ fn field_count_means(mapping_read: bool) -> &'static str {
     }
 }
 
+/// Note attached to a map that has family warnings. The array itself is the
+/// same objects the autoindex run summary stores on the catalog run document.
+const FAMILY_JUNK_NOTE: &str = "Each entry is a file family where every file, or a strict \
+     majority of its files, was junked during autoindex and not indexed. `top_reason` is the \
+     most common junk reason (ties break by Unicode code-point order). Clean families and \
+     minority junk are omitted. Exit codes are unchanged.";
+
+/// Latest run per `prefix`, then that run's `family_junk_warnings`, if any.
+///
+/// An older run's warnings are not reported once a newer run of the same
+/// prefix exists: the latest run is the summary. `started` is compared as a
+/// string (RFC3339 sorts chronologically). Equal `started` values break by
+/// `run_id`, code-point order, greater first — not by search hit order.
+pub(crate) fn family_warnings_from_runs(runs: &[Value]) -> Vec<Value> {
+    let mut latest: BTreeMap<&str, &Value> = BTreeMap::new();
+    for run in runs {
+        let prefix = run.get("prefix").and_then(Value::as_str).unwrap_or("");
+        match latest.get(prefix) {
+            Some(prev) if !run_is_newer(run, prev) => {}
+            _ => {
+                latest.insert(prefix, run);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for (prefix, run) in latest {
+        let Some(warnings) = run.get("family_junk_warnings").and_then(Value::as_array) else {
+            continue;
+        };
+        for warning in warnings {
+            let mut copy = warning.clone();
+            if let Some(obj) = copy.as_object_mut() {
+                if !prefix.is_empty() && !obj.contains_key("prefix") {
+                    obj.insert("prefix".into(), json!(prefix));
+                }
+                if let Some(id) = run.get("run_id").filter(|_| !obj.contains_key("run_id")) {
+                    obj.insert("run_id".into(), id.clone());
+                }
+            }
+            out.push(copy);
+        }
+    }
+    out.sort_by(|left, right| {
+        let key = |value: &Value, field: &str| {
+            value
+                .get(field)
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string()
+        };
+        key(left, "prefix")
+            .cmp(&key(right, "prefix"))
+            .then(key(left, "family").cmp(&key(right, "family")))
+    });
+    out
+}
+
+fn run_field<'a>(value: &'a Value, field: &str) -> &'a str {
+    value.get(field).and_then(Value::as_str).unwrap_or("")
+}
+
+fn run_is_newer(candidate: &Value, current: &Value) -> bool {
+    match run_field(candidate, "started").cmp(run_field(current, "started")) {
+        std::cmp::Ordering::Greater => true,
+        std::cmp::Ordering::Less => false,
+        std::cmp::Ordering::Equal => run_field(candidate, "run_id") > run_field(current, "run_id"),
+    }
+}
+
+/// Add `family_junk_warnings` to a rendered map. A map with nothing to warn
+/// about is returned unchanged, so a clean catalog keeps the response it had.
+pub(crate) fn attach_family_junk_warnings(rendered: &str, runs: &[Value]) -> String {
+    let warnings = family_warnings_from_runs(runs);
+    if warnings.is_empty() {
+        return rendered.to_string();
+    }
+    let Ok(mut value) = serde_json::from_str::<Value>(rendered) else {
+        return rendered.to_string();
+    };
+    let Some(obj) = value.as_object_mut() else {
+        return rendered.to_string();
+    };
+    obj.insert("family_junk_warnings".into(), Value::Array(warnings));
+    obj.insert("family_junk_warnings_note".into(), json!(FAMILY_JUNK_NOTE));
+    value.to_string()
+}
+
+/// Run documents from the catalog. Failure is an empty list: the field map
+/// is still returned. No server-side sort — `started` is not a date on every
+/// catalog this binary still reads.
+async fn fetch_run_sources(ctx: &Ctx) -> Vec<Value> {
+    let body = json!({
+        "size": 500,
+        "query": {"term": {"doc_kind": "run"}},
+        "_source": ["prefix", "run_id", "started", "family_junk_warnings"]
+    });
+    let url = format!("{}/{CATALOG_INDEX}/_search", ctx.base_url);
+    let mut req = ctx.client.post(&url).json(&body);
+    if let Some(auth) = &ctx.auth {
+        req = req.header("Authorization", auth);
+    }
+    let Ok(resp) = req.send().await else {
+        return Vec::new();
+    };
+    if !resp.status().is_success() {
+        return Vec::new();
+    }
+    let Ok(text) = resp.text().await else {
+        return Vec::new();
+    };
+    let Ok(value) = serde_json::from_str::<Value>(&text) else {
+        return Vec::new();
+    };
+    value
+        .pointer("/hits/hits")
+        .and_then(Value::as_array)
+        .map(|hits| {
+            hits.iter()
+                .filter_map(|hit| hit.get("_source").cloned())
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
 fn annotate_field_count(rendered: &str, mapping_read: bool) -> String {
     let Ok(mut value) = serde_json::from_str::<Value>(rendered) else {
         return rendered.to_string();
@@ -703,10 +829,16 @@ pub(crate) async fn run(ctx: &Ctx, args: &Value) -> Value {
                         let mapping = fetch_mappings(ctx, &index_names(&v)).await;
                         let mapping_read = mapping.is_some();
                         merge_mapped_fields(&mut v, mapping.as_ref());
-                        tool_text(
-                            annotate_field_count(&render_response(&v, &parsed), mapping_read),
-                            false,
-                        )
+                        let rendered =
+                            annotate_field_count(&render_response(&v, &parsed), mapping_read);
+                        // #2370: the field map lists datasets that were indexed.
+                        // A family that was entirely junked never becomes one,
+                        // so the map used to look complete. The run document
+                        // carries `family_junk_warnings` when that happened.
+                        // A failed read leaves the map as it was — the field
+                        // list is still the answer to "what can I query".
+                        let runs = fetch_run_sources(ctx).await;
+                        tool_text(attach_family_junk_warnings(&rendered, &runs), false)
                     }
                     Err(e) => tool_text(
                         format!("xerj_map: catalog reply was not JSON ({e}): {text}"),
@@ -1271,5 +1403,143 @@ mod tests {
         );
         assert!(text.contains("xerj mcp does not start a node"), "{text}");
         assert!(!text.contains("\"indexes\""), "{text}");
+    }
+
+    fn warning(family: &str, files: u64, junk: u64, reason: &str) -> Value {
+        json!({
+            "family": family,
+            "files": files,
+            "junk_files": junk,
+            "indexed_files": files - junk,
+            "extent": if junk == files { "all" } else { "most" },
+            "top_reason": reason,
+            "top_reason_files": junk
+        })
+    }
+
+    fn run_doc(prefix: &str, run_id: &str, started: &str, warnings: Vec<Value>) -> Value {
+        json!({
+            "prefix": prefix,
+            "run_id": run_id,
+            "started": started,
+            "family_junk_warnings": warnings
+        })
+    }
+
+    #[test]
+    fn a_clean_map_response_is_unchanged() {
+        let rendered = r#"{"matched":1,"indexes":[]}"#;
+        assert_eq!(
+            attach_family_junk_warnings(rendered, &[]),
+            rendered,
+            "no runs"
+        );
+        let clean = run_doc("ax", "run-2", "2026-10-24T00:00:02Z", vec![]);
+        assert_eq!(
+            attach_family_junk_warnings(rendered, &[clean]),
+            rendered,
+            "a run with an empty warning list adds nothing"
+        );
+    }
+
+    #[test]
+    fn the_map_names_an_all_junked_family_from_the_latest_run() {
+        let older = run_doc(
+            "ax",
+            "run-1",
+            "2026-10-24T00:00:01Z",
+            vec![warning("html", 2, 2, "old reason")],
+        );
+        let latest = run_doc(
+            "ax",
+            "run-2",
+            "2026-10-24T00:00:02Z",
+            vec![warning(
+                "pdf",
+                4,
+                4,
+                "could not start the isolated PDF parser",
+            )],
+        );
+        // Hit order is not the decision: the older run is listed last.
+        let rendered =
+            attach_family_junk_warnings(r#"{"matched":0,"indexes":[]}"#, &[latest, older]);
+        let out: Value = serde_json::from_str(&rendered).unwrap();
+        let warnings = out["family_junk_warnings"].as_array().unwrap();
+        assert_eq!(warnings.len(), 1, "{out}");
+        assert_eq!(warnings[0]["family"], "pdf");
+        assert_eq!(warnings[0]["files"], 4);
+        assert_eq!(warnings[0]["junk_files"], 4);
+        assert_eq!(warnings[0]["extent"], "all");
+        assert_eq!(
+            warnings[0]["top_reason"],
+            "could not start the isolated PDF parser"
+        );
+        assert_eq!(warnings[0]["prefix"], "ax");
+        assert_eq!(warnings[0]["run_id"], "run-2");
+        assert!(out["family_junk_warnings_note"]
+            .as_str()
+            .unwrap()
+            .contains("majority"));
+        // The field map itself is still there.
+        assert_eq!(out["matched"], 0);
+        assert!(out["indexes"].as_array().unwrap().is_empty());
+    }
+
+    #[test]
+    fn a_mostly_junked_family_is_reported_and_a_clean_family_is_not() {
+        let run = run_doc(
+            "papers",
+            "run-9",
+            "2026-10-24T12:00:00Z",
+            vec![warning("docx", 4, 3, "encrypted")],
+        );
+        let rendered = attach_family_junk_warnings(
+            r#"{"matched":1,"indexes":[{"index":"papers-notes"}]}"#,
+            &[run],
+        );
+        let out: Value = serde_json::from_str(&rendered).unwrap();
+        let warnings = out["family_junk_warnings"].as_array().unwrap();
+        assert_eq!(warnings.len(), 1);
+        assert_eq!(warnings[0]["family"], "docx");
+        assert_eq!(warnings[0]["extent"], "most");
+        assert_eq!(warnings[0]["junk_files"], 3);
+        assert_eq!(warnings[0]["files"], 4);
+        assert_eq!(warnings[0]["indexed_files"], 1);
+        assert!(
+            warnings.iter().all(|w| w["family"] != "code"),
+            "a clean family is not added by the map layer: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn equal_start_times_break_by_run_id_and_prefixes_stay_apart() {
+        let low = run_doc(
+            "ax",
+            "run-a",
+            "2026-10-24T00:00:00Z",
+            vec![warning("pdf", 1, 1, "low")],
+        );
+        let high = run_doc(
+            "ax",
+            "run-b",
+            "2026-10-24T00:00:00Z",
+            vec![warning("pdf", 2, 2, "high")],
+        );
+        let other = run_doc(
+            "bench",
+            "run-1",
+            "2026-10-23T00:00:00Z",
+            vec![warning("csv", 3, 2, "header")],
+        );
+        let warnings = family_warnings_from_runs(&[low, other, high]);
+        assert_eq!(warnings.len(), 2, "{warnings:?}");
+        // Sorted by prefix, then family: ax before bench.
+        assert_eq!(warnings[0]["prefix"], "ax");
+        assert_eq!(warnings[0]["run_id"], "run-b");
+        assert_eq!(warnings[0]["top_reason"], "high");
+        assert_eq!(warnings[1]["prefix"], "bench");
+        assert_eq!(warnings[1]["family"], "csv");
+        assert_eq!(warnings[1]["extent"], "most");
     }
 }

@@ -923,6 +923,35 @@ pub fn render_map_page(
         }
         s.push('\n');
     }
+    // #2370: a family that was entirely or mostly junked is named here, from
+    // the run document, so the map does not look like a complete corpus when
+    // a file type was dropped. Absent on a run that did not trip the threshold,
+    // which keeps this section off the maps those runs already printed.
+    if let Some(warnings) = run
+        .and_then(|r| r.get("family_junk_warnings"))
+        .and_then(Value::as_array)
+        .filter(|warnings| !warnings.is_empty())
+    {
+        s.push_str("## Families mostly or entirely junked — NOT indexed\n\n");
+        s.push_str(
+            "Every file of a family, or a strict majority of its files, was junked. \
+             These types are missing or barely present in the dataset table. \
+             The top reason is the most common junk reason for that family.\n\n",
+        );
+        for warning in warnings {
+            let g = |k: &str| warning.get(k).map(pretty_val).unwrap_or_default();
+            s.push_str(&format!(
+                "- **{}** — {} of {} files ({}); top reason ({} files): {}\n",
+                g("family"),
+                g("junk_files"),
+                g("files"),
+                g("extent"),
+                g("top_reason_files"),
+                g("top_reason"),
+            ));
+        }
+        s.push('\n');
+    }
     s.push_str(&format!("## Datasets ({})\n\n", datasets.len()));
     // `slug` is the argument to `--dataset`. The index name is
     // `{prefix}-{slug}`, and a hyphenated prefix makes the slug impossible
@@ -1432,6 +1461,49 @@ mod duplicate_tests {
             rendered_legacy.contains("0 junk records, wall 1.4s\n\n"),
             "legacy wall_seconds must still render: {rendered_legacy}"
         );
+        // A run document without family warnings keeps the map it had.
+        assert!(
+            !rendered.contains("Families mostly or entirely junked"),
+            "{rendered}"
+        );
+    }
+
+    #[test]
+    fn the_map_names_a_family_that_was_entirely_junked() {
+        let run = json!({
+            "doc_kind": "run",
+            "run_id": "gen-1",
+            "root": "/corpus",
+            "files_total": 6,
+            "unique_content_files": 2,
+            "duplicate_files": 0,
+            "records_total": 2,
+            "junk_records_total": 0,
+            "family_junk_warnings": [{
+                "family": "pdf",
+                "files": 4,
+                "junk_files": 4,
+                "indexed_files": 0,
+                "extent": "all",
+                "top_reason": "could not start the isolated PDF parser",
+                "top_reason_files": 4
+            }]
+        });
+        let rendered = render_map(Some(&run), &[], &[], &[], &[], 0);
+        assert!(
+            rendered.contains("## Families mostly or entirely junked — NOT indexed"),
+            "{rendered}"
+        );
+        assert!(
+            rendered.contains(
+                "**pdf** — 4 of 4 files (all); top reason (4 files): could not start the isolated PDF parser"
+            ),
+            "{rendered}"
+        );
+        // The section sits above the dataset table.
+        let warning_at = rendered.find("Families mostly or entirely junked").unwrap();
+        let datasets_at = rendered.find("## Datasets").unwrap();
+        assert!(warning_at < datasets_at, "{rendered}");
     }
 
     /// The summary used to say "0 junk records" on a map whose later section

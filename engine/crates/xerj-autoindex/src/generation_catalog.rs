@@ -377,6 +377,13 @@ pub fn project_generation(
     if let Some(n) = desired.plan.pdf_worker_unavailable_count() {
         run_doc["pdf_worker_unavailable"] = json!(n);
     }
+    // #2370: omitted when no family is entirely or mostly junked, so a clean
+    // generation serializes the run document it always did.
+    let family_warnings = crate::family_junk::from_groups(&desired.plan, &desired.groups);
+    if !family_warnings.is_empty() {
+        run_doc["family_junk_warnings"] = serde_json::to_value(&family_warnings)
+            .expect("family junk warnings are strings and counts");
+    }
     // #929: a generation that lacks a dataset says so in the one document every
     // reader of the corpus starts from (`Plan::refused_run_fields`).
     for (key, value) in desired.plan.refused_run_fields() {
@@ -684,6 +691,8 @@ mod tests {
             "a corpus that indexed no source code must say so: {run}"
         );
         assert_eq!(run["code_files_junked"], 1);
+        // Indexed with zero records is not a junked family (#2370).
+        assert!(run.get("family_junk_warnings").is_none(), "{run}");
 
         // The healthy shape of the same corpus.
         let desired = manifest(
@@ -714,6 +723,102 @@ mod tests {
             (json!(1), json!(1), json!(0)),
             "{run}"
         );
+        // Zero-record indexed code is the #294 case, not a junked family.
+        // A clean corpus must not grow a family-junk field (#2370).
+        assert!(run.get("family_junk_warnings").is_none(), "{run}");
+    }
+
+    /// #2370: the run document names a family whose files were all junked, and
+    /// one that was only mostly junked, and stays silent for a clean family.
+    #[test]
+    fn the_run_document_warns_for_all_junked_and_mostly_junked_families_only() {
+        let mut plan = Plan {
+            datasets: vec![dataset()],
+            ..Plan::default()
+        };
+        let mut code = assignment("app.py");
+        code.family = "code".into();
+        let mut html = assignment("index.html");
+        html.family = "html".into();
+        plan.files.insert("code".into(), code);
+        plan.files.insert("html".into(), html);
+        plan.junk_files.push(JunkFile {
+            file_key: "pdf-1".into(),
+            rel: "a.pdf".into(),
+            format: "pdf".into(),
+            status: "junk".into(),
+            reason: "could not start the isolated PDF parser".into(),
+            bytes: 4,
+        });
+        plan.junk_files.push(JunkFile {
+            file_key: "pdf-2".into(),
+            rel: "b.pdf".into(),
+            format: "pdf(gzip)".into(),
+            status: "junk".into(),
+            reason: "could not start the isolated PDF parser".into(),
+            bytes: 4,
+        });
+        plan.junk_files.push(JunkFile {
+            file_key: "html-junk".into(),
+            rel: "broken.html".into(),
+            format: "html".into(),
+            status: "junk".into(),
+            reason: "no records extracted".into(),
+            bytes: 2,
+        });
+        plan.junk_files.push(JunkFile {
+            file_key: "html-junk-2".into(),
+            rel: "broken-2.html".into(),
+            format: "html".into(),
+            status: "junk".into(),
+            reason: "no records extracted".into(),
+            bytes: 2,
+        });
+        let desired = manifest(
+            1,
+            "generation-1",
+            plan,
+            vec![
+                group("code", "app.py", vec![]),
+                group("html", "index.html", vec![]),
+            ],
+        );
+        let base = committed(manifest(0, "generation-0", Plan::default(), vec![]));
+        let projection = project_generation(
+            &base,
+            &desired,
+            &metadata("generation-1"),
+            &stats(),
+            &BTreeMap::new(),
+            &BTreeSet::new(),
+        )
+        .unwrap();
+        let run = &projection.documents["run:generation-1"];
+        // Prior fields are still there.
+        assert_eq!(run["files_junk"], 4);
+        assert_eq!(run["code_files_indexed"], 1);
+        let warnings = run["family_junk_warnings"]
+            .as_array()
+            .expect("all-junked and mostly-junked families are named");
+        assert_eq!(warnings.len(), 2, "{warnings:?}");
+        assert_eq!(warnings[0]["family"], "html");
+        assert_eq!(warnings[0]["extent"], "most");
+        assert_eq!(warnings[0]["files"], 3);
+        assert_eq!(warnings[0]["junk_files"], 2);
+        assert_eq!(warnings[0]["indexed_files"], 1);
+        assert_eq!(warnings[0]["top_reason"], "no records extracted");
+        assert_eq!(warnings[0]["top_reason_files"], 2);
+        assert_eq!(warnings[1]["family"], "pdf");
+        assert_eq!(warnings[1]["extent"], "all");
+        assert_eq!(warnings[1]["files"], 2);
+        assert_eq!(warnings[1]["junk_files"], 2);
+        assert_eq!(warnings[1]["indexed_files"], 0);
+        assert_eq!(
+            warnings[1]["top_reason"],
+            "could not start the isolated PDF parser"
+        );
+        // code was indexed and not junked.
+        assert!(warnings.iter().all(|w| w["family"] != "code"));
     }
 
     /// #971: this was `every_current_document_moves_to_latest_catalog_generation`

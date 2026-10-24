@@ -471,6 +471,20 @@ after any --no-graph/--approve fast run over code,
   POST /<prefix>-*/_count  {"query":{"exists":{"field":"language"}}}
 must be > 0 for a tree that contains source. If it is 0, re-run without --no-graph.
 
+A run that junked every file of one family, or a strict majority of that family's
+files (`junk_files * 2 > files`; stale-plan skips are not in the ratio), names
+that family in the human summary and on the progress stream. `--json` adds
+`family_junk_warnings` — omitted when nothing tripped it, so existing summary
+fields are unchanged. Each entry has `family`, `files`, `junk_files`,
+`indexed_files`, `extent` (`all` or `most`), `top_reason` (the most common junk
+reason; equal counts break by Unicode code-point order, smaller first) and
+`top_reason_files`. The same array is stored on the catalog run document:
+`xerj autoindex map` prints "Families mostly or entirely junked — NOT indexed"
+above the dataset table, and the MCP `xerj_map` result includes
+`family_junk_warnings` taken from the latest run of each prefix. Exit codes
+are unchanged. Ordinary junk is still exit 3. A family-wide PDF worker startup
+failure is still exit 1 (`pdf_worker_unavailable`).
+
 --fresh ignores the resume journal and restarts (ids stay idempotent for
 unchanged bytes); on a graph-enabled or pre-generation state directory that is
 how you pick up files added since the last run. A file that is still present

@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `xerj autoindex` names a file family in the run summary when every file of
+  that family was junked, or when junked files are a strict majority
+  (`junk_files * 2 > files`; stale-plan skips are not counted). The human
+  summary and the progress stream print one `warning:` line per family with
+  the count and the most common junk reason. `--json` and the catalog run
+  document gain `family_junk_warnings` only when that happens; existing
+  summary fields are unchanged and exit codes are unchanged. `xerj autoindex
+  map` and the MCP `xerj_map` response include the same warnings
+  ([#2370](https://github.com/xerj-org/xerj/issues/2370)).
+
 - With `[cluster] enabled = true`, `POST /{index}/_update_by_query` runs on
   every shard primary, whichever member accepted the request. Each primary
   updates the documents in its own shard and copies those updates to the
