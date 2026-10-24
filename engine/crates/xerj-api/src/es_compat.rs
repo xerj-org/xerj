@@ -31557,6 +31557,80 @@ pub(crate) fn aggregate_by_query_results(mut results: Vec<Value>, count_key: &st
     Value::Object(out)
 }
 
+/// Build the cluster fan-out off this handler's state machine.
+///
+/// `delete_by_query` is already large enough that a debug build's worker
+/// stack (2 MiB, the `#[tokio::test]` default) overflows once a second copy
+/// of the runner is inlined into the same future. `[cluster] enabled = false`
+/// never polls the fan-out, so the future is allocated here and only the
+/// pointer is stored on the handler. `inline(never)` keeps that allocation
+/// in this frame: inlining it back into `delete_by_query` puts the fan-out
+/// on the worker stack again.
+#[inline(never)]
+fn begin_cluster_delete_by_query(
+    state: AppState,
+    index_names: Vec<String>,
+    parts: crate::cluster_shard::DeleteByQueryParts,
+    wait_for_completion: bool,
+    handle: crate::state::TaskHandle,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>> {
+    Box::pin(cluster_delete_by_query(
+        state,
+        index_names,
+        parts,
+        wait_for_completion,
+        handle,
+    ))
+}
+
+async fn cluster_delete_by_query(
+    state: AppState,
+    index_names: Vec<String>,
+    parts: crate::cluster_shard::DeleteByQueryParts,
+    wait_for_completion: bool,
+    handle: crate::state::TaskHandle,
+) -> Response {
+    if !wait_for_completion {
+        let task_key = handle.key().to_string();
+        let spawned_key = task_key.clone();
+        let tasks = state.tasks.clone();
+        let names = index_names.clone();
+        // The fan-out calls `Engine::get_index` on the detached task, so
+        // the request's visibility rule has to come with it. See
+        // `xerj_engine::index_guard`.
+        let rule = xerj_engine::index_guard::current();
+        tokio::spawn(xerj_engine::index_guard::scoped_opt(rule, async move {
+            let mut results = Vec::with_capacity(names.len());
+            for name in &names {
+                results.push(
+                    crate::cluster_shard::pin_delete_by_query_on_primaries(
+                        state.clone(),
+                        name.clone(),
+                        parts.clone(),
+                    )
+                    .await,
+                );
+            }
+            tasks.complete(&spawned_key, aggregate_by_query_results(results, "deleted"));
+            drop(handle);
+        }));
+        return Json(json!({ "task": task_key })).into_response();
+    }
+    let mut results = Vec::with_capacity(index_names.len());
+    for name in &index_names {
+        results.push(
+            crate::cluster_shard::pin_delete_by_query_on_primaries(
+                state.clone(),
+                name.clone(),
+                parts.clone(),
+            )
+            .await,
+        );
+    }
+    drop(handle);
+    by_query_response(aggregate_by_query_results(results, "deleted"))
+}
+
 pub async fn delete_by_query(
     State(state): State<AppState>,
     Path(index): Path<String>,
@@ -31565,7 +31639,7 @@ pub async fn delete_by_query(
 ) -> impl IntoResponse {
     // Fan the selector out to every member of a multi-index alias (#450), with
     // any alias filter already ANDed into the query.
-    let (indices, _index_names, effective_query) =
+    let (indices, index_names, effective_query) =
         match resolve_by_query_targets(&state, &index, body.query.clone()).await {
             Ok(t) => t,
             Err(e) => return ApiError::new(e).into_response(),
@@ -31596,6 +31670,22 @@ pub async fn delete_by_query(
         .unwrap_or(true);
     let handle = state.tasks.register("indices:data/write/delete/byquery");
 
+    if state.engine.has_cluster() {
+        let parts = crate::cluster_shard::DeleteByQueryParts {
+            query: effective_query,
+            max_docs: body.max_docs,
+            scroll_size,
+        };
+        return begin_cluster_delete_by_query(
+            state,
+            index_names,
+            parts,
+            wait_for_completion,
+            handle,
+        )
+        .await;
+    }
+
     if !wait_for_completion {
         let task_key = handle.key().to_string();
         let spawned_key = task_key.clone();
@@ -31609,9 +31699,11 @@ pub async fn delete_by_query(
         // `Engine::get_index` has to follow instead.
         tokio::spawn(async move {
             let mut results = Vec::with_capacity(indices.len());
-            for idx in &indices {
-                results
-                    .push(run_delete_by_query(idx, &task_query, task_max_docs, scroll_size).await);
+            for idx in indices {
+                results.push(
+                    pin_local_delete_by_query(idx, task_query.clone(), task_max_docs, scroll_size)
+                        .await,
+                );
             }
             tasks.complete(&spawned_key, aggregate_by_query_results(results, "deleted"));
             drop(handle);
@@ -31620,8 +31712,11 @@ pub async fn delete_by_query(
     }
 
     let mut results = Vec::with_capacity(indices.len());
-    for idx in &indices {
-        results.push(run_delete_by_query(idx, &effective_query, body.max_docs, scroll_size).await);
+    for idx in indices {
+        results.push(
+            pin_local_delete_by_query(idx, effective_query.clone(), body.max_docs, scroll_size)
+                .await,
+        );
     }
     drop(handle);
     by_query_response(aggregate_by_query_results(results, "deleted"))
@@ -31727,11 +31822,70 @@ async fn by_query_matches_anything(
     Ok(results.total.value > 0)
 }
 
+fn record_deleted(deleted_ids: &Option<std::sync::Arc<std::sync::Mutex<Vec<String>>>>, id: &str) {
+    let Some(ids) = deleted_ids else {
+        return;
+    };
+    ids.lock()
+        .unwrap_or_else(|err| err.into_inner())
+        .push(id.to_string());
+}
+
 async fn run_delete_by_query(
     idx: &std::sync::Arc<xerj_engine::Index>,
     query: &Value,
     max_docs: Option<u64>,
     scroll_size: usize,
+) -> Value {
+    run_delete_by_query_recorded(idx, query, max_docs, scroll_size, None).await
+}
+
+/// Box the single-node runner so `delete_by_query`'s future stays a pointer.
+///
+/// The cluster branch and this branch share one state machine. Leaving the
+/// runner inline makes that machine as large as the runner, and allocating
+/// it on a 2 MiB debug worker overflows before the cluster branch can
+/// forward. `inline(never)` builds the runner in this frame, then the box
+/// is what the handler stores. `[cluster] enabled = false` still runs this
+/// runner and no other.
+#[inline(never)]
+fn pin_local_delete_by_query(
+    idx: std::sync::Arc<xerj_engine::Index>,
+    query: Value,
+    max_docs: Option<u64>,
+    scroll_size: usize,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Value> + Send>> {
+    Box::pin(async move { run_delete_by_query(&idx, &query, max_docs, scroll_size).await })
+}
+
+/// Own the runner's arguments, then box it.
+///
+/// A primary's `_delete_by_query` is reached from the fan-out. Inlining the
+/// runner into that future puts the search state machine on the caller's
+/// stack and overflows a debug worker. The box is the same split
+/// [`run_update_by_query_recorded_boxed`] uses.
+#[inline(never)]
+pub(crate) fn run_delete_by_query_recorded_boxed(
+    idx: std::sync::Arc<xerj_engine::Index>,
+    query: Value,
+    max_docs: Option<u64>,
+    scroll_size: usize,
+    deleted_ids: Option<std::sync::Arc<std::sync::Mutex<Vec<String>>>>,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Value> + Send>> {
+    Box::pin(async move {
+        run_delete_by_query_recorded(&idx, &query, max_docs, scroll_size, deleted_ids).await
+    })
+}
+
+/// Same run as `run_delete_by_query`. When `deleted_ids` is set, every id
+/// this run removed is appended, including ids removed before a later page
+/// refuses the rest. The cluster primary copies that list onto its replicas.
+pub(crate) async fn run_delete_by_query_recorded(
+    idx: &std::sync::Arc<xerj_engine::Index>,
+    query: &Value,
+    max_docs: Option<u64>,
+    scroll_size: usize,
+    deleted_ids: Option<std::sync::Arc<std::sync::Mutex<Vec<String>>>>,
 ) -> Value {
     let started = Instant::now();
 
@@ -31809,7 +31963,10 @@ async fn run_delete_by_query(
             for id in chunk {
                 processed += 1;
                 match idx.delete_document(id).await {
-                    Ok(_) => deleted += 1,
+                    Ok(_) => {
+                        deleted += 1;
+                        record_deleted(&deleted_ids, id);
+                    }
                     Err(e) => {
                         failures.push(json!({
                             "id": id,
@@ -31914,7 +32071,10 @@ async fn run_delete_by_query(
         for hit in results.hits {
             processed += 1;
             match idx.delete_document(&hit.id).await {
-                Ok(_) => deleted += 1,
+                Ok(_) => {
+                    deleted += 1;
+                    record_deleted(&deleted_ids, &hit.id);
+                }
                 Err(e) => {
                     failures.push(json!({
                         "id": hit.id,

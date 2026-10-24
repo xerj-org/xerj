@@ -65,7 +65,7 @@
 //! |---|---|
 //! | `xerj-api::es_compat::spawn_datafeed_task` | **carries the rule** — the one detached path that resolves an index name |
 //! | `es_compat::search_impl`'s search task | owns one already-authorized `Index`; `terms`/`lookup` targets are resolved earlier, on the request's task |
-//! | `es_compat::delete_by_query` (`wait_for_completion=false`) | same: one already-authorized `Index` handle, no `Engine` |
+//! | `es_compat::delete_by_query` (`wait_for_completion=false`) | cluster path **carries the rule** — it calls `Engine` to reach shard primaries. The single-node path owns already-authorized `Index` handles and does not |
 //! | `es_compat::update_by_query` (`wait_for_completion=false`) | cluster path **carries the rule** — it calls `Engine` to reach shard primaries. The single-node path owns already-authorized `Index` handles and does not |
 //! | `Engine::spawn_pit_sweeper`, `spawn_search_context_sweeper` | started by `Engine::new`, capture only the PIT/scroll maps, touch no index |
 //! | `Index`'s flush/merge/warm tasks (`index.rs`, `write_publication.rs`) | methods **on** an already-resolved `Index`; the name has already been through the funnel |

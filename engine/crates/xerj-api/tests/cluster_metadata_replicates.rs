@@ -446,6 +446,88 @@ async fn cluster_disabled_create_stays_on_the_node_that_received_it() {
     );
 }
 
+/// `_delete_by_query` with no cluster handle stays on the node that accepted
+/// it. The runner does not fit a 2 MiB debug worker once it is under the
+/// router, so this test sizes its own stacks. The HTTP result is the
+/// single-node runner: one document deleted, the other left in place, and
+/// no replica store.
+#[test]
+fn cluster_disabled_delete_by_query_stays_on_the_node_that_received_it() {
+    std::thread::Builder::new()
+        .stack_size(8 * 1024 * 1024)
+        .spawn(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
+                .thread_stack_size(8 * 1024 * 1024)
+                .enable_all()
+                .build()
+                .expect("runtime")
+                .block_on(
+                    cluster_disabled_delete_by_query_stays_on_the_node_that_received_it_inner(),
+                )
+        })
+        .expect("spawn")
+        .join()
+        .expect("test thread panicked");
+}
+
+async fn cluster_disabled_delete_by_query_stays_on_the_node_that_received_it_inner() {
+    async fn lone() -> (Router, tempfile::TempDir) {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut config = xerj_common::config::Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let metrics = xerj_common::metrics::Metrics::new().expect("metrics");
+        let engine = xerj_engine::Engine::new(config.clone()).expect("engine");
+        assert!(!engine.has_cluster());
+        let state = xerj_api::state::AppState::new(config, engine, metrics);
+        (xerj_api::router::build_es_compat_router(state), dir)
+    }
+
+    let (a, _dir_a) = lone().await;
+    let (b, _dir_b) = lone().await;
+    let (status, body) = put_json(&a, "/local", json!({})).await;
+    assert!(status.is_success(), "{status} {body}");
+    let (status, body) = put_json(&a, "/local/_doc/1", json!({ "title": "here" })).await;
+    assert!(status.is_success(), "{status} {body}");
+    let (status, body) = put_json(&a, "/local/_doc/b1", json!({ "title": "bulk" })).await;
+    assert!(status.is_success(), "{status} {body}");
+
+    let (status, body) = post_json(
+        &a,
+        "/local/_delete_by_query",
+        json!({ "query": { "ids": { "values": ["b1"] } } }),
+    )
+    .await;
+    assert!(
+        status.is_success(),
+        "single-node delete_by_query: {status} {body}"
+    );
+    assert_eq!(
+        body.get("deleted").and_then(|v| v.as_u64()),
+        Some(1),
+        "{body}"
+    );
+    let (status, _) = get(&a, "/local/_doc/b1").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, got) = get(&a, "/local/_doc/1").await;
+    assert_eq!(status, StatusCode::OK, "{got}");
+    assert_eq!(
+        got.pointer("/_source/title").and_then(|v| v.as_str()),
+        Some("here"),
+        "an ids query on one node still leaves the other document: {got}"
+    );
+    let (status, _) = get(&b, "/local/_doc/1").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = get(&b, "/local/_doc/b1").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    let (status, _) = get(&a, "/.xerj_replica_local_0/_doc/b1").await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "single-node delete_by_query does not open a replica store"
+    );
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn an_acknowledged_write_is_on_the_replica_and_readable_after_the_primary_stops() {
     let members = ring(true).await;
@@ -2693,6 +2775,349 @@ async fn update_by_query_from_a_non_owner_updates_every_primary_and_replica() {
             .get("title")
             .and_then(|v| v.as_str()),
         Some("async")
+    );
+
+    for member in &members {
+        let _ = member.shutdown.send(true);
+    }
+}
+
+fn restore_shard_handler(member: &Member) {
+    member
+        .handle
+        .set_shard_handler(std::sync::Arc::new(ApiShardHandler::new(
+            member.state.clone(),
+        )));
+}
+
+async fn index_titled(app: &Router, id: &str, title: &str) {
+    let (status, body) = put_json(
+        app,
+        &format!("/orders/_doc/{id}"),
+        json!({ "title": title }),
+    )
+    .await;
+    assert!(status.is_success(), "index {id}: {status} {body}");
+}
+
+/// `_delete_by_query` accepted by a node that owns neither document deletes
+/// on every primary and copies each delete onto the in-sync replica.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn delete_by_query_from_a_non_owner_deletes_on_every_primary_and_replica() {
+    let members = ring(true).await;
+    let _leader = wait_leader(&members, &[false, false, false]).await;
+
+    let (status, body) = put_json(
+        &members[0].app,
+        "/orders",
+        json!({
+            "settings": { "index": { "number_of_replicas": 1 } },
+            "mappings": { "properties": { "title": { "type": "text" } } }
+        }),
+    )
+    .await;
+    assert!(status.is_success(), "create: {status} {body}");
+    for member in &members {
+        wait_status(&member.app, "/orders", StatusCode::OK).await;
+    }
+
+    let mut placed: Vec<(String, usize, usize, u32)> = Vec::new();
+    for n in 0..128 {
+        let id = format!("d{n}");
+        let Some(primary) = members
+            .iter()
+            .position(|member| member.engine.owns_shard("orders", &id))
+        else {
+            continue;
+        };
+        let (shard, _) = members[primary]
+            .engine
+            .primary_of("orders", &id)
+            .expect("placement");
+        let replicas = members[primary].engine.replica_nodes("orders", shard);
+        if replicas.len() != 1 {
+            continue;
+        }
+        let Some(replica) = members
+            .iter()
+            .position(|member| member.handle.node_id() == replicas[0])
+        else {
+            continue;
+        };
+        if placed.iter().any(|(_, owner, _, _)| *owner == primary) {
+            continue;
+        }
+        placed.push((id, primary, replica, shard));
+        if placed.len() == 2 {
+            break;
+        }
+    }
+    assert_eq!(placed.len(), 2, "two primaries: {placed:?}");
+    let (id_a, primary_a, replica_a, shard_a) = placed[0].clone();
+    let (id_b, primary_b, replica_b, shard_b) = placed[1].clone();
+    assert_ne!(primary_a, primary_b);
+    assert_ne!(replica_a, replica_b);
+    let writer = (0..3)
+        .find(|n| *n != primary_a && *n != primary_b)
+        .expect("a node that owns neither id");
+
+    index_titled(&members[writer].app, &id_a, "alpha").await;
+    index_titled(&members[writer].app, &id_b, "beta").await;
+    assert!(
+        user_source(&members[writer], &id_a).await.is_none(),
+        "the receiver stored {id_a}"
+    );
+
+    let (status, body) = post_json(
+        &members[writer].app,
+        "/orders/_delete_by_query",
+        json!({ "query": { "match_all": {} } }),
+    )
+    .await;
+    assert!(
+        status.is_success(),
+        "delete_by_query from non-owner: {status} {body}"
+    );
+    assert_eq!(
+        body.get("deleted").and_then(|v| v.as_u64()),
+        Some(2),
+        "{body}"
+    );
+    assert_eq!(
+        body.get("failures")
+            .and_then(|v| v.as_array())
+            .map(|items| items.len()),
+        Some(0),
+        "{body}"
+    );
+    assert!(user_source(&members[primary_a], &id_a).await.is_none());
+    assert!(user_source(&members[primary_b], &id_b).await.is_none());
+    assert!(replica_source(&members[replica_a], shard_a, &id_a)
+        .await
+        .is_none());
+    assert!(replica_source(&members[replica_b], shard_b, &id_b)
+        .await
+        .is_none());
+    assert!(user_source(&members[writer], &id_a).await.is_none());
+    assert!(user_source(&members[writer], &id_b).await.is_none());
+    let (status, got) = get(&members[writer].app, &format!("/orders/_doc/{id_a}")).await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "GET after delete_by_query: {status} {got}"
+    );
+
+    members[primary_a].handle.clear_shard_handler();
+    let (status, got) = get(&members[writer].app, &format!("/orders/_doc/{id_a}")).await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "a primary that is down still does not serve a copy the delete removed: {status} {got}"
+    );
+    restore_shard_handler(&members[primary_a]);
+
+    index_titled(&members[writer].app, &id_a, "alpha").await;
+    index_titled(&members[writer].app, &id_b, "beta").await;
+    let (status, body) = post_json(
+        &members[writer].app,
+        "/orders/_delete_by_query",
+        json!({ "query": { "ids": { "values": [id_a] } } }),
+    )
+    .await;
+    assert!(status.is_success(), "ids delete_by_query: {status} {body}");
+    assert_eq!(
+        body.get("deleted").and_then(|v| v.as_u64()),
+        Some(1),
+        "{body}"
+    );
+    assert!(user_source(&members[primary_a], &id_a).await.is_none());
+    assert!(replica_source(&members[replica_a], shard_a, &id_a)
+        .await
+        .is_none());
+    assert_eq!(
+        user_source(&members[primary_b], &id_b)
+            .await
+            .expect("primary b")
+            .get("title")
+            .and_then(|v| v.as_str()),
+        Some("beta"),
+        "the other shard stays"
+    );
+    assert_eq!(
+        replica_source(&members[replica_b], shard_b, &id_b)
+            .await
+            .expect("replica b")
+            .get("title")
+            .and_then(|v| v.as_str()),
+        Some("beta")
+    );
+
+    index_titled(&members[writer].app, &id_a, "alpha").await;
+    let (status, body) = post_json(
+        &members[writer].app,
+        "/orders/_delete_by_query",
+        json!({ "query": { "match": { "title": "alpha" } } }),
+    )
+    .await;
+    assert!(
+        status.is_success(),
+        "match delete_by_query: {status} {body}"
+    );
+    assert_eq!(
+        body.get("deleted").and_then(|v| v.as_u64()),
+        Some(1),
+        "a non-ids query still deletes on the owning primary: {body}"
+    );
+    assert!(user_source(&members[primary_a], &id_a).await.is_none());
+    assert!(replica_source(&members[replica_a], shard_a, &id_a)
+        .await
+        .is_none());
+    assert_eq!(
+        user_source(&members[primary_b], &id_b)
+            .await
+            .expect("primary b")
+            .get("title")
+            .and_then(|v| v.as_str()),
+        Some("beta")
+    );
+    assert_eq!(
+        replica_source(&members[replica_b], shard_b, &id_b)
+            .await
+            .expect("replica b")
+            .get("title")
+            .and_then(|v| v.as_str()),
+        Some("beta")
+    );
+
+    index_titled(&members[writer].app, &id_a, "alpha").await;
+    let (status, body) = post_json(
+        &members[writer].app,
+        "/orders/_delete_by_query",
+        json!({ "query": { "match_all": {} }, "max_docs": 1 }),
+    )
+    .await;
+    assert!(
+        status.is_success(),
+        "max_docs delete_by_query: {status} {body}"
+    );
+    assert_eq!(
+        body.get("deleted").and_then(|v| v.as_u64()),
+        Some(1),
+        "max_docs is one budget for the index, not one per shard: {body}"
+    );
+    let left_a = user_source(&members[primary_a], &id_a).await.is_some();
+    let left_b = user_source(&members[primary_b], &id_b).await.is_some();
+    assert_eq!(
+        left_a as u8 + left_b as u8,
+        1,
+        "exactly one primary still has its document"
+    );
+    assert_eq!(
+        replica_source(&members[replica_a], shard_a, &id_a)
+            .await
+            .is_some(),
+        left_a,
+        "replica a matches the primary"
+    );
+    assert_eq!(
+        replica_source(&members[replica_b], shard_b, &id_b)
+            .await
+            .is_some(),
+        left_b,
+        "replica b matches the primary"
+    );
+
+    index_titled(&members[writer].app, &id_a, "async").await;
+    index_titled(&members[writer].app, &id_b, "async").await;
+    let (status, body) = post_json(
+        &members[writer].app,
+        "/orders/_delete_by_query?wait_for_completion=false",
+        json!({ "query": { "match_all": {} } }),
+    )
+    .await;
+    assert!(
+        status.is_success(),
+        "async delete_by_query: {status} {body}"
+    );
+    let task = body
+        .get("task")
+        .and_then(|v| v.as_str())
+        .unwrap_or_else(|| panic!("task id: {body}"))
+        .to_string();
+    let deadline = Instant::now() + Duration::from_secs(5);
+    let completed = loop {
+        let (status, got) = get(&members[writer].app, &format!("/_tasks/{task}")).await;
+        if status.is_success() && got.get("completed").and_then(|v| v.as_bool()) == Some(true) {
+            break got;
+        }
+        if Instant::now() > deadline {
+            panic!("task {task} did not finish: {status} {got}");
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    };
+    assert_eq!(
+        completed
+            .pointer("/response/deleted")
+            .and_then(|v| v.as_u64()),
+        Some(2),
+        "{completed}"
+    );
+    assert!(user_source(&members[primary_a], &id_a).await.is_none());
+    assert!(user_source(&members[primary_b], &id_b).await.is_none());
+    assert!(replica_source(&members[replica_a], shard_a, &id_a)
+        .await
+        .is_none());
+    assert!(replica_source(&members[replica_b], shard_b, &id_b)
+        .await
+        .is_none());
+
+    index_titled(&members[writer].app, &id_a, "stay").await;
+    index_titled(&members[writer].app, &id_b, "stay").await;
+    members[primary_a].handle.clear_shard_handler();
+    let (status, body) = post_json(
+        &members[writer].app,
+        "/orders/_delete_by_query",
+        json!({ "query": { "match_all": {} } }),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::SERVICE_UNAVAILABLE,
+        "a primary that does not answer refuses before writing: {body}"
+    );
+    assert_eq!(
+        user_source(&members[primary_a], &id_a)
+            .await
+            .expect("primary a")
+            .get("title")
+            .and_then(|v| v.as_str()),
+        Some("stay"),
+        "the down primary was not deleted"
+    );
+    assert_eq!(
+        replica_source(&members[replica_a], shard_a, &id_a)
+            .await
+            .expect("replica a")
+            .get("title")
+            .and_then(|v| v.as_str()),
+        Some("stay")
+    );
+    assert_eq!(
+        user_source(&members[primary_b], &id_b)
+            .await
+            .expect("primary b")
+            .get("title")
+            .and_then(|v| v.as_str()),
+        Some("stay"),
+        "a later primary is not deleted once an earlier one cannot be checked"
+    );
+    assert_eq!(
+        replica_source(&members[replica_b], shard_b, &id_b)
+            .await
+            .expect("replica b")
+            .get("title")
+            .and_then(|v| v.as_str()),
+        Some("stay")
     );
 
     for member in &members {

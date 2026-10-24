@@ -6,6 +6,8 @@
 //! and [`bulk_on_primaries`] send `_update` and `_bulk` to that same owner.
 //! [`update_by_query_on_primaries`] runs `_update_by_query` on every primary
 //! and each primary copies the documents it changed.
+//! [`delete_by_query_on_primaries`] runs `_delete_by_query` on every primary
+//! and each primary copies the deletes.
 //! The primary copies an index, delete, or the document an update stored
 //! onto the in-sync replicas and acknowledges the caller when a quorum of
 //! the copies has confirmed. A replica that does not
@@ -689,6 +691,23 @@ impl xerj_cluster::ShardHandler for ApiShardHandler {
                     script_source,
                     script_params_json,
                     pipeline,
+                    max_docs,
+                    scroll_size,
+                    check_only,
+                )
+                .await
+            }
+            ShardOp::DeleteByQuery {
+                index,
+                query_json,
+                max_docs,
+                scroll_size,
+                check_only,
+            } => {
+                handle_delete_by_query(
+                    &self.state,
+                    &index,
+                    &query_json,
                     max_docs,
                     scroll_size,
                     check_only,
@@ -2699,7 +2718,7 @@ fn has_replica_nack(body: &Value) -> bool {
         })
 }
 
-fn stamp_replica_nack(mut body: Value) -> Value {
+fn stamp_replica_nack(mut body: Value, reason: &str) -> Value {
     if !has_replica_nack(&body) {
         return body;
     }
@@ -2709,7 +2728,7 @@ fn stamp_replica_nack(mut body: Value) -> Value {
             "error".to_string(),
             json!({
                 "type": "replica_not_acknowledged",
-                "reason": "primary applied the update but a replica copy missed quorum. The primary has the update; retry the update so an in-sync replica can take the copy"
+                "reason": reason,
             }),
         );
     }
@@ -3023,5 +3042,322 @@ pub(crate) async fn update_by_query_on_primaries(
     if parts_out.is_empty() {
         return empty_update_by_query();
     }
-    stamp_replica_nack(aggregate_by_query_results(parts_out, "updated"))
+    stamp_replica_nack(
+        aggregate_by_query_results(parts_out, "updated"),
+        "primary applied the update but a replica copy missed quorum. The primary has the update; retry the update so an in-sync replica can take the copy",
+    )
+}
+
+// ── `_delete_by_query` on every primary ─────────────────────────────────────
+
+/// One `_delete_by_query` after the accepting node has validated the query.
+///
+/// [`delete_by_query_on_primaries`] borrows this. `max_docs` is the caller's
+/// cap for the whole index; the fan-out spends it across primaries.
+#[derive(Clone)]
+pub(crate) struct DeleteByQueryParts {
+    pub query: Value,
+    pub max_docs: Option<u64>,
+    pub scroll_size: usize,
+}
+
+/// Box the per-index fan-out so it is not inlined into `delete_by_query`.
+///
+/// Same split as [`pin_update_by_query_on_primaries`]: a debug worker stack
+/// overflows when the handler and the runner are both built on it.
+#[inline(never)]
+pub(crate) fn pin_delete_by_query_on_primaries(
+    state: AppState,
+    index: String,
+    parts: DeleteByQueryParts,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Value> + Send>> {
+    Box::pin(async move { delete_by_query_on_primaries(&state, &index, &parts).await })
+}
+
+fn delete_by_query_op(
+    index: &str,
+    parts: &DeleteByQueryParts,
+    max_docs: Option<u64>,
+    check_only: bool,
+) -> ShardOp {
+    ShardOp::DeleteByQuery {
+        index: index.to_string(),
+        query_json: parts.query.to_string(),
+        max_docs,
+        scroll_size: parts.scroll_size as u64,
+        check_only,
+    }
+}
+
+fn delete_by_query_unavailable(index: &str, detail: &str) -> Value {
+    json!({
+        "error": {
+            "type": "shard_not_ready",
+            "reason": format!("delete_by_query on [{index}] failed: {detail}")
+        },
+        "status": 503
+    })
+}
+
+fn empty_delete_by_query() -> Value {
+    json!({
+        "took": 0,
+        "timed_out": false,
+        "total": 0,
+        "deleted": 0,
+        "batches": 0,
+        "version_conflicts": 0,
+        "noops": 0,
+        "failures": [],
+        "throttled_millis": 0,
+        "requests_per_second": -1,
+        "throttled_until_millis": 0,
+    })
+}
+
+/// Index open, and this node is a primary when a plan exists.
+///
+/// `Err` is a body the HTTP layer can return. Nothing has been written.
+fn prepare_delete_by_query(state: &AppState, index: &str) -> Result<(), Value> {
+    if state.engine.get_index(index).is_err() {
+        return Err(serde_json::from_str(&shard_not_ready_body(index))
+            .unwrap_or_else(|_| delete_by_query_unavailable(index, "index is not open")));
+    }
+    let me = state.engine.routing_node_id();
+    let targets = state.engine.shard_search_targets(index);
+    if !targets.is_empty() && !targets.iter().any(|id| id == &me) {
+        let owner = targets.first().map(String::as_str).unwrap_or("unknown");
+        let body = not_this_primary(index, owner);
+        return Err(value_from_shard(&body));
+    }
+    Ok(())
+}
+
+async fn prepare_delete_by_query_wait(state: &AppState, index: &str) -> Result<(), Value> {
+    let deadline = Instant::now() + OWNER_READY_WAIT;
+    loop {
+        match prepare_delete_by_query(state, index) {
+            Err(body) if is_not_ready_value(&body) && Instant::now() < deadline => {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+            other => return other,
+        }
+    }
+}
+
+async fn forward_delete_by_query(state: &AppState, index: &str, owner: &str, op: ShardOp) -> Value {
+    let deadline = Instant::now() + OWNER_READY_WAIT;
+    loop {
+        match state.engine.forward_shard(owner, op.clone()).await {
+            Ok(result) if is_shard_not_ready(&result) && Instant::now() < deadline => {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+            Ok(result) => return value_from_shard(&result),
+            Err(err) => return delete_by_query_unavailable(index, &err.to_string()),
+        }
+    }
+}
+
+async fn copy_deleted_document(state: &AppState, index: &str, id: &str) -> Result<(), String> {
+    if state.engine.primary_of(index, id).is_none() {
+        return Ok(());
+    }
+    if !state.engine.owns_shard(index, id) {
+        return Err(format!(
+            "primary applied the delete on [{index}] but document [{id}] is not owned by this node"
+        ));
+    }
+    let op = ShardOp::DeleteDoc {
+        index: index.to_string(),
+        id: id.to_string(),
+        if_seq_no: None,
+        if_primary_term: None,
+        replica: false,
+        shard: 0,
+    };
+    replicate_write(state, index, id, op)
+        .await
+        .map_err(|nack| nack_reason(&nack))
+}
+
+async fn apply_delete_by_query_here(
+    state: &AppState,
+    index: &str,
+    parts: &DeleteByQueryParts,
+    max_docs: Option<u64>,
+) -> Value {
+    let idx = match state.engine.get_index(index) {
+        Ok(idx) => idx,
+        Err(err) => return delete_by_query_unavailable(index, &err.to_string()),
+    };
+    let recorded = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let mut body = crate::es_compat::run_delete_by_query_recorded_boxed(
+        idx,
+        parts.query.clone(),
+        max_docs,
+        parts.scroll_size,
+        Some(std::sync::Arc::clone(&recorded)),
+    )
+    .await;
+    let ids = recorded
+        .lock()
+        .unwrap_or_else(|err| err.into_inner())
+        .clone();
+    // A failed run may already have deleted some documents. Copy those before
+    // returning the error so a replica does not keep them.
+    let mut nacks = Vec::new();
+    for id in ids {
+        if let Err(reason) = copy_deleted_document(state, index, &id).await {
+            nacks.push((id, reason));
+        }
+    }
+    if body.get("status").is_some() {
+        return body;
+    }
+    if nacks.is_empty() {
+        return body;
+    }
+    let Some(obj) = body.as_object_mut() else {
+        return body;
+    };
+    let failures = obj
+        .entry("failures".to_string())
+        .or_insert_with(|| json!([]));
+    if let Some(failures) = failures.as_array_mut() {
+        for (id, reason) in nacks {
+            failures.push(json!({
+                "id": id,
+                "cause": {
+                    "type": "replica_not_acknowledged",
+                    "reason": reason,
+                }
+            }));
+        }
+    }
+    body
+}
+
+async fn handle_delete_by_query(
+    state: &AppState,
+    index: &str,
+    query_json: &str,
+    max_docs: Option<u64>,
+    scroll_size: u64,
+    check_only: bool,
+) -> ShardResult {
+    if let Err(body) = prepare_delete_by_query_wait(state, index).await {
+        let status = body
+            .get("status")
+            .and_then(Value::as_u64)
+            .and_then(|status| u16::try_from(status).ok())
+            .unwrap_or(503);
+        return ShardResult::http(status, body.to_string());
+    }
+    if check_only {
+        return ShardResult::http(200, json!({ "ok": true }).to_string());
+    }
+    let query = match serde_json::from_str::<Value>(query_json) {
+        Ok(query) => query,
+        Err(err) => {
+            return ShardResult::http(
+                400,
+                json!({
+                    "error": {
+                        "type": "parsing_exception",
+                        "reason": format!("delete_by_query query is not JSON: {err}")
+                    },
+                    "status": 400
+                })
+                .to_string(),
+            );
+        }
+    };
+    let parts = DeleteByQueryParts {
+        query,
+        max_docs,
+        scroll_size: scroll_size.max(1) as usize,
+    };
+    let value = apply_delete_by_query_here(state, index, &parts, max_docs).await;
+    let status = value
+        .get("status")
+        .and_then(Value::as_u64)
+        .and_then(|status| u16::try_from(status).ok())
+        .unwrap_or(200);
+    ShardResult::http(status, value.to_string())
+}
+
+/// Run `_delete_by_query` on every primary of `index` and copy the deletes.
+///
+/// Primaries are visited in node-id order so `max_docs` is one budget for the
+/// index. A primary that does not answer stops the call before any document
+/// is written. A later primary that fails after an earlier one has already
+/// applied is returned as that error; the earlier deletes stay.
+/// `[cluster] enabled = false` does not call this.
+pub(crate) async fn delete_by_query_on_primaries(
+    state: &AppState,
+    index: &str,
+    parts: &DeleteByQueryParts,
+) -> Value {
+    let targets = state.engine.shard_search_targets(index);
+    if targets.is_empty() {
+        // No plan: this node holds the whole index. There is no primary to
+        // call, so the run stays here. `replicate_write` does nothing when
+        // `primary_of` is `None`.
+        return apply_delete_by_query_here(state, index, parts, parts.max_docs).await;
+    }
+    // Every primary, including this node, is a shard call. The runner builds
+    // a search on the caller's stack, and that overflows a debug worker
+    // (2 MiB) once the fan-out is above it. `MemoryShardRpc` already runs a
+    // handler on an 8 MiB thread, so this node's own shard takes that path
+    // too. A primary that is not answering fails here, before any document
+    // is written.
+    for target in &targets {
+        let value = forward_delete_by_query(
+            state,
+            index,
+            target,
+            delete_by_query_op(index, parts, parts.max_docs, true),
+        )
+        .await;
+        if value.get("ok").and_then(Value::as_bool) != Some(true) {
+            return ensure_error_status(value);
+        }
+    }
+    if parts.max_docs == Some(0) {
+        return empty_delete_by_query();
+    }
+
+    let mut remaining = parts.max_docs;
+    let mut parts_out = Vec::with_capacity(targets.len());
+    for target in &targets {
+        if remaining == Some(0) {
+            break;
+        }
+        let cap = remaining;
+        let value = forward_delete_by_query(
+            state,
+            index,
+            target,
+            delete_by_query_op(index, parts, cap, false),
+        )
+        .await;
+        // A shard that failed its own run (flush, script limit, or a primary
+        // that stopped answering) has no `deleted` count. Replica nacks keep
+        // `deleted` and sit in `failures` until the aggregate below.
+        if value.get("deleted").is_none() {
+            return ensure_error_status(value);
+        }
+        if let Some(left) = remaining.as_mut() {
+            let used = value.get("total").and_then(Value::as_u64).unwrap_or(0);
+            *left = left.saturating_sub(used);
+        }
+        parts_out.push(value);
+    }
+    if parts_out.is_empty() {
+        return empty_delete_by_query();
+    }
+    stamp_replica_nack(
+        aggregate_by_query_results(parts_out, "deleted"),
+        "primary applied the delete but a replica copy missed quorum. The primary has the delete; retry the delete so an in-sync replica can take the copy",
+    )
 }

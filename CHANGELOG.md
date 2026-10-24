@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- With `[cluster] enabled = true`, `POST /{index}/_delete_by_query` runs on
+  every shard primary, whichever member accepted the request. Each primary
+  deletes the documents in its own shard and copies those deletes to the
+  in-sync replicas, with the same quorum as `DELETE /{index}/_doc/{id}`.
+  `max_docs` is one budget for the index, spent across primaries in
+  node-id order, not once per shard. A primary that does not answer
+  refuses the request before any document is written. A copy that misses
+  quorum is HTTP 503 `replica_not_acknowledged`: the primaries that ran
+  have the delete, and the response still reports `deleted` and
+  `failures`. `wait_for_completion=false` uses the same path. Native
+  `/v1` ingest still writes on the receiving node. A write still needs
+  the primary. `[cluster] enabled = false` does not take this path (part of
+  [#1170](https://github.com/xerj-org/xerj/issues/1170)).
+
 - With `[cluster] enabled = true`, `POST /{index}/_update_by_query` runs on
   every shard primary, whichever member accepted the request. Each primary
   updates the documents in its own shard and copies those updates to the
@@ -21,8 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `failures`. `?pipeline=` runs on the primary; a missing or unrunnable
   pipeline there is HTTP 400 and writes nothing. Pipelines are not
   replicated. `wait_for_completion=false` uses the same path.
-  `_delete_by_query` and native `/v1` ingest still write on the receiving
-  node. A write still needs the primary. `[cluster] enabled = false` does
+  Native `/v1` ingest still writes on the receiving node.
+  `_delete_by_query` is the entry above. A write still needs the primary.
+  `[cluster] enabled = false` does
   not take this path (part of
   [#1170](https://github.com/xerj-org/xerj/issues/1170)).
 
