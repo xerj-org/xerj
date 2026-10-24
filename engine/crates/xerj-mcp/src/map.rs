@@ -476,6 +476,12 @@ pub(crate) fn render_response(resp: &Value, args: &MapArgs) -> String {
             )),
         );
     }
+    // #2351: top-level, so a per-index byte trim cannot drop it. Indexes
+    // written before the aliases still need `ax_path` and `line`.
+    out.insert(
+        "locator_hint".into(),
+        json!(xerj_autoindex::HIT_LOCATOR_HINT),
+    );
     Value::Object(out).to_string()
 }
 
@@ -803,6 +809,9 @@ mod tests {
         let resp = catalog_response(vec![dataset_doc("ax-logs", 10, fields)]);
         let out: Value = serde_json::from_str(&render_response(&resp, &args(None))).unwrap();
         assert_eq!(out["matched"], 1);
+        let hint = out["locator_hint"].as_str().unwrap();
+        assert!(hint.contains("start_line"), "{hint}");
+        assert!(hint.contains("ax_path"), "{hint}");
         let idx = &out["indexes"][0];
         assert_eq!(idx["index"], "ax-logs");
         assert_eq!(idx["records"], 10);

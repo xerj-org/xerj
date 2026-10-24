@@ -1375,6 +1375,7 @@ fn emit_code_doc(
                 m.insert("name".into(), Value::String(s.name.clone()));
                 m.insert("kind".into(), Value::String(s.kind.clone()));
                 m.insert("line".into(), Value::Number((s.line as u64).into()));
+                m.insert("start_line".into(), Value::Number((s.line as u64).into()));
                 // #500: a client that wants the IMPLEMENTATION can now slice
                 // exactly `line`..`end_line` out of `body`. Without it the only
                 // way to bound a symbol was "up to where the next one starts",
@@ -1392,6 +1393,13 @@ fn emit_code_doc(
     }
     // The full source stays full-text searchable.
     fields.insert("body".into(), Value::String(text.to_string()));
+    // #2351: the file document has no `line`. The span of the stored text
+    // is what a `_source` include of start_line/end_line needs.
+    let line_count = text.lines().count() as u64;
+    if line_count > 0 {
+        fields.insert("start_line".into(), Value::Number(1.into()));
+        fields.insert("end_line".into(), Value::Number(line_count.into()));
+    }
 
     stats.records += 1;
     if !sink(RawRecord {
@@ -1437,8 +1445,10 @@ fn emit_code_doc(
             continue;
         }
         let mut sf = Map::new();
-        // `title` = the symbol so the hit reads as the declaration, `path` for
-        // citation, `name`/`code` searchable (the mapping exposes `name.keyword`
+        // `title` = the symbol so the hit reads as the declaration. `path`
+        // starts as the file name; `align_hit_locators` replaces that
+        // basename with the repo-relative path at stamp time (#2351).
+        // `name`/`code` stay searchable (the mapping exposes `name.keyword`
         // for exact-identifier ranking), `kind`/`line` for filtering + citation.
         sf.insert("title".into(), Value::String(name.clone()));
         sf.insert("path".into(), Value::String(file_path.clone()));
@@ -1446,6 +1456,7 @@ fn emit_code_doc(
         sf.insert("name".into(), Value::String(name.clone()));
         sf.insert("kind".into(), Value::String(s.kind.clone()));
         sf.insert("line".into(), Value::Number((line as u64).into()));
+        sf.insert("start_line".into(), Value::Number((line as u64).into()));
         sf.insert(
             "end_line".into(),
             Value::Number((s.end_line.max(line) as u64).into()),
@@ -1460,9 +1471,9 @@ fn emit_code_doc(
         // lines preceding the first nested definition so member bodies are not
         // duplicated inside the enclosing record. Functions keep their whole
         // body: a nested closure/inner def is part of what the function does.
-        // `reconcile_plan::ensure_compatible` exempts `impl` and `end_line` on
-        // pre-#1237 frozen datasets so incremental runs over older state dirs
-        // never abort.
+        // `reconcile_plan::ensure_compatible` exempts `impl`, `end_line`, and
+        // `start_line` on frozen datasets so incremental runs over older
+        // state dirs never abort.
         let impl_end_line = if !matches!(s.kind.as_str(), "function" | "method") {
             symbols
                 .iter()
@@ -2831,6 +2842,10 @@ mod tests {
             "…and must still stop where the body begins (#500): {code:?}"
         );
         assert_eq!(m.fields["line"], 5);
+        // #2351: a `_source` include of start_line/end_line has to locate a
+        // symbol. `line` stays; start_line is the same line.
+        assert_eq!(m.fields["start_line"], m.fields["line"]);
+        assert!(m.fields["end_line"].as_u64().unwrap() >= 5);
 
         let c = sym("DEFAULT_MAX_CONN");
         assert_eq!(
@@ -2855,6 +2870,9 @@ mod tests {
             .unwrap_or_else(|| panic!("{:?}", file_doc.fields["symbols"]));
         assert_eq!(entry["line"], 5);
         assert_eq!(entry["end_line"], 9);
+        assert_eq!(entry["start_line"], entry["line"]);
+        assert_eq!(file_doc.fields["start_line"], 1);
+        assert!(file_doc.fields["end_line"].as_u64().unwrap() >= 1);
     }
 
     /// The declaration slice is shape-based, not per-language, so the shapes

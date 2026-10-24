@@ -538,6 +538,7 @@ fn emit(logical: &Path, scan: &ScanOut, sink: Sink) -> ExtractStats {
                 m.insert("name".into(), Value::String(s.name.clone()));
                 m.insert("kind".into(), Value::String(s.kind.to_string()));
                 m.insert("line".into(), Value::Number((s.line as u64).into()));
+                m.insert("start_line".into(), Value::Number((s.line as u64).into()));
                 m.insert("end_line".into(), Value::Number((s.end_line as u64).into()));
                 Value::Object(m)
             })
@@ -549,6 +550,11 @@ fn emit(logical: &Path, scan: &ScanOut, sink: Sink) -> ExtractStats {
         );
     }
     fields.insert("body".into(), Value::String(scan.body.clone()));
+    let line_count = scan.body.lines().count() as u64;
+    if line_count > 0 {
+        fields.insert("start_line".into(), Value::Number(1.into()));
+        fields.insert("end_line".into(), Value::Number(line_count.into()));
+    }
     stats.records += 1;
     if !sink(RawRecord {
         fields,
@@ -570,11 +576,14 @@ fn emit(logical: &Path, scan: &ScanOut, sink: Sink) -> ExtractStats {
         }
         let mut sf = Map::new();
         sf.insert("title".into(), Value::String(s.name.clone()));
+        // Basename here; stamp time rewrites it to the repo-relative path
+        // when it still matches that basename (#2351).
         sf.insert("path".into(), Value::String(title.clone()));
         sf.insert("language".into(), Value::String("sql".into()));
         sf.insert("name".into(), Value::String(s.name.clone()));
         sf.insert("kind".into(), Value::String(s.kind.to_string()));
         sf.insert("line".into(), Value::Number((s.line as u64).into()));
+        sf.insert("start_line".into(), Value::Number((s.line as u64).into()));
         sf.insert("end_line".into(), Value::Number((s.end_line as u64).into()));
         sf.insert("code".into(), Value::String(s.code.clone()));
         if !s.impl_text.is_empty() {
@@ -644,6 +653,14 @@ mod tests {
         ] {
             assert!(defs.contains(want), "missing {want} in {defs}");
         }
+        let table = recs
+            .iter()
+            .find(|r| r.fields.get("name").and_then(|v| v.as_str()) == Some("rules"))
+            .expect("table symbol");
+        assert_eq!(table.fields["start_line"], table.fields["line"]);
+        assert!(table.fields.get("end_line").is_some());
+        let file = recs.iter().find(|r| r.locator == "code").expect("file doc");
+        assert_eq!(file.fields["start_line"], serde_json::json!(1));
     }
 
     #[test]

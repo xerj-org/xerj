@@ -653,9 +653,15 @@ pub fn assemble(drafts: &[EdgeDraft], edges_index: &str, created_at_ms: i64) -> 
     }
 }
 
-/// Create-if-absent write of the §2.5 brain meta doc. `create` semantics via
-/// a probing GET: a racing writer's meta doc must never be clobbered — it may
-/// carry a different `nodes_index` some reader already resolved through.
+/// Write the §2.5 brain meta doc.
+///
+/// A missing doc is created. An existing doc whose `nodes_index` names a
+/// different non-empty set is updated in place: only `nodes_index` changes,
+/// so `created_at`, `brain`, and `meta_version` stay. That is what makes
+/// `brain overview` follow a later `xerj autoindex --prefix` of the same
+/// folder (#2351). The same set, ignoring order and surrounding spaces, is
+/// a no-op. An empty desired list does not wipe a pointer a reader already
+/// resolved. `graph_api::link` still creates the doc only when it is absent.
 pub fn ensure_brain_meta(
     es: &Es,
     edges_index: &str,
@@ -663,21 +669,16 @@ pub fn ensure_brain_meta(
     nodes_index: &str,
     created_at_ms: i64,
 ) -> Result<()> {
-    if es.get_doc(edges_index, BRAIN_META_ID)?.is_some() {
-        return Ok(());
+    if let Some(existing) = es.get_doc(edges_index, BRAIN_META_ID)? {
+        return align_existing_brain_meta(es, edges_index, existing, nodes_index);
     }
-    let action = json!({"create": {"_index": edges_index, "_id": BRAIN_META_ID}});
     let doc = json!({
         "meta_version": 1,
         "brain": brain,
         "nodes_index": nodes_index,
         "created_at": created_at_ms,
     });
-    let mut body = action.to_string().into_bytes();
-    body.push(b'\n');
-    body.extend_from_slice(doc.to_string().as_bytes());
-    body.push(b'\n');
-    let outcome = es.bulk(body).context("write brain meta doc")?;
+    let outcome = write_brain_meta(es, edges_index, "create", &doc)?;
     if outcome.server_errors > 0 {
         return Err(anyhow!(
             "brain meta write failed: {}",
@@ -687,9 +688,85 @@ pub fn ensure_brain_meta(
                 .unwrap_or("unknown server error")
         ));
     }
-    // item_errors here can only be the create-conflict race — the doc exists,
-    // which is exactly the state we want.
+    if outcome.item_errors > 0 {
+        // Create conflict: another writer landed between the GET and the
+        // bulk. Align to this run when the doc is readable.
+        if let Some(existing) = es.get_doc(edges_index, BRAIN_META_ID)? {
+            return align_existing_brain_meta(es, edges_index, existing, nodes_index);
+        }
+        return Err(anyhow!(
+            "brain meta create conflicted and the doc is not readable: {}",
+            outcome
+                .first_error
+                .as_deref()
+                .unwrap_or("unknown item error")
+        ));
+    }
     Ok(())
+}
+
+fn align_existing_brain_meta(
+    es: &Es,
+    edges_index: &str,
+    existing: Value,
+    nodes_index: &str,
+) -> Result<()> {
+    let current = existing
+        .get("nodes_index")
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    if nodes_index_names(nodes_index).is_empty() || same_nodes_index(current, nodes_index) {
+        return Ok(());
+    }
+    let mut doc = existing;
+    let Some(obj) = doc.as_object_mut() else {
+        return Err(anyhow!("brain meta doc is not an object"));
+    };
+    obj.insert("nodes_index".into(), Value::String(nodes_index.to_string()));
+    let outcome = write_brain_meta(es, edges_index, "index", &doc)?;
+    if outcome.server_errors > 0 || outcome.item_errors > 0 {
+        return Err(anyhow!(
+            "brain meta update failed: {}",
+            outcome
+                .first_server_error
+                .as_deref()
+                .or(outcome.first_error.as_deref())
+                .unwrap_or("unknown error")
+        ));
+    }
+    Ok(())
+}
+
+fn nodes_index_names(raw: &str) -> Vec<&str> {
+    let mut names: Vec<&str> = raw
+        .split(',')
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .collect();
+    names.sort_unstable();
+    names.dedup();
+    names
+}
+
+fn same_nodes_index(current: &str, desired: &str) -> bool {
+    nodes_index_names(current) == nodes_index_names(desired)
+}
+
+fn write_brain_meta(
+    es: &Es,
+    edges_index: &str,
+    op: &str,
+    doc: &Value,
+) -> Result<crate::esclient::BulkOutcome> {
+    let action = match op {
+        "index" => json!({"index": {"_index": edges_index, "_id": BRAIN_META_ID}}),
+        _ => json!({"create": {"_index": edges_index, "_id": BRAIN_META_ID}}),
+    };
+    let mut body = action.to_string().into_bytes();
+    body.push(b'\n');
+    body.extend_from_slice(doc.to_string().as_bytes());
+    body.push(b'\n');
+    es.bulk(body).context("write brain meta doc")
 }
 
 /// Soft-invalidate every live edge whose keyword `field` equals `value`.

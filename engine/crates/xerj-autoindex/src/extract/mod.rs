@@ -940,6 +940,10 @@ fn section_record(
     // means something pass a base; DOCX/HTML sections carry none.
     if let Some(line) = start_line {
         fields.insert("start_line".into(), Value::Number(line.into()));
+        // #2351: a `_source` include of start_line/end_line needs both.
+        // The span is the lines this section actually stored.
+        let span = section.lines().count().max(1) as u64;
+        fields.insert("end_line".into(), Value::Number((line + span - 1).into()));
     }
     fields.insert("body".into(), Value::String(section));
     RawRecord {
@@ -1641,6 +1645,26 @@ mod section_tests {
         ));
         assert!(got.len() > 1, "the fixture must split");
         assert_eq!(got[0].0, 10, "the first section starts at base_line");
+        // The sink above kept only start_line. Re-read end_line from a
+        // one-section document: it is the last stored line, not a copy of
+        // the start when the body spans more than one line.
+        let mut one = Vec::new();
+        let mut one_stats = ExtractStats::default();
+        assert!(emit_document(
+            "t",
+            &[],
+            "alpha\nbeta\n",
+            Some(4),
+            MAX_RECORDS_PER_FILE,
+            &mut |r| {
+                one.push(r);
+                true
+            },
+            &mut one_stats
+        ));
+        assert_eq!(one.len(), 1);
+        assert_eq!(one[0].fields["start_line"], Value::Number(4.into()));
+        assert_eq!(one[0].fields["end_line"], Value::Number(5.into()));
         let lines: Vec<&str> = body.lines().collect();
         for (line, section) in &got {
             let first = section.lines().next().unwrap_or("");

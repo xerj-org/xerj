@@ -144,6 +144,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `xerj autoindex` updates a brain's `nodes_index` when this run's dataset
+  indexes differ from the stored set, so `brain overview` lists the prefix
+  just indexed instead of a stale `ax-*` list left by an earlier run of the
+  same folder. `created_at` is kept. Code and SQL records also store
+  `start_line` (the same value as `line` on a symbol, `1` on the file
+  document) and `end_line`. `path` on a code symbol is the repo-relative
+  path already stored in `ax_path`; a log or CSV `path` column is left as
+  the source wrote it. A `_source` include of `path`, `start_line`, and
+  `end_line` locates records this version writes. `line` and `ax_path` stay.
+  `xerj autoindex map` and MCP `xerj_map` name those locator fields,
+  including for an index written by an older build
+  ([#2351](https://github.com/xerj-org/xerj/issues/2351)).
+
 - `xerj autoindex` no longer junks every PDF on an OS that rejects
   `setrlimit(RLIMIT_AS)` (macOS 27 returns `EINVAL`; a hard limit below
   1536 MiB returns `EPERM`). The address-space cap is crash isolation: the

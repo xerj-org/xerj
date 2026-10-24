@@ -899,6 +899,10 @@ pub fn render_map_page(
             wall_clause,
         ));
     }
+    // #2351: locator names differ by record kind. The paragraph is on every
+    // map, including one rendered from a catalog written before the aliases.
+    s.push_str(crate::HIT_LOCATOR_HINT);
+    s.push_str("\n\n");
     // #929: a corpus that lacks a dataset says so at the top of its own map,
     // before the table that would otherwise read as the whole corpus.
     if let Some(refused) = run
@@ -1332,9 +1336,13 @@ mod duplicate_tests {
         let rendered = render_map(None, &[dataset], &[], &[], &[], 0);
         assert!(rendered.contains("`ax_path`"), "{rendered}");
         assert!(rendered.contains("`ax_locator`"), "{rendered}");
+        assert!(
+            rendered.contains(crate::HIT_LOCATOR_HINT),
+            "the map names locator fields even when the catalog predates them: {rendered}"
+        );
         let row = rendered
             .lines()
-            .find(|l| l.contains("`ax_path`"))
+            .find(|l| l.starts_with('|') && l.contains("`ax_path`"))
             .expect("ax_path row");
         assert!(
             row.contains("| — | 0%"),

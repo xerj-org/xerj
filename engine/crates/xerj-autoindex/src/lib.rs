@@ -502,6 +502,18 @@ fn graph_mapping_upgrade(plan: &Plan, dataset: &PlanDataset) -> Value {
         };
         properties.insert(spec.name.clone(), property);
     }
+    // #2351: `start_line` / `end_line` are mapped beside the frozen specs.
+    // A name the specs already declare (prose `start_line`) is not sent
+    // again. `end_line` is included when an older plan never inferred it,
+    // so a prose section that now stores the span is an explicit `long`.
+    if dataset.family == "docs" || dataset.family == "code" {
+        for name in ["start_line", "end_line"] {
+            if dataset.specs.iter().any(|spec| spec.name == name) || properties.contains_key(name) {
+                continue;
+            }
+            properties.insert(name.into(), json!({"type": "long"}));
+        }
+    }
     json!({"properties": properties})
 }
 
@@ -546,6 +558,12 @@ fn dataset_mapping_body(dataset: &PlanDataset, extra: &[infer::FieldSpec]) -> Va
                 .or_insert_with(|| json!({"type": "text"}));
             props
                 .entry("end_line".to_string())
+                .or_insert_with(|| json!({"type": "long"}));
+            // #2351: same place as `end_line`, outside `build_mapping`, so the
+            // generation identity does not move. A spec that already typed
+            // `start_line` (prose) is left alone.
+            props
+                .entry("start_line".to_string())
                 .or_insert_with(|| json!({"type": "long"}));
         }
     }
@@ -5252,6 +5270,105 @@ pub const PROVENANCE_FIELDS: &[&str] = &[
     "ax_run",
     "ax_format",
 ];
+
+/// Locator note for `xerj autoindex map` and MCP `xerj_map` (#2351).
+///
+/// Stored fields differ by record kind. This text is the discoverable
+/// contract for a `_source` include of `path`, `start_line`, and `end_line`,
+/// including indexes written before those aliases existed.
+pub const HIT_LOCATOR_HINT: &str = "\
+Every record stores its repo-relative path in `ax_path`. Code records also store \
+`line`, `start_line` (the same line) and `end_line`. `path` on a code symbol is \
+that relative path. Prose stores `start_line` and `end_line`. A `_source` include \
+of `path`, `start_line` and `end_line` locates records this version writes. On an \
+older index also request `ax_path` and `line`. Unchanged files are not rewritten \
+until the next republish or `--fresh`.";
+
+/// Give a staged record the locator names a client asks for (#2351).
+///
+/// `ax_path` stays the provenance field. `path` is filled with `rel` when
+/// the record has none. A code or SQL symbol stores only the file name in
+/// `path`; when that name is the basename of `rel`, it becomes `rel`, the
+/// same string as `ax_path`. Any other `path` — a log line's
+/// `/uploads/fw.bin`, a CSV column — is left as the source wrote it.
+/// A numeric `line` is copied into a missing `start_line`, and into a
+/// missing `end_line`. Values the extractor already set are not overwritten.
+pub(crate) fn align_hit_locators(fields: &mut Map<String, Value>, rel: &str) {
+    let base = rel.rsplit(['/', '\\']).next().unwrap_or(rel);
+    let symbol = fields.get("line").is_some_and(|v| v.is_number())
+        && fields.get("name").is_some_and(|v| v.is_string())
+        && fields.get("kind").is_some_and(|v| v.is_string());
+    if symbol {
+        let replace = match fields.get("path").and_then(Value::as_str) {
+            None => true,
+            Some(path) => path == base && path != rel,
+        };
+        if replace && !rel.is_empty() {
+            fields.insert("path".into(), Value::String(rel.to_string()));
+        }
+    } else if !fields.contains_key("path") && !rel.is_empty() {
+        fields.insert("path".into(), Value::String(rel.to_string()));
+    }
+    if !fields.contains_key("start_line") {
+        if let Some(line) = fields.get("line").filter(|v| v.is_number()).cloned() {
+            fields.insert("start_line".into(), line);
+        }
+    }
+    if !fields.contains_key("end_line") {
+        if let Some(line) = fields.get("line").filter(|v| v.is_number()).cloned() {
+            fields.insert("end_line".into(), line);
+        }
+    }
+}
+
+#[cfg(test)]
+mod hit_locator_tests {
+    use super::align_hit_locators;
+    use serde_json::{json, Value};
+
+    fn fields(value: Value) -> serde_json::Map<String, Value> {
+        value.as_object().cloned().unwrap()
+    }
+
+    #[test]
+    fn symbol_path_becomes_the_relative_path_and_line_is_aliased() {
+        let mut doc = fields(json!({
+            "name": "dailyCheckIn",
+            "kind": "function",
+            "path": "dailyCheckIn.ts",
+            "line": 1,
+            "end_line": 3
+        }));
+        align_hit_locators(&mut doc, "src/bot/dailyCheckIn.ts");
+        assert_eq!(doc["path"], json!("src/bot/dailyCheckIn.ts"));
+        assert_eq!(doc["start_line"], json!(1));
+        assert_eq!(doc["end_line"], json!(3), "a real span is not collapsed");
+        let once = doc.clone();
+        align_hit_locators(&mut doc, "src/bot/dailyCheckIn.ts");
+        assert_eq!(doc, once);
+    }
+
+    #[test]
+    fn a_content_path_is_not_rewritten() {
+        let mut doc = fields(json!({
+            "path": "/uploads/fw.bin",
+            "message": "wrote firmware"
+        }));
+        align_hit_locators(&mut doc, "logs/xferlog");
+        assert_eq!(doc["path"], json!("/uploads/fw.bin"));
+        assert!(doc.get("start_line").is_none());
+        assert!(doc.get("end_line").is_none());
+    }
+
+    #[test]
+    fn prose_gains_path_without_clobbering_its_span() {
+        let mut doc = fields(json!({"body": "hello", "start_line": 4, "end_line": 9}));
+        align_hit_locators(&mut doc, "notes.md");
+        assert_eq!(doc["path"], json!("notes.md"));
+        assert_eq!(doc["start_line"], json!(4));
+        assert_eq!(doc["end_line"], json!(9));
+    }
+}
 
 /// Spec for a field the PIPELINE derives at index time (Unity script-link
 /// enrichment): typed keyword in the explicit mapping, zeroed sampling stats
@@ -10277,6 +10394,7 @@ fn run_index_report_inner(
                         fields.insert("ax_dataset".into(), Value::String(cf.dataset_slug.clone()));
                         fields.insert("ax_run".into(), Value::String(run_id.clone()));
                         fields.insert("ax_format".into(), Value::String(format_str(Some(&sn))));
+                        align_hit_locators(&mut fields, &f.rel);
                         let action = json!({"index": {
                                     "_index": rt.index, "_id": cf.anchor_doc_id}});
                         if let Err(error) = writeln!(
@@ -10347,6 +10465,10 @@ fn run_index_report_inner(
                     fields.insert("ax_dataset".into(), Value::String(slug.clone()));
                     fields.insert("ax_run".into(), Value::String(run_id.clone()));
                     fields.insert("ax_format".into(), Value::String(format_str(Some(&sn))));
+                    // #2351: after provenance, before the labeler, so a
+                    // `_source` include of path/start_line/end_line locates
+                    // the record that gets indexed.
+                    align_hit_locators(&mut fields, &f.rel);
                     // `--label` (#1062): decide the record BEFORE it is
                     // staged — after coerce, which would drop fields
                     // the plan does not describe, and before the bulk
@@ -14307,6 +14429,70 @@ mod stem_default_tests {
         assert_eq!(
             body.pointer("/mappings/properties/ax_paths"),
             Some(&json!({"type": "keyword"}))
+        );
+    }
+
+    /// #2351: `start_line` is mapped on docs/code beside `end_line`, outside
+    /// `build_mapping`, so a frozen generation identity does not move. A
+    /// prose spec that already declared `start_line` is not sent again by
+    /// the graph upgrade. A log dataset does not gain the field.
+    #[test]
+    fn start_line_is_mapped_for_code_without_touching_the_generation_identity() {
+        let mut code = dataset("code", None);
+        code.family = "code".into();
+        assert!(code.specs.iter().all(|spec| spec.name != "start_line"));
+        let plan = Plan {
+            datasets: vec![code.clone()],
+            ..Plan::default()
+        };
+        let before = generation_contract_identities(&plan).unwrap();
+        let body = dataset_create_body(&code);
+        assert_eq!(
+            body.pointer("/mappings/properties/start_line/type"),
+            Some(&json!("long")),
+            "{body}"
+        );
+        assert_eq!(
+            body.pointer("/mappings/properties/end_line/type"),
+            Some(&json!("long"))
+        );
+        assert_eq!(before, generation_contract_identities(&plan).unwrap());
+        let upgrade = graph_mapping_upgrade(&plan, &code);
+        assert_eq!(
+            upgrade.pointer("/properties/start_line/type"),
+            Some(&json!("long")),
+            "{upgrade}"
+        );
+
+        let mut prose = dataset("docs", None);
+        prose.family = "docs".into();
+        let mut declared = prose.specs[0].clone();
+        declared.name = "start_line".into();
+        declared.es_type = "long".into();
+        prose.specs.push(declared);
+        let prose_plan = Plan {
+            datasets: vec![prose.clone()],
+            ..Plan::default()
+        };
+        let prose_upgrade = graph_mapping_upgrade(&prose_plan, &prose);
+        assert!(
+            prose_upgrade.pointer("/properties/start_line").is_none(),
+            "prose already maps start_line: {prose_upgrade}"
+        );
+        assert_eq!(
+            prose_upgrade.pointer("/properties/end_line/type"),
+            Some(&json!("long")),
+            "{prose_upgrade}"
+        );
+
+        let mut logs = dataset("logs", None);
+        logs.family = "logs".into();
+        let logs_body = dataset_create_body(&logs);
+        assert!(
+            logs_body
+                .pointer("/mappings/properties/start_line")
+                .is_none(),
+            "{logs_body}"
         );
     }
 

@@ -796,10 +796,12 @@ fn ensure_compatible(
             // received a frozen `FieldSpec` at genesis: it has nothing to type.
             // Its absence is therefore not drift (#580).
             //
-            // #1237: `impl` and `end_line` are installed on every docs/code
-            // mapping by `dataset_create_body`, outside the frozen specs.
-            // Re-inferring them here can elect `keyword` for a short `impl`
-            // and the server then refuses to change the existing `text` field.
+            // #1237 / #2351: `impl`, `end_line`, and `start_line` are installed
+            // on every docs/code mapping by `dataset_create_body`, outside
+            // the frozen specs. Re-inferring them here can elect `keyword`
+            // for a short `impl` and the server then refuses to change the
+            // existing `text` field. `start_line` is the same line `line`
+            // already stores, so it must not consume a field-cap slot.
             //
             // Any other absent scalar with a name the mapping can grow is
             // added by `widen_dataset` (#2176). A name that cannot be added
@@ -831,13 +833,14 @@ fn ensure_compatible(
     Ok(())
 }
 
-/// `impl` / `end_line` and object-valued sidecars are already accounted for
-/// and must not be re-inferred onto the frozen specs.
+/// `impl` / `end_line` / `start_line` and object-valued sidecars are already
+/// accounted for and must not be re-inferred onto the frozen specs.
 fn absent_field_is_tolerated(name: &str, acc: &FieldAcc, dataset: &PlanDataset) -> bool {
     if acc.n == 0 {
         return true;
     }
-    (name == "impl" || name == "end_line") && (dataset.family == "docs" || dataset.family == "code")
+    (name == "impl" || name == "end_line" || name == "start_line")
+        && (dataset.family == "docs" || dataset.family == "code")
 }
 
 /// A top-level field name `PUT /_mapping` can add without nesting or colliding
@@ -1535,8 +1538,9 @@ mod tests {
     /// `name`, `defs`, …) the frozen specs do not name. The retained file must
     /// stay on `docs` and those fields must be recorded beside the specs —
     /// not written into them, which would move the generation identity.
-    /// `impl` and `end_line` stay out of that list too: the create body
-    /// already maps them, and re-inferring `impl` can elect `keyword`.
+    /// `impl`, `end_line`, and `start_line` stay out of that list too: the
+    /// create body already maps them, and re-inferring `impl` can elect
+    /// `keyword`.
     #[test]
     fn retained_code_file_grows_a_function_and_docs_gains_code() {
         let mut previous = Plan {
@@ -1569,6 +1573,7 @@ mod tests {
             ("name".to_string(), acc(&[json!("cancel_request")])),
             ("kind".to_string(), acc(&[json!("function")])),
             ("line".to_string(), acc(&[json!(3)])),
+            ("start_line".to_string(), acc(&[json!(3)])),
             (
                 "symbols".to_string(),
                 acc(&[json!({"name": "cancel_request"})]),
@@ -1609,6 +1614,7 @@ mod tests {
         }
         assert!(!names.contains(&"impl"));
         assert!(!names.contains(&"end_line"));
+        assert!(!names.contains(&"start_line"));
         assert!(!names.contains(&"symbols"));
         let reason = plan.files["new-module"].rel.as_str();
         assert_eq!(reason, "module.py");

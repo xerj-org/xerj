@@ -945,3 +945,198 @@ fn replaced_file_soft_invalidates_its_prior_edges() {
         "invalidation surfaced in the run summary: {g}"
     );
 }
+
+fn preseed_meta(es: &MockEs, edges: &str, nodes_index: &str, created_at: i64) {
+    let mut store = BTreeMap::new();
+    store.insert(
+        detect::BRAIN_META_ID.to_string(),
+        json!({
+            "meta_version": 1,
+            "brain": "nbkristqik",
+            "nodes_index": nodes_index,
+            "created_at": created_at,
+        }),
+    );
+    es.docs.lock().unwrap().insert(edges.to_string(), store);
+}
+
+/// #2351: a later autoindex of the same folder under a new prefix must
+/// replace `nodes_index`. The first writer (default prefix `ax`, or
+/// `graph_api::link`'s memory default) used to stick forever because the
+/// meta doc is create-if-absent.
+#[test]
+fn ensure_brain_meta_replaces_stale_prefix_and_keeps_created_at() {
+    let es = MockEs::start();
+    let client = crate::esclient::Es::new(&es.url, None).unwrap();
+    let edges = ".xerj-memory-nbkristqik-edges";
+    preseed_meta(&es, edges, "ax-code,ax-docs", 42);
+
+    detect::ensure_brain_meta(
+        &client,
+        edges,
+        "nbkristqik",
+        "nbkristqik-code,nbkristqik-docs",
+        99,
+    )
+    .unwrap();
+    let meta = es.index(edges).remove(detect::BRAIN_META_ID).unwrap();
+    assert_eq!(
+        meta["nodes_index"],
+        json!("nbkristqik-code,nbkristqik-docs")
+    );
+    assert_eq!(meta["created_at"], json!(42), "created_at is not rewritten");
+    assert_eq!(meta["brain"], json!("nbkristqik"));
+    assert_eq!(meta["meta_version"], json!(1));
+
+    // Same set, different order: leave the stored string alone.
+    detect::ensure_brain_meta(
+        &client,
+        edges,
+        "nbkristqik",
+        "nbkristqik-docs, nbkristqik-code",
+        100,
+    )
+    .unwrap();
+    let again = es.index(edges).remove(detect::BRAIN_META_ID).unwrap();
+    assert_eq!(again, meta);
+
+    // An empty desired list must not wipe a pointer a reader already resolved.
+    detect::ensure_brain_meta(&client, edges, "nbkristqik", "", 101).unwrap();
+    assert_eq!(es.index(edges).remove(detect::BRAIN_META_ID).unwrap(), meta);
+
+    let fresh = ".xerj-memory-freshprefix-edges";
+    detect::ensure_brain_meta(
+        &client,
+        fresh,
+        "freshprefix",
+        "freshprefix-code,freshprefix-docs",
+        7,
+    )
+    .unwrap();
+    let created = es.index(fresh).remove(detect::BRAIN_META_ID).unwrap();
+    assert_eq!(
+        created["nodes_index"],
+        json!("freshprefix-code,freshprefix-docs")
+    );
+    assert_eq!(created["created_at"], json!(7));
+    assert_eq!(created["brain"], json!("freshprefix"));
+}
+
+/// #2351: `brain overview` reads `nodes_index` off this meta doc. A custom
+/// prefix on a folder that was already indexed under `ax` must show the
+/// indexes this run created, and a `_source` include of path/start_line/end_line
+/// must locate both code symbols and prose.
+#[test]
+fn custom_prefix_overview_and_hit_locators_follow_the_run() {
+    let parent = tempfile::tempdir().unwrap();
+    let corpus = parent.path().join("nbkristqik");
+    fs::create_dir_all(corpus.join("src/bot")).unwrap();
+    fs::write(
+        corpus.join("src/bot/dailyCheckIn.ts"),
+        "export function dailyCheckIn() {\n  return 1;\n}\n",
+    )
+    .unwrap();
+    fs::write(
+        corpus.join("notes.md"),
+        "Daily check-in lives in the bot.\n",
+    )
+    .unwrap();
+    // Three lines: the log family probe ignores a one-line file.
+    fs::write(
+        corpus.join("xferlog"),
+        "Fri Oct 16 09:06:58 2026 1 10.0.0.7 4242 /uploads/fw.bin b _ o r admin ftp 0 * c\n\
+         Fri Oct 16 09:07:10 2026 2 10.0.0.7 10 /uploads/invalid.bin b _ o r admin ftp 0 * i\n\
+         Sat Oct 17 11:00:00 2026 0 10.0.0.9 0 /pub/README b _ i a guest ftp 0 * c\n",
+    )
+    .unwrap();
+    let state = tempfile::tempdir().unwrap();
+    let es = MockEs::start();
+    let edges = ".xerj-memory-nbkristqik-edges";
+    preseed_meta(&es, edges, "ax-code,ax-docs", 1);
+
+    let mut cfg = cfg(&corpus, state.path(), &es.url);
+    cfg.prefix = "nbkristqik".into();
+    cfg.brain = None;
+    assert_eq!(crate::run_index(cfg).unwrap(), 0);
+
+    let meta = &es.index(edges)[detect::BRAIN_META_ID];
+    assert_eq!(meta["brain"], json!("nbkristqik"));
+    assert_eq!(meta["created_at"], json!(1));
+    let listed: Vec<&str> = meta["nodes_index"]
+        .as_str()
+        .unwrap()
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect();
+    assert!(
+        listed.iter().all(|name| name.starts_with("nbkristqik-")),
+        "overview nodes_index must be this prefix, not a stale ax-* list: {listed:?}"
+    );
+    assert!(
+        listed.iter().all(|name| !name.starts_with("ax-")),
+        "{listed:?}"
+    );
+    let live: BTreeMap<String, BTreeMap<String, Value>> = es
+        .docs
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|(index, _)| index.starts_with("nbkristqik-"))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    let mut live_names: Vec<&str> = live.keys().map(String::as_str).collect();
+    live_names.sort_unstable();
+    let mut listed_sorted = listed.clone();
+    listed_sorted.sort_unstable();
+    assert_eq!(
+        listed_sorted, live_names,
+        "nodes_index is exactly the datasets"
+    );
+
+    let mut saw_symbol = false;
+    let mut saw_code_file = false;
+    let mut saw_prose = false;
+    let mut saw_log_path = false;
+    for docs in live.values() {
+        for source in docs.values() {
+            let rel = source.get("ax_path").and_then(Value::as_str).unwrap_or("");
+            let locator = source
+                .get("ax_locator")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            if source.get("name").and_then(Value::as_str) == Some("dailyCheckIn") {
+                saw_symbol = true;
+                assert_eq!(source["path"], json!("src/bot/dailyCheckIn.ts"));
+                assert_eq!(source["ax_path"], json!("src/bot/dailyCheckIn.ts"));
+                assert_eq!(source["start_line"], source["line"]);
+                assert!(source.get("end_line").is_some(), "{source}");
+            }
+            if rel == "src/bot/dailyCheckIn.ts" && locator == "code" {
+                saw_code_file = true;
+                assert_eq!(source["path"], json!(rel));
+                assert_eq!(source["start_line"], json!(1));
+                assert!(source["end_line"].as_u64().unwrap_or(0) >= 1);
+            }
+            if rel == "notes.md" && locator.starts_with('s') {
+                saw_prose = true;
+                assert_eq!(source["path"], json!("notes.md"));
+                assert_eq!(source["ax_path"], json!("notes.md"));
+                assert!(source.get("start_line").is_some(), "{source}");
+                assert!(source.get("end_line").is_some(), "{source}");
+            }
+            if source.get("path").and_then(Value::as_str) == Some("/uploads/fw.bin") {
+                saw_log_path = true;
+                assert_eq!(source["ax_path"], json!("xferlog"));
+                assert_ne!(source["path"], json!("xferlog"));
+            }
+        }
+    }
+    assert!(saw_symbol, "dailyCheckIn symbol document was not indexed");
+    assert!(saw_code_file, "code file document was not indexed");
+    assert!(saw_prose, "prose section was not indexed");
+    assert!(
+        saw_log_path,
+        "xferlog path column must stay /uploads/fw.bin"
+    );
+}
