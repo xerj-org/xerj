@@ -1088,6 +1088,7 @@ mod tests {
             keys: vec![key.into()],
             digests: vec![format!("digest-{key}")],
             duplicates: vec![],
+            unreadable: vec![],
         }
     }
 
@@ -1468,6 +1469,7 @@ mod tests {
             keys: vec!["cfg".into()],
             digests: vec!["digest-cfg".into()],
             duplicates: vec![],
+            unreadable: vec![],
         };
         let plan = reconcile_plan(&inv, &previous, vec![file_scan], 50, REBUILD).unwrap();
         assert_eq!(plan.files["cfg"].assignments, vec![(None, "docs".into())]);
@@ -1821,6 +1823,7 @@ mod tests {
             keys: vec!["same-key".into(), "same-key".into()],
             digests: vec!["digest".into(), "digest".into()],
             duplicates: vec![],
+            unreadable: vec![],
         };
         let error = reconcile_plan(
             &duplicate,

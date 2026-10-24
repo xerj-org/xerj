@@ -3887,6 +3887,7 @@ fn source_changed(path: &Path, detail: String) -> anyhow::Error {
     crate::content::SourceChanged {
         path: path.to_path_buf(),
         detail,
+        locked: false,
     }
     .into()
 }
@@ -5896,6 +5897,7 @@ mod tests {
             keys: vec![],
             digests: vec![],
             duplicates: vec![],
+            unreadable: vec![],
         };
         let empty_snapshot = create_snapshot(state.path(), "tx-delete", &empty).unwrap();
         let mut empty_plan = journal.committed_manifest.as_ref().unwrap().plan.clone();
@@ -5929,6 +5931,7 @@ mod tests {
             keys: vec![],
             digests: vec![],
             duplicates: vec![],
+            unreadable: vec![],
         };
         let snapshot = create_snapshot(state.path(), "tx-hostile", &inventory).unwrap();
         let mut journal =

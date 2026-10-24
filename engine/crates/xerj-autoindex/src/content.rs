@@ -10,6 +10,29 @@ use std::io::{BufReader, Read};
 use std::path::Path;
 use xxhash_rust::xxh3::Xxh3;
 
+/// Why a walked file could not be opened for the hash (#2352).
+///
+/// `Absent` is cross-platform (`ErrorKind::NotFound`). `Locked` is the Windows
+/// sharing violation (`ERROR_SHARING_VIOLATION` 32 and `ERROR_LOCK_VIOLATION`
+/// 33). Unix errno 32 is `EPIPE`, so the raw code is only a lock on Windows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReadFailureKind {
+    Absent,
+    Locked,
+}
+
+/// A file the walk listed and the hash could not open (#2352).
+///
+/// It is not a member of [`Inventory::files`]: there is no content digest, so
+/// it must not become a content group. The run records one `skipped` catalog
+/// row and continues.
+#[derive(Debug, Clone)]
+pub struct UnreadableSource {
+    pub file: FileEntry,
+    pub detail: String,
+    pub kind: ReadFailureKind,
+}
+
 pub struct Inventory {
     pub files: Vec<FileEntry>,
     /// Durable document identity. New plans use the full-content key.
@@ -17,6 +40,82 @@ pub struct Inventory {
     /// Full digest used to detect mutations even when a legacy key is retained.
     pub digests: Vec<String>,
     pub duplicates: Vec<DuplicateFile>,
+    /// Walked files that disappeared or were locked before the hash could read
+    /// them (#2352). Ordered by relative path.
+    pub unreadable: Vec<UnreadableSource>,
+}
+
+/// Classify an open/read failure that should skip one file instead of aborting.
+///
+/// Anything else (permission denied without a Windows lock code, `EIO`, a
+/// directory) stays fatal. `ErrorKind::PermissionDenied` alone is not a lock:
+/// Rust has moved the sharing-violation kind between releases, and the raw
+/// Win32 codes are the stable contract.
+pub fn io_read_failure_kind(error: &std::io::Error) -> Option<ReadFailureKind> {
+    if error.kind() == std::io::ErrorKind::NotFound {
+        return Some(ReadFailureKind::Absent);
+    }
+    #[cfg(windows)]
+    {
+        match error.raw_os_error() {
+            Some(32 | 33) => return Some(ReadFailureKind::Locked),
+            _ => {}
+        }
+    }
+    None
+}
+
+/// [`io_read_failure_kind`] over an `anyhow` chain (`with_context` hides the
+/// `io::Error` one level down).
+pub fn read_failure_kind(error: &anyhow::Error) -> Option<ReadFailureKind> {
+    for cause in error.chain() {
+        if let Some(io) = cause.downcast_ref::<std::io::Error>() {
+            if let Some(kind) = io_read_failure_kind(io) {
+                return Some(kind);
+            }
+        }
+    }
+    None
+}
+
+/// Catalog `reason` for one skipped unreadable file. Must not contain the
+/// stale-resume marker (`not in the frozen resume plan`).
+pub fn unreadable_skip_reason(detail: &str, kind: ReadFailureKind) -> String {
+    match kind {
+        ReadFailureKind::Absent => format!(
+            "no longer exists (disappeared after it was enumerated: {detail}); skipped and \
+             nothing from it was indexed. Rerun to index it if it comes back"
+        ),
+        ReadFailureKind::Locked => format!(
+            "could not be opened because another process holds it locked ({detail}); skipped \
+             and nothing from it was indexed. Rerun to index it once it can be opened"
+        ),
+    }
+}
+
+/// Plan key for a file that never produced a content digest.
+///
+/// `axf2-` keys are content hashes. This prefix cannot collide with one, and
+/// it is stable for a path so the same skip is not a new catalog row on the
+/// next run. It is not in `inventory.keys`, so the stale-junk sweep must be
+/// told to keep it for this run.
+pub fn unreadable_file_key(rel_id: &str) -> String {
+    format!(
+        "axabsent-{:032x}",
+        xxhash_rust::xxh3::xxh3_128(rel_id.as_bytes())
+    )
+}
+
+/// Sniff/read failures that are the same skip as the hash (#2352).
+///
+/// Other sniff errors stay `junk` with the caller's existing reason.
+pub fn unreadable_junk_fields(error: &anyhow::Error) -> Option<(&'static str, String)> {
+    read_failure_kind(error).map(|kind| {
+        (
+            "skipped",
+            unreadable_skip_reason(&format!("{error:#}"), kind),
+        )
+    })
 }
 
 /// Test-only witness: which pool the digest phase actually ran on. Phase A is
@@ -84,7 +183,18 @@ pub fn resolve_reporting_carried(
     // `--workers` has to bound the CPU-bound phase to mean anything (#240 §2).
     // The progress callback therefore fires from scan-pool threads — the ones
     // actually doing the hashing — rather than from rayon's global pool (#241).
-    let digests: Vec<Result<String>> = crate::pool::install(|| {
+    // A file that vanished or is locked after the walk is one skip, not a
+    // reason to abort the corpus (#2352). Any other open/read error still
+    // fails the whole resolve, as before.
+    enum HashOutcome {
+        Ready(String),
+        Unreadable {
+            detail: String,
+            kind: ReadFailureKind,
+        },
+        Fatal(anyhow::Error),
+    }
+    let outcomes: Vec<HashOutcome> = crate::pool::install(|| {
         files
             .par_iter()
             .map(|file| {
@@ -102,12 +212,12 @@ pub fn resolve_reporting_carried(
                             .store(true, std::sync::atomic::Ordering::Relaxed);
                     }
                 }
-                let (digest, fresh) = match carried(file) {
+                let (outcome, fresh) = match carried(file) {
                     // Cache hit: no read, and no byte credited to the hash
                     // phase either — the phase's totals were sized to the files
                     // this pass will actually read, so crediting a skipped file
                     // would push the percent past 100 and invent a rate.
-                    Some(digest) => (Ok(digest), false),
+                    Some(digest) => (HashOutcome::Ready(digest), false),
                     None => {
                         // Held across the read and dropped before the byte
                         // credit, so a blocked `read` is visible and a finished
@@ -116,22 +226,62 @@ pub fn resolve_reporting_carried(
                             let _blocking = crate::dataless::watch_blocking_hash(blocking, file);
                             full_digest(&file.path, file.size)
                         };
+                        // Credit the attempt even when the open fails. The
+                        // phase total counted this file; leaving it out parks
+                        // the bar short of 100% for a skip that is success.
                         hashed(file.size);
-                        (digest, true)
+                        let outcome = match digest {
+                            Ok(digest) => HashOutcome::Ready(digest),
+                            Err(error) => match read_failure_kind(&error) {
+                                Some(kind) => HashOutcome::Unreadable {
+                                    detail: format!("{error:#}"),
+                                    kind,
+                                },
+                                None => HashOutcome::Fatal(error),
+                            },
+                        };
+                        (outcome, true)
                     }
                 };
-                if let Ok(digest) = digest.as_ref() {
+                if let HashOutcome::Ready(digest) = &outcome {
                     observed(file, digest, fresh);
                 }
-                digest
+                outcome
             })
             .collect()
     });
-    let digests: Vec<String> = digests.into_iter().collect::<Result<_>>()?;
-    resolve_with_digests(files, digests)
+    let mut fatal: Option<anyhow::Error> = None;
+    let mut kept_files = Vec::new();
+    let mut digests = Vec::new();
+    let mut unreadable = Vec::new();
+    for (file, outcome) in files.into_iter().zip(outcomes) {
+        match outcome {
+            HashOutcome::Ready(digest) => {
+                kept_files.push(file);
+                digests.push(digest);
+            }
+            HashOutcome::Unreadable { detail, kind } => {
+                unreadable.push(UnreadableSource { file, detail, kind });
+            }
+            HashOutcome::Fatal(error) => {
+                if fatal.is_none() {
+                    fatal = Some(error);
+                }
+            }
+        }
+    }
+    if let Some(error) = fatal {
+        return Err(error);
+    }
+    unreadable.sort_by(|left, right| left.file.rel.cmp(&right.file.rel));
+    resolve_with_digests(kept_files, digests, unreadable)
 }
 
-fn resolve_with_digests(files: Vec<FileEntry>, digests: Vec<String>) -> Result<Inventory> {
+fn resolve_with_digests(
+    files: Vec<FileEntry>,
+    digests: Vec<String>,
+    unreadable: Vec<UnreadableSource>,
+) -> Result<Inventory> {
     let mut groups: HashMap<&str, Vec<usize>> = HashMap::new();
     for (index, digest) in digests.iter().enumerate() {
         groups.entry(digest).or_default().push(index);
@@ -209,6 +359,7 @@ fn resolve_with_digests(files: Vec<FileEntry>, digests: Vec<String>) -> Result<I
         keys: unique_keys,
         digests: unique_digests,
         duplicates,
+        unreadable,
     })
 }
 
@@ -221,6 +372,9 @@ fn resolve_with_digests(files: Vec<FileEntry>, digests: Vec<String>) -> Result<I
 pub struct SourceChanged {
     pub path: std::path::PathBuf,
     pub detail: String,
+    /// The file is still on disk and another process holds it. A no-graph seal
+    /// can keep the previous generation's bytes instead of dropping the file.
+    pub locked: bool,
 }
 
 impl std::fmt::Display for SourceChanged {
@@ -231,10 +385,36 @@ impl std::fmt::Display for SourceChanged {
 
 impl std::error::Error for SourceChanged {}
 
+fn disappeared_or_locked(path: &Path, kind: ReadFailureKind, detail: &str) -> SourceChanged {
+    let detail = match kind {
+        ReadFailureKind::Absent => format!(
+            "{} no longer exists ({detail}); retry the run",
+            path.display()
+        ),
+        ReadFailureKind::Locked => format!(
+            "{} could not be opened because another process holds it locked ({detail}); retry \
+             the run",
+            path.display()
+        ),
+    };
+    SourceChanged {
+        path: path.to_path_buf(),
+        detail,
+        locked: kind == ReadFailureKind::Locked,
+    }
+}
+
 pub fn verify(path: &Path, expected_size: u64, expected_digest: &str) -> Result<()> {
-    let actual_size = std::fs::metadata(path)
-        .with_context(|| format!("stat {}", path.display()))?
-        .len();
+    let metadata = match std::fs::metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) => {
+            if let Some(kind) = io_read_failure_kind(&error) {
+                return Err(disappeared_or_locked(path, kind, &format!("{error}")).into());
+            }
+            return Err(error).with_context(|| format!("stat {}", path.display()));
+        }
+    };
+    let actual_size = metadata.len();
     if actual_size != expected_size {
         return Err(SourceChanged {
             path: path.to_path_buf(),
@@ -244,10 +424,19 @@ pub fn verify(path: &Path, expected_size: u64, expected_digest: &str) -> Result<
                 expected_size,
                 actual_size
             ),
+            locked: false,
         }
         .into());
     }
-    let actual = full_digest(path, actual_size)?;
+    let actual = match full_digest(path, actual_size) {
+        Ok(digest) => digest,
+        Err(error) => {
+            if let Some(kind) = read_failure_kind(&error) {
+                return Err(disappeared_or_locked(path, kind, &format!("{error:#}")).into());
+            }
+            return Err(error);
+        }
+    };
     if actual != expected_digest {
         return Err(SourceChanged {
             path: path.to_path_buf(),
@@ -255,6 +444,7 @@ pub fn verify(path: &Path, expected_size: u64, expected_digest: &str) -> Result<
                 "{} changed content during autoindex; retry the run",
                 path.display()
             ),
+            locked: false,
         }
         .into());
     }
@@ -422,7 +612,7 @@ mod tests {
         fs::write(dir.path().join("b.txt"), b"unequal-b").unwrap();
         let files = crate::walk::walk(dir.path(), false).unwrap();
         let forced = vec!["axf2-forced-9".to_string(); 2];
-        let inv = resolve_with_digests(files, forced).unwrap();
+        let inv = resolve_with_digests(files, forced, Vec::new()).unwrap();
         assert_eq!(inv.files.len(), 2);
         assert!(inv.duplicates.is_empty());
         assert_ne!(inv.keys[0], inv.keys[1]);
@@ -478,5 +668,101 @@ mod tests {
         assert_eq!(inv.files[0].rel, "z-real");
         assert_eq!(inv.duplicates[0].rel, "a-link");
         assert_eq!(inv.duplicates[0].is_symlink, Some(true));
+    }
+
+    #[test]
+    fn a_file_deleted_after_the_walk_is_skipped_and_the_rest_are_hashed() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("keep.txt"), b"keep\n").unwrap();
+        fs::write(dir.path().join("gone.txt"), b"gone\n").unwrap();
+        let files = crate::walk::walk(dir.path(), false).unwrap();
+        let gone = files
+            .iter()
+            .find(|file| file.rel.ends_with("gone.txt"))
+            .unwrap()
+            .path
+            .clone();
+        fs::remove_file(&gone).unwrap();
+        let reported = std::sync::atomic::AtomicU64::new(0);
+        let inv = resolve_reporting(files, &|bytes| {
+            reported.fetch_add(bytes, std::sync::atomic::Ordering::Relaxed);
+        })
+        .unwrap();
+        assert_eq!(inv.files.len(), 1);
+        assert!(inv.files[0].rel.ends_with("keep.txt"));
+        assert_eq!(inv.unreadable.len(), 1);
+        assert_eq!(inv.unreadable[0].kind, ReadFailureKind::Absent);
+        assert!(inv.unreadable[0].file.rel.ends_with("gone.txt"));
+        let reason = unreadable_skip_reason(&inv.unreadable[0].detail, inv.unreadable[0].kind);
+        assert!(reason.contains("no longer exists"), "{reason}");
+        assert!(reason.contains("disappeared"), "{reason}");
+        assert!(
+            !reason.contains("not in the frozen resume plan"),
+            "{reason}"
+        );
+        assert!(reported.load(std::sync::atomic::Ordering::Relaxed) > 0);
+    }
+
+    #[test]
+    fn a_directory_handed_to_the_hash_still_aborts_the_resolve() {
+        let dir = tempfile::tempdir().unwrap();
+        let nested = dir.path().join("subdir");
+        fs::create_dir(&nested).unwrap();
+        fs::write(dir.path().join("keep.txt"), b"keep\n").unwrap();
+        let mut files = crate::walk::walk(dir.path(), false).unwrap();
+        files.push(FileEntry {
+            path: nested,
+            rel: "subdir".into(),
+            rel_id: "subdir".into(),
+            is_symlink: false,
+            size: 0,
+        });
+        assert!(resolve(files).is_err());
+    }
+
+    #[test]
+    fn not_found_is_absent_and_a_sharing_violation_is_locked_only_on_windows() {
+        let missing = std::io::Error::from_raw_os_error(2);
+        assert_eq!(
+            io_read_failure_kind(&missing),
+            Some(ReadFailureKind::Absent)
+        );
+        let sharing = std::io::Error::from_raw_os_error(32);
+        let lock = std::io::Error::from_raw_os_error(33);
+        #[cfg(windows)]
+        {
+            assert_eq!(
+                io_read_failure_kind(&sharing),
+                Some(ReadFailureKind::Locked)
+            );
+            assert_eq!(io_read_failure_kind(&lock), Some(ReadFailureKind::Locked));
+        }
+        #[cfg(not(windows))]
+        {
+            assert_eq!(io_read_failure_kind(&sharing), None);
+            assert_eq!(io_read_failure_kind(&lock), None);
+        }
+        let denied = std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied");
+        assert_eq!(io_read_failure_kind(&denied), None);
+        let wrapped =
+            anyhow::Error::from(std::io::Error::from_raw_os_error(2)).context("open gone.txt");
+        assert_eq!(read_failure_kind(&wrapped), Some(ReadFailureKind::Absent));
+    }
+
+    #[test]
+    fn verification_names_a_file_that_disappeared() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("a.txt");
+        fs::write(&path, b"content-a").unwrap();
+        let inv = resolve(crate::walk::walk(dir.path(), false).unwrap()).unwrap();
+        fs::remove_file(&path).unwrap();
+        let err = verify(&path, inv.files[0].size, &inv.digests[0]).unwrap_err();
+        let changed = err.downcast_ref::<SourceChanged>().expect("source changed");
+        assert!(!changed.locked);
+        assert!(
+            changed.detail.contains("no longer exists"),
+            "{}",
+            changed.detail
+        );
     }
 }

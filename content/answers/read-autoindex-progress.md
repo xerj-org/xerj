@@ -7,7 +7,7 @@ cluster: "Operations: progress"
 question: "How can I see whether folder indexing is still working?"
 intent: "how-to"
 published: "2026-08-21"
-updated: "2026-10-19"
+updated: "2026-10-24"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -148,15 +148,15 @@ Every run shows `phase=starting` until its first real phase opens. On that resum
 
 The `index` phase applies one file at a time, so it is the slow one on a large corpus. Read `eta_s` once `eta_quality` leaves `unknown`.
 
-## scan at 100% now means scan
+## `scan` at 100% now means `scan`
 
-Through v1.0.0-rc.74 the `--no-graph` route reported only `walk`, `hash` and `scan`. Mapping install, sealing, indexing and the read-back all ran with no phase of their own, so the stream kept describing the scan that had already finished:
+Through v1.0.0-rc.74 the `--no-graph` route reported only `walk`, `hash` and `scan`. Mapping install, sealing, indexing and the read-back all ran with no phase of their own, so the stream kept describing the `scan` that had already finished:
 
 ```text
 xerj-progress phase=scan basis=bytes pct=100.0 items=48533/48533 bytes=520892779/520892779 rate=17050775.5 eta_s=unknown eta_quality=stalled since_progress_s=15.0 phase_elapsed_s=25.7 elapsed_s=30.0
 ```
 
-The rc.74 capture holds 48 such lines, with `since_progress_s` climbing to 250.0. A real hang at the end of the scan prints exactly the same thing. Neither a person nor an agent could tell the two apart.
+The rc.74 capture holds 48 such lines, with `since_progress_s` climbing to 250.0. A real hang at the end of the `scan` prints exactly the same thing. Neither a person nor an agent could tell the two apart.
 
 On a current build each of those steps is a phase, and the small-repository capture holds 0 lines that read `scan` at `pct=100.0`. If you are on rc.74 or earlier and see that line, check `_count` on the node before you conclude the run is hung.
 
@@ -168,7 +168,9 @@ On a current build each of those steps is a phase, and the small-repository capt
 xerj-done ok=true exit=0 reason=completed wall=22.2s files=1 records=164441 datasets=1 junk_files=0
 ```
 
-`reason` distinguishes `completed`, `dry-run`, `completed-with-junk`, `aborted` and, on the `--no-graph` path, `server-backpressure`, and the exit code follows it. Exit 3 with `completed-with-junk` means the run refused some files, and the catalog holds a reason for each one. `server-backpressure` is exit 1: the node kept rejecting for the whole 600 s a bulk waits, and the line adds `ops_applied` and `ops_remaining` so you know how much the same command still has to do.
+`reason` distinguishes `completed`, `dry-run`, `completed-with-junk`, `aborted` and, on the `--no-graph` path, `server-backpressure`, and the exit code follows it. Exit 3 with `completed-with-junk` means the run refused some files, and the catalog holds a reason for each one. `server-backpressure` is exit 1. The node kept rejecting for the whole 600 s a bulk waits. The line adds `ops_applied` and `ops_remaining` so you know how much the same command still has to do.
+
+Exit 3 is success. Treat it the same as exit 0. Do not rerun it as a failure.
 
 If the server refused a whole dataset, the line also carries `datasets_refused` and `files_refused`. They appear only when it happened. The [refused-dataset page](/answers/autoindex-dataset-refused-by-server) covers that case.
 

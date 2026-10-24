@@ -2,13 +2,13 @@
 ---
 title: "How do I check my code index actually finished?"
 canonical: "https://xerj.org/answers/check-codebase-index-is-complete"
-updated: "2026-10-19"
+updated: "2026-10-24"
 source: "content/answers/check-codebase-index-is-complete.md"
 ---
 
 # My codebase indexer says indexed but I don't see my code. How do I check it actually finished?
 
-**Short answer** (updated 2026-10-19): My codebase indexer says indexed but I don't see my code: how do I check it actually finished? Reconcile four numbers: files on disk, the --dry-run plan, xerj autoindex status, and the document count in _cat/indices. A captured run turned 64 non-hidden files into a 3-file plan, naming an ignore rule for every gap.
+**Short answer** (updated 2026-10-24): My codebase indexer says indexed but I don't see my code: how do I check it actually finished? Reconcile four numbers: files on disk, the --dry-run plan, xerj autoindex status, and the document count in _cat/indices. A captured run turned 64 non-hidden files into a 3-file plan, naming an ignore rule for every gap.
 
 **Key number:** Source files above 2 MiB are not parsed for symbols (`CODE_CAP`), one of the documented reasons a file can be missing from the code fields. (as of 2026-10-19; source: [engine/crates/xerj-autoindex/src/extract/code.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/extract/code.rs))
 
@@ -139,7 +139,7 @@ Query for a symbol you know exists. The captured query on the defs field for mer
 
 ### The indexer exited. Did it finish or just stop?
 
-Read the terminal line and then the journal. Exit 0 with reason=completed means nothing was refused, and exit 3 with reason=completed-with-junk means the run finished and refused at least one file.
+Read the terminal line and then the journal. Exit 0 with reason=completed means nothing was refused. Exit 3 with reason=completed-with-junk is success: the run finished and refused at least one file. Do not treat exit 3 as a failure.
 
 ### Why does the index hold more documents than files?
 

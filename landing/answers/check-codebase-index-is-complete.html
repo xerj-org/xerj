@@ -79,7 +79,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-21",
-  "dateModified": "2026-10-19",
+  "dateModified": "2026-10-24",
   "author": {
     "@type": "Organization",
     "name": "XERJ documentation team",
@@ -140,7 +140,7 @@
       "name": "The indexer exited. Did it finish or just stop?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Read the terminal line and then the journal. Exit 0 with reason=completed means nothing was refused, and exit 3 with reason=completed-with-junk means the run finished and refused at least one file."
+        "text": "Read the terminal line and then the journal. Exit 0 with reason=completed means nothing was refused. Exit 3 with reason=completed-with-junk is success: the run finished and refused at least one file. Do not treat exit 3 as a failure."
       }
     },
     {
@@ -228,9 +228,9 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>MY CODEBASE INDEXER SAYS INDEXED BUT I DON'T SEE MY CODE. HOW DO I CHECK IT ACTUALLY FINISHED?</div>
   <div class="kicker"><span>ANSWERS · OPERATIONS: COMPLETENESS</span></div>
   <h1 class="h1-long">My codebase indexer says indexed but I don't see my code. How do I check it actually finished?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-10-19</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-10-24</div>
   <div class="prompt-card answer-first" id="short-answer">
-    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-19</span>
+    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-24</span>
     <p>My codebase indexer says indexed but I don't see my code: how do I check it actually finished? Reconcile four numbers: files on disk, the --dry-run plan, xerj autoindex status, and the document count in _cat/indices. A captured run turned 64 non-hidden files into a 3-file plan, naming an ignore rule for every gap.</p>
     <p class="key-fact"><strong>Key number:</strong> Source files above 2 MiB are not parsed for symbols (<code class="inline">CODE_CAP</code>), one of the documented reasons a file can be missing from the code fields. <span class="mute">(as of 2026-10-19 · source: <a href="https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/extract/code.rs">engine/crates/xerj-autoindex/src/extract/code.rs</a>)</span></p>
   </div>
@@ -312,7 +312,7 @@ autoindex: ignore rules:   .gitignore:coverage/ — 1 directory pruned (5 non-hi
   <h3>How do I verify a local code index actually contains my files?</h3>
   <p>Query for a symbol you know exists. The captured query on the defs field for merge_segments returned 2 hits, src/lib.rs in Rust and src/ingest.py in Python, each with its path.</p>
   <h3>The indexer exited. Did it finish or just stop?</h3>
-  <p>Read the terminal line and then the journal. Exit 0 with reason=completed means nothing was refused, and exit 3 with reason=completed-with-junk means the run finished and refused at least one file.</p>
+  <p>Read the terminal line and then the journal. Exit 0 with reason=completed means nothing was refused. Exit 3 with reason=completed-with-junk is success: the run finished and refused at least one file. Do not treat exit 3 as a failure.</p>
   <h3>Why does the index hold more documents than files?</h3>
   <p>XERJ writes one document per extracted row, and for source files it adds one document per declaration on top of the whole-file document. The document count therefore follows how many declarations your code holds, not a fixed multiple of the file count, so read it from your own run.</p>
   <h3>Why does the plan hold fewer files than the folder?</h3>

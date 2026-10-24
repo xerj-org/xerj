@@ -144,6 +144,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `xerj autoindex` no longer aborts the whole folder when a file disappears
+  between the walk and the hash, or cannot be opened because another process
+  holds it locked on Windows (sharing violation 32 / lock violation 33). The
+  file is one `skipped` catalog row with a reason, the same way a file that
+  changes size mid-run is skipped, and the run finishes (exit 3 when that
+  skip is the junk). A locked file that was already indexed keeps the
+  previous generation's copy on `--no-graph` and is not treated as an
+  exclusion on the graph path. Unix errno 32 stays a real error
+  ([#2352](https://github.com/xerj-org/xerj/issues/2352)).
+
 - `xerj autoindex` no longer junks every PDF on an OS that rejects
   `setrlimit(RLIMIT_AS)` (macOS 27 returns `EINVAL`; a hard limit below
   1536 MiB returns `EPERM`). The address-space cap is crash isolation: the

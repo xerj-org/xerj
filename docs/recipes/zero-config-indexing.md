@@ -57,7 +57,8 @@ next: `xerj autoindex map --url http://localhost:9280` for the data map; search 
 ```
 
 The exit code is `3` — "completed with junk": the run finished, and the
-binary blob was recorded rather than crashing anything. `0` means a fully
+binary blob was recorded rather than crashing anything. Exit 3 is success.
+Treat it the same as exit 0: do not rerun it as a failure. `0` means a fully
 clean run; junk is *never* fatal. Exit 3 also covers a dataset whose mapping
 the server refused — see [section 7](#7-one-dataset-the-server-refuses-does-not-cost-you-the-run).
 

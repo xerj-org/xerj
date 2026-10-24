@@ -7,7 +7,7 @@ cluster: "Operations: exclusions"
 question: "Why would a folder search miss files that I can see on disk?"
 intent: "troubleshooting"
 published: "2026-08-21"
-updated: "2026-10-19"
+updated: "2026-10-24"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -43,7 +43,7 @@ faq:
   - q: "Does autoindex index my .env file?"
     a: "Not in this capture. Hidden dotfiles were pruned, and a query across _all for the fixture secrets returned 0 hits. Ignore rules are a filter, not an access control."
   - q: "What does exit code 3 from autoindex mean?"
-    a: "The run finished but refused at least one file. The terminal line reads reason=completed-with-junk, and junk_files counts the refusals."
+    a: "Exit 3 is success. The run finished and refused at least one file. The terminal line reads reason=completed-with-junk, and junk_files counts the refusals. Do not rerun it as a failure."
 ---
 
 **TL;DR** — XERJ prints one line per ignore rule with an exact file count, and stores a refusal reason for every file it opened. A capture over 26 files on disk indexed 1, refused 2 with named reasons, and excluded 23 through ignore rules. The run exited 3 with `reason=completed-with-junk`.
@@ -115,6 +115,6 @@ The captured run ended with a terminal line that names both the outcome and the 
 xerj-done ok=true exit=3 reason=completed-with-junk wall=3.1s files=1 records=2 datasets=1 junk_files=2 code_files=0 code_files_indexed=0 code_files_junked=0
 ```
 
-Exit 0 with `reason=completed` means nothing was refused. Exit 3 with `reason=completed-with-junk` means the catalog holds at least one reason worth reading.
+Exit 0 with `reason=completed` means nothing was refused. Exit 3 with `reason=completed-with-junk` is success: the run finished, the index is searchable, and the catalog holds at least one reason worth reading. Do not rerun exit 3 as a failure.
 
 Every number above comes from a capture on 2026-10-05, on a build of `main` after v1.0.0-rc.82 (commit `06185966`). The Parquet hint is not in the v1.0.0-rc.82 release itself: that release reports such a file as `binary content (unknown)`. The binary was a `quick` profile build, so the `wall` figure is not a performance number.

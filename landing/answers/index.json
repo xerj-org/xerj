@@ -1016,7 +1016,7 @@
       "canonical_url": "https://xerj.org/answers/check-codebase-index-is-complete",
       "markdown_url": "https://xerj.org/answers/check-codebase-index-is-complete.md",
       "cluster": "Operations: completeness",
-      "updated": "2026-10-19",
+      "updated": "2026-10-24",
       "summary": "Compare 4 numbers: files on disk, the dry-run plan, autoindex status, and the index count. A captured run cut 64 files to a 3-file plan, naming a rule per gap.",
       "intent_group": "code search for agents",
       "answer": "My codebase indexer says indexed but I don't see my code: how do I check it actually finished? Reconcile four numbers: files on disk, the --dry-run plan, xerj autoindex status, and the document count in _cat/indices. A captured run turned 64 non-hidden files into a 3-file plan, naming an ignore rule for every gap.",
@@ -1041,7 +1041,7 @@
       "canonical_url": "https://xerj.org/answers/why-autoindex-skipped-files",
       "markdown_url": "https://xerj.org/answers/why-autoindex-skipped-files.md",
       "cluster": "Operations: exclusions",
-      "updated": "2026-10-19",
+      "updated": "2026-10-24",
       "summary": "XERJ prints one line per ignore rule and stores a refusal reason per file. A capture reconciles 26 files on disk to 1 indexed, 2 refused and 23 excluded.",
       "intent_group": "operating autoindex",
       "answer": "Why would a folder search miss files that I can see on disk? XERJ prints one line per ignore rule with an exact file count, and stores a refusal reason for every file it opened. A capture over 26 files on disk indexed 1, refused 2 with named reasons, excluded 23 through ignore rules, and exited 3."
@@ -1052,7 +1052,7 @@
       "canonical_url": "https://xerj.org/answers/autoindex-exit-codes",
       "markdown_url": "https://xerj.org/answers/autoindex-exit-codes.md",
       "cluster": "Operations: exit codes",
-      "updated": "2026-10-19",
+      "updated": "2026-10-24",
       "summary": "xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question.",
       "intent_group": "operating autoindex",
       "answer": "What does indexer exit code 3 mean for xerj autoindex? It means success: the run completed and recorded some junk files. Exit 0 is a clean completion, 4 means the estimate exceeded --max-minutes and nothing was indexed, 2 is a usage error, and 1 is an endpoint or journal failure. Only exit 4 asks you a question."
@@ -1141,7 +1141,7 @@
       "canonical_url": "https://xerj.org/answers/read-autoindex-progress",
       "markdown_url": "https://xerj.org/answers/read-autoindex-progress.md",
       "cluster": "Operations: progress",
-      "updated": "2026-10-19",
+      "updated": "2026-10-24",
       "summary": "XERJ prints xerj-bar, xerj-progress and a final xerj-done line. On a single large file the percentage stays at 0.0%, so read since_progress_s and waiting_on.",
       "intent_group": "operating autoindex",
       "answer": "How can I see whether folder indexing is still working? Pass --progress plain and read the xerj-progress lines on stderr. A captured 22.2 s run emitted 12 phases in order and ended with xerj-done ok=true. On a single 16 MB file the percentage stays at 0.0%, so read since_progress_s and waiting_on instead."

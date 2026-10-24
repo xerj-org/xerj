@@ -79,7 +79,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-21",
-  "dateModified": "2026-10-19",
+  "dateModified": "2026-10-24",
   "author": {
     "@type": "Organization",
     "name": "XERJ documentation team",
@@ -164,7 +164,7 @@
       "name": "What does exit code 3 from autoindex mean?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "The run finished but refused at least one file. The terminal line reads reason=completed-with-junk, and junk_files counts the refusals."
+        "text": "Exit 3 is success. The run finished and refused at least one file. The terminal line reads reason=completed-with-junk, and junk_files counts the refusals. Do not rerun it as a failure."
       }
     }
   ]
@@ -228,9 +228,9 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>WHY WOULD A FOLDER SEARCH MISS FILES THAT I CAN SEE ON DISK?</div>
   <div class="kicker"><span>ANSWERS · OPERATIONS: EXCLUSIONS</span></div>
   <h1>Why would a folder search miss files that I can see on disk?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-10-19</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-10-24</div>
   <div class="prompt-card answer-first" id="short-answer">
-    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-19</span>
+    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-24</span>
     <p>Why would a folder search miss files that I can see on disk? XERJ prints one line per ignore rule with an exact file count, and stores a refusal reason for every file it opened. A capture over 26 files on disk indexed 1, refused 2 with named reasons, excluded 23 through ignore rules, and exited 3.</p>
     <p class="key-fact"><strong>Key number:</strong> The captured run reconciled 26 files on disk as 1 indexed, 2 refused and 23 excluded. <span class="mute">(as of 2026-10-05 · source: the captured run documented on this page)</span></p>
   </div>
@@ -303,7 +303,7 @@ autoindex: ignore rules:   .gitignore:*.tmp — 1 file
   <p>The captured run ended with a terminal line that names both the outcome and the refusal count.</p>
   <pre class="code"><code class="language-text">xerj-done ok=true exit=3 reason=completed-with-junk wall=3.1s files=1 records=2 datasets=1 junk_files=2 code_files=0 code_files_indexed=0 code_files_junked=0
 </code></pre>
-  <p>Exit 0 with <code class="inline">reason=completed</code> means nothing was refused. Exit 3 with <code class="inline">reason=completed-with-junk</code> means the catalog holds at least one reason worth reading.</p>
+  <p>Exit 0 with <code class="inline">reason=completed</code> means nothing was refused. Exit 3 with <code class="inline">reason=completed-with-junk</code> is success: the run finished, the index is searchable, and the catalog holds at least one reason worth reading. Do not rerun exit 3 as a failure.</p>
   <p>Every number above comes from a capture on 2026-10-05, on a build of <code class="inline">main</code> after v1.0.0-rc.82 (commit <code class="inline">06185966</code>). The Parquet hint is not in the v1.0.0-rc.82 release itself: that release reports such a file as <code class="inline">binary content (unknown)</code>. The binary was a <code class="inline">quick</code> profile build, so the <code class="inline">wall</code> figure is not a performance number.</p>
   <h2>FAQ</h2>
   <h3>Why would a folder search miss files that I can see on disk?</h3>
@@ -319,7 +319,7 @@ autoindex: ignore rules:   .gitignore:*.tmp — 1 file
   <h3>Does autoindex index my .env file?</h3>
   <p>Not in this capture. Hidden dotfiles were pruned, and a query across _all for the fixture secrets returned 0 hits. Ignore rules are a filter, not an access control.</p>
   <h3>What does exit code 3 from autoindex mean?</h3>
-  <p>The run finished but refused at least one file. The terminal line reads reason=completed-with-junk, and junk_files counts the refusals.</p>
+  <p>Exit 3 is success. The run finished and refused at least one file. The terminal line reads reason=completed-with-junk, and junk_files counts the refusals. Do not rerun it as a failure.</p>
   <h2>Related</h2>
   <ul>
     <li><a href="/answers/search-file-contents-in-a-folder">I have a folder of PDFs, Word docs, and markdown. How do I search all of them at once?</a></li>

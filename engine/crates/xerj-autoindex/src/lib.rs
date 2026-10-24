@@ -1974,6 +1974,8 @@ fn begin_non_graph_generation(
         keys: inventory.keys.clone(),
         digests: inventory.digests.clone(),
         duplicates: inventory.duplicates.clone(),
+        // Skips are already on `plan`. Sealing must not see them as content.
+        unreadable: Vec::new(),
     };
     // #971: the prior committed generation's snapshot is the reuse source for
     // sealing. A file whose content digest and preparation identity match its
@@ -1997,9 +1999,21 @@ fn begin_non_graph_generation(
                 .iter()
                 .zip(sealed.digests.iter())
                 .filter_map(|(file, digest)| {
-                    content::verify(&file.path, file.size, digest)
-                        .err()
-                        .map(|error| (file.path.clone(), format!("{error:#}")))
+                    let error = content::verify(&file.path, file.size, digest).err()?;
+                    // A lock is not a content change. The snapshot reuses the
+                    // previous generation's blob when the digest and size still
+                    // match, without opening the file (#2352). Quarantining
+                    // here would delete documents that are only temporarily
+                    // unreadable. A lock whose size no longer matches falls
+                    // through to the copy, which reports SourceChanged and is
+                    // skipped on the next attempt.
+                    if error
+                        .downcast_ref::<content::SourceChanged>()
+                        .is_some_and(|changed| changed.locked)
+                    {
+                        return None;
+                    }
+                    Some((file.path.clone(), format!("{error:#}")))
                 })
                 .collect();
             let mut quarantined = false;
@@ -3003,6 +3017,39 @@ fn phase_b_start_hook(state_dir: &Path) {
 #[inline]
 fn phase_b_start_hook(_state_dir: &Path) {}
 
+/// A test-only action run once immediately before the hash, after the walk
+/// has stored every [`walk::FileEntry`]. That is the window where a lock file
+/// disappears between enumeration and the first open (#2352). Keyed on the
+/// state directory for the same reason as [`PHASE_B_START_HOOK`].
+#[cfg(test)]
+type BeforeHashHook = (std::path::PathBuf, Box<dyn FnOnce() + Send>);
+#[cfg(test)]
+static BEFORE_HASH_HOOK: Mutex<Option<BeforeHashHook>> = Mutex::new(None);
+
+#[cfg(test)]
+pub(crate) fn arm_before_hash_hook(state_dir: &Path, action: impl FnOnce() + Send + 'static) {
+    *BEFORE_HASH_HOOK.lock().unwrap_or_else(|p| p.into_inner()) =
+        Some((state_dir.to_path_buf(), Box::new(action)));
+}
+
+#[cfg(test)]
+fn before_hash_hook(state_dir: &Path) {
+    let action = {
+        let mut armed = BEFORE_HASH_HOOK.lock().unwrap_or_else(|p| p.into_inner());
+        match armed.as_ref() {
+            Some((dir, _)) if dir == state_dir => armed.take().map(|(_, action)| action),
+            _ => None,
+        }
+    };
+    if let Some(action) = action {
+        action();
+    }
+}
+
+#[cfg(not(test))]
+#[inline]
+fn before_hash_hook(_state_dir: &Path) {}
+
 /// Arm [`replacement_failpoint`] for the run that uses `state_dir`, once.
 #[cfg(test)]
 pub(crate) fn arm_replacement_failpoint(boundary: u8, state_dir: &Path) {
@@ -3795,7 +3842,10 @@ fn scan_file(
         match sniff::sniff(path) {
             Ok(s) => s,
             Err(e) => {
-                out.junk = Some(("junk".into(), format!("unreadable: {e}")));
+                out.junk = Some(match content::unreadable_junk_fields(&e) {
+                    Some((status, reason)) => (status.into(), reason),
+                    None => ("junk".into(), format!("unreadable: {e}")),
+                });
                 return out;
             }
         }
@@ -8462,6 +8512,8 @@ fn run_index_report_inner(
     // forever after a same-size rewrite with restored or stale timestamps.
     // Hashing reads every byte of the corpus. On a large tree it is minutes of
     // real work, and before #241 it was minutes with no output at all.
+    // Tests delete a file in the gap the walk already closed (#2352).
+    before_hash_hook(&state_dir);
     let mut inventory = match watch {
         // A plain run hashes the whole corpus, every time, on purpose: see
         // `content::resolve_reporting`.
@@ -8529,13 +8581,24 @@ fn run_index_report_inner(
             inventory
         }
     };
+    // A locked file that already has a committed digest stays in the inventory
+    // on `--no-graph`, so the reconcile keeps the previous generation instead
+    // of deleting it. The graph path must not reinstate: phase A would sniff
+    // the locked file and junk it under its content key (#2352).
+    if cfg.no_graph {
+        if let Some(manifest) = preflight.committed_manifest.as_ref() {
+            let kept = carry_locked_priors(&mut inventory, &manifest.plan);
+            note_kept_locked(&pr, &kept);
+        }
+    }
+    note_unreadable(&pr, &inventory.unreadable);
     if cfg.no_graph && preflight.committed_manifest.is_some() && !genesis_recovery {
         if cfg.dry_run {
             let base = preflight
                 .committed_manifest
                 .as_ref()
                 .context("branch guard proved a committed manifest")?;
-            let plan = project_reconcile_plan(
+            let mut plan = project_reconcile_plan(
                 &inventory,
                 &base.plan,
                 &cfg,
@@ -8544,6 +8607,7 @@ fn run_index_report_inner(
                 &scan_meter,
                 tally,
             )?;
+            record_unreadable_skips(&mut plan, &inventory.unreadable);
             let unchanged = serde_json::to_value(&plan)? == serde_json::to_value(&base.plan)?;
             let sizes = inventory_size_map(&inventory);
             let changed_bytes = if unchanged {
@@ -8615,7 +8679,7 @@ fn run_index_report_inner(
             .as_ref()
             .context("generated journal lost its committed manifest")?
             .clone();
-        let plan = project_reconcile_plan(
+        let mut plan = project_reconcile_plan(
             &inventory,
             &base.plan,
             &cfg,
@@ -8624,6 +8688,7 @@ fn run_index_report_inner(
             &scan_meter,
             tally,
         )?;
+        record_unreadable_skips(&mut plan, &inventory.unreadable);
         // Say out loud that the decision gate is not on this route. It is an
         // incremental reconcile of an already-committed generation, so the work
         // is the *changed* set and is published from a sealed snapshot rather
@@ -8783,12 +8848,13 @@ fn run_index_report_inner(
         // documents already published. Sweep them here, with the frozen plan
         // still in hand, the same way an exclusion is swept. `--dry-run`
         // names them and does not mutate.
+        let still_present = files_still_present(&dataless_skipped_files, &inventory.unreadable);
         let delta = inventory_delta(
             &cfg.root,
             &inventory.files,
             &comparison_keys,
             prior_plan,
-            &dataless_skipped_files,
+            &still_present,
         );
         if !delta.deleted_content_groups.is_empty() {
             deleted_file_keys.extend(
@@ -8868,7 +8934,7 @@ fn run_index_report_inner(
     )?;
     sync_executor::gc_snapshots(&state_dir, &journal)?;
     let resumed_with_plan = journal.plan.is_some() && !genesis_recovery;
-    if inventory.files.is_empty() && !resumed_with_plan {
+    if inventory.files.is_empty() && inventory.unreadable.is_empty() && !resumed_with_plan {
         if dataless_skipped > 0 {
             println!(
                 "no indexable files under {root_str} ({dataless_skipped} dataless placeholder{} \
@@ -9151,6 +9217,14 @@ fn run_index_report_inner(
         clusters_rt = Some(clusters);
         plan
     };
+    let unreadable_keys: HashSet<String> = inventory
+        .unreadable
+        .iter()
+        .map(|item| content::unreadable_file_key(&item.file.rel_id))
+        .collect();
+    if record_unreadable_skips(&mut plan, &inventory.unreadable) {
+        plan_changed = true;
+    }
 
     // Second gate, after key selection has settled. Deletions the first gate
     // already swept are gone from the plan. Anything still classified as a
@@ -9162,7 +9236,8 @@ fn run_index_report_inner(
     // `carry_over_unread_mail`).
     let mut swept_excluded = false;
     if resumed_with_plan {
-        let delta = inventory_delta(&cfg.root, &files, &keys, &plan, &dataless_skipped_files);
+        let still_present = files_still_present(&dataless_skipped_files, &inventory.unreadable);
+        let delta = inventory_delta(&cfg.root, &files, &keys, &plan, &still_present);
         if !delta.deleted_content_groups.is_empty() {
             let gone: HashSet<String> = delta
                 .deleted_content_groups
@@ -9249,7 +9324,14 @@ fn run_index_report_inner(
         .junk_files
         .iter()
         .filter(|junk| {
-            !live_keys.contains(junk.file_key.as_str()) && !plan.files.contains_key(&junk.file_key)
+            !live_keys.contains(junk.file_key.as_str())
+                && !plan.files.contains_key(&junk.file_key)
+                // A file that vanished or is locked this run has no content
+                // key, so it is not in `live_keys`. Dropping the skip in the
+                // same run would hide the only record of it (#2352). The next
+                // run, once the walk no longer lists it, does not put the key
+                // in `unreadable_keys` and the row is swept.
+                && !unreadable_keys.contains(&junk.file_key)
         })
         .map(|junk| junk.file_key.clone())
         .collect();
@@ -10176,12 +10258,16 @@ fn run_index_report_inner(
             let sn = match sn {
                 Ok(s) => s,
                 Err(e) => {
+                    let (status, reason) = match content::unreadable_junk_fields(&e) {
+                        Some((status, reason)) => (status.into(), reason),
+                        None => ("junk".into(), format!("unreadable at index time: {e}")),
+                    };
                     extra_junk.lock().unwrap().push(JunkFile {
                         file_key: key.clone(),
                         rel: f.rel.clone(),
                         format: "unknown".into(),
-                        status: "junk".into(),
-                        reason: format!("unreadable at index time: {e}"),
+                        status,
+                        reason,
                         bytes: f.size,
                     });
                     continue;
@@ -12030,6 +12116,139 @@ fn run_index_report_inner(
     );
     drop(ticker);
     Ok((code, Some(run_doc)))
+}
+
+/// Dataless placeholders plus files another process holds locked (#2352).
+///
+/// Both are still on disk. Leaving them out of the inventory makes
+/// [`inventory_delta`] call them exclusions and delete documents indexed the
+/// last time the bytes could be read. A file that no longer exists is not
+/// included: a rerun sweeps it.
+fn files_still_present(
+    dataless: &[walk::FileEntry],
+    unreadable: &[content::UnreadableSource],
+) -> Vec<walk::FileEntry> {
+    let mut present = dataless.to_vec();
+    present.extend(
+        unreadable
+            .iter()
+            .filter(|item| item.kind == content::ReadFailureKind::Locked)
+            .map(|item| item.file.clone()),
+    );
+    present
+}
+
+/// Keep a locked file that already has a committed digest in the inventory.
+///
+/// `--no-graph` emits Delete for a content group that is absent from the
+/// inventory. The unchanged fast path carries the assignment without opening
+/// the file, and the seal hardlinks the previous blob when the size still
+/// matches. Graph runs must not call this.
+fn carry_locked_priors(inventory: &mut content::Inventory, prior: &Plan) -> Vec<String> {
+    let mut carried = Vec::new();
+    let mut remaining = Vec::new();
+    for item in std::mem::take(&mut inventory.unreadable) {
+        if item.kind != content::ReadFailureKind::Locked {
+            remaining.push(item);
+            continue;
+        }
+        let matched = prior.files.iter().find(|(_, assignment)| {
+            (!item.file.rel_id.is_empty()
+                && !assignment.path_id.is_empty()
+                && assignment.path_id == item.file.rel_id)
+                || assignment.rel == item.file.rel
+        });
+        let Some((key, assignment)) = matched else {
+            remaining.push(item);
+            continue;
+        };
+        let Some(digest) = assignment.content_digest.clone() else {
+            remaining.push(item);
+            continue;
+        };
+        if inventory.keys.iter().any(|existing| existing == key) {
+            remaining.push(item);
+            continue;
+        }
+        let key = key.clone();
+        carried.push(item.file.rel.clone());
+        inventory.files.push(item.file);
+        inventory.keys.push(key);
+        inventory.digests.push(digest);
+    }
+    remaining.sort_by(|left, right| left.file.rel.cmp(&right.file.rel));
+    inventory.unreadable = remaining;
+    carried.sort();
+    carried
+}
+
+fn note_unreadable(pr: &Progress, unreadable: &[content::UnreadableSource]) {
+    if unreadable.is_empty() {
+        return;
+    }
+    let absent = unreadable
+        .iter()
+        .filter(|item| item.kind == content::ReadFailureKind::Absent)
+        .count();
+    let locked = unreadable.len() - absent;
+    pr.note(&format!(
+        "autoindex: skipped {} file(s) that could not be read after they were enumerated \
+         ({absent} no longer exist, {locked} held locked by another process)",
+        unreadable.len()
+    ));
+    for item in unreadable.iter().take(REFUSAL_LIST_CAP) {
+        pr.note(&format!("  skipped: {}", item.file.rel));
+    }
+    let remaining = unreadable.len().saturating_sub(REFUSAL_LIST_CAP);
+    if remaining > 0 {
+        pr.note(&format!("  … and {remaining} more"));
+    }
+}
+
+fn note_kept_locked(pr: &Progress, rels: &[String]) {
+    if rels.is_empty() {
+        return;
+    }
+    pr.note(&format!(
+        "autoindex: {} file(s) could not be opened because another process holds them locked; \
+         the previous generation's copy was kept",
+        rels.len()
+    ));
+    for rel in rels.iter().take(REFUSAL_LIST_CAP) {
+        pr.note(&format!("  kept: {rel}"));
+    }
+    let remaining = rels.len().saturating_sub(REFUSAL_LIST_CAP);
+    if remaining > 0 {
+        pr.note(&format!("  … and {remaining} more"));
+    }
+}
+
+/// One `skipped` row per file the hash could not open (#2352).
+///
+/// The key is `axabsent-` plus the path identity, not a content digest. A row
+/// already present (a resume) is left as it is.
+fn record_unreadable_skips(plan: &mut Plan, unreadable: &[content::UnreadableSource]) -> bool {
+    let mut added = false;
+    for item in unreadable {
+        let key = content::unreadable_file_key(&item.file.rel_id);
+        if plan.files.contains_key(&key) || plan.junk_files.iter().any(|junk| junk.file_key == key)
+        {
+            continue;
+        }
+        plan.junk_files.push(JunkFile {
+            file_key: key,
+            rel: item.file.rel.clone(),
+            format: "unknown".into(),
+            status: "skipped".into(),
+            reason: content::unreadable_skip_reason(&item.detail, item.kind),
+            bytes: item.file.size,
+        });
+        added = true;
+    }
+    if added {
+        recount_plan_file_counts(plan);
+    }
+    added
 }
 
 /// The catalog entry for a source file that changed between phase A's digest

@@ -1683,6 +1683,81 @@ fn a_file_that_changes_mid_run_is_skipped_and_the_run_finishes() {
     assert!(indexed.contains("app.lock"), "{indexed:?}");
 }
 
+/// #2352: a file that disappears between the walk and the hash (a browser
+/// profile lock file another process removes) used to abort the whole run
+/// with ENOENT. It is one skipped catalog row; every other file is indexed
+/// and the run finishes with exit 3. The next run, with the file still gone,
+/// sweeps that row and exits 0.
+#[test]
+fn a_file_deleted_after_enumeration_is_skipped_and_the_run_finishes() {
+    let _guard = FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _io_guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("first.csv"), "id,value\n1,first\n").unwrap();
+    fs::write(corpus.path().join("second.csv"), "id,value\n2,second\n").unwrap();
+    let live = corpus.path().join("app.lock");
+    fs::write(&live, "pid 1\n").unwrap();
+    let endpoint = MockEndpoint::start(usize::MAX);
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+
+    let gone = live.clone();
+    arm_before_hash_hook(state_dir.path(), move || {
+        fs::remove_file(gone).unwrap();
+    });
+    let (code, report) =
+        run_index_report(config.clone()).expect("a vanished file must not abort the run");
+    assert_eq!(
+        code, 3,
+        "a skipped file is completed-with-junk, not a failure"
+    );
+    let report = report.unwrap();
+    assert_eq!(report["files_junk"], 1, "{report}");
+    assert_eq!(
+        file_done_count(state_dir.path()),
+        2,
+        "every other file is journaled done"
+    );
+    {
+        let locked = endpoint.state.lock().unwrap();
+        let mut paths: Vec<&str> = data_rows(&locked)
+            .iter()
+            .filter_map(|doc| doc["ax_path"].as_str())
+            .collect();
+        paths.sort_unstable();
+        paths.dedup();
+        assert_eq!(paths, vec!["first.csv", "second.csv"], "{paths:?}");
+        let skipped: Vec<&Value> = locked
+            .catalog_docs
+            .values()
+            .filter(|doc| doc["path"].as_str() == Some("app.lock"))
+            .collect();
+        assert_eq!(
+            skipped.len(),
+            1,
+            "the vanished file is recorded: {skipped:?}"
+        );
+        assert_eq!(skipped[0]["status"], "skipped", "{}", skipped[0]);
+        let reason = skipped[0]["reason"].as_str().unwrap_or_default();
+        assert!(reason.contains("no longer exists"), "{reason}");
+        assert!(reason.contains("disappeared"), "{reason}");
+        assert!(
+            !reason.contains("not in the frozen resume plan"),
+            "{reason}"
+        );
+    }
+
+    let (code, report) = run_index_report(config).expect("the rerun completes");
+    assert_eq!(
+        code, 0,
+        "a file that is gone on the next walk is not still junk: {report:?}"
+    );
+}
+
 #[test]
 fn completed_plan_sweeps_a_vanished_content_group() {
     let _guard = FAILPOINT_TEST_LOCK
