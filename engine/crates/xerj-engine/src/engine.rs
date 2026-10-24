@@ -3275,6 +3275,46 @@ impl Engine {
         vec![name.to_string()]
     }
 
+    /// The concrete index a write to `name` must target when `name` is an
+    /// alias: a single backing index, or exactly one marked
+    /// `is_write_index: true`. `Ok(None)` means `name` is not an alias (a
+    /// concrete index or a name the caller may auto-create). More than one
+    /// candidate is ambiguous and refused with ES's message.
+    ///
+    /// `get_index` deliberately resolves an alias to its FIRST backing index,
+    /// which is fine for reads by name but wrong for a write: a two-index
+    /// alias silently sent the document to whichever member was listed first,
+    /// ignoring `is_write_index`. Write paths resolve through this function
+    /// before they touch a mapping, pipeline, or store.
+    pub fn write_target(&self, name: &str) -> std::result::Result<Option<String>, String> {
+        let Some(backings) = self.aliases.get(name) else {
+            return Ok(None);
+        };
+        if backings.len() == 1 {
+            return Ok(Some(backings[0].clone()));
+        }
+        let mut writes = backings.iter().filter(|backing| {
+            let Some(meta) = self.index_alias_metadata.get(backing.as_str()) else {
+                return false;
+            };
+            meta.get(name)
+                .and_then(|alias_meta| alias_meta.get("is_write_index"))
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false)
+        });
+        let first = writes.next().cloned();
+        let second = writes.next();
+        match (first, second) {
+            (Some(target), None) => Ok(Some(target)),
+            (None, _) => Err(format!(
+                "no write index is defined for alias [{name}]. The write index may be \
+                 explicitly disabled using is_write_index=false or the alias points to \
+                 multiple indices without one being designated as a write index"
+            )),
+            (Some(_), Some(_)) => Err(format!("alias [{name}] has more than one write index")),
+        }
+    }
+
     /// Delete an index and all its data.
     ///
     /// Also drops any aliases that pointed only at this index (matching ES

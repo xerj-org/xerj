@@ -3973,12 +3973,32 @@ pub(crate) fn document_body(doc: &Value) -> bytes::Bytes {
 /// JSON extractor's extra validation pass and parse directly with simd_json /
 /// serde_json.  No schema validation is performed here; the engine layer handles
 /// all type coercion.  This shaves ~15–30 µs of extractor overhead per doc.
+/// Resolve an alias to the concrete index a document write must land in.
+/// A concrete name (or a name that will be auto-created) is returned
+/// unchanged; an ambiguous alias becomes ES's 400
+/// `illegal_argument_exception` instead of silently using the first backing
+/// index (`GET /{index}` does resolve aliases that way, but a write may not).
+fn write_target_or_refusal(
+    state: &AppState,
+    index: &str,
+) -> std::result::Result<String, axum::response::Response> {
+    match state.engine.write_target(index) {
+        Ok(Some(target)) => Ok(target),
+        Ok(None) => Ok(index.to_string()),
+        Err(reason) => Err(es_bad_request("illegal_argument_exception", &reason, None)),
+    }
+}
+
 pub async fn index_doc_auto(
     State(state): State<AppState>,
     Path(index): Path<String>,
     Query(params): Query<IndexDocAutoParams>,
     body: bytes::Bytes,
 ) -> impl IntoResponse {
+    let index = match write_target_or_refusal(&state, &index) {
+        Ok(index) => index,
+        Err(resp) => return resp,
+    };
     let doc = match parse_indexed_document_body(&body) {
         Ok(v) => v,
         Err(e) => return ApiError::new(e).into_response(),
@@ -4132,6 +4152,10 @@ pub async fn index_doc(
     Query(params): Query<IndexDocParams>,
     body: bytes::Bytes,
 ) -> impl IntoResponse {
+    let index = match write_target_or_refusal(&state, &index) {
+        Ok(index) => index,
+        Err(resp) => return resp,
+    };
     // Size check before the DOM exists. See [`parse_indexed_document_body`].
     let doc = match parse_indexed_document_body(&body) {
         Ok(v) => v,
@@ -4343,6 +4367,10 @@ pub async fn create_doc(
     Query(params): Query<CreateDocParams>,
     body: bytes::Bytes,
 ) -> impl IntoResponse {
+    let index = match write_target_or_refusal(&state, &index) {
+        Ok(index) => index,
+        Err(resp) => return resp,
+    };
     let doc = match parse_indexed_document_body(&body) {
         Ok(v) => v,
         Err(e) => return ApiError::new(e).into_response(),
@@ -4523,6 +4551,10 @@ pub async fn get_doc(
     Path((index, id)): Path<(String, String)>,
     Query(params): Query<GetDocParams>,
 ) -> impl IntoResponse {
+    let index = match write_target_or_refusal(&state, &index) {
+        Ok(index) => index,
+        Err(resp) => return resp,
+    };
     // A closed index rejects read/search ops with ES index_closed_exception.
     // Strict membership only — frozen/open indices are unaffected.
     if state.engine.closed_indices.contains_key(&index) {
@@ -4682,6 +4714,10 @@ pub async fn delete_doc(
     Path((index, id)): Path<(String, String)>,
     Query(params): Query<DeleteDocParams>,
 ) -> impl IntoResponse {
+    let index = match write_target_or_refusal(&state, &index) {
+        Ok(index) => index,
+        Err(resp) => return resp,
+    };
     // Wire → internal seq translation, same convention as the index path.
     let if_seq_no_internal = params.if_seq_no.map(|s| s.saturating_add(1));
 
@@ -20536,6 +20572,7 @@ fn bulk_item_error_type(e: &str) -> &'static str {
         || e.contains("missing document body")
         || e.contains("unknown action type")
         || e.contains("no write index is defined")
+        || e.contains("has more than one write index")
         || e.starts_with("pipeline with id")
     {
         "illegal_argument_exception"
@@ -22990,6 +23027,10 @@ pub async fn update_doc(
     Query(query_params): Query<UpdateDocParams>,
     Json(body): Json<EsUpdateBody>,
 ) -> impl IntoResponse {
+    let index = match write_target_or_refusal(&state, &index) {
+        Ok(index) => index,
+        Err(resp) => return resp,
+    };
     let idx = match state.engine.get_or_create_index(&index) {
         Ok(i) => i,
         Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
@@ -23855,6 +23896,10 @@ pub async fn head_doc(
     State(state): State<AppState>,
     Path((index, id)): Path<(String, String)>,
 ) -> impl IntoResponse {
+    let index = match write_target_or_refusal(&state, &index) {
+        Ok(index) => index,
+        Err(resp) => return resp,
+    };
     let idx = match state.engine.get_index(&index) {
         Ok(i) => i,
         Err(_) => return StatusCode::NOT_FOUND.into_response(),

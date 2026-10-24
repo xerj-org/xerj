@@ -1202,10 +1202,10 @@ pub async fn process_bulk_with_opts(
     // the write index via `is_write_index:true` in the alias metadata.
     let url_require_alias = opts.require_alias.unwrap_or(false);
     let default_source_req = opts.default_source_req.clone();
-    parsed.retain(|action| {
+    parsed.retain_mut(|action| {
         let eff_require_alias = action.require_alias.unwrap_or(url_require_alias);
-        let target = &action.target_index;
-        let is_alias = engine.aliases.contains_key(target);
+        let target = action.target_index.clone();
+        let is_alias = engine.aliases.contains_key(&target);
         if eff_require_alias && !is_alias {
             items[action.item_index] = Some(BulkItemResult {
                 action: action.action_type.clone(),
@@ -1216,43 +1216,32 @@ pub async fn process_bulk_with_opts(
                 error: Some(format!(
                     "no such index [{target}] and [require_alias] request flag is [true] and [{target}] is not an alias"
                 )),
-                            get_source: None,
+                get_source: None,
             });
             errors = true;
             return false;
         }
         if is_alias {
-            if let Some(backings) = engine.aliases.get(target) {
-                if backings.len() > 1 {
-                    // Look up per-backing is_write_index in alias metadata.
-                    // The metadata map is keyed by backing index name and
-                    // stores `{alias: {is_write_index: true, ...}, ...}`.
-                    let has_write_target = backings.iter().any(|backing| {
-                        engine
-                            .index_alias_metadata
-                            .get(backing)
-                            .and_then(|v| {
-                                v.get(target).and_then(|meta| {
-                                    meta.get("is_write_index").and_then(Value::as_bool)
-                                })
-                            })
-                            .unwrap_or(false)
+            // One write-target definition for every write path: a single
+            // backing index or exactly one `is_write_index:true`. The old code
+            // only checked that SOME write index existed and then left the
+            // target as the alias, so `get_or_create_index` wrote to the FIRST
+            // backing index and ignored the designation.
+            match engine.write_target(&target) {
+                Ok(Some(concrete)) => action.target_index = concrete,
+                Ok(None) => {}
+                Err(reason) => {
+                    items[action.item_index] = Some(BulkItemResult {
+                        action: action.action_type.clone(),
+                        index: target.clone(),
+                        id: action.doc_id.clone().unwrap_or_default(),
+                        status: 400,
+                        result: None,
+                        error: Some(reason),
+                        get_source: None,
                     });
-                    if !has_write_target {
-                        items[action.item_index] = Some(BulkItemResult {
-                            action: action.action_type.clone(),
-                            index: target.clone(),
-                            id: action.doc_id.clone().unwrap_or_default(),
-                            status: 400,
-                            result: None,
-                            error: Some(format!(
-                                "no write index is defined for alias [{target}]. The write index may be explicitly disabled using is_write_index=false or the alias points to multiple indices without one being designated as a write index"
-                            )),
-                                                    get_source: None,
-                        });
-                        errors = true;
-                        return false;
-                    }
+                    errors = true;
+                    return false;
                 }
             }
         }
