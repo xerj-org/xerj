@@ -3007,17 +3007,120 @@ const _: () = {
     assert!(RT_THREAD_STACK_SIZE - PAINLESS_WORST_CASE > 1024 * 1024);
 };
 
+/// How long an idle tokio blocking thread stays up.
+///
+/// Tokio's default is 10 seconds. After that the thread exits, and the next
+/// `spawn_blocking` — including the one `block_in_place` makes so a search
+/// can hand its worker core to another thread — calls
+/// `std::thread::Builder::spawn`. The child panics if it cannot map an
+/// alternate signal stack, and `panic = "abort"` kills the node. That is
+/// the #1122 abort on the path the rayon pools no longer take. A day is
+/// long enough that a thread started at boot is still there for the
+/// indexing run that used to create it again while RSS was already at the
+/// cap. `Instant` addition of a day does not overflow.
+const BLOCKING_THREAD_KEEP_ALIVE: std::time::Duration =
+    std::time::Duration::from_secs(24 * 60 * 60);
+
+/// How many OS threads the blocking pool may hold, workers included.
+///
+/// Tokio's `max_blocking_threads` counts only the threads *beyond* the
+/// workers. The pool's real cap is that value plus the worker count
+/// (`runtime/builder.rs`: `max_blocking_threads + worker_threads`), and
+/// `Runtime::build` spends one slot per worker. Search then calls
+/// `block_in_place`, which queues `run(worker)` on another slot, and flush
+/// `spawn_blocking` needs a slot that is not one of those. This is the
+/// whole pool: twice the workers, plus a slice, and at most 1024 once the
+/// worker count itself is under that. A worker count already past 1024
+/// keeps one extra thread, because `max_blocking_threads(0)` panics and a
+/// pool with no non-worker thread cannot run `block_in_place`. Past the
+/// cap a later call queues instead of calling `pthread_create`.
+fn blocking_thread_cap(worker_threads: usize) -> usize {
+    let workers = worker_threads.max(1);
+    let spare_for_blocking_work = (workers / 8).max(2);
+    let wanted = workers
+        .saturating_mul(2)
+        .saturating_add(spare_for_blocking_work);
+    let floor = workers.saturating_add(1);
+    wanted.max(floor).min(1024.max(floor))
+}
+
+/// The `max_blocking_threads` value for [`blocking_thread_cap`]: every
+/// slot that is not already a worker. [`build_runtime`] starts all of
+/// them, so a later `spawn_blocking` finds the pool full and queues.
+fn additional_blocking_threads(worker_threads: usize) -> usize {
+    blocking_thread_cap(worker_threads).saturating_sub(worker_threads.max(1))
+}
+
 /// Build the production multi-threaded Tokio runtime with the deliberate worker
 /// count and [`RT_THREAD_STACK_SIZE`]. Factored out of `main` so the exact
 /// builder configuration the server boots with is exercised by a test.
 fn build_runtime(worker_threads: usize) -> Result<tokio::runtime::Runtime> {
-    tokio::runtime::Builder::new_multi_thread()
+    let blocking = additional_blocking_threads(worker_threads);
+    let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .worker_threads(worker_threads)
+        .max_blocking_threads(blocking)
+        .thread_keep_alive(BLOCKING_THREAD_KEEP_ALIVE)
         .thread_stack_size(RT_THREAD_STACK_SIZE)
         .thread_name("xerj-rt")
         .build()
-        .context("build tokio runtime")
+        .context("build tokio runtime")?;
+    warm_blocking_pool(&rt, blocking);
+    Ok(rt)
+}
+
+/// Start `spare` blocking threads now, while the process is still near its
+/// idle RSS, and then let them go idle.
+///
+/// `Runtime::build` has already turned `worker_threads` blocking threads
+/// into workers. [`additional_blocking_threads`] is the rest of the cap.
+/// Those would otherwise be created on the first search or flush, which
+/// is when the box is out of memory and the spawn aborts the process. A
+/// shortfall is logged. The server still boots: the cap remains, and a
+/// later spawn stops at it.
+fn warm_blocking_pool(rt: &tokio::runtime::Runtime, spare: usize) {
+    if spare == 0 {
+        return;
+    }
+    let started = Arc::new(AtomicUsize::new(0));
+    let release = Arc::new(AtomicBool::new(false));
+    let pair = Arc::new((std::sync::Mutex::new(()), std::sync::Condvar::new()));
+    rt.block_on(async {
+        let mut joins = Vec::with_capacity(spare);
+        for _ in 0..spare {
+            let started = Arc::clone(&started);
+            let release = Arc::clone(&release);
+            let pair = Arc::clone(&pair);
+            joins.push(tokio::task::spawn_blocking(move || {
+                started.fetch_add(1, Ordering::SeqCst);
+                let (lock, cv) = &*pair;
+                let mut guard = lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                while !release.load(Ordering::SeqCst) {
+                    let (next, _) = cv
+                        .wait_timeout(guard, std::time::Duration::from_secs(2))
+                        .unwrap_or_else(|poisoned| poisoned.into_inner());
+                    guard = next;
+                }
+            }));
+        }
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        while started.load(Ordering::SeqCst) < spare && std::time::Instant::now() < deadline {
+            tokio::task::yield_now().await;
+            std::thread::sleep(std::time::Duration::from_millis(2));
+        }
+        let up = started.load(Ordering::SeqCst);
+        if up < spare {
+            warn!(
+                "started {up} of {spare} blocking-pool threads at boot; a later \
+                 spawn_blocking may still create a thread (#1122)"
+            );
+        }
+        release.store(true, Ordering::SeqCst);
+        pair.1.notify_all();
+        for join in joins {
+            let _ = tokio::time::timeout(std::time::Duration::from_secs(2), join).await;
+        }
+    });
 }
 
 /// #1840: a neural startup whose Hub cannot be reached fails once, here,
@@ -3742,7 +3845,7 @@ mod allocator_purge_tests {
 
 #[cfg(test)]
 mod runtime_tests {
-    use super::{build_runtime, run_to_exit};
+    use super::{additional_blocking_threads, blocking_thread_cap, build_runtime, run_to_exit};
 
     /// SIGTERM → "Goodbye" → exit must not wait on a blocking job that is
     /// still running (in production: a background merge compressing a large
@@ -3809,6 +3912,109 @@ mod runtime_tests {
         // 256 repetitions of 0..=255 across 3 MiB: each full 0..255 block sums
         // to 32640; assert it ran rather than pinning the exact total.
         assert!(sum > 0, "the stack-heavy worker task actually executed");
+    }
+
+    #[test]
+    fn the_blocking_pool_is_wider_than_the_workers_and_stops_at_1024() {
+        assert_eq!(blocking_thread_cap(2), 6);
+        assert_eq!(additional_blocking_threads(2), 4);
+        assert_eq!(blocking_thread_cap(64), 136);
+        assert_eq!(additional_blocking_threads(64), 72);
+        assert_eq!(blocking_thread_cap(256), 544);
+        assert_eq!(blocking_thread_cap(512), 1024);
+        assert_eq!(additional_blocking_threads(512), 512);
+        assert!(blocking_thread_cap(1) > 1);
+        assert!(additional_blocking_threads(1) >= 1);
+        // Above the ceiling the pool is the workers plus one thread.
+        // `max_blocking_threads(0)` panics, and `block_in_place` needs a
+        // thread that is not already a worker.
+        assert_eq!(blocking_thread_cap(10_000), 10_001);
+        assert_eq!(additional_blocking_threads(10_000), 1);
+    }
+
+    /// #1122: a burst of `spawn_blocking` used to call `std::thread::Builder`
+    /// once per task until tokio's default cap of 512. The child panics when
+    /// the alternate signal stack cannot be mapped, and the release profile
+    /// aborts the process. With every non-worker slot busy, a further task
+    /// waits. It must not start on a thread of its own.
+    #[test]
+    fn a_blocking_burst_does_not_grow_a_thread_per_task() {
+        let rt = build_runtime(2).expect("prod runtime builds");
+        let slots = additional_blocking_threads(2);
+        let early = rt.block_on(async move {
+            let running = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let release = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let pair = std::sync::Arc::new((std::sync::Mutex::new(()), std::sync::Condvar::new()));
+            // An assertion failure must still wake the holders. They sit in
+            // `wait_timeout` and dropping the runtime would otherwise join
+            // them with no end.
+            let _wake = ReleaseOnDrop {
+                release: std::sync::Arc::clone(&release),
+                pair: std::sync::Arc::clone(&pair),
+            };
+            let mut holders = Vec::with_capacity(slots);
+            for _ in 0..slots {
+                let running = std::sync::Arc::clone(&running);
+                let release = std::sync::Arc::clone(&release);
+                let pair = std::sync::Arc::clone(&pair);
+                holders.push(tokio::task::spawn_blocking(move || {
+                    running.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    let (lock, cv) = &*pair;
+                    let mut guard = lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+                    while !release.load(std::sync::atomic::Ordering::SeqCst) {
+                        let (next, _) = cv
+                            .wait_timeout(guard, std::time::Duration::from_secs(2))
+                            .unwrap_or_else(|poisoned| poisoned.into_inner());
+                        guard = next;
+                    }
+                }));
+            }
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+            while running.load(std::sync::atomic::Ordering::SeqCst) < slots
+                && std::time::Instant::now() < deadline
+            {
+                tokio::task::yield_now().await;
+                std::thread::sleep(std::time::Duration::from_millis(2));
+            }
+            assert_eq!(
+                running.load(std::sync::atomic::Ordering::SeqCst),
+                slots,
+                "the non-worker slots must be occupied before the extra tasks"
+            );
+            let started_early = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let mut extras = Vec::new();
+            for _ in 0..slots {
+                let started_early = std::sync::Arc::clone(&started_early);
+                extras.push(tokio::task::spawn_blocking(move || {
+                    started_early.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                }));
+            }
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            let grew = started_early.load(std::sync::atomic::Ordering::SeqCst);
+            release.store(true, std::sync::atomic::Ordering::SeqCst);
+            pair.1.notify_all();
+            for join in holders.into_iter().chain(extras) {
+                join.await.expect("blocking task");
+            }
+            grew
+        });
+        assert_eq!(
+            early, 0,
+            "a task past the blocking cap must wait for a slot, not spawn a thread"
+        );
+    }
+
+    struct ReleaseOnDrop {
+        release: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        pair: std::sync::Arc<(std::sync::Mutex<()>, std::sync::Condvar)>,
+    }
+
+    impl Drop for ReleaseOnDrop {
+        fn drop(&mut self) {
+            self.release
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+            self.pair.1.notify_all();
+        }
     }
 }
 

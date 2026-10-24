@@ -14,8 +14,11 @@
 //! A pool that cannot be started is not fatal (#1122). `build()` fails when
 //! `pthread_create` returns `EAGAIN` (thread or memory limit), and release
 //! builds are `panic = "abort"`, so the old `.expect(..)` took the whole run
-//! down. Now phase A runs on the calling thread instead, slower but complete,
-//! and the next phase tries to start the pool again.
+//! down. Workers are started with [`spawn_worker`], not rayon's default
+//! `std::thread::Builder`: that builder returns `Ok` and then panics in the
+//! child when the alternate signal stack cannot be mapped, so the `Err`
+//! fallback never ran. Now phase A runs on the calling thread instead,
+//! slower but complete, and the next phase tries to start the pool again.
 
 use std::cell::RefCell;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -77,8 +80,16 @@ fn scan_pool_with(threads: usize) -> Option<&'static ThreadPool> {
         ThreadPoolBuilder::new()
             .num_threads(threads.max(1))
             .thread_name(|i| format!("xerj-scan-{i}"))
+            .spawn_handler(spawn_worker)
             .build()
     })
+}
+
+/// Rayon spawn handler that returns `Err` instead of aborting the process
+/// (#1122). Shared with the object-fetch pool.
+pub(crate) fn spawn_worker(thread: rayon::ThreadBuilder) -> std::io::Result<()> {
+    let name = thread.name().unwrap_or("xerj-rayon").to_owned();
+    xerj_common::thread_spawn::spawn_detached(&name, thread.stack_size(), move || thread.run())
 }
 
 /// The pool in `slot`, built with `build` if it is not there yet. A failed
@@ -182,9 +193,11 @@ mod tests {
         assert!(widths.iter().all(|&w| w == pool_width));
         let name_is_ours = install(|| {
             (0..64).into_par_iter().all(|_| {
-                std::thread::current()
-                    .name()
-                    .is_some_and(|n| n.starts_with("xerj-scan-"))
+                // The safe spawner does not go through `Builder::name`, so
+                // `std::thread::current().name()` is empty. The OS comm is
+                // what the spawner sets. 15 characters, so `xerj-scan-N` fits.
+                xerj_common::thread_spawn::current_thread_name()
+                    .is_some_and(|name| name.starts_with("xerj-scan"))
             })
         });
         assert!(name_is_ours, "phase A must not run on the global pool");

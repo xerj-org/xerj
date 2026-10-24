@@ -304,13 +304,9 @@ fn log_pool_degraded_once(message: impl FnOnce() -> String) {
 /// fails the build and lets the caller run inline.
 pub(crate) fn safe_rayon_spawn(thread: rayon::ThreadBuilder) -> std::io::Result<()> {
     let name = thread.name().unwrap_or("xerj-rayon").to_owned();
-    match xerj_common::thread_spawn::try_spawn_unguarded(&name, move || thread.run()) {
-        Ok(_detached) => Ok(()),
-        Err(failure) => {
-            drop(failure.job);
-            Err(failure.error)
-        }
-    }
+    xerj_common::thread_spawn::spawn_detached(name.as_str(), thread.stack_size(), move || {
+        thread.run()
+    })
 }
 
 /// Run `op`, and every `par_iter` inside it, on the calling thread.

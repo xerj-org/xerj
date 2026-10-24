@@ -126,6 +126,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The node no longer aborts when a search or a flush has to create a tokio
+  blocking thread, and `xerj autoindex` no longer aborts when its phase-A
+  scan pool or object-fetch pool cannot map a worker's alternate signal
+  stack (part of #1122). `std::thread::Builder::spawn` returns success and
+  then panics in the child on `ENOMEM`; the release profile is
+  `panic = "abort"`. The server runtime caps that blocking pool (twice the
+  worker count, plus a slice, at most 1024, or one thread past the worker
+  count when that is already above 1024), keeps an idle thread for a day,
+  and starts the spare threads at boot so a later `spawn_blocking` or
+  `block_in_place` queues. Tokio adds the worker count on top of
+  `max_blocking_threads`, so the value passed in is only the non-worker
+  slots. The scan and fetch pools start workers with
+  `pthread_create` and, if the OS refuses, run the work on the calling
+  thread. The object-store I/O runtime is driven on the caller; if it
+  cannot be built, that operation fails and the index stays open. A
+  global-allocator abort (`memory allocation of N bytes failed`) is
+  unchanged.
+
 - `xerj autoindex` no longer junks every PDF on an OS that rejects
   `setrlimit(RLIMIT_AS)` (macOS 27 returns `EINVAL`; a hard limit below
   1536 MiB returns `EPERM`). The address-space cap is crash isolation: the

@@ -94,8 +94,8 @@ pub fn resolve_reporting_carried(
                         rayon::current_num_threads(),
                         std::sync::atomic::Ordering::Relaxed,
                     );
-                    let on_scan_pool = std::thread::current()
-                        .name()
+                    // Unix workers set the pthread comm, not the std name (#1122).
+                    let on_scan_pool = xerj_common::thread_spawn::current_thread_name()
                         .is_some_and(|n| n.starts_with("xerj-scan-"));
                     if !on_scan_pool {
                         DIGEST_RAN_OFF_THE_SCAN_POOL

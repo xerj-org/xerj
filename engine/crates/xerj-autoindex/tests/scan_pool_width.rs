@@ -43,10 +43,8 @@ fn configure_bounds_phase_a_to_the_requested_width() {
         (0..256)
             .into_par_iter()
             .map(|_| {
-                std::thread::current()
-                    .name()
-                    .unwrap_or("unnamed")
-                    .to_string()
+                // Unix workers set the pthread comm, not the std name (#1122).
+                xerj_common::thread_spawn::current_thread_name().unwrap_or_else(|| "unnamed".into())
             })
             .collect()
     });

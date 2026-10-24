@@ -774,9 +774,13 @@ fn segment_bundle_key(segment_id: &str) -> String {
 ///   this.
 /// - OFF the runtime entirely: the engine runs flush finalizers on plain std
 ///   threads (`xerj-bg-*`), where `Handle::current()` has no answer. There
-///   the future is driven on a process-global dedicated runtime, created on
-///   first use and shared for the lifetime of the store — one idle worker
-///   thread in Local mode (never created), one per process in object mode.
+///   the future is driven on a process-global current-thread runtime, created
+///   on first use and shared for the lifetime of the process. It spawns no
+///   worker thread: a multi-thread runtime's worker is `std::thread::Builder`,
+///   which panics in the child when the alternate signal stack cannot be
+///   mapped and aborts the node (#1122). Callers take turns on a mutex.
+///   Local mode never creates it. A build failure is an error from this
+///   call, and the next call tries again.
 ///
 /// The futures driven here are plain backend I/O and never re-enter
 /// `block_on_backend`, so the dedicated runtime cannot nest `block_on`.
@@ -785,7 +789,13 @@ fn block_on_backend<T>(
 ) -> crate::Result<T> {
     match tokio::runtime::Handle::try_current() {
         Ok(handle) => tokio::task::block_in_place(|| handle.block_on(fut)),
-        Err(_) => object_io_runtime().block_on(fut),
+        Err(_) => {
+            let runtime = object_io_runtime()?;
+            let guard = runtime
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            guard.block_on(fut)
+        }
     }
 }
 
@@ -803,16 +813,31 @@ fn segment_file_missing(path: &Path) -> bool {
     }
 }
 
-fn object_io_runtime() -> &'static tokio::runtime::Runtime {
-    static RUNTIME: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();
-    RUNTIME.get_or_init(|| {
-        tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(1)
-            .thread_name("xerj-obj-io")
-            .enable_all()
-            .build()
-            .expect("object-store I/O runtime")
-    })
+fn object_io_runtime() -> crate::Result<&'static std::sync::Mutex<tokio::runtime::Runtime>> {
+    static RUNTIME: std::sync::OnceLock<std::sync::Mutex<tokio::runtime::Runtime>> =
+        std::sync::OnceLock::new();
+    if let Some(runtime) = RUNTIME.get() {
+        return Ok(runtime);
+    }
+    // Current-thread: `block_on` drives the future on the caller. A
+    // multi-thread build would spawn a worker with `std::thread::Builder`
+    // and abort the process if that child's signal stack could not be
+    // mapped (#1122). `.expect` did the same for a `build()` error.
+    // Blocking threads, if a backend future asks for one, stop at 4 and
+    // are not reaped after 10 seconds (that reap is a later spawn).
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .max_blocking_threads(4)
+        .thread_keep_alive(std::time::Duration::from_secs(24 * 60 * 60))
+        .thread_name("xerj-obj-io")
+        .build()
+        .map_err(|error| {
+            crate::StorageError::Backend(format!(
+                "could not start the object-store I/O runtime ({error}); \
+                 the index stays open and this object operation fails (#1122)"
+            ))
+        })?;
+    Ok(RUNTIME.get_or_init(|| std::sync::Mutex::new(runtime)))
 }
 
 const WAL_MAINTENANCE_INTERVAL_MS: u64 = 1_000;
@@ -8403,5 +8428,25 @@ mod tests {
         );
         let resident = store.resident_memtable_entries();
         assert_eq!(resident, 2, "the live write and the tombstone stay");
+    }
+}
+
+#[cfg(test)]
+mod object_io_runtime_tests {
+    /// #1122: the off-runtime object driver used to `.expect` a multi-thread
+    /// runtime into existence. `build()` failing, or the worker's signal-stack
+    /// mmap failing, aborted the node. The driver now runs on the caller.
+    #[test]
+    fn an_off_runtime_object_call_finishes_and_a_second_caller_does_too() {
+        let first = super::block_on_backend(async { Ok::<u32, crate::StorageError>(7) }).unwrap();
+        assert_eq!(first, 7);
+        let left = std::thread::spawn(|| {
+            super::block_on_backend(async { Ok::<u32, crate::StorageError>(1) })
+        });
+        let right = std::thread::spawn(|| {
+            super::block_on_backend(async { Ok::<u32, crate::StorageError>(2) })
+        });
+        assert_eq!(left.join().unwrap().unwrap(), 1);
+        assert_eq!(right.join().unwrap().unwrap(), 2);
     }
 }

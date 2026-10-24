@@ -402,6 +402,43 @@ where
     }
 }
 
+/// Start `job` on a detached thread, for a pool worker that outlives the
+/// caller (#1122).
+///
+/// `Ok` means the thread is running and will be detached when the returned
+/// handle is dropped inside this function. `Err` means `job` did not run.
+/// This does not consult the watermark gate: a pool is built once, and a
+/// soft RSS watermark must not refuse its workers the way it refuses a
+/// drain-free thread. `stack_bytes` is the reservation the pool asked for;
+/// `None` uses the 2 MiB helper stack.
+pub fn spawn_detached(
+    name: &str,
+    stack_bytes: Option<usize>,
+    job: impl FnOnce() + Send + 'static,
+) -> io::Result<()> {
+    if let Some(stack_bytes) = stack_bytes {
+        spawn_detached_with(&StackSpawn { stack_bytes }, name, job)
+    } else {
+        spawn_detached_with(&StdSpawn, name, job)
+    }
+}
+
+/// [`spawn_detached`] with an explicit spawner. Tests pass one that fails
+/// the way an alternate-stack `ENOMEM` does.
+pub fn spawn_detached_with<S, F>(spawner: &S, name: &str, job: F) -> io::Result<()>
+where
+    S: Spawn + ?Sized,
+    F: FnOnce() + Send + 'static,
+{
+    match try_spawn_with(spawner, true, name, job) {
+        Ok(_detached) => Ok(()),
+        Err(failure) => {
+            drop(failure.job);
+            Err(failure.error)
+        }
+    }
+}
+
 /// [`try_spawn`] with an explicit spawner and gate verdict (for tests and
 /// callers that already sampled the gate).
 pub fn try_spawn_with<S, F>(
@@ -834,6 +871,34 @@ fn set_os_name(bytes: &[u8; 16]) {
     }
 }
 
+/// The name of the calling thread, as the spawner set it.
+///
+/// On Linux and macOS this is the pthread comm. Unix spawn does not go
+/// through `Builder::name`, so `std::thread::current().name()` is empty
+/// there (#1122). The comm is at most 15 bytes (`xerj-scan-0` fits).
+/// Elsewhere this is the std thread name, which `Builder::name` did set.
+pub fn current_thread_name() -> Option<String> {
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
+    {
+        let mut buf = [0u8; 16];
+        // SAFETY: `buf` is writable for `buf.len()` bytes. On success
+        // `pthread_getname_np` writes a NUL-terminated name into it and
+        // does not retain the pointer.
+        let rc = unsafe {
+            libc::pthread_getname_np(libc::pthread_self(), buf.as_mut_ptr().cast(), buf.len())
+        };
+        if rc != 0 {
+            return None;
+        }
+        let end = buf.iter().position(|byte| *byte == 0).unwrap_or(buf.len());
+        String::from_utf8(buf[..end].to_vec()).ok()
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        std::thread::current().name().map(str::to_owned)
+    }
+}
+
 /// Same default std uses for a spawned thread (`2 MiB` on Tier-1). A larger
 /// stack would reserve more address space than the path this replaces,
 /// which is the opposite of what a memory-pressure spawn should do.
@@ -1009,6 +1074,22 @@ mod tests {
     }
 
     #[test]
+    fn a_detached_worker_spawn_returns_enomem_and_does_not_run_the_job() {
+        let ran = Arc::new(AtomicUsize::new(0));
+        let job_ran = Arc::clone(&ran);
+        let error = spawn_detached_with(&SigaltstackEnomem, "xerj-rayon-0", move || {
+            job_ran.store(1, Ordering::SeqCst);
+        })
+        .expect_err("setup failure is an Err, not a panic");
+        assert_eq!(error.raw_os_error(), Some(12));
+        assert_eq!(
+            ran.load(Ordering::SeqCst),
+            0,
+            "a refused pool worker must not run, and must not abort"
+        );
+    }
+
+    #[test]
     fn an_enomem_setup_failure_returns_the_job_instead_of_panicking() {
         let ran = Arc::new(AtomicUsize::new(0));
         let job_ran = Arc::clone(&ran);
@@ -1041,7 +1122,7 @@ mod tests {
     fn a_successful_spawn_runs_the_job_once_on_the_named_thread() {
         let (tx, rx) = std::sync::mpsc::channel();
         let handle = try_spawn_with(&StdSpawn, true, "xerj-t1122", move || {
-            tx.send(helper_thread_name()).unwrap();
+            tx.send(current_thread_name()).unwrap();
         })
         .expect("spawn");
         handle.join().unwrap();
@@ -1391,26 +1472,5 @@ mod tests {
         // thread's alternate signal stack into `stack`.
         let rc = unsafe { libc::sigaltstack(std::ptr::null(), &mut stack) };
         (rc, stack.ss_flags)
-    }
-
-    fn helper_thread_name() -> Option<String> {
-        #[cfg(any(target_os = "linux", target_os = "macos"))]
-        {
-            let mut buf = [0u8; 64];
-            // SAFETY: `buf` is writable for `buf.len()` bytes and is
-            // NUL-terminated by pthread_getname_np on success.
-            let rc = unsafe {
-                libc::pthread_getname_np(libc::pthread_self(), buf.as_mut_ptr().cast(), buf.len())
-            };
-            if rc != 0 {
-                return None;
-            }
-            let end = buf.iter().position(|byte| *byte == 0).unwrap_or(buf.len());
-            String::from_utf8(buf[..end].to_vec()).ok()
-        }
-        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
-        {
-            std::thread::current().name().map(str::to_owned)
-        }
     }
 }
