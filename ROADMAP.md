@@ -2,7 +2,59 @@
 
 This roadmap tracks capabilities that are **planned but not yet fully implemented**, so the project's public claims stay honest about what ships today versus what is coming. Status is verified against the actual code and by real API requests to the release binary, not aspirational.
 
-Last reviewed: 2026-10-21 (against `v1.0.0-rc.98` and `main`). Statuses trace to issues, merged PRs, the CHANGELOG, and the conformance suite; items carried forward from the 2026-07-12 review without fresh live verification are marked as such. This review line is machine-checked: `docs_capability_lists` fails the build if a release is cut without re-reviewing this file (issue #298 — closed as abandoned 2026-09-29; the machine check, not the issue, enforces the cadence now). This pass is the rc.98 release-cut roll:
+Last reviewed: 2026-10-24 (against `v1.0.0-rc.99` and `main`). Statuses trace to issues, merged PRs, the CHANGELOG, and the conformance suite; items carried forward from the 2026-07-12 review without fresh live verification are marked as such. This review line is machine-checked: `docs_capability_lists` fails the build if a release is cut without re-reviewing this file (issue #298 — closed as abandoned 2026-09-29; the machine check, not the issue, enforces the cadence now). This pass is the rc.99 release-cut roll:
+the open-defects shortlist was re-verified against the live tracker at
+cut time — **two open**: #1122 and #1170. Three closed inside the window:
+#1110 (an unreadable corpus source fails the build instead of pruning, PR
+[#2258](https://github.com/xerj-org/xerj/pull/2258)), #1267 (a resumed
+catalog read-back stays on the changed set, PR
+[#2231](https://github.com/xerj-org/xerj/pull/2231)) and #1635 (flush
+admission is bounded, PR
+[#2129](https://github.com/xerj-org/xerj/pull/2129), and flush deadlines use
+the wall clock, PR [#2167](https://github.com/xerj-org/xerj/pull/2167)).
+#1122 is partial: a helper thread that cannot be created no longer aborts
+the process (PR [#2226](https://github.com/xerj-org/xerj/pull/2226)) and one
+JSON document over 8 MiB is refused or streamed (PR
+[#2256](https://github.com/xerj-org/xerj/pull/2256)), on Windows the
+process cap follows commit space (PR
+[#2236](https://github.com/xerj-org/xerj/pull/2236)), and a bulk reserves
+memory before parsing while uncompressed JSON over 64 MiB is streamed (PR
+[#2302](https://github.com/xerj-org/xerj/pull/2302)), a shard thread or
+merge buffer that cannot be allocated degrades instead of aborting (PR
+[#2315](https://github.com/xerj-org/xerj/pull/2315)), scoped autoindex
+threads and `POST /{index}/_update/{id}` do the same (PR
+[#2322](https://github.com/xerj-org/xerj/pull/2322)), and a host under
+16 GiB takes a cap of half its RAM with a smaller merge batch (PR
+[#2340](https://github.com/xerj-org/xerj/pull/2340)); the issue stays open
+(the memory-ceiling class and the WSL2 VM death are not addressed). #1170 is partial:
+index metadata through the Raft log (PR
+[#2257](https://github.com/xerj-org/xerj/pull/2257)), document routing to
+the primary named in the create entry (PR
+[#2271](https://github.com/xerj-org/xerj/pull/2271)), replica copies of
+an acknowledged document write (PR
+[#2287](https://github.com/xerj-org/xerj/pull/2287)), acknowledgement
+once a quorum of those copies confirms (PR
+[#2303](https://github.com/xerj-org/xerj/pull/2303)), an on-disk Raft
+log replayed on restart (PR
+[#2313](https://github.com/xerj-org/xerj/pull/2313)), a compacted Raft
+snapshot installed on a lagging member (PR
+[#2320](https://github.com/xerj-org/xerj/pull/2320)), document backfill
+onto a replica that is behind (PR
+[#2328](https://github.com/xerj-org/xerj/pull/2328), exercised by PR
+[#2341](https://github.com/xerj-org/xerj/pull/2341)), `_bulk` and
+`_update` on the shard primary (PR
+[#2344](https://github.com/xerj-org/xerj/pull/2344)), and
+`_update_by_query` on every shard primary (PR
+[#2347](https://github.com/xerj-org/xerj/pull/2347)). Replica promotion,
+`wait_for_active_shards`, native `/v1` ingest, `_delete_by_query`, and
+moving copies when membership changes stay open on #1170. The window
+since rc.98 is 116 merged pull requests; the CHANGELOG lists every one. x86_64 binaries run without AVX2 (PR
+[#2253](https://github.com/xerj-org/xerj/pull/2253), which supersedes the
+installer refusal in PR
+[#2178](https://github.com/xerj-org/xerj/pull/2178)), and `ctutils` 0.4.5
+closes RUSTSEC-2026-0385 (PR
+[#2268](https://github.com/xerj-org/xerj/pull/2268)).
+The rc.98 cut's record stands as written:
 the open-defects shortlist was re-verified against the live tracker at
 cut time — **five open**, unchanged: #1110, #1122, #1170, #1267, #1635. None
 closed inside the window. The window since rc.97 is about 120 merged PRs: a
@@ -344,30 +396,56 @@ and the console review's), the
 `xerj-decide-v1` Hugging Face publication (operator credentials), and the GA
 bar itself — *The road to v1.0.0 GA* below.
 
-**Open defects.** Five, all live on the tracker — the
-shortlist the release-notes gate checks. From the rc.97 window:
-[#1635](https://github.com/xerj-org/xerj/issues/1635) (autoindex at the
-default worker count stalled at 70.9% on a 13,765-file / 1,153 MB repo,
-with `_bulk` timeouts, HTTP 500s and a node that stopped answering
-searches; the server logs point at admission control, not yet
-instrumented). From the rc.92 window:
-[#1267](https://github.com/xerj-org/xerj/issues/1267) (the finalize
-slow-query residual after #1260: the catalog_generation read-back walk
-brute-pages `term run_id` + `_id` sort at ~5.2 s per 1,000-doc page —
-641 pages ≈ 35 min on the 402,814-doc catalog whenever a resume
-rewrote everything — and doc-shaped verify windows with `size > 0`
-still brute-scan the data indexes at 7–81 s per window, one exceeding
-the client's 300 s budget mid-crawl; PR
-[#1270](https://github.com/xerj-org/xerj/pull/1270) bounded the fast-agg
-verify window, the walk and doc-lane residual stay open).
-From the rc.81/82 windows:
+**Open defects.** Two, both live on the tracker — the
+shortlist the release-notes gate checks.
 [#1122](https://github.com/xerj-org/xerj/issues/1122) (reopened
 2026-10-05 when the reference node died at its memory ceiling with no
-panic line). From the cluster-mode testing:
-[#1170](https://github.com/xerj-org/xerj/issues/1170) (the Raft ring is
-never connected to the engine). Filed from the corpus-program work:
-[#1110](https://github.com/xerj-org/xerj/issues/1110) (the
-generalization proof: second-domain pack + fresh-machine replay).
+panic line). Partial in the rc.99 window: a helper thread that cannot
+be created no longer aborts the process (PR
+[#2226](https://github.com/xerj-org/xerj/pull/2226)), and a single JSON
+document over 8 MiB is refused or streamed (PR
+[#2256](https://github.com/xerj-org/xerj/pull/2256)), and on Windows the
+process cap follows commit space rather than physical RAM alone (PR
+[#2236](https://github.com/xerj-org/xerj/pull/2236)), and a bulk reserves
+memory before parsing while uncompressed JSON over 64 MiB is streamed
+(PR [#2302](https://github.com/xerj-org/xerj/pull/2302)), a shard thread
+or merge buffer that cannot be allocated degrades instead of aborting
+(PR [#2315](https://github.com/xerj-org/xerj/pull/2315)), scoped
+autoindex threads and `POST /{index}/_update/{id}` do the same (PR
+[#2322](https://github.com/xerj-org/xerj/pull/2322)), and a host under
+16 GiB takes a cap of half its RAM with a smaller merge batch (PR
+[#2340](https://github.com/xerj-org/xerj/pull/2340)). The memory-ceiling
+class and the WSL2 VM death stay open.
+[#1170](https://github.com/xerj-org/xerj/issues/1170) (cluster
+replication). Partial in the rc.99 window: index metadata through the
+Raft log (PR [#2257](https://github.com/xerj-org/xerj/pull/2257)),
+document writes and search routed to the primary named in the create
+entry (PR [#2271](https://github.com/xerj-org/xerj/pull/2271)), an
+acknowledged document write copied onto replicas placed at create (PR
+[#2287](https://github.com/xerj-org/xerj/pull/2287)), that write
+acknowledged once a quorum of the copies confirms (PR
+[#2303](https://github.com/xerj-org/xerj/pull/2303)), an on-disk Raft
+log at `{data_dir}/_raft` replayed before the node serves (PR
+[#2313](https://github.com/xerj-org/xerj/pull/2313)), a compacted Raft
+snapshot installed on a lagging member (PR
+[#2320](https://github.com/xerj-org/xerj/pull/2320)), the primary's live
+documents copied onto a replica that is behind (PR
+[#2328](https://github.com/xerj-org/xerj/pull/2328)), `_bulk` and
+`_update` on the shard primary (PR
+[#2344](https://github.com/xerj-org/xerj/pull/2344)), and
+`_update_by_query` on every shard primary (PR
+[#2347](https://github.com/xerj-org/xerj/pull/2347)). Replica promotion,
+`wait_for_active_shards`, native `/v1` ingest, `_delete_by_query`, and
+moving copies when membership changes stay open.
+**Closed inside the rc.99 window and recorded in the CHANGELOG, not
+carried here:** #1110 (an unreadable corpus source fails the build
+instead of pruning, PR
+[#2258](https://github.com/xerj-org/xerj/pull/2258)), #1267 (a resumed
+catalog read-back stays on the changed set, PR
+[#2231](https://github.com/xerj-org/xerj/pull/2231)) and #1635 (bounded
+flush admission and wall-clock flush deadlines, PRs
+[#2129](https://github.com/xerj-org/xerj/pull/2129) and
+[#2167](https://github.com/xerj-org/xerj/pull/2167)).
 **Closed inside the rc.97 window and recorded in the CHANGELOG, not
 carried here:** #1094 (decision flywheel write-back froze once the history
 index had BM25 support: with the local decide tier armed, a split history

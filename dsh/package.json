@@ -1,6 +1,6 @@
 {
   "name": "xerj-dsh",
-  "version": "1.0.0-rc.98",
+  "version": "1.0.0-rc.99",
   "description": "DeepSeek Harness (dsh) profile bundle that inserts the xerj MCP server over stdio.",
   "license": "Apache-2.0",
   "repository": {
