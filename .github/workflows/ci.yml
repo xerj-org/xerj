@@ -832,6 +832,9 @@ jobs:
       - name: Install counter behaviour + privacy (functions/get.js)
         run: node .github/scripts/functions-get-test.mjs
 
+      - name: Lead request validation (functions/lead.js)
+        run: node .github/scripts/functions-lead-test.mjs
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
 
