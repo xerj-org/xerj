@@ -64,7 +64,7 @@ const MARKER_GENERATED_DIRS: &[(&str, &str, &str)] = &[
 ];
 
 /// The marker-gated verdict for one directory entry.
-fn marker_generated_dir(path: &Path) -> Option<&'static str> {
+pub(crate) fn marker_generated_dir(path: &Path) -> Option<&'static str> {
     let name = path.file_name()?;
     for (dir, marker, label) in MARKER_GENERATED_DIRS {
         if name == *dir && path.parent().is_some_and(|p| p.join(marker).is_file()) {

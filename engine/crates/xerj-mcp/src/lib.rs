@@ -788,7 +788,13 @@ pub fn tool_specs_with(include_hub: bool) -> Value {
                  located or the passage start line is unknown. `start_line` remains \
                  the passage start. \
                  Pass `max_tokens` to cap the response at a token budget (never exceeded; \
-                 see that argument for the tokenizer and the locator-only rule).",
+                 see that argument for the tokenizer and the locator-only rule). \
+                 If this prefix was autoindexed from a folder on this machine and a file \
+                 there is newer than the last run, or an indexed file has been removed, \
+                 the response adds `_xerj.hints` code `index_stale` with the last index \
+                 time and a reindex command. Hits are returned with that hint. The check \
+                 stats at most 4096 entries, stops after 100ms, and skips hidden and \
+                 ignored paths.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -1965,7 +1971,7 @@ async fn call_tool(ctx: &Ctx, msg: &Value) -> Value {
     match result {
         Ok((method, path, body)) => {
             let match_query = search_match_query(name, &args);
-            engine_request(
+            let result = engine_request(
                 ctx,
                 method,
                 &path,
@@ -1974,7 +1980,15 @@ async fn call_tool(ctx: &Ctx, msg: &Value) -> Value {
                 demote_page,
                 match_query.as_deref(),
             )
-            .await
+            .await;
+            // After the search, so a failed call does not pay for the catalog
+            // read and the check cannot take a connection the search needs.
+            let hint = if result.get("isError") == Some(&Value::Bool(true)) {
+                None
+            } else {
+                search_staleness(ctx, name, &args).await
+            };
+            apply_staleness(result, hint)
         }
         Err(msg) => tool_text(msg, true),
     }
@@ -3176,6 +3190,53 @@ fn search_match_query(name: &str, args: &Value) -> Option<String> {
         Some(v @ (Value::Object(_) | Value::Array(_))) => Some(v.to_string()),
         _ => None,
     }
+}
+
+/// Catalog + mtime check for `xerj_search`, after the search has returned.
+///
+/// The walk uses a blocking HTTP client, so it runs on a blocking thread.
+/// It starts only once the search result is in hand: a second connection
+/// during the search would be a different request, and a failed search has
+/// nothing to annotate. Other tools do not share this path: `xerj code`'s
+/// 30-day refusal stays on `xerj_code_search`.
+async fn search_staleness(
+    ctx: &Ctx,
+    name: &str,
+    args: &Value,
+) -> Option<xerj_autoindex::staleness::StalenessHint> {
+    if name != "xerj_search" {
+        return None;
+    }
+    let prefix = xerj_autoindex::search::prefix_from_scope(
+        args.get("prefix").and_then(Value::as_str),
+        args.get("index").and_then(Value::as_str),
+    )?;
+    let url = ctx.base_url.clone();
+    let key = api_key_from_header(ctx.auth.clone());
+    tokio::task::spawn_blocking(move || {
+        xerj_autoindex::staleness::check(&url, key.as_deref(), &prefix)
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
+/// Attach a staleness hint after the token budget so a tight budget cannot
+/// drop the warning. An error result is returned unchanged.
+fn apply_staleness(result: Value, hint: Option<xerj_autoindex::staleness::StalenessHint>) -> Value {
+    let Some(hint) = hint else {
+        return result;
+    };
+    if result.get("isError") == Some(&Value::Bool(true)) {
+        return result;
+    }
+    let Some(text) = result.pointer("/content/0/text").and_then(Value::as_str) else {
+        return result;
+    };
+    tool_text(
+        xerj_autoindex::staleness::merge_response_json(text, &hint),
+        false,
+    )
 }
 
 async fn engine_request(
@@ -5441,6 +5502,10 @@ mod tests {
             desc.contains("omitted when no term is located"),
             "a missing match_line is not a line number: {desc}"
         );
+        assert!(
+            desc.contains("index_stale") && desc.contains("4096"),
+            "xerj_search must describe the staleness hint: {desc}"
+        );
         assert!(at("xerj_field_report") < at("xerj_corpus_feedback"));
         assert!(at("xerj_corpus_feedback") < at("xerj_hub_find"));
         let field = specs
@@ -5491,6 +5556,32 @@ mod tests {
             .filter(|n| n.contains("autoindex"))
             .collect();
         assert_eq!(autoindex_tools, vec!["xerj_autoindex_remove"]);
+    }
+
+    #[test]
+    fn a_staleness_hint_is_added_to_a_search_result_and_an_error_is_left_alone() {
+        let hint = xerj_autoindex::staleness::StalenessHint {
+            code: "index_stale",
+            reason: "The index for prefix `ok-knowledge` was last built at 2026-10-23T23:46:52Z. `docs/page.md` is newer than that index, so a page on disk can be missing from these results. Reindex with: xerj autoindex /corpus --prefix ok-knowledge".into(),
+            indexed_at: "2026-10-23T23:46:52Z".into(),
+            root: "/corpus".into(),
+            run_id: "run-20261023T234652Z-2c98-0000".into(),
+            prefix: "ok-knowledge".into(),
+            path: "docs/page.md".into(),
+            change: "newer",
+        };
+        let ok = tool_text(r#"{"hits":{"hits":[]}}"#, false);
+        let merged = apply_staleness(ok, Some(hint.clone()));
+        assert_eq!(merged["isError"], false);
+        let text = merged["content"][0]["text"].as_str().unwrap();
+        let parsed: Value = serde_json::from_str(text).unwrap();
+        assert_eq!(parsed["_xerj"]["hints"][0]["code"], "index_stale");
+        assert_eq!(parsed["_xerj"]["hints"][0]["path"], "docs/page.md");
+        assert!(parsed["hits"]["hits"].as_array().unwrap().is_empty());
+
+        let err = tool_text("XERJ returned HTTP 400: no", true);
+        let kept = apply_staleness(err.clone(), Some(hint));
+        assert_eq!(kept, err);
     }
 
     /// A process with no hub signing key must not advertise tools that can

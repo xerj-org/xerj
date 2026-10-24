@@ -50,6 +50,7 @@ pub mod resources;
 pub mod search;
 pub mod sniff;
 pub mod source;
+pub mod staleness;
 pub mod state;
 mod sync;
 mod sync_executor;

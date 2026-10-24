@@ -99,6 +99,18 @@ const KNOWN: &[(&str, Role)] = &[
     // the operator's own node, so DATA_EGRESS and the air-gapped rows do
     // not change.
     ("xerj-autoindex/src/xc.rs", Role::Client("`xerj code`")),
+    // #2345: after a successful `xerj search` or MCP `xerj_search`,
+    // staleness.rs POSTs one catalog search to the node URL that search
+    // already used (`--url`, `XERJ_URL`, else localhost:9200). The body is a
+    // `doc_kind: run` prefix query, and a `doc_kind: file` query only when a
+    // directory mtime says something was removed. The API key goes only when
+    // one is configured. No document text and no user query leave, and the
+    // peer is the operator's own node, so DATA_EGRESS and the air-gapped
+    // rows do not change.
+    (
+        "xerj-autoindex/src/staleness.rs",
+        Role::Client("`xerj search`"),
+    ),
     (
         "xerj-autoindex/src/feedback.rs",
         Role::Client("`xerj feedback --open-pr`"),

@@ -11,6 +11,7 @@
 use std::collections::BTreeSet;
 
 use crate::esclient::Es;
+use crate::staleness;
 use serde_json::{json, Value};
 use xerj_common::xccode::demote_catalog_noise;
 
@@ -37,6 +38,12 @@ EXAMPLE:
 
 SEE ALSO:
     xerj def <symbol>    exact go-to-definition when you already know the name
+
+When the autoindex catalog records a folder on this machine for --prefix and a
+file there is newer than the last index, or an indexed file has been removed,
+the command prints the last index time and a reindex command, then prints the
+passages. The check stats at most 4096 entries, stops after 100ms, and skips
+hidden and ignored paths.
 ";
 
 /// Extract the `_passage` snippet from a hit. The engine returns it under
@@ -624,6 +631,36 @@ pub fn resolve_prefix(prefix: &str) -> Result<ResolvedPrefix, String> {
     })
 }
 
+/// The autoindex prefix a `xerj_search` call can be checked for staleness.
+///
+/// An explicit `prefix` wins, resolved the same way as `--prefix`. Neither
+/// argument is the CLI default `ax`. An `index` of `{prefix}-*` is that
+/// prefix. A concrete index name is not: `proj-docs` is a dataset, and
+/// guessing the prefix would check the wrong folder. Both arguments is
+/// `None` — the tool already rejects that pair.
+pub fn prefix_from_scope(prefix: Option<&str>, index: Option<&str>) -> Option<String> {
+    let prefix = prefix.map(str::trim).filter(|s| !s.is_empty());
+    let index = index.map(str::trim).filter(|s| !s.is_empty());
+    match (prefix, index) {
+        (Some(_), Some(_)) => None,
+        (Some(prefix), None) => resolve_prefix(prefix).ok().map(|r| r.prefix),
+        (None, None) => Some(DEFAULT_SEARCH_PREFIX.to_string()),
+        (None, Some(index)) => wildcard_prefix(index),
+    }
+}
+
+/// `{prefix}-*` → `prefix`. Any other pattern is not one autoindex folder.
+fn wildcard_prefix(index: &str) -> Option<String> {
+    if index.contains([',', ' ', '\t']) {
+        return None;
+    }
+    let stem = index.strip_suffix("-*")?;
+    if stem.is_empty() || stem.contains(['*', '?']) {
+        return None;
+    }
+    resolve_prefix(stem).ok().map(|r| r.prefix)
+}
+
 /// Stderr note when the stored prefix is not the characters the caller typed.
 /// `None` when they already match, including surrounding whitespace.
 pub fn prefix_rewrite_note(given: &str, resolved: &ResolvedPrefix) -> Option<String> {
@@ -792,7 +829,7 @@ pub fn run_search_cli() -> i32 {
         }
     }
 
-    let es = match Es::new(&url, api_key) {
+    let es = match Es::new(&url, api_key.clone()) {
         Ok(es) => es,
         Err(e) => {
             eprintln!("xerj search: could not build client for {url}: {e}");
@@ -864,7 +901,14 @@ pub fn run_search_cli() -> i32 {
     // header cite the matched line. `xerj code --json` is the raw server
     // body and does not share this hit post-pass.
     xerj_common::xccode::passage::annotate_search_match_lines(&mut resp, &query);
+    // After the query, so a failed search does not pay for the catalog read.
+    // A missing catalog, a remote folder, or a check that hits its cap leaves
+    // the response unchanged (#2345).
+    let hint = staleness::check(&url, api_key.as_deref(), &prefix);
     if as_json {
+        if let Some(hint) = &hint {
+            staleness::attach(&mut resp, hint);
+        }
         println!(
             "{}",
             serde_json::to_string_pretty(&resp).unwrap_or_default()
@@ -873,6 +917,9 @@ pub fn run_search_cli() -> i32 {
     }
     if let Some(note) = lexical_semantic_note(&resp) {
         eprintln!("{note}");
+    }
+    if let Some(hint) = &hint {
+        println!("{}", hint.cli_line());
     }
 
     let hits = resp
@@ -965,6 +1012,20 @@ mod tests {
             resolve_prefix(DEFAULT_SEARCH_PREFIX).unwrap().pattern,
             "ax-*"
         );
+
+        assert_eq!(prefix_from_scope(None, None).as_deref(), Some("ax"));
+        assert_eq!(
+            prefix_from_scope(Some("My_Proj"), None).as_deref(),
+            Some("my-proj")
+        );
+        assert_eq!(
+            prefix_from_scope(None, Some("ok-knowledge-*")).as_deref(),
+            Some("ok-knowledge")
+        );
+        assert_eq!(prefix_from_scope(Some("proj"), Some("proj-*")), None);
+        assert_eq!(prefix_from_scope(None, Some("proj-docs")), None);
+        assert_eq!(prefix_from_scope(None, Some("a,b-*")), None);
+        assert_eq!(prefix_from_scope(Some("___"), None), None);
 
         let empty = resolve_prefix("___").unwrap_err();
         assert!(empty.contains("[a-z0-9]"), "{empty}");

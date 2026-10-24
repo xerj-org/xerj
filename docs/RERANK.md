@@ -379,7 +379,10 @@ the picture:
   `http://localhost:9200` unless you say otherwise. On an empty corpus ledger,
   `xerj code` and `xerj corpus list` also POST one catalog search to that same
   node URL (autoindex run prefixes, and the API key when one is configured);
-  no document text and no user query.
+  no document text and no user query. After a successful search, `xerj search`
+  and MCP `xerj_search` POST one catalog search to that same node URL (the
+  autoindex run for the prefix, and the API key when one is configured) so a
+  folder older than its files can be named; no document text and no user query.
   `xerj batch-search` sends the batch's queries or identifiers to `/_msearch`
   and optionally reads index mappings at that node, with the configured API
   key when present (`--url` / `--auth` override `XERJ_URL` / `XERJ_AUTH`).

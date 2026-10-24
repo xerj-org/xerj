@@ -22,6 +22,12 @@ async fn json_budget_identity_survives_http_dispatch_and_source_projection() {
             .collect();
         let requests = Arc::new(Mutex::new(Vec::<Value>::new()));
         let seen = requests.clone();
+        // `xerj_search` also POSTs `/autoindex-catalog/_search` after the
+        // query (#2345). That probe is not the engine request the budget
+        // must leave alone, and recording it in the same list pairs a search
+        // body with a catalog body.
+        let catalog = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let seen_catalog = catalog.clone();
         let app = Router::new()
             .route(
                 "/:index/_mapping",
@@ -31,23 +37,34 @@ async fn json_budget_identity_survives_http_dispatch_and_source_projection() {
             )
             .route(
                 "/:index/_search",
-                axum::routing::post(move |Json(body): Json<Value>| {
-                    let mut hits = hits.clone();
-                    seen.lock().unwrap().push(body.clone());
-                    async move {
-                        // Model the engine's projection: the plain-query default
-                        // must actually request identity fields, not just consume
-                        // fixtures that always return them.
-                        if let Some(fields) = body.get("_source").and_then(Value::as_array) {
-                            for hit in &mut hits {
-                                hit["_source"].as_object_mut().unwrap().retain(|key, _| {
-                                    fields.iter().any(|v| v.as_str() == Some(key.as_str()))
-                                });
-                            }
+                axum::routing::post(
+                    move |axum::extract::Path(index): axum::extract::Path<String>,
+                          Json(body): Json<Value>| {
+                        let mut hits = hits.clone();
+                        let catalog_probe = index == "autoindex-catalog";
+                        if catalog_probe {
+                            seen_catalog.lock().unwrap().push(body.clone());
+                        } else {
+                            seen.lock().unwrap().push(body.clone());
                         }
-                        Json(json!({"hits":{"total":{"value":2,"relation":"eq"},"hits":hits}}))
-                    }
-                }),
+                        async move {
+                            if catalog_probe {
+                                return Json(json!({"hits":{"hits":[]}}));
+                            }
+                            // Model the engine's projection: the plain-query default
+                            // must actually request identity fields, not just consume
+                            // fixtures that always return them.
+                            if let Some(fields) = body.get("_source").and_then(Value::as_array) {
+                                for hit in &mut hits {
+                                    hit["_source"].as_object_mut().unwrap().retain(|key, _| {
+                                        fields.iter().any(|v| v.as_str() == Some(key.as_str()))
+                                    });
+                                }
+                            }
+                            Json(json!({"hits":{"total":{"value":2,"relation":"eq"},"hits":hits}}))
+                        }
+                    },
+                ),
             );
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
@@ -107,10 +124,27 @@ async fn json_budget_identity_survives_http_dispatch_and_source_projection() {
         }
         {
             let requests = requests.lock().unwrap();
+            assert!(
+                requests.len() >= 2 && requests.len().is_multiple_of(2),
+                "each call is made with and without a budget: {}",
+                requests.len()
+            );
             for pair in requests.chunks_exact(2) {
                 assert_eq!(
                     pair[0], pair[1],
                     "the budget must not change the engine request"
+                );
+            }
+        }
+        {
+            // Two `xerj_search` calls, each with and without a budget.
+            let catalog = catalog.lock().unwrap();
+            assert_eq!(catalog.len(), 4, "{catalog:?}");
+            for body in catalog.iter() {
+                assert_eq!(body["query"]["bool"]["must"][0]["term"]["doc_kind"], "run");
+                assert_eq!(
+                    body["query"]["bool"]["must"][1]["bool"]["should"][0]["term"]["prefix"],
+                    "ax"
                 );
             }
         }
