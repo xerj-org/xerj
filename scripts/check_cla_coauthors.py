@@ -53,6 +53,10 @@ Usage (CI):
     the status the CI job posts on --head-sha describes that commit and no
     other. Used by the same exemption job, because cla-bot reads
     `.contributors` from `main` and so can never pass a signature PR itself.
+    Exits 2 when the diff is `.contributors` alone but the file at the head
+    SHA does not parse: that is a broken signature, not a mixed PR, and the
+    CI job turns the 2 into a visible failure instead of leaving the verdict
+    to cla-bot — a dropped comma used to look exactly like the deadlock.
   Needs `gh` and GH_TOKEN for --pr; repo comes from GITHUB_REPOSITORY or --repo.
 
 Tests: scripts/test_cla_coauthors.py
@@ -143,6 +147,23 @@ def _is_login(value):
     return isinstance(value, str) and _LOGIN_RE.match(value) is not None
 
 
+def is_contributors_only_change(files):
+    """True iff the diff is exactly one *modified* `.contributors`.
+
+    The shape a signature PR must have, on its own: it says nothing about the
+    author or the contents, only that `.contributors` is the whole diff. The
+    CLI uses it to tell "a signature PR whose file is broken" — worth a loud,
+    actionable failure — from "some other PR", which stays cla-bot's call.
+    """
+    return (
+        isinstance(files, list)
+        and len(files) == 1
+        and isinstance(files[0], dict)
+        and files[0].get("filename") == ".contributors"
+        and files[0].get("status") == "modified"
+    )
+
+
 def is_self_cla_signature(
     files,
     base_contributors,
@@ -177,14 +198,9 @@ def is_self_cla_signature(
       - has no commits, or any commit not authored by the PR author; or
       - carries a Co-authored-by trailer that is unresolvable or unsigned.
     """
-    if not isinstance(files, list) or len(files) != 1:
+    if not is_contributors_only_change(files):
         return False
-    f = files[0]
-    if not isinstance(f, dict):
-        return False
-    if f.get("filename") != ".contributors" or f.get("status") != "modified":
-        return False
-    if f.get("previous_filename"):
+    if files[0].get("previous_filename"):
         return False
 
     if not _is_login(pr_author):
@@ -369,7 +385,23 @@ def _self_cla_signature_main(args):
 
     base_contributors = _fetch_contributors_at(args.repo, merge_base)
     head_contributors = _fetch_contributors_at(args.repo, args.head_sha)
-    if base_contributors is None or head_contributors is None:
+    if head_contributors is None:
+        # `.contributors` is the entire diff, so an unreadable head file is a
+        # broken signature, not an unrelated PR. Returning 1 here left the
+        # contributor with a red gate indistinguishable from the deadlock (#1619).
+        if is_contributors_only_change(files):
+            print(
+                f"::error::.contributors at {args.head_sha} could not be read as JSON, "
+                "so this signature PR cannot be judged. Fix the file — valid "
+                "JSON, exactly one added login — and push again.",
+                file=sys.stderr,
+            )
+            return 2
+        return 1
+    if base_contributors is None:
+        # The merge base is `main`'s own file: nothing this PR can repair, so
+        # the verdict stays with cla-bot instead of failing the contributor's
+        # job for a defect outside their diff.
         return 1
     ok = is_self_cla_signature(
         files,

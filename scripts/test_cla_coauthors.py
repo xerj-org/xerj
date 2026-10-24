@@ -10,16 +10,23 @@ buger's #166). These tests pin the trailer-aware behaviour.
 Run: python3 scripts/test_cla_coauthors.py
 """
 
+import argparse
+import base64
+import contextlib
+import io
 import pathlib
 import re
 import sys
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
+import check_cla_coauthors
 from check_cla_coauthors import (
     FIELD_REPORT_DIR,
     check_commits,
+    is_contributors_only_change,
     is_field_report_only,
     is_self_cla_signature,
     noreply_login,
@@ -215,6 +222,131 @@ class FieldReportExemptionTests(unittest.TestCase):
 
 
 CONTRIB = {"filename": ".contributors", "status": "modified"}
+
+
+class SelfClaSignatureExitCodeTests(unittest.TestCase):
+    """The one branch the workflow's `case` depends on: a `.contributors`-only
+    PR whose head file does not parse exits 2 (loud), everything else 1."""
+
+    BASE_SHA = "a" * 40
+    HEAD_SHA = "b" * 40
+
+    def _run(self, files, head_contributors, broken_base=False):
+        base_contributors = None if broken_base else ["xerj-org", "dependabot[bot]"]
+        pr = {
+            "head": {"sha": self.HEAD_SHA},
+            "state": "open",
+            "user": {"login": "todie"},
+        }
+        cmp = {
+            "total_commits": 1,
+            "merge_base_commit": {"sha": self.BASE_SHA},
+            "commits": [
+                {
+                    "sha": "c" * 40,
+                    "commit": {"message": "chore: sign the CLA"},
+                    "author": {"login": "todie"},
+                }
+            ],
+            "files": files,
+        }
+        args = argparse.Namespace(
+            pr=1, base_sha=self.BASE_SHA, head_sha=self.HEAD_SHA, repo="o/r"
+        )
+        with mock.patch.object(
+            check_cla_coauthors, "_gh_api_one", side_effect=[pr, cmp]
+        ), mock.patch.object(
+            check_cla_coauthors,
+            "_fetch_contributors_at",
+            side_effect=lambda _repo, sha: (
+                base_contributors if sha == self.BASE_SHA else head_contributors
+            ),
+        ), contextlib.redirect_stderr(io.StringIO()) as err:
+            rc = check_cla_coauthors._self_cla_signature_main(args)
+        return rc, err.getvalue()
+
+    def test_broken_contributors_on_a_signature_pr_exits_2(self):
+        rc, err = self._run([CONTRIB], None)
+        self.assertEqual(rc, 2)
+        self.assertIn("::error::", err)
+
+    def test_broken_contributors_on_a_mixed_pr_exits_1(self):
+        rc, err = self._run(
+            [CONTRIB, {"filename": "x", "status": "modified"}], None
+        )
+        self.assertEqual(rc, 1)
+        self.assertNotIn("::error::", err)
+
+    def test_a_valid_signature_exits_0(self):
+        rc, _ = self._run([CONTRIB], ["xerj-org", "dependabot[bot]", "todie"])
+        self.assertEqual(rc, 0)
+
+    def test_a_broken_base_file_is_not_this_pr_fault(self):
+        # The merge base is `main`'s own file: a defect there is not something
+        # the contributor's diff can repair, so the job must not fail on it.
+        rc, err = self._run(
+            [CONTRIB],
+            ["xerj-org", "dependabot[bot]", "todie"],
+            broken_base=True,
+        )
+        self.assertEqual(rc, 1)
+        self.assertNotIn("::error::", err)
+
+
+class ContributorsOnlyChangeTests(unittest.TestCase):
+    """The CLI separates "a signature PR whose file is broken" (exit 2, loud)
+    from "some other PR" (exit 1, cla-bot's call). That split is this shape
+    test, so it has to be exact: one file, `.contributors`, modified."""
+
+    def test_one_modified_contributors_is_the_signature_shape(self):
+        self.assertTrue(is_contributors_only_change([CONTRIB]))
+
+    def test_any_second_changed_file_breaks_the_shape(self):
+        self.assertFalse(
+            is_contributors_only_change(
+                [CONTRIB, {"filename": "engine/src/lib.rs", "status": "modified"}]
+            )
+        )
+
+    def test_another_status_is_not_the_signature_shape(self):
+        for status in ("added", "removed", "renamed", "copied"):
+            self.assertFalse(
+                is_contributors_only_change(
+                    [{"filename": ".contributors", "status": status}]
+                )
+            )
+
+    def test_a_malformed_file_list_is_not_the_signature_shape(self):
+        for files in (None, [], "x", [".contributors"], [None], {}):
+            self.assertFalse(is_contributors_only_change(files))
+
+
+class FetchContributorsTests(unittest.TestCase):
+    """`_fetch_contributors_at` returning None is what the CLI turns into the
+    loud exit 2 when `.contributors` is the whole diff."""
+
+    def _fetch(self, raw):
+        item = {
+            "encoding": "base64",
+            "content": base64.b64encode(raw).decode("ascii"),
+        }
+        with mock.patch.object(
+            check_cla_coauthors, "_gh_api_one", return_value=item
+        ):
+            return check_cla_coauthors._fetch_contributors_at("o/r", "0" * 40)
+
+    def test_invalid_json_returns_none(self):
+        # The #1619 file once a merge resolution dropped the comma.
+        self.assertIsNone(self._fetch(b'[\n  "a",\n  "b"\n  "c"\n]'))
+
+    def test_a_json_value_that_is_not_a_list_still_parses(self):
+        # Shape is the predicate's business, not the fetcher's: a dict parses
+        # and is rejected later, which is exit 1, not exit 2.
+        self.assertEqual(self._fetch(b'{"a": 1}'), {"a": 1})
+
+    def test_a_valid_list_round_trips(self):
+        self.assertEqual(self._fetch(b'["a", "b"]'), ["a", "b"])
+
 
 
 class SelfClaSignatureTests(unittest.TestCase):

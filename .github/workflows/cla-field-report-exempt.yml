@@ -107,12 +107,28 @@ jobs:
             post_success \
               "Field-report-only PR: CLA gate waived for user-feedback/16-agent-field-reports/*.md" \
               "https://github.com/${REPO}/blob/main/user-feedback/16-agent-field-reports/README.md"
-          elif python3 scripts/check_cla_coauthors.py --is-self-cla-signature --pr "$PR_NUMBER" \
-              --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA"; then
-            echo "PR #${PR_NUMBER} @ ${HEAD_SHA} is its author's own CLA signature; posting verification/cla-signed=success."
-            post_success \
-              "CLA signature PR: the author adds only their own login to .contributors" \
-              "https://github.com/${REPO}/blob/main/CLA.md"
           else
-            echo "PR #${PR_NUMBER} is neither field-report-only nor a self-CLA signature; leaving verification/cla-signed to cla-bot."
+            # 0 = the author's own signature (post success), 2 = the diff is
+            # `.contributors` alone but the file does not parse (fail loudly),
+            # anything else = some other PR (leave the verdict to cla-bot).
+            status=0
+            python3 scripts/check_cla_coauthors.py --is-self-cla-signature --pr "$PR_NUMBER" \
+              --base-sha "$BASE_SHA" --head-sha "$HEAD_SHA" || status=$?
+            case "$status" in
+              0)
+                echo "PR #${PR_NUMBER} @ ${HEAD_SHA} is its author's own CLA signature; posting verification/cla-signed=success."
+                post_success \
+                  "CLA signature PR: the author adds only their own login to .contributors" \
+                  "https://github.com/${REPO}/blob/main/CLA.md"
+                ;;
+              2)
+                # The annotation from the script names the SHA and the repair;
+                # this exit makes it impossible to miss. A red gate with no
+                # explanation is what this branch exists to stop.
+                exit 1
+                ;;
+              *)
+                echo "PR #${PR_NUMBER} is neither field-report-only nor a self-CLA signature; leaving verification/cla-signed to cla-bot."
+                ;;
+            esac
           fi
