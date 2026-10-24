@@ -14376,50 +14376,61 @@ impl Index {
                                     if let Err(e) = store_for_task
                                         .ensure_fts_case_distinguished_field_component_format()
                                     {
-                                        tracing::warn!(
-                                            "merge: case-distinguished FTS filename format preflight failed: {e:#}"
-                                        );
-                                        return Ok(());
+                                        return degrade_fts_publish(
+                                            &segments_dir_for_task,
+                                            merged_meta.id.as_str(),
+                                            &format!("{e:#}"),
+                                        )
+                                        .map_err(|error| error.to_string());
                                     }
                                     if let Err(e) = fts_writer
                                         .publish_case_distinguished_filename_layout()
                                     {
-                                        tracing::warn!(
-                                            "merge: FTS filename-layout publication failed: {e:#}"
-                                        );
-                                        return Ok(());
+                                        return degrade_fts_publish(
+                                            &segments_dir_for_task,
+                                            merged_meta.id.as_str(),
+                                            &format!("{e:#}"),
+                                        )
+                                        .map_err(|error| error.to_string());
                                     }
                                 } else if fts_writer.uses_encoded_field_filename_components() {
                                     if let Err(e) = store_for_task
                                         .ensure_fts_encoded_field_component_format()
                                     {
-                                        tracing::warn!(
-                                            "merge: encoded FTS filename format preflight failed: {e:#}"
-                                        );
-                                        return Ok(());
+                                        return degrade_fts_publish(
+                                            &segments_dir_for_task,
+                                            merged_meta.id.as_str(),
+                                            &format!("{e:#}"),
+                                        )
+                                        .map_err(|error| error.to_string());
                                     }
                                     if let Err(e) =
                                         fts_writer.publish_encoded_filename_layout()
                                     {
-                                        tracing::warn!(
-                                            "merge: FTS filename-layout publication failed: {e:#}"
-                                        );
-                                        return Ok(());
+                                        return degrade_fts_publish(
+                                            &segments_dir_for_task,
+                                            merged_meta.id.as_str(),
+                                            &format!("{e:#}"),
+                                        )
+                                        .map_err(|error| error.to_string());
                                     }
                                 }
                                 if let Err(e) = fts_writer.finish() {
-                                    tracing::warn!("merge: FTS build failed: {e:#}");
+                                    degrade_fts_publish(
+                                        &segments_dir_for_task,
+                                        merged_meta.id.as_str(),
+                                        &format!("{e:#}"),
+                                    )
+                                    .map_err(|error| error.to_string())?;
                                 }
                                 Ok(())
                             });
-                            // LOSS FIREWALL: the preflight already refused every
-                            // input it could not reproduce exactly, so a failure
-                            // here means an input's own side-cars contradict
-                            // themselves. Committing a merged segment whose FTS
-                            // data is missing would silently stop its documents
-                            // matching, so abort the batch — the inputs stay
-                            // live and untouched, exactly as for an unreadable
-                            // stored section.
+                            // A postings-merge failure, or a side-car publish
+                            // failure whose leftover files could not be removed,
+                            // aborts the batch: the inputs stay live. A publish
+                            // failure that left no FTS files does not: the
+                            // merged segment is searched by stored scan until a
+                            // later merge rebuilds full text (#2349).
                             if let Err(message) = built {
                                 tracing::error!(
                                     "merge ABORTED: postings merge failed (inputs \
@@ -28632,6 +28643,27 @@ fn build_fts_field_configs(
     out
 }
 
+/// Log `error` and remove this segment's FTS artifacts.
+///
+/// `Ok` means nothing FTS-shaped remains, so publishing the stored segment
+/// is safe: a query that finds no side-cars scans the stored section, and a
+/// later merge rebuilds full text (#2349). `Err` means a leftover file could
+/// not be removed; that partial family must not be published. The error
+/// string keeps the original publish failure (path and OS error) and the
+/// cleanup failure.
+fn degrade_fts_publish(segment_dir: &Path, segment_id: &str, error: &str) -> std::io::Result<()> {
+    tracing::error!(
+        segment_id,
+        "FTS side-car publish failed; this segment stays searchable by stored scan until a merge rebuilds full text: {error}"
+    );
+    if let Err(cleanup) = xerj_fts::index::discard_segment_fts_files(segment_dir, segment_id) {
+        return Err(std::io::Error::other(format!(
+            "FTS side-car publish failed ({error}); leftover side-cars could not be removed: {cleanup}"
+        )));
+    }
+    Ok(())
+}
+
 /// Open a full FTS reader over every input segment of a merge batch, or
 /// `None` when this batch has to fall back to re-analysing its documents.
 ///
@@ -35249,30 +35281,40 @@ async fn do_flush_shard(
                 fts_writer.add_documents_parallel(&drained_fts_for_build);
                 fts_add_us = t_add.elapsed().as_micros();
                 let t_fin = std::time::Instant::now();
-                if fts_writer.uses_case_distinguished_field_filename_components() {
+                // The data-dir format marker is a fence, not a side-car. If
+                // that preflight fails, this flush must fail and leave the
+                // documents uncommitted: a retry then writes the marker and
+                // the encoded side-cars. Publishing a no-FTS segment here
+                // would clear the memtable and skip that recovery.
+                let case_distinguished =
+                    fts_writer.uses_case_distinguished_field_filename_components();
+                let encoded =
+                    !case_distinguished && fts_writer.uses_encoded_field_filename_components();
+                if case_distinguished {
                     store_for_warm.ensure_fts_case_distinguished_field_component_format()?;
-                    fts_writer
-                        .publish_case_distinguished_filename_layout()
-                        .map_err(|error| {
-                            xerj_storage::StorageError::Io(std::io::Error::other(format!(
-                                "FTS filename-layout publication failed: {error:#}"
-                            )))
-                        })?;
-                } else if fts_writer.uses_encoded_field_filename_components() {
+                } else if encoded {
                     store_for_warm.ensure_fts_encoded_field_component_format()?;
-                    fts_writer
-                        .publish_encoded_filename_layout()
-                        .map_err(|error| {
-                            xerj_storage::StorageError::Io(std::io::Error::other(format!(
-                                "FTS filename-layout publication failed: {error:#}"
-                            )))
-                        })?;
                 }
-                fts_writer.finish().map_err(|error| {
-                    xerj_storage::StorageError::Io(std::io::Error::other(format!(
-                        "FTS side-car build failed: {error:#}"
-                    )))
-                })?;
+                // #2349 — a side-car publish that fails on a case-folding
+                // volume used to fail this flush, and the aggregate `-docs`
+                // refresh then aborted the whole autoindex. When the partial
+                // files can be removed, keep the stored segment: search scans
+                // it, and a later merge rebuilds full text. The error logged
+                // by `degrade_fts_publish` names the path and the OS error.
+                let segment_id_for_fts = meta.id.clone();
+                let publish_result = (move || -> anyhow::Result<()> {
+                    if case_distinguished {
+                        fts_writer.publish_case_distinguished_filename_layout()?;
+                    } else if encoded {
+                        fts_writer.publish_encoded_filename_layout()?;
+                    }
+                    fts_writer.finish()?;
+                    Ok(())
+                })();
+                if let Err(error) = publish_result {
+                    degrade_fts_publish(&segments_dir, &segment_id_for_fts, &format!("{error:#}"))
+                        .map_err(xerj_storage::StorageError::Io)?;
+                }
                 fts_finish_us = t_fin.elapsed().as_micros();
             }
             if prof {

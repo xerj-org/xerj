@@ -94,12 +94,20 @@ impl Drop for StagedFile {
 }
 
 fn temp_sibling(path: &Path) -> std::path::PathBuf {
-    let nonce = format!("{:x}-{:?}", std::process::id(), std::thread::current().id());
+    // A counter, not the thread id. One thread stages every side-car of one
+    // field and then the next field. On a case-folding volume two destinations
+    // that differ only by case (`Page.post` and `page.post`) produced the same
+    // temp name, the second `File::create` truncated the first, and the second
+    // rename failed with `ERROR_FILE_NOT_FOUND` (os error 2) — the rc.98
+    // "publishing FTS side-cars" abort. The thread-id nonce did not save it:
+    // both creates ran on that one thread.
+    static NONCE: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    let nonce = NONCE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     let file_name = path
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_else(|| "file".to_string());
-    path.with_file_name(format!("{file_name}.tmp.{nonce}"))
+    path.with_file_name(format!("{file_name}.tmp.{:x}.{nonce}", std::process::id()))
 }
 
 /// Write `bytes` to a temp file beside `path` and sync it, for a later
@@ -171,6 +179,13 @@ pub fn publish_staged(dir: &Path, files: Vec<StagedFile>) -> std::io::Result<()>
             format!("staged file {:?} is not in {:?}", stray.dest, dir),
         ));
     }
+    // Refuse before any rename. NTFS (and the default Windows volume) treats
+    // the two names as one file: the second replace either returns
+    // ERROR_FILE_NOT_FOUND once the shared temp is gone, or
+    // MOVEFILE_REPLACE_EXISTING silently drops the first field. Layout v3
+    // hashes the common pairs before they reach here; this is the backstop
+    // for a pair the layout still stores as two literals (`µ`/`μ`, `ς`/`σ`).
+    reject_case_folded_duplicate_destinations(&files)?;
     #[cfg(target_vendor = "apple")]
     sync_file_full(&std::fs::File::open(dir)?)?;
     let mut published_dests = Vec::with_capacity(files.len());
@@ -218,7 +233,7 @@ pub fn fsync_dir(_dir: &Path) -> std::io::Result<()> {
 }
 
 #[cfg(not(windows))]
-fn replace_file_for_durable_write(source: &Path, destination: &Path) -> std::io::Result<()> {
+fn replace_file_for_durable_write_raw(source: &Path, destination: &Path) -> std::io::Result<()> {
     std::fs::rename(source, destination)
 }
 
@@ -244,7 +259,7 @@ fn require_same_directory(source: &Path, destination: &Path) -> std::io::Result<
 /// this remains a same-volume namespace replacement rather than the API's
 /// optional copy/delete fallback.
 #[cfg(windows)]
-fn replace_file_for_durable_write(source: &Path, destination: &Path) -> std::io::Result<()> {
+fn replace_file_for_durable_write_raw(source: &Path, destination: &Path) -> std::io::Result<()> {
     const MOVEFILE_REPLACE_EXISTING: u32 = 0x0000_0001;
     const MOVEFILE_WRITE_THROUGH: u32 = 0x0000_0008;
 
@@ -325,6 +340,87 @@ fn replace_file_for_durable_write(source: &Path, destination: &Path) -> std::io:
         }
         return Err(error);
     }
+}
+
+fn replace_file_for_durable_write(source: &Path, destination: &Path) -> std::io::Result<()> {
+    replace_file_for_durable_write_raw(source, destination).map_err(|error| {
+        // The OS error's Display already ends with `(os error N)`. Naming both
+        // paths is what the rc.98 report was missing: the chain stopped at
+        // "publishing FTS side-cars" and the agent could not see which file
+        // the volume refused.
+        std::io::Error::new(
+            error.kind(),
+            format!(
+                "replacing {} with {}: {error}",
+                destination.display(),
+                source.display()
+            ),
+        )
+    })
+}
+
+/// Key under which a case-folding volume (NTFS, and the default Windows
+/// drive) stores `file_name`. Unicode lowercase covers ASCII and the letters
+/// whose lower form is the folded form. The extra arms are the NTFS upcase
+/// equivalences lowercase does not collapse: U+00B5 `µ` and U+03BC `μ` both
+/// upcase to U+039C, and U+03C2 `ς` and U+03C3 `σ` both upcase to U+03A3.
+fn case_folding_publish_key(file_name: &str) -> String {
+    let mut key = String::with_capacity(file_name.len());
+    for character in file_name.chars() {
+        push_case_folding_publish_char(character, &mut key);
+    }
+    key
+}
+
+fn push_case_folding_publish_char(character: char, out: &mut String) {
+    match character {
+        'µ' | 'μ' => out.push('μ'),
+        'ς' | 'σ' => out.push('σ'),
+        'ı' => out.push('i'),
+        'ſ' => out.push('s'),
+        'K' => out.push('k'),
+        'ß' => out.push_str("ss"),
+        other => {
+            for lower in other.to_lowercase() {
+                match lower {
+                    'µ' | 'μ' => out.push('μ'),
+                    'ς' | 'σ' => out.push('σ'),
+                    'ı' => out.push('i'),
+                    'ſ' => out.push('s'),
+                    'K' => out.push('k'),
+                    'ß' => out.push_str("ss"),
+                    folded => out.push(folded),
+                }
+            }
+        }
+    }
+}
+
+fn reject_case_folded_duplicate_destinations(files: &[StagedFile]) -> std::io::Result<()> {
+    let mut seen: std::collections::HashMap<String, &Path> = std::collections::HashMap::new();
+    for file in files {
+        let file_name = file
+            .dest
+            .file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let key = case_folding_publish_key(&file_name);
+        if let Some(previous) = seen.get(&key) {
+            if *previous != file.dest.as_path() {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::AlreadyExists,
+                    format!(
+                        "cannot publish {} and {}: a case-folding filesystem treats them as one file",
+                        previous.display(),
+                        file.dest.display()
+                    ),
+                ));
+            }
+        } else {
+            seen.insert(key, file.dest.as_path());
+        }
+    }
+    Ok(())
 }
 
 /// Replace `destination` with an already-written, already-synced sibling file
@@ -596,5 +692,64 @@ mod tests {
                     .contains(".tmp.")
             }));
         }
+    }
+
+    #[test]
+    fn staging_one_destination_twice_on_one_thread_publishes_both_temps() {
+        // Before the per-call nonce, the second stage truncated the first
+        // temp and the second rename failed with not-found. That is the
+        // Windows shape of two case-folded side-cars written by one thread;
+        // the same destination reproduces the temp collision on Linux.
+        let dir = tempfile::tempdir().unwrap();
+        let destination = dir.path().join("a.post");
+        let first = stage_file(&destination, b"one").unwrap();
+        let second = stage_file(&destination, b"two").unwrap();
+        publish_staged(dir.path(), vec![first, second]).unwrap();
+        assert_eq!(std::fs::read(&destination).unwrap(), b"two");
+    }
+
+    #[test]
+    fn publish_staged_refuses_names_a_case_folding_volume_would_merge() {
+        let dir = tempfile::tempdir().unwrap();
+        for (left_name, right_name) in [
+            ("Page.fst", "page.fst"),
+            ("field.µ.post", "field.μ.post"),
+            ("sigma.ς.meta", "sigma.σ.meta"),
+        ] {
+            let left = dir.path().join(left_name);
+            let right = dir.path().join(right_name);
+            let staged = vec![
+                stage_file(&left, b"left").unwrap(),
+                stage_file(&right, b"right").unwrap(),
+            ];
+            let error = publish_staged(dir.path(), staged).unwrap_err();
+            let message = error.to_string();
+            assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists, "{message}");
+            assert!(message.contains(left_name), "{message}");
+            assert!(message.contains(right_name), "{message}");
+            assert!(!left.exists(), "{left_name} was renamed");
+            assert!(!right.exists(), "{right_name} was renamed");
+        }
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn a_failed_replace_names_both_paths_and_the_os_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let source = dir.path().join("body.post.tmp.1");
+        let destination = dir.path().join("body.post");
+        std::fs::write(&source, b"new").unwrap();
+        // A directory sitting on the destination makes the replace fail
+        // after the temp exists, which is the publish_staged failure mode.
+        std::fs::create_dir(&destination).unwrap();
+        let error = replace_file_durable(&source, &destination).unwrap_err();
+        let message = error.to_string();
+        assert!(message.contains("body.post"), "{message}");
+        assert!(message.contains("body.post.tmp.1"), "{message}");
+        assert!(
+            message.contains("os error"),
+            "the OS code must be visible, got {message}"
+        );
+        assert!(source.exists(), "a failed replace must keep the temp");
     }
 }

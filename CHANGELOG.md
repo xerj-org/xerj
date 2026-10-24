@@ -144,6 +144,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A failed FTS side-car publish no longer aborts indexing when the partial
+  files can be removed, and building a field's FST no longer panics the
+  process. The logged error names the source path, the destination path,
+  and the OS error (`os error N`). Two side-car names that a case-folding
+  volume would store as one file (ASCII case, plus `µ`/`μ` and `ς`/`σ`)
+  are refused before the rename, with both paths, instead of failing the
+  batch as a not-found error with no file name or silently keeping only
+  one field. The segment is still published: queries scan its stored
+  section, and a later merge rebuilds full text. A leftover side-car that
+  cannot be removed still fails the flush, and that error names the path
+  and the OS error. A data-dir format-marker preflight failure still fails
+  the flush and leaves the documents uncommitted, so a retry can write the
+  marker and the encoded side-cars. This is the failure reported on Windows rc.98, where
+  every broad `xerj autoindex` aborted at FTS side-car publish on the
+  aggregate `-docs` index, and the fst-build panic from rc.97
+  ([#2349](https://github.com/xerj-org/xerj/issues/2349)).
+
 - `xerj autoindex` no longer junks every PDF on an OS that rejects
   `setrlimit(RLIMIT_AS)` (macOS 27 returns `EINVAL`; a hard limit below
   1536 MiB returns `EPERM`). The address-space cap is crash isolation: the

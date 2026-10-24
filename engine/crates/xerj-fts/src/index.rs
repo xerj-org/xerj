@@ -313,6 +313,107 @@ fn unique_temp_sibling(path: &Path) -> PathBuf {
     path.with_file_name(format!("{file_name}.tmp.{}.{nonce}", std::process::id()))
 }
 
+/// Removes `path` on drop unless [`DeleteOnDrop::disarm`] ran. The FST temp
+/// is not a [`xerj_common::fsio::StagedFile`] until `stage_written_file`
+/// returns; a panic inside `MapBuilder` would otherwise leave the temp behind.
+struct DeleteOnDrop {
+    path: PathBuf,
+    armed: bool,
+}
+
+impl DeleteOnDrop {
+    fn arm(path: PathBuf) -> Self {
+        Self { path, armed: true }
+    }
+
+    fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for DeleteOnDrop {
+    fn drop(&mut self) {
+        if self.armed {
+            let _ = fs::remove_file(&self.path);
+        }
+    }
+}
+
+fn panic_payload_message(payload: &Box<dyn std::any::Any + Send>) -> String {
+    // Take `&Box<_>`, not `&(dyn Any + Send)`. A function argument of the
+    // trait-object type unsizes the box itself, so `downcast_ref` looks for
+    // `&str` inside a payload whose concrete type is the box and misses the
+    // string `panic!` actually boxed.
+    if let Some(message) = payload.downcast_ref::<&str>() {
+        (*message).to_owned()
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else {
+        "non-string panic payload".to_owned()
+    }
+}
+
+/// `true` when `file_name` is an FTS side-car, layout marker, analyzer marker,
+/// or unpublished temp belonging to `segment_id`. Stored-segment files
+/// (`.seg`, `.sidx`, `.ids`, `.dv`) are not.
+fn is_segment_fts_artifact(segment_id: &str, file_name: &str) -> bool {
+    let Some(rest) = file_name
+        .strip_prefix(segment_id)
+        .and_then(|suffix| suffix.strip_prefix('.'))
+    else {
+        return false;
+    };
+    if rest.is_empty() {
+        return false;
+    }
+    if rest.contains(".tmp.") {
+        return true;
+    }
+    matches!(rest, "fts-layout-v2" | "fts-layout-v3" | "ftsan")
+        || matches!(
+            rest.rsplit_once('.').map(|(_, extension)| extension),
+            Some("fst" | "post" | "meta" | "norms")
+        )
+}
+
+/// Remove this segment's FTS side-cars, filename-layout markers, analyzer
+/// marker, and unpublished temps. `.seg`, `.sidx`, `.ids`, and `.dv` stay.
+///
+/// `Ok(())` means none of those FTS names remain, so the stored segment can
+/// be published and searched by a stored-document scan. `Err` names every
+/// path that could not be removed, with that path's OS error — a partial
+/// family must not be published.
+pub fn discard_segment_fts_files(segment_dir: &Path, segment_id: &str) -> std::io::Result<()> {
+    let entries = match fs::read_dir(segment_dir) {
+        Ok(entries) => entries,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error),
+    };
+    let mut failures: Vec<String> = Vec::new();
+    for entry in entries {
+        let entry = entry?;
+        let file_name = entry.file_name();
+        let file_name = file_name.to_string_lossy();
+        if !is_segment_fts_artifact(segment_id, &file_name) {
+            continue;
+        }
+        let path = entry.path();
+        if let Err(error) = fs::remove_file(&path) {
+            if error.kind() != std::io::ErrorKind::NotFound {
+                failures.push(format!("{}: {error}", path.display()));
+            }
+        }
+    }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(std::io::Error::other(format!(
+            "could not remove FTS side-cars for segment {segment_id}: {}",
+            failures.join("; ")
+        )))
+    }
+}
+
 /// Derive one FTS side-car path from controlled components only.
 fn field_sidecar_path(
     segment_dir: &Path,
@@ -667,15 +768,25 @@ fn encode_field_meta_v5(
     // per-term "needs an entry" decision made in scan order would leave
     // the terms before the first ttf != df term without their zero
     // entries, and the reader splits sections by fixed counts.
-    let ttf_stream_needed = sorted_terms.iter().any(|term| {
+    let mut ttf_stream_needed = false;
+    for term in sorted_terms {
         let tp = term_postings
             .get(term)
-            .expect("sorted_terms must match term_postings keys");
+            .ok_or_else(|| anyhow::anyhow!("field meta is missing postings for term '{term}'"))?;
         if tp.total_term_frequency < tp.doc_frequency as u64 {
-            panic!("total_term_frequency below doc_frequency for '{term}'");
+            // A panic here aborted the flush task (`resume_unwind`) during
+            // indexing. rc.97 reports described that as a panic in the fst
+            // merge: this encode runs while the merged field's FST is built.
+            bail!(
+                "total_term_frequency {} is below doc_frequency {} for term '{term}'",
+                tp.total_term_frequency,
+                tp.doc_frequency
+            );
         }
-        tp.total_term_frequency != tp.doc_frequency as u64
-    });
+        if tp.total_term_frequency != tp.doc_frequency as u64 {
+            ttf_stream_needed = true;
+        }
+    }
     let flags = if ttf_stream_needed {
         ZFM5_FLAG_TTF_STREAM
     } else {
@@ -689,7 +800,7 @@ fn encode_field_meta_v5(
     for term in sorted_terms {
         let tp = term_postings
             .get(term)
-            .expect("sorted_terms must match term_postings keys");
+            .ok_or_else(|| anyhow::anyhow!("field meta is missing postings for term '{term}'"))?;
         uvarint_encode(tp.doc_frequency as u64, &mut dfs);
         if ttf_stream_needed {
             uvarint_encode(
@@ -1142,6 +1253,11 @@ pub struct FtsIndexWriter {
     /// Zstd effort for the `.meta` (ZFM4) and `.post` (ZPS1) envelopes.
     /// [`ZSTD_DURABLE_LEVEL`] unless [`Self::with_zstd_level`] raised it.
     zstd_level: i32,
+    /// Test-only. When `finish` writes this field, it panics inside the
+    /// `catch_unwind` that turns an `fst` builder panic into `Err`. Per
+    /// writer, so parallel tests do not share a process-global flag.
+    #[cfg(test)]
+    panic_on_field: Option<String>,
 }
 
 struct FieldData {
@@ -1174,7 +1290,17 @@ impl FtsIndexWriter {
             fields: HashMap::new(),
             published_filename_layout: None,
             zstd_level: ZSTD_DURABLE_LEVEL,
+            #[cfg(test)]
+            panic_on_field: None,
         }
+    }
+
+    /// The next [`Self::finish`] panics while writing `field`. The panic is
+    /// caught and returned as that field's error, which is what an `fst`
+    /// `MapBuilder` assert does on this path.
+    #[cfg(test)]
+    fn panic_while_writing_field(&mut self, field: impl Into<String>) {
+        self.panic_on_field = Some(field.into());
     }
 
     /// The configuration an UNCONFIGURED field is indexed with.
@@ -1610,6 +1736,8 @@ impl FtsIndexWriter {
         let segment_dir = self.segment_dir.clone();
         let segment_id = self.segment_id.clone();
         let zstd_level = self.zstd_level;
+        #[cfg(test)]
+        let panic_on_field = self.panic_on_field.clone();
 
         // Drain fields into a Vec so we can parallelise the iterator.
         // Cloning `stats` before consuming `field_data` — `stats` goes into
@@ -1661,16 +1789,40 @@ impl FtsIndexWriter {
         let results: Vec<Result<(String, FieldStats, Vec<xerj_common::fsio::StagedFile>)>> = fields
             .into_par_iter()
             .map(|(field_name, stats, field_data)| {
-                let files = Self::write_field_static(
-                    &segment_dir,
-                    &segment_id,
-                    &field_name,
-                    field_data,
-                    zstd_level,
-                    layout,
-                )
-                .with_context(|| format!("writing field '{}'", field_name))?;
-                Ok((field_name, stats, files))
+                // A panic inside `fst::MapBuilder` (its `assert!(out.is_zero())`
+                // on a duplicate key the checker missed) or in the meta
+                // encoder used to escape the rayon worker and `resume_unwind`
+                // the flush task. Indexing then died with no path and no OS
+                // error. The same failure is now this field's `Err`.
+                #[cfg(test)]
+                let panic_this_field = panic_on_field.as_deref() == Some(field_name.as_str());
+                let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    #[cfg(test)]
+                    if panic_this_field {
+                        panic!("simulated fst merge panic");
+                    }
+                    Self::write_field_static(
+                        &segment_dir,
+                        &segment_id,
+                        &field_name,
+                        field_data,
+                        zstd_level,
+                        layout,
+                    )
+                }));
+                match outcome {
+                    Ok(result) => {
+                        let files =
+                            result.with_context(|| format!("writing field '{field_name}'"))?;
+                        Ok((field_name, stats, files))
+                    }
+                    Err(payload) => {
+                        bail!(
+                            "writing field '{field_name}' panicked: {}",
+                            panic_payload_message(&payload)
+                        )
+                    }
+                }
             })
             .collect();
 
@@ -1807,6 +1959,10 @@ impl FtsIndexWriter {
         // platform-specific durable replacement publishes it (RC4 W1 #10 —
         // see the postings note above).
         let fst_tmp = unique_temp_sibling(&fst_path);
+        // Declared before the builder so unwind drops the file (closes it)
+        // and only then deletes the temp. Armed until `stage_written_file`
+        // takes ownership.
+        let mut fst_tmp_cleanup = DeleteOnDrop::arm(fst_tmp.clone());
         let fst_file = BufWriter::new(
             File::create(&fst_tmp).with_context(|| format!("creating FST file {:?}", fst_tmp))?,
         );
@@ -1830,6 +1986,7 @@ impl FtsIndexWriter {
             xerj_common::fsio::stage_written_file(&fst_tmp, &fst_path, fst_out.get_ref())
                 .with_context(|| "fsyncing FST")?,
         );
+        fst_tmp_cleanup.disarm();
         drop(fst_out);
 
         // 4. Write meta in the ZFM5 format — columnar varint streams
@@ -4201,5 +4358,107 @@ mod tests {
             }
             assert!(segment_filename_layout_v3_marker_path(dir.path(), &segment).is_file());
         }
+    }
+
+    #[test]
+    fn total_term_frequency_below_doc_frequency_is_an_error() {
+        let stats = FieldStats {
+            total_docs: 2,
+            total_field_length: 2,
+        };
+        let mut map = HashMap::new();
+        map.insert(
+            "alpha".to_owned(),
+            TermPostings {
+                doc_frequency: 2,
+                total_term_frequency: 1,
+                postings_offset: 0,
+                postings_length: 4,
+            },
+        );
+        let error = encode_field_meta_v5(&stats, true, &["alpha".to_owned()], &map, 3).unwrap_err();
+        let message = format!("{error:#}");
+        assert!(message.contains("alpha"), "{message}");
+        assert!(message.contains("total_term_frequency"), "{message}");
+        assert!(message.contains("doc_frequency"), "{message}");
+    }
+
+    #[test]
+    fn a_panic_while_writing_a_field_is_an_error_naming_the_field() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg-panic", make_registry());
+        writer.panic_while_writing_field("body");
+        writer.add_document(
+            0,
+            &[("body".to_owned(), FieldValues::from("needle"))]
+                .into_iter()
+                .collect(),
+        );
+        let error = writer.finish().unwrap_err();
+        let message = format!("{error:#}");
+        assert!(message.contains("simulated fst merge panic"), "{message}");
+        assert!(message.contains("body"), "{message}");
+        assert!(
+            !dir.path().join("seg-panic.body.fst").exists(),
+            "a panicked field write must not leave a published side-car"
+        );
+    }
+
+    #[test]
+    fn a_blocked_side_car_publish_names_the_path_and_the_os_error() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg-block", make_registry());
+        writer.add_document(
+            0,
+            &[("body".to_owned(), FieldValues::from("needle"))]
+                .into_iter()
+                .collect(),
+        );
+        // The publish renames onto these names. A directory at every
+        // destination makes whichever file is published first fail, the
+        // same way a locked or unreplaceable side-car fails on Windows.
+        for extension in ["fst", "post", "meta", "norms"] {
+            fs::create_dir(dir.path().join(format!("seg-block.body.{extension}"))).unwrap();
+        }
+        let error = writer.finish().unwrap_err();
+        let message = format!("{error:#}");
+        assert!(
+            message.contains("seg-block.body."),
+            "the failing side-car path must be in the error, got {message}"
+        );
+        assert!(
+            message.contains("os error"),
+            "the OS code must be in the error, got {message}"
+        );
+    }
+
+    #[test]
+    fn discard_segment_fts_files_keeps_the_stored_segment_and_names_a_stuck_file() {
+        let dir = TempDir::new().unwrap();
+        fs::write(dir.path().join("seg.body.fst"), b"fst").unwrap();
+        fs::write(dir.path().join("seg.fts-layout-v3"), b"marker").unwrap();
+        fs::write(dir.path().join("seg.seg"), b"stored").unwrap();
+        fs::write(dir.path().join("seg.ids"), b"ids").unwrap();
+        fs::write(dir.path().join("seg.dv"), b"dv").unwrap();
+        fs::write(dir.path().join("other.body.fst"), b"other").unwrap();
+        discard_segment_fts_files(dir.path(), "seg").unwrap();
+        assert!(!dir.path().join("seg.body.fst").exists());
+        assert!(!dir.path().join("seg.fts-layout-v3").exists());
+        assert_eq!(fs::read(dir.path().join("seg.seg")).unwrap(), b"stored");
+        assert_eq!(fs::read(dir.path().join("seg.ids")).unwrap(), b"ids");
+        assert_eq!(fs::read(dir.path().join("seg.dv")).unwrap(), b"dv");
+        assert_eq!(
+            fs::read(dir.path().join("other.body.fst")).unwrap(),
+            b"other"
+        );
+
+        let stuck = dir.path().join("seg.body.post");
+        fs::create_dir(&stuck).unwrap();
+        fs::write(stuck.join("held"), b"x").unwrap();
+        let error = discard_segment_fts_files(dir.path(), "seg").unwrap_err();
+        let message = error.to_string();
+        assert!(message.contains("seg.body.post"), "{message}");
+        assert!(message.contains("os error"), "{message}");
+        assert!(stuck.join("held").exists());
     }
 }
