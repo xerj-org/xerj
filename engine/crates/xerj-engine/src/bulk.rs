@@ -1480,6 +1480,34 @@ pub async fn process_bulk_with_opts(
             props
         };
 
+    // A bulk body is an ordered log: ES applies its items in request order,
+    // so `delete 1` followed by `index 1` leaves the doc present, and
+    // `index 1 {v:1}`, `delete 1`, `index 1 {v:2}` leaves `{v:2}`. The
+    // partition below runs its groups as phases (semantic, then turbo
+    // index, then everything else), which reorders items across groups.
+    // That is harmless while each `(index, _id)` lives in one group, but a
+    // key that a non-turbo action (delete / update / create / CAS / routed
+    // index) also touches would see its plain `index` items jump ahead and
+    // the later delete win — the doc is gone and every item said success.
+    // Collect those keys up front and keep all of their items on the
+    // sequential path, which executes in request order.
+    let sequential_keys: std::collections::HashSet<(String, String)> = parsed
+        .iter()
+        .filter(|a| {
+            a.action_type != "index"
+                || a.if_seq_no.is_some()
+                || a.if_primary_term.is_some()
+                || a.routing.is_some()
+                || a.dynamic_templates.is_some()
+                || a.pipeline.is_some()
+        })
+        .filter_map(|a| {
+            a.doc_id
+                .as_ref()
+                .map(|id| (a.target_index.clone(), id.clone()))
+        })
+        .collect();
+
     for mut action in parsed {
         // ── Numeric / boolean type enforcement (issue #781) ──────────────
         //
@@ -1560,7 +1588,11 @@ pub async fn process_bulk_with_opts(
             && action.dynamic_templates.is_none()
             && action.pipeline.is_none()
             && !has_strict_date
-            && !has_dynamic_copy;
+            && !has_dynamic_copy
+            && (sequential_keys.is_empty()
+                || !action.doc_id.as_ref().is_some_and(|id| {
+                    sequential_keys.contains(&(action.target_index.clone(), id.clone()))
+                }));
         let is_plain_index = has_plain_metadata && !has_embedding;
         if is_plain_index {
             match action.doc_id {
