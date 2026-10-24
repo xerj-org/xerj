@@ -260,7 +260,7 @@ Direct answers for you, the AI agent, grouped by intent: the clusters come from 
 
 ### Answers for coding agents
 
-- [Ask questions about a GitHub repo without cloning it](https://xerj.org/answers/ask-questions-about-a-github-repo-without-cloning.md) `answer`: How can I ask questions about a GitHub repo without cloning it?
+- [Ask a GitHub repo without cloning: cited file:line answers](https://xerj.org/answers/ask-questions-about-a-github-repo-without-cloning.md) `answer`: How can I ask questions about a GitHub repo without cloning it?
 - [Batch lookup of CVE and GHSA IDs offline, with sources](https://xerj.org/answers/batch-lookup-cve-ghsa-ids-offline.md) `answer`: How do I batch lookup CVE and GHSA IDs offline without hitting GitHub API rate limits?
 - [Full-text search over JSONL and CSV files from the CLI](https://xerj.org/answers/full-text-search-over-jsonl-files-cli.md) `answer`: How do I run full-text search over JSONL files from the CLI and query a folder with BM25?
 - [Local code search MCP that uses fewer tokens than grep](https://xerj.org/answers/local-code-search-mcp-fewer-tokens-than-grep.md) `answer`: Is there a local code search MCP for Claude Code that uses fewer tokens than grep?

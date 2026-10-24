@@ -178,7 +178,7 @@
   </ul>
   <h2>Answers for coding agents</h2>
   <ul>
-    <li><a href="/answers/ask-questions-about-a-github-repo-without-cloning">Ask questions about a GitHub repo without cloning it</a> — xerj ask answers from a signed, pre-indexed pack of a pinned repo, with file:line, commit and licence. First answer 2.4 s with the download, then 30-40 ms.</li>
+    <li><a href="/answers/ask-questions-about-a-github-repo-without-cloning">Ask questions about a GitHub repo without cloning it</a> — xerj ask answers from a signed, pre-indexed pack with file:line, pinned commit and licence. Nothing to clone. Works for repos in the Corpus Hub catalogue.</li>
     <li><a href="/answers/batch-lookup-cve-ghsa-ids-offline">Batch lookup CVE IDs and GHSA IDs offline, without GitHub API rate limits</a> — Load a signed advisory pack into xerj and resolve many CVE, GHSA and RUSTSEC IDs offline in one query, citing the source file. 6 IDs: 15 ms, 2 abstained.</li>
     <li><a href="/answers/full-text-search-over-jsonl-files-cli">Full-text search over JSONL files from the CLI: index a folder and query it with BM25</a> — xerj autoindex reads JSONL and CSV with no schema, then answers BM25 per field from the CLI or MCP. 2,902 rows indexed in 12.4 s; queries took 1 ms.</li>
     <li><a href="/answers/local-code-search-mcp-fewer-tokens-than-grep">Local code search MCP for Claude Code that uses fewer tokens than grep</a> — xerj indexes a repo once and returns ranked passages with file:line via CLI and MCP. On psf/requests one answer was 1,303 bytes; rg printed 25,150.</li>

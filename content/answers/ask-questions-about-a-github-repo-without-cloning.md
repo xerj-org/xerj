@@ -1,7 +1,7 @@
 ---
-title: "Ask questions about a GitHub repo without cloning it"
+title: "Ask a GitHub repo without cloning: cited file:line answers"
 h1: "Ask questions about a GitHub repo without cloning it"
-description: "xerj ask answers from a signed, pre-indexed pack of a pinned repo, with file:line, commit and licence. First answer 2.4 s with the download, then 30-40 ms."
+description: "xerj ask answers from a signed, pre-indexed pack with file:line, pinned commit and licence. Nothing to clone. Works for repos in the Corpus Hub catalogue."
 slug: "ask-questions-about-a-github-repo-without-cloning"
 cluster: "Answers for coding agents"
 question: "How can I ask questions about a GitHub repo without cloning it?"

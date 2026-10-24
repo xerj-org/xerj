@@ -189,13 +189,13 @@
       ]
     },
     {
-      "title": "Ask questions about a GitHub repo without cloning it",
+      "title": "Ask a GitHub repo without cloning: cited file:line answers",
       "question": "How can I ask questions about a GitHub repo without cloning it?",
       "canonical_url": "https://xerj.org/answers/ask-questions-about-a-github-repo-without-cloning",
       "markdown_url": "https://xerj.org/answers/ask-questions-about-a-github-repo-without-cloning.md",
       "cluster": "Answers for coding agents",
       "updated": "2026-10-20",
-      "summary": "xerj ask answers from a signed, pre-indexed pack of a pinned repo, with file:line, commit and licence. First answer 2.4 s with the download, then 30-40 ms.",
+      "summary": "xerj ask answers from a signed, pre-indexed pack with file:line, pinned commit and licence. Nothing to clone. Works for repos in the Corpus Hub catalogue.",
       "queries": [
         "ask questions about a GitHub repo without cloning it",
         "ask a GitHub repo without cloning"

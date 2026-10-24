@@ -77,8 +77,12 @@ PAGES: dict[str, dict[str, str]] = {
     ),
     "for-agents.html": dict(
         label="For AI agents", kind="software",
-        title="XERJ.ai — For AI agents: search, data & memory",
-        description="For AI agents over MCP: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers.",
+        # 2026-10-24 CTR rewrite (GSC Oct 19-22: 318 impressions, position
+        # 4.6, 1 click). Every clause is on the page body: autoindex of a
+        # folder, keyword/semantic/vector/hybrid search, the /_memory store,
+        # "No SDK, no signup" in the lead.
+        title="XERJ for AI agents: one local binary for search and memory",
+        description="A new way for AI to search for data: one local binary that indexes any folder, searches by keyword or meaning and keeps agent memory. No signup, no SDK.",
     ),
     "playground.html": dict(
         label="Playground", kind="software",
