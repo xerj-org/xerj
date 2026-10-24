@@ -49403,6 +49403,7 @@ fn mem_bool_preds(q: &QueryNode) -> Option<Vec<crate::memtable::MemBoolPred>> {
                 preds.push(MemBoolPred::Term {
                     field: field.clone(),
                     value: val_str,
+                    num: value.as_f64(),
                 });
             }
             QueryNode::Terms { field, values, .. } => {
@@ -49428,6 +49429,7 @@ fn mem_bool_preds(q: &QueryNode) -> Option<Vec<crate::memtable::MemBoolPred>> {
                 preds.push(MemBoolPred::Terms {
                     field: field.clone(),
                     values: lowered,
+                    nums: values.iter().filter_map(Value::as_f64).collect(),
                 });
             }
             QueryNode::Range {
@@ -49479,6 +49481,18 @@ fn try_doc_values_query(
     limit: usize,
 ) -> Option<(Vec<(String, usize)>, u64)> {
     match q {
+        // A JSON-number needle must match by value, which the keyword-column
+        // walks below cannot do (they compare the needle's string form with
+        // the document's own spelling, so `10` missed a stored `10.0`). The
+        // fused walk carries the typed needle; it has the same array, dotted
+        // path and analyzed-text bailouts.
+        QueryNode::Term {
+            value: Value::Number(_),
+            ..
+        } => mem.doc_values_bool_query(&mem_bool_preds(q)?, limit),
+        QueryNode::Terms { values, .. } if values.iter().any(Value::is_number) => {
+            mem.doc_values_bool_query(&mem_bool_preds(q)?, limit)
+        }
         QueryNode::Term { field, value, .. } => {
             // Skip if the value is complex or the field uses CIDR notation.
             let val_str = match value {
@@ -55120,6 +55134,17 @@ fn json_scalar_equal(dv: &Value, query_val: &Value) -> bool {
     }
     // Cross-type: number stored as string or vice versa.
     match (dv, query_val) {
+        // Two JSON numbers compare by value: serde_json's `Number` equality
+        // is representational, so a stored `10.0` was not equal to a queried
+        // `10`. Integers compare exactly (above 2^53 an f64 round-trip would
+        // merge neighbours); anything else compares as f64.
+        (Value::Number(a), Value::Number(b)) => match (a.as_i64(), b.as_i64()) {
+            (Some(x), Some(y)) => x == y,
+            _ => match (a.as_u64(), b.as_u64()) {
+                (Some(x), Some(y)) => x == y,
+                _ => a.as_f64() == b.as_f64(),
+            },
+        },
         (Value::String(s), Value::Number(n)) => s.parse::<f64>().ok() == n.as_f64(),
         (Value::Number(n), Value::String(s)) => n.as_f64() == s.parse::<f64>().ok(),
         // Cross-type: a boolean and its string spelling name the same

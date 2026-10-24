@@ -105,6 +105,8 @@ fn mem_preds_from_agg_filter(filter: &Value) -> Option<Vec<MemBoolPred>> {
                 out.push(MemBoolPred::Term {
                     field: field.clone(),
                     value,
+                    // String needles only (numbers bail above).
+                    num: None,
                 });
                 Some(())
             }
