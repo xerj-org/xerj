@@ -1827,6 +1827,20 @@ mod tests {
     #[test]
     fn kinds_follow_the_extension_before_sniff() {
         assert_eq!(classify("a.rs").0, Kind::Code);
+        // #2357: brackets are directory names. A Windows rel that still
+        // contains `\` (the walk rewrites those to `/` before this runs)
+        // keeps the `.tsx` extension.
+        assert_eq!(
+            classify("app/[locale]/booking/[token]/temple-selection/TempleSelectionWrapper.tsx").0,
+            Kind::Code
+        );
+        assert_eq!(
+            classify(
+                "app\\[locale]\\booking\\[token]\\temple-selection\\TempleSelectionWrapper.tsx"
+            )
+            .0,
+            Kind::Code
+        );
         assert_eq!(classify("a.md").0, Kind::Prose);
         assert_eq!(classify("a.pdf").0, Kind::Pdf);
         assert_eq!(classify("a.csv").0, Kind::Data);

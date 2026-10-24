@@ -57,11 +57,26 @@
 //! surprise, and it is not visible in the folder being indexed. `.gitignore`,
 //! `.xerjignore` and `.git/info/exclude` all live in the tree the user pointed
 //! at, so they are.
+//!
+//! # Bracket directory names
+//!
+//! Git reads `[locale]` as a character class (one of those letters), so a
+//! pattern written as the Next.js directory `app/[locale]/` does not name
+//! that directory. After each ignore-file line that contains an unescaped
+//! bracket, the same line is added again with those brackets escaped. The
+//! original pattern stays, so a real class such as `*.[ch]` still matches
+//! `a.c` and `a.h`. The extra pattern is what makes the literal directory
+//! follow the line the author wrote (`!app/[locale]/**` re-includes
+//! `app/[locale]/…`, and `app/[locale]/` ignores it). A route-like class is
+//! named in the ignore summary. A code file that is still skipped is named
+//! with the rule, so a miss is not only a count.
 
 use ignore::gitignore::{Gitignore, GitignoreBuilder, Glob};
 use ignore::Match;
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 /// Hidden names start with `.` even when they are not valid UTF-8.
@@ -172,6 +187,10 @@ pub const HIDDEN_OUTSIDE_ROOT_RULE: &str = "symlink:outside-root+hidden";
 pub const NOT_FOLLOWED_RULE: &str = "symlink:not-followed";
 
 const MAX_WARNINGS: usize = 20;
+/// Skipped code files named in the summary. The rest are a count: a
+/// `*.log` tree is not code, and a `*.ts` rule over a huge tree must not
+/// print every path.
+const CODE_SKIP_SHOWN: usize = 8;
 /// Directory entries the `--dry-run` deep count may examine in total. A
 /// pathological `node_modules` is not allowed to turn "tell me the plan" into
 /// minutes of stat storm on a laptop; past the budget the count is reported as
@@ -251,6 +270,10 @@ pub struct IgnoreReport {
     /// this into the `--walk-only` per-folder summary; it is not a second walk.
     pub by_top: BTreeMap<String, BTreeMap<String, RuleCount>>,
     pub files_skipped: u64,
+    /// `rel — rule` for skipped code files, capped at [`CODE_SKIP_SHOWN`].
+    pub code_skipped: Vec<String>,
+    /// Code files skipped past [`CODE_SKIP_SHOWN`].
+    pub code_skipped_omitted: u64,
     pub dirs_pruned: u64,
     /// Non-hidden files inside the pruned directories — see
     /// [`IgnoreStack::count_inside`] for exactly what is and is not counted.
@@ -283,6 +306,8 @@ impl Default for IgnoreReport {
             by_rule: BTreeMap::new(),
             by_top: BTreeMap::new(),
             files_skipped: 0,
+            code_skipped: Vec::new(),
+            code_skipped_omitted: 0,
             dirs_pruned: 0,
             files_inside_pruned_dirs: 0,
             deep_count_complete: true,
@@ -403,6 +428,16 @@ impl IgnoreReport {
                 "ignore rules:   … and {} more rule{}",
                 ranked.len() - SHOWN,
                 plural((ranked.len() - SHOWN) as u64)
+            ));
+        }
+        for skipped in &self.code_skipped {
+            out.push(format!("ignore rules: skipped code file {skipped}"));
+        }
+        if self.code_skipped_omitted > 0 {
+            out.push(format!(
+                "ignore rules: … and {} more skipped code file{}",
+                self.code_skipped_omitted,
+                plural(self.code_skipped_omitted)
             ));
         }
         out
@@ -546,7 +581,7 @@ impl IgnoreStack {
                     continue;
                 }
                 let mut builder = GitignoreBuilder::new(&dir);
-                let _ = builder.add(&path);
+                let _ = add_gitignore_file(&mut builder, &path);
                 let Ok(gi) = builder.build() else { continue };
                 if gi.is_empty() {
                     continue;
@@ -612,8 +647,12 @@ impl IgnoreStack {
             return None;
         }
         let mut builder = GitignoreBuilder::new(dir);
-        if let Some(err) = builder.add(&file) {
+        let (err, notes) = add_gitignore_file(&mut builder, &file);
+        if let Some(err) = err {
             self.warn(format!("{}: {err}", file.display()));
+        }
+        for note in notes {
+            self.warn(format!("{}: {note}", file.display()));
         }
         match builder.build() {
             Ok(gi) => {
@@ -898,7 +937,24 @@ impl IgnoreStack {
             .entry(label.to_string())
             .or_default()
             .files += 1;
+        self.note_code_skip(path, label);
         self.note_top(path, false, label, |count| count.files += 1);
+    }
+
+    /// A skipped `.ts`/`.tsx` (and every other code extension) is named. A
+    /// directory prune never reaches here: the walk does not open the
+    /// children, so the summary can only name the directory.
+    fn note_code_skip(&mut self, path: &Path, label: &str) {
+        let ext = path.extension().and_then(|ext| ext.to_str()).unwrap_or("");
+        if !crate::extract::code::is_code_ext(ext) {
+            return;
+        }
+        let shown = format!("{} — {label}", self.rel(path));
+        if self.report.code_skipped.len() < CODE_SKIP_SHOWN {
+            self.report.code_skipped.push(shown);
+        } else {
+            self.report.code_skipped_omitted += 1;
+        }
     }
 
     fn record_dir(&mut self, path: &Path, label: &str) {
@@ -912,6 +968,12 @@ impl IgnoreStack {
         }
         self.report.dirs_pruned += 1;
         self.report.files_inside_pruned_dirs += inside;
+        let rel = self.rel(path);
+        if rel.contains('[') || rel.contains(']') {
+            self.warn(format!(
+                "pruned directory {rel} ({label}); files under it are not indexed"
+            ));
+        }
         self.note_top(path, true, label, |count| {
             count.dirs += 1;
             count.files_inside_pruned_dirs += inside;
@@ -986,6 +1048,159 @@ impl IgnoreStack {
         }
         files
     }
+}
+
+/// Read one ignore file the way `GitignoreBuilder::add` does, then add a
+/// literal-bracket twin of every line that contains an unescaped `[` or `]`.
+///
+/// The twin is inserted immediately after its source line, so a later line
+/// in the same file still wins. `*.[ch]` keeps matching `a.c`; the twin
+/// only additionally matches a name that contains the brackets.
+///
+/// Returns the first error (other lines are still added) and one note per
+/// route-like class, for the ignore summary. The error is a string because
+/// `ignore::Error`'s path and line tagging is crate-private; the line number
+/// is in the text instead.
+fn add_gitignore_file(
+    builder: &mut GitignoreBuilder,
+    path: &Path,
+) -> (Option<String>, Vec<String>) {
+    let file = match File::open(path) {
+        Ok(file) => file,
+        Err(err) => return (Some(err.to_string()), Vec::new()),
+    };
+    let reader = BufReader::new(file);
+    let mut first_err: Option<String> = None;
+    let mut notes = Vec::new();
+    for (i, line) in reader.lines().enumerate() {
+        let lineno = i + 1;
+        let line = match line {
+            Ok(line) => line,
+            Err(err) => {
+                if first_err.is_none() {
+                    first_err = Some(format!("line {lineno}: {err}"));
+                }
+                break;
+            }
+        };
+        // `GitignoreBuilder::add` strips a leading BOM on line 1 only.
+        let line = if i == 0 {
+            line.trim_start_matches('\u{feff}').to_string()
+        } else {
+            line
+        };
+        if let Err(err) = builder.add_line(Some(path.to_path_buf()), &line) {
+            if first_err.is_none() {
+                first_err = Some(format!("line {lineno}: {err}"));
+            }
+        }
+        // A `#` comment is not a pattern. Twisting its brackets would turn
+        // the comment into a pattern (`\#…` is not a comment).
+        if line.starts_with('#') {
+            continue;
+        }
+        let Some(twin) = literal_bracket_twin(&line) else {
+            continue;
+        };
+        if let Some(note) = route_class_note(&line) {
+            notes.push(note);
+        }
+        if let Err(err) = builder.add_line(Some(path.to_path_buf()), &twin) {
+            if first_err.is_none() {
+                first_err = Some(format!("line {lineno}: {err}"));
+            }
+        }
+    }
+    (first_err, notes)
+}
+
+/// The same line with every unescaped `[` and `]` prefixed by `\`.
+///
+/// `None` when the line has no unescaped bracket, including a line that is
+/// already escaped (`app/\[locale\]/`).
+fn literal_bracket_twin(line: &str) -> Option<String> {
+    let mut out = String::with_capacity(line.len() + 4);
+    let mut chars = line.chars().peekable();
+    let mut changed = false;
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            out.push('\\');
+            if let Some(next) = chars.next() {
+                out.push(next);
+            }
+            continue;
+        }
+        if c == '[' || c == ']' {
+            out.push('\\');
+            changed = true;
+        }
+        out.push(c);
+    }
+    changed.then_some(out)
+}
+
+/// Note for a class that is shaped like a route segment (`[locale]`,
+/// `[...slug]`, or `[id]` inside a path). `*.[ch]` is a real class and
+/// stays quiet: it has no `/`, and the body is shorter than three
+/// characters.
+fn route_class_note(line: &str) -> Option<String> {
+    let has_slash = line.contains('/');
+    let bodies = route_like_class_bodies(line, has_slash);
+    if bodies.is_empty() {
+        return None;
+    }
+    let names = bodies
+        .iter()
+        .map(|body| format!("[{body}]"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    Some(format!(
+        "`{line}` reads {names} as a character class, not as a directory name. Also applying the pattern to that literal name, so a route folder such as [locale] is not dropped for this reason"
+    ))
+}
+
+fn route_like_class_bodies(line: &str, pattern_has_slash: bool) -> Vec<String> {
+    let mut bodies = Vec::new();
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            chars.next();
+            continue;
+        }
+        if c != '[' {
+            continue;
+        }
+        let mut body = String::new();
+        let mut closed = false;
+        while let Some(next) = chars.next() {
+            if next == '\\' {
+                if let Some(escaped) = chars.next() {
+                    body.push(escaped);
+                }
+                continue;
+            }
+            if next == ']' {
+                closed = true;
+                break;
+            }
+            body.push(next);
+        }
+        if closed && is_route_like_class(&body, pattern_has_slash) {
+            bodies.push(body);
+        }
+    }
+    bodies
+}
+
+fn is_route_like_class(body: &str, pattern_has_slash: bool) -> bool {
+    if body.contains('-') || body.contains('!') || body.contains('^') {
+        return false;
+    }
+    // `[[...slug]]` yields a first class body of `[...slug`.
+    let ident = body.strip_prefix('[').unwrap_or(body);
+    let ident = ident.strip_prefix("...").unwrap_or(ident);
+    let min = if pattern_has_slash { 2 } else { 3 };
+    ident.len() >= min && ident.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 #[cfg(test)]
@@ -1575,5 +1790,207 @@ mod tests {
             "the warning must reach the user: {:?}",
             report.summary_lines()
         );
+    }
+
+    const ROUTE_TSX: &str =
+        "app/[locale]/booking/[token]/temple-selection/TempleSelectionWrapper.tsx";
+
+    /// #2357: a Next.js route directory is the literal name `[locale]`.
+    /// Git reads that text as a character class, so a whitelist written the
+    /// way the directory is named does not re-include it and `*` keeps the
+    /// sources out of the index. The literal twin re-includes them. A plain
+    /// `*.[ch]` class is unchanged.
+    #[test]
+    fn a_bracket_route_whitelist_includes_the_literal_directory() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        write(
+            root,
+            ".gitignore",
+            "*\n!app/\n!app/[locale]/\n!app/[locale]/**\n!README.md\n!lib/\n!lib/**\n!data.json\n",
+        );
+        write(
+            root,
+            ROUTE_TSX,
+            "export function TempleSelectionWrapper() {}\n",
+        );
+        write(root, "README.md", "# notes\n");
+        write(root, "lib/items.json", "{}\n");
+        write(root, "data.json", "{}\n");
+        write(root, "src/plain.ts", "export const n = 1;\n");
+
+        let (kept, report) = survivors(root, IgnoreOptions::default());
+        assert!(
+            kept.iter().any(|p| p == ROUTE_TSX),
+            "bracketed tsx must be indexed, got {kept:?}"
+        );
+        assert!(kept.iter().any(|p| p == "README.md"), "{kept:?}");
+        assert!(kept.iter().any(|p| p == "data.json"), "{kept:?}");
+        assert!(kept.iter().any(|p| p == "lib/items.json"), "{kept:?}");
+        assert!(
+            !kept.iter().any(|p| p == "src/plain.ts"),
+            "`*` still ignores a path the whitelist did not name: {kept:?}"
+        );
+        let lines = report.summary_lines().join("\n");
+        assert!(
+            lines.contains("character class"),
+            "the pattern must be explained: {lines}"
+        );
+        assert!(
+            lines.contains("[locale]"),
+            "the directory name must be in the note: {lines}"
+        );
+    }
+
+    /// No ignore file at all: the brackets are only in the path, and the
+    /// walk must keep the source. This is the case a default Next.js
+    /// `.gitignore` (which never names `[locale]`) already had.
+    #[test]
+    fn a_bracket_route_with_no_ignore_file_is_walked() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        write(root, ROUTE_TSX, "export const getPujaName = () => \"a\";\n");
+        write(root, "src/plain.ts", "export const n = 1;\n");
+        let (kept, report) = survivors(root, IgnoreOptions::default());
+        assert!(kept.iter().any(|p| p == ROUTE_TSX), "{kept:?}");
+        assert!(kept.iter().any(|p| p == "src/plain.ts"), "{kept:?}");
+        assert!(
+            !report
+                .summary_lines()
+                .iter()
+                .any(|l| l.contains("character class")),
+            "{:?}",
+            report.summary_lines()
+        );
+    }
+
+    /// An author who already escaped the brackets meant the literal
+    /// directory. The twin must not unescape that into a class, and the
+    /// directory stays ignored.
+    #[test]
+    fn an_escaped_bracket_pattern_still_ignores_the_literal_directory() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        write(root, ".gitignore", "app/\\[locale\\]/\n");
+        write(root, ROUTE_TSX, "export const n = 1;\n");
+        write(root, "src/plain.ts", "export const n = 1;\n");
+        let (kept, report) = survivors(root, IgnoreOptions::default());
+        assert!(
+            !kept.iter().any(|p| p.contains("[locale]")),
+            "escaped pattern must ignore the route dir: {kept:?}"
+        );
+        assert!(kept.iter().any(|p| p == "src/plain.ts"), "{kept:?}");
+        assert!(
+            report
+                .summary_lines()
+                .iter()
+                .any(|l| l.contains("pruned directory") && l.contains("[locale]")),
+            "{:?}",
+            report.summary_lines()
+        );
+    }
+
+    /// `*.[ch]` is a character class. The literal twin must not stop it
+    /// matching `.c` and `.h`, and a `.rs` file stays.
+    #[test]
+    fn a_character_class_extension_still_ignores_those_extensions() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        write(root, ".gitignore", "*.[ch]\n");
+        write(root, "foo.c", "int c;\n");
+        write(root, "foo.h", "int h;\n");
+        write(root, "foo.rs", "fn r() {}\n");
+        let (kept, report) = survivors(root, IgnoreOptions::default());
+        assert_eq!(kept, vec!["foo.rs"], "{kept:?}");
+        assert!(
+            !report
+                .summary_lines()
+                .iter()
+                .any(|l| l.contains("character class")),
+            "a short class with no slash is not a route folder: {:?}",
+            report.summary_lines()
+        );
+        let lines = report.summary_lines().join("\n");
+        assert!(lines.contains("skipped code file foo.c"), "{lines}");
+        assert!(lines.contains("skipped code file foo.h"), "{lines}");
+        assert!(
+            !lines.contains("foo.rs"),
+            "the file that was kept is not a skip: {lines}"
+        );
+    }
+
+    /// A code file the rules still skip is named, with the rule. `*.tsx`
+    /// has no bracket, so this is the report the walk owes when the file
+    /// really is excluded.
+    #[test]
+    fn a_skipped_tsx_file_is_named_with_its_rule() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        write(root, ".gitignore", "*.tsx\n");
+        write(root, ROUTE_TSX, "export const n = 1;\n");
+        write(root, "keep.ts", "export const n = 1;\n");
+        let (kept, report) = survivors(root, IgnoreOptions::default());
+        assert_eq!(kept, vec!["keep.ts"], "{kept:?}");
+        let lines = report.summary_lines().join("\n");
+        assert!(
+            lines.contains("skipped code file") && lines.contains(ROUTE_TSX),
+            "{lines}"
+        );
+        assert!(
+            lines.contains(".gitignore:*.tsx"),
+            "the rule must be on the line: {lines}"
+        );
+    }
+
+    /// The twin is inserted after its source line, not at the end of the
+    /// file. A later `*.tsx` still excludes the route source; a `.ts` the
+    /// whitelist named stays.
+    #[test]
+    fn a_later_rule_still_beats_the_literal_bracket_twin() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        write(
+            root,
+            ".gitignore",
+            "*\n!app/\n!app/[locale]/\n!app/[locale]/**\n*.tsx\n",
+        );
+        write(root, ROUTE_TSX, "export const n = 1;\n");
+        write(root, "app/[locale]/keep.ts", "export const n = 1;\n");
+        let (kept, report) = survivors(root, IgnoreOptions::default());
+        assert!(kept.iter().any(|p| p == "app/[locale]/keep.ts"), "{kept:?}");
+        assert!(
+            !kept.iter().any(|p| p == ROUTE_TSX),
+            "a later *.tsx must still win: {kept:?}"
+        );
+        let lines = report.summary_lines().join("\n");
+        assert!(
+            lines.contains("skipped code file") && lines.contains(ROUTE_TSX),
+            "{lines}"
+        );
+        assert!(lines.contains(".gitignore:*.tsx"), "{lines}");
+    }
+
+    #[test]
+    fn literal_bracket_twin_escapes_unescaped_brackets_only() {
+        assert_eq!(
+            literal_bracket_twin("!app/[locale]/**").as_deref(),
+            Some("!app/\\[locale\\]/**")
+        );
+        assert_eq!(literal_bracket_twin("app/\\[locale\\]/"), None);
+        assert_eq!(
+            literal_bracket_twin("*.[ch]").as_deref(),
+            Some("*.\\[ch\\]")
+        );
+        // Comments are filtered by `add_gitignore_file` before this runs.
+        // The helper itself only escapes brackets.
+        assert_eq!(
+            literal_bracket_twin("# [locale]").as_deref(),
+            Some("# \\[locale\\]")
+        );
+        assert!(route_class_note("*.[ch]").is_none());
+        assert!(route_class_note("app/[locale]/**")
+            .unwrap()
+            .contains("[locale]"));
+        assert!(route_class_note("app/[id]/page.tsx").is_some());
     }
 }

@@ -512,7 +512,12 @@ Both are refused on `autoindex map` and `autoindex status`, which never walk a
 folder.
 Your global gitignore (core.excludesFile) is deliberately not read. The folder
 you point at is never excluded: if it is itself ignored, it is indexed anyway
-and the run says which rule it would have matched.
+and the run says which rule it would have matched. A line that writes
+`[locale]` is also applied to the literal directory of that name, so a
+Next.js route folder is not dropped because git reads the brackets as a
+character class. The class reading stays: `*.[ch]` still matches `.c` and
+`.h`. The ignore summary names a route-like class, a pruned `[…]` directory,
+and each skipped code file with its rule.
 
 Exit codes: 0 complete (also: the gate was answered `--approve cancel`) ·
 3 completed-with-junk (junk recorded, never fatal — this is SUCCESS, do not report
@@ -1545,6 +1550,10 @@ apply; if it does not, YOU are the gate — estimate, ask, and only then run.
   holding a floor, not a total. `--no-ignore` indexes everything the rules would have
   dropped; `--no-default-ignores` keeps the ignore files and drops only the built-in list;
   both are refused on `autoindex map` and `autoindex status`, which never walk a folder.
+  A line that writes `[locale]` is also applied to the literal directory of that name
+  (a Next.js route folder); the character-class reading stays, so `*.[ch]` still
+  matches `.c` and `.h`. The summary names a route-like class, a pruned `[…]`
+  directory, and each skipped code file with its rule.
   Your GLOBAL gitignore is deliberately not read.
 
 - READ THE PROGRESS STREAM — IT IS DESIGNED FOR YOU. `autoindex` writes its RESULT to

@@ -144,6 +144,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `xerj autoindex` indexes `.ts` and `.tsx` sources under Next.js route
+  directories such as `app/[locale]/booking/[token]/`. Gitignore reads
+  `[locale]` as a character class, so a line written as the directory name
+  (`!app/[locale]/**` or `app/[locale]/`) did not name that directory and a
+  broader `*` left the sources out of the docs index with no file named.
+  Each ignore-file line that contains an unescaped bracket is also applied
+  to the literal directory name. A real class such as `*.[ch]` is
+  unchanged. A route-like class is explained in the ignore summary, a
+  pruned `[…]` directory is named, and a code file that is still skipped
+  is named with the rule
+  ([#2357](https://github.com/xerj-org/xerj/issues/2357)).
+
 - `xerj autoindex` no longer junks every PDF on an OS that rejects
   `setrlimit(RLIMIT_AS)` (macOS 27 returns `EINVAL`; a hard limit below
   1536 MiB returns `EPERM`). The address-space cap is crash isolation: the

@@ -497,7 +497,10 @@ built-in list are XERJ's rather than git's and apply throughout the folder you
 named. Hidden files (`.env`, `.git/`) are skipped by a separate, non-optional
 rule. Every run prints what was dropped and by which rule (`ignore rules: …` on
 stderr), and `--dry-run` also counts the non-hidden files inside each pruned
-directory, so "where did my file go?" always has an answer. `--no-ignore` turns
+directory, so "where did my file go?" always has an answer. A line that
+writes `[locale]` is also applied to the literal directory of that name, so a
+Next.js route folder is not dropped because git reads the brackets as a
+character class; `*.[ch]` still matches `.c` and `.h`. `--no-ignore` turns
 the rules off; `--no-default-ignores` keeps your ignore files and drops only the
 built-in list. Both apply to an indexing run only — `autoindex map` and
 `autoindex status` never walk a folder and refuse them rather than accepting a

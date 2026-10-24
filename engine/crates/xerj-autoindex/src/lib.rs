@@ -4839,6 +4839,82 @@ mod phase_a_grouping_tests {
         assert_eq!(plan.datasets[0].slug, "docs");
         assert_eq!(plan.datasets[0].file_count, 4);
     }
+
+    /// #2357: `.tsx` under Next.js route directories (`[locale]`, `[token]`)
+    /// is code in the per-scope docs dataset. A `.gitignore` that names those
+    /// directories the way they appear on disk (`!app/[locale]/**`) must
+    /// re-include them; git would read `[locale]` as a character class and
+    /// leave the file out.
+    #[test]
+    fn bracketed_tsx_routes_land_in_the_docs_dataset() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let tsx = root
+            .join("app")
+            .join("[locale]")
+            .join("booking")
+            .join("[token]")
+            .join("temple-selection");
+        std::fs::create_dir_all(&tsx).unwrap();
+        std::fs::write(
+            tsx.join("TempleSelectionWrapper.tsx"),
+            "export function TempleSelectionWrapper() {\n\
+             const getPujaName = () => \"pushpanjali\";\n\
+             function calculateCrossLanguageScore(a: string, b: string) {\n\
+             return a.length - b.length;\n\
+             }\n\
+             return getPujaName();\n\
+             }\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("README.md"), "# Temple booking\n\nNotes.\n").unwrap();
+        std::fs::write(
+            root.join(".gitignore"),
+            "*\n!app/\n!app/[locale]/\n!app/[locale]/**\n!README.md\n",
+        )
+        .unwrap();
+
+        let plan = plan_for(root);
+        let rel = "app/[locale]/booking/[token]/temple-selection/TempleSelectionWrapper.tsx";
+        let file = plan
+            .files
+            .values()
+            .find(|f| f.rel == rel)
+            .unwrap_or_else(|| {
+                panic!(
+                    "tsx missing from plan: {:?}",
+                    plan.files
+                        .values()
+                        .map(|f| f.rel.as_str())
+                        .collect::<Vec<_>>()
+                )
+            });
+        assert_eq!(file.family, "code", "{file:#?}");
+        assert!(
+            file.assignments.iter().any(|(_, slug)| slug == "docs"),
+            "code shares the docs dataset: {file:#?}"
+        );
+        assert!(
+            plan.junk_files.iter().all(|junk| junk.rel != rel),
+            "tsx junked: {:?}",
+            plan.junk_files
+        );
+        let docs = plan
+            .datasets
+            .iter()
+            .find(|dataset| dataset.slug == "docs")
+            .expect("docs dataset");
+        assert_eq!(docs.index, "t-docs");
+        assert_eq!(docs.family, "docs");
+        assert!(
+            docs.specs.iter().any(|spec| spec.name == "name"),
+            "symbol name was not indexed: {docs:#?}"
+        );
+        assert!(
+            docs.specs.iter().any(|spec| spec.name == "defs"),
+            "defs was not indexed: {docs:#?}"
+        );
+    }
 }
 
 // ─── Phase A plan building (pure: no server contact) ─────────────────────
