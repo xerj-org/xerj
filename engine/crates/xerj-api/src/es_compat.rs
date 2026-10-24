@@ -7410,6 +7410,47 @@ where
     deserializer.deserialize_any(FromVisitor)
 }
 
+/// ES's `SliceBuilder` rules for a `slice` object: `id` and `max` are Java
+/// ints, `id >= 0`, `max > 1` and `id < max`, checked in that order with its
+/// messages. A string spelling of the integer is accepted, as ES's parser does.
+fn slice_spec_error(slice: &Value) -> Option<String> {
+    fn int_field(slice: &Value, key: &str) -> Result<Option<i32>, String> {
+        let Some(v) = slice.get(key) else {
+            return Ok(None);
+        };
+        let n = match v {
+            Value::Number(n) => n.as_i64(),
+            Value::String(s) => s.trim().parse::<i64>().ok(),
+            _ => None,
+        };
+        match n.map(i32::try_from) {
+            Some(Ok(n)) => Ok(Some(n)),
+            Some(Err(_)) => Err(format!(
+                "[slice] failed to parse field [{key}]: Numeric value ({v}) out of range of int"
+            )),
+            None => Err(format!("[slice] failed to parse field [{key}]")),
+        }
+    }
+    let id = match int_field(slice, "id") {
+        Ok(id) => id.unwrap_or(-1),
+        Err(e) => return Some(e),
+    };
+    let max = match int_field(slice, "max") {
+        Ok(max) => max.unwrap_or(-1),
+        Err(e) => return Some(e),
+    };
+    if id < 0 {
+        return Some("id must be greater than or equal to 0".to_string());
+    }
+    if max <= 1 {
+        return Some("max must be greater than 1".to_string());
+    }
+    if id >= max {
+        return Some("max must be greater than id".to_string());
+    }
+    None
+}
+
 fn negative_from_reason(n: i64) -> String {
     format!("[from] parameter cannot be negative but was [{n}]")
 }
@@ -13596,6 +13637,12 @@ async fn search_impl(
             },
         }
     }
+    // `slice` is validated before anything runs: its `max` and `id` feed
+    // unchecked `u32` arithmetic in the post-search slice filter, where a
+    // `max` of 2^32 truncated to 0 and the `% max` aborted the process.
+    if let Some(reason) = body.slice.as_ref().and_then(slice_spec_error) {
+        return ApiError::new(xerj_common::XerjError::invalid_query(reason)).into_response();
+    }
     // URL-level `seq_no_primary_term=true` / `version=true` promote the
     // corresponding body flag when the caller didn't already set one.
     if body.seq_no_primary_term.is_none() {
@@ -16148,8 +16195,12 @@ async fn search_impl(
                                 n.as_i64()
                                     .or_else(|| n.as_str().and_then(|s| s.parse::<i64>().ok()))
                             })
-                            .map(|n| n as u32)
+                            .and_then(|n| u32::try_from(n).ok())
                     })
+                    // `number_of_shards` is not range-checked at index
+                    // creation; a stored 0 would make the shard routing and
+                    // `max / shards` below divide by zero.
+                    .filter(|n| *n >= 1)
                     .unwrap_or(1);
                 let slice_by_id = slice_field == "_id";
                 let mut kept: Vec<(String, xerj_query::executor::Hit)> =
@@ -26498,7 +26549,8 @@ fn index_int_setting(state: &AppState, ix: &str, key: &str) -> Option<u64> {
 ///   result window);
 /// * more `docvalue_fields` than `index.max_docvalue_fields_search` (100);
 /// * a `regexp`, `prefix` or `/regex/` `query_string` longer than
-///   `index.max_regex_length` (1000 characters).
+///   `index.max_regex_length` (1000 characters);
+/// * for a scroll, a `slice.max` over `index.max_slices_per_scroll` (1024).
 fn find_index_request_limit_violation(
     state: &AppState,
     ix: &str,
@@ -26524,6 +26576,24 @@ fn find_index_request_limit_violation(
                  [index.max_result_window] index level setting."
             )
         });
+    }
+
+    if is_scroll {
+        let max_slices = index_int_setting(state, ix, "max_slices_per_scroll").unwrap_or(1024);
+        if let Some(slices) = body
+            .slice
+            .as_ref()
+            .and_then(|s| s.get("max"))
+            .and_then(|m| m.as_u64().or_else(|| m.as_str()?.trim().parse().ok()))
+        {
+            if slices > max_slices {
+                return Some(format!(
+                    "The number of slices [{slices}] is too large. It must be less than \
+                     [{max_slices}]. This limit can be set by changing the \
+                     [index.max_slices_per_scroll] index level setting."
+                ));
+            }
+        }
     }
 
     let max_rescore = index_int_setting(state, ix, "max_rescore_window")

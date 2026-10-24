@@ -56,7 +56,6 @@ scroll/10_basic.yml · Scroll with size 0
 scroll/11_clear.yml · Body params with array param override query string
 scroll/11_clear.yml · Body params with string param scroll id override query string
 scroll/11_clear.yml · Clear scroll
-scroll/12_slices.yml · Sliced scroll with invalid arguments
 scroll/20_keep_alive.yml · Max keep alive
 search/110_field_collapsing.yml · field collapsing and scroll
 search/110_field_collapsing.yml · field collapsing and search_after with invalid sort
