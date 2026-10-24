@@ -488,6 +488,64 @@ def m_route(w: float, h: float, rng: random.Random) -> str:
     return "".join(out)
 
 
+def m_budget(w: float, h: float, rng: random.Random) -> str:
+    """rc99-smart-autoindex-harness-tools.
+
+    Eight squares, one per GiB of the auto tier below 64 GiB
+    (``tiered_cap_mb`` in engine/crates/xerj-engine/src/governor.rs). The
+    first two are yellow: the 2 GiB memtable budget on that 8 GiB cap
+    (``auto_memtable_budget``, 25% floored at 2 GiB). Eight small squares
+    are the 8 MiB document ceiling (``MAX_INDEXED_DOCUMENT_BYTES``). One
+    outlined square, set apart, is uncompressed JSON streamed past the
+    64 MiB whole-file cap. rng is unused; the layout is fixed.
+    """
+    del rng
+    cols = 8
+    gap = max(8.0, min(18.0, w * 0.018))
+    caption = 20.0 if LABELS else 0.0
+    gap_rows = 22.0 if LABELS else 14.0
+    top = 8.0
+    avail = h - top - (caption * 2) - gap_rows
+    s = min((w - gap * (cols - 1)) / cols, avail / 1.42)
+    s = max(s, 12.0)
+    small = min(s * 0.36, 32.0)
+    sg = max(4.0, small * 0.45)
+    left_w = cols * small + (cols - 1) * sg
+    sep = max(small * 1.45, 18.0)
+    row_w = left_w + sep + small
+    if row_w > w - 4:
+        scale = (w - 4) / row_w
+        small *= scale
+        sg *= scale
+        sep *= scale
+        left_w = cols * small + (cols - 1) * sg
+        row_w = left_w + sep + small
+    grid_w = cols * s + (cols - 1) * gap
+    block = s + caption + gap_rows + small + caption
+    y0 = top + max(0.0, (h - top - block) / 2)
+    x0 = (w - grid_w) / 2
+    out: list[str] = []
+    for i in range(cols):
+        x = x0 + i * (s + gap) + s / 2
+        out.append(dot(x, y0 + s / 2, s / 1.78, "y" if i < 2 else "w"))
+    cap_y = y0 + s + (16 if LABELS else 0)
+    out.append(label(x0, cap_y, "8 GiB TIER", "num w"))
+    out.append(label(x0 + grid_w, cap_y, "2 GiB MEMTABLE", "num y", "end"))
+    y1 = cap_y + gap_rows
+    lx = (w - row_w) / 2
+    for i in range(cols):
+        x = lx + i * (small + sg) + small / 2
+        out.append(dot(x, y1 + small / 2, small / 1.78, "w"))
+    boundary = lx + left_w + sep / 2
+    out.append(hair(boundary, y1 - 3, boundary, y1 + small + 3, "y", 1.4))
+    yx = lx + left_w + sep + small / 2
+    out.append(ring(yx, y1 + small / 2, small / 1.78, "y", 1.6))
+    lab_y = y1 + small + (16 if LABELS else 0)
+    out.append(label(lx, lab_y, "8 MiB DOCUMENT", "lab w"))
+    out.append(label(yx + small / 2, lab_y, "PAST 64 MiB", "lab y", "end"))
+    return "".join(out)
+
+
 MOTIFS: dict[str, Callable[[float, float, random.Random], str]] = {
     "index28": m_index28,
     "jevbars": m_jevbars,
@@ -498,4 +556,5 @@ MOTIFS: dict[str, Callable[[float, float, random.Random], str]] = {
     "network": m_network,
     "scars": m_scars,
     "route": m_route,
+    "budget": m_budget,
 }

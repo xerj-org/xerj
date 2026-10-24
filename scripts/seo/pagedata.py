@@ -225,6 +225,18 @@ PAGES: dict[str, dict[str, str]] = {
     # 2026-10-20 refresh before publishing: repo stars/forks/contributors, hub
     # stars (/api/hub-stars) and the Releases pack count (245 -> 251) re-read;
     # contributor totals and the top-ten table re-checked, unchanged.
+    # rc.99 launch post, 2026-10-24. Headline chosen by the owner.
+    # Tag census: 97 v1.0.0-rc.* tags through rc.98 (rc.79 never tagged),
+    # so rc.99 is the 98th tagged release. The post says "just over 100
+    # days since rc.1" and does not print a day count taken from the tag date.
+    "blog/rc99-smart-autoindex-harness-tools.html": dict(
+        label="rc.99", kind="article",
+        title="rc.99: smart, resource-aware autoindex and more harness tools",
+        description="rc.99 is yours: 116 merged changes and the 20 community members behind them. A laptop stays usable, questions come back cited, and two hard limits stay open.",
+        published="2026-10-24", updated="2026-10-24",
+        og_image="og/blog-rc99-smart-autoindex-harness-tools.png",
+        og_image_alt="Cover: “rc.99” in display type beside the post’s square-matrix art, labelled 8 GiB and 2 GiB. The art: eight large squares for the 8 GiB tier, the first two yellow for the 2 GiB memtable budget, beside eight small squares for the 8 MiB document ceiling and one outlined square for JSON streamed past 64 MiB",
+    ),
     "blog/corpus-hub-v2.html": dict(
         label="Corpus Hub v2", kind="article",
         title="Corpus Hub v2: ask a question, get the one pack that answers",
@@ -236,8 +248,8 @@ PAGES: dict[str, dict[str, str]] = {
     "blog/index.html": dict(
         label="Blog", kind="collection",
         title="XERJ.ai — Blog: the engineering log",
-        description="Measured results with the losses left in: Corpus Hub v2 and xerj ask, the exploit hub tested on three fresh CVEs, guest eval scars from a production agent-memory system, the Corpus Hub launch, the rc.80 gates post, the Jev decisions study, the JEV rerank verdict, the storage formats that cut the index 28%, and the signed rust-vulns corpus pack.",
-        updated="2026-10-19",
+        description="The rc.99 launch post: smart, resource-aware autoindex and more harness tools. Also Corpus Hub v2, the exploit hub, and the rc.80 gates.",
+        updated="2026-10-24",
     ),
     "demo/index.html": dict(
         label="Real-data demo", kind="software",

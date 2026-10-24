@@ -110,6 +110,11 @@ POSTS: list[dict[str, str]] = [
          subtitle="Ask the question, get the one pack that answers it.",
          alt="Cover art: a faint wall of 251 small tiles above 14 larger square-matrix tiles; a yellow route runs from the top into one yellow tile and down to a framed node",
          og_alt="Cover: “Corpus Hub v2” in display type beside the post’s square-matrix art, labelled with its figures. The art: a faint wall of 251 small tiles above 14 larger square-matrix tiles; a yellow route runs from the top into one yellow tile and down to a framed node"),
+    dict(slug="rc99-smart-autoindex-harness-tools", date="2026-10-23", motif="budget",
+         title="rc.99",
+         subtitle="Smart, resource-aware autoindex and more harness tools.",
+         alt="Cover art: eight large squares for the 8 GiB tier, the first two yellow for the 2 GiB memtable budget, beside eight small squares for the 8 MiB document ceiling and one outlined square for JSON streamed past 64 MiB",
+         og_alt="Cover: “rc.99” in display type beside the post’s square-matrix art, labelled 8 GiB and 2 GiB. The art: eight large squares for the 8 GiB tier, the first two yellow for the 2 GiB memtable budget, beside eight small squares for the 8 MiB document ceiling and one outlined square for JSON streamed past 64 MiB"),
 ]
 
 # og: title + motif with its labels, for social feeds that show the card alone.
