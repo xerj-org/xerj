@@ -1581,9 +1581,14 @@ pub struct NeuralIngestProbe {
 ///     same fail-closed rule as explicit `"proxy"` (#1189). The neural
 ///     backend ships in the standard binary; a `--no-default-features` slim
 ///     build omits it and falls back to lexical, and identity reports lexical.
-///   * `"proxy"` — call an external OpenAI-compatible `/v1/embeddings`
+///   * `"proxy"` — call an external OpenAI-compatible embeddings
 ///     endpoint ([`default_endpoint`](Self::default_endpoint)). Lets
-///     customers plug in ANY embedding model / provider they already run. An explicit `mode = "proxy"` with a
+///     customers plug in ANY embedding model / provider they already run.
+///     The configured value may be a base URL ending in `/v1` (trailing
+///     slash optional) or a bare host — `/embeddings` is appended — or the
+///     full path ending in `/embeddings`, which is used unchanged. Any other
+///     path is a startup ERROR that names the URL and the
+///     `{origin}/v1/embeddings` path to set. An explicit `mode = "proxy"` with a
 ///     missing or unusable endpoint is a startup ERROR (#1189): silently
 ///     running lexical instead would write the wrong vectors into the index
 ///     while every embedding request appears to succeed.
@@ -1607,7 +1612,21 @@ pub struct EmbeddingConfig {
     /// `"proxy"`, or `"onnx-experimental"`. Unknown values are treated as
     /// `"auto"`.
     pub mode: String,
-    /// OpenAI-compatible endpoint URL (default: `""` — disabled).
+    /// OpenAI-compatible embeddings URL (default: `""` — disabled).
+    ///
+    /// Accepted forms, trailing slash optional (#2355):
+    /// * a base whose path ends in `/v1` — `/embeddings` is appended
+    ///   (`http://localhost:8000/v1` becomes
+    ///   `http://localhost:8000/v1/embeddings`)
+    /// * a bare origin (`http://host:port` or with only `/`) — `/embeddings`
+    ///   is appended
+    /// * a path that already ends in `/embeddings` — used as given
+    ///
+    /// Any other path refuses to start when [`mode`](Self::mode) is
+    /// `"proxy"` and names this URL plus `{origin}/v1/embeddings`. The value
+    /// stored here is also the proxy half of the embedder identity, so
+    /// changing it after a corpus is indexed is a different embedder even
+    /// when the resolved request URL would be the same.
     pub default_endpoint: String,
     /// Model name to request from the endpoint (default: `""`).
     pub default_model: String,

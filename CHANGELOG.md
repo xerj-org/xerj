@@ -144,6 +144,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Proxy embeddings (`--embed-mode proxy`, `[embedding] default_endpoint`)
+  accept an OpenAI-style base URL. A path ending in `/v1` or `/v1/`, and a
+  bare host, have `/embeddings` appended. A URL that already ends in
+  `/embeddings` is POSTed unchanged, and a trailing slash is dropped. Any
+  other path refuses to start in `mode = "proxy"` and names the URL that was
+  set plus the `{origin}/v1/embeddings` path to use. In `mode = "auto"` that
+  same path is an init failure and keeps the existing lexical fallback
+  (#1189) instead of being called. A local vLLM base such as
+  `http://localhost:8000/v1` used to be POSTed verbatim, so every embedding
+  call 404'd. The embedder identity stays the configured string, so a corpus
+  indexed with the full path does not become the `/v1` base
+  ([#2355](https://github.com/xerj-org/xerj/issues/2355)).
+
 - `xerj autoindex` no longer junks every PDF on an OS that rejects
   `setrlimit(RLIMIT_AS)` (macOS 27 returns `EINVAL`; a hard limit below
   1536 MiB returns `EPERM`). The address-space cap is crash isolation: the

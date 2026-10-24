@@ -441,10 +441,19 @@ time_partition = "1h"
 
 [embedding]
 
-# OpenAI-compatible endpoint URL for auto-embedding on ingest.
-# Leave empty to disable automatic embedding (vectors must be provided by client).
-# Example: "https://api.openai.com/v1/embeddings"
-# Example: "http://localhost:11434/v1/embeddings"  (local Ollama)
+# OpenAI-compatible embeddings URL. Leave empty to disable automatic
+# embedding (vectors must be provided by the client). Accepted forms,
+# trailing slash optional (#2355):
+#   - a base ending in /v1 — /embeddings is appended
+#       "http://localhost:8000/v1"  →  http://localhost:8000/v1/embeddings
+#   - a bare host — /embeddings is appended
+#       "http://localhost:8000"     →  http://localhost:8000/embeddings
+#   - the full embeddings path — used unchanged
+#       "https://api.openai.com/v1/embeddings"
+#       "http://localhost:11434/v1/embeddings"  (local Ollama)
+# Any other path refuses to start when mode = "proxy" and names this URL
+# plus the {origin}/v1/embeddings path to set. The string stored here is
+# also the proxy embedder identity, so keep it stable once a corpus is indexed.
 default_endpoint = ""
 
 # Model name to request from the embedding endpoint.

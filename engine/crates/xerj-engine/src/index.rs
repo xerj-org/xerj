@@ -39699,6 +39699,12 @@ pub(crate) fn embedding_execution_identity(
             // `dimensions` instead, and autoindex compares it on resume. A
             // provider that swaps weights without changing the name, the
             // endpoint, or the width is not detectable from here.
+            // #2355 completes a `/v1` base (and a bare host) to an embeddings
+            // URL on the HTTP request only. The digest stays this configured
+            // string: folding the resolved URL in would move identity_sha256
+            // for every proxy index recorded before that completion and refuse
+            // to open it. `/v1` and `/v1/embeddings` therefore remain distinct
+            // identities even when they POST to the same path.
             let material = format!(
                 "proxy-unpinned.v1;configured-model={};endpoint={}",
                 cfg.default_model, cfg.default_endpoint
@@ -41177,7 +41183,11 @@ fn make_embedder(cfg: &xerj_common::config::EmbeddingConfig) -> Result<xerj_ai::
         }
         return match xerj_ai::embed::EmbeddingProxy::new(proxy_config(cfg)) {
             Ok(p) => {
-                info!(endpoint = %cfg.default_endpoint, "embedding backend: external proxy");
+                info!(
+                    endpoint = %p.request_url(),
+                    configured = %cfg.default_endpoint,
+                    "embedding backend: external proxy"
+                );
                 Ok(xerj_ai::Embedder::proxy(p))
             }
             Err(e) => {

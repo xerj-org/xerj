@@ -18,7 +18,10 @@ an optional, separately staged path.
   `local_model_dir` set, XERJ reads those files locally and does not contact
   the Hub.
 - `proxy` calls only the configured OpenAI-compatible
-  `embedding.default_endpoint`. The experimental `onnx-experimental` backend
+  `embedding.default_endpoint`. A base ending in `/v1` (trailing slash
+  optional) or a bare host has `/embeddings` appended; a path that already
+  ends in `/embeddings` is used unchanged; any other path refuses to start
+  in `mode = "proxy"` and names the URL to set. The experimental `onnx-experimental` backend
   needs an ONNX-enabled build and explicit local assets; neither is the base
   release path.
 

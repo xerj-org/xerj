@@ -24,7 +24,21 @@ pub type Result<T> = std::result::Result<T, XerjError>;
 /// Configuration for the embedding proxy.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EmbeddingProxyConfig {
-    /// API endpoint URL (e.g., `https://api.openai.com/v1/embeddings`).
+    /// API endpoint URL.
+    ///
+    /// Before [`EmbeddingProxy::new`], this is the configured value
+    /// (`embedding.default_endpoint`). `new` rewrites it to the URL that is
+    /// actually POSTed (#2355). Accepted forms, trailing slash optional:
+    ///
+    /// * a base whose path ends in `/v1` — `/embeddings` is appended
+    ///   (`http://localhost:8000/v1` → `http://localhost:8000/v1/embeddings`)
+    /// * a bare origin (`http://host:port` or `http://host:port/`) —
+    ///   `/embeddings` is appended
+    /// * a path that already ends in `/embeddings` — used unchanged, aside
+    ///   from dropping a trailing slash
+    ///
+    /// Any other path is refused here, before a request is sent. The error
+    /// names the configured URL and suggests `{origin}/v1/embeddings`.
     pub endpoint: String,
     /// API key (sent as `Authorization: Bearer <key>`).
     pub api_key: Option<String>,
@@ -135,6 +149,69 @@ fn status_is_retryable(code: u16) -> bool {
     code >= 500 || code == 429 || code == 408
 }
 
+/// `scheme://host[:port]` for `url`, with brackets around an IPv6 host.
+fn endpoint_origin(url: &reqwest::Url) -> String {
+    let host = url.host_str().unwrap_or("");
+    let host = if host.contains(':') {
+        format!("[{host}]")
+    } else {
+        host.to_string()
+    };
+    match url.port() {
+        Some(port) => format!("{}://{host}:{port}", url.scheme()),
+        None => format!("{}://{host}", url.scheme()),
+    }
+}
+
+/// Request URL for one OpenAI-compatible embeddings call (#2355).
+///
+/// `default_endpoint` used to be POSTed verbatim, so the usual client base
+/// `http://host:port/v1` 404'd. A base ending in `/v1` (trailing slash
+/// optional) and a bare origin have `/embeddings` appended. A path that
+/// already ends in `/embeddings` is kept, with a trailing slash removed so
+/// `/v1/embeddings/` and `/v1/embeddings` hit the same route. Query strings
+/// stay. Any other path is refused: appending would guess a route and send
+/// document text there. The error names the configured URL and the full
+/// `{origin}/v1/embeddings` path to set instead.
+fn resolve_embeddings_endpoint(raw: &str) -> Result<String> {
+    let configured = raw.trim();
+    let mut url = reqwest::Url::parse(configured)
+        .map_err(|e| XerjError::embedding(format!("invalid embedding endpoint: {e}")))?;
+    if !matches!(url.scheme(), "http" | "https") {
+        return Err(XerjError::embedding(
+            "embedding endpoint must use http or https",
+        ));
+    }
+    if url.host_str().is_none() {
+        let suggestion = format!("{configured}/v1/embeddings");
+        return Err(XerjError::embedding(format!(
+            "embedding endpoint `{configured}` has no host, so it was not called. \
+             Set embedding.default_endpoint to `{suggestion}`."
+        )));
+    }
+
+    let trimmed = url.path().trim_end_matches('/');
+    let path = if trimmed.is_empty() { "/" } else { trimmed };
+    let resolved = if path == "/" {
+        "/embeddings".to_string()
+    } else if path.ends_with("/embeddings") {
+        path.to_string()
+    } else if path.ends_with("/v1") {
+        format!("{path}/embeddings")
+    } else {
+        let origin = endpoint_origin(&url);
+        let suggestion = format!("{origin}/v1/embeddings");
+        return Err(XerjError::embedding(format!(
+            "embedding endpoint `{configured}` is not an embeddings URL, so it was not called. \
+             A base URL ending in `/v1` or `/v1/` has `/embeddings` appended, and so does a bare \
+             host (`{origin}` or `{origin}/`). Any other path must already end in `/embeddings`. \
+             Set embedding.default_endpoint to `{suggestion}`."
+        )));
+    };
+    url.set_path(&resolved);
+    Ok(url.as_str().to_string())
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // EmbeddingProxy
 // ─────────────────────────────────────────────────────────────────────────────
@@ -152,14 +229,13 @@ pub struct EmbeddingProxy {
 
 impl EmbeddingProxy {
     /// Create a new proxy with the given config.
-    pub fn new(config: EmbeddingProxyConfig) -> Result<Self> {
-        let endpoint = reqwest::Url::parse(&config.endpoint)
-            .map_err(|e| XerjError::embedding(format!("invalid embedding endpoint: {e}")))?;
-        if !matches!(endpoint.scheme(), "http" | "https") {
-            return Err(XerjError::embedding(
-                "embedding endpoint must use http or https",
-            ));
-        }
+    ///
+    /// Resolves [`EmbeddingProxyConfig::endpoint`] before the client is
+    /// built, so a `/v1` base is completed and an unrecognized path fails
+    /// here — at startup, when `mode = "proxy"` — rather than as a 404 on
+    /// the first document.
+    pub fn new(mut config: EmbeddingProxyConfig) -> Result<Self> {
+        config.endpoint = resolve_embeddings_endpoint(&config.endpoint)?;
         let client = reqwest::Client::builder()
             .timeout(Duration::from_millis(config.timeout_ms))
             .build()
@@ -172,6 +248,11 @@ impl EmbeddingProxy {
             client,
             semaphore,
         })
+    }
+
+    /// URL this proxy POSTs to, after base-URL completion (#2355).
+    pub fn request_url(&self) -> &str {
+        &self.config.endpoint
     }
 
     /// Embed a batch of texts using the configured model.
@@ -356,6 +437,131 @@ mod tests {
             let cfg = EmbeddingProxyConfig::new(endpoint, "model");
             assert!(EmbeddingProxy::new(cfg).is_err(), "{endpoint} was accepted");
         }
+    }
+
+    /// #2355: an OpenAI-style base is completed; the full embeddings URL is not
+    /// rewritten; a trailing slash does not change the request path.
+    #[test]
+    fn resolves_v1_base_trailing_slash_bare_host_and_full_url() {
+        let cases = [
+            (
+                "http://127.0.0.1:8000/v1",
+                "http://127.0.0.1:8000/v1/embeddings",
+            ),
+            (
+                "http://127.0.0.1:8000/v1/",
+                "http://127.0.0.1:8000/v1/embeddings",
+            ),
+            (
+                "http://127.0.0.1:8000/v1/embeddings",
+                "http://127.0.0.1:8000/v1/embeddings",
+            ),
+            (
+                "http://127.0.0.1:8000/v1/embeddings/",
+                "http://127.0.0.1:8000/v1/embeddings",
+            ),
+            ("http://127.0.0.1:8000", "http://127.0.0.1:8000/embeddings"),
+            ("http://127.0.0.1:8000/", "http://127.0.0.1:8000/embeddings"),
+            (
+                "https://api.openai.com/v1",
+                "https://api.openai.com/v1/embeddings",
+            ),
+            (
+                "https://generativelanguage.googleapis.com/v1beta/openai/embeddings",
+                "https://generativelanguage.googleapis.com/v1beta/openai/embeddings",
+            ),
+            (
+                "http://127.0.0.1:8000/proxy/v1",
+                "http://127.0.0.1:8000/proxy/v1/embeddings",
+            ),
+            (
+                "http://127.0.0.1:8000/v1?api-version=2024",
+                "http://127.0.0.1:8000/v1/embeddings?api-version=2024",
+            ),
+            ("http://[::1]:8000/v1/", "http://[::1]:8000/v1/embeddings"),
+        ];
+        for (input, expect) in cases {
+            let proxy = EmbeddingProxy::new(EmbeddingProxyConfig::new(input, "m"))
+                .unwrap_or_else(|e| panic!("{input} was refused: {e}"));
+            assert_eq!(proxy.request_url(), expect, "{input}");
+        }
+    }
+
+    /// #2355: a path that is neither a `/v1` base nor an embeddings URL is
+    /// refused before any request, and the error names both the URL that was
+    /// set and the full path to use instead.
+    #[test]
+    fn unrecognized_endpoint_path_fails_at_construction_and_names_the_full_url() {
+        let raw = "http://127.0.0.1:8000/openai";
+        // `EmbeddingProxy` is not `Debug` (it would print `api_key`), so map
+        // the Ok side away before `expect_err`.
+        let err = EmbeddingProxy::new(EmbeddingProxyConfig::new(raw, "m"))
+            .map(|_| ())
+            .expect_err("an unrecognized path must be refused");
+        let msg = err.to_string();
+        assert!(msg.contains(raw), "{msg}");
+        assert!(msg.contains("http://127.0.0.1:8000/v1/embeddings"), "{msg}");
+        assert!(msg.contains("was not called"), "{msg}");
+    }
+
+    /// #2355: the completed URL is what the HTTP client actually requests.
+    /// A `/v1` base, the same base with a trailing slash, and the full
+    /// `/v1/embeddings` URL must all POST to `/v1/embeddings`.
+    #[tokio::test]
+    async fn posts_v1_base_trailing_slash_and_full_url_to_embeddings() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let handle = std::thread::spawn(move || {
+            use std::io::{Read, Write};
+            let mut paths = Vec::new();
+            for _ in 0..3 {
+                let Ok((mut stream, _)) = listener.accept() else {
+                    break;
+                };
+                let mut buf = [0u8; 4096];
+                let n = stream.read(&mut buf).unwrap_or(0);
+                let head = String::from_utf8_lossy(&buf[..n]);
+                let path = head
+                    .lines()
+                    .next()
+                    .and_then(|line| line.split_whitespace().nth(1))
+                    .unwrap_or("")
+                    .to_string();
+                paths.push(path);
+                let body = r#"{"object":"list","data":[{"object":"embedding","index":0,"embedding":[0.25]}]}"#;
+                let resp = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                let _ = stream.write_all(resp.as_bytes());
+            }
+            paths
+        });
+
+        for suffix in ["/v1", "/v1/", "/v1/embeddings"] {
+            let mut cfg = EmbeddingProxyConfig::new(format!("http://{addr}{suffix}"), "m");
+            cfg.max_retries = 0;
+            let proxy = EmbeddingProxy::new(cfg).unwrap();
+            assert!(
+                proxy.request_url().ends_with("/v1/embeddings"),
+                "{} -> {}",
+                suffix,
+                proxy.request_url()
+            );
+            let out = proxy.embed(String::from("hello")).await.unwrap();
+            assert_eq!(out, vec![0.25], "{suffix}");
+        }
+
+        let paths = handle.join().unwrap();
+        assert_eq!(
+            paths,
+            vec![
+                "/v1/embeddings".to_string(),
+                "/v1/embeddings".to_string(),
+                "/v1/embeddings".to_string(),
+            ]
+        );
     }
 
     #[tokio::test]

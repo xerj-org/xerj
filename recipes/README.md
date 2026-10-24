@@ -83,7 +83,8 @@ Every recipe honors `XERJ_URL` (default `http://localhost:9200`).
   any recipe — start the server with a different `--embed-mode`: `neural`
   (built-in in-process BERT, all-MiniLM-L6-v2, shipped in the binary; the
   model auto-downloads on first use) or `proxy` (any OpenAI-compatible
-  embeddings endpoint, set `[embedding] default_endpoint` in `xerj.toml`).
+  embeddings endpoint, set `[embedding] default_endpoint` in `xerj.toml` to
+  a `/v1` base, a bare host, or the full `/v1/embeddings` URL).
 - `memory_agent.py` recalls with **text (BM25) relevance** scores
   (unbounded, higher = better) by default. Add `"semantic": true` to the
   `_recall` body to have XERJ embed the query server-side and recall by

@@ -154,8 +154,9 @@ so it doubles as a CI gate.
   one vector and scores exactly as it did pre-pipeline; no existing behavior
   changes.
 - **The built-in embedder is lexical**, not neural — great for offline demos
-  and CI. Point XERJ at an OpenAI-compatible `/v1/embeddings` endpoint
-  (`[embedding]` in `xerj.toml`) for production semantics; the pipeline is
+  and CI. Point XERJ at an OpenAI-compatible embeddings endpoint
+  (`embedding.default_endpoint` in `xerj.toml`: a `/v1` base, a bare host,
+  or the full `/v1/embeddings` URL) for production semantics; the pipeline is
   identical, just higher-quality per-passage vectors.
 - **Scoring is exact (brute-force max-sim)** over the passage vectors, which is
   what makes the ranking deterministic on the corpus sizes these recipes use.

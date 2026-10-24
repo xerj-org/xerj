@@ -149,7 +149,7 @@ query uses it. Choose with `--embed-mode` (or `embedding.mode` in config, or the
 |---|---|---|---|
 | `lexical` *(default)* | Built-in feature-hash | Lexical overlap only | None — offline, deterministic |
 | `neural` | Built-in **BERT** (all-MiniLM-L6-v2) via `candle` | True neural semantics | None — ships in the binary; model auto-downloads on first use |
-| `proxy` | Any external OpenAI-compatible `/v1/embeddings` | Whatever model you point at | Set `embedding.default_endpoint` |
+| `proxy` | Any external OpenAI-compatible embeddings API | Whatever model you point at | Set `embedding.default_endpoint` to a `/v1` base, a bare host, or the full `/v1/embeddings` URL |
 
 ### The default is lexical — know where it stops
 
@@ -192,8 +192,11 @@ Two honest takeaways that still apply in every mode:
   the `semantic_text` field too (or add a second `semantic_text` field and combine
   with `hybrid`), so the vocabulary the user might use is actually in the vector.
 - **Bring your own model when you need a specific one.** `--embed-mode proxy` with
-  `embedding.default_endpoint` calls any OpenAI-compatible `/v1/embeddings`
-  service (OpenAI, Cohere, a local vLLM, etc.). Embedding happens at ingest time.
+  `embedding.default_endpoint` calls any OpenAI-compatible embeddings
+  service (OpenAI, a local vLLM, etc.). A base ending in `/v1` or `/v1/`,
+  and a bare host, have `/embeddings` appended; a URL that already ends in
+  `/embeddings` is used unchanged. A trailing slash is ignored. Any other
+  path refuses to start and names the URL to set. Embedding happens at ingest time.
 
 Everything in the numbered walk-through above uses the default lexical embedder —
 no external service was configured for this recipe.
