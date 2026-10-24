@@ -144,6 +144,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `xerj mcp`: `xerj_code_search` now gives up on a node that does not
+  answer. Its requests went through a fresh HTTP client without the 30 s
+  deadline every other tool uses, so a node that accepted the connection
+  and then stalled held the call forever, and with it every later request
+  on the stdio connection. The call now fails with an error after 30 s,
+  like the other tools.
+
 - `xerj autoindex` no longer junks every PDF on an OS that rejects
   `setrlimit(RLIMIT_AS)` (macOS 27 returns `EINVAL`; a hard limit below
   1536 MiB returns `EPERM`). The address-space cap is crash isolation: the
