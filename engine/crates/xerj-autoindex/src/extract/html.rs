@@ -3,6 +3,14 @@
 //! a dominant `<table>` (≥5 rows, consistent column count, header row) →
 //! one record per row with header-derived field names; otherwise one
 //! document record {title, headings, body}.
+//!
+//! Inline JavaScript in a `<script>` block of a document page is also
+//! extracted as code symbols — the same definitions a standalone `.js` file
+//! would yield — with line numbers in this HTML file (#2356). The page body
+//! stays the visible text: script and style source is not copied into it.
+//! A dominant table stays one record per row. Its scripts are not symbols:
+//! those fields would land in the table's data dataset, and a sample that
+//! stopped on the rows would leave them out of the frozen mapping.
 
 use super::{
     emit_document, sanitize_field_name, ExtractStats, FieldOrigin, RawRecord, Sink,
@@ -25,6 +33,10 @@ pub(crate) struct Doc {
     pub(crate) anchors: Vec<(String, usize)>,
     tables: Vec<Vec<Vec<String>>>, // tables → rows → cells
     header_cells: Vec<Vec<bool>>,  // per table: was first row <th>?
+    /// Inline JavaScript blocks as `(content_start, content_end)` byte
+    /// offsets into the source. External scripts (`src`), non-JS types, and
+    /// `<style>` are not recorded. The page body still omits this text.
+    scripts: Vec<(usize, usize)>,
 }
 
 pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
@@ -34,7 +46,8 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
         return Ok(stats);
     };
     let (text, _) = crate::sniff::decode_text(&bytes);
-    let doc = parse(&text);
+    let mut doc = parse(&text);
+    let scripts = std::mem::take(&mut doc.scripts);
 
     // Dominant-table rule.
     if let Some((rows, first_row_th)) = dominant_table(&doc) {
@@ -87,6 +100,12 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
                 return Ok(stats);
             }
         }
+        // Scripts stay out of this path. Symbol records share the file's
+        // ungrouped sketch, so their extractor fields (`name`, `code`,
+        // `defs`, …) would join the table's data dataset. Phase A stops at
+        // the sample, often before those records, and phase B would then
+        // index fields the frozen mapping does not name.
+        drop(scripts);
         return Ok(stats);
     }
 
@@ -99,7 +118,7 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
     } else {
         doc.title.trim().to_string()
     };
-    emit_document(
+    let keep_going = emit_document(
         &title,
         &doc.headings,
         doc.body.trim(),
@@ -108,6 +127,9 @@ pub fn extract(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
         sink,
         &mut stats,
     );
+    if keep_going {
+        super::code::emit_inline_scripts(path, &text, &scripts, &mut stats, sink);
+    }
     Ok(stats)
 }
 
@@ -255,7 +277,15 @@ pub(crate) fn parse(html: &str) -> Doc {
                 .is_some_and(|&c| c.is_ascii_whitespace() || c == b'/' || c == b'>');
             if !close && name_ended && matches!(name.as_str(), "script" | "style") && !self_closing
             {
-                i = raw_text_end(bytes, tag_end + 1, name.as_bytes());
+                let content_start = tag_end + 1;
+                let content_end = raw_text_end(bytes, content_start, name.as_bytes());
+                if name == "script"
+                    && content_start < content_end
+                    && inline_javascript_script(&html[j..tag_end])
+                {
+                    doc.scripts.push((content_start, content_end));
+                }
+                i = content_end;
                 continue;
             }
 
@@ -532,6 +562,120 @@ fn decode_entities(s: &str) -> String {
         .replace("&nbsp;", " ")
 }
 
+/// HTML spec JavaScript MIME type essences (mimesniff). `type=module` is a
+/// module script, not one of these, and is handled beside them.
+const JAVASCRIPT_MIME_TYPES: &[&str] = &[
+    "application/ecmascript",
+    "application/javascript",
+    "application/x-ecmascript",
+    "application/x-javascript",
+    "text/ecmascript",
+    "text/javascript",
+    "text/javascript1.0",
+    "text/javascript1.1",
+    "text/javascript1.2",
+    "text/javascript1.3",
+    "text/javascript1.4",
+    "text/javascript1.5",
+    "text/jscript",
+    "text/livescript",
+    "text/x-ecmascript",
+    "text/x-javascript",
+];
+
+/// True when this `<script>` element's inline text is JavaScript the page
+/// runs. A `src` script's inline text is not executed. A `type` that is not
+/// a JavaScript MIME type (JSON-LD, templates, import maps) is data, not
+/// code. With no `type`, the legacy `language` attribute is consulted; with
+/// neither, the element is a classic script.
+fn inline_javascript_script(attrs: &str) -> bool {
+    if attr_value(attrs, "src").is_some() {
+        return false;
+    }
+    match attr_value(attrs, "type") {
+        Some(ty) => is_javascript_type(ty),
+        None => match attr_value(attrs, "language") {
+            Some(lang) => is_javascript_language(lang),
+            None => true,
+        },
+    }
+}
+
+fn is_javascript_type(ty: &str) -> bool {
+    let essence = ty.split(';').next().unwrap_or("").trim();
+    if essence.is_empty() {
+        return false;
+    }
+    if essence.eq_ignore_ascii_case("module") {
+        return true;
+    }
+    JAVASCRIPT_MIME_TYPES
+        .iter()
+        .any(|mime| essence.eq_ignore_ascii_case(mime))
+}
+
+fn is_javascript_language(lang: &str) -> bool {
+    matches!(
+        lang.trim().to_ascii_lowercase().as_str(),
+        "javascript" | "js" | "ecmascript" | "jscript" | "livescript"
+    )
+}
+
+/// The value of attribute `want`, or `None` when it is absent. A present
+/// attribute with no value is `Some("")`. `attrs` is the tag text after the
+/// element name and before `>`.
+fn attr_value<'a>(attrs: &'a str, want: &str) -> Option<&'a str> {
+    let b = attrs.as_bytes();
+    let mut i = 0;
+    while i < b.len() {
+        while i < b.len() && (b[i].is_ascii_whitespace() || b[i] == b'/') {
+            i += 1;
+        }
+        if i >= b.len() || b[i] == b'>' {
+            break;
+        }
+        let key_start = i;
+        while i < b.len() && !b[i].is_ascii_whitespace() && !matches!(b[i], b'=' | b'/' | b'>') {
+            i += 1;
+        }
+        let key = &attrs[key_start..i];
+        while i < b.len() && b[i].is_ascii_whitespace() {
+            i += 1;
+        }
+        let value = if i < b.len() && b[i] == b'=' {
+            i += 1;
+            while i < b.len() && b[i].is_ascii_whitespace() {
+                i += 1;
+            }
+            if i < b.len() && matches!(b[i], b'"' | b'\'') {
+                let q = b[i];
+                let v = i + 1;
+                i = v;
+                while i < b.len() && b[i] != q {
+                    i += 1;
+                }
+                let value = &attrs[v..i];
+                if i < b.len() {
+                    i += 1;
+                }
+                value
+            } else {
+                let v = i;
+                while i < b.len() && !b[i].is_ascii_whitespace() && b[i] != b'>' {
+                    i += 1;
+                }
+                &attrs[v..i]
+            }
+        } else {
+            ""
+        };
+        if key.eq_ignore_ascii_case(want) {
+            return Some(value);
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -787,6 +931,24 @@ mod tests {
         assert!(recs.iter().all(|r| r.group.is_none()));
     }
 
+    /// A dominant table and an inline function share one ungrouped sketch.
+    /// Symbol fields must not join the row dataset: phase A often samples
+    /// only the rows, and the frozen mapping would then lack `name`/`code`.
+    #[test]
+    fn a_dominant_table_does_not_emit_inline_script_symbols() {
+        let mut html = table_html(Some(["Product Name", "Qty"]), 5);
+        html.push_str("<script>function openDrawer(id) { return id; }</script>");
+        let (stats, recs) = run("t.html", &html);
+        assert_eq!(stats.records, 5);
+        assert!(recs.iter().all(|r| r.locator.starts_with("row")));
+        assert!(recs.iter().all(|r| r.fields.get("name").is_none()));
+        assert!(recs.iter().all(|r| r.fields.get("defs").is_none()));
+        assert!(recs.iter().all(|r| !r
+            .fields
+            .values()
+            .any(|v| v.as_str().is_some_and(|s| s.contains("openDrawer")))));
+    }
+
     #[test]
     fn a_headerless_table_gets_positional_column_names_and_keeps_its_first_row() {
         let (stats, recs) = run("t.html", &table_html(None, 6));
@@ -930,5 +1092,170 @@ mod tests {
         let (stats, recs) = run("empty.html", "");
         assert_eq!(stats.records, 1);
         assert_eq!(body_of(&recs[0]), "");
+    }
+
+    /// #2356: a function inside an inline `<script>` is a code symbol at the
+    /// line it occupies in the HTML file. The page's prose record stays the
+    /// visible text — the script is not copied into `body`. `.html` and
+    /// `.htm` take the same extractor. A `src` script, a JSON-LD block, a
+    /// template, a style block, and a comment are not definitions.
+    #[test]
+    fn inline_script_functions_become_symbols_at_their_html_lines() {
+        let page = "\
+<!DOCTYPE html>
+<html>
+<head><title>Drawer</title></head>
+<body>
+<p>The drawer holds the menu.</p>
+<script>
+function openDrawer(id) {
+  document.getElementById(id).hidden = false;
+}
+</script>
+<script type=\"text/javascript\">
+const toggleDrawer = () => {
+  return true;
+};
+</script>
+<script type=\"module\">
+export function openPanel() {
+  return 1;
+}
+</script>
+<script type=\"application/ld+json\">
+function ignoredJson() {}
+</script>
+<script src=\"app.js\">
+function fromSrc() {}
+</script>
+<script type=\"text/template\">
+function notATemplateFn() {}
+</script>
+<style>
+function notCss() {}
+</style>
+<!-- <script>function inComment() {}</script> -->
+<p>After the scripts.</p>
+</body>
+</html>
+";
+        let line_of = |needle: &str| {
+            page.lines()
+                .position(|line| line.contains(needle))
+                .map(|i| i + 1)
+                .unwrap_or_else(|| panic!("{needle} is not in the fixture"))
+        };
+        for name in ["page.html", "page.htm"] {
+            let (stats, recs) = run(name, page);
+            let prose = recs
+                .iter()
+                .find(|r| r.locator == "s0")
+                .expect("prose record");
+            let body = body_of(prose);
+            assert!(body.contains("The drawer holds the menu."), "{body:?}");
+            assert!(body.contains("After the scripts."), "{body:?}");
+            assert_eq!(prose.fields["title"], serde_json::json!("Drawer"));
+            for leak in [
+                "openDrawer",
+                "getElementById",
+                "toggleDrawer",
+                "openPanel",
+                "ignoredJson",
+                "fromSrc",
+                "notATemplateFn",
+                "notCss",
+                "inComment",
+            ] {
+                assert!(
+                    !body.contains(leak),
+                    "{leak} leaked into the page body: {body:?}"
+                );
+            }
+
+            let catalog = recs
+                .iter()
+                .find(|r| r.locator == "code")
+                .expect("defs catalog");
+            let defs = catalog.fields["defs"].as_str().unwrap();
+            for expect in [
+                "function openDrawer",
+                "function toggleDrawer",
+                "function openPanel",
+            ] {
+                assert!(
+                    defs.contains(expect),
+                    "{name} defs missing {expect}: {defs}"
+                );
+            }
+            for absent in [
+                "ignoredJson",
+                "fromSrc",
+                "notATemplateFn",
+                "notCss",
+                "inComment",
+            ] {
+                assert!(!defs.contains(absent), "{name} extracted {absent}: {defs}");
+            }
+            assert!(
+                catalog.fields.get("body").is_none(),
+                "script text must not become body"
+            );
+            assert_eq!(catalog.fields["language"], serde_json::json!("javascript"));
+
+            let symbol = |fn_name: &str| {
+                recs.iter()
+                    .find(|r| {
+                        r.fields.get("name").and_then(|v| v.as_str()) == Some(fn_name)
+                            && r.locator.starts_with("code:")
+                    })
+                    .unwrap_or_else(|| panic!("{name} has no symbol {fn_name}"))
+            };
+            let open = symbol("openDrawer");
+            let open_line = line_of("function openDrawer");
+            assert_eq!(open.fields["line"], serde_json::json!(open_line));
+            assert_eq!(open.fields["kind"], serde_json::json!("function"));
+            assert_eq!(open.fields["language"], serde_json::json!("javascript"));
+            assert_eq!(open.locator, format!("code:{open_line}:openDrawer"));
+            let code = open.fields["code"].as_str().unwrap();
+            assert!(code.contains("function openDrawer"), "{code}");
+            let impl_text = open.fields["impl"].as_str().unwrap();
+            assert!(impl_text.contains("getElementById"), "{impl_text}");
+            assert!(
+                page.lines()
+                    .nth(open_line - 1)
+                    .unwrap()
+                    .contains("openDrawer"),
+                "line {open_line} is not the definition"
+            );
+
+            let toggle = symbol("toggleDrawer");
+            assert_eq!(
+                toggle.fields["line"],
+                serde_json::json!(line_of("const toggleDrawer"))
+            );
+            assert_eq!(toggle.fields["kind"], serde_json::json!("function"));
+
+            let panel = symbol("openPanel");
+            assert_eq!(
+                panel.fields["line"],
+                serde_json::json!(line_of("export function openPanel"))
+            );
+            assert_eq!(panel.fields["kind"], serde_json::json!("function"));
+
+            let names: Vec<&str> = recs
+                .iter()
+                .filter_map(|r| r.fields.get("name").and_then(|v| v.as_str()))
+                .collect();
+            assert!(
+                !names.iter().any(|n| {
+                    matches!(
+                        *n,
+                        "ignoredJson" | "fromSrc" | "notATemplateFn" | "notCss" | "inComment"
+                    )
+                }),
+                "{name} symbols: {names:?}"
+            );
+            assert!(stats.records >= 4, "{name} records {}", stats.records);
+        }
     }
 }

@@ -144,6 +144,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `xerj autoindex` extracts JavaScript definitions from inline `<script>`
+  blocks in HTML pages. `function openDrawer()` inside a `<script>` in a
+  `.html` or `.htm` file becomes a code symbol (`defs` / `symbols`, plus a
+  per-declaration record), so `xerj def`, `xerj search`, and the MCP def
+  and search tools cite that function at its line in the HTML file. A
+  `src` script, a non-JavaScript type (`application/ld+json`, a template),
+  and `<style>` are not definitions. The page body stays the visible text.
+  A page taken as a data table (five or more consistent rows) stays row
+  records. An HTML file already sealed in a generation keeps those records
+  until the file bytes change or the tree is indexed under a new
+  `--state-dir`
+  ([#2356](https://github.com/xerj-org/xerj/issues/2356)).
+
 - `xerj autoindex` no longer junks every PDF on an OS that rejects
   `setrlimit(RLIMIT_AS)` (macOS 27 returns `EINVAL`; a hard limit below
   1536 MiB returns `EPERM`). The address-space cap is crash isolation: the

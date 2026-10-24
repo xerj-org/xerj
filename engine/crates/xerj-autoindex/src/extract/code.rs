@@ -1355,41 +1355,10 @@ fn emit_code_doc(
         .to_string();
 
     let mut fields = Map::new();
-    fields.insert("title".into(), Value::String(title));
+    fields.insert("title".into(), Value::String(title.clone()));
     fields.insert("language".into(), Value::String(language.to_string()));
 
-    if !symbols.is_empty() {
-        // Searchable "kind name" list — this is what makes `class User` /
-        // `def save` retrieve the file, and it dedups repeated names.
-        let mut seen = std::collections::HashSet::new();
-        let defs: Vec<String> = symbols
-            .iter()
-            .filter(|s| seen.insert((s.kind.clone(), s.name.clone())))
-            .map(|s| format!("{} {}", s.kind, s.name))
-            .collect();
-        fields.insert("defs".into(), Value::String(defs.join("\n")));
-        let arr: Vec<Value> = symbols
-            .iter()
-            .map(|s| {
-                let mut m = Map::new();
-                m.insert("name".into(), Value::String(s.name.clone()));
-                m.insert("kind".into(), Value::String(s.kind.clone()));
-                m.insert("line".into(), Value::Number((s.line as u64).into()));
-                // #500: a client that wants the IMPLEMENTATION can now slice
-                // exactly `line`..`end_line` out of `body`. Without it the only
-                // way to bound a symbol was "up to where the next one starts",
-                // which returns a whole class for a class and the rest of the
-                // file for the last symbol — the coarse unit this issue is about.
-                m.insert("end_line".into(), Value::Number((s.end_line as u64).into()));
-                Value::Object(m)
-            })
-            .collect();
-        fields.insert("symbols".into(), Value::Array(arr));
-        fields.insert(
-            "symbol_count".into(),
-            Value::Number((symbols.len() as u64).into()),
-        );
-    }
+    insert_symbol_catalog(&mut fields, symbols);
     // The full source stays full-text searchable.
     fields.insert("body".into(), Value::String(text.to_string()));
 
@@ -1406,17 +1375,65 @@ fn emit_code_doc(
         return false;
     }
 
-    // #500: promote each declaration to its OWN retrievable document. A
-    // constant/field/`#define`/signature lookup then returns the ~40–80 B
-    // declaration line with an exact `name` (mapped keyword), instead of only
-    // surviving folded inside the ~2–3 KB enclosing class/method body (the
-    // measured 32–48× byte blow-up + the rank-35 recall miss). The file
-    // document above keeps `body`/`defs` for full-text and cross-file search.
-    let file_path = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("source")
-        .to_string();
+    emit_symbol_records(&title, language, text, symbols, stats, sink)
+}
+
+/// `defs` / `symbols` / `symbol_count` for one file. Empty when nothing was
+/// captured, so a file with no definitions keeps the same field set it had
+/// before a grammar learned to see one (#178).
+fn insert_symbol_catalog(fields: &mut Map<String, Value>, symbols: &[Symbol]) {
+    if symbols.is_empty() {
+        return;
+    }
+    // Searchable "kind name" list — this is what makes `class User` /
+    // `def save` retrieve the file, and it dedups repeated names.
+    let mut seen = std::collections::HashSet::new();
+    let defs: Vec<String> = symbols
+        .iter()
+        .filter(|s| seen.insert((s.kind.clone(), s.name.clone())))
+        .map(|s| format!("{} {}", s.kind, s.name))
+        .collect();
+    fields.insert("defs".into(), Value::String(defs.join("\n")));
+    let arr: Vec<Value> = symbols
+        .iter()
+        .map(|s| {
+            let mut m = Map::new();
+            m.insert("name".into(), Value::String(s.name.clone()));
+            m.insert("kind".into(), Value::String(s.kind.clone()));
+            m.insert("line".into(), Value::Number((s.line as u64).into()));
+            // #500: a client that wants the IMPLEMENTATION can now slice
+            // exactly `line`..`end_line` out of `body`. Without it the only
+            // way to bound a symbol was "up to where the next one starts",
+            // which returns a whole class for a class and the rest of the
+            // file for the last symbol — the coarse unit this issue is about.
+            m.insert("end_line".into(), Value::Number((s.end_line as u64).into()));
+            Value::Object(m)
+        })
+        .collect();
+    fields.insert("symbols".into(), Value::Array(arr));
+    fields.insert(
+        "symbol_count".into(),
+        Value::Number((symbols.len() as u64).into()),
+    );
+}
+
+/// #500: promote each declaration to its OWN retrievable document. A
+/// constant/field/`#define`/signature lookup then returns the ~40–80 B
+/// declaration line with an exact `name` (mapped keyword), instead of only
+/// surviving folded inside the ~2–3 KB enclosing class/method body (the
+/// measured 32–48× byte blow-up + the rank-35 recall miss). The file
+/// document above keeps `body`/`defs` for full-text and cross-file search.
+///
+/// `text`'s line `n` is source line `n`. Callers that parsed a slice shift
+/// `symbols` onto that coordinate first.
+fn emit_symbol_records(
+    file_path: &str,
+    language: &str,
+    text: &str,
+    symbols: &[Symbol],
+    stats: &mut ExtractStats,
+    sink: Sink,
+) -> bool {
     // A single declaration can be captured under two kinds at the same line+name
     // (e.g. `export const f = () => {}` → @function + @const). Those share the
     // `code:<line>:<name>` locator → the same `doc_id` → ES stores ONE document.
@@ -1441,7 +1458,7 @@ fn emit_code_doc(
         // citation, `name`/`code` searchable (the mapping exposes `name.keyword`
         // for exact-identifier ranking), `kind`/`line` for filtering + citation.
         sf.insert("title".into(), Value::String(name.clone()));
-        sf.insert("path".into(), Value::String(file_path.clone()));
+        sf.insert("path".into(), Value::String(file_path.to_string()));
         sf.insert("language".into(), Value::String(language.to_string()));
         sf.insert("name".into(), Value::String(name.clone()));
         sf.insert("kind".into(), Value::String(s.kind.clone()));
@@ -1512,6 +1529,81 @@ fn emit_code_doc(
         }
     }
     true
+}
+
+/// Definitions inside inline `<script>` blocks of an HTML page (#2356).
+///
+/// `spans` are `(start, end)` byte offsets of script *content* (inside the
+/// tags, not including them) in `html`. Each span is parsed with the
+/// JavaScript grammar; line numbers are shifted onto the HTML file so
+/// `xerj def` cites `page.html:N`. The page's prose record is someone else's
+/// — this only adds the file-level `defs`/`symbols` catalog and the
+/// per-declaration records a `.js` file would get. It does not copy the
+/// script into a `body` field: the HTML extractor keeps API keys and other
+/// non-definition script text out of the page body.
+///
+/// A span over [`CODE_CAP`] is skipped. One minified block is not a file of
+/// definitions, and parsing it is the cost the code extractor already refuses.
+pub(crate) fn emit_inline_scripts(
+    path: &Path,
+    html: &str,
+    spans: &[(usize, usize)],
+    stats: &mut ExtractStats,
+    sink: Sink,
+) -> bool {
+    if spans.is_empty() {
+        return true;
+    }
+    let Some(def) = registry().iter().find(|d| d.name == "javascript") else {
+        return true;
+    };
+    let mut symbols = Vec::new();
+    for &(start, end) in spans {
+        if start >= end
+            || end > html.len()
+            || !html.is_char_boundary(start)
+            || !html.is_char_boundary(end)
+        {
+            continue;
+        }
+        let content = &html[start..end];
+        if content.len() as u64 > CODE_CAP || content.trim().is_empty() {
+            continue;
+        }
+        let mut found = parse_symbols(def, content).unwrap_or_default();
+        let offset = html[..start].bytes().filter(|&b| b == b'\n').count();
+        for s in &mut found {
+            s.line = s.line.saturating_add(offset);
+            s.end_line = s.end_line.saturating_add(offset);
+        }
+        symbols.append(&mut found);
+        if symbols.len() >= 5000 {
+            symbols.truncate(5000);
+            break;
+        }
+    }
+    if symbols.is_empty() {
+        return true;
+    }
+    let title = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("source")
+        .to_string();
+    let mut fields = Map::new();
+    fields.insert("title".into(), Value::String(title.clone()));
+    fields.insert("language".into(), Value::String("javascript".into()));
+    insert_symbol_catalog(&mut fields, &symbols);
+    stats.records += 1;
+    if !sink(RawRecord {
+        fields,
+        locator: "code".into(),
+        group: None,
+        origin: FieldOrigin::Extractor,
+    }) {
+        return false;
+    }
+    emit_symbol_records(&title, "javascript", html, &symbols, stats, sink)
 }
 
 // ── Per-language capture queries. Capture-name == emitted symbol kind. ─────────
