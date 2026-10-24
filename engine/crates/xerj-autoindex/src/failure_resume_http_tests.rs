@@ -1489,6 +1489,63 @@ fn a_rerun_after_an_added_file_succeeds_and_fresh_absorbs_it() {
     assert!(indexed.contains("second.csv"), "{indexed:?}");
 }
 
+/// #2372: the stale-resume-plan summary names the appeared paths and says
+/// `--fresh` next to them. `skipped_appeared` stays the count. The existing
+/// `skipped` list is unchanged. The plain `xerj-done` line stays numeric;
+/// the names are the lines immediately before it.
+fn assert_stale_resume_summary(report: &Value, stream: &str, paths: &[&str]) {
+    assert_eq!(report["files_junk"], 0, "{report}");
+    assert_eq!(report["skipped_appeared"], paths.len(), "{report}");
+    assert_eq!(report["skipped_appeared_files"], json!(paths), "{report}");
+    assert!(
+        report.get("skipped_appeared_not_listed").is_none(),
+        "these paths fit in the summary: {report}"
+    );
+    let action = report["skipped_appeared_action"]
+        .as_str()
+        .unwrap_or_else(|| panic!("missing skipped_appeared_action: {report}"));
+    assert!(action.contains("--fresh"), "{action}");
+    let listed: Vec<&str> = report["skipped"]["files"]
+        .as_array()
+        .unwrap_or_else(|| panic!("skipped list removed: {report}"))
+        .iter()
+        .filter_map(|file| file["path"].as_str())
+        .collect();
+    assert_eq!(
+        listed, paths,
+        "the existing skipped list still names them: {report}"
+    );
+
+    let done_at = stream
+        .rfind("xerj-done ")
+        .unwrap_or_else(|| panic!("{stream}"));
+    let summary_at = stream[..done_at]
+        .rfind("not indexed —")
+        .unwrap_or_else(|| panic!("summary did not name the files before xerj-done:\n{stream}"));
+    let summary = &stream[summary_at..done_at];
+    for path in paths {
+        assert!(summary.contains(path), "summary missing {path}: {summary}");
+    }
+    assert!(summary.contains("--fresh"), "{summary}");
+    assert!(
+        !summary.contains("… and"),
+        "these paths are not a remainder: {summary}"
+    );
+    let done = stream[done_at..]
+        .lines()
+        .next()
+        .unwrap_or_else(|| panic!("{stream}"));
+    assert!(done.contains("reason=stale-resume-plan"), "{done}");
+    assert!(
+        done.contains(&format!("skipped_appeared={}", paths.len())),
+        "{done}"
+    );
+    assert!(
+        !done.contains(paths[0]),
+        "the plain done line stays numeric; paths are the lines above it: {done}"
+    );
+}
+
 /// #2076: a resume whose journaled plan predates files now on disk used to
 /// record those files as junk and finish `reason=completed-with-junk`. That is
 /// the everyday "some input was unusable" success, so an agent treats the
@@ -1539,6 +1596,7 @@ fn a_resume_whose_plan_predates_new_files_reports_a_stale_plan_not_junk() {
         "post-plan files are not junk: {report}"
     );
     assert_eq!(report["skipped_appeared"], 2, "{report}");
+    assert_stale_resume_summary(&report, &stream, &["added-a.md", "added-b.md"]);
     assert!(
         stream.contains("skipped because the resumed plan is stale"),
         "{stream}"
@@ -1574,16 +1632,48 @@ fn a_resume_whose_plan_predates_new_files_reports_a_stale_plan_not_junk() {
     }
 
     // A second resume must not quietly reclassify the same files as junk.
+    // `--progress json` is the machine terminal object: the paths and the
+    // `--fresh` recovery have to be fields on it, not only prose notes.
+    config.progress = crate::progress::ProgressMode::Json;
     let (again, report, stream) = resume(&config);
     assert_eq!(again, 3);
     let report = report.unwrap();
     assert_eq!(report["files_junk"], 0, "{report}");
     assert_eq!(report["skipped_appeared"], 2, "{report}");
+    assert_eq!(
+        report["skipped_appeared_files"],
+        json!(["added-a.md", "added-b.md"]),
+        "{report}"
+    );
+    assert!(
+        report["skipped_appeared_action"]
+            .as_str()
+            .unwrap_or("")
+            .contains("--fresh"),
+        "{report}"
+    );
     let done = stream
         .lines()
-        .find(|line| line.starts_with("xerj-done "))
-        .unwrap_or_else(|| panic!("{stream}"));
-    assert!(done.contains("reason=stale-resume-plan"), "{done}");
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .find(|event| event["event"] == "done")
+        .unwrap_or_else(|| panic!("no JSON done event:\n{stream}"));
+    assert_eq!(done["exit"], 3, "{done}");
+    assert_eq!(done["reason"], "stale-resume-plan", "{done}");
+    assert_eq!(done["ok"], true, "{done}");
+    assert_eq!(done["skipped_appeared"], 2, "{done}");
+    assert_eq!(
+        done["skipped_appeared_files"],
+        json!(["added-a.md", "added-b.md"]),
+        "{done}"
+    );
+    assert!(done.get("skipped_appeared_not_listed").is_none(), "{done}");
+    assert!(
+        done["skipped_appeared_action"]
+            .as_str()
+            .unwrap_or("")
+            .contains("--fresh"),
+        "{done}"
+    );
 
     config.fresh = true;
     config.quiet = true;

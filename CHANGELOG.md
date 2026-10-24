@@ -144,6 +144,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A graph-path `xerj autoindex` resume whose plan predates files now on disk
+  names those files in the summary. The human text under the `ok:` line, the
+  lines immediately before `xerj-done`, the run document, and the
+  `--progress json` terminal object list the first five paths
+  (`skipped_appeared_files`), how many were not listed
+  (`skipped_appeared_not_listed`, only when the list was capped), and say to
+  re-run with `--fresh`. `skipped_appeared` stays the full count. Exit code 3
+  and `reason=stale-resume-plan` are unchanged. The plain `xerj-done` line
+  stays `key=value` numbers, because a path may contain spaces
+  ([#2372](https://github.com/xerj-org/xerj/issues/2372)).
+
 - `xerj autoindex` no longer junks every PDF on an OS that rejects
   `setrlimit(RLIMIT_AS)` (macOS 27 returns `EINVAL`; a hard limit below
   1536 MiB returns `EPERM`). The address-space cap is crash isolation: the

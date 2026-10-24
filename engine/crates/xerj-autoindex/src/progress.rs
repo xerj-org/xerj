@@ -401,6 +401,12 @@ pub struct Progress {
     stopped: Mutex<bool>,
     wake: Condvar,
     sink: Sink,
+    /// Structured fields merged into the `--progress json` terminal object.
+    ///
+    /// The plain `xerj-done` line is `key=value` numbers split on spaces, so
+    /// a path does not belong on it (#2372). Callers print the same facts
+    /// with [`Progress::note`] for that surface.
+    done_json: Mutex<serde_json::Map<String, serde_json::Value>>,
 }
 
 impl Progress {
@@ -432,6 +438,7 @@ impl Progress {
             stopped: Mutex::new(false),
             wake: Condvar::new(),
             sink,
+            done_json: Mutex::new(serde_json::Map::new()),
         })
     }
 
@@ -652,6 +659,16 @@ impl Progress {
         self.finish_with_flags(ok, exit, reason, extra, &[]);
     }
 
+    /// Fields merged into the `--progress json` terminal object.
+    ///
+    /// The plain `xerj-done` line stays numeric: readers split it on spaces,
+    /// and a path may contain spaces. Print the same facts with [`Self::note`]
+    /// for that surface. A key already set by the numeric extras or by flags
+    /// is left as that caller wrote it.
+    pub fn set_done_json(&self, fields: serde_json::Map<String, serde_json::Value>) {
+        *self.done_json.lock().unwrap() = fields;
+    }
+
     /// [`Self::finish`] plus boolean fields.
     ///
     /// A count alone cannot say whether it is a total or a floor. When a
@@ -690,6 +707,10 @@ impl Progress {
                 }
                 for (key, value) in flags {
                     doc.insert((*key).to_string(), (*value).into());
+                }
+                for (key, value) in self.done_json.lock().unwrap().iter() {
+                    let key = sanitize(key, SAFE_PATH_MAX);
+                    doc.entry(key).or_insert(value.clone());
                 }
                 let line = serde_json::Value::Object(doc);
                 self.sink.write(format!("{line}\n").as_bytes());
@@ -2266,6 +2287,50 @@ mod tests {
             "{text}"
         );
         assert!(text.contains("files=12 records=7"), "{text}");
+    }
+
+    /// #2372: paths ride on the JSON terminal object. The plain line stays
+    /// `key=value` numbers, including when a path contains a space.
+    #[test]
+    fn json_done_event_names_paths_the_plain_line_does_not() {
+        let files = vec!["added-a.md".to_string(), "dir/new file.md".to_string()];
+        let mut fields = serde_json::Map::new();
+        fields.insert("skipped_appeared_files".into(), serde_json::json!(files));
+        fields.insert(
+            "skipped_appeared_action".into(),
+            serde_json::json!("Re-run with --fresh"),
+        );
+
+        let (json_progress, json_buffer) =
+            Progress::capture(Surface::Json, Duration::from_secs(3600));
+        json_progress.set_done_json(fields.clone());
+        json_progress.finish(true, 3, "stale-resume-plan", &[("skipped_appeared", 2)]);
+        let doc: serde_json::Value =
+            serde_json::from_str(captured(&json_buffer).trim()).expect("one JSON object");
+        assert_eq!(doc["event"], "done");
+        assert_eq!(doc["exit"], 3);
+        assert_eq!(doc["reason"], "stale-resume-plan");
+        assert_eq!(doc["skipped_appeared"], 2);
+        assert_eq!(doc["skipped_appeared_files"], serde_json::json!(files));
+        assert_eq!(doc["skipped_appeared_action"], "Re-run with --fresh");
+
+        let (plain, plain_buffer) = Progress::capture(Surface::Plain, Duration::from_secs(3600));
+        plain.set_done_json(fields);
+        plain.finish(true, 3, "stale-resume-plan", &[("skipped_appeared", 2)]);
+        let plain_text = captured(&plain_buffer);
+        assert!(
+            plain_text.starts_with("xerj-done ok=true exit=3 reason=stale-resume-plan "),
+            "{plain_text}"
+        );
+        assert!(plain_text.contains(" skipped_appeared=2"), "{plain_text}");
+        assert!(
+            !plain_text.contains("new file.md"),
+            "a path with a space must not be spliced into the plain line: {plain_text}"
+        );
+        assert!(
+            !plain_text.contains("skipped_appeared_files"),
+            "{plain_text}"
+        );
     }
 
     #[test]

@@ -1473,6 +1473,199 @@ fn is_stale_resume_skip(junk: &JunkFile) -> bool {
     junk.status == STALE_RESUME_PLAN_STATUS || junk.reason.contains("not in the frozen resume plan")
 }
 
+/// How many appeared-file paths the stale-resume-plan summary names.
+///
+/// The rest are a count. Five is enough to see what the resume left out
+/// without turning the summary into a directory listing (#2372). The mid-run
+/// note still lists up to [`REFUSAL_LIST_CAP`].
+const STALE_RESUME_SUMMARY_CAP: usize = 5;
+
+/// Recovery sentence shared by the `ok:` headline, the path list, and the JSON field.
+///
+/// One sentence, so the summary that names the paths also says `--fresh`
+/// right there (#2372).
+const STALE_RESUME_SUMMARY_ACTION: &str =
+    "Re-run with --fresh to rebuild the plan in place and include them (ids stay idempotent)";
+
+/// Relative paths the frozen resume plan did not cover, in summary order.
+///
+/// Same predicate as the `skipped_appeared` count ([`is_stale_resume_skip`]),
+/// so a legacy journal that stored these as status `skipped` is listed too.
+/// Sorted so two runs over the same folder name the same paths. The count
+/// stays the full length; this vec is not capped.
+fn stale_resume_appeared_paths(junk: &[&JunkFile]) -> Vec<String> {
+    let mut paths: Vec<&str> = junk
+        .iter()
+        .filter(|jf| is_stale_resume_skip(jf))
+        .map(|jf| jf.rel.as_str())
+        .collect();
+    paths.sort_unstable();
+    paths.into_iter().map(str::to_string).collect()
+}
+
+/// Human lines for the stale-resume-plan summary.
+///
+/// The `ok:` headline stays one line. These sit under it and name the files,
+/// because a count alone sent an agent back to `--help` to find out what was
+/// skipped (#2372). Empty when nothing appeared, so a clean run's summary is
+/// unchanged.
+fn stale_resume_summary_lines(paths: &[String]) -> Vec<String> {
+    if paths.is_empty() {
+        return Vec::new();
+    }
+    let shown = paths.len().min(STALE_RESUME_SUMMARY_CAP);
+    let rest = paths.len() - shown;
+    let mut lines = vec![format!(
+        "not indexed — {} appeared after the resume plan was frozen. {STALE_RESUME_SUMMARY_ACTION}:",
+        estimate::count_phrase(paths.len() as u64, "file", "files")
+    )];
+    for path in &paths[..shown] {
+        lines.push(format!("  {path}"));
+    }
+    if rest > 0 {
+        lines.push(format!("  … and {rest} more"));
+    }
+    lines
+}
+
+/// Additive summary fields for the same list.
+///
+/// `skipped_appeared` stays the count and is not in this map. Present only
+/// when files appeared. `skipped_appeared_not_listed` is present only when
+/// the list was capped, so a reader that finds it knows the summary did not
+/// name every path.
+fn stale_resume_summary_json(paths: &[String]) -> Map<String, Value> {
+    if paths.is_empty() {
+        return Map::new();
+    }
+    let shown = paths.len().min(STALE_RESUME_SUMMARY_CAP);
+    let mut fields = Map::new();
+    fields.insert("skipped_appeared_files".into(), json!(&paths[..shown]));
+    let rest = paths.len() - shown;
+    if rest > 0 {
+        fields.insert("skipped_appeared_not_listed".into(), json!(rest));
+    }
+    fields.insert(
+        "skipped_appeared_action".into(),
+        json!(STALE_RESUME_SUMMARY_ACTION),
+    );
+    fields
+}
+
+#[cfg(test)]
+mod stale_resume_summary_tests {
+    use super::{
+        is_stale_resume_skip, stale_resume_appeared_paths, stale_resume_summary_json,
+        stale_resume_summary_lines, JunkFile, STALE_RESUME_PLAN_FILE_REASON,
+        STALE_RESUME_PLAN_STATUS, STALE_RESUME_SUMMARY_ACTION, STALE_RESUME_SUMMARY_CAP,
+    };
+
+    fn junk(rel: &str, status: &str, reason: &str) -> JunkFile {
+        JunkFile {
+            file_key: rel.into(),
+            rel: rel.into(),
+            format: "unknown".into(),
+            status: status.into(),
+            reason: reason.into(),
+            bytes: 1,
+        }
+    }
+
+    fn appeared(rel: &str) -> JunkFile {
+        junk(rel, STALE_RESUME_PLAN_STATUS, STALE_RESUME_PLAN_FILE_REASON)
+    }
+
+    #[test]
+    fn nothing_appeared_adds_no_summary() {
+        let ordinary = junk("notes.bin", "junk", "binary content");
+        let refs = [&ordinary];
+        assert!(stale_resume_appeared_paths(&refs).is_empty());
+        assert!(stale_resume_summary_lines(&[]).is_empty());
+        assert!(stale_resume_summary_json(&[]).is_empty());
+    }
+
+    #[test]
+    fn one_file_is_named_and_fresh_is_on_the_same_summary() {
+        let file = appeared("notes/new file.md");
+        let paths = stale_resume_appeared_paths(&[&file]);
+        assert_eq!(paths, vec!["notes/new file.md".to_string()]);
+        let lines = stale_resume_summary_lines(&paths);
+        assert_eq!(lines.len(), 2, "{lines:?}");
+        assert!(lines[0].contains("1 file"), "{lines:?}");
+        assert!(lines[0].contains("--fresh"), "{lines:?}");
+        assert!(lines[0].contains(STALE_RESUME_SUMMARY_ACTION), "{lines:?}");
+        assert_eq!(lines[1], "  notes/new file.md");
+        assert!(
+            !lines.iter().any(|line| line.contains("… and")),
+            "{lines:?}"
+        );
+
+        let doc = stale_resume_summary_json(&paths);
+        assert_eq!(doc["skipped_appeared_files"], serde_json::json!(paths));
+        assert!(doc.get("skipped_appeared_not_listed").is_none(), "{doc:?}");
+        assert!(
+            doc["skipped_appeared_action"]
+                .as_str()
+                .unwrap()
+                .contains("--fresh"),
+            "{doc:?}"
+        );
+        assert!(doc.get("skipped_appeared").is_none(), "{doc:?}");
+    }
+
+    /// The summary names the first five paths, sorted, and counts the rest.
+    /// A legacy journal row (status `skipped`, the frozen-plan sentence) is
+    /// included; ordinary junk is not.
+    #[test]
+    fn the_summary_names_five_paths_and_counts_the_rest() {
+        let mut files: Vec<JunkFile> = ["m.md", "a.md", "q.md", "b.md", "z.md", "c.md", "d.md"]
+            .into_iter()
+            .map(appeared)
+            .collect();
+        files.push(junk(
+            "legacy.md",
+            "skipped",
+            "not in the frozen resume plan, so nothing was published",
+        ));
+        files.push(junk("logo.png", "junk", "binary content (png)"));
+        let refs: Vec<&JunkFile> = files.iter().collect();
+        assert!(is_stale_resume_skip(&files[7]));
+        assert!(!is_stale_resume_skip(files.last().unwrap()));
+
+        let paths = stale_resume_appeared_paths(&refs);
+        assert_eq!(
+            paths,
+            vec![
+                "a.md",
+                "b.md",
+                "c.md",
+                "d.md",
+                "legacy.md",
+                "m.md",
+                "q.md",
+                "z.md",
+            ]
+        );
+        let lines = stale_resume_summary_lines(&paths);
+        assert_eq!(lines.len(), STALE_RESUME_SUMMARY_CAP + 2, "{lines:?}");
+        assert!(lines[0].contains("8 files"), "{lines:?}");
+        assert!(lines[0].contains("--fresh"), "{lines:?}");
+        for (index, path) in paths.iter().take(STALE_RESUME_SUMMARY_CAP).enumerate() {
+            assert_eq!(lines[index + 1], format!("  {path}"));
+        }
+        assert_eq!(lines.last().unwrap(), "  … and 3 more");
+        assert!(!lines.iter().any(|line| line.contains("q.md")), "{lines:?}");
+
+        let doc = stale_resume_summary_json(&paths);
+        assert_eq!(
+            doc["skipped_appeared_files"],
+            serde_json::json!(paths[..STALE_RESUME_SUMMARY_CAP])
+        );
+        assert_eq!(doc["skipped_appeared_not_listed"], 3);
+        assert_eq!(doc["skipped_appeared_action"], STALE_RESUME_SUMMARY_ACTION);
+    }
+}
+
 /// What a run says when the duplicate-alias sweep failed but the corpus is
 /// indexed.
 ///
@@ -1584,8 +1777,7 @@ pub(crate) fn outcome_headline(
         let files = estimate::count_phrase(stale_plan_files, "file", "files");
         let mut line = format!(
             "ok: indexed and searchable — exit 3 ({STALE_RESUME_PLAN_REASON}): {files} skipped \
-             because the resumed plan is stale and were not indexed. Re-run with --fresh to \
-             rebuild the plan in place and include them (ids stay idempotent)"
+             because the resumed plan is stale and were not indexed. {STALE_RESUME_SUMMARY_ACTION}"
         );
         if junk_files > 0 || junk_records > 0 {
             let mut recorded = Vec::new();
@@ -11481,6 +11673,13 @@ fn run_index_report_inner(
         .filter(|jf| is_stale_resume_skip(jf))
         .count();
     let junk_file_count = all_junk.len() - skipped_appeared;
+    // Owned here: the resume-plan update below mutates the junk list these
+    // borrow. The count stays `skipped_appeared`; the summary names the paths
+    // (#2372).
+    let appeared_paths = stale_resume_appeared_paths(&all_junk);
+    debug_assert_eq!(appeared_paths.len(), skipped_appeared);
+    let appeared_lines = stale_resume_summary_lines(&appeared_paths);
+    let appeared_json = stale_resume_summary_json(&appeared_paths);
     let unextracted_archives = unextracted_archive_lines(&all_junk);
     for jf in &all_junk {
         code_coverage.observe(&jf.format, 0);
@@ -11707,6 +11906,13 @@ fn run_index_report_inner(
     if skipped_appeared > 0 {
         run_doc["skipped_appeared"] = json!(skipped_appeared);
     }
+    // #2372: additive. `skipped_appeared` stays the count. These name the
+    // first paths, how many were not listed, and the `--fresh` recovery.
+    // Absent when nothing appeared, including `skipped_appeared_not_listed`
+    // when every path fit in the summary.
+    for (key, value) in &appeared_json {
+        run_doc[key.as_str()] = value.clone();
+    }
     // #2314: present only when this run deleted documents for files that left
     // the folder. A later unchanged rerun does not set it, so exit 0 there is
     // a real no-op and not another removal.
@@ -11851,6 +12057,9 @@ fn run_index_report_inner(
                 files_removed,
             )
         );
+        for line in &appeared_lines {
+            println!("{line}");
+        }
         for line in &skip_lines {
             println!("{line}");
         }
@@ -11994,6 +12203,15 @@ fn run_index_report_inner(
     if skipped_appeared > 0 {
         done_fields.push(("skipped_appeared", skipped_appeared as u64));
     }
+    // Remainder only. The paths themselves are not `key=value` numbers: a
+    // path may contain spaces, and readers split the plain `xerj-done` line
+    // on spaces. They are named on the lines above and in the JSON fields.
+    if let Some(rest) = appeared_json
+        .get("skipped_appeared_not_listed")
+        .and_then(Value::as_u64)
+    {
+        done_fields.push(("skipped_appeared_not_listed", rest));
+    }
     if files_removed > 0 {
         done_fields.push(("files_removed", files_removed));
     }
@@ -12005,6 +12223,16 @@ fn run_index_report_inner(
         pr.note(&pdf_worker_unavailable_note(n));
     }
     note_worker_address_space_cap(&pr);
+    // #2372: immediately before the terminal line, so an agent that reads the
+    // summary (and not the mid-run note) sees the paths and `--fresh`.
+    // `--progress json` also gets the fields on the terminal object; the
+    // plain line stays numeric.
+    for line in &appeared_lines {
+        pr.note(line);
+    }
+    if !appeared_json.is_empty() {
+        pr.set_done_json(appeared_json.clone());
+    }
     pr.finish(
         pdf_worker_unavailable.is_none(),
         code,
