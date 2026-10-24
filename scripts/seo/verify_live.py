@@ -215,7 +215,7 @@ def check_one(url: str, home_sha: str | None, timeout: int) -> Result:
             "served as itself (rule 63)")
     if res.canonical is None:
         res.failures.append("served page has no <link rel=canonical> (rule 22)")
-    elif res.canonical.rstrip("/") != url.rstrip("/"):
+    elif res.canonical != url:
         res.failures.append(
             f"canonical {res.canonical} != requested {url} (rule 22)")
     return res
