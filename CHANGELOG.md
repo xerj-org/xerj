@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `xerj autoindex map <folder>` previews a folder that has not been indexed.
+  It runs the same discovery as `xerj autoindex <folder> --dry-run` (walk,
+  sniff, infer, and print the plan) and writes nothing to an index.
+  `xerj autoindex map` with no folder still prints the catalog of what is
+  already indexed
+  ([#2368](https://github.com/xerj-org/xerj/issues/2368)).
+
 - With `[cluster] enabled = true`, `POST /{index}/_update_by_query` runs on
   every shard primary, whichever member accepted the request. Each primary
   updates the documents in its own shard and copies those updates to the

@@ -330,7 +330,7 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20xerj autoindex <folder> [OPTIONS]   zero-config discovery + indexing — the\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20flagship path for most agents (see xerj\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20autoindex --help)\n\
-         \x20\x20\x20\x20xerj autoindex map                  print the discovered data map\n\
+         \x20\x20\x20\x20xerj autoindex map [folder]        data map of indexed data, or preview a folder\n\
          \x20\x20\x20\x20xerj autoindex remove --prefix <P>  drop one autoindexed folder, after a plan\n\
          \x20\x20\x20\x20xerj code <corpus> \"<query>\"        reference-coding retrieval over a corpus\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20of peer projects (see xerj code --help)\n\
@@ -450,7 +450,7 @@ fn help_text(feedback: bool) -> String {
          \x20\x20\x20\x20xerj batch-search --input FILE  ordered batch retrieval, JSON in/out (see xerj batch-search --help)\n\
          \x20\x20\x20\x20xerj index      <opts>          direct NDJSON → engine ingest (see xerj index --help)\n\
          \x20\x20\x20\x20xerj autoindex  <folder> [opts] zero-config folder discovery + indexing (see xerj autoindex --help)\n\
-         \x20\x20\x20\x20xerj autoindex  map             print the discovered data map\n\
+         \x20\x20\x20\x20xerj autoindex  map [folder]    data map of indexed data, or a read-only folder preview\n\
          \x20\x20\x20\x20xerj search     \"<text>\"         retrieve code/passages from a running node — the\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20query client, no wrapper scripts (see xerj search --help)\n\
          \x20\x20\x20\x20xerj def        \"<symbol>\"       go-to-definition: where is this symbol defined, and\n\
@@ -3117,6 +3117,25 @@ mod neural_startup_tests {
 #[cfg(test)]
 mod help_text_tests {
     use super::{auth_disabled_line, embed_mode_fixed_at_ingest_warning, help_text};
+
+    /// #2368: top-level help used to call `autoindex map` "the discovered data
+    /// map" and not say that a folder argument previews an unindexed folder.
+    #[test]
+    fn autoindex_map_help_names_the_folder_preview() {
+        let help = help_text(false);
+        assert!(
+            help.contains("map [folder]"),
+            "xerj --help must show that map takes an optional folder:\n{help}"
+        );
+        assert!(
+            help.contains("preview"),
+            "xerj --help must say the folder form is a preview:\n{help}"
+        );
+        assert!(
+            !help.contains("print the discovered data map"),
+            "the old line is what made `map <folder>` look like the catalog command"
+        );
+    }
 
     /// #1840: `--embed-mode neural` must say the model loads at startup and
     /// that a failed download refuses to start, with the lexical command.

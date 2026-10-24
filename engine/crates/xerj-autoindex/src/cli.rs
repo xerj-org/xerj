@@ -308,7 +308,12 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20xerj autoindex s3://<bucket>/<prefix> [OPTIONS]\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20discover + index objects in a bucket\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(r2:// too; see OBJECT STORAGE)\n\
-         \x20\x20\x20\x20xerj autoindex map [OPTIONS]          print the discovered data map\n\
+         \x20\x20\x20\x20xerj autoindex map [OPTIONS]          print the data map of what is already indexed\n\
+         \x20\x20\x20\x20xerj autoindex map <folder> [OPTIONS] preview a folder that is not indexed yet.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Same discovery as `xerj autoindex <folder>\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20--dry-run`: walk, sniff, infer, print the plan.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20Nothing is written to an index. With no\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20folder, `map` reads the catalog on --url\n\
          \x20\x20\x20\x20xerj autoindex remove --prefix <P> [--root <DIR>] [--yes]\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20list one folder's indices and catalog rows,\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20then delete them. Nothing is deleted without\n\
@@ -453,7 +458,8 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20--drop-indexed       delete already-indexed files a reduced plan leaves\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20out. Without this flag that re-run exits 4 and lists\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20them. --plan and --yes do not agree to the deletion.\n\
-         \x20\x20\x20\x20--dry-run            walk+sniff+infer, print the plan, index nothing\n\
+         \x20\x20\x20\x20--dry-run            walk+sniff+infer, print the plan, index nothing.\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20`autoindex map <folder>` is this same preview\n\
          \x20\x20\x20\x20--walk-only          stop after the walk. Prints each top-level folder's\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20file count and size, what the ignore rules would drop\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20and which rule, and the totals. Stops before hashing:\n\
@@ -484,9 +490,9 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20the JSON decision request on stdout and exits 4 instead,\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20exactly like an agent-driven run. See ESTIMATE + DECISION\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20GATE.\n\
-         \x20\x20\x20\x20--dataset <SLUG>     (map) show a single dataset\n\
-         \x20\x20\x20\x20--offset <N>         (map) skip the first N dataset detail sections\n\
-         \x20\x20\x20\x20--limit <N>          (map) how many dataset detail sections to print\n\
+         \x20\x20\x20\x20--dataset <SLUG>     (map, no folder) show a single catalog dataset\n\
+         \x20\x20\x20\x20--offset <N>         (map, no folder) skip the first N dataset detail sections\n\
+         \x20\x20\x20\x20--limit <N>          (map, no folder) how many dataset detail sections to print\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20(default: all of them when there are few, otherwise\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20the first page — the summary table always lists every\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20dataset)\n\
@@ -1379,6 +1385,16 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             xerj_common::feedback::DISABLE_FLAG => {}
             "--help" | "-h" => return Ok(Cmd::Help),
             "map" if sub.is_none() && folder.is_none() => sub = Some("map".into()),
+            // #2368: `autoindex map <folder>` previews that folder. The folder
+            // is the same positional the index command takes; it is accepted
+            // only after `map` so `xerj autoindex ./map` still indexes a
+            // directory of that name.
+            other
+                if !other.starts_with('-') && sub.as_deref() == Some("map") && folder.is_none() =>
+            {
+                root_raw = Some(other.to_string());
+                folder = Some(PathBuf::from(other));
+            }
             "status" if sub.is_none() && folder.is_none() => sub = Some("status".into()),
             "remove" if sub.is_none() && folder.is_none() => sub = Some("remove".into()),
             other if !other.starts_with('-') && folder.is_none() && sub.is_none() => {
@@ -1404,6 +1420,19 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                     "takes one folder per run, got two: `{first}` and `{other}`; index each \
                      folder in its own run with a distinct --prefix, e.g. `xerj autoindex \
                      {first} --prefix <name-a>` then `xerj autoindex {other} --prefix <name-b>`"
+                ));
+            }
+            other
+                if !other.starts_with('-') && sub.as_deref() == Some("map") && folder.is_some() =>
+            {
+                let first = folder
+                    .as_ref()
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_default();
+                return Err(format!(
+                    "`autoindex map` takes at most one folder, got `{first}` and `{other}`. \
+                     `xerj autoindex map` with no folder prints the catalog of what is already \
+                     indexed. `xerj autoindex map <folder>` previews one folder and indexes nothing"
                 ));
             }
             other => return Err(format!("unknown argument: {other}")),
@@ -1445,13 +1474,11 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     // `--no-ignore` already removes the built-in defaults, so there is nothing
     // left for `--no-default-ignores` to do — say so instead of taking a flag
     // that changes nothing.
-    // Only meaningful for a run that walks a folder. On `map`/`status` neither
-    // flag does anything at all, and the arm below says so — a message about
-    // one flag subsuming the other would imply the pair is otherwise honoured.
-    let sub_walks_a_folder = !matches!(
-        sub.as_deref(),
-        Some("map") | Some("status") | Some("remove")
-    );
+    // Only meaningful for a run that walks a folder. A bare `map` (no folder),
+    // `status`, and `remove` never walk, and the arm below says so — a message
+    // about one flag subsuming the other would imply the pair is otherwise
+    // honoured. `map <folder>` does walk: it is the `--dry-run` preview.
+    let sub_walks_a_folder = folder.is_some();
     if no_ignore && no_default_ignores && sub_walks_a_folder {
         return Err(
             "--no-ignore already turns off the built-in default rules that --no-default-ignores \
@@ -1505,6 +1532,44 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
         );
     }
     if walk_only {
+        dry_run = true;
+    }
+    // #2368: `autoindex map <folder>` previews an unindexed folder. It is the
+    // same discovery `--dry-run` runs (walk, hash, sniff, infer, print the
+    // plan) and it must not index. Forcing `dry_run` here arms every
+    // index-nothing guard. A bare `map` still reads the catalog.
+    let map_preview = sub.as_deref() == Some("map") && folder.is_some();
+    if map_preview {
+        if watch {
+            return Err(
+                "--watch reindexes a folder as it changes. `autoindex map <folder>` previews \
+                 that folder and indexes nothing. Drop --watch"
+                    .into(),
+            );
+        }
+        if label.is_some() {
+            return Err(
+                "--label labels documents at ingest. `autoindex map <folder>` previews that \
+                 folder and indexes nothing, so there is nowhere for the labels to go. Drop \
+                 --label"
+                    .into(),
+            );
+        }
+        if approve == Some(Approval::Cancel) {
+            return Err(
+                "`autoindex map <folder>` already indexes nothing, so --approve cancel has \
+                 nothing to cancel. Drop it"
+                    .into(),
+            );
+        }
+        if dataset.is_some() || detail_offset.is_some() || detail_limit.is_some() {
+            return Err(
+                "--dataset, --offset and --limit page the catalog that `autoindex map` reads \
+                 when no folder is given. `autoindex map <folder>` previews a folder and does \
+                 not read that catalog. Drop them, or run `xerj autoindex map` with no folder"
+                    .into(),
+            );
+        }
         dry_run = true;
     }
     if approve == Some(Approval::Cancel) && dry_run {
@@ -1574,11 +1639,13 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
         );
     }
 
-    // `map` reads the catalog off the server and `status` reads the local
-    // journal; neither walks a filesystem, so an ignore flag on either cannot
-    // change one byte of the output. Measured before this check existed:
-    // `xerj autoindex map --no-ignore` was byte-identical to `xerj autoindex
-    // map`. Accepting it was the #204 accept-and-ignore class (#279).
+    // A bare `map` reads the catalog off the server and `status` reads the
+    // local journal; neither walks a filesystem, so an ignore flag on either
+    // cannot change one byte of the output. Measured before this check
+    // existed: `xerj autoindex map --no-ignore` was byte-identical to
+    // `xerj autoindex map`. Accepting it was the #204 accept-and-ignore class
+    // (#279). `map <folder>` is the exception: it walks, and the flag is
+    // honoured on that preview the same way `--dry-run` honours it.
     let ignore_flags_used: Vec<&str> = [
         ("--no-ignore", no_ignore),
         ("--no-default-ignores", no_default_ignores),
@@ -1876,12 +1943,12 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 walk_only,
             },
         }),
-        (Some("map"), _) | (Some("status"), _) if walk_only => Err(format!(
+        (Some("map"), None) | (Some("status"), _) if walk_only => Err(format!(
             "--walk-only summarises a folder walk and does not apply to `autoindex {}`: that \
              subcommand never walks a tree. Drop it",
             sub.as_deref().unwrap_or_default()
         )),
-        (Some("map"), _) | (Some("status"), _)
+        (Some("map"), None) | (Some("status"), _)
             if max_minutes_explicit
                 || approve_explicit
                 || max_index_explicit
@@ -1894,11 +1961,11 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 sub.as_deref().unwrap_or_default()
             ))
         }
-        (Some("map"), _) | (Some("status"), _) if progress_explicit => Err(format!(
+        (Some("map"), None) | (Some("status"), _) if progress_explicit => Err(format!(
             "--progress/--progress-interval apply only to indexing, not `autoindex {}`",
             sub.as_deref().unwrap_or_default()
         )),
-        (Some("map"), _) | (Some("status"), _) if !ignore_flags_used.is_empty() => {
+        (Some("map"), None) | (Some("status"), _) if !ignore_flags_used.is_empty() => {
             let sub = sub.as_deref().unwrap_or_default();
             let (verb, them) = if ignore_flags_used.len() == 1 {
                 ("applies", "it")
@@ -1911,7 +1978,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 ignore_flags_used.join(" and "),
             ))
         }
-        (Some("map"), _) | (Some("status"), _) if endpoint_explicit => Err(format!(
+        (Some("map"), None) | (Some("status"), _) if endpoint_explicit => Err(format!(
             "--endpoint-url applies only to indexing, not `autoindex {}`: that subcommand reads the \
              XERJ node named by --url and never talks to an object store",
             sub.as_deref().unwrap_or_default()
@@ -1919,12 +1986,12 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
         (Some("map"), _) if bulk_timeout_explicit => {
             Err("--bulk-timeout-secs applies only to indexing, not `autoindex map`".into())
         }
-        (Some("map"), _) | (Some("status"), _) if label.is_some() => Err(format!(
+        (Some("map"), None) | (Some("status"), _) if label.is_some() => Err(format!(
             "--label labels indexed documents through /_decide; `autoindex {}` reads the node \
              and never indexes anything. Drop --label",
             sub.as_deref().unwrap_or_default()
         )),
-        (Some("map"), _) => Ok(Cmd::Map(MapCfg {
+        (Some("map"), None) => Ok(Cmd::Map(MapCfg {
             url,
             api_key,
             prefix: prefix_explicit.then_some(prefix),
@@ -1962,7 +2029,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             state_dir,
             xerj_url_note,
         })),
-        (None, Some(root)) => {
+        (None, Some(root)) | (Some("map"), Some(root)) => {
             // A flag that is accepted and does nothing is the shape this repo
             // refuses on purpose (#204, #279): the operator believes they asked
             // for out-of-root targets and gets a run that silently did not.
@@ -2353,6 +2420,10 @@ mod tests {
                 "an object-storage watch indexes nothing",
             ),
             (vec!["map", "--label", "q.json"], "never indexes anything"),
+            (
+                vec!["map", "knowledge", "--label", "q.json"],
+                "indexes nothing",
+            ),
             (
                 vec!["status", "--label", "q.json"],
                 "never indexes anything",
@@ -3870,5 +3941,124 @@ mod tests {
             Cmd::Map(cfg) => assert_eq!(cfg.prefix.as_deref(), Some("xc-tantivy")),
             other => panic!("expected a map config, got {other:?}"),
         }
+    }
+
+    /// #2368: `map` described itself as printing the discovered data map and
+    /// then rejected `map <folder>` as an unknown argument. The folder form
+    /// is the `--dry-run` preview. A bare `map` still reads the catalog.
+    #[test]
+    fn map_with_a_folder_is_the_dry_run_preview_and_bare_map_stays_the_catalog() {
+        let help = super::help_text();
+        assert!(
+            help.contains("xerj autoindex map <folder>"),
+            "help must show the folder form: {help}"
+        );
+        assert!(
+            help.contains("what is already indexed"),
+            "help must say a bare map reads indexed data: {help}"
+        );
+        assert!(
+            help.contains("`autoindex map <folder>` is this same preview"),
+            "help must point the preview at --dry-run: {help}"
+        );
+        assert!(
+            !help.contains("print the discovered data map"),
+            "the old usage line is what sent agents to pass a folder and get `unknown argument`"
+        );
+
+        match parse(["map"].iter().map(|s| s.to_string()).collect()).expect("bare map") {
+            Cmd::Map(cfg) => {
+                assert_eq!(cfg.prefix, None);
+                assert_eq!(cfg.dataset, None);
+            }
+            other => panic!("a bare map must stay a catalog read, got {other:?}"),
+        }
+
+        let preview = index(&["map", "knowledge"]);
+        let dry = index(&["knowledge", "--dry-run"]);
+        assert_eq!(
+            format!("{preview:?}"),
+            format!("{dry:?}"),
+            "map <folder> must be the same command as <folder> --dry-run"
+        );
+        assert_eq!(preview.root, PathBuf::from("knowledge"));
+        assert!(preview.dry_run);
+        assert!(!preview.walk_only);
+        assert!(preview.ignore.deep_count);
+
+        let flagged = index(&[
+            "map",
+            "--prefix",
+            "notes",
+            "--no-ignore",
+            "--no-semantic",
+            "--progress",
+            "plain",
+            "knowledge",
+        ]);
+        assert_eq!(flagged.root, PathBuf::from("knowledge"));
+        assert_eq!(flagged.prefix, "notes");
+        assert!(!flagged.ignore.enabled);
+        assert!(flagged.no_semantic);
+        assert_eq!(flagged.progress, ProgressMode::Plain);
+        assert!(flagged.dry_run);
+
+        let explicit = index(&["map", "knowledge", "--dry-run", "--prefix", "notes"]);
+        assert!(explicit.dry_run);
+        assert_eq!(explicit.prefix, "notes");
+        assert_eq!(explicit.root, PathBuf::from("knowledge"));
+
+        // A folder before `map` is still two positionals: `map` is only the
+        // subcommand when it comes first, so `xerj autoindex ./map` indexes
+        // a directory of that name.
+        let reversed = err(&["knowledge", "map"]);
+        assert!(reversed.contains("takes one folder per run"), "{reversed}");
+
+        let two = err(&["map", "knowledge", "other"]);
+        assert!(
+            two.contains("at most one folder")
+                && two.contains("knowledge")
+                && two.contains("other"),
+            "{two}"
+        );
+        assert!(!two.contains("unknown argument"), "{two}");
+
+        let dataset = err(&["map", "knowledge", "--dataset", "docs"]);
+        assert!(
+            dataset.contains("--dataset") && dataset.contains("no folder"),
+            "{dataset}"
+        );
+        let paging = err(&["map", "knowledge", "--limit", "2"]);
+        assert!(
+            paging.contains("--limit") && paging.contains("no folder"),
+            "{paging}"
+        );
+
+        // Catalog selectors still belong to the no-folder form.
+        match parse(
+            ["map", "--dataset", "docs"]
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
+        )
+        .expect("catalog map")
+        {
+            Cmd::Map(cfg) => assert_eq!(cfg.dataset.as_deref(), Some("docs")),
+            other => panic!("expected a catalog map, got {other:?}"),
+        }
+
+        // Flags that change the walk are honoured on the preview and still
+        // refused when there is no folder to walk.
+        assert!(err(&["map", "--no-ignore"]).contains("never walks a folder"));
+        assert!(err(&["map", "--max-minutes", "5"]).contains("apply only to indexing"));
+        assert!(err(&["map", "knowledge", "--bulk-timeout-secs", "900"]).contains("autoindex map"));
+        assert!(err(&["map", "knowledge", "--watch"]).contains("Drop --watch"));
+        assert!(err(&["map", "knowledge", "--approve", "cancel"]).contains("nothing to cancel"));
+
+        let both = err(&["map", "knowledge", "--no-ignore", "--no-default-ignores"]);
+        assert!(
+            both.contains("already turns off"),
+            "the preview walks, so the redundant ignore pair is the indexing error: {both}"
+        );
     }
 }

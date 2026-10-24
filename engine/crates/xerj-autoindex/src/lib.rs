@@ -15514,3 +15514,209 @@ mod legacy_rebuild_argv_tests {
         }
     }
 }
+
+/// #2368: `xerj autoindex map <folder>` previews a folder that has not been
+/// indexed. The preview is the `--dry-run` discovery path, so this test runs
+/// that command against a node that accepts reads and refuses to pretend a
+/// write succeeded: any bulk, document, or mapping request fails the test.
+#[cfg(test)]
+mod map_folder_preview {
+    use super::{cli, run_index};
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{Arc, Mutex};
+    use std::time::Duration;
+
+    struct Node {
+        url: String,
+        requests: Arc<Mutex<Vec<(String, String)>>>,
+        stop: Arc<AtomicBool>,
+        join: Option<std::thread::JoinHandle<()>>,
+    }
+
+    impl Node {
+        fn start() -> Self {
+            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let url = format!("http://{}", listener.local_addr().unwrap());
+            let requests = Arc::new(Mutex::new(Vec::new()));
+            let stop = Arc::new(AtomicBool::new(false));
+            let requests_bg = Arc::clone(&requests);
+            let stop_bg = Arc::clone(&stop);
+            let join = std::thread::spawn(move || {
+                while !stop_bg.load(Ordering::Relaxed) {
+                    match listener.accept() {
+                        Ok((mut stream, _)) => {
+                            stream.set_nonblocking(false).unwrap();
+                            stream
+                                .set_read_timeout(Some(Duration::from_secs(5)))
+                                .unwrap();
+                            let mut reader = BufReader::new(stream.try_clone().unwrap());
+                            let mut request_line = String::new();
+                            if reader.read_line(&mut request_line).unwrap_or(0) == 0 {
+                                continue;
+                            }
+                            let mut content_length = 0usize;
+                            loop {
+                                let mut line = String::new();
+                                if reader.read_line(&mut line).unwrap_or(0) == 0 {
+                                    break;
+                                }
+                                if line == "\r\n" || line.is_empty() {
+                                    break;
+                                }
+                                if let Some(value) =
+                                    line.to_ascii_lowercase().strip_prefix("content-length:")
+                                {
+                                    content_length = value.trim().parse().unwrap_or(0);
+                                }
+                            }
+                            if content_length > 0 {
+                                let mut body = vec![0; content_length];
+                                let _ = reader.read_exact(&mut body);
+                            }
+                            let mut parts = request_line.split_whitespace();
+                            let method = parts.next().unwrap_or("").to_string();
+                            let path = parts.next().unwrap_or("").to_string();
+                            requests_bg
+                                .lock()
+                                .unwrap()
+                                .push((method.clone(), path.clone()));
+                            let (status, body) = if method == "GET" && path == "/" {
+                                (200, r#"{"ok":true}"#)
+                            } else if method == "GET" && path.starts_with("/_cat/allocation") {
+                                (
+                                    200,
+                                    r#"[{"disk.percent":"10","disk.avail":"1073741824b","disk.flood_stage":"95","disk.threshold_enabled":"true","disk.flood_blocked":"false"}]"#,
+                                )
+                            } else {
+                                (404, r#"{"error":"absent"}"#)
+                            };
+                            let reason = if status == 200 { "OK" } else { "Not Found" };
+                            let _ = write!(
+                                stream,
+                                "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                                body.len()
+                            );
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            std::thread::sleep(Duration::from_millis(5));
+                        }
+                        Err(error) => panic!("accept failed: {error}"),
+                    }
+                }
+            });
+            Self {
+                url,
+                requests,
+                stop,
+                join: Some(join),
+            }
+        }
+
+        fn requests(&self) -> Vec<(String, String)> {
+            self.requests.lock().unwrap().clone()
+        }
+    }
+
+    impl Drop for Node {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::Relaxed);
+            if let Some(join) = self.join.take() {
+                let _ = join.join();
+            }
+        }
+    }
+
+    #[test]
+    fn map_folder_previews_an_unindexed_folder_and_writes_no_index() {
+        let node = Node::start();
+        let root = tempfile::tempdir().unwrap();
+        let state = tempfile::tempdir().unwrap();
+        let marker = "map-preview-marker-2368";
+        std::fs::write(
+            root.path().join("readme.md"),
+            format!("# Notes\n\n{marker}\n"),
+        )
+        .unwrap();
+        std::fs::write(root.path().join("plain.txt"), "a short note\n").unwrap();
+        let before = std::fs::read(root.path().join("readme.md")).unwrap();
+
+        let args = vec![
+            "map".to_string(),
+            root.path().display().to_string(),
+            "--url".to_string(),
+            node.url.clone(),
+            "--prefix".to_string(),
+            "mappreview".to_string(),
+            "--state-dir".to_string(),
+            state.path().display().to_string(),
+            "--quiet".to_string(),
+            "--max-minutes".to_string(),
+            "0".to_string(),
+        ];
+        let cmd = cli::parse(args).expect("map <folder> must parse");
+        let cli::Cmd::Index(cfg) = cmd else {
+            panic!("map <folder> must take the dry-run index path, got {cmd:?}");
+        };
+        assert!(cfg.dry_run, "the preview must not index");
+        assert_eq!(cfg.prefix, "mappreview");
+        let code = run_index(*cfg).expect("preview of an unindexed folder");
+        assert_eq!(code, 0, "a preview that finishes is exit 0");
+
+        assert_eq!(
+            std::fs::read(root.path().join("readme.md")).unwrap(),
+            before,
+            "the preview must not rewrite the folder"
+        );
+        // `--dry-run` opens the journal and appends the run header before it
+        // prints the plan. The preview is that path, so the header is present
+        // and nothing past it (no plan, no file completion, no generation) is.
+        let journal = std::fs::read_to_string(state.path().join("journal.ndjson"))
+            .expect("the preview opens the same resume journal --dry-run opens");
+        let mut kinds = Vec::new();
+        for line in journal.lines().filter(|line| !line.is_empty()) {
+            let record: serde_json::Value = serde_json::from_str(line).expect(line);
+            kinds.push(
+                record
+                    .get("kind")
+                    .and_then(|kind| kind.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+            );
+        }
+        assert_eq!(
+            kinds,
+            vec!["run".to_string()],
+            "the preview journal must be only the run header, not indexing work: {journal}"
+        );
+
+        let requests = node.requests();
+        assert!(
+            requests.iter().any(|(m, p)| m == "GET" && p == "/"),
+            "the preview contacts the node: {requests:?}"
+        );
+        assert!(
+            requests
+                .iter()
+                .any(|(m, p)| m == "POST" && p.contains("autoindex-catalog")),
+            "the preview checks the catalog before discovering: {requests:?}"
+        );
+        let writes: Vec<_> = requests
+            .iter()
+            .filter(|(method, path)| {
+                method == "PUT"
+                    || method == "DELETE"
+                    || path.contains("_bulk")
+                    || path.contains("_doc")
+                    || path.contains("_mapping")
+                    || path.contains("_update")
+            })
+            .collect();
+        assert!(
+            writes.is_empty(),
+            "map <folder> must not write an index: {writes:?}"
+        );
+    }
+}
