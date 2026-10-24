@@ -14,7 +14,7 @@
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SRC = join(REPO, 'functions', 'get.js');
@@ -28,7 +28,7 @@ const PS1_BODY = readFileSync(join(REPO, 'landing', 'get.ps1'), 'utf8');
 const src = readFileSync(SRC, 'utf8');
 const tmp = join(mkdtempSync(join(tmpdir(), 'xerj-fn-')), 'get.mjs');
 writeFileSync(tmp, src);
-const fn = await import(tmp);
+const fn = await import(pathToFileURL(tmp).href);
 
 let failures = 0;
 const ok = (cond, name, extra = '') => {
