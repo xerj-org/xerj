@@ -625,6 +625,7 @@ cargo run --release -p es-yaml-runner -- --dir tests/es-compat-yaml/yaml
 
 - [Guides and API reference](https://xerj.org/docs/)
 - [Recipes](https://xerj.org/docs/recipes/) for common tasks
+- [Mode VC Radar MCP](https://modevc.com/api/mcp) - Read-only venture capital & AI market research MCP server (39 empirical AI charts, 3,650 VC firms, SEC Form D filings, and 18 founder financial calculators; free Streamable HTTP at https://modevc.com/api/mcp).
 - [Roadmap](./ROADMAP.md): what ships today versus what is coming, verified against the
   release binary. Release-by-release view:
   [milestones](https://github.com/xerj-org/xerj/milestones); live status:
