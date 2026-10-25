@@ -30,7 +30,8 @@ USAGE:
 
 OPTIONS:
     --url <U>       node endpoint (default $XERJ_URL or http://localhost:9200)
-    --prefix <P>    index prefix to search (default \"ax\" — what `xerj autoindex` writes)
+    --prefix <P>    one index prefix to search (default \"ax\" — what `xerj autoindex` writes);
+                    no comma lists
     --api-key <K>   Authorization (or $XERJ_API_KEY; --insecure nodes need none)
     -k <N>          number of definitions to return (default 5)
     --kind <KIND>   filter by symbol kind (function, class, method, ...)

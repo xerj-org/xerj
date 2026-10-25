@@ -24,7 +24,8 @@ USAGE:
 
 OPTIONS:
     --url <U>       node endpoint (default $XERJ_URL or http://localhost:9200)
-    --prefix <P>    index prefix to search (default \"ax\" — what `xerj autoindex` writes)
+    --prefix <P>    one index prefix to search (default \"ax\" — what `xerj autoindex` writes);
+                    no comma lists
     --api-key <K>   Authorization (or $XERJ_API_KEY; --insecure nodes need none)
     -k <N>          number of passages to return (default 5). A non-number is a
                     usage error, not a silent default
@@ -605,8 +606,47 @@ pub struct ResolvedPrefix {
 /// characters the caller typed (`My_Proj-*`) misses the corpus those
 /// commands wrote (`my-proj-*`). `xerj search`, `xerj def`, and the
 /// `xerj_search` MCP tool all call this, so the three cannot drift.
+///
+/// A comma is refused, not a list (#2405): `a,b` sanitises into the single
+/// prefix `a-b` and would search `a-b-*`, a corpus no autoindex run wrote.
+/// The rewrite note cannot fix that silently, so the error names the stored
+/// value and the per-prefix alternatives instead.
 pub fn resolve_prefix(prefix: &str) -> Result<ResolvedPrefix, String> {
     let trimmed = prefix.trim();
+    if trimmed.contains(',') {
+        let stored = crate::dataset::sanitize_prefix(trimmed);
+        let parts: Vec<String> = trimmed
+            .split(',')
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+            .map(crate::dataset::sanitize_prefix)
+            .filter(|p| !p.is_empty())
+            .collect();
+        let mut err = format!(
+            "{trimmed:?} names more than one prefix. --prefix takes exactly one: \
+             a comma is not a list separator, and this value would have been \
+             stored as {stored:?} and searched {stored}-*, which no autoindex run wrote."
+        );
+        if parts.len() >= 2 {
+            let flags = parts
+                .iter()
+                .map(|p| format!("--prefix {p}"))
+                .collect::<Vec<_>>()
+                .join(", then ");
+            let patterns = parts
+                .iter()
+                .map(|p| format!("{p}-*"))
+                .collect::<Vec<_>>()
+                .join(",");
+            err.push_str(&format!(
+                " Run one search per prefix ({flags}), or query the node directly: \
+                 POST /{patterns}/_search"
+            ));
+        } else if let [part] = parts.as_slice() {
+            err.push_str(&format!(" Pass that part alone: --prefix {part}."));
+        }
+        return Err(err);
+    }
     if trimmed.is_empty() {
         return Err(
             "must contain at least one [a-z0-9] character; for example \"project\" searches project-*"
@@ -1037,6 +1077,22 @@ mod tests {
             "search must not talk about a walk it does not do: {digit}"
         );
         assert!(digit.contains("lowercase letter"), "{digit}");
+    }
+
+    /// #2405: `a,b` sanitises to `a-b` and searches `a-b-*`, a corpus no
+    /// autoindex run wrote. The comma is a refusal, not a list.
+    #[test]
+    fn a_comma_list_is_refused_not_joined() {
+        let err = resolve_prefix("a,b").unwrap_err();
+        assert!(err.contains("\"a-b\""), "{err}");
+        assert!(err.contains("a-*,b-*"), "{err}");
+        assert!(err.contains("--prefix a"), "{err}");
+        assert!(err.contains("--prefix b"), "{err}");
+        let err = resolve_prefix(" refsec , refdoc ").unwrap_err();
+        assert!(err.contains("refsec-*,refdoc-*"), "{err}");
+        let err = resolve_prefix("My_Proj,Other").unwrap_err();
+        assert!(err.contains("my-proj-*,other-*"), "{err}");
+        assert!(prefix_from_scope(Some("a,b"), None).is_none());
     }
 
     #[test]

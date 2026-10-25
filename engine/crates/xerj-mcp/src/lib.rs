@@ -4265,6 +4265,16 @@ mod tests {
         assert_eq!(path, "/ax-*/_search");
     }
 
+    /// #2405: `"a,b"` used to sanitise into the single prefix `a-b` and
+    /// search `a-b-*`. The resolver refuses a comma; the error must keep
+    /// the `prefix` argument name so the caller knows which field failed.
+    #[test]
+    fn search_prefix_refuses_a_comma_list() {
+        let err = build_search(&json!({"prefix": "a,b"})).unwrap_err();
+        assert!(err.starts_with("`prefix` "), "{err}");
+        assert!(err.contains("a-*,b-*"), "{err}");
+    }
+
     /// #1961: a plain-string query on a prose corpus must not name the code
     /// legs. Autoindex indices are created `strict_unknown_fields`, so the
     /// old body (`match_phrase` on `defs`, `term` on `name`) was an HTTP 400
