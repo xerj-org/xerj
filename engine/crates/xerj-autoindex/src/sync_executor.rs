@@ -950,8 +950,9 @@ impl<'a> EsSyncBackend<'a> {
     /// `credit` ticks the current phase once per window after that window's
     /// answer is in. The capability probe passes `false`: it is one sample,
     /// not one of the phase's windows, and a tick there would walk the bar
-    /// past its denominator. A `timed_out` page bails before the tick, so a
-    /// partial window is not counted as zero and is not credited (#1761).
+    /// past its denominator. A `timed_out` window is re-asked, bounded, and
+    /// only its exhaustion bails before the tick, so a partial window is
+    /// not counted as zero and is not credited (#1761, #2405).
     fn windowed_value_counts(
         &self,
         index: &str,
@@ -966,11 +967,18 @@ impl<'a> EsSyncBackend<'a> {
             let mut filter = Vec::with_capacity(1 + extra_filters.len());
             filter.push(serde_json::json!({"terms": {field: window}}));
             filter.extend(extra_filters.iter().cloned());
-            // #2222: `search_for_verify`, not `search`. A DELETE of this
-            // index while the window is in flight used to leave the caller
-            // parked on it (`waiting_on` the deleted name) until the
-            // transport budget ran out, and the generation never committed.
-            let response = self.es.search_for_verify(
+            // #2222 + #2405: `search_page_for_verify`, not `search`. A
+            // DELETE of this index while the window is in flight used to
+            // leave the caller parked on it (`waiting_on` the deleted name)
+            // until the transport budget ran out, and the generation never
+            // committed; and a `timed_out` answer used to exit 1 on the
+            // first partial page. The call re-asks the same window, bounded,
+            // and still fails fast on a deleted index. A deadline page is
+            // HTTP 200 with `timed_out` and an empty aggregation — counting
+            // it as "every digest is absent" would abort a generation whose
+            // rows are on the node, so exhaustion stays a loud error and is
+            // never counted as zero (#1761).
+            let response = self.es.search_page_for_verify(
                 index,
                 &serde_json::json!({
                     "size": 0,
@@ -980,18 +988,6 @@ impl<'a> EsSyncBackend<'a> {
                     "aggs": {"values": {"terms": {"field": field, "size": window.len()}}}
                 }),
             )?;
-            // A deadline page is HTTP 200 with `timed_out` and an empty
-            // aggregation. Counting it as "every digest is absent" aborts a
-            // generation whose rows are on the node (#1761's concurrent
-            // catalog writer hits this deadline). Say so; rerunning resumes.
-            if response.get("timed_out") == Some(&Value::Bool(true)) {
-                anyhow::bail!(
-                    "finalize-verify search on {index} returned timed_out: the page is partial \
-                     and is not a live count (a concurrent writer on this index can hold \
-                     publication across the deadline). Nothing from this window was counted — \
-                     rerun the same command, which resumes"
-                );
-            }
             for bucket in response
                 .pointer("/aggregations/values/buckets")
                 .and_then(Value::as_array)
@@ -1049,7 +1045,7 @@ impl<'a> EsSyncBackend<'a> {
                     "catalog read-back window needed more than {MAX_PAGES} pages"
                 );
                 pages += 1;
-                let response = self.es.search(
+                let response = self.es.search_page(
                     crate::catalog::CATALOG_INDEX,
                     &serde_json::json!({
                         "size": PAGE,
@@ -1062,16 +1058,6 @@ impl<'a> EsSyncBackend<'a> {
                         ]}}
                     }),
                 )?;
-                if response.get("timed_out") == Some(&Value::Bool(true)) {
-                    anyhow::bail!(
-                        "finalize-verify search on {} returned timed_out: the page is partial \
-                         and is not a live catalog count (a concurrent corpus build publishing \
-                         to this shared index can hold the publication bracket across the \
-                         deadline). Nothing from this window was counted — rerun the same \
-                         command, which resumes",
-                        crate::catalog::CATALOG_INDEX
-                    );
-                }
                 let page_total = response
                     .pointer("/hits/total/value")
                     .and_then(Value::as_u64)
@@ -1110,9 +1096,10 @@ impl<'a> EsSyncBackend<'a> {
             );
             // One tick per window, after the window's pages have all come
             // back. The phase denominator is windows, not pages (#1267).
-            // A `timed_out` page bails above, so a partial catalog window is
-            // not counted as zero and the phase does not sit at 0/N while
-            // another corpus publishes to this shared index (#1761).
+            // `search_page` re-asks a `timed_out` page and bails only on
+            // exhaustion, so a partial catalog window is not counted as
+            // zero and the phase does not sit at 0/N while another corpus
+            // publishes to this shared index (#1761, #2405).
             credit_verify_items(self.pr, 1);
         }
         Ok(counts)
@@ -6564,6 +6551,241 @@ mod tests {
         assert_eq!(counts.get("digest-a"), Some(&3));
         assert_eq!(counts.get("digest-b"), Some(&0));
         server.join().unwrap();
+    }
+
+    /// A scripted node for the finalize-verify retry tests (#2405). Every
+    /// connection gets its own handler thread so a `_search` in flight
+    /// cannot starve the `HEAD` probe `search_for_verify` may send while a
+    /// search is unanswered. `HEAD` always answers 200 (the index lives);
+    /// each `_search` records its request body and answers with the next
+    /// scripted response — the last one repeats when the script runs out,
+    /// so a caller that keeps re-asking past the script is still answered.
+    struct ScriptedSearch {
+        address: std::net::SocketAddr,
+        search_bodies: std::sync::Arc<std::sync::Mutex<Vec<Value>>>,
+        stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        server: Option<std::thread::JoinHandle<()>>,
+    }
+
+    impl ScriptedSearch {
+        fn start(script: &[&str]) -> Self {
+            use std::io::{Read, Write};
+            use std::sync::atomic::{AtomicBool, Ordering};
+            use std::sync::{Arc, Mutex};
+            use std::time::Duration;
+
+            fn read_request(stream: &mut std::net::TcpStream) -> (String, Vec<u8>) {
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap();
+                let mut buf = Vec::new();
+                let mut tmp = [0u8; 4096];
+                loop {
+                    match stream.read(&mut tmp) {
+                        Ok(0) => break,
+                        Ok(n) => {
+                            buf.extend_from_slice(&tmp[..n]);
+                            if let Some(end) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+                                let head = String::from_utf8_lossy(&buf[..end]).into_owned();
+                                let length = head
+                                    .lines()
+                                    .find_map(|line| {
+                                        line.to_ascii_lowercase()
+                                            .strip_prefix("content-length:")
+                                            .and_then(|v| v.trim().parse::<usize>().ok())
+                                    })
+                                    .unwrap_or(0);
+                                let have = buf.len() - (end + 4);
+                                if have >= length {
+                                    return (head, buf[end + 4..end + 4 + length].to_vec());
+                                }
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+                let head = String::from_utf8_lossy(&buf).into_owned();
+                (head, Vec::new())
+            }
+
+            fn write_json(stream: &mut std::net::TcpStream, body: &str) {
+                write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                )
+                .unwrap();
+                stream.write_all(body.as_bytes()).unwrap();
+            }
+
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let address = listener.local_addr().unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let search_bodies = Arc::new(Mutex::new(Vec::new()));
+            let stop = Arc::new(AtomicBool::new(false));
+            let script: Arc<Mutex<std::collections::VecDeque<String>>> =
+                Arc::new(Mutex::new(script.iter().map(|s| s.to_string()).collect()));
+            let bodies_srv = Arc::clone(&search_bodies);
+            let stop_srv = Arc::clone(&stop);
+            let script_srv = Arc::clone(&script);
+            let server = std::thread::spawn(move || {
+                let mut handlers = Vec::new();
+                while !stop_srv.load(Ordering::SeqCst) {
+                    match listener.accept() {
+                        Ok((stream, _)) => {
+                            let bodies_one = Arc::clone(&bodies_srv);
+                            let script_one = Arc::clone(&script_srv);
+                            handlers.push(std::thread::spawn(move || {
+                                let mut stream = stream;
+                                stream.set_nonblocking(false).unwrap();
+                                let (head, body) = read_request(&mut stream);
+                                if head.starts_with("HEAD ") {
+                                    write_json(&mut stream, "{}");
+                                } else if head.contains("_search") {
+                                    let parsed =
+                                        serde_json::from_slice(&body).unwrap_or(Value::Null);
+                                    bodies_one.lock().unwrap().push(parsed);
+                                    let answer = {
+                                        let mut scripted = script_one.lock().unwrap();
+                                        if scripted.len() > 1 {
+                                            scripted.pop_front().unwrap()
+                                        } else {
+                                            scripted
+                                                .front()
+                                                .cloned()
+                                                .unwrap_or_else(|| "{}".to_string())
+                                        }
+                                    };
+                                    write_json(&mut stream, &answer);
+                                } else {
+                                    write_json(&mut stream, "{}");
+                                }
+                            }));
+                        }
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            std::thread::sleep(Duration::from_millis(10));
+                        }
+                        Err(_) => break,
+                    }
+                }
+                for handler in handlers {
+                    let _ = handler.join();
+                }
+            });
+            ScriptedSearch {
+                address,
+                search_bodies,
+                stop,
+                server: Some(server),
+            }
+        }
+
+        fn searches(&self) -> Vec<Value> {
+            self.search_bodies.lock().unwrap().clone()
+        }
+
+        fn es(&self) -> crate::esclient::Es {
+            crate::esclient::Es::new(&format!("http://{}", self.address), None).unwrap()
+        }
+
+        fn shutdown(&mut self) {
+            self.stop.store(true, std::sync::atomic::Ordering::SeqCst);
+            // Unblock `accept` if it is parked.
+            let _ = std::net::TcpStream::connect(self.address);
+            if let Some(server) = self.server.take() {
+                server.join().unwrap();
+            }
+        }
+    }
+
+    impl Drop for ScriptedSearch {
+        fn drop(&mut self) {
+            self.shutdown();
+        }
+    }
+
+    /// #2405: a `timed_out` window used to exit 1 on the spot. The window
+    /// is re-asked — with the page timeout the body lacked — and the second
+    /// answer counts.
+    #[test]
+    fn finalize_verify_window_retries_a_timed_out_answer() {
+        let mut server = ScriptedSearch::start(&[
+            r#"{"timed_out":true,"hits":{"hits":[]}}"#,
+            r#"{"aggregations":{"values":{"buckets":[{"key":"digest-a","doc_count":3}]}}}"#,
+        ]);
+        let es = server.es();
+        let dir = tempfile::tempdir().unwrap();
+        let pr = crate::progress::Progress::silent();
+        let backend = EsSyncBackend::new(&es, dir.path(), 8 * 1024 * 1024, &pr);
+        let counts = backend
+            .windowed_value_counts(
+                "xc-retry",
+                "ax_file",
+                &["digest-a".into(), "digest-b".into()],
+                &[],
+                false,
+            )
+            .unwrap();
+        assert_eq!(counts.get("digest-a"), Some(&3));
+        assert_eq!(counts.get("digest-b"), Some(&0));
+        let searches = server.searches();
+        assert_eq!(
+            searches.len(),
+            2,
+            "one retry, not a page storm: {searches:?}"
+        );
+        for body in &searches {
+            assert_eq!(
+                body.get("timeout").and_then(Value::as_str),
+                Some("120s"),
+                "the retried window must carry the page timeout: {body}"
+            );
+        }
+        server.shutdown();
+    }
+
+    /// The retry is bounded: a node that answers every attempt partial
+    /// gets the loud error, not an infinite wait, and the window was never
+    /// counted.
+    #[test]
+    fn finalize_verify_window_fails_loud_when_every_attempt_times_out() {
+        let mut server = ScriptedSearch::start(&[r#"{"timed_out":true,"hits":{"hits":[]}}"#]);
+        let es = server.es();
+        let dir = tempfile::tempdir().unwrap();
+        let pr = crate::progress::Progress::silent();
+        let backend = EsSyncBackend::new(&es, dir.path(), 8 * 1024 * 1024, &pr);
+        let error = backend
+            .windowed_value_counts("xc-wedged", "ax_file", &["digest-a".into()], &[], false)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("xc-wedged"), "{error}");
+        assert!(error.contains("timed_out"), "{error}");
+        assert!(error.contains("consecutive attempts"), "{error}");
+        assert!(error.contains("rerun the same command"), "{error}");
+        assert_eq!(
+            server.searches().len(),
+            crate::esclient::PARTIAL_PAGE_ATTEMPTS,
+        );
+        server.shutdown();
+    }
+
+    /// The catalog read-back's `search_page` leg retries the same way.
+    #[test]
+    fn catalog_read_back_window_retries_a_timed_out_page() {
+        let mut server = ScriptedSearch::start(&[
+            r#"{"timed_out":true,"hits":{"hits":[]}}"#,
+            r#"{"timed_out":false,"hits":{"total":{"value":1,"relation":"eq"},"hits":[{"_id":"x","_source":{"file_key":"k1"}}]}}"#,
+        ]);
+        let es = server.es();
+        let dir = tempfile::tempdir().unwrap();
+        let pr = crate::progress::Progress::silent();
+        let backend = EsSyncBackend::new(&es, dir.path(), 8 * 1024 * 1024, &pr);
+        let counts = backend
+            .windowed_catalog_counts(&["k1".into()], "run-1")
+            .unwrap();
+        assert_eq!(counts.get("k1"), Some(&1));
+        assert_eq!(server.searches().len(), 2);
+        server.shutdown();
     }
 
     #[test]

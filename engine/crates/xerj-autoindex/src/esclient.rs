@@ -726,7 +726,7 @@ pub const SEARCH_PAGE_TIMEOUT: &str = "120s";
 /// 12-minute ceiling per page — enough to ride out a merge or a breaker
 /// drain, short enough to fail a genuinely wedged node within a run's
 /// patience (the bulk patience is 600 s, `THROTTLE_PATIENCE`).
-const PARTIAL_PAGE_ATTEMPTS: usize = 6;
+pub(crate) const PARTIAL_PAGE_ATTEMPTS: usize = 6;
 
 /// What this run has learned about how large a `_bulk` request the server
 /// takes, shared by every clone of a client like [`BulkAdmission`].
@@ -2412,6 +2412,43 @@ impl Es {
                 }
             }
         }
+    }
+
+    /// [`Es::search_for_verify`] carrying [`Es::search_page`]'s deadline and
+    /// bounded retry. The finalize-verify windows treated the first partial
+    /// `timed_out` page as fatal — exit 1 on a 92-dataset corpus whose
+    /// documents were all indexed (#2405) — while the same answer on a
+    /// walked page has been re-asked since #1212. The body gets the page
+    /// timeout when the caller set none and the SAME window is re-asked
+    /// while the node answers `timed_out`, bounded by
+    /// [`PARTIAL_PAGE_ATTEMPTS`]. Every attempt still goes through
+    /// `search_for_verify`, so a target deleted mid-window (#2222) ends the
+    /// wait at once, and a window that never completes bails loud rather
+    /// than being counted as zero (#1761).
+    pub(crate) fn search_page_for_verify(&self, index: &str, body: &Value) -> Result<Value> {
+        let mut body = body.clone();
+        body.as_object_mut()
+            .context("search page body must be a JSON object")?
+            .entry("timeout")
+            .or_insert_with(|| Value::String(SEARCH_PAGE_TIMEOUT.to_owned()));
+        for attempt in 1..=PARTIAL_PAGE_ATTEMPTS {
+            let response = self.search_for_verify(index, &body)?;
+            if response.get("timed_out") != Some(&Value::Bool(true)) {
+                return Ok(response);
+            }
+            if attempt == PARTIAL_PAGE_ATTEMPTS {
+                anyhow::bail!(
+                    "finalize-verify search on {index} answered partial (timed_out) on \
+                     {PARTIAL_PAGE_ATTEMPTS} consecutive attempts at timeout \
+                     {SEARCH_PAGE_TIMEOUT}: a partial page is not a live count \
+                     (a concurrent writer on this index can hold publication \
+                     across the deadline). Nothing from this window was \
+                     counted — reduce load on the node and rerun the same \
+                     command, which resumes"
+                );
+            }
+        }
+        unreachable!("the attempt loop returns on its final iteration")
     }
 
     /// `Some(true)` the index is there, `Some(false)` the node answered 404,
