@@ -4016,11 +4016,11 @@ impl Engine {
     /// blanket refusal.
     pub async fn list_indices(&self) -> Vec<IndexInfo> {
         let mut list = Vec::new();
-        for entry in self.indices.iter() {
-            if !crate::index_guard::visible(entry.key()) {
+        for (name, idx) in self.open_index_handles() {
+            if !crate::index_guard::visible(&name) {
                 continue;
             }
-            let stats = entry.value().stats().await;
+            let stats = idx.stats().await;
             list.push(IndexInfo {
                 name: stats.name,
                 doc_count: stats.doc_count,
@@ -4029,6 +4029,21 @@ impl Engine {
             });
         }
         list
+    }
+
+    /// #2405 — snapshot of the open indices' handles.
+    ///
+    /// Every loop that awaits per index (stats, flush) iterates this instead
+    /// of `self.indices.iter()`: a DashMap iterator holds a shard read lock
+    /// for as long as its current entry is alive, so awaiting a slow flush or
+    /// a contended schema lock inside the loop blocked every
+    /// `self.indices.remove/insert` on that shard — a DELETE of an unrelated
+    /// index parked a tokio worker thread behind another index's flush.
+    fn open_index_handles(&self) -> Vec<(String, Arc<Index>)> {
+        self.indices
+            .iter()
+            .map(|e| (e.key().clone(), Arc::clone(e.value())))
+            .collect()
     }
 
     /// Get the stats for a single index.
@@ -4050,12 +4065,11 @@ impl Engine {
     ///
     /// Called periodically by the background flush timer.
     pub async fn flush_all_if_needed(&self) {
-        for entry in self.indices.iter() {
-            let idx = Arc::clone(entry.value());
+        for (name, idx) in self.open_index_handles() {
             if idx.needs_flush().await {
                 if let Err(e) = idx.flush().await {
                     tracing::warn!(
-                        index = entry.key().as_str(),
+                        index = name.as_str(),
                         error = %e,
                         "background flush failed"
                     );
@@ -4093,11 +4107,10 @@ impl Engine {
             entry.value().abort_background_tasks();
         }
         // 2. Final synchronous flush across every index.
-        for entry in self.indices.iter() {
-            let idx = Arc::clone(entry.value());
+        for (name, idx) in self.open_index_handles() {
             if let Err(e) = idx.flush().await {
                 tracing::warn!(
-                    index = entry.key().as_str(),
+                    index = name.as_str(),
                     error = %e,
                     "shutdown flush failed"
                 );
@@ -4117,8 +4130,8 @@ impl Engine {
         let mut total_docs = 0u64;
         let mut has_memtable_only = false;
 
-        for entry in self.indices.iter() {
-            let stats = entry.value().stats().await;
+        for (_, idx) in self.open_index_handles() {
+            let stats = idx.stats().await;
             total_docs += stats.doc_count;
             // Yellow condition: any index has in-memory data that hasn't been
             // flushed to a segment yet.

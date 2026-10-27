@@ -147,6 +147,19 @@ continues in #2427 and #1122, which stay open.
 
 ### Fixed
 
+- **`DELETE /<index>` no longer wedges near the memory cap** (refs issue
+  [#2405](https://github.com/xerj-org/xerj/issues/2405) item 1, PR
+  [#2489](https://github.com/xerj-org/xerj/pull/2489)). The ES-compat
+  handler resolved its selector through `list_indices`, which computes stats
+  for every open index and so waited on any sibling whose schema or memtable
+  lock was busy; it now uses the name list. Listings, the health check and
+  the flush sweeps no longer await while holding the index map's shard lock,
+  which blocked the delete's map removal on a worker thread. The deleted
+  index is quiesced first: merge scheduling stops, an in-flight merge batch
+  yields at its next checkpoint (inputs kept, no output written), flushes are
+  skipped and the read caches are dropped. The directory is removed on the
+  blocking pool, retrying briefly on Windows sharing violations. A removal
+  that fails puts the index back in service as before.
 - `xerj code` shows the part of a long definition that matched the query,
   not its first `--full` characters (#2464). The matching text could sit
   thousands of characters below the signature, so a hit named the right

@@ -6232,6 +6232,82 @@ mod merge_publication_transaction_tests {
         });
     }
 
+    /// #2405 — DELETE of an index with a merge pass in flight must stop that
+    /// merge before it removes the directory, not leave it decoding inputs
+    /// (and holding memory and file handles near the cap) for a directory
+    /// that no longer exists.
+    ///
+    /// The merge encode is parked with the test hold, standing in for a long
+    /// encode on a large segment. Pre-fix the DELETE returned with the merge
+    /// still running; after the hold was released it carried on to its
+    /// output write. Now the delete marks the index, the encode yields at its
+    /// next checkpoint, and the DELETE returns once the pass has given up.
+    #[test]
+    fn delete_stops_an_in_flight_merge_before_removing_the_directory() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .expect("runtime");
+        runtime.block_on(async {
+            let dir = TempDir::new().unwrap();
+            let (engine, index) = hand_driven_index(&dir, "delete-mid-merge", Schema::empty());
+            for id in ["a", "b"] {
+                index
+                    .index_document(Some(id.into()), serde_json::json!({"value": id}))
+                    .await
+                    .unwrap();
+                index.flush().await.unwrap();
+            }
+            assert_eq!(index.store.snapshot().segments.len(), 2);
+            let data_dir = index.data_dir.clone();
+            assert!(data_dir.exists());
+
+            struct ReleaseHold<'a>(&'a AtomicBool);
+            impl Drop for ReleaseHold<'_> {
+                fn drop(&mut self) {
+                    self.0.store(false, Ordering::Release);
+                }
+            }
+            index.test_hold_merge_encode.store(true, Ordering::Release);
+            let release = ReleaseHold(&index.test_hold_merge_encode);
+            let merge_index = Arc::clone(&index);
+            let merge = tokio::spawn(async move { merge_index.run_merge_once().await });
+            tokio::time::timeout(std::time::Duration::from_secs(10), async {
+                while !index.test_merge_encode_held.load(Ordering::Acquire) {
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .expect("merge encode did not reach the hold");
+
+            let deleted = tokio::time::timeout(
+                std::time::Duration::from_secs(15),
+                engine.delete_index("delete-mid-merge"),
+            )
+            .await;
+            assert!(deleted.is_ok(), "DELETE did not return within 15s");
+            deleted.unwrap().expect("delete");
+            assert!(
+                !index.is_merge_in_progress(),
+                "DELETE returned while a merge on the deleted index was still running"
+            );
+            assert!(!data_dir.exists(), "index directory must be gone");
+
+            drop(release);
+            let merged = tokio::time::timeout(std::time::Duration::from_secs(30), merge)
+                .await
+                .expect("merge did not finish after the hold was released")
+                .expect("merge task");
+            assert!(
+                !matches!(merged, Ok(n) if n > 0),
+                "the merge must not publish into a deleted index: {merged:?}"
+            );
+            assert!(!data_dir.exists(), "a late merge must not recreate the directory");
+            assert!(engine.get_index("delete-mid-merge").is_err());
+        });
+    }
+
     #[tokio::test]
     async fn apply_failure_restores_sources_survives_restart_and_retry() {
         let dir = TempDir::new().unwrap();
@@ -10688,6 +10764,13 @@ pub struct Index {
     /// hand-driven test fixtures). Matches the old semantics where the
     /// aborted per-index tick task was never respawned.
     merge_scheduling_stopped: std::sync::atomic::AtomicBool,
+    /// #2405 — set once this index has been taken out of `Engine::indices`
+    /// for a DELETE. Flushes return early, merge scheduling is stopped, and
+    /// every in-flight merge batch yields at its next checkpoint (inputs
+    /// kept, no output written), so nothing keeps working on — or writing
+    /// into — a directory that is about to be removed. Cleared again only
+    /// when the removal fails and the index is put back in service.
+    deleting: Arc<std::sync::atomic::AtomicBool>,
     /// #871 — number of merge-policy evaluations actually run (passes
     /// that won the `merge_in_progress` flag and snapshotted the segment
     /// registry). Observability for the idle-cost contract: on an idle
@@ -10711,6 +10794,11 @@ pub struct Index {
     /// a pass that merges everything leaves this false.
     merge_batches_deferred: std::sync::atomic::AtomicBool,
 }
+
+/// Guard returned by [`Index::test_hold_schema_write`].
+#[cfg(any(test, feature = "lock-test-hook"))]
+#[doc(hidden)]
+pub struct TestSchemaWriteHold(#[allow(dead_code)] tokio::sync::OwnedRwLockWriteGuard<ManagedSchema>);
 
 /// Counts one `Index::refresh` that got past the test hold, on every exit.
 #[cfg(any(test, feature = "refresh-test-hook"))]
@@ -11140,6 +11228,7 @@ impl Index {
             merge_check_armed: std::sync::atomic::AtomicBool::new(false),
             merge_events: AtomicU64::new(0),
             merge_scheduling_stopped: std::sync::atomic::AtomicBool::new(false),
+            deleting: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             merge_evaluations: AtomicU64::new(0),
             merge_fts_reanalysed_docs: Arc::new(AtomicU64::new(0)),
             merge_batches_deferred: std::sync::atomic::AtomicBool::new(false),
@@ -11605,6 +11694,7 @@ impl Index {
             merge_check_armed: std::sync::atomic::AtomicBool::new(false),
             merge_events: AtomicU64::new(0),
             merge_scheduling_stopped: std::sync::atomic::AtomicBool::new(false),
+            deleting: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             merge_evaluations: AtomicU64::new(0),
             merge_fts_reanalysed_docs: Arc::new(AtomicU64::new(0)),
             merge_batches_deferred: std::sync::atomic::AtomicBool::new(false),
@@ -13191,6 +13281,9 @@ impl Index {
     /// request if the sema is already at capacity; the next batch on
     /// this shard will re-request, so there's no lost flush.
     pub(crate) fn try_spawn_sync_flush(&self, shard_idx: usize) {
+        if self.is_deleting() {
+            return;
+        }
         let rt = match self.flush_signal.runtime() {
             Some(rt) => rt,
             None => return,
@@ -13659,6 +13752,9 @@ impl Index {
     /// IndexWriter does on sustained ingest.
     async fn maybe_spawn_flush(&self) {
         use std::sync::atomic::Ordering as AtomicOrdering;
+        if self.is_deleting() {
+            return;
+        }
 
         // M5.2 — per-shard flush scheduler.  Pre-M5.2 `do_flush`
         // drained ALL shards into one segment, making flush a global
@@ -13815,6 +13911,11 @@ impl Index {
     /// quiescing with a possibly-unevaluated segment set.
     pub(crate) async fn try_run_merge_once(&self) -> Option<Result<usize>> {
         use std::sync::atomic::Ordering as AtomicOrdering;
+
+        // #2405 — never start a pass on an index that is being deleted.
+        if self.is_deleting() {
+            return Some(Ok(0));
+        }
 
         // Serialise merges with ourselves (skip if another pass is running).
         if self
@@ -14384,10 +14485,20 @@ impl Index {
             let yielded_for_task = Arc::clone(&yielded_batches);
             let forced_for_task = force_max_segments.is_some();
             let input_bytes_for_task: u64 = metas_for_task.iter().map(|meta| meta.size_bytes).sum();
+            let deleting_for_yield = Arc::clone(&self.deleting);
+            let deleting_for_write = Arc::clone(&self.deleting);
+            #[cfg(test)]
+            let deleting_for_hold = Arc::clone(&self.deleting);
             // Checked at each input segment, every 8192 surviving docs, and
             // before the output segment is created — never after, so a
             // yielded batch leaves no partial output behind.
             let must_yield = move || -> bool {
+                // #2405 — the index is being deleted: stop at this
+                // checkpoint instead of finishing a merge whose output would
+                // be thrown away (or land in a removed directory).
+                if deleting_for_yield.load(Ordering::Acquire) {
+                    return true;
+                }
                 let Some(governor) = crate::governor::global() else {
                     return false;
                 };
@@ -14417,6 +14528,9 @@ impl Index {
                                     held: u64,
                                     extra: u64|
                   -> bool {
+                if deleting_for_write.load(Ordering::Acquire) {
+                    return false;
+                }
                 let Some(governor) = crate::governor::global() else {
                     return true;
                 };
@@ -14467,7 +14581,11 @@ impl Index {
                 #[cfg(test)]
                 if hold_merge_encode.load(Ordering::Acquire) {
                     merge_encode_held.store(true, Ordering::Release);
-                    while hold_merge_encode.load(Ordering::Acquire) {
+                    // A delete releases the hold the way a real encode
+                    // reaches its next `must_yield` checkpoint.
+                    while hold_merge_encode.load(Ordering::Acquire)
+                        && !deleting_for_hold.load(Ordering::Acquire)
+                    {
                         std::thread::sleep(std::time::Duration::from_millis(5));
                     }
                     merge_encode_held.store(false, Ordering::Release);
@@ -28180,6 +28298,11 @@ impl Index {
 
     /// Flush the memtable to a new segment on disk, then build the FTS index.
     pub async fn flush(self: &Arc<Self>) -> Result<()> {
+        // #2405 — a deleted index's memtable is discarded with its directory;
+        // flushing it would spend memory and I/O on segments nobody keeps.
+        if self.is_deleting() {
+            return Ok(());
+        }
         // #873: this flush is about to take whatever the memtable holds, so
         // every idle-probe observation about it is stale from here on. Clear
         // the pair at the ONE coordinator every flush path runs through
@@ -29308,10 +29431,94 @@ impl Index {
 
     // ── Delete index ──────────────────────────────────────────────────────────
 
+    /// #2405 test hook — hold this index's schema write lock until the
+    /// returned guard drops, standing in for a sibling index whose mapping
+    /// update (or any other schema-lock holder) is stalled under memory
+    /// pressure. Off in release builds.
+    #[cfg(any(test, feature = "lock-test-hook"))]
+    #[doc(hidden)]
+    pub async fn test_hold_schema_write(&self) -> TestSchemaWriteHold {
+        TestSchemaWriteHold(Arc::clone(&self.schema).write_owned().await)
+    }
+
+    /// True once a DELETE has started tearing this index down (#2405).
+    pub fn is_deleting(&self) -> bool {
+        self.deleting.load(std::sync::atomic::Ordering::Acquire)
+    }
+
+    /// #2405 — quiesce this index before its directory is removed.
+    ///
+    /// Marks the index as deleting (flushes return early, merge batches yield
+    /// at their next checkpoint), stops merge scheduling, waits up to `wait`
+    /// for an in-flight merge pass to give up its flag, then aborts every
+    /// background task and drops the read caches. Pre-fix a DELETE removed
+    /// the directory while a merge on the same index kept decoding inputs on
+    /// the merge pool and the memory-drain worker could still pick the index
+    /// to flush — work that holds memory and file handles near the cap and
+    /// whose output is thrown away. The wait is bounded so a wedged pass can
+    /// never hold the DELETE hostage; a pass that outlives it finds the
+    /// deleting flag at its next checkpoint.
+    pub async fn prepare_for_delete(&self, wait: std::time::Duration) {
+        use std::sync::atomic::Ordering as AtomicOrdering;
+        self.deleting.store(true, AtomicOrdering::Release);
+        self.merge_scheduling_stopped
+            .store(true, AtomicOrdering::SeqCst);
+        let deadline = std::time::Instant::now() + wait;
+        while self.merge_in_progress.load(AtomicOrdering::Acquire)
+            && std::time::Instant::now() < deadline
+        {
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        if self.merge_in_progress.load(AtomicOrdering::Acquire) {
+            tracing::warn!(
+                index = self.name.as_str(),
+                waited_ms = wait.as_millis() as u64,
+                "deleting index while a merge pass is still unwinding; it will stop at its next checkpoint"
+            );
+        }
+        self.abort_background_tasks();
+        self.release_memory();
+    }
+
+    /// Undo [`Self::prepare_for_delete`] after the directory could not be
+    /// removed and the index is being put back in service.
+    pub fn cancel_delete(self: &Arc<Self>) {
+        use std::sync::atomic::Ordering as AtomicOrdering;
+        self.deleting.store(false, AtomicOrdering::Release);
+        self.merge_scheduling_stopped
+            .store(false, AtomicOrdering::SeqCst);
+        self.request_merge_check();
+    }
+
     /// Remove all data files for this index.
-    pub async fn delete_all_data(&self) -> Result<()> {
-        std::fs::remove_dir_all(&self.data_dir).map_err(EngineError::Io)?;
-        Ok(())
+    ///
+    /// #2405 — quiesces the index first ([`Self::prepare_for_delete`]) and
+    /// runs the recursive removal on the blocking pool: a 500 MB index is
+    /// thousands of side-car files, and `remove_dir_all` on a tokio worker
+    /// stalled every other request scheduled on that worker for the whole
+    /// walk. On Windows a file another handle still has open (a merge reader
+    /// unwinding, an antivirus scan) fails the removal with a sharing
+    /// violation, so those errors are retried briefly before giving up. On
+    /// failure the index is returned to service ([`Self::cancel_delete`]) so
+    /// the caller can put it back in the map and the DELETE can be retried.
+    pub async fn delete_all_data(self: &Arc<Self>) -> Result<()> {
+        self.prepare_for_delete(std::time::Duration::from_secs(10))
+            .await;
+        let dir = self.data_dir.clone();
+        let removed = tokio::task::spawn_blocking(move || remove_dir_all_with_retry(&dir))
+            .await
+            .unwrap_or_else(|join| Err(std::io::Error::other(join.to_string())));
+        match removed {
+            Ok(()) => Ok(()),
+            // Already gone is the outcome a DELETE asks for; callers that
+            // care (data-stream delete) match NotFound themselves.
+            Err(e) => {
+                if e.kind() != std::io::ErrorKind::NotFound {
+                    self.cancel_delete();
+                }
+                Err(EngineError::Io(e))
+            }
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -36474,6 +36681,36 @@ async fn await_flush_task(
 }
 
 #[allow(clippy::too_many_arguments)]
+/// #2405 — `remove_dir_all`, retried briefly on the transient errors Windows
+/// reports while another handle still has a file in the tree open.
+fn remove_dir_all_with_retry(dir: &std::path::Path) -> std::io::Result<()> {
+    let mut delay = std::time::Duration::from_millis(20);
+    let mut attempt = 0u32;
+    loop {
+        match std::fs::remove_dir_all(dir) {
+            Ok(()) => return Ok(()),
+            Err(e) if attempt < 6 && is_transient_remove_error(&e) => {
+                attempt += 1;
+                std::thread::sleep(delay);
+                delay = delay.saturating_mul(2);
+            }
+            Err(e) => return Err(e),
+        }
+    }
+}
+
+fn is_transient_remove_error(e: &std::io::Error) -> bool {
+    if cfg!(windows) {
+        // ERROR_ACCESS_DENIED (5), ERROR_SHARING_VIOLATION (32),
+        // ERROR_LOCK_VIOLATION (33), ERROR_DIR_NOT_EMPTY (145).
+        matches!(e.raw_os_error(), Some(5 | 32 | 33 | 145))
+    } else {
+        // A late writer can recreate a file between the walk and the final
+        // rmdir; one more pass picks it up.
+        e.kind() == std::io::ErrorKind::DirectoryNotEmpty
+    }
+}
+
 async fn do_flush_shard(
     shard_idx: usize,
     store: Arc<IndexStore>,

@@ -77,6 +77,6 @@ sha2         = "0.10"
 tempfile     = { workspace = true }
 # #2234: the HTTP refresh test holds one index inside `Index::refresh`.
 # The feature stays off the release graph (resolver v2, dev-dependency only).
-xerj-engine  = { path = "../xerj-engine", features = ["refresh-test-hook"] }
+xerj-engine  = { path = "../xerj-engine", features = ["refresh-test-hook", "lock-test-hook"] }
 tower        = { workspace = true, features = ["util"] }
 http-body-util = "0.1"

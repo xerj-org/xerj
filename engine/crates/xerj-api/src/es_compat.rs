@@ -2605,8 +2605,10 @@ pub async fn delete_index(
         .map(|v| v == "true")
         .unwrap_or(true);
 
-    let all = state.engine.list_indices().await;
-    let mut all_names: Vec<String> = all.iter().map(|i| i.name.clone()).collect();
+    // #2405 — names only. `list_indices` computes `stats()` for every open
+    // index (schema read lock + memtable shard locks each), so one busy or
+    // memory-starved sibling index stalled the DELETE before it started.
+    let mut all_names: Vec<String> = state.engine.index_name_list();
     // A failed index is deletable. Its name has to take part in selector
     // resolution or a literal `DELETE /broken` 404s and a wildcard silently
     // skips it — which is exactly the stuck state issue #206 describes.
