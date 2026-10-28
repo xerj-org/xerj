@@ -130,3 +130,84 @@ For answers to common questions about this code of conduct, see the FAQ at
 [Mozilla CoC]: https://github.com/mozilla/diversity
 [FAQ]: https://www.contributor-covenant.org/faq
 [translations]: https://www.contributor-covenant.org/translations
+
+--------------------------------------------------------------------------------------------------------
+
+# Código de Conducta del Contribuyente
+
+## Nuestro compromiso
+
+Como miembros, contribuyentes y líderes, nos comprometemos a hacer de la participación en nuestra comunidad una experiencia libre de acoso para todas las personas, independientemente de su edad, tamaño corporal, discapacidad visible o invisible, etnia, características sexuales, identidad y expresión de género, nivel de experiencia, educación, estatus socioeconómico, nacionalidad, apariencia personal, raza, casta, color, religión u orientación e identidad sexual.
+
+Nos comprometemos a actuar e interactuar de manera que contribuya a una comunidad abierta, acogedora, diversa, inclusiva y saludable.
+
+---
+
+## Nuestros estándares
+
+### Ejemplos de conductas que contribuyen a un entorno positivo:
+* **Empatía y amabilidad:** Demostrar consideración sincera hacia los demás.
+* **Respeto mutuo:** Valorar opiniones, puntos de vista y experiencias diferentes.
+* **Retroalimentación constructiva:** Dar y aceptar críticas de manera respetuosa y madura.
+* **Responsabilidad:** Reconocer errores, disculparse de forma genuina con las personas afectadas y aprender de la experiencia.
+* **Bien común:** Enfocarse en lo que es mejor para la comunidad en su conjunto y no solo a nivel individual.
+
+### Ejemplos de conductas inaceptables:
+* El uso de lenguaje o imágenes sexualizadas, así como avances o atención sexual no deseada.
+* Comentarios ofensivos, despectivos, insultos (*trolling*) o ataques personales y políticos.
+* Acoso público o privado en cualquiera de sus formas.
+* Publicación de información privada de terceros (como direcciones físicas o electrónicas) sin su consentimiento explícito (*doxing*).
+* Cualquier otra conducta que pueda considerarse razonablemente inapropiada en un entorno profesional.
+
+---
+
+## Responsabilidades de los líderes
+
+Los líderes de la comunidad son responsables de aclarar e hacer cumplir nuestros estándares de comportamiento aceptable y tomarán medidas correctivas adecuadas y justas ante cualquier conducta que consideren inapropiada, amenazante, ofensiva o dañina.
+
+Los líderes tienen el derecho y la responsabilidad de eliminar, editar o rechazar comentarios, *commits*, código, ediciones de wiki, *issues* y otras contribuciones que no estén alineadas con este Código de Conducta, y comunicarán las razones de las decisiones de moderación cuando sea oportuno.
+
+---
+
+## Alcance
+
+Este Código de Conducta se aplica a todos los espacios de la comunidad y también cuando un individuo representa oficialmente a la comunidad en espacios públicos. Ejemplos de representación incluyen:
+* Uso de una dirección de correo electrónico oficial.
+* Publicación a través de cuentas oficiales en redes sociales.
+* Actuación como representante designado en eventos *online* u *offline*.
+
+---
+
+## Cumplimiento y reporte
+
+Las conductas abusivas, de acoso o inaceptables pueden reportarse al equipo de moderación a través del correo:
+
+📧 **`conduct@xerj.org`**
+
+### Garantías del proceso:
+1. **Confidencialidad:** Todos los reclamos serán revisados e investigados de manera rápida, imparcial y confidencial.
+2. **Protección:** Los líderes están obligados a respetar la privacidad y seguridad de quien reporte cualquier incidente.
+3. **Conflicto de interés:** Si un reporte involucra a un miembro del equipo de moderación, ese miembro quedará excluido de la revisión e investigación del caso.
+
+---
+
+## Guía de aplicación (*Enforcement Guidelines*)
+
+Los líderes de la comunidad seguirán estas pautas para determinar las consecuencias de cualquier acción que viole este Código de Conducta:
+
+| Nivel | Impacto Comunitario | Consecuencia / Acción |
+| :--- | :--- | :--- |
+| **1. Corrección** | Uso de lenguaje inapropiado u otra conducta considerada no profesional o no bienvenida. | Advertencia privada por escrito especificando la naturaleza de la falta. Se puede solicitar una disculpa pública. |
+| **2. Advertencia** | Violación mediante un incidente único o una serie de acciones reiteradas. | Advertencia con consecuencias en caso de reincidencia. Prohibición de interacción temporal con los involucrados y canales de la comunidad. |
+| **3. Suspensión temporal** | Violación grave de los estándares de la comunidad o conducta inapropiada sostenida. | Prohibición temporal (*temporary ban*) de cualquier tipo de interacción o comunicación pública/privada en la comunidad por un período determinado. |
+| **4. Expulsión permanente** | Patrón repetido de violación, acoso sistemático o agresión/denigración hacia colectivos o individuos. | Prohibición permanente (*permanent ban*) de cualquier espacio e interacción dentro de la comunidad. |
+
+---
+
+## Atribución
+
+Este Código de Conducta está adaptado del **Contributor Covenant**, versión 2.1, disponible en [contributor-covenant.org](https://www.contributor-covenant.org/version/2/1/code_of_conduct.html).
+
+Las pautas de impacto comunitario se inspiraron en la escala de aplicación del código de conducta de **Mozilla**.
+
+Para preguntas frecuentes y traducciones adicionales, consulta la [FAQ oficial del Contributor Covenant](https://www.contributor-covenant.org/faq).
