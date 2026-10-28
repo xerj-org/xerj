@@ -1,0 +1,22 @@
+{
+  "corpus": "dunorth595--ai-agent-memory",
+  "cloned_at": "2026-10-28T20:25:58Z",
+  "own": true,
+  "repos": [
+    {
+      "repo": "ai_agent_memory",
+      "url": "https://github.com/DuNorth595/ai_agent_memory",
+      "licence": "MIT",
+      "sha": "97f38fd0d15dd67489975e49c42ed9edbe6b52cb",
+      "files": 55,
+      "bytes": 392352,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@DuNorth595",
+        "at": "2026-10-28",
+        "note": "First-party code by the commit author. LICENSE file at pin 97f38fd0d15d opened and read: it is the verbatim MIT License (Copyright (c) 2026 Justin Douglas (S_DevLabs)) with no added clauses. The GitHub licence API and the xerj detector independently report MIT. Pinned commit 97f38fd0d15d: \"docs: say what this is in plain words, for search\"."
+      }
+    }
+  ]
+}

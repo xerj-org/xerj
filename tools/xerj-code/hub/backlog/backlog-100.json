@@ -13456,6 +13456,130 @@
      "agents"
     ]
    }
+  },
+  {
+   "cat": "AI",
+   "domain": "an agent giving an AI agent a verifiable on-chain identity queries this for how DuNorth595/xrpl_agent_id implements did:xrpl identifiers, W3C DID Documents under the 256-byte on-ledger cap, XLS-70 credential issue/accept/revoke, and authorization decisions that return allow/deny with stable reason codes",
+   "lane": "A",
+   "refresh": "pinned",
+   "slug": "dunorth595--xrpl-agent-id",
+   "sources": [
+    {
+     "licence_hint": "MIT (per-repo review blocks in the manifest)",
+     "url": "see hub/dunorth595--xrpl-agent-id.json"
+    }
+   ],
+   "status": "live",
+   "tags": {
+    "region": "GLOBAL",
+    "topics": [
+     "xrpl",
+     "did",
+     "xls-70",
+     "credentials",
+     "identity",
+     "authorization"
+    ]
+   }
+  },
+  {
+   "cat": "OPS",
+   "domain": "an agent needing a tamper-evident history for AI agent actions queries this for how DuNorth595/xrpl_agent_log implements a hash-chained, mutually-signed append-only log that is replayable from public data alone, including truncation and forged-head detection",
+   "lane": "A",
+   "refresh": "pinned",
+   "slug": "dunorth595--xrpl-agent-log",
+   "sources": [
+    {
+     "licence_hint": "MIT (per-repo review blocks in the manifest)",
+     "url": "see hub/dunorth595--xrpl-agent-log.json"
+    }
+   ],
+   "status": "live",
+   "tags": {
+    "region": "GLOBAL",
+    "topics": [
+     "xrpl",
+     "audit-log",
+     "append-only",
+     "tamper-evident",
+     "agents"
+    ]
+   }
+  },
+  {
+   "cat": "AI",
+   "domain": "an MCP-capable agent needing did:xrpl operations queries this for how DuNorth595/xrpl_did_mcp exposes DID derivation and DID Document publication as MCP tools, with the signing key kept in the OS keychain and writes gated behind an explicit flag",
+   "lane": "A",
+   "refresh": "pinned",
+   "slug": "dunorth595--xrpl-did-mcp",
+   "sources": [
+    {
+     "licence_hint": "MIT (per-repo review blocks in the manifest)",
+     "url": "see hub/dunorth595--xrpl-did-mcp.json"
+    }
+   ],
+   "status": "live",
+   "tags": {
+    "region": "GLOBAL",
+    "topics": [
+     "xrpl",
+     "did",
+     "mcp",
+     "xls-40",
+     "identity",
+     "agents"
+    ]
+   }
+  },
+  {
+   "cat": "AI",
+   "domain": "an agent needing memory that survives between sessions queries this for how DuNorth595/ai_agent_memory implements a portable long-term memory as one index file plus one pointer per topic, with plain Markdown as the only storage format and no database",
+   "lane": "A",
+   "refresh": "pinned",
+   "slug": "dunorth595--ai-agent-memory",
+   "sources": [
+    {
+     "licence_hint": "MIT (per-repo review blocks in the manifest)",
+     "url": "see hub/dunorth595--ai-agent-memory.json"
+    }
+   ],
+   "status": "live",
+   "tags": {
+    "region": "GLOBAL",
+    "topics": [
+     "memory",
+     "agents",
+     "markdown",
+     "portable",
+     "knowledge-base"
+    ]
+   }
+  },
+  {
+   "cat": "AI",
+   "domain": "an agent building a voice interface a user can interrupt queries this for how DuNorth595/ai_agent_chat implements full-duplex voice with barge-in -- the TTS is cut on mid-sentence interruption -- using local Whisper and Piper/Kokoro over a VPN so the audio never leaves the machine",
+   "lane": "A",
+   "refresh": "pinned",
+   "slug": "dunorth595--ai-agent-chat",
+   "sources": [
+    {
+     "licence_hint": "MIT (per-repo review blocks in the manifest)",
+     "url": "see hub/dunorth595--ai-agent-chat.json"
+    }
+   ],
+   "status": "live",
+   "tags": {
+    "region": "GLOBAL",
+    "topics": [
+     "voice",
+     "barge-in",
+     "full-duplex",
+     "whisper",
+     "tts",
+     "agents",
+     "local-first"
+    ]
+   }
   }
  ],
  "lanes": [

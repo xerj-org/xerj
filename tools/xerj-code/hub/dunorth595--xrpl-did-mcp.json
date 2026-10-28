@@ -1,0 +1,22 @@
+{
+  "corpus": "dunorth595--xrpl-did-mcp",
+  "cloned_at": "2026-10-28T20:25:57Z",
+  "own": true,
+  "repos": [
+    {
+      "repo": "xrpl_did_mcp",
+      "url": "https://github.com/DuNorth595/xrpl_did_mcp",
+      "licence": "MIT",
+      "sha": "8f6304ff82697e6f13175796ed0f84df90d7f460",
+      "files": 22,
+      "bytes": 47901,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@DuNorth595",
+        "at": "2026-10-28",
+        "note": "First-party code by the commit author. LICENSE file at pin 8f6304ff8269 opened and read: it is the verbatim MIT License (Copyright (c) 2026 Strategic Development Labs) with no added clauses. The GitHub licence API and the xerj detector independently report MIT. Pinned commit 8f6304ff8269: \"fix: make --allow-inline-seed actually reachable\"."
+      }
+    }
+  ]
+}

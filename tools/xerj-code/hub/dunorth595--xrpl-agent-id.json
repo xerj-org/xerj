@@ -1,0 +1,22 @@
+{
+  "corpus": "dunorth595--xrpl-agent-id",
+  "cloned_at": "2026-10-28T20:25:50Z",
+  "own": true,
+  "repos": [
+    {
+      "repo": "xrpl_agent_id",
+      "url": "https://github.com/DuNorth595/xrpl_agent_id",
+      "licence": "MIT",
+      "sha": "e4a3f385370acedc35aced603b49e5097436810d",
+      "files": 112,
+      "bytes": 1202165,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@DuNorth595",
+        "at": "2026-10-28",
+        "note": "First-party code by the commit author. LICENSE file at pin e4a3f385370a opened and read: it is the verbatim MIT License (Copyright (c) 2026 Justin Douglas) with no added clauses. The GitHub licence API and the xerj detector independently report MIT. Pinned commit e4a3f385370a: \"docs: add the XERJ Corpus Hub contributor badge\"."
+      }
+    }
+  ]
+}
