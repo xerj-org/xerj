@@ -102,6 +102,27 @@ owns the hrefs and the footer.
 
 ---
 
+## Public agent skill discovery
+
+`landing/.well-known/agent-skills/xerj/SKILL.md` is the hand-written public
+documentation-routing skill. It is independent of the repository-specific
+`tools/xerj-code/SKILL.md`; internal skills are not automatically published.
+`python3 scripts/seo/build_skills.py --write` generates the discovery index
+from the public skill's frontmatter and the SHA-256 of its exact bytes.
+The generator accepts a plain `name` and a JSON-quoted, single-line
+`description` (a YAML subset). Run `--check` to detect missing or stale output;
+CI also runs `python3 scripts/seo/test_build_skills.py`.
+
+The index follows the draft
+[Agent Skills Discovery v0.2.0](https://github.com/cloudflare/agent-skills-discovery-rfc).
+Its digest detects a mismatch between the index and fetched artifact; it is
+not a signature or a reason to trust or execute instructions. Both resources
+are static assets with explicit media types, CORS and cache revalidation in
+`landing/_headers`. Their responses request `no-transform` to preserve bytes.
+After deployment, verify both GET responses and compute the digest from the
+fetched skill bytes. A Python static-file server does not validate Pages'
+header handling; the published Cloudflare responses must be checked separately.
+
 ## 2. The load-bearing URL fact
 
 **Cloudflare Pages serves this site extensionless.** `html_handling` is at its

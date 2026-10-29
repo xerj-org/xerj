@@ -355,7 +355,7 @@ Twenty-six clients can register `xerj mcp` as a local stdio server. The entry is
 two fields - the absolute path to the binary, and `mcp` as its only argument - but where that entry
 lives and which key wraps it differ per client. `tested` means the server was registered in that
 client and `xerj_search` appeared in its tool list; `untested` means the path and shape are
-transcribed from the client's own documentation and nobody has run it yet. Four rows have been run.
+transcribed from the client's own documentation and nobody has run it yet. Five rows have been run.
 OpenCode v2.1.2 on Windows against `xerj` v1.0.0-rc.97 answered `initialize` and `tools/list`
 with its full tool list. Cline CLI 3.0.73 on Linux against `xerj` v1.0.0-rc.98 loaded this
 section's `mcpServers` block at `~/.cline/data/settings/cline_mcp_settings.json`. `xerj_search`
@@ -369,8 +369,15 @@ with the `env` block intact (verified through `/proc/<pid>/environ`), and `xerj_
 in the tool list. Claude Code 2.1.311 on Kali Linux against `xerj` v1.0.0-rc.100 registered
 `xerj mcp` with `claude mcp add` in the local, project and user scopes; `xerj_search` appeared in
 `/mcp` among that binary's 22 tools, and Claude Code executed one `xerj_search` and one `xerj_def`
-call against an autoindexed repository. Correcting an `untested` row is a
-welcome first PR.
+call against an autoindexed repository. DeepSeek Harness 44.7.0 on Windows against
+`xerj` v1.0.0-rc.99 loaded this row's `- insert:` block from a profile patch at
+`$DSH_HOME/profiles/desktop/cordis.patch.yml`: in the contributor's run, the harness
+spawned `xerj mcp` without an application restart, exposed `mcp__xerj__xerj_search`,
+and executed a search. The tested entry was the profile patch; the `dsh/` bundle
+was not exercised. The run set `XERJ_DISABLE_FEEDBACK=true` and observed no automatic
+field report. [Contributor's verification and limits](https://github.com/xerj-org/xerj/pull/2446).
+
+Correcting an `untested` row is a welcome first PR.
 
 | Client | Config file | Key | Note | Tested |
 |---|---|---|---|---|
@@ -394,7 +401,7 @@ welcome first PR.
 | Kiro | `.kiro/settings/mcp.json` in the workspace, `~/.kiro/settings/mcp.json` user | `mcpServers` | `${VAR}` expansion needs approval | untested |
 | Antigravity | `~/.gemini/config/mcp_config.json`, or `.agents/mcp_config.json` in the workspace | `mcpServers` | remote servers use `serverUrl` | untested |
 | OpenClaw | `~/.openclaw/openclaw.json` (JSON5) | `mcp.servers` | `transport: "stdio"` | untested |
-| [DeepSeek Harness (dsh)](dsh/) | `$DSH_HOME/cordis.patch.yml`, or a profile patch | `- insert:` with `@deepseek-ai/dsh-mcp-client` | one plugin instance per server | untested |
+| [DeepSeek Harness (dsh)](dsh/) | `$DSH_HOME/cordis.patch.yml`, or a profile patch | `- insert:` with `@deepseek-ai/dsh-mcp-client` | one plugin instance per server | tested |
 | Warp | Settings > Agents > MCP servers, or `~/.warp/.mcp.json` and `.warp/.mcp.json` in the project | `mcpServers` | `working_directory`, not `cwd` | untested |
 | Augment Code | `~/.augment/settings.json` for the Auggie CLI; the IDE uses its own panel | `mcpServers` | that file does not drive the IDE | untested |
 | Qwen Code | `~/.qwen/settings.json`, or `.qwen/settings.json` in the project | `mcpServers` | `mcp.allowed` can silently hide it | untested |

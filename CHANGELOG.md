@@ -7,8 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Public Agent Skills Discovery v0.2.0 index and a documentation-routing skill
+  at `/.well-known/agent-skills/`. The index is generated from the published
+  skill's metadata and exact-byte SHA-256, with a CI drift check.
+
 ### Fixed
 
+- SQL source extraction no longer slices statement heads inside a UTF-8
+  character, so unrecognized CJK statement/comment heads do not panic (#2547).
+- Short Markdown files with YAML frontmatter retain their prose body even
+  when bullets or `Key: value` lines also parse as YAML (#2447). Existing
+  frontmatter-title behavior and structured CSV/JSON body detection remain.
+- Empty files keep separate inventory identities instead of being reported
+  as content duplicates of unrelated paths (#2449). Non-empty byte-identical
+  files still deduplicate.
 - Index deletion no longer waits for unrelated index statistics while
   resolving its selectors. Index listings and health checks also release
   their index-map locks before awaiting statistics, so a stalled schema

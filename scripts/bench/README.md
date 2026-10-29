@@ -140,6 +140,7 @@ So that every headline maps to a runnable thing from one place:
 
 | Claim | Harness in this repo |
 |---|---|
+| Batch vs one-item retrieval on a pinned rust-vulns pack (CLI/MCP correctness, warm latency and payload BPE tokens; not generated-answer accuracy) | `tools/benchmarks/batch-retrieval/` (`run.py`; protocol and reproduction in its README) |
 | 2.7x / 26x / up-to-278x fewer output tokens (reference coding) | `docs/case-studies/reference-coding/CASE_STUDY.md` + the 3-arm Harbor harness `tools/benchmarks/harbor-3arm/` (`run_matrix.sh`) |
 | nDCG@10 rows (BM25 0.6572 / MiniLM 0.6764 / hybrid 0.6993 on SciFact) | `benchmarks/beir-hybrid/` (`load.py`, `eval.py`, raw output in `results/`) |
 | Banking77 0.933 / SMS spam 0.983 decisions-from-history | `benchmarks/decisions-as-retrieval/` (`eval.py`, raw output in `results/`) |

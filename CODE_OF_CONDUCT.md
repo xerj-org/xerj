@@ -163,7 +163,7 @@ Nos comprometemos a actuar e interactuar de manera que contribuya a una comunida
 
 ## Responsabilidades de los líderes
 
-Los líderes de la comunidad son responsables de aclarar e hacer cumplir nuestros estándares de comportamiento aceptable y tomarán medidas correctivas adecuadas y justas ante cualquier conducta que consideren inapropiada, amenazante, ofensiva o dañina.
+Los líderes de la comunidad son responsables de aclarar y hacer cumplir nuestros estándares de comportamiento aceptable y tomarán medidas correctivas adecuadas y justas ante cualquier conducta que consideren inapropiada, amenazante, ofensiva o dañina.
 
 Los líderes tienen el derecho y la responsabilidad de eliminar, editar o rechazar comentarios, *commits*, código, ediciones de wiki, *issues* y otras contribuciones que no estén alineadas con este Código de Conducta, y comunicarán las razones de las decisiones de moderación cuando sea oportuno.
 
@@ -185,9 +185,8 @@ Las conductas abusivas, de acoso o inaceptables pueden reportarse al equipo de m
 📧 **`conduct@xerj.org`**
 
 ### Garantías del proceso:
-1. **Confidencialidad:** Todos los reclamos serán revisados e investigados de manera rápida, imparcial y confidencial.
+1. **Revisión:** Todos los reclamos serán revisados e investigados de manera rápida e imparcial.
 2. **Protección:** Los líderes están obligados a respetar la privacidad y seguridad de quien reporte cualquier incidente.
-3. **Conflicto de interés:** Si un reporte involucra a un miembro del equipo de moderación, ese miembro quedará excluido de la revisión e investigación del caso.
 
 ---
 
@@ -198,9 +197,9 @@ Los líderes de la comunidad seguirán estas pautas para determinar las consecue
 | Nivel | Impacto Comunitario | Consecuencia / Acción |
 | :--- | :--- | :--- |
 | **1. Corrección** | Uso de lenguaje inapropiado u otra conducta considerada no profesional o no bienvenida. | Advertencia privada por escrito especificando la naturaleza de la falta. Se puede solicitar una disculpa pública. |
-| **2. Advertencia** | Violación mediante un incidente único o una serie de acciones reiteradas. | Advertencia con consecuencias en caso de reincidencia. Prohibición de interacción temporal con los involucrados y canales de la comunidad. |
-| **3. Suspensión temporal** | Violación grave de los estándares de la comunidad o conducta inapropiada sostenida. | Prohibición temporal (*temporary ban*) de cualquier tipo de interacción o comunicación pública/privada en la comunidad por un período determinado. |
-| **4. Expulsión permanente** | Patrón repetido de violación, acoso sistemático o agresión/denigración hacia colectivos o individuos. | Prohibición permanente (*permanent ban*) de cualquier espacio e interacción dentro de la comunidad. |
+| **2. Advertencia** | Violación mediante un incidente único o una serie de acciones reiteradas. | Advertencia con consecuencias en caso de reincidencia. Durante un período determinado, no se permite interacción con las personas involucradas, incluida la interacción no solicitada con quienes hacen cumplir este Código. Esto incluye los espacios de la comunidad y los canales externos, como las redes sociales. Incumplir estas condiciones puede dar lugar a una suspensión temporal o una expulsión permanente. |
+| **3. Suspensión temporal** | Violación grave de los estándares de la comunidad o conducta inapropiada sostenida. | Prohibición temporal (*temporary ban*) de cualquier tipo de interacción o comunicación pública con la comunidad durante un período determinado. Durante ese período no se permite interacción pública ni privada con las personas involucradas, incluida la interacción no solicitada con quienes hacen cumplir este Código. Incumplir estas condiciones puede dar lugar a una expulsión permanente. |
+| **4. Expulsión permanente** | Patrón repetido de violación, acoso sistemático o agresión/denigración hacia colectivos o individuos. | Prohibición permanente (*permanent ban*) de cualquier tipo de interacción pública dentro de la comunidad. |
 
 ---
 

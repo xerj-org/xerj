@@ -546,4 +546,31 @@ mod chunk_tests {
         let _ = std::fs::remove_file(&p);
         assert_eq!(titles, ["Deploy runbook"]);
     }
+
+    #[test]
+    fn short_markdown_frontmatter_keeps_its_title_and_complete_body() {
+        let dir = tempfile::tempdir().unwrap();
+        for extension in [
+            "md", "MD", "markdown", "mdx", "mdown", "mkd", "mkdn", "mdwn",
+        ] {
+            let path = dir.path().join(format!("install.{extension}"));
+            let text = "---\ntitle: Install guide\n---\n\n- npm\n- pnpm\n- yarn\n";
+            std::fs::write(&path, text).unwrap();
+            assert_eq!(
+                crate::sniff::sniff(&path).unwrap().family,
+                crate::sniff::Family::TxtProse,
+                "short body must survive the YAML-looking bullets: {extension}"
+            );
+            let mut records = Vec::new();
+            extract_prose(&path, false, &mut |record| {
+                records.push(record);
+                true
+            })
+            .unwrap();
+            assert_eq!(records.len(), 1);
+            assert_eq!(records[0].fields["title"], "Install guide");
+            assert_eq!(records[0].fields["body"], text.trim());
+            assert_eq!(records[0].fields["start_line"], 1);
+        }
+    }
 }

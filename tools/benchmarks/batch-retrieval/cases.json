@@ -1,0 +1,529 @@
+[
+  {
+    "kind": "canonical",
+    "input": {
+      "key": "canonical-0",
+      "identifier": "RUSTSEC-2021-0003",
+      "field": "id"
+    },
+    "expected_ids": [
+      "RUSTSEC-2021-0003"
+    ]
+  },
+  {
+    "kind": "canonical",
+    "input": {
+      "key": "canonical-1",
+      "identifier": "RUSTSEC-2019-0012",
+      "field": "id"
+    },
+    "expected_ids": [
+      "RUSTSEC-2019-0012"
+    ]
+  },
+  {
+    "kind": "canonical",
+    "input": {
+      "key": "canonical-2",
+      "identifier": "RUSTSEC-2022-0013",
+      "field": "id"
+    },
+    "expected_ids": [
+      "RUSTSEC-2022-0013"
+    ]
+  },
+  {
+    "kind": "canonical",
+    "input": {
+      "key": "canonical-3",
+      "identifier": "RUSTSEC-2020-0071",
+      "field": "id"
+    },
+    "expected_ids": [
+      "RUSTSEC-2020-0071"
+    ]
+  },
+  {
+    "kind": "canonical",
+    "input": {
+      "key": "canonical-4",
+      "identifier": "RUSTSEC-2020-0019",
+      "field": "id"
+    },
+    "expected_ids": [
+      "RUSTSEC-2020-0019"
+    ]
+  },
+  {
+    "kind": "canonical",
+    "input": {
+      "key": "canonical-5",
+      "identifier": "RUSTSEC-2018-0018",
+      "field": "id"
+    },
+    "expected_ids": [
+      "RUSTSEC-2018-0018"
+    ]
+  },
+  {
+    "kind": "canonical",
+    "input": {
+      "key": "canonical-6",
+      "identifier": "RUSTSEC-2019-0031",
+      "field": "id"
+    },
+    "expected_ids": [
+      "RUSTSEC-2019-0031"
+    ]
+  },
+  {
+    "kind": "canonical",
+    "input": {
+      "key": "canonical-7",
+      "identifier": "RUSTSEC-2023-0005",
+      "field": "id"
+    },
+    "expected_ids": [
+      "RUSTSEC-2023-0005"
+    ]
+  },
+  {
+    "kind": "canonical",
+    "input": {
+      "key": "canonical-8",
+      "identifier": "RUSTSEC-2024-0346",
+      "field": "id"
+    },
+    "expected_ids": [
+      "RUSTSEC-2024-0346"
+    ]
+  },
+  {
+    "kind": "canonical",
+    "input": {
+      "key": "canonical-9",
+      "identifier": "GHSA-9gqx-53gp-c8g3",
+      "field": "id"
+    },
+    "expected_ids": [
+      "GHSA-9gqx-53gp-c8g3"
+    ]
+  },
+  {
+    "kind": "canonical",
+    "input": {
+      "key": "canonical-10",
+      "identifier": "GHSA-794x-2rpg-rfgr",
+      "field": "id"
+    },
+    "expected_ids": [
+      "GHSA-794x-2rpg-rfgr"
+    ]
+  },
+  {
+    "kind": "canonical",
+    "input": {
+      "key": "canonical-11",
+      "identifier": "RUSTSEC-2025-0152",
+      "field": "id"
+    },
+    "expected_ids": [
+      "RUSTSEC-2025-0152"
+    ]
+  },
+  {
+    "kind": "canonical",
+    "input": {
+      "key": "canonical-12",
+      "identifier": "RUSTSEC-2026-0028",
+      "field": "id"
+    },
+    "expected_ids": [
+      "RUSTSEC-2026-0028"
+    ]
+  },
+  {
+    "kind": "canonical",
+    "input": {
+      "key": "canonical-13",
+      "identifier": "GHSA-52h2-m2cf-9jh6",
+      "field": "id"
+    },
+    "expected_ids": [
+      "GHSA-52h2-m2cf-9jh6"
+    ]
+  },
+  {
+    "kind": "canonical",
+    "input": {
+      "key": "canonical-14",
+      "identifier": "RUSTSEC-2024-0448",
+      "field": "id"
+    },
+    "expected_ids": [
+      "RUSTSEC-2024-0448"
+    ]
+  },
+  {
+    "kind": "alias",
+    "input": {
+      "key": "alias-0",
+      "identifier": "CVE-2022-23523",
+      "field": "aliases"
+    },
+    "expected_ids": [
+      "GHSA-52h2-m2cf-9jh6"
+    ]
+  },
+  {
+    "kind": "alias",
+    "input": {
+      "key": "alias-1",
+      "identifier": "GHSA-6v2j-vr4h-f632",
+      "field": "aliases"
+    },
+    "expected_ids": [
+      "RUSTSEC-2025-0152"
+    ]
+  },
+  {
+    "kind": "alias",
+    "input": {
+      "key": "alias-2",
+      "identifier": "CVE-2021-28031",
+      "field": "aliases"
+    },
+    "expected_ids": [
+      "RUSTSEC-2021-0030"
+    ]
+  },
+  {
+    "kind": "alias",
+    "input": {
+      "key": "alias-3",
+      "identifier": "GHSA-3qm2-rfqw-fmrw",
+      "field": "aliases"
+    },
+    "expected_ids": [
+      "RUSTSEC-2021-0030"
+    ]
+  },
+  {
+    "kind": "alias",
+    "input": {
+      "key": "alias-4",
+      "identifier": "CVE-2021-28307",
+      "field": "aliases"
+    },
+    "expected_ids": [
+      "RUSTSEC-2021-0038"
+    ]
+  },
+  {
+    "kind": "alias",
+    "input": {
+      "key": "alias-5",
+      "identifier": "GHSA-7qcc-g2m9-8533",
+      "field": "aliases"
+    },
+    "expected_ids": [
+      "RUSTSEC-2021-0038"
+    ]
+  },
+  {
+    "kind": "alias",
+    "input": {
+      "key": "alias-6",
+      "identifier": "CVE-2026-75857",
+      "field": "aliases"
+    },
+    "expected_ids": [
+      "GHSA-g29h-pfmp-qp9r"
+    ]
+  },
+  {
+    "kind": "alias",
+    "input": {
+      "key": "alias-7",
+      "identifier": "GHSA-x958-rvg6-956w",
+      "field": "aliases"
+    },
+    "expected_ids": [
+      "RUSTSEC-2025-0041"
+    ]
+  },
+  {
+    "kind": "alias",
+    "input": {
+      "key": "alias-8",
+      "identifier": "CVE-2026-35373",
+      "field": "aliases"
+    },
+    "expected_ids": [
+      "GHSA-jcjr-rh8q-7xqf"
+    ]
+  },
+  {
+    "kind": "alias",
+    "input": {
+      "key": "alias-9",
+      "identifier": "GHSA-5wjr-9356-4wc8",
+      "field": "aliases"
+    },
+    "expected_ids": [
+      "RUSTSEC-2026-0384"
+    ]
+  },
+  {
+    "kind": "alias",
+    "input": {
+      "key": "alias-10",
+      "identifier": "CVE-2024-36400",
+      "field": "aliases"
+    },
+    "expected_ids": [
+      "RUSTSEC-2024-0343"
+    ]
+  },
+  {
+    "kind": "alias",
+    "input": {
+      "key": "alias-11",
+      "identifier": "GHSA-9hc7-6w9r-wj94",
+      "field": "aliases"
+    },
+    "expected_ids": [
+      "RUSTSEC-2024-0343"
+    ]
+  },
+  {
+    "kind": "alias",
+    "input": {
+      "key": "alias-12",
+      "identifier": "CVE-2019-16140",
+      "field": "aliases"
+    },
+    "expected_ids": [
+      "RUSTSEC-2019-0016"
+    ]
+  },
+  {
+    "kind": "alias",
+    "input": {
+      "key": "alias-13",
+      "identifier": "GHSA-xg7c-246g-6qpv",
+      "field": "aliases"
+    },
+    "expected_ids": [
+      "RUSTSEC-2026-0219"
+    ]
+  },
+  {
+    "kind": "alias",
+    "input": {
+      "key": "alias-14",
+      "identifier": "CVE-2026-35364",
+      "field": "aliases"
+    },
+    "expected_ids": [
+      "GHSA-m976-87wm-48fm"
+    ]
+  },
+  {
+    "kind": "missing",
+    "input": {
+      "key": "missing-0",
+      "identifier": "RUSTSEC-2021-00030",
+      "field": "id"
+    },
+    "expected_ids": []
+  },
+  {
+    "kind": "missing",
+    "input": {
+      "key": "missing-1",
+      "identifier": "RUSTSEC-2019-00120",
+      "field": "id"
+    },
+    "expected_ids": []
+  },
+  {
+    "kind": "missing",
+    "input": {
+      "key": "missing-2",
+      "identifier": "RUSTSEC-2022-00130",
+      "field": "id"
+    },
+    "expected_ids": []
+  },
+  {
+    "kind": "missing",
+    "input": {
+      "key": "missing-3",
+      "identifier": "RUSTSEC-2020-00710",
+      "field": "id"
+    },
+    "expected_ids": []
+  },
+  {
+    "kind": "missing",
+    "input": {
+      "key": "missing-4",
+      "identifier": "RUSTSEC-2020-00190",
+      "field": "id"
+    },
+    "expected_ids": []
+  },
+  {
+    "kind": "missing",
+    "input": {
+      "key": "missing-5",
+      "identifier": "RUSTSEC-2018-00180",
+      "field": "id"
+    },
+    "expected_ids": []
+  },
+  {
+    "kind": "missing",
+    "input": {
+      "key": "missing-6",
+      "identifier": "RUSTSEC-2019-00310",
+      "field": "id"
+    },
+    "expected_ids": []
+  },
+  {
+    "kind": "missing",
+    "input": {
+      "key": "missing-7",
+      "identifier": "RUSTSEC-2023-00050",
+      "field": "id"
+    },
+    "expected_ids": []
+  },
+  {
+    "kind": "missing",
+    "input": {
+      "key": "missing-8",
+      "identifier": "RUSTSEC-2024-03460",
+      "field": "id"
+    },
+    "expected_ids": []
+  },
+  {
+    "kind": "missing",
+    "input": {
+      "key": "missing-9",
+      "identifier": "GHSA-9gqx-53gp-c8g30",
+      "field": "id"
+    },
+    "expected_ids": []
+  },
+  {
+    "kind": "text",
+    "input": {
+      "key": "text-0",
+      "query": "SmallVec insert_many buffer overflow"
+    },
+    "expected_ids": [
+      "RUSTSEC-2021-0003"
+    ],
+    "label_basis": "Buffer overflow in SmallVec::insert_many"
+  },
+  {
+    "kind": "text",
+    "input": {
+      "key": "text-1",
+      "query": "SmallVec grow memory corruption"
+    },
+    "expected_ids": [
+      "RUSTSEC-2019-0012"
+    ],
+    "label_basis": "Memory corruption in SmallVec::grow()"
+  },
+  {
+    "kind": "text",
+    "input": {
+      "key": "text-2",
+      "query": "regex large repetitions empty sub-expressions parsing"
+    },
+    "expected_ids": [
+      "RUSTSEC-2022-0013"
+    ],
+    "label_basis": "Regexes with large repetitions on empty sub-expressions take a very long time to parse"
+  },
+  {
+    "kind": "text",
+    "input": {
+      "key": "text-3",
+      "query": "time crate potential segfault"
+    },
+    "expected_ids": [
+      "RUSTSEC-2020-0071"
+    ],
+    "label_basis": "Potential segfault in the time crate"
+  },
+  {
+    "kind": "text",
+    "input": {
+      "key": "text-4",
+      "query": "tokio rustls reads excessive memory usage"
+    },
+    "expected_ids": [
+      "RUSTSEC-2020-0019"
+    ],
+    "label_basis": "tokio-rustls reads may cause excessive memory usage"
+  },
+  {
+    "kind": "text",
+    "input": {
+      "key": "text-5",
+      "query": "smallvec uninitialized value any type"
+    },
+    "expected_ids": [
+      "RUSTSEC-2018-0018"
+    ],
+    "label_basis": "smallvec creates uninitialized value of any type"
+  },
+  {
+    "kind": "text",
+    "input": {
+      "key": "text-6",
+      "query": "spin no longer actively maintained"
+    },
+    "expected_ids": [
+      "RUSTSEC-2019-0031"
+    ],
+    "label_basis": "spin is no longer actively maintained"
+  },
+  {
+    "kind": "text",
+    "input": {
+      "key": "text-7",
+      "query": "tokio ReadHalf unsplit unsound"
+    },
+    "expected_ids": [
+      "RUSTSEC-2023-0005"
+    ],
+    "label_basis": "`tokio::io::ReadHalf<T>::unsplit` is Unsound"
+  },
+  {
+    "kind": "duplicate",
+    "input": {
+      "key": "canonical-0",
+      "identifier": "RUSTSEC-2021-0003",
+      "field": "id"
+    },
+    "expected_ids": [
+      "RUSTSEC-2021-0003"
+    ]
+  },
+  {
+    "kind": "invalid",
+    "input": {
+      "key": "invalid",
+      "query": 17
+    },
+    "expected_ids": []
+  }
+]

@@ -72,8 +72,15 @@ The batch path uses `_msearch` rather than repeated `_search` calls. Plain-text
 items reuse the mapping-aware search query and code-path demotion; the engine's
 `_msearch` renderer returns stored evidence, not `_search`'s extracted `_passage`
 field. Rerank/judge and per-item scopes/options are not exposed here. No latency,
-model-token savings, rust-vulns accuracy or confidence claim is made.
+model-token savings or confidence claim is made by this recipe.
+
+For a pinned rust-vulns retrieval evaluation comparing 50-item batches with
+one-item calls over both CLI and persistent MCP, see
+[the batch retrieval harness](../../tools/benchmarks/batch-retrieval/README.md).
+It measures labelled ID lookup, known-item text hit@3, retrieval abstentions,
+warm task latency and payload BPE tokens; these are not generated-answer or
+complete agent-task cost measurements.
 
 This is the batch retrieval part of [#1801](https://github.com/xerj-org/xerj/issues/1801).
-Full answer/abstain calibration, alias-aware ID discovery and the requested
-rust-vulns evaluation remain separate work; this does not close that issue.
+Full answer/abstain calibration and alias-aware ID discovery remain separate
+work; the adapter and retrieval evaluation do not close that issue.

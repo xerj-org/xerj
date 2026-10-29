@@ -488,7 +488,11 @@ fn sniff_bytes(
         .filter(|l| !l.trim().is_empty())
         .collect();
 
-    let mut out = mk(classify_text(&text, &nonblank));
+    let md_named = logical_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(is_markdown_ext);
+    let mut out = mk(classify_text(&text, &nonblank, md_named));
     out.encoding = encoding;
     if out.family == Family::Csv {
         out.csv = sniff_csv_dialect(&nonblank);
@@ -1400,7 +1404,20 @@ pub fn decode_text(bytes: &[u8]) -> (String, &'static str) {
     decode(bytes)
 }
 
-fn classify_text(text: &str, nonblank: &[&str]) -> Family {
+/// Markdown extensions that conventionally carry a `---` frontmatter block.
+/// Used to settle the one case the line-shape tier cannot: `- item` bullets and
+/// `Key: value` prose are valid YAML too, so content alone cannot tell a short
+/// markdown body from a YAML document (#2447). Extension is the same signal the
+/// code branch above already trusts for "code vs prose is not reliably
+/// content-sniffable".
+fn is_markdown_ext(ext: &str) -> bool {
+    matches!(
+        ext.to_ascii_lowercase().as_str(),
+        "md" | "markdown" | "mdx" | "mdown" | "mkd" | "mkdn" | "mdwn"
+    )
+}
+
+fn classify_text(text: &str, nonblank: &[&str], md_named: bool) -> Family {
     // Email wins first: an RFC 5322 message opens with a header block whose lines
     // (`From:`/`Date:`/`Message-ID:`/…) would otherwise be misread as prose or a
     // key:value log. Gated on a STRONG header plus >=3 canonical headers so an
@@ -1444,31 +1461,50 @@ fn classify_text(text: &str, nonblank: &[&str]) -> Family {
             // frontmatter file with a single non-blank body line still went to
             // the YAML extractor, which keeps the frontmatter mapping and drops
             // that line. One line is enough to judge on its shape.
-            if !body.is_empty() && yaml_like_count(body) * 2 < body.len() {
+            if !body.is_empty() {
                 let body_text = body.join("\n");
-                // #587 item 1: classify the body by its real structured family
-                // (JSON/CSV/HTML/logs/SQL), not prose-only, so a
-                // frontmatter-over-CSV/JSON body matches its frontmatter-less
-                // twin. `classify_structured` never re-enters this
-                // YAML/frontmatter branch, so a recursive frontmatter parse
-                // cannot occur. It runs before the parse tier below because
-                // JSON *is* valid YAML — measured over 36,936 real
-                // frontmatter-shaped files, putting the parse first pulled 341
-                // JSON bodies and one XML body back into `Yaml` and undid #587
-                // item 1 for them.
-                if let Some(family) = classify_structured(&body_text, body) {
-                    return family;
+                // #2447: a markdown *name* settles the question the line tier
+                // cannot. `- item` bullets and `Key: value` prose are valid YAML
+                // too, so a short markdown body under frontmatter failed
+                // `yaml_like_count(body) * 2 < body.len()` and skipped the parse
+                // tier entirely — falling through to `leads_with_marker` below,
+                // which sent the whole file to the YAML extractor and dropped the
+                // body. Measured on six realistic short-post shapes (bullet list,
+                // link list, `Note:`/`Warning:` prose, heading + list, one-line
+                // body, plain paragraph), four classified `Yaml`; the frontmatter
+                // that every Jekyll/Hugo/Docusaurus/MkDocs/Astro page carries was
+                // enough to make a docs corpus unsearchable. A `.md`/`.mdx` file
+                // that opens with `---` has frontmatter there, not a YAML document
+                // separator, so its body decides. `classify_structured` still runs
+                // first, so a frontmatter-over-CSV/JSON body keeps its structured
+                // family (#587 item 1).
+                let body_decides = md_named || yaml_like_count(body) * 2 < body.len();
+                if body_decides {
+                    // #587 item 1: classify the body by its real structured family
+                    // (JSON/CSV/HTML/logs/SQL), not prose-only, so a
+                    // frontmatter-over-CSV/JSON body matches its frontmatter-less
+                    // twin. `classify_structured` never re-enters this
+                    // YAML/frontmatter branch, so a recursive frontmatter parse
+                    // cannot occur. It runs before the parse tier below because
+                    // JSON *is* valid YAML — measured over 36,936 real
+                    // frontmatter-shaped files, putting the parse first pulled 341
+                    // JSON bodies and one XML body back into `Yaml` and undid #587
+                    // item 1 for them.
+                    if let Some(family) = classify_structured(&body_text, body) {
+                        return family;
+                    }
+                    // #587 item 2: the line-shape test above is not enough on its
+                    // own — a genuine multi-document YAML stream whose later
+                    // document is dominated by block scalars, comments and
+                    // continuation lines fails it and was re-classified as prose,
+                    // losing its per-document key structure. Parse the body: a real
+                    // stream parses, a markdown body does not
+                    // (`parses_as_yaml_stream`).
+                    if md_named || !parses_as_yaml_stream(&body_text) {
+                        return txt_kind(body);
+                    }
+                    // else: a real YAML stream — fall through to `Family::Yaml`.
                 }
-                // #587 item 2: the line-shape test above is not enough on its
-                // own — a genuine multi-document YAML stream whose later
-                // document is dominated by block scalars, comments and
-                // continuation lines fails it and was re-classified as prose,
-                // losing its per-document key structure. Parse the body: a real
-                // stream parses, a markdown body does not (`parses_as_yaml_stream`).
-                if !parses_as_yaml_stream(&body_text) {
-                    return txt_kind(body);
-                }
-                // else: a real YAML stream — fall through to `Family::Yaml`.
             }
         }
     }
@@ -4273,7 +4309,7 @@ mod tests {
 
     fn classify(s: &str) -> Family {
         let lines: Vec<&str> = s.lines().filter(|l| !l.trim().is_empty()).collect();
-        classify_text(s, &lines)
+        classify_text(s, &lines, false)
     }
 
     #[test]
@@ -4868,7 +4904,64 @@ mod text_family_tests {
     /// through the real entry point rather than against `txt_kind` directly.
     fn classify_full(text: &str) -> Family {
         let nonblank: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
-        classify_text(text, &nonblank)
+        classify_text(text, &nonblank, false)
+    }
+
+    /// Same, as a file whose name says markdown (#2447).
+    fn classify_full_named(text: &str, md_named: bool) -> Family {
+        let nonblank: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+        classify_text(text, &nonblank, md_named)
+    }
+
+    /// #2447: a short markdown file with YAML frontmatter was still sniffed as
+    /// YAML, so the YAML extractor kept the frontmatter mapping and dropped the
+    /// body — a docs corpus that is mostly short pages indexed nothing searchable.
+    ///
+    /// The line tier cannot decide this on its own: `- item` bullets and
+    /// `Key: value` prose are valid YAML. All four shapes below were `Yaml`
+    /// before this change, and a frontmatter-less twin of each was prose. The
+    /// name is what settles it, exactly as the code branch settles "code vs
+    /// prose" by extension.
+    #[test]
+    fn short_markdown_with_frontmatter_is_not_yaml() {
+        let bodies = [
+            "- npm\n- pnpm\n- yarn\n",
+            "- [Install](install.md)\n- [Usage](usage.md)\n",
+            "Note: read this first\nWarning: mind the gap\n",
+            "# Steps\n\n- one\n- two\n",
+        ];
+        for body in bodies {
+            let with_frontmatter = format!("---\ntitle: A page\ntags: [a, b]\n---\n\n{body}");
+            // The content-only decision is the bug, stated here so the test
+            // carries its own before/after: bullets and `Key: value` prose are
+            // valid YAML, so nothing in the text says markdown.
+            assert_eq!(
+                classify_full_named(&with_frontmatter, false),
+                Family::Yaml,
+                "content alone reads this as YAML, body was {body:?}"
+            );
+            assert_eq!(
+                classify_full_named(&with_frontmatter, true),
+                Family::TxtProse,
+                "a .md file with frontmatter must index its body, body was {body:?}"
+            );
+        }
+    }
+
+    /// The markdown name must not swallow a genuinely structured body: the
+    /// frontmatter-over-CSV case from #587 item 1 still resolves by the body.
+    #[test]
+    fn a_markdown_name_does_not_override_a_structured_body() {
+        let csv = "---\ntitle: Team roster\n---\n\nname,role\nalice,eng\nbob,design\n";
+        assert_eq!(classify_full_named(csv, true), Family::Csv);
+    }
+
+    /// A name that does not say markdown keeps the old content-only decision, so
+    /// a real YAML stream under `---` is still YAML.
+    #[test]
+    fn a_yaml_stream_keeps_yaml_when_the_name_does_not_say_markdown() {
+        let stream = "---\napiVersion: v1\nkind: List\n---\napiVersion: v1\nkind: Pod\n";
+        assert_eq!(classify_full_named(stream, false), Family::Yaml);
     }
 
     /// #1504: `journalctl -o short-iso` output and vsftpd `xferlog` transfer

@@ -47,7 +47,8 @@ Usage (CI):
   check_cla_coauthors.py --is-self-cla-signature --pr <n> --base-sha <sha> --head-sha <sha>
     Exits 0 iff the PR, evaluated at exactly --head-sha, is a CLA signature by
     its own author: the only change is `.contributors` gaining the author's own
-    login, every commit is authored by the PR author, and no Co-authored-by
+    login, the PR author has a commit, and all other commits are base-branch
+    merges by already-signed authors. No Co-authored-by
     trailer names an unsigned contributor. Everything (changed files, commits,
     both `.contributors` versions) is read pinned to --base-sha...--head-sha, so
     the status the CI job posts on --head-sha describes that commit and no
@@ -185,7 +186,9 @@ def is_self_cla_signature(
       SHA being judged.
     base_contributors / head_contributors: parsed `.contributors` at the merge
       base and at the head SHA.
-    commits: [{"sha", "message", "author_login"}] — every commit in the PR.
+    commits: [{"sha", "message", "author_login", "merges_base"?}] — every
+      commit in the PR. `merges_base` is set only after the API confirms that
+      a two-parent commit's second parent is an ancestor of the pinned base.
 
     Rejects a PR that:
       - changes any file other than `.contributors`, or reaches it by a rename
@@ -195,7 +198,8 @@ def is_self_cla_signature(
       - adds anything other than exactly ONE entry, that entry being a valid
         GitHub login equal (ASCII case-insensitively) to the PR author;
       - comes from an author who is already signed (nothing to sign);
-      - has no commits, or any commit not authored by the PR author; or
+      - has no commit authored by the PR author, or any other commit except
+        a proven base-branch merge by an author signed at the merge base; or
       - carries a Co-authored-by trailer that is unresolvable or unsigned.
     """
     if not is_contributors_only_change(files):
@@ -230,10 +234,18 @@ def is_self_cla_signature(
 
     if not commits or len(commits) > MAX_SIGNATURE_COMMITS:
         return False
+    signed_base = {c.lower() for c in base_contributors}
+    has_own_commit = False
     for commit in commits:
         login = commit.get("author_login")
-        if not _is_login(login) or login.lower() != author:
+        if not _is_login(login):
             return False
+        if login.lower() == author:
+            has_own_commit = True
+        elif not (login.lower() in signed_base and commit.get("merges_base") is True):
+            return False
+    if not has_own_commit:
+        return False
     if check_commits(commits, head_contributors, resolve):
         return False
     return True
@@ -341,6 +353,31 @@ def _fetch_contributors_at(repo, sha):
 _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
+def _merges_pinned_base(repo, commit, base_sha):
+    """Prove a normal merge of the base branch into the contributor branch.
+
+    A message saying 'Merge main' or two parents alone proves nothing. Read
+    the immutable second parent's ancestry relative to the pinned base. An
+    unrelated branch, an octopus merge, missing data or an API error refuses
+    the exception. The first-parent signature stays in the checked PR range.
+    """
+    parents = commit.get("parents")
+    if not isinstance(parents, list) or len(parents) != 2:
+        return False
+    if not all(isinstance(p, dict) and isinstance(p.get("sha"), str)
+               and _SHA_RE.fullmatch(p["sha"]) for p in parents):
+        return False
+    parent = parents[1]["sha"]
+    if parent == base_sha:
+        return True
+    try:
+        ancestry = _gh_api_one(f"repos/{repo}/compare/{parent}...{base_sha}")
+        return (ancestry.get("status") in ("ahead", "identical")
+                and (ancestry.get("merge_base_commit") or {}).get("sha") == parent)
+    except (subprocess.CalledProcessError, AttributeError, KeyError, ValueError, TypeError):
+        return False
+
+
 def _self_cla_signature_main(args):
     """--is-self-cla-signature: judge the PR at exactly args.head_sha."""
     if args.pr is None or not args.base_sha or not args.head_sha:
@@ -366,7 +403,8 @@ def _self_cla_signature_main(args):
             f"repos/{args.repo}/compare/{args.base_sha}...{args.head_sha}"
         )
         raw_commits = cmp.get("commits") or []
-        if cmp.get("total_commits") != len(raw_commits):
+        if (cmp.get("total_commits") != len(raw_commits)
+                or len(raw_commits) > MAX_SIGNATURE_COMMITS):
             return 1  # truncated list: cannot prove every commit was checked
         merge_base = (cmp.get("merge_base_commit") or {}).get("sha") or ""
         if not _SHA_RE.match(merge_base):
@@ -377,6 +415,10 @@ def _self_cla_signature_main(args):
                 "sha": c["sha"],
                 "message": c["commit"]["message"],
                 "author_login": (c.get("author") or {}).get("login"),
+                "merges_base": (
+                    ((c.get("author") or {}).get("login") or "").lower() != pr_author.lower()
+                    and _merges_pinned_base(args.repo, c, args.base_sha)
+                ),
             }
             for c in raw_commits
         ]

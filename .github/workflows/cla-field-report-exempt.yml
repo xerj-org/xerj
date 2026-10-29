@@ -6,8 +6,11 @@ name: CLA field-report exemption
 #  1. A field-report-only PR: its ENTIRE diff is agent field reports — markdown
 #     files under user-feedback/16-agent-field-reports/.
 #  2. A self-CLA-signature PR: its ENTIRE diff is `.contributors` gaining ONE
-#     entry, the PR author's own login, with every commit authored by that
-#     author (scripts/check_cla_coauthors.py --is-self-cla-signature).
+#     entry, the PR author's own login, with a commit by that author. Other
+#     commits may only merge the pinned base (or an ancestor) into the branch,
+#     authored by someone already signed at the merge base. This preserves the
+#     original signature when a maintainer resolves an append conflict
+#     (scripts/check_cla_coauthors.py --is-self-cla-signature).
 #
 # Why a separate job at all: `verification/cla-signed` is normally posted by the
 # external cla-bot GitHub App, which matches commit AUTHORS against .contributors
