@@ -13,6 +13,7 @@
   "WRITE"
  ],
  "corpora": [
+  {"cat": "WRITE", "domain": "An agent inspecting or safely editing Markdown queries this for Texio heading selection, section extraction, dry-run replacements, ambiguity refusal, and tested CLI workflows.", "lane": "A", "refresh": "pinned", "slug": "texio", "sources": [{"licence_hint": "MIT AND BSD-3-Clause; reviewed at pin, see manifest review", "url": "https://github.com/Allra-Fintech/texio"}], "status": "live", "tags": {"region": "GLOBAL", "topics": ["markdown", "agent-tools"]}},
   {
    "cat": "DB",
    "domain": "an agent working on full-text search internals queries this for how lucene/tantivy/quickwit/meilisearch/sonic/elasticsearch do BM25, merge policy and the ES wire",

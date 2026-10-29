@@ -1,0 +1,21 @@
+{
+  "corpus": "texio",
+  "cloned_at": "2026-10-29T06:13:32Z",
+  "repos": [
+    {
+      "repo": "texio",
+      "url": "https://github.com/Allra-Fintech/texio.git",
+      "licence": "MIT",
+      "sha": "4ea70985b9c2c2e5b8732b7959ee9e2228824b3a",
+      "files": 104,
+      "bytes": 588509,
+      "review": {
+        "spdx": "MIT AND BSD-3-Clause",
+        "use": "adapt-with-attribution",
+        "by": "@JonghunYu (review assisted by Codex)",
+        "at": "2026-10-29",
+        "note": "Read LICENSE at the pinned commit: MIT, Copyright (c) 2026 Texio contributors; Cargo.toml agrees. Also read launch/agent-validation/workflow-baselines.NOTICE: BSD-3-Clause, Copyright (c) 2025 Gnosis Research Center, Illinois Institute of Technology, covering clio_cleanup and substring_extract in scripts/reproduce-assisted-cases.py, derived from iowarp/clio-kit at 93e41d70d6c25ea22c82a39c25c510816e67e8ef. Both permit redistribution and adaptation; retain the applicable copyright, licence and disclaimer notices, observe the BSD non-endorsement clause, and cite source file:line. Source: https://github.com/Allra-Fintech/texio/tree/4ea70985b9c2c2e5b8732b7959ee9e2228824b3a"
+      }
+    }
+  ]
+}
