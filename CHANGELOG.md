@@ -35,6 +35,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A restarted node that receives no writes no longer starts its indices'
+  inherited merges a few seconds after boot (#2427, PR
+  [#2492](https://github.com/xerj-org/xerj/pull/2492)). In the 1 GB release
+  gate the restarted search node merged every index's debt at once, which kept
+  the memory breaker engaged (RSS 5,937 MB on a 3,072 MB cap) and every raw and
+  MCP query got a 429. An opened index now waits until its first write or a
+  quiet period of 120 s (`XERJ_MERGE_OPEN_QUIET_SECS`; `0` restores the old
+  behaviour) before it evaluates that debt.
+
 - `xerj autoindex` now says why a source file over the 2 MiB code cap is
   skipped (#2483). Such a file (generated stubs, minified bundles) used to be
   reported as "no records extracted (code candidate family, 1 junk lines)",

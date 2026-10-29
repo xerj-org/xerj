@@ -6991,6 +6991,99 @@ mod merge_publication_transaction_tests {
         }
     }
 
+    /// #2427 — a reopened index full of merge debt and receiving no writes
+    /// must not start merging at boot. Gate 6's search node (no writes)
+    /// launched open-time merges seconds after restart, one with a 3,985 MB
+    /// reservation on a 3,072 MB cap. Seed segments with scheduling stopped,
+    /// reopen with the scheduler live, and walk the paused clock.
+    async fn seed_segments_for_reopen(dir: &TempDir, name: &str, segments: usize) {
+        let (engine, index) = hand_driven_index(dir, name, Schema::empty());
+        for n in 0..segments {
+            index
+                .index_document(Some(format!("d{n}")), serde_json::json!({"value": n}))
+                .await
+                .unwrap();
+            index.flush().await.unwrap();
+        }
+        assert_eq!(index.store.snapshot().segments.len(), segments);
+        drop(index);
+        drop(engine);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn reopened_index_without_writes_runs_no_merge_during_open_grace() {
+        const SEGMENTS: usize = 12;
+        let dir = TempDir::new().unwrap();
+        seed_segments_for_reopen(&dir, "open-grace", SEGMENTS).await;
+
+        let engine = Engine::new(config(&dir)).unwrap();
+        let index = engine.get_index("open-grace").unwrap();
+        assert!(index.merge_open_grace_active());
+        // 110 s of an idle node: the old code evaluated (and merged) after
+        // the first 5 s debounce.
+        for _ in 0..11 {
+            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            tokio::task::yield_now().await;
+            assert_eq!(
+                index.merge_evaluation_count(),
+                0,
+                "merge evaluated in grace"
+            );
+            assert!(!index.is_merge_in_progress(), "merge ran in grace");
+        }
+        assert_eq!(index.store.snapshot().segments.len(), SEGMENTS);
+        // After the quiet period the debt is paid as before.
+        settle_merge_scheduler(&index).await;
+        assert!(!index.merge_open_grace_active());
+        assert!(index.merge_evaluation_count() >= 1);
+        assert!(
+            index.store.snapshot().segments.len() < SEGMENTS,
+            "open-time merge debt was never paid after the grace"
+        );
+        let docs = index
+            .search(&SearchRequest::default())
+            .await
+            .unwrap()
+            .total
+            .value;
+        assert_eq!(docs, SEGMENTS as u64);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_write_ends_the_open_grace_early() {
+        let dir = TempDir::new().unwrap();
+        seed_segments_for_reopen(&dir, "open-grace-write", 6).await;
+
+        let engine = Engine::new(config(&dir)).unwrap();
+        let index = engine.get_index("open-grace-write").unwrap();
+        tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+        tokio::task::yield_now().await;
+        assert_eq!(index.merge_evaluation_count(), 0);
+        let started = tokio::time::Instant::now();
+        index
+            .index_document(Some("w".into()), serde_json::json!({"value": "w"}))
+            .await
+            .unwrap();
+        index.flush().await.unwrap();
+        assert!(
+            !index.merge_open_grace_active(),
+            "a flushed write ends the grace"
+        );
+        let wake_deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+        while index.merge_evaluation_count() == 0 {
+            std::thread::sleep(std::time::Duration::from_millis(15));
+            tokio::task::yield_now().await;
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            assert!(
+                std::time::Instant::now() < wake_deadline,
+                "a write during the grace did not schedule a merge check"
+            );
+        }
+        // Well inside the 120 s quiet period: the write, not the clock,
+        // released the check.
+        assert!(started.elapsed() < std::time::Duration::from_secs(60));
+    }
+
     #[tokio::test]
     async fn partial_multi_batch_failure_is_reported_without_losing_either_batch() {
         let dir = TempDir::new().unwrap();
@@ -10685,6 +10778,17 @@ pub struct Index {
     /// hand-driven test fixtures). Matches the old semantics where the
     /// aborted per-index tick task was never respawned.
     merge_scheduling_stopped: std::sync::atomic::AtomicBool,
+    /// #2427 — open-time merge grace. `Index::open` arms one merge check for
+    /// pre-existing debt; until the first segment-set change after open (a
+    /// write flushed) or [`Index::merge_open_quiet`] elapsed since
+    /// `merge_opened_at`, that check waits instead of evaluating. Created
+    /// indices start with it off.
+    merge_open_grace: std::sync::atomic::AtomicBool,
+    /// Wakes a grace-parked merge check as soon as a write ends the grace.
+    merge_open_grace_notify: Arc<tokio::sync::Notify>,
+    /// When this `Index` was constructed (tokio clock, so paused-clock tests
+    /// drive the grace deterministically).
+    merge_opened_at: tokio::time::Instant,
     /// #871 — number of merge-policy evaluations actually run (passes
     /// that won the `merge_in_progress` flag and snapshotted the segment
     /// registry). Observability for the idle-cost contract: on an idle
@@ -11144,6 +11248,9 @@ impl Index {
             merge_check_armed: std::sync::atomic::AtomicBool::new(false),
             merge_events: AtomicU64::new(0),
             merge_scheduling_stopped: std::sync::atomic::AtomicBool::new(false),
+            merge_open_grace: std::sync::atomic::AtomicBool::new(false),
+            merge_open_grace_notify: Arc::new(tokio::sync::Notify::new()),
+            merge_opened_at: tokio::time::Instant::now(),
             merge_evaluations: AtomicU64::new(0),
             merge_fts_reanalysed_docs: Arc::new(AtomicU64::new(0)),
             merge_batches_deferred: std::sync::atomic::AtomicBool::new(false),
@@ -11609,6 +11716,9 @@ impl Index {
             merge_check_armed: std::sync::atomic::AtomicBool::new(false),
             merge_events: AtomicU64::new(0),
             merge_scheduling_stopped: std::sync::atomic::AtomicBool::new(false),
+            merge_open_grace: std::sync::atomic::AtomicBool::new(true),
+            merge_open_grace_notify: Arc::new(tokio::sync::Notify::new()),
+            merge_opened_at: tokio::time::Instant::now(),
             merge_evaluations: AtomicU64::new(0),
             merge_fts_reanalysed_docs: Arc::new(AtomicU64::new(0)),
             merge_batches_deferred: std::sync::atomic::AtomicBool::new(false),
@@ -11633,6 +11743,12 @@ impl Index {
         // written — that no future event would pay off on a read-only
         // index. Schedule one debounced check now; it quiesces after a
         // single evaluation when there is nothing to do.
+        //
+        // #2427: that check waits out the open grace (`merge_open_grace`):
+        // a restarted node with no writes used to launch every index's
+        // debt merges 5 s after boot, on top of the first searches'
+        // segment opens. The grace ends at the first write or after
+        // `merge_open_quiet()`, whichever comes first.
         index.request_merge_check();
         // RC4 W2 item 17: a flush-time-stale HNSW snapshot used to stay
         // stale for the rest of the process lifetime (ingest kept paying
@@ -15907,11 +16023,41 @@ impl Index {
         std::time::Duration::from_secs(secs.max(1))
     }
 
+    /// #2427 — how long an opened index with no writes waits before its
+    /// open-time merge check evaluates. `XERJ_MERGE_OPEN_QUIET_SECS`
+    /// (default 120 s; `0` restores the old behaviour of checking one
+    /// debounce after open).
+    fn merge_open_quiet() -> std::time::Duration {
+        let secs = std::env::var("XERJ_MERGE_OPEN_QUIET_SECS")
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .unwrap_or(120);
+        std::time::Duration::from_secs(secs)
+    }
+
+    /// #2427 — end the open-time merge grace (a write arrived) and wake a
+    /// merge check parked on it.
+    fn end_merge_open_grace(&self) {
+        if self
+            .merge_open_grace
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+        {
+            self.merge_open_grace_notify.notify_one();
+        }
+    }
+
+    /// Whether the open-time merge grace is still in force.
+    pub fn merge_open_grace_active(&self) -> bool {
+        self.merge_open_grace
+            .load(std::sync::atomic::Ordering::SeqCst)
+    }
+
     /// #871 — the segment set changed (the [`IndexStore`
     /// segments-changed hook](xerj_storage::index_store::IndexStore::set_segments_changed_hook)
     /// lands here): bump the event epoch, then make sure a debounced merge
     /// check is scheduled.
     fn on_segments_changed(self: &Arc<Self>) {
+        self.end_merge_open_grace();
         self.merge_events
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         self.request_merge_check();
@@ -15989,6 +16135,28 @@ impl Index {
                     None => return,
                 };
                 tokio::time::sleep(delay).await;
+                // #2427 — open grace: no merge evaluation on a freshly
+                // opened index until a write arrives or the quiet period
+                // has passed. The weak handle is not upgraded across the
+                // wait, so a dropped index still ends this task.
+                let grace = match weak.upgrade() {
+                    Some(idx) if idx.merge_open_grace.load(AtomicOrdering::SeqCst) => Some((
+                        idx.merge_opened_at + Self::merge_open_quiet(),
+                        Arc::clone(&idx.merge_open_grace_notify),
+                    )),
+                    Some(_) => None,
+                    None => return,
+                };
+                if let Some((deadline, notify)) = grace {
+                    tokio::select! {
+                        _ = tokio::time::sleep_until(deadline) => {}
+                        _ = notify.notified() => {}
+                    }
+                    match weak.upgrade() {
+                        Some(idx) => idx.end_merge_open_grace(),
+                        None => return,
+                    }
+                }
                 let Some(idx) = weak.upgrade() else { return };
                 if idx.merge_scheduling_stopped.load(AtomicOrdering::SeqCst) {
                     idx.merge_check_armed.store(false, AtomicOrdering::SeqCst);
