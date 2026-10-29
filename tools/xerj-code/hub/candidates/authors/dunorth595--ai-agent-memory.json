@@ -8,15 +8,15 @@
   {
    "repo": "ai_agent_memory",
    "url": "https://github.com/DuNorth595/ai_agent_memory",
-   "sha": "3e24bead7ba96b3715b5395f42548a32f6b6ef75",
-   "licence": "MIT (LICENSE file at pin 3e24bead7ba9, GitHub licence API 2026-10-29)",
+   "sha": "dbb21c7b2ce98710d86feb759b436067ada37445",
+   "licence": "MIT (LICENSE file at pin dbb21c7b2ce9, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T19:14Z",
     "consent_receipt": "eac8d724ad4a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:14Z (receipt eac8d724ad4a); pinned to the default-branch head. LICENSE file at pin 3e24bead7ba9 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:14Z (receipt eac8d724ad4a); pinned to the default-branch head. LICENSE file at pin dbb21c7b2ce9 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
    }
   }
  ]

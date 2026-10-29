@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--vbnet-algorithms-and-data-structures",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on vbnet, algorithms, console-application queries this for how fazal305/vbnet-algorithms-and-data-structures implements it: Collection of beginner VB.NET console projects covering algorithms, data structures, OOP, recursion, and programming fundamentals",
+ "repos": [
+  {
+   "repo": "vbnet-algorithms-and-data-structures",
+   "url": "https://github.com/fazal305/vbnet-algorithms-and-data-structures",
+   "sha": "c992e3792790d3dc614a487868035a5e8912663a",
+   "licence": "author's permission (LICENSE at pin c992e3792790: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "d10e97d5b416",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt d10e97d5b416); pinned to the default-branch head. LICENSE at pin c992e3792790: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

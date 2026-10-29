@@ -1,0 +1,23 @@
+{
+ "corpus": "pierofra--def-controller-auto",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on animation, blender, blender-addon queries this for how PieroFra/def-controller-auto implements it: Blender add-on (4.2 LTS / 5.x) to automatically generate custom-shaped CTRL bones from DEF bones, with bone collections, colors, mirror L/R,",
+ "repos": [
+  {
+   "repo": "def-controller-auto",
+   "url": "https://github.com/PieroFra/def-controller-auto",
+   "sha": "e64025f81debe1cdc78fa148d28ad8e0e59bc239",
+   "licence": "GPL-3.0 (LICENSE file at pin e64025f81deb, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T09:25Z",
+    "consent_receipt": "2ef429ef0500",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T09:25Z (receipt 2ef429ef0500); pinned to the default-branch head. LICENSE file at pin e64025f81deb detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

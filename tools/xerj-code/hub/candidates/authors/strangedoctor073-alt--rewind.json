@@ -1,0 +1,23 @@
+{
+ "corpus": "strangedoctor073-alt--rewind",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how strangedoctor073-alt/Rewind implements it: Rewind interactions on the web \u2014 record, inspect, and replay browser events",
+ "repos": [
+  {
+   "repo": "Rewind",
+   "url": "https://github.com/strangedoctor073-alt/Rewind",
+   "sha": "ee8033a8ed812232e685c011dfa2afae3b37555a",
+   "licence": "MIT (LICENSE file at pin ee8033a8ed81, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:14Z",
+    "consent_receipt": "f7362bc49d97",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:14Z (receipt f7362bc49d97); pinned to the default-branch head. LICENSE file at pin ee8033a8ed81 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

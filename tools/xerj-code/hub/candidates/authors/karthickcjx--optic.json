@@ -2,8 +2,8 @@
  "corpus": "karthickcjx--optic",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how Karthickcjx/Optic implements it: Karthickcjx/Optic (TypeScript) (selected work: src/main, tests, src/renderer)",
+ "shelf": "OPS",
+ "domain": "an agent working on devops, electron, helm queries this for how Karthickcjx/Optic implements it: Independent open-source Kubernetes desktop workspace with resource management, Helm, logs, terminals and metrics (selected work: src/main, tests, src/renderer)",
  "repos": [
   {
    "repo": "Optic",

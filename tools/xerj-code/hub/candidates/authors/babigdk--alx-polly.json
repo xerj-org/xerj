@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--alx-polly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Babigdk/alx-polly implements it: Babigdk/alx-polly (TypeScript)",
+ "repos": [
+  {
+   "repo": "alx-polly",
+   "url": "https://github.com/Babigdk/alx-polly",
+   "sha": "af680e19bbcf6a9a84551cf69016465f311cb3dd",
+   "licence": "author's permission (LICENSE at pin af680e19bbcf: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "1dfad171cd03",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt 1dfad171cd03); pinned to the default-branch head. LICENSE at pin af680e19bbcf: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

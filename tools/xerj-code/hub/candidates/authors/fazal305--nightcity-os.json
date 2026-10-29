@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--nightcity-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css, html, javascript queries this for how fazal305/nightcity-os implements it: Browser-based cyberpunk operating system with windows, apps, themes, APIs, and Canvas effects",
+ "repos": [
+  {
+   "repo": "nightcity-os",
+   "url": "https://github.com/fazal305/nightcity-os",
+   "sha": "c3ed9ede65984434faaa9506071fc8b68ab4b34d",
+   "licence": "MIT-0 (LICENSE file at pin c3ed9ede6598, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT-0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "b249239ddfaa",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt b249239ddfaa); pinned to the default-branch head. LICENSE file at pin c3ed9ede6598 detected as MIT-0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

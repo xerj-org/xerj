@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--firebase-habit-tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css, firebase, html queries this for how fazal305/firebase-habit-tracker implements it: A Firebase-powered habit tracker with authentication, Firestore sync, daily completions, streaks, and weekly progress",
+ "repos": [
+  {
+   "repo": "firebase-habit-tracker",
+   "url": "https://github.com/fazal305/firebase-habit-tracker",
+   "sha": "2f4f7146b8e6cf0167a6a60c17e9b446c9174cff",
+   "licence": "MIT (LICENSE file at pin 2f4f7146b8e6, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "cc662df729a7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt cc662df729a7); pinned to the default-branch head. LICENSE file at pin 2f4f7146b8e6 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

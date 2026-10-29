@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--starforge-mmo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on express, javascript, jwt queries this for how fazal305/starforge-mmo implements it: STARFORGE \u2014 real-time multiplayer space strategy MMO (React, WebSockets, server-authoritative simulation)",
+ "repos": [
+  {
+   "repo": "starforge-mmo",
+   "url": "https://github.com/fazal305/starforge-mmo",
+   "sha": "a993b357c907469e9ed72e3f911ac232462a1272",
+   "licence": "author's permission (LICENSE at pin a993b357c907: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "ad6075cd06db",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt ad6075cd06db); pinned to the default-branch head. LICENSE at pin a993b357c907: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

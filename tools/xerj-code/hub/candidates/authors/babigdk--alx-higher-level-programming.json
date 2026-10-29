@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--alx-higher-level-programming",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Babigdk/alx-higher_level_programming implements it: Babigdk/alx-higher_level_programming (Python)",
+ "repos": [
+  {
+   "repo": "alx-higher_level_programming",
+   "url": "https://github.com/Babigdk/alx-higher_level_programming",
+   "sha": "11632f9b779814636c756612c435482735d23938",
+   "licence": "author's permission (LICENSE at pin 11632f9b7798: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "db9f238d1293",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt db9f238d1293); pinned to the default-branch head. LICENSE at pin 11632f9b7798: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

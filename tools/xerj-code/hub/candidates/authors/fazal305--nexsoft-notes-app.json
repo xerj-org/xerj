@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--nexsoft-notes-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css, express, html queries this for how fazal305/nexsoft-notes-app implements it: A full-stack notes management app with JWT auth, MongoDB, CRUD notes, search, categories, pinned notes, and responsive dashboard UI",
+ "repos": [
+  {
+   "repo": "nexsoft-notes-app",
+   "url": "https://github.com/fazal305/nexsoft-notes-app",
+   "sha": "73efb511833dc9629fc001467d58cebbb3e40e9a",
+   "licence": "MIT (LICENSE file at pin 73efb511833d, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "2c571ae10608",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 2c571ae10608); pinned to the default-branch head. LICENSE file at pin 73efb511833d detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

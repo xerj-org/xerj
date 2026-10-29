@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--context-rot-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, developer-tools, github-pages queries this for how fazal305/context-rot-lab implements it: An interactive playground exploring how large, noisy AI context degrades output quality, plus tools to shrink context before sending it to a",
+ "repos": [
+  {
+   "repo": "context-rot-lab",
+   "url": "https://github.com/fazal305/context-rot-lab",
+   "sha": "0159b4a3a67db3e3e02d1bea80bc92394813a032",
+   "licence": "MIT (LICENSE file at pin 0159b4a3a67d, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "4ce8728883df",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 4ce8728883df); pinned to the default-branch head. LICENSE file at pin 0159b4a3a67d detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

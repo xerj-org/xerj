@@ -1,0 +1,23 @@
+{
+ "corpus": "akshatinnovate-png--aegisedge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on crdt, distributed-systems, ed25519 queries this for how akshatinnovate-png/AegisEdge implements it: Offline-first edge memory on Qdrant. Hybrid retrieval in one engine call, CRDT sync with signed operations, and a deterministic simulator th",
+ "repos": [
+  {
+   "repo": "AegisEdge",
+   "url": "https://github.com/akshatinnovate-png/AegisEdge",
+   "sha": "cf3b8d0b4436d6921306ae009643bd316e658003",
+   "licence": "MIT (LICENSE file at pin cf3b8d0b4436, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T03:18Z",
+    "consent_receipt": "0ef9834f272f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:18Z (receipt 0ef9834f272f); pinned to the default-branch head. LICENSE file at pin cf3b8d0b4436 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

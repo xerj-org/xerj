@@ -1,0 +1,23 @@
+{
+ "corpus": "adamdecaf--xmlq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on masking, pii, xml queries this for how adamdecaf/xmlq implements it: pretty print and mask xml",
+ "repos": [
+  {
+   "repo": "xmlq",
+   "url": "https://github.com/adamdecaf/xmlq",
+   "sha": "38bccbec504feff81f99d94f8075b1481bdd6cb2",
+   "licence": "Apache-2.0 (LICENSE file at pin 38bccbec504f, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T03:40Z",
+    "consent_receipt": "9dc7f577c1b1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:40Z (receipt 9dc7f577c1b1); pinned to the default-branch head. LICENSE file at pin 38bccbec504f detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

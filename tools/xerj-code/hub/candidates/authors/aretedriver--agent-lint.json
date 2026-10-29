@@ -1,0 +1,23 @@
+{
+ "corpus": "aretedriver--agent-lint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-workflow, ai-governance, cli queries this for how AreteDriver/agent-lint implements it: Audit agent workflow YAML for cost, reliability, schema, secret, retry, and coordination risks",
+ "repos": [
+  {
+   "repo": "agent-lint",
+   "url": "https://github.com/AreteDriver/agent-lint",
+   "sha": "f623c702f4022e81fe075d4b8115ee145737073f",
+   "licence": "author's permission (LICENSE at pin f623c702f402: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T09:45Z",
+    "consent_receipt": "9683973c9eb8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T09:45Z (receipt 9683973c9eb8); pinned to the default-branch head. LICENSE at pin f623c702f402: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--github-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bootstrap, chartjs, dashboard queries this for how fazal305/github-dashboard implements it: A professional GitHub analytics dashboard \u2014 search users & repos, compare profiles, visualize languages, and track activity, built with Reac",
+ "repos": [
+  {
+   "repo": "github-dashboard",
+   "url": "https://github.com/fazal305/github-dashboard",
+   "sha": "7d7f2070c2c8e4e222c29be4542d7f20aa83002d",
+   "licence": "MIT (LICENSE file at pin 7d7f2070c2c8, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "d257e3868b42",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt d257e3868b42); pinned to the default-branch head. LICENSE file at pin 7d7f2070c2c8 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--rest-flow-designer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bootstrap, css, html queries this for how fazal305/rest-flow-designer implements it: An interactive browser-based visual workflow builder for designing and running real API flows \u2014 HTTP requests, transforms, conditions, and d",
+ "repos": [
+  {
+   "repo": "rest-flow-designer",
+   "url": "https://github.com/fazal305/rest-flow-designer",
+   "sha": "8900d3ceae4b871ca159df8e92381666e79dcf73",
+   "licence": "MIT (LICENSE file at pin 8900d3ceae4b, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "9d15d72d75c5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 9d15d72d75c5); pinned to the default-branch head. LICENSE file at pin 8900d3ceae4b detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

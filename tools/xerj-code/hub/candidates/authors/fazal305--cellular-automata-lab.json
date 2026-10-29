@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--cellular-automata-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on javascript, react, vite queries this for how fazal305/cellular-automata-lab implements it: A production-quality cellular automata simulation lab built with React and the Canvas API",
+ "repos": [
+  {
+   "repo": "cellular-automata-lab",
+   "url": "https://github.com/fazal305/cellular-automata-lab",
+   "sha": "6bd2019f0ef3cd717ecaf6dd27118347c5e61994",
+   "licence": "MIT (LICENSE file at pin 6bd2019f0ef3, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "e172933b66d6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt e172933b66d6); pinned to the default-branch head. LICENSE file at pin 6bd2019f0ef3 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

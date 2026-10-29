@@ -1,0 +1,23 @@
+{
+ "corpus": "amz34--awesome-agent-infrastructure",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, awesome, awesome-list queries this for how Amz34/awesome-agent-infrastructure implements it: A live-checked index of production-grade, self-hostable building blocks for AI agents and LLM workloads",
+ "repos": [
+  {
+   "repo": "awesome-agent-infrastructure",
+   "url": "https://github.com/Amz34/awesome-agent-infrastructure",
+   "sha": "355d5240659f8d217e736e385c47cb312f7ef313",
+   "licence": "MIT (LICENSE file at pin 355d5240659f, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:21Z",
+    "consent_receipt": "fa9b0543327d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt fa9b0543327d); pinned to the default-branch head. LICENSE file at pin 355d5240659f detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

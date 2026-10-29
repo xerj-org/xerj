@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--react-fundamentals-starter-exercises",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on javascript, react, tailwindcss queries this for how fazal305/react-fundamentals-starter-exercises implements it: React Fundamentals exercises covering CDN React, Vite, hooks, state, props, reconciliation, Fiber, hydration, events, effects, and Tailwind ",
+ "repos": [
+  {
+   "repo": "react-fundamentals-starter-exercises",
+   "url": "https://github.com/fazal305/react-fundamentals-starter-exercises",
+   "sha": "8b24d647100460ffef00d026b1ca247cec91a950",
+   "licence": "MIT (LICENSE file at pin 8b24d6471004, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "d4e2860e64ac",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt d4e2860e64ac); pinned to the default-branch head. LICENSE file at pin 8b24d6471004 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--sorting-algorithms",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Babigdk/sorting_algorithms implements it: Babigdk/sorting_algorithms (C)",
+ "repos": [
+  {
+   "repo": "sorting_algorithms",
+   "url": "https://github.com/Babigdk/sorting_algorithms",
+   "sha": "5110676cbb52a9c3108231b9bf380846d32a9200",
+   "licence": "author's permission (LICENSE at pin 5110676cbb52: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "58d6d3a77695",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt 58d6d3a77695); pinned to the default-branch head. LICENSE at pin 5110676cbb52: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

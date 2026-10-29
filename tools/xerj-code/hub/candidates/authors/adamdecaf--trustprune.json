@@ -1,0 +1,23 @@
+{
+ "corpus": "adamdecaf--trustprune",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on x509, certificate-authority, certificate-store queries this for how adamdecaf/trustprune implements it: Audit and trim CA trust stores on your system and apps: list, backup, whitelist, restore",
+ "repos": [
+  {
+   "repo": "trustprune",
+   "url": "https://github.com/adamdecaf/trustprune",
+   "sha": "afe7f1eb0fdca73eb0140b78365359466791d5eb",
+   "licence": "Apache-2.0 (LICENSE file at pin afe7f1eb0fdc, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T03:40Z",
+    "consent_receipt": "ee54b79b14ec",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:40Z (receipt ee54b79b14ec); pinned to the default-branch head. LICENSE file at pin afe7f1eb0fdc detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

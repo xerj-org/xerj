@@ -1,0 +1,23 @@
+{
+ "corpus": "aretedriver--arete-evals",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-safety, benchmarking, eval-harness queries this for how AreteDriver/arete-evals implements it: Public LLM evaluation suites and run records for repeatable, evidence-based comparison",
+ "repos": [
+  {
+   "repo": "arete-evals",
+   "url": "https://github.com/AreteDriver/arete-evals",
+   "sha": "20b287e2bc206246b6519e3430db78d6b6e96551",
+   "licence": "MIT (LICENSE file at pin 20b287e2bc20, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T09:45Z",
+    "consent_receipt": "c47a7488aefa",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T09:45Z (receipt c47a7488aefa); pinned to the default-branch head. LICENSE file at pin 20b287e2bc20 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

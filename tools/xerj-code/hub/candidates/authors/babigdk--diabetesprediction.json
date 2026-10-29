@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--diabetesprediction",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how Babigdk/DiabetesPrediction implements it: Babigdk/DiabetesPrediction (code)",
+ "repos": [
+  {
+   "repo": "DiabetesPrediction",
+   "url": "https://github.com/Babigdk/DiabetesPrediction",
+   "sha": "7d9172175cff842be06d933330322c36e157d462",
+   "licence": "author's permission (LICENSE at pin 7d9172175cff: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "a0e4ae91a40e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt a0e4ae91a40e); pinned to the default-branch head. LICENSE at pin 7d9172175cff: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

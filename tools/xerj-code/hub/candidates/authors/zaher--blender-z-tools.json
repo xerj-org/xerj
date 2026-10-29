@@ -1,0 +1,23 @@
+{
+ "corpus": "zaher--blender-z-tools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on addons, blender, python queries this for how zaher/blender_z_tools implements it: Blender 4.0 Z Tools",
+ "repos": [
+  {
+   "repo": "blender_z_tools",
+   "url": "https://github.com/zaher/blender_z_tools",
+   "sha": "19cfe64b81bdff7ca8be11bbd26b0a0e6fa314ce",
+   "licence": "MIT (LICENSE file at pin 19cfe64b81bd, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:52Z",
+    "consent_receipt": "c4245b6fb463",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:52Z (receipt c4245b6fb463); pinned to the default-branch head. LICENSE file at pin 19cfe64b81bd detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

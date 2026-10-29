@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--portfolio-2026",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on frontend, frontend-engineering, github-pages queries this for how fazal305/portfolio-2026 implements it: Frontend engineering portfolio featuring browser-based products, developer tools, technical writing, and verified experience",
+ "repos": [
+  {
+   "repo": "portfolio-2026",
+   "url": "https://github.com/fazal305/portfolio-2026",
+   "sha": "6025cc7a5647d1fc20cd131d878906cbb455fafb",
+   "licence": "MIT (LICENSE file at pin 6025cc7a5647, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "5a8ddf31909d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 5a8ddf31909d); pinned to the default-branch head. LICENSE file at pin 6025cc7a5647 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

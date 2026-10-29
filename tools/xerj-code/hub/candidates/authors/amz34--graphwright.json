@@ -1,0 +1,23 @@
+{
+ "corpus": "amz34--graphwright",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, code-analysis, knowledge-graph queries this for how Amz34/graphwright implements it: Build and query an explained knowledge graph of a Python codebase \u2014 symbols, calls, imports and inheritance, standard library only",
+ "repos": [
+  {
+   "repo": "graphwright",
+   "url": "https://github.com/Amz34/graphwright",
+   "sha": "77d1eae1016b432e01869bd9f7b30cd5b3ff0d05",
+   "licence": "MIT (LICENSE file at pin 77d1eae1016b, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:21Z",
+    "consent_receipt": "d74051edf474",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt d74051edf474); pinned to the default-branch head. LICENSE file at pin 77d1eae1016b detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

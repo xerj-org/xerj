@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on chrome-extension, react, tab-management queries this for how justine-george/tab-keeper-react-chrome-extension implements it: Save, organize, and sync Chrome tab sessions\u2014including tab groups\u2014across desktop devices. Featured on the Chrome Web Store (selected work: e2e, src/components, src/tests)",
+ "domain": "an agent working on react, tab-management, tab-manager queries this for how justine-george/tab-keeper-react-chrome-extension implements it: Free, open-source session and tab manager for Chrome. Manage your open tabs now, keep them for later, with tab groups, drag and drop, search (selected work: e2e, src/components, src/tests)",
  "repos": [
   {
    "repo": "tab-keeper-react-chrome-extension",

@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--database-javascript-engineering-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on bootstrap, css, html queries this for how fazal305/database-javascript-engineering-studio implements it: A browser-based engineering studio for SQL learning, database design, query visualization, JavaScript execution, closures, memory, analytics",
+ "repos": [
+  {
+   "repo": "database-javascript-engineering-studio",
+   "url": "https://github.com/fazal305/database-javascript-engineering-studio",
+   "sha": "2eef088e045c9123d03be000e9aadf463b452b64",
+   "licence": "MIT (LICENSE file at pin 2eef088e045c, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "b92dcd8814ec",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt b92dcd8814ec); pinned to the default-branch head. LICENSE file at pin 2eef088e045c detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

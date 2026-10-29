@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--arrow-escape",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on browser-game, game-development, puzzle-game queries this for how fazal305/Arrow-Escape implements it: Puzzle game in the browser: tap snake-like arrows to slide them off the board without crashing. 10 levels, 3 hearts. React + Vite",
+ "repos": [
+  {
+   "repo": "Arrow-Escape",
+   "url": "https://github.com/fazal305/Arrow-Escape",
+   "sha": "0fbbd0c8242fedae9d6358e9b86202b70ad26e5e",
+   "licence": "author's permission (LICENSE at pin 0fbbd0c8242f: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "94c77de23187",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 94c77de23187); pinned to the default-branch head. LICENSE at pin 0fbbd0c8242f: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

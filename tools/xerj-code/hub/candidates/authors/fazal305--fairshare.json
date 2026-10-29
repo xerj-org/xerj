@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--fairshare",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bill-splitting, laravel, ocr queries this for how fazal305/fairshare implements it: Split restaurant bills by what everyone actually ordered: receipt OCR, shared items, proportional tax, card and bank-transfer payments. Lara",
+ "repos": [
+  {
+   "repo": "fairshare",
+   "url": "https://github.com/fazal305/fairshare",
+   "sha": "d2bbfb3e05bf6da60a3f40fb7a45153d344b7bfe",
+   "licence": "MIT (LICENSE file at pin d2bbfb3e05bf, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "5b7839fc19d4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 5b7839fc19d4); pinned to the default-branch head. LICENSE file at pin d2bbfb3e05bf detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "sadanandpai--algo-visualizers",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on sorting-algorithms, sorting, algorithms queries this for how sadanandpai/algo-visualizers implements it: Algorithms Visualizers (selected work: src/apps)",
+ "repos": [
+  {
+   "repo": "algo-visualizers",
+   "url": "https://github.com/sadanandpai/algo-visualizers",
+   "sha": "ed552bd7b54c958f056c8c8f1d09f6dda0b91f81",
+   "licence": "MIT (LICENSE file at pin ed552bd7b54c, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T03:23Z",
+    "consent_receipt": "892c59a49884",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:23Z (receipt 892c59a49884); selected commit ed552bd7b54c: \"feat: add a compare mode that races path finders side by side\". LICENSE file at pin ed552bd7b54c detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

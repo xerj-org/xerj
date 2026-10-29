@@ -1,0 +1,23 @@
+{
+ "corpus": "nerojust--fintech-mobile-patterns-android",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how Nerojust/fintech-mobile-patterns-android implements it: Fintech mobile patterns on Android: multi-currency payments, biometric confirmation, offline-first outbox, retry/backoff \u2014 Clean Architectur",
+ "repos": [
+  {
+   "repo": "fintech-mobile-patterns-android",
+   "url": "https://github.com/Nerojust/fintech-mobile-patterns-android",
+   "sha": "2ee780ca4947d995036fed14613834f291cb0f84",
+   "licence": "MIT (LICENSE file at pin 2ee780ca4947, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:19Z",
+    "consent_receipt": "80367420d507",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:19Z (receipt 80367420d507); pinned to the default-branch head. LICENSE file at pin 2ee780ca4947 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

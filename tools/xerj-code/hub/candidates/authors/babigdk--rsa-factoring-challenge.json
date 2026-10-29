@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--rsa-factoring-challenge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Babigdk/RSA-Factoring-Challenge implements it: Babigdk/RSA-Factoring-Challenge (Python)",
+ "repos": [
+  {
+   "repo": "RSA-Factoring-Challenge",
+   "url": "https://github.com/Babigdk/RSA-Factoring-Challenge",
+   "sha": "5eeb9b306c54403e50f750de2dfbbbce965b2695",
+   "licence": "author's permission (LICENSE at pin 5eeb9b306c54: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "47f5a8a85cab",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt 47f5a8a85cab); pinned to the default-branch head. LICENSE at pin 5eeb9b306c54: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

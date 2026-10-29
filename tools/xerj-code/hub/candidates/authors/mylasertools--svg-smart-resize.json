@@ -1,0 +1,23 @@
+{
+ "corpus": "mylasertools--svg-smart-resize",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cad, geometry, laser-cutting queries this for how mylasertools/svg-smart-resize implements it: Resize SVG designs while preserving holes and slots. Engraving-aware, dependency-free TypeScript (selected work: src, test, demo)",
+ "repos": [
+  {
+   "repo": "svg-smart-resize",
+   "url": "https://github.com/mylasertools-com/svg-smart-resize",
+   "sha": "b1559268467c04a14e1a6042938074dfe5815040",
+   "licence": "MIT (LICENSE file at pin b1559268467c, GitHub licence API 2026-10-24)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-22T15:26Z",
+    "consent_receipt": "51c8f4d8fa04",
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T15:26Z (receipt 51c8f4d8fa04); selected commit b1559268467c: \"feat: keep finger joint depth when resizing boxes\". LICENSE file at pin b1559268467c detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

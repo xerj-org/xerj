@@ -1,0 +1,23 @@
+{
+ "corpus": "emberstar1201--enchantment-expansion",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how Emberstar1201/enchantment-expansion implements it: \u7528AI\u548c\u670b\u53cb\u624b\u6413",
+ "repos": [
+  {
+   "repo": "enchantment-expansion",
+   "url": "https://github.com/Emberstar1201/enchantment-expansion",
+   "sha": "27fecc5f1c762e4f875b75a6a6ae94a647132976",
+   "licence": "author's permission (LICENSE at pin 27fecc5f1c76: NOASSERTION; repository: GPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T08:38Z",
+    "consent_receipt": "e0b61c630743",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:38Z (receipt e0b61c630743); pinned to the default-branch head. LICENSE at pin 27fecc5f1c76: NOASSERTION (repository: GPL-3.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

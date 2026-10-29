@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--easy-screen-recoder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how Babigdk/easy-screen_recoder implements it: Babigdk/easy-screen_recoder (HTML)",
+ "repos": [
+  {
+   "repo": "easy-screen_recoder",
+   "url": "https://github.com/Babigdk/easy-screen_recoder",
+   "sha": "75c7ab1df1f1a8bde57a01e05da29fc7beca03db",
+   "licence": "author's permission (LICENSE at pin 75c7ab1df1f1: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "fbcf37b0ee82",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt fbcf37b0ee82); pinned to the default-branch head. LICENSE at pin 75c7ab1df1f1: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

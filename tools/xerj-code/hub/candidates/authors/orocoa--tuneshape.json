@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on animation-examples, json, motion queries this for how orocoa/TuneShape implements it: TuneShape \u00b7 \u968f\u5f62 \u2014 Explore and tune UI motion in your browser, compare changes, and export configurations or implementation prompts. \u5728\u7ebf\u6d4f\u89c8\u3001\u8c03\u6574\u4e0e\u590d (selected work: examples, the project root)",
+ "domain": "an agent working on animation-examples, json, motion queries this for how orocoa/TuneShape implements it: 42 open-source UI motion effects with runnable React/TypeScript examples, configs and bilingual docs. Browse, tune and export online. \u968f\u5f62\uff1a42  (selected work: examples, the project root)",
  "repos": [
   {
    "repo": "TuneShape",

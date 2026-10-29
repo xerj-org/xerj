@@ -1,0 +1,23 @@
+{
+ "corpus": "amz34--hermes-slack-agents",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, automation, bot queries this for how Amz34/hermes-slack-agents implements it: Give every client its own AI agent in Slack \u2014 one gateway, per-client bots, isolated memory, zero SaaS fees. Self-hosted, private by design",
+ "repos": [
+  {
+   "repo": "hermes-slack-agents",
+   "url": "https://github.com/Amz34/hermes-slack-agents",
+   "sha": "ed33372c71e021c7c862d83e33cf4386181d3be8",
+   "licence": "MIT (LICENSE file at pin ed33372c71e0, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:21Z",
+    "consent_receipt": "50e8469cd607",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt 50e8469cd607); pinned to the default-branch head. LICENSE file at pin ed33372c71e0 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

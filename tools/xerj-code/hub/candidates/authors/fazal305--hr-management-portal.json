@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--hr-management-portal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bootstrap, chartjs, css queries this for how fazal305/hr-management-portal implements it: A browser-based enterprise HR management portal with employees, attendance, leave requests, departments, payroll preview, dashboard analytic",
+ "repos": [
+  {
+   "repo": "hr-management-portal",
+   "url": "https://github.com/fazal305/hr-management-portal",
+   "sha": "ff22f2e4701de9b652b27ee5e17e70a22ece189a",
+   "licence": "MIT (LICENSE file at pin ff22f2e4701d, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "33f72d49f262",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 33f72d49f262); pinned to the default-branch head. LICENSE file at pin ff22f2e4701d detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

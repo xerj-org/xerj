@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--keelwatch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on code-quality, developer-tools, engineering-analytics queries this for how fazal305/keelwatch implements it: Self-hosted engineering signals from GitHub activity: signed webhook ingestion, a resumable analysis pipeline, findings, digests and transpa",
+ "repos": [
+  {
+   "repo": "keelwatch",
+   "url": "https://github.com/fazal305/keelwatch",
+   "sha": "a1962fd9e6c5cb79ccd14462af3eb561dd50eb8b",
+   "licence": "author's permission (LICENSE at pin a1962fd9e6c5: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "cb9754075188",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt cb9754075188); pinned to the default-branch head. LICENSE at pin a1962fd9e6c5: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

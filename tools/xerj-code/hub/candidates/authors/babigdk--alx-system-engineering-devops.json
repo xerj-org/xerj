@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--alx-system-engineering-devops",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Shell queries this for how Babigdk/alx-system_engineering-devops implements it: Babigdk/alx-system_engineering-devops (Shell)",
+ "repos": [
+  {
+   "repo": "alx-system_engineering-devops",
+   "url": "https://github.com/Babigdk/alx-system_engineering-devops",
+   "sha": "5313a983f6c68e227a869f3bcd40edeb9afc133d",
+   "licence": "author's permission (LICENSE at pin 5313a983f6c6: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "ba4f00ba7418",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt ba4f00ba7418); pinned to the default-branch head. LICENSE at pin 5313a983f6c6: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

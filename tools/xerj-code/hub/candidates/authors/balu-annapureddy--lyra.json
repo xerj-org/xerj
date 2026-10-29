@@ -1,0 +1,23 @@
+{
+ "corpus": "balu-annapureddy--lyra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on aiagent, automation, llm queries this for how Balu-Annapureddy/Lyra implements it: Local-first personal AI operating system with intent routing, safety policy enforcement, and resource-aware model execution",
+ "repos": [
+  {
+   "repo": "Lyra",
+   "url": "https://github.com/Balu-Annapureddy/Lyra",
+   "sha": "f68905a6a103b86628950d8bd42972bd1bf2133f",
+   "licence": "MIT (LICENSE file at pin f68905a6a103, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T03:19Z",
+    "consent_receipt": "2a81a8425809",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:19Z (receipt 2a81a8425809); pinned to the default-branch head. LICENSE file at pin f68905a6a103 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

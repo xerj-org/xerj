@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--freshfind",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bootstrap, css, html queries this for how fazal305/freshfind implements it: FreshFind - a frontend-only SPA for discovering local farmers markets (HTML5/CSS3/JS/jQuery/Bootstrap, no backend)",
+ "repos": [
+  {
+   "repo": "freshfind",
+   "url": "https://github.com/fazal305/freshfind",
+   "sha": "3259260dcb6471d48d559229a32cb87100ef9a74",
+   "licence": "MIT (LICENSE file at pin 3259260dcb64, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "25118587ad20",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 25118587ad20); pinned to the default-branch head. LICENSE file at pin 3259260dcb64 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

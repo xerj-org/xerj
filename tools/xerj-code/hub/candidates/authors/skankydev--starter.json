@@ -1,0 +1,23 @@
+{
+ "corpus": "skankydev--starter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on boilerplate, crud, i18n queries this for how skankydev/starter implements it: The starting point of a SkankyDev project: clone, install, code",
+ "repos": [
+  {
+   "repo": "starter",
+   "url": "https://github.com/skankydev/starter",
+   "sha": "59198ffd04152da0e9ab487bf3813c5005dea56d",
+   "licence": "MIT (LICENSE file at pin 59198ffd0415, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T07:32Z",
+    "consent_receipt": "2d65bed290c5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T07:32Z (receipt 2d65bed290c5); pinned to the default-branch head. LICENSE file at pin 59198ffd0415 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

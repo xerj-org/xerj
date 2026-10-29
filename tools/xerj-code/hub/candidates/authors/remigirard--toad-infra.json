@@ -8,15 +8,15 @@
   {
    "repo": "TOAD-infra",
    "url": "https://github.com/RemiGirard/TOAD-infra",
-   "sha": "e5a229bed9b02b6f9c262fee28b976b3304f48c4",
-   "licence": "MIT (LICENSE file at pin e5a229bed9b0, GitHub licence API 2026-10-28)",
+   "sha": "666327bf5d72b6d65f2f746f22dcbcfb7bbae099",
+   "licence": "MIT (LICENSE file at pin 666327bf5d72, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T11:38Z",
     "consent_receipt": "d79ea2958a3d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T11:38Z (receipt d79ea2958a3d); selected commit e5a229bed9b0: \"fix(onboarding): make cloud setup the first step\". LICENSE file at pin e5a229bed9b0 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Pinned to head e5a229bed9b0 (contains the selected commit): the LICENSE at the selected commit was AGPL-3.0.",
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T11:38Z (receipt d79ea2958a3d); selected commit 666327bf5d72: \"fix(onboarding): make cloud setup the first step\". LICENSE file at pin 666327bf5d72 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution. Pinned to head 666327bf5d72 (contains the selected commit): the LICENSE at the selected commit was AGPL-3.0.",
     "author_grant": {
      "terms": "MIT",
      "scope": "the author's own changes in the selected commit",

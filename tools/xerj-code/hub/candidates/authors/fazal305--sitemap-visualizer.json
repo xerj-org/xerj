@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--sitemap-visualizer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css, html, javascript queries this for how fazal305/sitemap-visualizer implements it: Browser-based SEO and developer tool for parsing, visualizing, and exploring sitemap.xml files with interactive tree views, URL grouping, se",
+ "repos": [
+  {
+   "repo": "sitemap-visualizer",
+   "url": "https://github.com/fazal305/sitemap-visualizer",
+   "sha": "fc38855ce3d5a9e0954aa640099c686b3b9f9d01",
+   "licence": "MIT (LICENSE file at pin fc38855ce3d5, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "fe1633f14b0b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt fe1633f14b0b); pinned to the default-branch head. LICENSE file at pin fc38855ce3d5 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

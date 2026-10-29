@@ -1,0 +1,23 @@
+{
+ "corpus": "tanishbane--wastewise-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on demand-forecasting, fastapi, food-waste queries this for how TanishBane/wastewise-ai implements it: Enterprise food waste reduction & demand forecasting platform: Random Forest ML, Newsvendor buffer planning, surplus rescue, and multi-tenan",
+ "repos": [
+  {
+   "repo": "wastewise-ai",
+   "url": "https://github.com/TanishBane/wastewise-ai",
+   "sha": "1fe9e933f0d00725388e75b6fad42dcc8615d565",
+   "licence": "MIT (LICENSE file at pin 1fe9e933f0d0, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:35Z",
+    "consent_receipt": "cc5ff68f0bb1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:35Z (receipt cc5ff68f0bb1); pinned to the default-branch head. LICENSE file at pin 1fe9e933f0d0 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

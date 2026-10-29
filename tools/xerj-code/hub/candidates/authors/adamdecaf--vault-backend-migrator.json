@@ -1,0 +1,23 @@
+{
+ "corpus": "adamdecaf--vault-backend-migrator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how adamdecaf/vault-backend-migrator implements it: a tool to export and import (migrate) data across vault clusters",
+ "repos": [
+  {
+   "repo": "vault-backend-migrator",
+   "url": "https://github.com/adamdecaf/vault-backend-migrator",
+   "sha": "298f0bb4d9400bc075ff37b36ad38cca8bb614f7",
+   "licence": "author's permission (LICENSE at pin 298f0bb4d940: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T03:40Z",
+    "consent_receipt": "6c9e694fe74f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:40Z (receipt 6c9e694fe74f); pinned to the default-branch head. LICENSE at pin 298f0bb4d940: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

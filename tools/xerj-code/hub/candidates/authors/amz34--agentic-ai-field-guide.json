@@ -1,0 +1,23 @@
+{
+ "corpus": "amz34--agentic-ai-field-guide",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ebook, guide queries this for how Amz34/agentic-ai-field-guide implements it: Agentic AI Field Guide 2026 \u2014 26-page print-ready PDF, HTML source, and email-gated landing (AZ Engineering)",
+ "repos": [
+  {
+   "repo": "agentic-ai-field-guide",
+   "url": "https://github.com/Amz34/agentic-ai-field-guide",
+   "sha": "579677f5e67b41574537d14d4a50403c83f69fb9",
+   "licence": "MIT (LICENSE file at pin 579677f5e67b, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:21Z",
+    "consent_receipt": "b566ff57c0e8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt b566ff57c0e8); pinned to the default-branch head. LICENSE file at pin 579677f5e67b detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

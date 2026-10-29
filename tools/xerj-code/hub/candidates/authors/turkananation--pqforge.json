@@ -8,15 +8,15 @@
   {
    "repo": "pqforge",
    "url": "https://github.com/turkananation/pqforge",
-   "sha": "7e59082b95ff39bc2a10b460f399bc024458b342",
-   "licence": "MIT (LICENSE file at pin 7e59082b95ff, GitHub licence API 2026-10-28)",
+   "sha": "d584dfa1904c35244e6fec0c550196c49d429b84",
+   "licence": "MIT (LICENSE file at pin d584dfa1904c, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:04Z",
     "consent_receipt": "15155f7c2bf4",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:04Z (receipt 15155f7c2bf4); pinned to the default-branch head. LICENSE file at pin 7e59082b95ff detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:04Z (receipt 15155f7c2bf4); pinned to the default-branch head. LICENSE file at pin d584dfa1904c detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "ragedpanda--gh-claimcheck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on beginner-friendly, cli, contributing queries this for how RagedPanda/gh-claimcheck implements it: GitHub CLI extension: check an issue is really free before you work on it (no open PR, no claim, not moved), and find unclaimed issues in yo",
+ "repos": [
+  {
+   "repo": "gh-claimcheck",
+   "url": "https://github.com/RagedPanda/gh-claimcheck",
+   "sha": "85068895c08baa4fc31f78b0c07bf3834fe2d53f",
+   "licence": "MIT (LICENSE file at pin 85068895c08b, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T04:48Z",
+    "consent_receipt": "f96b5b1cde8b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T04:48Z (receipt f96b5b1cde8b); pinned to the default-branch head. LICENSE file at pin 85068895c08b detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

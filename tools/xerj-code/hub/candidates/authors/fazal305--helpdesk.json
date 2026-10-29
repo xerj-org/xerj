@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--helpdesk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on css, javascript, php queries this for how fazal305/helpdesk implements it: Support ticket management system built in plain PHP and MySQL \u2014 authentication, role-based authorization, ticket lifecycle, and full audit h",
+ "repos": [
+  {
+   "repo": "helpdesk",
+   "url": "https://github.com/fazal305/helpdesk",
+   "sha": "b9bf41e3da630165380ceb1de4bef74af7c5f7d2",
+   "licence": "MIT (LICENSE file at pin b9bf41e3da63, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "e610e8ab48fd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt e610e8ab48fd); pinned to the default-branch head. LICENSE file at pin b9bf41e3da63 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

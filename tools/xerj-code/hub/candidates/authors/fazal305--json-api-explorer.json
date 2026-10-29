@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--json-api-explorer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on css, html, javascript queries this for how fazal305/json-api-explorer implements it: A modern dark neon mini Postman-style web app for fetching, viewing, searching, copying, and downloading JSON API responses using HTML, CSS,",
+ "repos": [
+  {
+   "repo": "json-api-explorer",
+   "url": "https://github.com/fazal305/json-api-explorer",
+   "sha": "afa59c83446ec9175addc82f557d4c41705bcc24",
+   "licence": "MIT (LICENSE file at pin afa59c83446e, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "592fb2553311",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 592fb2553311); pinned to the default-branch head. LICENSE file at pin afa59c83446e detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--customer-support-api",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Babigdk/customer-support-api implements it: Babigdk/customer-support-api (TypeScript)",
+ "repos": [
+  {
+   "repo": "customer-support-api",
+   "url": "https://github.com/Babigdk/customer-support-api",
+   "sha": "d8b3c74ad092016650e0a16417113a6604d2c884",
+   "licence": "author's permission (LICENSE at pin d8b3c74ad092: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "c9970647e1be",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt c9970647e1be); pinned to the default-branch head. LICENSE at pin d8b3c74ad092: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

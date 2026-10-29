@@ -1,0 +1,23 @@
+{
+ "corpus": "aryan-dani--the-fourth-clover",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on blogging-platform queries this for how aryan-dani/The_Fourth_Clover implements it: Open-source blogging & publishing platform with a rich editor, threaded comments, and social profiles, powered by Next.js 16, Supabase, and ",
+ "repos": [
+  {
+   "repo": "The_Fourth_Clover",
+   "url": "https://github.com/aryan-dani/The_Fourth_Clover",
+   "sha": "3fb03c8ee187cc1ff426b305ea88d88e79f31e04",
+   "licence": "Apache-2.0 (LICENSE file at pin 3fb03c8ee187, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T06:46Z",
+    "consent_receipt": "0945e0b183d1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:46Z (receipt 0945e0b183d1); pinned to the default-branch head. LICENSE file at pin 3fb03c8ee187 detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

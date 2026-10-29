@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--nexsoft-todo-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bootstrap, css, html queries this for how fazal305/nexsoft-todo-app implements it: A responsive dark neon to-do app with localStorage, priorities, due dates, filters, search, and sorting",
+ "repos": [
+  {
+   "repo": "nexsoft-todo-app",
+   "url": "https://github.com/fazal305/nexsoft-todo-app",
+   "sha": "6d9b873eeb08e4641dbccdd5f0cb25aab9de10e1",
+   "licence": "MIT (LICENSE file at pin 6d9b873eeb08, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "95bae04b60b9",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 95bae04b60b9); pinned to the default-branch head. LICENSE file at pin 6d9b873eeb08 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

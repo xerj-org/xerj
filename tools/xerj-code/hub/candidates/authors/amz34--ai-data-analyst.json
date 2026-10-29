@@ -1,0 +1,23 @@
+{
+ "corpus": "amz34--ai-data-analyst",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, business-intelligence, dashboards queries this for how Amz34/ai-data-analyst implements it: Ask your data. Get answers. Self-hosted AI data analyst: upload CSV/Excel, get profiling, cleaning, EDA, interactive dashboards and natural-",
+ "repos": [
+  {
+   "repo": "ai-data-analyst",
+   "url": "https://github.com/Amz34/ai-data-analyst",
+   "sha": "6bb5166a98c2e12dcb9bd085378761239e5cd4c2",
+   "licence": "MIT (LICENSE file at pin 6bb5166a98c2, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:21Z",
+    "consent_receipt": "6b39f2699329",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt 6b39f2699329); pinned to the default-branch head. LICENSE file at pin 6bb5166a98c2 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

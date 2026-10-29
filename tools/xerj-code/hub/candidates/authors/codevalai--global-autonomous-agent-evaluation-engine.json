@@ -1,0 +1,23 @@
+{
+ "corpus": "codevalai--global-autonomous-agent-evaluation-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how codevalai/Global-Autonomous-Agent-Evaluation-Engine implements it: Global Autonomous Agent Evaluation Engine",
+ "repos": [
+  {
+   "repo": "Global-Autonomous-Agent-Evaluation-Engine",
+   "url": "https://github.com/codevalai/Global-Autonomous-Agent-Evaluation-Engine",
+   "sha": "8cbae7be9b713751af72dc938845e2d999332005",
+   "licence": "author's permission (LICENSE at pin 8cbae7be9b71: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T06:04Z",
+    "consent_receipt": "01aa81f0ebc8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:04Z (receipt 01aa81f0ebc8); pinned to the default-branch head. LICENSE at pin 8cbae7be9b71: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

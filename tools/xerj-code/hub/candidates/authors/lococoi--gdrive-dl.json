@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how lococoi/gdrive-dl implements it: CLI/API for downloading private Google Drive videos without any headaches (selected work: scripts, the project root, gdrive_dl)",
+ "domain": "an agent working on Python queries this for how lococoi/gdrive-dl implements it: Fast and automated CLI/API utility to download private or restricted videos from Google Drive (selected work: scripts, the project root, gdrive_dl)",
  "repos": [
   {
    "repo": "gdrive-dl",

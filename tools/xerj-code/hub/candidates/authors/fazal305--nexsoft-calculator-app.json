@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--nexsoft-calculator-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css, html, javascript queries this for how fazal305/nexsoft-calculator-app implements it: A responsive vanilla JavaScript calculator with safe expression parsing, keyboard support, and dark UI",
+ "repos": [
+  {
+   "repo": "nexsoft-calculator-app",
+   "url": "https://github.com/fazal305/nexsoft-calculator-app",
+   "sha": "0ed7ff03840c2d41575c3bb58a2603d92e0b2f05",
+   "licence": "MIT (LICENSE file at pin 0ed7ff03840c, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "212668b2a514",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 212668b2a514); pinned to the default-branch head. LICENSE file at pin 0ed7ff03840c detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

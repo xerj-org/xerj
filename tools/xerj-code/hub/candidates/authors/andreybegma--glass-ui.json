@@ -1,0 +1,23 @@
+{
+ "corpus": "andreybegma--glass-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on component-library, design-system, design-tokens queries this for how AndreyBegma/glass-ui implements it: Liquid Glass design system for React 19 and Tailwind CSS 4: tokens, glass material, primitives and dashboard patterns",
+ "repos": [
+  {
+   "repo": "glass-ui",
+   "url": "https://github.com/AndreyBegma/glass-ui",
+   "sha": "29cb772953e3f2090f23b6ab95d06a276b591cea",
+   "licence": "MIT (LICENSE file at pin 29cb772953e3, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:18Z",
+    "consent_receipt": "97a7ab987b95",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:18Z (receipt 97a7ab987b95); pinned to the default-branch head. LICENSE file at pin 29cb772953e3 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

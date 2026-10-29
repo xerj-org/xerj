@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--marginline",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on express, javascript, react queries this for how fazal305/marginline implements it: A personal cash-flow and financial margin management system \u2014 React, Express, SQLite. Local-first, no cloud database, no external APIs",
+ "repos": [
+  {
+   "repo": "marginline",
+   "url": "https://github.com/fazal305/marginline",
+   "sha": "b2baef7f1157430b2fc4964e1e1494276c98e06d",
+   "licence": "author's permission (LICENSE at pin b2baef7f1157: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "2ded8f8e0ed3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 2ded8f8e0ed3); pinned to the default-branch head. LICENSE at pin b2baef7f1157: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

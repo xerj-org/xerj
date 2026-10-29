@@ -2,8 +2,8 @@
  "corpus": "near--mpc",
  "cloned_at": null,
  "status": "draft",
- "shelf": "SEC",
- "domain": "an agent working on Rust queries this for how near/mpc implements it: MPC Node. Implements secure multi-party threshold signature generation as part of NEAR's chain abstraction infrastructure (selected work: crates/backup-cli)",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Rust queries this for how near/mpc implements it: The threshold signature network behind Chain Signatures. https://mpc.nearone.org/ (selected work: crates/backup-cli)",
  "repos": [
   {
    "repo": "mpc",

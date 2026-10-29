@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--ai-chatbot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on javascript, react, vite queries this for how fazal305/ai-chatbot implements it: A production-quality AI chat workspace built with React, Vite, and the OpenRouter API \u2014 streaming responses, Markdown rendering, command pal",
+ "repos": [
+  {
+   "repo": "ai-chatbot",
+   "url": "https://github.com/fazal305/ai-chatbot",
+   "sha": "891e327b4035ef16da3c435bef64cf4ac297f7ed",
+   "licence": "MIT (LICENSE file at pin 891e327b4035, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "5656655ed73c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 5656655ed73c); pinned to the default-branch head. LICENSE file at pin 891e327b4035 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

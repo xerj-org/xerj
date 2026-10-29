@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Dart queries this for how boffincoders/durable_queue implements it: A lightweight, backend-agnostic, persistent task queue for Dart and Flutter (selected work: examples, the project root)",
+ "domain": "an agent working on background-jobs, background-tasks, dart queries this for how boffincoders/durable_queue implements it: Persistent, retryable task queue for Dart and Flutter: tasks survive crashes and restarts, retry with backoff, wait for the network, and fin (selected work: examples, the project root)",
  "repos": [
   {
    "repo": "durable_queue",

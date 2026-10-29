@@ -8,15 +8,15 @@
   {
    "repo": "THE-WANDERER-CURSE-OF-THE-OLD-KINGDOM",
    "url": "https://github.com/FooZzee/THE-WANDERER-CURSE-OF-THE-OLD-KINGDOM",
-   "sha": "1c9746d76be0497458715858a68e7e0aac293e80",
-   "licence": "MIT (LICENSE file at pin 1c9746d76be0, GitHub licence API 2026-10-26)",
+   "sha": "63b0646a65664663f20daec8fdd229305e3555b4",
+   "licence": "MIT (LICENSE file at pin 63b0646a6566, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-26T06:44Z",
     "consent_receipt": "9b8e989ad868",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T06:44Z (receipt 9b8e989ad868); selected commit 1c9746d76be0: \"feat(game): add bounty hunter system and NPC mechanics\". LICENSE file at pin 1c9746d76be0 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Pinned to head 1c9746d76be0 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T06:44Z (receipt 9b8e989ad868); selected commit 63b0646a6566: \"feat(game): add bounty hunter system and NPC mechanics\". LICENSE file at pin 63b0646a6566 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution. Pinned to head 63b0646a6566 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "sickn33--agentic-awesome-skills",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-skills, ai-agents, antigravity queries this for how sickn33/agentic-awesome-skills implements it: 2,877+ reusable AI agent skills for Claude Code, Codex, Cursor and Gemini CLI. AAS Core adds local catalog discovery, agent-owned selection ",
+ "repos": [
+  {
+   "repo": "agentic-awesome-skills",
+   "url": "https://github.com/sickn33/agentic-awesome-skills",
+   "sha": "32d88c8f1e30f010706b30b515c461cdfced1300",
+   "licence": "author's permission (LICENSE at pin 32d88c8f1e30: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T09:48Z",
+    "consent_receipt": "6d3ea4350926",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T09:48Z (receipt 6d3ea4350926); pinned to the default-branch head. LICENSE at pin 32d88c8f1e30: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

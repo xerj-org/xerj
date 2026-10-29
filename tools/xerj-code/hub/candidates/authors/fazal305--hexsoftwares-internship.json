@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--hexsoftwares-internship",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css, express, html queries this for how fazal305/HexSoftwares-Internship implements it: Projects completed during the Hex Softwares Web Development Internship: book library, todo app, r\u00e9sum\u00e9 website, personal portfolio, music pl",
+ "repos": [
+  {
+   "repo": "HexSoftwares-Internship",
+   "url": "https://github.com/fazal305/HexSoftwares-Internship",
+   "sha": "08a1e6e2d156156f4e078e907c6d70892f6ff240",
+   "licence": "author's permission (LICENSE at pin 08a1e6e2d156: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "3bd810df816d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 3bd810df816d); pinned to the default-branch head. LICENSE at pin 08a1e6e2d156: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

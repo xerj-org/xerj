@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--alx-interview",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Babigdk/alx-interview implements it: Babigdk/alx-interview (Python)",
+ "repos": [
+  {
+   "repo": "alx-interview",
+   "url": "https://github.com/Babigdk/alx-interview",
+   "sha": "1e6e0f080ae848ad1a1c025cb318399f8ea72dbd",
+   "licence": "author's permission (LICENSE at pin 1e6e0f080ae8: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "4a68af972eb5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt 4a68af972eb5); pinned to the default-branch head. LICENSE at pin 1e6e0f080ae8: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

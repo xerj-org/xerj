@@ -1,0 +1,23 @@
+{
+ "corpus": "amz34--sap-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, business-one, enterprise queries this for how Amz34/sap-mcp implements it: MCP servers for SAP: OData (9 tools) and Business One Service Layer (11 tools). Read-first, writes gated behind *_WRITE_ENABLED, every write",
+ "repos": [
+  {
+   "repo": "sap-mcp",
+   "url": "https://github.com/Amz34/sap-mcp",
+   "sha": "12848a6f3b6dece97737b747bf41eb56f55cd77d",
+   "licence": "MIT (LICENSE file at pin 12848a6f3b6d, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:21Z",
+    "consent_receipt": "34b01a20f51f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt 34b01a20f51f); pinned to the default-branch head. LICENSE file at pin 12848a6f3b6d detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "adamdecaf--badnet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on chaos-engineering, fault-injection, network queries this for how adamdecaf/badnet implements it: Simulating bad networks without injecting net.Conn",
+ "repos": [
+  {
+   "repo": "badnet",
+   "url": "https://github.com/adamdecaf/badnet",
+   "sha": "558716458c1ab480a2937816766b1c056cc89495",
+   "licence": "Apache-2.0 (LICENSE file at pin 558716458c1a, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T03:40Z",
+    "consent_receipt": "b766d958cdcb",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:40Z (receipt b766d958cdcb); pinned to the default-branch head. LICENSE file at pin 558716458c1a detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

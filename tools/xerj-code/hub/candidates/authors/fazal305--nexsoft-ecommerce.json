@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--nexsoft-ecommerce",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css, express, html queries this for how fazal305/nexsoft-ecommerce implements it: A full-stack ecommerce app with JWT auth, MongoDB products, cart, simulated checkout, orders, and admin dashboard",
+ "repos": [
+  {
+   "repo": "nexsoft-ecommerce",
+   "url": "https://github.com/fazal305/nexsoft-ecommerce",
+   "sha": "588a06611b94ad06b112180f31b4e7e6168b8bef",
+   "licence": "MIT (LICENSE file at pin 588a06611b94, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "a8599faccc74",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt a8599faccc74); pinned to the default-branch head. LICENSE file at pin 588a06611b94 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "quantitera",
    "url": "https://github.com/wysking/quantitera",
-   "sha": "0871736f54b091b9d82d7e3cf253015a7df49665",
-   "licence": "MIT (LICENSE file at pin 0871736f54b0, GitHub licence API 2026-10-29)",
+   "sha": "354b4e44890822bed192344bc0c50bf4c2446c8a",
+   "licence": "MIT (LICENSE file at pin 354b4e448908, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T23:42Z",
     "consent_receipt": "4ca0a8a7c8e8",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:42Z (receipt 4ca0a8a7c8e8); pinned to the default-branch head. LICENSE file at pin 0871736f54b0 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:42Z (receipt 4ca0a8a7c8e8); pinned to the default-branch head. LICENSE file at pin 354b4e448908 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
    }
   }
  ]

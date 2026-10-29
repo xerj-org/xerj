@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--raceforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on javascript, react, vite queries this for how fazal305/raceforge implements it: Browser arcade racer built with React + Canvas 2D \u2014 procedural tracks, arcade physics, AI opponents",
+ "repos": [
+  {
+   "repo": "raceforge",
+   "url": "https://github.com/fazal305/raceforge",
+   "sha": "6a8a74989115bcafb1d14ca0e8e03a27d5dc4605",
+   "licence": "MIT (LICENSE file at pin 6a8a74989115, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "068eebc29040",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 068eebc29040); pinned to the default-branch head. LICENSE file at pin 6a8a74989115 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

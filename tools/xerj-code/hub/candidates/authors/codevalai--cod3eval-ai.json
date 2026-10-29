@@ -1,0 +1,23 @@
+{
+ "corpus": "codevalai--cod3eval-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how codevalai/cod3eval-ai implements it: Cod3Eval.ai \u2014 Enterprise Code Valuation Engine (Google AI Pro Edition)",
+ "repos": [
+  {
+   "repo": "cod3eval-ai",
+   "url": "https://github.com/codevalai/cod3eval-ai",
+   "sha": "4448f6292756aea70dda2f842c81bf1821d53fac",
+   "licence": "MIT (LICENSE file at pin 4448f6292756, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T06:04Z",
+    "consent_receipt": "e6c223140d72",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:04Z (receipt e6c223140d72); pinned to the default-branch head. LICENSE file at pin 4448f6292756 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

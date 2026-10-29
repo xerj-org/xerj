@@ -1,0 +1,23 @@
+{
+ "corpus": "amz34--akv-cache-engine",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on ai-agents, kv-cache, prompt-caching queries this for how Amz34/akv-cache-engine implements it: Cache engineering reference implementation for multi-turn AI agents: static prefix pinning, rolling drop, and KV cache economics",
+ "repos": [
+  {
+   "repo": "akv-cache-engine",
+   "url": "https://github.com/Amz34/akv-cache-engine",
+   "sha": "a572d8984478b253c9968e842e9b0e3b82359f28",
+   "licence": "MIT (LICENSE file at pin a572d8984478, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:21Z",
+    "consent_receipt": "b272f35795dd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt b272f35795dd); pinned to the default-branch head. LICENSE file at pin a572d8984478 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

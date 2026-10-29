@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--json-database-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on bootstrap, css, html queries this for how fazal305/json-database-studio implements it: A browser-based database studio with real tables, indexes, relationships, a SQL-like query console, and JSON/CSV import/export, backed by lo",
+ "repos": [
+  {
+   "repo": "json-database-studio",
+   "url": "https://github.com/fazal305/json-database-studio",
+   "sha": "bfb2888be3ac04c7f9ddb36e7bfdfa234de7265c",
+   "licence": "MIT (LICENSE file at pin bfb2888be3ac, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "af8609046124",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt af8609046124); pinned to the default-branch head. LICENSE file at pin bfb2888be3ac detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--nexsoft-admin-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on chartjs, css, html queries this for how fazal305/nexsoft-admin-dashboard implements it: A responsive admin dashboard UI with Chart.js analytics, sidebar navigation, dark/light mode, and localStorage theme persistence",
+ "repos": [
+  {
+   "repo": "nexsoft-admin-dashboard",
+   "url": "https://github.com/fazal305/nexsoft-admin-dashboard",
+   "sha": "3345f62ab37c588ed0fbcbe4c0ce5f1c8740d274",
+   "licence": "MIT (LICENSE file at pin 3345f62ab37c, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "788427e1d719",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 788427e1d719); pinned to the default-branch head. LICENSE file at pin 3345f62ab37c detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

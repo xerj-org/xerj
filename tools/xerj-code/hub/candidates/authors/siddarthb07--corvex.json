@@ -1,0 +1,23 @@
+{
+ "corpus": "siddarthb07--corvex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on correlator, cybersecurity, incident-response queries this for how Siddarthb07/corvex implements it: Multi-host campaign correlator \u2014 fuse weak host signals into ATT&CK-shaped attack timelines. Sealed synthetic eval; observe-only sensors; ga",
+ "repos": [
+  {
+   "repo": "corvex",
+   "url": "https://github.com/Siddarthb07/corvex",
+   "sha": "c84a8114fd0efc3d902fc97998e81bb8ec7a0197",
+   "licence": "MIT (LICENSE file at pin c84a8114fd0e, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:46Z",
+    "consent_receipt": "5e113d931e8d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:46Z (receipt 5e113d931e8d); pinned to the default-branch head. LICENSE file at pin c84a8114fd0e detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

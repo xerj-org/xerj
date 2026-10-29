@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--serviceflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on clerk, express, javascript queries this for how fazal305/serviceflow implements it: ServiceFlow \u2014 service-business management platform (service requests, technician dispatch, quotations, invoicing, payments)",
+ "repos": [
+  {
+   "repo": "serviceflow",
+   "url": "https://github.com/fazal305/serviceflow",
+   "sha": "5e65aadf2d4f133baf487ef8b990822be43cea81",
+   "licence": "author's permission (LICENSE at pin 5e65aadf2d4f: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "1e3e96d3d3fd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 1e3e96d3d3fd); pinned to the default-branch head. LICENSE at pin 5e65aadf2d4f: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

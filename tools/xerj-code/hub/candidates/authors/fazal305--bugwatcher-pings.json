@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--bugwatcher-pings",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on error-monitoring, laravel, php queries this for how fazal305/bugwatcher-pings implements it: Real-time error monitoring: Laravel ingestion API with Redis workers, live React dashboard over WebSockets, and Slack/Discord alerts",
+ "repos": [
+  {
+   "repo": "bugwatcher-pings",
+   "url": "https://github.com/fazal305/bugwatcher-pings",
+   "sha": "c29adf8770cbabeab68a0fb640db091426e9772d",
+   "licence": "author's permission (LICENSE at pin c29adf8770cb: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "61745c85fb05",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 61745c85fb05); pinned to the default-branch head. LICENSE at pin c29adf8770cb: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

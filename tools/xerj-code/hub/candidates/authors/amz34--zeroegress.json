@@ -1,0 +1,23 @@
+{
+ "corpus": "amz34--zeroegress",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-security, bid, confidentiality queries this for how Amz34/zeroegress implements it: Local-only AI for confidential documents: socket-level egress jail, sensitivity gate, per-client encrypted vaults, client-auditable trust pa",
+ "repos": [
+  {
+   "repo": "zeroegress",
+   "url": "https://github.com/Amz34/zeroegress",
+   "sha": "59eca4a16611b111cae662cae31924a66e5f346d",
+   "licence": "MIT (LICENSE file at pin 59eca4a16611, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:21Z",
+    "consent_receipt": "24a991745673",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt 24a991745673); pinned to the default-branch head. LICENSE file at pin 59eca4a16611 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

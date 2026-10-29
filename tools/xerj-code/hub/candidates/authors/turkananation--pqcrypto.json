@@ -8,15 +8,15 @@
   {
    "repo": "pqcrypto",
    "url": "https://github.com/turkananation/pqcrypto",
-   "sha": "2edd3819b2b9a15038970b2e569e3b4f11ee76f3",
-   "licence": "MIT (LICENSE file at pin 2edd3819b2b9, GitHub licence API 2026-10-28)",
+   "sha": "388830f57193568ee56228f509299889c5b0c128",
+   "licence": "MIT (LICENSE file at pin 388830f57193, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:04Z",
     "consent_receipt": "fc49b245c446",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:04Z (receipt fc49b245c446); pinned to the default-branch head. LICENSE file at pin 2edd3819b2b9 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:04Z (receipt fc49b245c446); pinned to the default-branch head. LICENSE file at pin 388830f57193 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
    }
   }
  ]

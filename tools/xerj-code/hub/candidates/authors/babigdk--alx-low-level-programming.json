@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--alx-low-level-programming",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Babigdk/alx-low_level_programming implements it: low level programming class",
+ "repos": [
+  {
+   "repo": "alx-low_level_programming",
+   "url": "https://github.com/Babigdk/alx-low_level_programming",
+   "sha": "40e73432a38b419bacb400a33c53d6e660857ffd",
+   "licence": "author's permission (LICENSE at pin 40e73432a38b: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "d61844b4c930",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt d61844b4c930); pinned to the default-branch head. LICENSE at pin 40e73432a38b: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

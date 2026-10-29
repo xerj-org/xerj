@@ -1,0 +1,23 @@
+{
+ "corpus": "ragedpanda--hisab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, dart, expense-tracker queries this for how RagedPanda/hisab implements it: Hisab: free expense tracker with multi-item entries, SMS-based bank tracking and Splitwise-style group splits. Android + iOS (Flutter)",
+ "repos": [
+  {
+   "repo": "hisab",
+   "url": "https://github.com/RagedPanda/hisab",
+   "sha": "8c8383cc50487f56b8dea0506043a3669961290a",
+   "licence": "MIT (LICENSE file at pin 8c8383cc5048, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T04:48Z",
+    "consent_receipt": "e41a6fb00d71",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T04:48Z (receipt e41a6fb00d71); pinned to the default-branch head. LICENSE file at pin 8c8383cc5048 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

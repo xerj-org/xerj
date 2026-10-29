@@ -1,0 +1,23 @@
+{
+ "corpus": "ivanarena--author",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how ivanarena/author implements it: The notes app for writers",
+ "repos": [
+  {
+   "repo": "author",
+   "url": "https://github.com/ivanarena/author",
+   "sha": "737624aa9d169f62eb413b3a03cac35ecf0dc6e2",
+   "licence": "MIT (LICENSE file at pin 737624aa9d16, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:33Z",
+    "consent_receipt": "6239373d09fe",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:33Z (receipt 6239373d09fe); pinned to the default-branch head. LICENSE file at pin 737624aa9d16 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

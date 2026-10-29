@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--tobamsgroup",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Babigdk/tobamsgroup implements it: Babigdk/tobamsgroup (TypeScript)",
+ "repos": [
+  {
+   "repo": "tobamsgroup",
+   "url": "https://github.com/Babigdk/tobamsgroup",
+   "sha": "a70e474d4187e927b9047f5231bdc33c3568bddd",
+   "licence": "author's permission (LICENSE at pin a70e474d4187: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "9f4b5d4b7301",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt 9f4b5d4b7301); pinned to the default-branch head. LICENSE at pin a70e474d4187: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--factoryforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on javascript, react, vite queries this for how fazal305/factoryforge implements it: FactoryForge \u2014 Isometric Automation & Logistics Simulator built in React with a custom simulation engine and Canvas 2D renderer",
+ "repos": [
+  {
+   "repo": "factoryforge",
+   "url": "https://github.com/fazal305/factoryforge",
+   "sha": "a9177ce359c417dcb0650754076bbc2ab4568a93",
+   "licence": "author's permission (LICENSE at pin a9177ce359c4: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "37bdd25b7e68",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 37bdd25b7e68); pinned to the default-branch head. LICENSE at pin a9177ce359c4: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

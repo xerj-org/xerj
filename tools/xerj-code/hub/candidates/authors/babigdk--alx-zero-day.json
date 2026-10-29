@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--alx-zero-day",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Babigdk/alx-zero_day implements it: I'm now a ALX Student, this is my first repository as a full-stack engineer",
+ "repos": [
+  {
+   "repo": "alx-zero_day",
+   "url": "https://github.com/Babigdk/alx-zero_day",
+   "sha": "0f4e933eee38217620608f82223ffc67a9cb1cc6",
+   "licence": "author's permission (LICENSE at pin 0f4e933eee38: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "2b2bcfe693c6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt 2b2bcfe693c6); pinned to the default-branch head. LICENSE at pin 0f4e933eee38: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

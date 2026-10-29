@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--browser-memory-visualizer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bootstrap, chartjs, css queries this for how fazal305/browser-memory-visualizer implements it: An interactive browser-based educational tool visualizing JavaScript objects, references, garbage collection, the call stack, and the event ",
+ "repos": [
+  {
+   "repo": "browser-memory-visualizer",
+   "url": "https://github.com/fazal305/browser-memory-visualizer",
+   "sha": "369cce5624d7e10ad6e7aa0a67a63a69e9fdb04b",
+   "licence": "MIT (LICENSE file at pin 369cce5624d7, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "6d7e98f4c401",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 6d7e98f4c401); pinned to the default-branch head. LICENSE file at pin 369cce5624d7 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "aryan-dani--portfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how aryan-dani/Portfolio implements it: my portolfio website",
+ "repos": [
+  {
+   "repo": "Portfolio",
+   "url": "https://github.com/aryan-dani/Portfolio",
+   "sha": "82a4c308e82296ea494926773ad4daeec6d0a1e7",
+   "licence": "MIT (LICENSE file at pin 82a4c308e822, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T06:46Z",
+    "consent_receipt": "ed8186b63e89",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:46Z (receipt ed8186b63e89); pinned to the default-branch head. LICENSE file at pin 82a4c308e822 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

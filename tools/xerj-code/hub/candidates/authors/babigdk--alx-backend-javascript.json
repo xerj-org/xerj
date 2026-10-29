@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--alx-backend-javascript",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Babigdk/alx-backend-javascript implements it: Babigdk/alx-backend-javascript (JavaScript)",
+ "repos": [
+  {
+   "repo": "alx-backend-javascript",
+   "url": "https://github.com/Babigdk/alx-backend-javascript",
+   "sha": "7e4ecec97944d71a3781119586cc705c693d7ba7",
+   "licence": "MIT (LICENSE file at pin 7e4ecec97944, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "cd03ef1098a1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt cd03ef1098a1); pinned to the default-branch head. LICENSE file at pin 7e4ecec97944 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

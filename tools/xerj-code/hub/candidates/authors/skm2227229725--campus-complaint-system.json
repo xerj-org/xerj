@@ -1,0 +1,23 @@
+{
+ "corpus": "skm2227229725--campus-complaint-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how SKM2227229725/campus-complaint-system implements it: A web-based campus complaint management system with AI-powered complaint classification, duplicate detection, department routing, and compla",
+ "repos": [
+  {
+   "repo": "campus-complaint-system",
+   "url": "https://github.com/SKM2227229725/campus-complaint-system",
+   "sha": "5e9bd2ed351964c1eb514e004c257cdedf149cdb",
+   "licence": "author's permission (LICENSE at pin 5e9bd2ed3519: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:28Z",
+    "consent_receipt": "7838c724afe3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:28Z (receipt 7838c724afe3); pinned to the default-branch head. LICENSE at pin 5e9bd2ed3519: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

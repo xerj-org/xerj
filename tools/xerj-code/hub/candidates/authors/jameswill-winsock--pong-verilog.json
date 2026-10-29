@@ -1,0 +1,30 @@
+{
+ "corpus": "jameswill-winsock--pong-verilog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Verilog queries this for how Jameswill-Winsock/pong_verilog implements it: classic pong in verilog (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "pong_verilog",
+   "url": "https://github.com/Jameswill-Winsock/pong_verilog",
+   "sha": "fce9ee13787cc3f5c4d43f389fa9e062fcad5e0e",
+   "licence": "GPL-3.0 (LICENSE file at pin fce9ee13787c, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T08:26Z",
+    "consent_receipt": "808f067e532a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T08:26Z (receipt 808f067e532a); selected commit fce9ee13787c: \"updated the computer ai to be better and have varying levels\". LICENSE file at pin fce9ee13787c detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "fce9ee13787cc3f5c4d43f389fa9e062fcad5e0e",
+     "at": "2026-10-29T08:26Z",
+     "receipt": "808f067e532a"
+    }
+   }
+  }
+ ]
+}

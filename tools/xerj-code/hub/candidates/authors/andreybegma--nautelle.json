@@ -1,0 +1,23 @@
+{
+ "corpus": "andreybegma--nautelle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestration, ai-agents, bun queries this for how AndreyBegma/Nautelle implements it: Self-hosted control plane for Claude Code agents: one sentence in, a reviewed pull request out \u2014 with a board, designs, budgets, approvals a",
+ "repos": [
+  {
+   "repo": "Nautelle",
+   "url": "https://github.com/AndreyBegma/Nautelle",
+   "sha": "ead4a1cd61b11c960457974bbb76853d65ec9237",
+   "licence": "MIT (LICENSE file at pin ead4a1cd61b1, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:18Z",
+    "consent_receipt": "30761a3f867c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:18Z (receipt 30761a3f867c); pinned to the default-branch head. LICENSE file at pin ead4a1cd61b1 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

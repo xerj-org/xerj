@@ -1,0 +1,23 @@
+{
+ "corpus": "adamdecaf--csvq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, csv, csv-converter queries this for how adamdecaf/csvq implements it: CLI tool to parse and transform CSV files",
+ "repos": [
+  {
+   "repo": "csvq",
+   "url": "https://github.com/adamdecaf/csvq",
+   "sha": "9968d0d6f7c81177549bf32265db95b2e65d7041",
+   "licence": "Apache-2.0 (LICENSE file at pin 9968d0d6f7c8, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T03:40Z",
+    "consent_receipt": "f8e3bd98e0ff",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:40Z (receipt f8e3bd98e0ff); pinned to the default-branch head. LICENSE file at pin 9968d0d6f7c8 detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

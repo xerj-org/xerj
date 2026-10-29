@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Go queries this for how v55448330/lazy-balancer-v2 implements it: Caddy Reverse Proxy Balancer WebUI (selected work: geoipnames, caddygeoip, internal/services)",
+ "domain": "an agent working on Go queries this for how v55448330/lazy-balancer-v2 implements it: Caddy Reverse Proxy Balancer and WAF WebUI (selected work: geoipnames, caddygeoip, internal/services)",
  "repos": [
   {
    "repo": "lazy-balancer-v2",

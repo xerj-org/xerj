@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--database-engineering-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on bootstrap, css, html queries this for how fazal305/database-engineering-studio implements it: A browser-based database engineering toolkit featuring a visual schema designer, SQL playground, ER diagram visualizer, query builder, norma",
+ "repos": [
+  {
+   "repo": "database-engineering-studio",
+   "url": "https://github.com/fazal305/database-engineering-studio",
+   "sha": "0f72a8d646ba1d719b8b9fcbaa384d062260156b",
+   "licence": "author's permission (LICENSE at pin 0f72a8d646ba: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "f2aafababd76",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt f2aafababd76); pinned to the default-branch head. LICENSE at pin 0f72a8d646ba: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "chrisvip001--joyczl-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agent-framework, ai-agent queries this for how ChrisVip001/joyczl-agent implements it: Joy \u2014 a local-first personal assistant. Rust core (loop / memory / tools / graph / evals), TypeScript gateways + dashboard, Python thin SDK (selected work: joy-rs, the project root)",
+ "repos": [
+  {
+   "repo": "joyczl-agent",
+   "url": "https://github.com/ChrisVip001/joyczl-agent",
+   "sha": "26b779d5dfbca377d5dab79531558826d51de7d4",
+   "licence": "MIT (LICENSE file at pin 26b779d5dfbc, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T04:51Z",
+    "consent_receipt": "1062fdff2562",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T04:51Z (receipt 1062fdff2562); selected commit 26b779d5dfbc: \"Close the three races where two turns on one session meet\". LICENSE file at pin 26b779d5dfbc detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

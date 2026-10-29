@@ -1,0 +1,23 @@
+{
+ "corpus": "adamdecaf--rdap-exporter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on rdap, prometheus queries this for how adamdecaf/rdap_exporter implements it: Registration Data Access Protocol (RDAP) Prometheus Exporter",
+ "repos": [
+  {
+   "repo": "rdap_exporter",
+   "url": "https://github.com/adamdecaf/rdap_exporter",
+   "sha": "6876155eeaf72791ba82fbf83b30a956c0b77320",
+   "licence": "MIT (LICENSE file at pin 6876155eeaf7, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T03:40Z",
+    "consent_receipt": "9bea5fd1057b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:40Z (receipt 9bea5fd1057b); pinned to the default-branch head. LICENSE file at pin 6876155eeaf7 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

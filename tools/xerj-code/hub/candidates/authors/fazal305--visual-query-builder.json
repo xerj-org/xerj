@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--visual-query-builder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bootstrap, css, html queries this for how fazal305/visual-query-builder implements it: A browser-based visual SQL query designer built with HTML, CSS, Bootstrap 5, jQuery, Canvas API, and vanilla JavaScript",
+ "repos": [
+  {
+   "repo": "visual-query-builder",
+   "url": "https://github.com/fazal305/visual-query-builder",
+   "sha": "bfa2fb854b05f0736f4b7d4c694fedfe728633d3",
+   "licence": "MIT (LICENSE file at pin bfa2fb854b05, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "dbfe66b4454b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt dbfe66b4454b); pinned to the default-branch head. LICENSE file at pin bfa2fb854b05 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

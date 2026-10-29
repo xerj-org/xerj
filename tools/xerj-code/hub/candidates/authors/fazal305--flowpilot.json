@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--flowpilot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on fastify, javascript, jwt queries this for how fazal305/flowpilot implements it: FlowPilot \u2014 visual workflow automation platform (React, Fastify, Postgres, React Flow, OpenRouter)",
+ "repos": [
+  {
+   "repo": "flowpilot",
+   "url": "https://github.com/fazal305/flowpilot",
+   "sha": "91f6634f34e8c9be06298307c1e27aa55f9e2e63",
+   "licence": "author's permission (LICENSE at pin 91f6634f34e8: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "e1a2c7e661b9",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt e1a2c7e661b9); pinned to the default-branch head. LICENSE at pin 91f6634f34e8: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

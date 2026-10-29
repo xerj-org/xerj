@@ -1,0 +1,23 @@
+{
+ "corpus": "staninbui--racoon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how Staninbui/racoon implements it: racoon is a simple AI CLI tool to tail GCP logs for everyday using (selected work: src/gcp, src/ui, src/storage)",
+ "repos": [
+  {
+   "repo": "racoon",
+   "url": "https://github.com/Staninbui/racoon",
+   "sha": "cc0b1cfdb834c2dca96e6a3ed597701f294df743",
+   "licence": "MIT (LICENSE file at pin cc0b1cfdb834, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:19Z",
+    "consent_receipt": "935b826d43e8",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T10:19Z (receipt 935b826d43e8); selected commit cc0b1cfdb834: \"fix bugs\". LICENSE file at pin cc0b1cfdb834 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

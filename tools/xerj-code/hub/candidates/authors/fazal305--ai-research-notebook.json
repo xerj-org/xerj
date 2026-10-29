@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--ai-research-notebook",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on javascript, react, vite queries this for how fazal305/ai-research-notebook implements it: A local-first research workspace for browser-based document analysis, combining local and cloud AI processing",
+ "repos": [
+  {
+   "repo": "ai-research-notebook",
+   "url": "https://github.com/fazal305/ai-research-notebook",
+   "sha": "867b04ca9c76a63a55bb9af6c3e126de19b70e8a",
+   "licence": "MIT (LICENSE file at pin 867b04ca9c76, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "56abfdc891fd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 56abfdc891fd); pinned to the default-branch head. LICENSE file at pin 867b04ca9c76 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

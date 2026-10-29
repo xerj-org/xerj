@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--product-data-importer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bootstrap, css, html queries this for how fazal305/product-data-importer implements it: Browser-based developer tool for importing JSON/XML product data, validating required fields, filtering records, cleaning data, and exportin",
+ "repos": [
+  {
+   "repo": "product-data-importer",
+   "url": "https://github.com/fazal305/product-data-importer",
+   "sha": "bdf6cb392b9cf2f526100719651e06ab67ceb8fe",
+   "licence": "MIT (LICENSE file at pin bdf6cb392b9c, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "cfe7b1d9f21f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt cfe7b1d9f21f); pinned to the default-branch head. LICENSE file at pin bdf6cb392b9c detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

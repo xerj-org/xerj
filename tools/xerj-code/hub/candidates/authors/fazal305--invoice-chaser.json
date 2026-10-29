@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--invoice-chaser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on accounts-receivable, invoicing, laravel queries this for how fazal305/invoice-chaser implements it: Automated invoice reminders: tracks unpaid invoices and sends scheduled email/SMS chase sequences. Laravel 13 API + React/Vite",
+ "repos": [
+  {
+   "repo": "invoice-chaser",
+   "url": "https://github.com/fazal305/invoice-chaser",
+   "sha": "0dfaaccae93019a0578de77177d873531d8c6bf8",
+   "licence": "MIT (LICENSE file at pin 0dfaaccae930, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "56597577069f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 56597577069f); pinned to the default-branch head. LICENSE file at pin 0dfaaccae930 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

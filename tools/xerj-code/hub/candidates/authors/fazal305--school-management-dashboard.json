@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--school-management-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bootstrap, chartjs, css queries this for how fazal305/school-management-dashboard implements it: A browser-based school management dashboard with students, teachers, attendance, timetable, grades, fee tracking, dashboard analytics, dark ",
+ "repos": [
+  {
+   "repo": "school-management-dashboard",
+   "url": "https://github.com/fazal305/school-management-dashboard",
+   "sha": "0674fffcd49b57d1d66f47b1aec0ee04226e4cfb",
+   "licence": "MIT (LICENSE file at pin 0674fffcd49b, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "c84eb0588c9e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt c84eb0588c9e); pinned to the default-branch head. LICENSE file at pin 0674fffcd49b detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

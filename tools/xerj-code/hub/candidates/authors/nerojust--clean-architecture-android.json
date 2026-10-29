@@ -1,0 +1,23 @@
+{
+ "corpus": "nerojust--clean-architecture-android",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how Nerojust/clean-architecture-android implements it: Production-oriented Android template: Clean Architecture, MVI, Jetpack Compose, Hilt, Coroutines",
+ "repos": [
+  {
+   "repo": "clean-architecture-android",
+   "url": "https://github.com/Nerojust/clean-architecture-android",
+   "sha": "ba3a951e61ba8cda23ab72af32a51e3232e3f344",
+   "licence": "MIT (LICENSE file at pin ba3a951e61ba, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:19Z",
+    "consent_receipt": "5937307bcb39",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:19Z (receipt 5937307bcb39); pinned to the default-branch head. LICENSE file at pin ba3a951e61ba detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

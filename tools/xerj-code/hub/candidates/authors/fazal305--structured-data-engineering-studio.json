@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--structured-data-engineering-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bootstrap, css, html queries this for how fazal305/structured-data-engineering-studio implements it: A browser-based structured data engineering workspace with GraphQL explorer, JSON analytics, API playground, schema forms, workflow builder,",
+ "repos": [
+  {
+   "repo": "structured-data-engineering-studio",
+   "url": "https://github.com/fazal305/structured-data-engineering-studio",
+   "sha": "15b734eebeb807ab1880fd55ad799eaa8a1c6a4b",
+   "licence": "MIT (LICENSE file at pin 15b734eebeb8, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "0e3488ec6a43",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 0e3488ec6a43); pinned to the default-branch head. LICENSE file at pin 15b734eebeb8 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

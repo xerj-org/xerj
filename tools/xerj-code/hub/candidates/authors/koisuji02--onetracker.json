@@ -8,15 +8,15 @@
   {
    "repo": "OneTracker",
    "url": "https://github.com/Koisuji02/OneTracker",
-   "sha": "b9bebb59fe594f1525a0372f58073bdf86ec5d15",
-   "licence": "MPL-2.0 (LICENSE file at pin b9bebb59fe59, GitHub licence API 2026-10-28)",
+   "sha": "1050b7e153a63ea4b5a78db4d317dff8077f0f9f",
+   "licence": "MPL-2.0 (LICENSE file at pin 1050b7e153a6, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "MPL-2.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-24T09:12Z",
     "consent_receipt": "85d96ab5b33d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T09:12Z (receipt 85d96ab5b33d); selected commit b9bebb59fe59: \"Gateway: short TMDB rest, IGDB retry, daily usage alarm\". LICENSE file at pin b9bebb59fe59 detected as MPL-2.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Pinned to head b9bebb59fe59 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T09:12Z (receipt 85d96ab5b33d); selected commit 1050b7e153a6: \"Gateway: short TMDB rest, IGDB retry, daily usage alarm\". LICENSE file at pin 1050b7e153a6 detected as MPL-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution. Pinned to head 1050b7e153a6 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

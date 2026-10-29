@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--nexsoft-weather-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on css, html, javascript queries this for how fazal305/nexsoft-weather-app implements it: A responsive weather app using JavaScript, Fetch API, OpenWeatherMap, localStorage, and a dark UI",
+ "repos": [
+  {
+   "repo": "nexsoft-weather-app",
+   "url": "https://github.com/fazal305/nexsoft-weather-app",
+   "sha": "1fb78cf95a9e2d05cbf0b4693a71676242c5b31a",
+   "licence": "author's permission (LICENSE at pin 1fb78cf95a9e: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "2f41c6abff56",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 2f41c6abff56); pinned to the default-branch head. LICENSE at pin 1fb78cf95a9e: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

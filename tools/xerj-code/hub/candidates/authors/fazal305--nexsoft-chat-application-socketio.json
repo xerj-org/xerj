@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--nexsoft-chat-application-socketio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on css, express, firebase queries this for how fazal305/nexsoft-chat-application-socketio implements it: Real-time chat application built with Node.js, Express.js, Socket.io, and Firebase Firestore. Features private messaging, group chat, online",
+ "repos": [
+  {
+   "repo": "nexsoft-chat-application-socketio",
+   "url": "https://github.com/fazal305/nexsoft-chat-application-socketio",
+   "sha": "4a667b0d3d5b9575205e6c2503fdbc6a802e4c21",
+   "licence": "MIT (LICENSE file at pin 4a667b0d3d5b, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "035422d9b997",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 035422d9b997); pinned to the default-branch head. LICENSE file at pin 4a667b0d3d5b detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

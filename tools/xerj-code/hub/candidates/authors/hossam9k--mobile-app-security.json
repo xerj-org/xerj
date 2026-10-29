@@ -1,0 +1,23 @@
+{
+ "corpus": "hossam9k--mobile-app-security",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how hossam9k/mobile-app-security implements it: A verified study book on Android, iOS and Kotlin Multiplatform application security. 300+ pages, OWASP-aligned, with its own audit log",
+ "repos": [
+  {
+   "repo": "mobile-app-security",
+   "url": "https://github.com/hossam9k/mobile-app-security",
+   "sha": "ecfe23a01a6af01011502b282cbc99b6564d96e3",
+   "licence": "author's permission (LICENSE at pin ecfe23a01a6a: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:22Z",
+    "consent_receipt": "bc6e3e11bbd3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:22Z (receipt bc6e3e11bbd3); pinned to the default-branch head. LICENSE at pin ecfe23a01a6a: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

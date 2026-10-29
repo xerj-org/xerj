@@ -1,0 +1,23 @@
+{
+ "corpus": "zaher--tafkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Pascal queries this for how zaher/tafkit implements it: Tafkit, Arabic number to text, with good grammer apply",
+ "repos": [
+  {
+   "repo": "tafkit",
+   "url": "https://github.com/zaher/tafkit",
+   "sha": "ec8f307018f07a8194265878621f4cbbb0ca3f55",
+   "licence": "author's permission (LICENSE at pin ec8f307018f0: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:52Z",
+    "consent_receipt": "9e3e24878fb0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:52Z (receipt 9e3e24878fb0); pinned to the default-branch head. LICENSE at pin ec8f307018f0: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

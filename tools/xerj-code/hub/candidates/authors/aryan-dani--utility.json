@@ -1,0 +1,23 @@
+{
+ "corpus": "aryan-dani--utility",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on education, firebase, groq queries this for how aryan-dani/Utility implements it: Academic workspace for university students: Drive-synced notes vault, grounded AI, planner, GPA, SRS flashcards, and a PWA",
+ "repos": [
+  {
+   "repo": "Utility",
+   "url": "https://github.com/aryan-dani/Utility",
+   "sha": "2d746525135f72c7b3c90dd34a9e8e403921d72f",
+   "licence": "author's permission (LICENSE at pin 2d746525135f: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T06:46Z",
+    "consent_receipt": "728056a74eca",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:46Z (receipt 728056a74eca); pinned to the default-branch head. LICENSE at pin 2d746525135f: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

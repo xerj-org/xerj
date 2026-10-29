@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--flowforge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css, javascript, php queries this for how fazal305/FlowForge implements it: PHP workflow/rules engine, zero dependencies",
+ "repos": [
+  {
+   "repo": "FlowForge",
+   "url": "https://github.com/fazal305/FlowForge",
+   "sha": "d536ba58554242e6d88addce226be7d3956cb53a",
+   "licence": "author's permission (LICENSE at pin d536ba585542: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "d50595456eb3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt d50595456eb3); pinned to the default-branch head. LICENSE at pin d536ba585542: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

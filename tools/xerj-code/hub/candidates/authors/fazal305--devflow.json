@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--devflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on indexeddb, javascript, local-first queries this for how fazal305/devflow implements it: A browser-based developer workspace \u2014 local-first, offline-capable, IndexedDB + Web Workers + Service Worker, no backend",
+ "repos": [
+  {
+   "repo": "devflow",
+   "url": "https://github.com/fazal305/devflow",
+   "sha": "3183d10d68574bd81ca571ed2740929833cbe385",
+   "licence": "MIT (LICENSE file at pin 3183d10d6857, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "ea592a66baf3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt ea592a66baf3); pinned to the default-branch head. LICENSE file at pin 3183d10d6857 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

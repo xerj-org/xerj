@@ -8,15 +8,15 @@
   {
    "repo": "ThinkNet",
    "url": "https://github.com/Naksh7Gupta/ThinkNet",
-   "sha": "d4254dc99cd148dae8bbde362150550ab676ce25",
-   "licence": "author's permission (LICENSE at pin d4254dc99cd1: NONE; repository: none)",
+   "sha": "e7b875a385eaa83187a4151e7422af51226dbd84",
+   "licence": "Apache-2.0 (LICENSE file at pin e7b875a385ea, GitHub licence API 2026-10-29)",
    "review": {
-    "spdx": "NONE",
+    "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-24T02:52Z",
     "consent_receipt": "46e2626ce25a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T02:52Z (receipt 46e2626ce25a); pinned to the default-branch head. LICENSE at pin d4254dc99cd1: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T02:52Z (receipt 46e2626ce25a); pinned to the default-branch head. LICENSE file at pin e7b875a385ea detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
    }
   }
  ]

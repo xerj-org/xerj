@@ -1,0 +1,23 @@
+{
+ "corpus": "balu-annapureddy--railwaytwin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on digital-twin, networkx, python queries this for how Balu-Annapureddy/RailwayTwin implements it: Digital twin railway simulation and safety verification platform detecting track conflicts and overspeed violations",
+ "repos": [
+  {
+   "repo": "RailwayTwin",
+   "url": "https://github.com/Balu-Annapureddy/RailwayTwin",
+   "sha": "040c64ec42b99ea2f843afeb5d51d978f8291628",
+   "licence": "MIT (LICENSE file at pin 040c64ec42b9, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T03:19Z",
+    "consent_receipt": "93d5c250eda5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:19Z (receipt 93d5c250eda5); pinned to the default-branch head. LICENSE file at pin 040c64ec42b9 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--airbnb-clone-v2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Babigdk/AirBnB_clone_v2 implements it: Babigdk/AirBnB_clone_v2 (Python)",
+ "repos": [
+  {
+   "repo": "AirBnB_clone_v2",
+   "url": "https://github.com/Babigdk/AirBnB_clone_v2",
+   "sha": "27da00bc4364ac06b7e231b66d0cf164fe6035b9",
+   "licence": "author's permission (LICENSE at pin 27da00bc4364: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "9347a424d729",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt 9347a424d729); pinned to the default-branch head. LICENSE at pin 27da00bc4364: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

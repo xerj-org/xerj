@@ -1,0 +1,23 @@
+{
+ "corpus": "ivanarena--pyscraper-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on cli, crawler, python queries this for how ivanarena/pyscraper-cli implements it: A CLI tool to download a whole website in one click",
+ "repos": [
+  {
+   "repo": "pyscraper-cli",
+   "url": "https://github.com/ivanarena/pyscraper-cli",
+   "sha": "3815ae49529fd7e00188a7a41d988a15942093e9",
+   "licence": "MIT (LICENSE file at pin 3815ae49529f, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:33Z",
+    "consent_receipt": "e163ff327c58",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:33Z (receipt e163ff327c58); pinned to the default-branch head. LICENSE file at pin 3815ae49529f detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

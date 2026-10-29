@@ -8,15 +8,15 @@
   {
    "repo": "xrpl_agent_id",
    "url": "https://github.com/DuNorth595/xrpl_agent_id",
-   "sha": "7b3d238c172e89e305ac7c27a26ba7242a6084c5",
-   "licence": "MIT (LICENSE file at pin 7b3d238c172e, GitHub licence API 2026-10-29)",
+   "sha": "b5c46c5a7ce717309ee50a5e95ae6be236575b83",
+   "licence": "MIT (LICENSE file at pin b5c46c5a7ce7, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T19:14Z",
     "consent_receipt": "d584a9546477",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:14Z (receipt d584a9546477); pinned to the default-branch head. LICENSE file at pin 7b3d238c172e detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:14Z (receipt d584a9546477); pinned to the default-branch head. LICENSE file at pin b5c46c5a7ce7 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--crm-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bootstrap, chartjs, css queries this for how fazal305/crm-dashboard implements it: A browser-based enterprise CRM dashboard with customers, companies, deals, activities, calendar, sales pipeline, analytics, dark mode, and l",
+ "repos": [
+  {
+   "repo": "crm-dashboard",
+   "url": "https://github.com/fazal305/crm-dashboard",
+   "sha": "3259bb18e54b2b835dd9708a5f2c5ef8c25a5557",
+   "licence": "MIT (LICENSE file at pin 3259bb18e54b, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "d487bace9250",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt d487bace9250); pinned to the default-branch head. LICENSE file at pin 3259bb18e54b detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

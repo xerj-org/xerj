@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--voice-note-crm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on crm, laravel, react queries this for how fazal305/voice-note-crm implements it: Record a voice debrief after a client call and get a reviewed call log, sentiment and follow-up tasks. Laravel 13 API + React/Vite",
+ "repos": [
+  {
+   "repo": "voice-note-crm",
+   "url": "https://github.com/fazal305/voice-note-crm",
+   "sha": "9a0f64c097f180855be53f92c76dfabdf3b485d0",
+   "licence": "author's permission (LICENSE at pin 9a0f64c097f1: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "a256ac6fe32b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt a256ac6fe32b); pinned to the default-branch head. LICENSE at pin 9a0f64c097f1: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

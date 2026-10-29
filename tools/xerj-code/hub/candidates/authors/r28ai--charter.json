@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, function-calling, llm queries this for how r28ai/charter implements it: Decide what your agent sees, sends and gets back, in every API it touches (selected work: src/charter, tests, scripts)",
+ "domain": "an agent working on ai-agents, function-calling, llm queries this for how r28ai/charter implements it: Your agent's access to customer accounts, enforced per field, diffed in review (selected work: src/charter, tests, scripts)",
  "repos": [
   {
    "repo": "charter",

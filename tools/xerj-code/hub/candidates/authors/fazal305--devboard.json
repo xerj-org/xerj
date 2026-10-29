@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--devboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css, html, javascript queries this for how fazal305/devboard implements it: A responsive vanilla JavaScript Kanban board with cards, columns, drag-and-drop, search, stats, themes, and local saves",
+ "repos": [
+  {
+   "repo": "devboard",
+   "url": "https://github.com/fazal305/devboard",
+   "sha": "3a85ddb8f6af29d7ed2ce384e14f65e6720daa87",
+   "licence": "MIT (LICENSE file at pin 3a85ddb8f6af, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "7e5d3ea7ec5e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 7e5d3ea7ec5e); pinned to the default-branch head. LICENSE file at pin 3a85ddb8f6af detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

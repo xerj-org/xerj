@@ -1,0 +1,23 @@
+{
+ "corpus": "aryan-dani--the-shadow-instructor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how aryan-dani/The_Shadow_Instructor implements it: aryan-dani/The_Shadow_Instructor (TypeScript)",
+ "repos": [
+  {
+   "repo": "The_Shadow_Instructor",
+   "url": "https://github.com/aryan-dani/The_Shadow_Instructor",
+   "sha": "f4075ec69f7a13788ad33608ee7809dcf6230144",
+   "licence": "MIT (LICENSE file at pin f4075ec69f7a, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T06:46Z",
+    "consent_receipt": "5c45d0622f17",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:46Z (receipt 5c45d0622f17); pinned to the default-branch head. LICENSE file at pin f4075ec69f7a detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

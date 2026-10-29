@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--alx-backend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Babigdk/alx-backend implements it: Babigdk/alx-backend (Python)",
+ "repos": [
+  {
+   "repo": "alx-backend",
+   "url": "https://github.com/Babigdk/alx-backend",
+   "sha": "3e93b8bc7ff85102a19d1d15f9f38bf9cdb10fce",
+   "licence": "author's permission (LICENSE at pin 3e93b8bc7ff8: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "8d2e068dd65d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt 8d2e068dd65d); pinned to the default-branch head. LICENSE at pin 3e93b8bc7ff8: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -6,17 +6,17 @@
  "domain": "an agent working on Python queries this for how Dawinia/keepsail implements it: CI-first cross-framework + cross-agent AI coding harness (alpha) (selected work: src/super_harness, tests)",
  "repos": [
   {
-   "repo": "super-harness",
-   "url": "https://github.com/Dawinia/super-harness",
+   "repo": "keepsail",
+   "url": "https://github.com/Dawinia/keepsail",
    "sha": "bfcdb0073b1950067e8b3be278aa09535526bff7",
-   "licence": "MIT (LICENSE file at pin bfcdb0073b19, GitHub licence API 2026-10-26)",
+   "licence": "MIT (LICENSE file at pin bfcdb0073b19, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-26T18:05Z",
     "consent_receipt": "04fa480a8379",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T18:05Z (receipt 04fa480a8379); selected commit bfcdb0073b19: \"fix: complete rejected-code resubmission and attestation coverage (#124)\". LICENSE file at pin bfcdb0073b19 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T18:05Z (receipt 04fa480a8379); selected commit bfcdb0073b19: \"fix: complete rejected-code resubmission and attestation coverage (#124)\". LICENSE file at pin bfcdb0073b19 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
    }
   }
  ]

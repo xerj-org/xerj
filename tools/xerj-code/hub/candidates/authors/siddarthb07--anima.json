@@ -1,0 +1,23 @@
+{
+ "corpus": "siddarthb07--anima",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on fastapi, llm, python queries this for how Siddarthb07/Anima implements it: LLM interpretability probes: valence, arousal, and uncertainty from hidden states of Hugging Face causal LMs, with an abstain guard. 5 model",
+ "repos": [
+  {
+   "repo": "Anima",
+   "url": "https://github.com/Siddarthb07/Anima",
+   "sha": "9cface8e1a495af278cda5573ff7b9ea0d915823",
+   "licence": "MIT (LICENSE file at pin 9cface8e1a49, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:46Z",
+    "consent_receipt": "dae49a9148e8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:46Z (receipt dae49a9148e8); pinned to the default-branch head. LICENSE file at pin 9cface8e1a49 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

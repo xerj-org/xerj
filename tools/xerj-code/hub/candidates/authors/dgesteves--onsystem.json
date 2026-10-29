@@ -8,15 +8,15 @@
   {
    "repo": "onsystem",
    "url": "https://github.com/dgesteves/onsystem",
-   "sha": "ca4c1abee9f5d9c98e83b3a846af4c7fb7327c20",
-   "licence": "MIT (LICENSE file at pin ca4c1abee9f5, GitHub licence API 2026-10-28)",
+   "sha": "2e55a455146825e4d33de3e946c4f2ba2a333fe8",
+   "licence": "MIT (LICENSE file at pin 2e55a4551468, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T20:38Z",
     "consent_receipt": "bf7414664f40",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:38Z (receipt bf7414664f40); pinned to the default-branch head. LICENSE file at pin ca4c1abee9f5 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:38Z (receipt bf7414664f40); pinned to the default-branch head. LICENSE file at pin 2e55a4551468 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
    }
   }
  ]

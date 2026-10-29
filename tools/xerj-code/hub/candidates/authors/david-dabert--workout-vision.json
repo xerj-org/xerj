@@ -1,0 +1,23 @@
+{
+ "corpus": "david-dabert--workout-vision",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on computer-vision, fitness, mediapipe queries this for how david-dabert/workout-vision implements it: On-device AI workout analysis. MediaPipe pose detection, seek-based frame extraction, rep counting, form scoring, biomechanics. React 19 PWA (selected work: src/lib, src/components)",
+ "repos": [
+  {
+   "repo": "workout-vision",
+   "url": "https://github.com/david-dabert/workout-vision",
+   "sha": "09719d9b594a6444dba9521b567717f7d3e21a40",
+   "licence": "MIT (LICENSE file at pin 09719d9b594a, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:15Z",
+    "consent_receipt": "d7f155c8cd64",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T08:15Z (receipt d7f155c8cd64); selected commit 09719d9b594a: \"feat: pure zero-touch ambient AI and L5/S1 lumbar inverse dynamics en\u2026\". LICENSE file at pin 09719d9b594a detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

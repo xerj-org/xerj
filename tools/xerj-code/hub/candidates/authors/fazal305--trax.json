@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--trax",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dark-mode, dnd-kit, kanban queries this for how fazal305/trax implements it: A Trello-inspired project management app built with React \u2014 workspaces, boards, drag-and-drop, filters, and a full dark mode. Client-side on",
+ "repos": [
+  {
+   "repo": "trax",
+   "url": "https://github.com/fazal305/trax",
+   "sha": "2c26b0060b32b26e6928775940226a7e44173e0f",
+   "licence": "MIT (LICENSE file at pin 2c26b0060b32, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "11bb4ba0165c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 11bb4ba0165c); pinned to the default-branch head. LICENSE file at pin 2c26b0060b32 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

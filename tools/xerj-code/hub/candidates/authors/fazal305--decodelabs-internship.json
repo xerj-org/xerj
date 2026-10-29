@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--decodelabs-internship",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css, html, javascript queries this for how fazal305/DecodeLabs-Internship implements it: A central index of projects completed during the DecodeLabs Frontend Development Internship",
+ "repos": [
+  {
+   "repo": "DecodeLabs-Internship",
+   "url": "https://github.com/fazal305/DecodeLabs-Internship",
+   "sha": "bc159c4336c80ee498a0c933d5f3d347ae1432d2",
+   "licence": "MIT (LICENSE file at pin bc159c4336c8, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "8ce031b2fcbb",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 8ce031b2fcbb); pinned to the default-branch head. LICENSE file at pin bc159c4336c8 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

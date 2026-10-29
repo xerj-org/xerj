@@ -1,0 +1,23 @@
+{
+ "corpus": "amz34--agent-operating-model",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestration, agents, ai-agents queries this for how Amz34/agent-operating-model implements it: Org chart + rulebook for a multi-agent fleet: 24 seat specs, 8 planes, a task router, cost envelopes and auditors that fail the build when t",
+ "repos": [
+  {
+   "repo": "agent-operating-model",
+   "url": "https://github.com/Amz34/agent-operating-model",
+   "sha": "d189df38fd6ef27ce60eb71e82805278057120e4",
+   "licence": "MIT (LICENSE file at pin d189df38fd6e, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:21Z",
+    "consent_receipt": "a2db45c43710",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt a2db45c43710); pinned to the default-branch head. LICENSE file at pin d189df38fd6e detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

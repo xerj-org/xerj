@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--monty",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Babigdk/monty implements it: Babigdk/monty (C)",
+ "repos": [
+  {
+   "repo": "monty",
+   "url": "https://github.com/Babigdk/monty",
+   "sha": "60ef1f8711ce454841776e015443ba99bab150a8",
+   "licence": "author's permission (LICENSE at pin 60ef1f8711ce: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "9ac715eee825",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt 9ac715eee825); pinned to the default-branch head. LICENSE at pin 60ef1f8711ce: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

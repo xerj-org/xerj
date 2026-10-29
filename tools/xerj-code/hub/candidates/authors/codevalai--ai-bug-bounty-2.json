@@ -1,0 +1,23 @@
+{
+ "corpus": "codevalai--ai-bug-bounty-2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how codevalai/Ai-bug-bounty-2 implements it: Bug bounty",
+ "repos": [
+  {
+   "repo": "Ai-bug-bounty-2",
+   "url": "https://github.com/codevalai/Ai-bug-bounty-2",
+   "sha": "1555a42a1ef219787ed180949152881eaf371b05",
+   "licence": "author's permission (LICENSE at pin 1555a42a1ef2: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T06:04Z",
+    "consent_receipt": "6d8be94f5f57",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T06:04Z (receipt 6d8be94f5f57); pinned to the default-branch head. LICENSE at pin 1555a42a1ef2: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

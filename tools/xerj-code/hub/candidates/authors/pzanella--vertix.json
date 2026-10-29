@@ -1,0 +1,23 @@
+{
+ "corpus": "pzanella--vertix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on computer-vision, face-detection, onnx queries this for how pzanella/vertix implements it: Turns 16:9 video into 9:16 right in your browser - Rust/WASM face detection finds speakers, auto-frames 1, 2, or 3+ of them, and keeps the c (selected work: src/core, scripts, src/components)",
+ "repos": [
+  {
+   "repo": "vertix",
+   "url": "https://github.com/pzanella/vertix",
+   "sha": "bcd2a22f60cabf9f9d50ff6df3caf845b8ae0633",
+   "licence": "Apache-2.0 (LICENSE file at pin bcd2a22f60ca, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T09:06Z",
+    "consent_receipt": "efafc3661019",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T09:06Z (receipt efafc3661019); selected commit bcd2a22f60ca: \"Shot type, panel seats and a stationary camera: whole frame for wide \u2026\". LICENSE file at pin bcd2a22f60ca detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

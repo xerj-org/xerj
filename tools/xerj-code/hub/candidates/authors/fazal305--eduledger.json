@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--eduledger",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on express, javascript, jwt queries this for how fazal305/eduledger implements it: School & Academy Management, organized",
+ "repos": [
+  {
+   "repo": "eduledger",
+   "url": "https://github.com/fazal305/eduledger",
+   "sha": "8f086d748f9f02c9c38445d5045937ae858fa505",
+   "licence": "author's permission (LICENSE at pin 8f086d748f9f: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "ca5f6461ce7f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt ca5f6461ce7f); pinned to the default-branch head. LICENSE at pin 8f086d748f9f: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

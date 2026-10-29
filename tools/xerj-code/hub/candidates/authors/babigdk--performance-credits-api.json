@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--performance-credits-api",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Babigdk/performance-credits-api implements it: Babigdk/performance-credits-api (Python)",
+ "repos": [
+  {
+   "repo": "performance-credits-api",
+   "url": "https://github.com/Babigdk/performance-credits-api",
+   "sha": "0d28d68e7fcfe06a35a6c28b67facdf8e93d3521",
+   "licence": "author's permission (LICENSE at pin 0d28d68e7fcf: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "bcfd908d4f07",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt bcfd908d4f07); pinned to the default-branch head. LICENSE at pin 0d28d68e7fcf: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

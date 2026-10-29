@@ -1,0 +1,23 @@
+{
+ "corpus": "wangyq276-star--learning-programing",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how wangyq276-star/learning_programing implements it: \u5b66\u4e60Python\uff0cJava\uff0cC\u8bed\u8a00\uff0cC++\u7684\u4e00\u4e9b\u4ee3\u7801 (selected work: C++Program)",
+ "repos": [
+  {
+   "repo": "learning_programing",
+   "url": "https://github.com/wangyq276-star/learning_programing",
+   "sha": "c9748354e423e3c6ff0a118c98b220f68127a6eb",
+   "licence": "MIT (LICENSE file at pin c9748354e423, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T09:56Z",
+    "consent_receipt": "735d868faadf",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T09:56Z (receipt 735d868faadf); selected commit c9748354e423: \"binary enumation study\". LICENSE file at pin c9748354e423 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

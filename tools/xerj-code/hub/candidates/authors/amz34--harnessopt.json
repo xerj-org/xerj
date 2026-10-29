@@ -1,0 +1,23 @@
+{
+ "corpus": "amz34--harnessopt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, cli, developer-tools queries this for how Amz34/harnessopt implements it: Dependency-free Python CLI to audit and compact AI coding-agent harness configurations, MCP servers, and context budgets",
+ "repos": [
+  {
+   "repo": "harnessopt",
+   "url": "https://github.com/Amz34/harnessopt",
+   "sha": "b1c1c3cac5e0e60b5726b4ccb208a81ebb962de7",
+   "licence": "MIT (LICENSE file at pin b1c1c3cac5e0, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:21Z",
+    "consent_receipt": "5adce7c0ce53",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt 5adce7c0ce53); pinned to the default-branch head. LICENSE file at pin b1c1c3cac5e0 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

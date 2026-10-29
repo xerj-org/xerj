@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--nexsoft-landing-page",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bootstrap, css, html queries this for how fazal305/nexsoft-landing-page implements it: A responsive dark SaaS landing page built with HTML, CSS, JavaScript, Bootstrap, and jQuery for the Nexsoft internship",
+ "repos": [
+  {
+   "repo": "nexsoft-landing-page",
+   "url": "https://github.com/fazal305/nexsoft-landing-page",
+   "sha": "96d5994978e84489b942fc42d077ef8d9aa29d8f",
+   "licence": "MIT (LICENSE file at pin 96d5994978e8, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "067921a63cca",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 067921a63cca); pinned to the default-branch head. LICENSE file at pin 96d5994978e8 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

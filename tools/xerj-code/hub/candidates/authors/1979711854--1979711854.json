@@ -1,0 +1,23 @@
+{
+ "corpus": "1979711854--1979711854",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how 1979711854/1979711854 implements it: GitHub Profile README",
+ "repos": [
+  {
+   "repo": "1979711854",
+   "url": "https://github.com/1979711854/1979711854",
+   "sha": "03aef3179ef2b51201d7fa975238f884021c92c7",
+   "licence": "author's permission (LICENSE at pin 03aef3179ef2: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T04:09Z",
+    "consent_receipt": "9700070ade3d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T04:09Z (receipt 9700070ade3d); pinned to the default-branch head. LICENSE at pin 03aef3179ef2: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

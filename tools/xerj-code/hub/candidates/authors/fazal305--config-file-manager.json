@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--config-file-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bootstrap, css, html queries this for how fazal305/config-file-manager implements it: A browser-based developer tool for editing, validating, and exporting JSON and XML configuration files through a generated form UI",
+ "repos": [
+  {
+   "repo": "config-file-manager",
+   "url": "https://github.com/fazal305/config-file-manager",
+   "sha": "113e7ef5ad00f4a0b39a0231b5136d7b29af71f3",
+   "licence": "MIT (LICENSE file at pin 113e7ef5ad00, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "a606dc71f64e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt a606dc71f64e); pinned to the default-branch head. LICENSE file at pin 113e7ef5ad00 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

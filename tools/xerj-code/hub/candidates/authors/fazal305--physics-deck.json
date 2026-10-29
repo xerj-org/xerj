@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--physics-deck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on javascript, matter-js, react queries this for how fazal305/physics-deck implements it: Roguelike deckbuilder + Matter.js physics combat sandbox (React + Vite)",
+ "repos": [
+  {
+   "repo": "physics-deck",
+   "url": "https://github.com/fazal305/physics-deck",
+   "sha": "a89c80df1cbbe630cfe4c0b98d6256ed57f0a86c",
+   "licence": "author's permission (LICENSE at pin a89c80df1cbb: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "4d9d878888e6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 4d9d878888e6); pinned to the default-branch head. LICENSE at pin a89c80df1cbb: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

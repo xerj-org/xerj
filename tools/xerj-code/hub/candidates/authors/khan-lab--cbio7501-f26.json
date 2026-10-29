@@ -2,8 +2,8 @@
  "corpus": "khan-lab--cbio7501-f26",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how khan-lab/cbio7501-f26 implements it: CBIO7501 - The Art of Reproducible and Open Science (selected work: pages)",
+ "shelf": "OPS",
+ "domain": "an agent working on containers, open-source, reproducibility queries this for how khan-lab/cbio7501-f26 implements it: CBIO7501 - The Art of Reproducible Research (selected work: pages)",
  "repos": [
   {
    "repo": "cbio7501-f26",

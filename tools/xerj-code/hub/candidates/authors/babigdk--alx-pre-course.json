@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--alx-pre-course",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Babigdk/alx-pre_course implements it: Babigdk/alx-pre_course (C)",
+ "repos": [
+  {
+   "repo": "alx-pre_course",
+   "url": "https://github.com/Babigdk/alx-pre_course",
+   "sha": "c7d8fd50d1c91d83b18789f3746df684af83b5f8",
+   "licence": "author's permission (LICENSE at pin c7d8fd50d1c9: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "516cf70fb94f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt 516cf70fb94f); pinned to the default-branch head. LICENSE at pin c7d8fd50d1c9: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

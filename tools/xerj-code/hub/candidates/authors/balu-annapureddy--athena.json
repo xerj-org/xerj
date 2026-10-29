@@ -1,0 +1,23 @@
+{
+ "corpus": "balu-annapureddy--athena",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on artificial-intelligence, decision-support, evidence-based-reasoning queries this for how Balu-Annapureddy/athena implements it: \ud83e\udde0\ud83d\udcca Private financial reasoning system for evidence-driven market analysis, hypothesis testing, and explainable investment decisions",
+ "repos": [
+  {
+   "repo": "athena",
+   "url": "https://github.com/Balu-Annapureddy/athena",
+   "sha": "ccff767ac7dad947f6651e84c0c1e82bb17a360d",
+   "licence": "Apache-2.0 (LICENSE file at pin ccff767ac7da, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T03:19Z",
+    "consent_receipt": "07c836606582",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:19Z (receipt 07c836606582); pinned to the default-branch head. LICENSE file at pin ccff767ac7da detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

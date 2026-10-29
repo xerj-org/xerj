@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--cpsim-web-and-office-automation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css, html, javascript queries this for how fazal305/cpsim-web-and-office-automation implements it: Collection of beginner frontend development and office automation projects built using HTML, CSS, JavaScript, and Microsoft Office tools",
+ "repos": [
+  {
+   "repo": "cpsim-web-and-office-automation",
+   "url": "https://github.com/fazal305/cpsim-web-and-office-automation",
+   "sha": "5e33a934bef691e1c1ea858b0883bea234b3cf59",
+   "licence": "MIT (LICENSE file at pin 5e33a934bef6, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "095e2cc2261e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 095e2cc2261e); pinned to the default-branch head. LICENSE file at pin 5e33a934bef6 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

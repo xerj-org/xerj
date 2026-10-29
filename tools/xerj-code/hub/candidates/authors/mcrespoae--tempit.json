@@ -1,0 +1,23 @@
+{
+ "corpus": "mcrespoae--tempit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on benchmarking, decorators-python, python queries this for how mcrespoae/tempit implements it: Python decorator for precise measurement of function execution time",
+ "repos": [
+  {
+   "repo": "tempit",
+   "url": "https://github.com/mcrespoae/tempit",
+   "sha": "d710a171aaae35422ffa7a778d8a55b806db7b27",
+   "licence": "MIT (LICENSE file at pin d710a171aaae, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T10:15Z",
+    "consent_receipt": "a56dc2567dad",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:15Z (receipt a56dc2567dad); pinned to the default-branch head. LICENSE file at pin d710a171aaae detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

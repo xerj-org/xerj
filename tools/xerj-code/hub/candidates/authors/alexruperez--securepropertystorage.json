@@ -1,0 +1,23 @@
+{
+ "corpus": "alexruperez--securepropertystorage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on swift, property-wrappers, userdefaults queries this for how alexruperez/SecurePropertyStorage implements it: Helps you define secure storages for your properties using Swift property wrappers (selected work: Tests, SecurePropertyStorage.xcodeproj, Sources)",
+ "repos": [
+  {
+   "repo": "SecurePropertyStorage",
+   "url": "https://github.com/alexruperez/SecurePropertyStorage",
+   "sha": "2a0fd1c855aa0afdd3df00d281c7656b2a31cd9e",
+   "licence": "MIT (LICENSE file at pin 2a0fd1c855aa, GitHub licence API 2026-10-27)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T19:21Z",
+    "consent_receipt": "5ee8bcc432ca",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T19:21Z (receipt 5ee8bcc432ca); selected commit 2a0fd1c855aa: \"Modernize library for Xcode 27.1 / Swift 6.4\". LICENSE file at pin 2a0fd1c855aa detected as MIT by the GitHub licence API on 2026-10-27; used under that licence with attribution."
+   }
+  }
+ ]
+}

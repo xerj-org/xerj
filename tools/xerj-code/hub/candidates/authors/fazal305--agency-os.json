@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--agency-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on javascript, nextjs, react queries this for how fazal305/agency-os implements it: A client onboarding and agency operations platform: contract, welcome, invoice, access request, kickoff, portal, deliverables, reports, and ",
+ "repos": [
+  {
+   "repo": "agency-os",
+   "url": "https://github.com/fazal305/agency-os",
+   "sha": "10d57cf1d5f0ecd4f73c42f61ed574974afa3698",
+   "licence": "author's permission (LICENSE at pin 10d57cf1d5f0: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "4363f40a8d58",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 4363f40a8d58); pinned to the default-branch head. LICENSE at pin 10d57cf1d5f0: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

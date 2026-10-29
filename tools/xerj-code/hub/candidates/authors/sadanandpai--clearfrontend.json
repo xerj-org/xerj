@@ -1,0 +1,23 @@
+{
+ "corpus": "sadanandpai--clearfrontend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how sadanandpai/clearfrontend implements it: sadanandpai/clearfrontend (TypeScript)",
+ "repos": [
+  {
+   "repo": "clearfrontend",
+   "url": "https://github.com/sadanandpai/clearfrontend",
+   "sha": "dd8e6741a1c8fae5451a39fa9e0e238fe0aeb0f3",
+   "licence": "MIT (LICENSE file at pin dd8e6741a1c8, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T03:23Z",
+    "consent_receipt": "f6e0635245ce",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:23Z (receipt f6e0635245ce); pinned to the default-branch head. LICENSE file at pin dd8e6741a1c8 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

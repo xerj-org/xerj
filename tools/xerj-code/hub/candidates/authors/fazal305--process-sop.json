@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--process-sop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on javascript, react, vite queries this for how fazal305/process-sop implements it: An illustrative five-stage information processing pipeline \u2014 input reception, context analysis, tool invocation, content synthesis, and qual",
+ "repos": [
+  {
+   "repo": "process-sop",
+   "url": "https://github.com/fazal305/process-sop",
+   "sha": "d4422196ccdb4730613c2aab334ed80a1794fed0",
+   "licence": "MIT (LICENSE file at pin d4422196ccdb, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "94a564bb300a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 94a564bb300a); pinned to the default-branch head. LICENSE file at pin d4422196ccdb detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

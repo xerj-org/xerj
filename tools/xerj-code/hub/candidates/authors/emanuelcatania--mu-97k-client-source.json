@@ -1,0 +1,23 @@
+{
+ "corpus": "emanuelcatania--mu-97k-client-source",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how EmanuelCatania/Mu-97k-Client-Source implements it: Decompiled client from 0.97k client",
+ "repos": [
+  {
+   "repo": "Mu-97k-Client-Source",
+   "url": "https://github.com/EmanuelCatania/Mu-97k-Client-Source",
+   "sha": "55a240b5c9ee1ee55230e26c6031de128f206b2b",
+   "licence": "author's permission (LICENSE at pin 55a240b5c9ee: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:51Z",
+    "consent_receipt": "77866adafe7e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:51Z (receipt 77866adafe7e); pinned to the default-branch head. LICENSE at pin 55a240b5c9ee: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

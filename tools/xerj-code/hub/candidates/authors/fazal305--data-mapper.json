@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--data-mapper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bootstrap, css, html queries this for how fazal305/data-mapper implements it: Browser-based visual data-mapping tool for transforming source JSON/XML into target JSON structures with SVG field connections",
+ "repos": [
+  {
+   "repo": "data-mapper",
+   "url": "https://github.com/fazal305/data-mapper",
+   "sha": "b777ccc3031e3b39adbc0bb0de2d0c7422a0d6ee",
+   "licence": "MIT (LICENSE file at pin b777ccc3031e, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "02bfc46a411a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 02bfc46a411a); pinned to the default-branch head. LICENSE file at pin b777ccc3031e detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

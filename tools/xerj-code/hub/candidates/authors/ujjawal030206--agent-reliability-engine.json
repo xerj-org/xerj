@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-evaluation, ai-agents, ai-safety queries this for how Ujjawal030206/agent-reliability-engine implements it: Continuous integration for autonomous agents: adversarial scenario generation, sandboxed execution, hybrid failure classification, and a rel (selected work: src, static, tests)",
+ "domain": "an agent working on agent-evaluation, ai-agents, ai-safety queries this for how Ujjawal030206/agent-reliability-engine implements it: An autonomous customer-resolution agent that acts in a stateful store backend, adapts when things break mid-case, and is graded by a determi (selected work: src, static, tests)",
  "repos": [
   {
    "repo": "agent-reliability-engine",

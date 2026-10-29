@@ -2,8 +2,8 @@
  "corpus": "bullet4fun--fh2-modscollection",
  "cloned_at": null,
  "status": "draft",
- "shelf": "NET",
- "domain": "an agent working on C queries this for how Bullet4fun/FH2_ModsCollection implements it: Extra Options, Spotify Radio and Discord RPC mods for FH2_ModLoader (selected work: spotify-radio, tests, the project root)",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Bullet4fun/FH2_ModsCollection implements it: FH2 Mods for Azimuth Mod Loader (selected work: spotify-radio, tests, the project root)",
  "repos": [
   {
    "repo": "FH2_ModsCollection",

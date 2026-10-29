@@ -2,8 +2,8 @@
  "corpus": "inditextech--kumoss",
  "cloned_at": null,
  "status": "draft",
- "shelf": "SEC",
- "domain": "an agent working on Python queries this for how InditexTech/kumoss implements it: Kumoss is an application designed to manage infrastructure based on AI and covering any custom best practices, security and guardrails by de (selected work: core/prompts, core/tests, core/src)",
+ "shelf": "OPS",
+ "domain": "an agent working on ai-agents, aws, azure queries this for how InditexTech/kumoss implements it: Kumoss iturn natural-language requests into compliant, plan-validated Terraform/OpenTofu pull requests - with drift correction, policy gates (selected work: core/prompts, core/tests, core/src)",
  "repos": [
   {
    "repo": "kumoss",

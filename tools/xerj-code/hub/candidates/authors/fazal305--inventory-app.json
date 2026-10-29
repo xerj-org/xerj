@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--inventory-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on javascript, php, react queries this for how fazal305/inventory-app implements it: Staff hardware asset register: React frontend on Vercel and a PHP 8.2 REST API on Render with Postgres for asset tags, status, assignment an",
+ "repos": [
+  {
+   "repo": "inventory-app",
+   "url": "https://github.com/fazal305/inventory-app",
+   "sha": "1801ddb0cfad63c5276380a81ae8c78584c3f9b9",
+   "licence": "author's permission (LICENSE at pin 1801ddb0cfad: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "5f18e38f5fc9",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 5f18e38f5fc9); pinned to the default-branch head. LICENSE at pin 1801ddb0cfad: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

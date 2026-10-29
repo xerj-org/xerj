@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--landing-page",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on javascript, react, vite queries this for how fazal305/landing-page implements it: Personal credibility and freelance-services landing page for Fazal Abbas \u2014 React + Vite, built from real projects only",
+ "repos": [
+  {
+   "repo": "landing-page",
+   "url": "https://github.com/fazal305/landing-page",
+   "sha": "6188762b35bd97f4a245a77ab28d4d728099b14d",
+   "licence": "MIT (LICENSE file at pin 6188762b35bd, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "a8e1e51d031a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt a8e1e51d031a); pinned to the default-branch head. LICENSE file at pin 6188762b35bd detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

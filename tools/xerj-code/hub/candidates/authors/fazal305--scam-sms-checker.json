@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--scam-sms-checker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on accessibility, javascript, offline-first queries this for how fazal305/scam-sms-checker implements it: Urdu-first web app that tells Pakistani parents in one tap whether an SMS is a scam (fake BISP, prizes, blocked accounts), with Urdu voice a",
+ "repos": [
+  {
+   "repo": "scam-sms-checker",
+   "url": "https://github.com/fazal305/scam-sms-checker",
+   "sha": "10dc6839aa2c18c14961bde96ee0e522f9bcaeb1",
+   "licence": "MIT (LICENSE file at pin 10dc6839aa2c, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "11c33c9ee1e7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 11c33c9ee1e7); pinned to the default-branch head. LICENSE file at pin 10dc6839aa2c detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

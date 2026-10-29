@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--nightshift-fm-radio-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css, html, javascript queries this for how fazal305/nightshift-fm-radio-dashboard implements it: A neon late-night radio dashboard with station switching, visualizers, live chat, request flow, and generated audio fallback",
+ "repos": [
+  {
+   "repo": "nightshift-fm-radio-dashboard",
+   "url": "https://github.com/fazal305/nightshift-fm-radio-dashboard",
+   "sha": "4920e3d21f22eee69e13d4ea695188466bdf841b",
+   "licence": "author's permission (LICENSE at pin 4920e3d21f22: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "2a530f6bfde1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 2a530f6bfde1); pinned to the default-branch head. LICENSE at pin 4920e3d21f22: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

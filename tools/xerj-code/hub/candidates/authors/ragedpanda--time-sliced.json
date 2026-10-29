@@ -1,0 +1,23 @@
+{
+ "corpus": "ragedpanda--time-sliced",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on async, electron, event-loop queries this for how RagedPanda/time-sliced implements it: Run long loops without freezing the event loop: yield on a time budget, not every N items",
+ "repos": [
+  {
+   "repo": "time-sliced",
+   "url": "https://github.com/RagedPanda/time-sliced",
+   "sha": "c91d08c6555b58326b9e8c07a23dbcfa82ba33f2",
+   "licence": "MIT (LICENSE file at pin c91d08c6555b, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T04:48Z",
+    "consent_receipt": "d5a2edc3cb8a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T04:48Z (receipt d5a2edc3cb8a); pinned to the default-branch head. LICENSE file at pin c91d08c6555b detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

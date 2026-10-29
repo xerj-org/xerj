@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--review-responder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on google-business-profile, laravel, php queries this for how fazal305/review-responder implements it: Drafts replies to Google reviews overnight so business owners can review, edit, and approve them each morning",
+ "repos": [
+  {
+   "repo": "review-responder",
+   "url": "https://github.com/fazal305/review-responder",
+   "sha": "fd1d31d58cd412ad168e20573016e0e333ace520",
+   "licence": "author's permission (LICENSE at pin fd1d31d58cd4: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "c89ec11bb1a7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt c89ec11bb1a7); pinned to the default-branch head. LICENSE at pin fd1d31d58cd4: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

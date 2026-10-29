@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--rss-news-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css, html, javascript queries this for how fazal305/rss-news-dashboard implements it: A cyberpunk-style RSS feed reader and news dashboard built with vanilla JavaScript, DOMParser, localStorage bookmarks, category filters, sea",
+ "repos": [
+  {
+   "repo": "rss-news-dashboard",
+   "url": "https://github.com/fazal305/rss-news-dashboard",
+   "sha": "a40c57e457cd0e0bc2e5109c4c2434a643819492",
+   "licence": "MIT (LICENSE file at pin a40c57e457cd, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "f3ae2a4d6d5a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt f3ae2a4d6d5a); pinned to the default-branch head. LICENSE file at pin a40c57e457cd detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

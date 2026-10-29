@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--karachi-transit-tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css, html, javascript queries this for how fazal305/karachi-transit-tracker implements it: A Karachi BRT dashboard with Leaflet maps, static route data, simulated buses, weather, route planning, and timetables",
+ "repos": [
+  {
+   "repo": "karachi-transit-tracker",
+   "url": "https://github.com/fazal305/karachi-transit-tracker",
+   "sha": "710d36afce5990160c26bc5fac9d66d0c0eaae72",
+   "licence": "MIT (LICENSE file at pin 710d36afce59, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "d725d870c1bc",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt d725d870c1bc); pinned to the default-branch head. LICENSE file at pin 710d36afce59 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

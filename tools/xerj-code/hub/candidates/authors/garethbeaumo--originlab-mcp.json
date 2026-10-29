@@ -1,0 +1,23 @@
+{
+ "corpus": "garethbeaumo--originlab-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, automation, data-visualization queries this for how garethbeaumo/originlab-mcp implements it: MCP Server for OriginLab Control OriginLab with natural language through AI clients via the Model Context Protocol (selected work: tests, src/originlab_mcp, scripts)",
+ "repos": [
+  {
+   "repo": "originlab-mcp",
+   "url": "https://github.com/garethbeaumo/originlab-mcp",
+   "sha": "0ad9a849f53d127caa3d1a1b761a5d6107ba8687",
+   "licence": "MIT (LICENSE file at pin 0ad9a849f53d, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T07:10Z",
+    "consent_receipt": "96a06ca3cea0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T07:10Z (receipt 96a06ca3cea0); selected commit 0ad9a849f53d: \"Mark failed tool responses as MCP errors over stdio\". LICENSE file at pin 0ad9a849f53d detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "HEALTH",
- "domain": "an agent working on anchor-graph, bioinformatics, clustering queries this for how AkashKundu114/icc-clustering implements it: Reference implementation of Inductive Consensus Clustering (ICC-v2): linear-time bipartite anchor consensus with Sarle bimodality subspace g (selected work: research_audit, src/icc, tests)",
+ "domain": "an agent working on anchor-graph, bioinformatics, clustering queries this for how AkashKundu114/icc-clustering implements it: Official code & benchmark artifact for 'Stable but Wrong: Why Consensus Clustering Can Fail in High Dimensions, and What Helps' (Springer Na (selected work: research_audit, src/icc, tests)",
  "repos": [
   {
    "repo": "icc-clustering",

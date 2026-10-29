@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--figma-lite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bootstrap, css, html queries this for how fazal305/figma-lite implements it: A browser-based collaborative design canvas featuring an infinite workspace, shape and text tools, layer management, zoom, pan, snap guides,",
+ "repos": [
+  {
+   "repo": "figma-lite",
+   "url": "https://github.com/fazal305/figma-lite",
+   "sha": "6a948e4062f53c7607f3694acb13872793c94b1c",
+   "licence": "author's permission (LICENSE at pin 6a948e4062f5: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "ec26875c2b6a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt ec26875c2b6a); pinned to the default-branch head. LICENSE at pin 6a948e4062f5: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "babigdk--geobyteincassessment",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how Babigdk/GeobyteIncAssessment implements it: Babigdk/GeobyteIncAssessment (Java)",
+ "repos": [
+  {
+   "repo": "GeobyteIncAssessment",
+   "url": "https://github.com/Babigdk/GeobyteIncAssessment",
+   "sha": "9b50a33ca313df1efac94449d90fde34972d9556",
+   "licence": "author's permission (LICENSE at pin 9b50a33ca313: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T08:39Z",
+    "consent_receipt": "acd512f046e5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:39Z (receipt acd512f046e5); pinned to the default-branch head. LICENSE at pin 9b50a33ca313: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

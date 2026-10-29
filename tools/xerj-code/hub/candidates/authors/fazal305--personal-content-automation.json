@@ -1,0 +1,23 @@
+{
+ "corpus": "fazal305--personal-content-automation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on express, javascript, react queries this for how fazal305/personal-content-automation implements it: A personal content operating system \u2014 capture, draft, schedule, and publish across platforms, with real automation only where a free API gen",
+ "repos": [
+  {
+   "repo": "personal-content-automation",
+   "url": "https://github.com/fazal305/personal-content-automation",
+   "sha": "aac3fc3761ded325abb7e6ae473203cd6c507770",
+   "licence": "author's permission (LICENSE at pin aac3fc3761de: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T05:17Z",
+    "consent_receipt": "972c02a7a606",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T05:17Z (receipt 972c02a7a606); pinned to the default-branch head. LICENSE at pin aac3fc3761de: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

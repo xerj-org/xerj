@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on android, text-editor, klyx queries this for how klyx-dev/klyx implements it: A lightweight, high-performance code editor for Android (selected work: app/src, runtime)",
+ "domain": "an agent working on android, text-editor, code-editor queries this for how klyx-dev/klyx implements it: A lightweight, high-performance code editor for Android (selected work: app/src, runtime)",
  "repos": [
   {
    "repo": "klyx",
