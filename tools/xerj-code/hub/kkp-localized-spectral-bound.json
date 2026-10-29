@@ -1,0 +1,21 @@
+{
+ "corpus": "kkp-localized-spectral-bound",
+ "cloned_at": "2026-10-29T05:13:46Z",
+ "repos": [
+  {
+   "repo": "kkp-localized-spectral-bound",
+   "url": "https://github.com/shaikidris/kkp-localized-spectral-bound",
+   "licence": "Apache-2.0",
+   "sha": "d3593f26e60c27d1cae1967f720f4dd59ad1c4d8",
+   "files": 45,
+   "bytes": 664146,
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "Codex for @shaikidris",
+    "at": "2026-10-29",
+    "note": "Apache-2.0 in LICENSE and bundled BN headers. Preserve Shaik Idris implementation credit, Domagoj Bradač's mathematical attribution for the edge-clique scalar argument, and Shengtong Zhang's BN/Motzkin–Straus copyright and Apache-2.0 notices. Mathlib is a pinned external dependency. Human licence confirmation pending."
+   }
+  }
+ ]
+}

@@ -13648,6 +13648,40 @@
      "developer-tools"
     ]
    }
+  },
+  {
+   "cat": "AI",
+   "domain": "an agent formalizing spectral graph inequalities in Lean queries this for the edge-clique scalar certificate, completely positive spectral transfer and localized two-eigenvalue bound for finite noncomplete graphs",
+   "g7": {
+    "verdict": "PENDING",
+    "note": "Retrieval evaluation pending.",
+    "queries": [
+     "How does edgeLocalizedNoncompleteUnordered prove the localized two eigenvalue bound for noncomplete graphs?",
+     "Where is edgeCliqueNum defined as the largest clique containing an edge?",
+     "How does the homogeneous edge clique scalar certificate compress support to a clique?",
+     "How does the completely positive spectral lift use weighted Cauchy Schwarz to transfer a scalar certificate?",
+     "Why is the second ordered adjacency eigenvalue nonnegative when the graph has a nonedge?"
+    ]
+   },
+   "lane": "A",
+   "refresh": "pinned",
+   "slug": "kkp-localized-spectral-bound",
+   "sources": [
+    {
+     "licence_hint": "Apache-2.0; see LICENSE and bundled attribution at the pinned commit",
+     "url": "https://github.com/shaikidris/kkp-localized-spectral-bound"
+    }
+   ],
+   "status": "live",
+   "tags": {
+    "region": "GLOBAL",
+    "topics": [
+     "lean4",
+     "formal-verification",
+     "spectral-graph-theory",
+     "edge-clique-bounds"
+    ]
+   }
   }
  ],
  "lanes": [
