@@ -40,7 +40,7 @@ To help us triage and resolve the issue quickly, please include as much of the f
 
 ## Our Commitment
 
-When you report a vulnerability to us responsibly, we commit to:
+When you report a vulnerability to us, we commit to:
 
 * **Acknowledge receipt** of your report within **72 hours**.
 * Provide an **initial assessment** and triage, typically within **7 days**.
@@ -58,16 +58,16 @@ We follow a **coordinated disclosure** process:
 
 1. **Private Report:** You submit the vulnerability privately through one of the designated channels.
 2. **Triaging & Fix:** We confirm the issue, assess affected versions, and develop a fix.
-3. **Release Preparation:** We prepare a release containing the fix and draft a public security advisory (via GitHub Security Advisories / CVE).
+3. **Release Preparation:** We prepare a release containing the fix and, where appropriate, a public security advisory (via GitHub Security Advisories / CVE).
 4. **Public Disclosure:** We publicly disclose the vulnerability once the fix is available, coordinating the timing with you whenever possible.
 
-We ask that reporters give us a reasonable opportunity to remediate an issue prior to any public disclosure.
+We ask that reporters give us a reasonable opportunity to remediate an issue prior to any public disclosure. We aim to resolve critical issues promptly and will work with you to agree on a disclosure timeline.
 
 ---
 
 ## Automated CI/CD Security Checks
 
-The following automated security checks run in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) on every push and pull request. If you notice a gap between this document and the actual workflow file, that itself is a bug worth reporting.
+The following automated security checks run in [`.github/workflows/ci.yml`](.github/workflows/ci.yml) on pushes to `main` and pull requests that change code. The workflow skips these jobs for changes classified as documentation-only. If you notice a gap between this document and the actual workflow file, that itself is a bug worth reporting.
 
 * **`security-audit`:** Runs [`cargo-audit`](https://github.com/rustsec/rustsec) against `engine/Cargo.lock`.
   * RUSTSEC *vulnerability* advisories will fail the build.
@@ -78,13 +78,15 @@ The following automated security checks run in [`.github/workflows/ci.yml`](.git
   * SQL queries and `xerj_engine::painless` scripts.
   * Script tokenizers in the aggregation engine (`scripted_metric`, `bucket_script`, and `bucket_selector`).
 
+Each fuzz target replays a checked-in seed corpus and then fuzzes for a bounded budget. This list describes the covered parsers; it does not cover every parser in the engine.
+
 > *Note: Automated checks are not a replacement for security reports. Fuzzing uncovers crashes and hangs rather than logic flaws, and advisory databases only list previously published vulnerabilities.*
 
 ---
 
 ## Scope
 
-This policy applies to the core **XERJ** engine and its official crates within the `xerj-org/xerj` repository. 
+This policy applies to the **XERJ** engine and its official crates within the `xerj-org/xerj` repository.
 
 Vulnerabilities in third-party dependencies should be reported to their respective upstream projects. However, if a third-party dependency bug impacts XERJ directly, we welcome a report so we can update or mitigate the component accordingly.
 
