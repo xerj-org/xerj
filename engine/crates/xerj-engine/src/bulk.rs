@@ -112,6 +112,139 @@ pub(crate) async fn with_semantic_lifecycle_hook<F: std::future::Future>(
         .await
 }
 
+#[cfg(test)]
+fn semantic_lifecycle_hook_installed(target: &str) -> bool {
+    SEMANTIC_LIFECYCLE_HOOK
+        .try_with(|(hook_target, _)| hook_target == "*" || hook_target == target)
+        .unwrap_or(false)
+}
+
+#[cfg(not(test))]
+fn semantic_lifecycle_hook_installed(_target: &str) -> bool {
+    false
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Test-only count of explicit-id batch publications (#2427).
+    static EXPLICIT_ID_BATCHES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Publish semantically prepared sources as one batch (#2427). A failed
+/// preparation fails only its own item; an empty id gets a generated one.
+async fn publish_prepared_batch(
+    idx: &crate::index::Index,
+    index_name: &str,
+    prepared: Vec<(usize, String, Result<Value>)>,
+    items: &mut [Option<BulkItemResult>],
+) -> bool {
+    let mut errors = false;
+    let mut docs = Vec::with_capacity(prepared.len());
+    for (item_idx, id, prepared) in prepared {
+        let failure = match prepared {
+            Ok(source) => {
+                let id = if id.is_empty() {
+                    uuid::Uuid::new_v4().to_string()
+                } else {
+                    id
+                };
+                match serde_json::to_vec(&source) {
+                    Ok(bytes) => {
+                        docs.push((item_idx, id, std::sync::Arc::<[u8]>::from(bytes)));
+                        continue;
+                    }
+                    Err(e) => (id, 500, e.to_string()),
+                }
+            }
+            Err(e) => (id, engine_error_http_status(&e), e.to_string()),
+        };
+        let (id, status, error) = failure;
+        items[item_idx] = Some(BulkItemResult {
+            action: "index".into(),
+            index: index_name.to_string(),
+            id,
+            status,
+            result: None,
+            error: Some(error),
+            get_source: None,
+        });
+        errors = true;
+    }
+    errors | publish_explicit_id_batch(idx, index_name, docs, items).await
+}
+
+/// Publish `index` actions that carry an `_id` as one batch and fill their
+/// item slots in request order. Returns whether any item failed (#2427).
+async fn publish_explicit_id_batch(
+    idx: &crate::index::Index,
+    index_name: &str,
+    docs: Vec<(usize, String, std::sync::Arc<[u8]>)>,
+    items: &mut [Option<BulkItemResult>],
+) -> bool {
+    if docs.is_empty() {
+        return false;
+    }
+    #[cfg(test)]
+    EXPLICIT_ID_BATCHES.with(|count| count.set(count.get() + 1));
+    let mut errors = false;
+    let mut slots = Vec::with_capacity(docs.len());
+    let batch = docs
+        .into_iter()
+        .map(|(item_idx, id, bytes)| {
+            slots.push((item_idx, id.clone()));
+            (id, bytes)
+        })
+        .collect();
+    match idx.index_batch_explicit_ids_raw(batch).await {
+        Ok(results) => {
+            for ((item_idx, id), result) in slots.into_iter().zip(results) {
+                items[item_idx] = Some(match result {
+                    Ok(resp) => BulkItemResult {
+                        action: "index".into(),
+                        index: index_name.to_string(),
+                        id: resp.id,
+                        // 201 for a new doc, 200 for an overwrite (ES).
+                        status: if resp.result == "updated" { 200 } else { 201 },
+                        result: Some(resp.result),
+                        error: None,
+                        get_source: None,
+                    },
+                    Err(e) => {
+                        errors = true;
+                        BulkItemResult {
+                            action: "index".into(),
+                            index: index_name.to_string(),
+                            id,
+                            status: engine_error_http_status(&e),
+                            result: None,
+                            error: Some(e.to_string()),
+                            get_source: None,
+                        }
+                    }
+                });
+            }
+        }
+        Err(e) => {
+            // Whole-batch failure (write block, breaker, back-pressure):
+            // every item gets the same status, as on the auto-id batch.
+            let status = engine_error_http_status(&e);
+            for (item_idx, id) in slots {
+                items[item_idx] = Some(BulkItemResult {
+                    action: "index".into(),
+                    index: index_name.to_string(),
+                    id,
+                    status,
+                    result: None,
+                    error: Some(e.to_string()),
+                    get_source: None,
+                });
+            }
+            errors = true;
+        }
+    }
+    errors
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1755,6 +1888,20 @@ pub async fn process_bulk_with_opts(
         let prepared = idx.apply_semantic_embeddings_batch(valid_sources).await;
         #[cfg(test)]
         let _ = semantic_lifecycle_hook(&index_name, SemanticLifecyclePoint::Prepared);
+        // #2427: without ingest-memory tracing nothing is accounted per
+        // document, so publish the prepared group as one batch instead of
+        // one `index_document_prepared` call per document. The tracing mode
+        // (and its lifecycle tests) keeps the sequential path so each
+        // prepared document's ownership is still released as it publishes.
+        if valid_memory.is_none() && !semantic_lifecycle_hook_installed(&index_name) {
+            let docs = valid_meta
+                .into_iter()
+                .zip(prepared)
+                .map(|((item_idx, id), prepared)| (item_idx, id.unwrap_or_default(), prepared))
+                .collect();
+            errors |= publish_prepared_batch(&idx, &index_name, docs, &mut items).await;
+            continue;
+        }
         let mut valid_memory = valid_memory.map(Vec::into_iter);
         for ((item_idx, id), prepared_source) in valid_meta.into_iter().zip(prepared) {
             let memory = valid_memory.as_mut().and_then(Iterator::next);
@@ -1931,70 +2078,61 @@ pub async fn process_bulk_with_opts(
             }
         };
 
-        // Index each doc via the per-doc path. index_document() handles
-        // WAL write, storage memtable (_source), AND FTS memtable
-        // (search + aggregations) in one call — no separate raw insert.
-        for (item_idx, doc_id, doc_bytes) in batch {
-            // The parse stage already validated these bytes (syntax +
-            // object-ness), so this parse cannot fail in practice — but
-            // never fall back to indexing an EMPTY doc: a `{}` here would
-            // be silent data loss reported as success. Fail the item loud.
-            let source = match serde_json::from_slice::<Value>(&doc_bytes) {
-                Ok(v) => v,
-                Err(e) => {
-                    items[item_idx] = Some(BulkItemResult {
-                        action: "index".into(),
-                        index: index_name.clone(),
-                        id: doc_id,
-                        status: 400,
-                        result: None,
-                        error: Some(format!("failed to parse: invalid document JSON: {e}")),
-                        get_source: None,
-                    });
-                    errors = true;
-                    continue;
-                }
-            };
-            tracing::debug!(
-                doc_id = doc_id.as_str(),
-                source = %source,
-                bytes_len = doc_bytes.len(),
-                "bulk: indexing doc via per-doc path"
-            );
-            let id_opt = if doc_id.is_empty() {
-                None
-            } else {
-                Some(doc_id)
-            };
-            match idx.index_document(id_opt, source).await {
-                Ok(resp) => {
-                    // 201 for new doc, 200 for overwrite (ES semantics).
-                    let status: u16 = if resp.result == "updated" { 200 } else { 201 };
-                    items[item_idx] = Some(BulkItemResult {
-                        action: "index".into(),
-                        index: index_name.clone(),
-                        id: resp.id,
-                        status,
-                        result: Some(resp.result),
-                        error: None,
-                        get_source: None,
-                    });
-                }
-                Err(e) => {
-                    let status = engine_error_http_status(&e);
-                    items[item_idx] = Some(BulkItemResult {
-                        action: "index".into(),
-                        index: index_name.clone(),
-                        id: String::new(),
-                        status,
-                        result: None,
-                        error: Some(e.to_string()),
-                        get_source: None,
-                    });
-                    errors = true;
+        // #2427: publish the whole explicit-id group as one batch. The
+        // per-document `index_document` loop this replaces held the WAL lock,
+        // copied the source into the storage memtable, and opened a
+        // publication bracket once per document; eight concurrent bulks
+        // used about two cores. `index_batch_explicit_ids_raw` keeps the
+        // per-doc answers (`created`/`updated`, `_version`, date errors).
+        //
+        // An index created from a native schema can carry embedding fields
+        // without a `semantic_text` mapping, so the partition above calls it
+        // plain. `index_document` embedded those documents itself; prepare
+        // them here in one shared pass before the batch publication.
+        if !idx.semantic_vector_fields().await.is_empty() {
+            let mut meta = Vec::with_capacity(batch.len());
+            let mut sources = Vec::with_capacity(batch.len());
+            for (item_idx, doc_id, doc_bytes) in batch {
+                match serde_json::from_slice::<Value>(&doc_bytes) {
+                    Ok(source) => {
+                        meta.push((item_idx, doc_id));
+                        sources.push(source);
+                    }
+                    Err(e) => {
+                        items[item_idx] = Some(BulkItemResult {
+                            action: "index".into(),
+                            index: index_name.clone(),
+                            id: doc_id,
+                            status: 400,
+                            result: None,
+                            error: Some(format!("failed to parse: invalid document JSON: {e}")),
+                            get_source: None,
+                        });
+                        errors = true;
+                    }
                 }
             }
+            let prepared = idx.apply_semantic_embeddings_batch(sources).await;
+            let docs = meta
+                .into_iter()
+                .zip(prepared)
+                .map(|((item_idx, id), prepared)| (item_idx, id, prepared))
+                .collect();
+            errors |= publish_prepared_batch(&idx, &index_name, docs, &mut items).await;
+            continue;
         }
+        let docs = batch
+            .into_iter()
+            .map(|(item_idx, doc_id, doc_bytes)| {
+                let doc_id = if doc_id.is_empty() {
+                    uuid::Uuid::new_v4().to_string()
+                } else {
+                    doc_id
+                };
+                (item_idx, doc_id, doc_bytes)
+            })
+            .collect();
+        errors |= publish_explicit_id_batch(&idx, &index_name, docs, &mut items).await;
     }
 
     // Execute non-index ops individually (create, update, delete).
@@ -3901,5 +4039,161 @@ mod parse_admission_tests {
             assert_eq!(item.index, "logs");
             assert!(item.error.as_deref().unwrap().contains("circuit breaker"));
         }
+    }
+}
+
+#[cfg(test)]
+mod explicit_id_batch_tests {
+    use super::*;
+    use serde_json::json;
+    use tempfile::TempDir;
+    use xerj_common::config::Config;
+    use xerj_common::types::{EmbeddingConfig, FieldConfig, FieldType, Schema};
+
+    fn engine_with(name: &str, schema: Schema) -> (TempDir, Engine) {
+        let dir = TempDir::new().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = Engine::new(config).unwrap();
+        engine.create_index(name, schema).unwrap();
+        (dir, engine)
+    }
+
+    fn statuses(result: &BulkResult) -> Vec<(u16, Option<String>)> {
+        result
+            .items
+            .iter()
+            .map(|item| (item.status, item.result.clone()))
+            .collect()
+    }
+
+    fn created() -> (u16, Option<String>) {
+        (201, Some("created".into()))
+    }
+
+    fn updated() -> (u16, Option<String>) {
+        (200, Some("updated".into()))
+    }
+
+    /// #2427: explicit-id `index` actions were published one
+    /// `index_document` call at a time, each also copying the source into
+    /// the storage memtable. They now go through one turbo batch, which
+    /// keeps only the WAL + FTS representation, while `created`/`updated`
+    /// and `_version` stay exactly what the per-doc path reported.
+    #[tokio::test]
+    async fn explicit_id_index_actions_publish_as_one_batch() {
+        let name = "explicit-id-batch";
+        let (_dir, engine) = engine_with(name, Schema::empty());
+        let body = format!(
+            "{{\"index\":{{\"_index\":\"{name}\",\"_id\":\"a\"}}}}\n{{\"n\":1,\"t\":\"alpha\"}}\n\
+             {{\"index\":{{\"_index\":\"{name}\",\"_id\":\"b\"}}}}\n{{\"n\":2,\"t\":\"beta\"}}\n\
+             {{\"index\":{{\"_index\":\"{name}\",\"_id\":\"a\"}}}}\n{{\"n\":3,\"t\":\"alpha again\"}}\n"
+        );
+        EXPLICIT_ID_BATCHES.with(|count| count.set(0));
+        let result = process_bulk(&engine, None, &body).await;
+        assert!(!result.errors, "{:?}", result.items);
+        assert_eq!(statuses(&result), vec![created(), created(), updated()]);
+        assert_eq!(EXPLICIT_ID_BATCHES.with(|count| count.get()), 1);
+
+        let idx = engine.get_or_create_index(name).unwrap();
+        assert_eq!(
+            idx.resident_memtable_entries(),
+            0,
+            "explicit-id bulk documents were copied into the storage memtable one by one"
+        );
+        assert_eq!(idx.lookup_version("a"), Some(2));
+        assert_eq!(idx.lookup_version("b"), Some(1));
+        let a = idx.get_document("a").await.unwrap().unwrap();
+        assert_eq!(a["n"], json!(3));
+        assert_eq!(a["t"], json!("alpha again"));
+
+        // A tombstone keeps counting; a re-index after delete is "created".
+        let body = format!(
+            "{{\"delete\":{{\"_index\":\"{name}\",\"_id\":\"b\"}}}}\n\
+             {{\"index\":{{\"_index\":\"{name}\",\"_id\":\"a\"}}}}\n{{\"n\":4}}\n"
+        );
+        let result = process_bulk(&engine, None, &body).await;
+        assert!(!result.errors, "{:?}", result.items);
+        assert_eq!(idx.lookup_version("a"), Some(3));
+        assert_eq!(idx.lookup_version("b"), None);
+        let body = format!("{{\"index\":{{\"_index\":\"{name}\",\"_id\":\"b\"}}}}\n{{\"n\":5}}\n");
+        let result = process_bulk(&engine, None, &body).await;
+        assert_eq!(statuses(&result), vec![created()]);
+        assert_eq!(idx.lookup_version("b"), Some(3));
+        let b = idx.get_document("b").await.unwrap().unwrap();
+        assert_eq!(b["n"], json!(5));
+    }
+
+    /// The batch must keep per-document default-format date refusal: one
+    /// bad date fails only its own item.
+    #[tokio::test]
+    async fn explicit_id_batch_keeps_per_item_date_errors() {
+        let name = "explicit-id-batch-dates";
+        let mut schema = Schema::empty();
+        schema.fields.push(FieldConfig::new("ts", FieldType::Date));
+        let (_dir, engine) = engine_with(name, schema);
+        let body = format!(
+            "{{\"index\":{{\"_index\":\"{name}\",\"_id\":\"ok1\"}}}}\n{{\"ts\":\"2024-01-02\"}}\n\
+             {{\"index\":{{\"_index\":\"{name}\",\"_id\":\"bad\"}}}}\n{{\"ts\":\"not a date\"}}\n\
+             {{\"index\":{{\"_index\":\"{name}\",\"_id\":\"ok2\"}}}}\n{{\"ts\":\"2024-01-03T04:05:06Z\"}}\n"
+        );
+        let result = process_bulk(&engine, None, &body).await;
+        assert!(result.errors);
+        assert_eq!(result.items[0].status, 201, "{:?}", result.items);
+        assert_eq!(result.items[1].status, 400, "{:?}", result.items);
+        assert_eq!(result.items[1].id, "bad");
+        assert_eq!(result.items[2].status, 201, "{:?}", result.items);
+        let idx = engine.get_or_create_index(name).unwrap();
+        assert!(idx.get_document("bad").await.unwrap().is_none());
+        assert!(idx.get_document("ok2").await.unwrap().is_some());
+    }
+
+    /// Semantic documents (ingest-memory tracing off) publish their prepared
+    /// sources as one batch too, vectors included.
+    #[tokio::test]
+    async fn semantic_index_actions_publish_as_one_batch() {
+        let name = "explicit-id-batch-semantic";
+        let mut schema = Schema::empty();
+        let mut field = FieldConfig::new("content", FieldType::Text);
+        field.options.dimensions = Some(16);
+        field.options.similarity = Some("cosine".to_string());
+        field.embedding = Some(EmbeddingConfig {
+            endpoint: None,
+            model: None,
+            target_field: Some("content_vector".into()),
+        });
+        schema.fields.push(field);
+        let (_dir, engine) = engine_with(name, schema);
+        engine
+            .put_index_mapping(
+                name,
+                json!({"properties": {"content": {"type": "semantic_text"}}}),
+            )
+            .unwrap();
+        let body = (0..3)
+            .map(|i| {
+                format!(
+                    "{{\"index\":{{\"_index\":\"{name}\",\"_id\":\"{}\"}}}}\n\
+                     {{\"content\":\"semantic document number {i}\"}}\n",
+                    i % 2
+                )
+            })
+            .collect::<String>();
+        EXPLICIT_ID_BATCHES.with(|count| count.set(0));
+        let result = process_bulk(&engine, None, &body).await;
+        assert!(!result.errors, "{:?}", result.items);
+        assert_eq!(statuses(&result), vec![created(), created(), updated()]);
+        assert_eq!(EXPLICIT_ID_BATCHES.with(|count| count.get()), 1);
+        let idx = engine.get_or_create_index(name).unwrap();
+        assert_eq!(idx.resident_memtable_entries(), 0);
+        assert_eq!(idx.lookup_version("0"), Some(2));
+        let doc = idx.get_document("0").await.unwrap().unwrap();
+        assert_eq!(doc["content"], json!("semantic document number 2"));
+        assert!(
+            idx.semantic_vector_fields()
+                .await
+                .contains("content_vector"),
+            "semantic target field missing"
+        );
     }
 }
