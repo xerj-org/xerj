@@ -8,15 +8,15 @@
   {
    "repo": "kaine-forge",
    "url": "https://github.com/ognjenmarcheta/kaine-forge",
-   "sha": "9487899f70ba73e5db94b398dfeb78d1617e4b78",
-   "licence": "Apache-2.0 (LICENSE file at pin 9487899f70ba, GitHub licence API 2026-10-29)",
+   "sha": "99cd143df3e2ab255208686af888c2c463953d84",
+   "licence": "Apache-2.0 (LICENSE file at pin 99cd143df3e2, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-19T08:51Z",
     "consent_receipt": "f52dd778152e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T08:51Z (receipt f52dd778152e); selected commit 9487899f70ba: \"fix(desk): run builds and checks on Linux from a Windows host (#479)\". LICENSE file at pin 9487899f70ba detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution. Pinned to head 9487899f70ba (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T08:51Z (receipt f52dd778152e); selected commit 99cd143df3e2: \"fix(desk): run builds and checks on Linux from a Windows host (#479)\". LICENSE file at pin 99cd143df3e2 detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head 99cd143df3e2 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

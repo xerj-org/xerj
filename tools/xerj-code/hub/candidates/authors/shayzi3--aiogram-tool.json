@@ -1,0 +1,23 @@
+{
+ "corpus": "shayzi3--aiogram-tool",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how shayzi3/aiogram_tool implements it: Tools for aiogram (selected work: aiogram_tool, tests, the project root)",
+ "repos": [
+  {
+   "repo": "aiogram_tool",
+   "url": "https://github.com/shayzi3/aiogram_tool",
+   "sha": "54545b4ae88246caa469c8ca13c0f287ab5631d4",
+   "licence": "MIT (LICENSE file at pin 54545b4ae882, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T08:34Z",
+    "consent_receipt": "c3135357b49e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T08:34Z (receipt c3135357b49e); selected commit 54545b4ae882: \"feat: resolver; update pre-commit, github action\". LICENSE file at pin 54545b4ae882 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "khalilov--loomel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how khalilov/loomel implements it: khalilov/loomel (TypeScript)",
+ "repos": [
+  {
+   "repo": "loomel",
+   "url": "https://github.com/khalilov/loomel",
+   "sha": "a6e26869ab73c5fdb93d23449f14e737811538a9",
+   "licence": "ISC (LICENSE file at pin a6e26869ab73, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "ISC",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T07:38Z",
+    "consent_receipt": "ac5f26cdbece",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T07:38Z (receipt ac5f26cdbece); pinned to the default-branch head. LICENSE file at pin a6e26869ab73 detected as ISC by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

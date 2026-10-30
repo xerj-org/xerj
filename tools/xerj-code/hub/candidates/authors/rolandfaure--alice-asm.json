@@ -1,0 +1,30 @@
+{
+ "corpus": "rolandfaure--alice-asm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on assembly, metagenomics, strains queries this for how RolandFaure/Alice-asm implements it: Fast and haplotype-aware assembler (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "Alice-asm",
+   "url": "https://github.com/RolandFaure/Alice-asm",
+   "sha": "49655fc59f3c8a4718d37ca0a67b5e0031b52235",
+   "licence": "AGPL-3.0 (LICENSE file at pin 49655fc59f3c, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T08:11Z",
+    "consent_receipt": "806d3e9a4063",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T08:11Z (receipt 806d3e9a4063); selected commit 49655fc59f3c: \"solved inflation bugs\". LICENSE file at pin 49655fc59f3c detected as AGPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "49655fc59f3c8a4718d37ca0a67b5e0031b52235",
+     "at": "2026-10-30T08:11Z",
+     "receipt": "806d3e9a4063"
+    }
+   }
+  }
+ ]
+}

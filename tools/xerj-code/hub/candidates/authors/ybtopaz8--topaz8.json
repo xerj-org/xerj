@@ -1,0 +1,23 @@
+{
+ "corpus": "ybtopaz8--topaz8",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on config, github-config queries this for how YBTopaz8/Topaz8 implements it: Config files for my GitHub profile",
+ "repos": [
+  {
+   "repo": "Topaz8",
+   "url": "https://github.com/YBTopaz8/Topaz8",
+   "sha": "7776b29efcb1773dd983115f5ceebc125008335e",
+   "licence": "author's permission (LICENSE at pin 7776b29efcb1: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T07:18Z",
+    "consent_receipt": "7ba436745cc5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T07:18Z (receipt 7ba436745cc5); pinned to the default-branch head. LICENSE at pin 7776b29efcb1: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

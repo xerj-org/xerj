@@ -1,0 +1,23 @@
+{
+ "corpus": "december-capital--konta-efactura",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C# queries this for how December-Capital/konta-efactura implements it: Conectare gratuit\u0103, cu surs\u0103 deschis\u0103, la SIA \u201ee-Factura\u201d a Serviciului Fiscal de Stat al Moldovei (.NET) (selected work: src/Konta.EFactura, tests)",
+ "repos": [
+  {
+   "repo": "konta-efactura",
+   "url": "https://github.com/December-Capital/konta-efactura",
+   "sha": "9c79710af1c18b0552e22cf37d0804e9b062900a",
+   "licence": "MIT (LICENSE file at pin 9c79710af1c1, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T08:32Z",
+    "consent_receipt": "15f0693057cb",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T08:32Z (receipt 15f0693057cb); selected commit 9c79710af1c1: \"Invoices read back from their XML; archived invoices and number reser\u2026\". LICENSE file at pin 9c79710af1c1 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

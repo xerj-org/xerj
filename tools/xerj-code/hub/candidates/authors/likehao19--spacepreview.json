@@ -8,15 +8,15 @@
   {
    "repo": "SpacePreview",
    "url": "https://github.com/likehao19/SpacePreview",
-   "sha": "3356f369815acfff7c35ee1d919d75ea2e18f970",
-   "licence": "MIT (LICENSE file at pin 3356f369815a, GitHub licence API 2026-10-30)",
+   "sha": "44dd5db6bda41c374adb480d0eecb1f9b2ea91f8",
+   "licence": "MIT (LICENSE file at pin 44dd5db6bda4, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-27T02:03Z",
     "consent_receipt": "839fedf2a9ce",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T02:03Z (receipt 839fedf2a9ce); selected commit 3356f369815a: \"fix: bound preview resources and improve structured file browsing\". LICENSE file at pin 3356f369815a detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head 3356f369815a (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T02:03Z (receipt 839fedf2a9ce); selected commit 44dd5db6bda4: \"fix: bound preview resources and improve structured file browsing\". LICENSE file at pin 44dd5db6bda4 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head 44dd5db6bda4 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

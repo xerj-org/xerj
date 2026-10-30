@@ -1,0 +1,23 @@
+{
+ "corpus": "edwinalkins--protoruf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how EdwinAlkins/protoruf implements it: A high-performance Python library written in Rust for converting between JSON and Protobuf messages (selected work: src, tests, src/native)",
+ "repos": [
+  {
+   "repo": "protoruf",
+   "url": "https://github.com/EdwinAlkins/protoruf",
+   "sha": "9012a07fd972bef896b93e718857a7cff9cc2f71",
+   "licence": "MIT (LICENSE file at pin 9012a07fd972, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T08:02Z",
+    "consent_receipt": "dd008f35e1ef",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T08:02Z (receipt dd008f35e1ef); selected commit 9012a07fd972: \"feat(native): add an experimental native protobuf codec for Python\". LICENSE file at pin 9012a07fd972 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}
