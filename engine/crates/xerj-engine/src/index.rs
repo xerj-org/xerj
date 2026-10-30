@@ -2351,10 +2351,14 @@ mod flush_publication_recovery_tests {
         }
         // Let any (pre-fix) straggler publish before counting.
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-        let n = warmed(&idx);
+        // The bound is on warms running at once. A warm that finishes while
+        // the query is still hydrating lets the next cold segment start
+        // one, so the total warmed can exceed one on a fast runner (CI saw
+        // 2 of 6); the number in flight never does.
+        let peak = idx.cold_stored_warm_peak.load(Ordering::Acquire);
         assert!(
-            n <= 1,
-            "one cold query warmed {n} of {} segments at once",
+            peak <= 1,
+            "one cold query ran {peak} stored warms at once over {} segments",
             segs.len()
         );
 
@@ -10643,6 +10647,11 @@ pub struct Index {
     /// #2427: set while a background stored-slices warm runs. At most one
     /// warm per index decodes at a time (see `schedule_cold_stored_warm`).
     cold_stored_warm_running: std::sync::atomic::AtomicBool,
+    /// Test-only: the most cold stored warms that ever ran at once (#2427).
+    #[cfg(test)]
+    cold_stored_warm_peak: std::sync::atomic::AtomicUsize,
+    #[cfg(test)]
+    cold_stored_warm_live: std::sync::atomic::AtomicUsize,
     /// Background warms not started because one was already running for
     /// this index, or because the hydration budget had no room for the
     /// slices they would build (#2427/#1122).
@@ -11353,6 +11362,10 @@ impl Index {
             self_ref: std::sync::OnceLock::new(),
             cold_stored_warms: dashmap::DashMap::new(),
             cold_stored_warm_running: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(test)]
+            cold_stored_warm_peak: std::sync::atomic::AtomicUsize::new(0),
+            #[cfg(test)]
+            cold_stored_warm_live: std::sync::atomic::AtomicUsize::new(0),
             cold_stored_warms_skipped: AtomicU64::new(0),
             cold_row_hydrations: AtomicU64::new(0),
         });
@@ -11820,6 +11833,10 @@ impl Index {
             self_ref: std::sync::OnceLock::new(),
             cold_stored_warms: dashmap::DashMap::new(),
             cold_stored_warm_running: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(test)]
+            cold_stored_warm_peak: std::sync::atomic::AtomicUsize::new(0),
+            #[cfg(test)]
+            cold_stored_warm_live: std::sync::atomic::AtomicUsize::new(0),
             cold_stored_warms_skipped: AtomicU64::new(0),
             cold_row_hydrations: AtomicU64::new(0),
         });
@@ -18217,6 +18234,13 @@ impl Index {
         }
         let segment_id = segment_id.to_string();
         runtime.spawn_blocking(move || {
+            #[cfg(test)]
+            {
+                let live = index.cold_stored_warm_live.fetch_add(1, Ordering::AcqRel) + 1;
+                index
+                    .cold_stored_warm_peak
+                    .fetch_max(live, Ordering::AcqRel);
+            }
             // #2427/#1122: a warm exists to leave the slices cached. When the
             // hydration budget has no room for them the cache would refuse
             // the result, so the warm would only decompress a whole stored
@@ -18233,6 +18257,8 @@ impl Index {
                 let _ = index.stored_slices_for(&segment_id, doc_count);
             }
             index.cold_stored_warms.remove(segment_id.as_str());
+            #[cfg(test)]
+            index.cold_stored_warm_live.fetch_sub(1, Ordering::AcqRel);
             index
                 .cold_stored_warm_running
                 .store(false, Ordering::Release);
