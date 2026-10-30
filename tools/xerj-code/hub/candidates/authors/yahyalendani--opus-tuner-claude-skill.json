@@ -1,0 +1,23 @@
+{
+ "corpus": "yahyalendani--opus-tuner-claude-skill",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, claude-code, context-window queries this for how YahyaLendani/opus-tuner-claude-skill implements it: Cost control for long Claude Code sessions on Windows, macOS and Linux: tiered context ceilings, a blocking handoff gate, and effort gears",
+ "repos": [
+  {
+   "repo": "opus-tuner-claude-skill",
+   "url": "https://github.com/YahyaLendani/opus-tuner-claude-skill",
+   "sha": "b010f17181644e7121fb25351894a05e1e644f8d",
+   "licence": "MIT (LICENSE file at pin b010f1718164, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T13:08Z",
+    "consent_receipt": "38f8fd21a69c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T13:08Z (receipt 38f8fd21a69c); pinned to the default-branch head. LICENSE file at pin b010f1718164 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

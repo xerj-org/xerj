@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on Go queries this for how thebhdn/cluster-api-provider-libvirt implements it: CAPI infrastructure provider for libvirt PoC (selected work: internal/controller, internal/libvirtclient, api)",
+ "domain": "an agent working on cluster-api, golang, kubernetes queries this for how thebhdn/cluster-api-provider-libvirt implements it: CAPI infrastructure provider for libvirt PoC (selected work: internal/controller, internal/libvirtclient, api)",
  "repos": [
   {
    "repo": "cluster-api-provider-libvirt",

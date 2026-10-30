@@ -1,0 +1,23 @@
+{
+ "corpus": "milenpl--kadran",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on code queries this for how MilenPL/Kadran implements it: It's a small project made in 2 days by a teenager. It's a mobile app for Android featuring complete customization of widgets with some crazy",
+ "repos": [
+  {
+   "repo": "Kadran",
+   "url": "https://github.com/MilenPL/Kadran",
+   "sha": "d8be09ccce543c04b1cd01b3148bf80779da6313",
+   "licence": "author's permission (LICENSE at pin d8be09ccce54: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T11:54Z",
+    "consent_receipt": "f48bc3c6a1be",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T11:54Z (receipt f48bc3c6a1be); pinned to the default-branch head. LICENSE at pin d8be09ccce54: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

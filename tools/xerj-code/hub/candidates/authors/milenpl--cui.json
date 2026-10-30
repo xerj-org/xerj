@@ -1,0 +1,23 @@
+{
+ "corpus": "milenpl--cui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how MilenPL/CUI implements it: Clock-like User Interface for Linux",
+ "repos": [
+  {
+   "repo": "CUI",
+   "url": "https://github.com/MilenPL/CUI",
+   "sha": "74dacfd8f6ea4d651e607689df5502427cc9906d",
+   "licence": "author's permission (LICENSE at pin 74dacfd8f6ea: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T11:54Z",
+    "consent_receipt": "c75f0033b420",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T11:54Z (receipt c75f0033b420); pinned to the default-branch head. LICENSE at pin 74dacfd8f6ea: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

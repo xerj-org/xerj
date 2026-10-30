@@ -8,15 +8,15 @@
   {
    "repo": "vibex",
    "url": "https://github.com/uwussimo/vibex",
-   "sha": "4cf89b6d3271a2ab62e4a22922009a699d16696c",
-   "licence": "MIT (LICENSE file at pin 4cf89b6d3271, GitHub licence API 2026-10-30)",
+   "sha": "168943d97b2b3c5e6c3b56fcbaf2f650037a8b53",
+   "licence": "MIT (LICENSE file at pin 168943d97b2b, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-24T21:33Z",
     "consent_receipt": "d9908ad008cd",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T21:33Z (receipt d9908ad008cd); selected commit 4cf89b6d3271: \"Add AI Agents usage dashboard and a Skills sidebar with the skills.sh\u2026\". LICENSE file at pin 4cf89b6d3271 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head 4cf89b6d3271 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T21:33Z (receipt d9908ad008cd); selected commit 168943d97b2b: \"Add AI Agents usage dashboard and a Skills sidebar with the skills.sh\u2026\". LICENSE file at pin 168943d97b2b detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head 168943d97b2b (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
