@@ -47,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `_reindex` applies `source._source` field filtering to the documents it
+  copies, so an excluded secret or large field no longer reaches the
+  destination. `_source:false` is refused with ES's sentence, and a `script`
+  body is refused before any work instead of silently copying the
+  untransformed document (this build has no reindex script context).
+
 - A cold full-text query no longer starts one background whole-section
   stored decode per cold segment at once (refs #2427). On the 1 GB gate's
   `pg-docs` (54 cold segments) one 5-hit query drove anon RSS from ~1.0 to
