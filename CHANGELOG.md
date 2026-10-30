@@ -53,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in from the incoming id. The map's estimated heap (hash tables plus key
   bytes) is reported as the new `version_map` category. On the 1 GB gate's
   search node the map held ~0.5 GB that no budget saw. (#2427)
+- `_reindex` applies `source._source` field filtering to the documents it
+  copies, so an excluded secret or large field no longer reaches the
+  destination. `_source:false` is refused with ES's sentence, and a `script`
+  body is refused before any work instead of silently copying the
+  untransformed document (this build has no reindex script context).
+
 - A node whose resting memory sits between the merge-pool ceiling and the
   memory watermark merges again. Every background merge's output write was
   refused there, so small batches were retried every 5 s without ever
