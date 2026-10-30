@@ -28885,6 +28885,11 @@ impl Index {
         self.memtable.size_bytes()
     }
 
+    /// Estimated heap held by this index's document version map (#2427).
+    pub fn version_map_bytes(&self) -> usize {
+        self.store.version_map.heap_bytes()
+    }
+
     /// Retained JSON-heap estimate of every live memtable source. Test-only
     /// so a regression can bound #1940 without sampling process RSS.
     #[cfg(test)]
@@ -29269,17 +29274,21 @@ impl Index {
     }
 
     /// Reserve headroom for the token spike of `docs` before they are parsed
-    /// (#1122). See [`crate::governor::analyze_reserve_bytes`]. No governor
-    /// reserves nothing, so an `Index` built directly in a unit test is unchanged.
+    /// (#1122). See [`crate::governor::analyze_reserve_bytes_for_doc`]. No
+    /// governor reserves nothing, so an `Index` built directly in a unit test
+    /// is unchanged.
     fn reserve_batch_analyze(
         docs: &[xerj_storage::RawJsonDoc],
     ) -> Result<crate::governor::AnalyzeReservation> {
         let Some(governor) = crate::governor::global() else {
             return Ok(crate::governor::AnalyzeReservation::none());
         };
-        let raw = docs.iter().map(|(_, bytes)| bytes.len() as u64).sum();
+        let reserve = docs
+            .iter()
+            .map(|(_, bytes)| crate::governor::analyze_reserve_bytes_for_doc(bytes))
+            .fold(0u64, u64::saturating_add);
         governor
-            .reserve_analyze(crate::governor::analyze_reserve_bytes(raw))
+            .reserve_analyze(reserve)
             .map_err(EngineError::Common)
     }
 

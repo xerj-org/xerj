@@ -266,6 +266,70 @@ pub fn analyze_reserve_bytes(raw_json_bytes: u64) -> u64 {
     raw_json_bytes.saturating_mul(ANALYZE_RESERVE_PER_INPUT_BYTE)
 }
 
+/// Bytes of analyze-time reservation charged per estimated token (#2427).
+///
+/// The same `document_limit` measurement as
+/// [`ANALYZE_RESERVE_PER_INPUT_BYTE`]: about 56 bytes of RSS per token. A
+/// token is a `Token` (a `String` plus three `u32`s) in a growing `Vec`, plus
+/// the token text on the heap.
+pub const ANALYZE_RESERVE_PER_TOKEN: u64 = 56;
+
+/// Bytes of analyze-time reservation charged per raw JSON input byte on top
+/// of the per-token charge (#2427): the parsed `serde_json::Value` (string
+/// bodies, map keys and nodes) and the copy of each text field the analyzer
+/// reads.
+pub const ANALYZE_RESERVE_PER_INPUT_BYTE_BASE: u64 = 4;
+
+/// Upper bound on the analyzer tokens `raw_json` can produce (#2427).
+///
+/// Counts runs of ASCII letters and digits, plus one token per non-ASCII
+/// character (the standard tokenizer emits one token per CJK ideograph). Map
+/// keys, numbers, `_` and `.` all start or split runs here, which the
+/// analyzer joins or never analyzes, so the count errs high. A packed
+/// `xerj:f32:` vector is one run of hex, matching the one string the parser
+/// keeps for it.
+pub fn estimated_analyzer_tokens(raw_json: &[u8]) -> u64 {
+    let mut tokens = 0u64;
+    let mut in_run = false;
+    for &b in raw_json {
+        if b >= 0xC0 {
+            // UTF-8 lead byte: count every non-ASCII character.
+            tokens += 1;
+            in_run = true;
+        } else if b >= 0x80 {
+            // UTF-8 continuation byte: same character.
+            in_run = true;
+        } else if b.is_ascii_alphanumeric() {
+            if !in_run {
+                tokens += 1;
+            }
+            in_run = true;
+        } else {
+            in_run = false;
+        }
+    }
+    tokens
+}
+
+/// Reservation for one raw JSON document (#1122, #2427).
+///
+/// [`ANALYZE_RESERVE_PER_TOKEN`] per [`estimated_analyzer_tokens`] plus
+/// [`ANALYZE_RESERVE_PER_INPUT_BYTE_BASE`] per byte, capped at the old flat
+/// [`ANALYZE_RESERVE_PER_INPUT_BYTE`] rate. The flat rate assumed the densest
+/// input (one token per two bytes) for every document, so a bulk of prose
+/// reserved about 3x and a bulk of code about 4x what parsing and analyzing
+/// it allocates (`tests/analyze_reservation_matches_usage.rs`). Four 8 MiB
+/// bulks in flight reserved 1.4 GB while RSS was 1.46 GB, and the gate's
+/// bulks were refused long before real memory was short. Dense input still
+/// reserves the flat rate.
+pub fn analyze_reserve_bytes_for_doc(raw_json: &[u8]) -> u64 {
+    let len = raw_json.len() as u64;
+    estimated_analyzer_tokens(raw_json)
+        .saturating_mul(ANALYZE_RESERVE_PER_TOKEN)
+        .saturating_add(len.saturating_mul(ANALYZE_RESERVE_PER_INPUT_BYTE_BASE))
+        .min(analyze_reserve_bytes(len))
+}
+
 /// `true` when `request` bytes of analyze reservation still fit.
 ///
 /// A watermark of `0` is the disabled breaker: every request fits. Otherwise
@@ -280,10 +344,27 @@ pub fn analyze_reservation_fits(
     if watermark == 0 {
         return true;
     }
-    observed
-        .saturating_add(already_reserved)
-        .saturating_add(request)
-        < watermark
+    analyze_committed_bytes(observed, already_reserved, None).saturating_add(request) < watermark
+}
+
+/// Memory already committed to live RSS plus held analyze reservations (#2427).
+///
+/// `baseline` is the smallest RSS observed when a still-held reservation was
+/// admitted. Every held reservation was admitted at or above it, so whatever
+/// part of those reservations has been allocated already shows up in
+/// `observed - baseline`. Counting `observed + already_reserved` adds that
+/// part twice: a run with four bulks mid-analysis was refused at an RSS of
+/// 1.5 GB against a 2.9 GB watermark. The committed level is the larger of
+/// live RSS and `baseline + already_reserved`, and never more than the old
+/// sum. Without a baseline the old sum is used.
+pub fn analyze_committed_bytes(observed: u64, already_reserved: u64, baseline: Option<u64>) -> u64 {
+    let summed = observed.saturating_add(already_reserved);
+    match baseline {
+        Some(base) if already_reserved > 0 => observed
+            .max(base.saturating_add(already_reserved))
+            .min(summed),
+        _ => summed,
+    }
 }
 
 /// Process-wide resource governor. See the module docs.
@@ -328,6 +409,10 @@ pub struct ResourceGovernor {
     /// not observed yet (#1122). Released once those tokens exist, so the
     /// next admission sees them in live RSS instead of counting them twice.
     analyze_reserved: Arc<AtomicU64>,
+    /// RSS observed when each held analyze reservation was admitted, keyed by
+    /// reservation id (#2427). Its minimum is the baseline the held
+    /// reservations grow from, see [`analyze_committed_bytes`].
+    analyze_baselines: Arc<Mutex<AnalyzeBaselines>>,
     /// Latched: last sample crossed the RSS watermark.
     memory_tripped: AtomicBool,
     /// The effective watermark in force when the breaker last engaged (#1250).
@@ -485,7 +570,8 @@ impl ResourceGovernor {
 
     /// Reserve `bytes` of upcoming analysis allocations (#1122).
     ///
-    /// Callers pass [`analyze_reserve_bytes`] of the raw JSON, before the
+    /// Callers pass [`analyze_reserve_bytes_for_doc`] summed over the raw JSON
+    /// documents, before the
     /// batch is parsed. The check uses the max of the sampled RSS and a live
     /// probe, plus reservations already held, and rechecks after the atomic
     /// add so two bulks cannot both pass the same snapshot. A watermark of
@@ -500,7 +586,7 @@ impl ResourceGovernor {
         let watermark = self.memory_watermark_bytes.load(Ordering::Relaxed);
         let observed = self.observed_process_memory();
         let already = self.analyze_reserved.load(Ordering::Acquire);
-        if !analyze_reservation_fits(watermark, observed, already, bytes) {
+        if !self.analyze_fits(watermark, observed, already, bytes) {
             return Err(self.analyze_reservation_refused(bytes));
         }
         let prev = self.analyze_reserved.fetch_add(bytes, Ordering::AcqRel);
@@ -510,9 +596,11 @@ impl ResourceGovernor {
             return Ok(AnalyzeReservation::none());
         }
         let observed = self.observed_process_memory();
-        if analyze_reservation_fits(watermark, observed, prev, bytes) {
+        if self.analyze_fits(watermark, observed, prev, bytes) {
+            let id = self.lock_analyze_baselines().insert(observed);
             return Ok(AnalyzeReservation {
                 slot: Some(Arc::clone(&self.analyze_reserved)),
+                baseline: Some((Arc::clone(&self.analyze_baselines), id)),
                 bytes,
             });
         }
@@ -538,6 +626,22 @@ impl ResourceGovernor {
     ) -> Result<AnalyzeReservation, XerjError> {
         self.check_ingest_admission()?;
         self.reserve_analyze(body_bytes)
+    }
+
+    fn lock_analyze_baselines(&self) -> std::sync::MutexGuard<'_, AnalyzeBaselines> {
+        self.analyze_baselines
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// [`analyze_reservation_fits`] with held reservations counted from the
+    /// RSS they were admitted at, not on top of live RSS (#2427).
+    fn analyze_fits(&self, watermark: u64, observed: u64, already: u64, request: u64) -> bool {
+        if watermark == 0 {
+            return true;
+        }
+        let baseline = self.lock_analyze_baselines().min();
+        analyze_committed_bytes(observed, already, baseline).saturating_add(request) < watermark
     }
 
     fn observed_process_memory(&self) -> u64 {
@@ -2091,6 +2195,7 @@ fn build(config: &Config) -> ResourceGovernor {
             0
         }),
         analyze_reserved: Arc::new(AtomicU64::new(0)),
+        analyze_baselines: Arc::new(Mutex::new(AnalyzeBaselines::default())),
         memory_tripped: AtomicBool::new(startup_starved),
         memory_trip_watermark: AtomicU64::new(if startup_starved {
             memory_watermark_bytes
@@ -2587,6 +2692,7 @@ impl Drop for MergeReservation {
 #[derive(Debug)]
 pub(crate) struct AnalyzeReservation {
     slot: Option<Arc<AtomicU64>>,
+    baseline: Option<(Arc<Mutex<AnalyzeBaselines>>, u64)>,
     bytes: u64,
 }
 
@@ -2594,6 +2700,7 @@ impl AnalyzeReservation {
     pub(crate) fn none() -> Self {
         Self {
             slot: None,
+            baseline: None,
             bytes: 0,
         }
     }
@@ -2601,11 +2708,43 @@ impl AnalyzeReservation {
 
 impl Drop for AnalyzeReservation {
     fn drop(&mut self) {
+        // Drop the bytes before the baseline: a reader that sees the bytes
+        // without a baseline falls back to the conservative sum.
         if let Some(slot) = self.slot.take() {
             if self.bytes > 0 {
                 slot.fetch_sub(self.bytes, Ordering::AcqRel);
             }
         }
+        if let Some((baselines, id)) = self.baseline.take() {
+            baselines
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .remove(id);
+        }
+    }
+}
+
+/// Admission RSS of each held analyze reservation (#2427).
+#[derive(Debug, Default)]
+pub(crate) struct AnalyzeBaselines {
+    next_id: u64,
+    live: std::collections::BTreeMap<u64, u64>,
+}
+
+impl AnalyzeBaselines {
+    fn insert(&mut self, rss: u64) -> u64 {
+        let id = self.next_id;
+        self.next_id = self.next_id.wrapping_add(1);
+        self.live.insert(id, rss);
+        id
+    }
+
+    fn remove(&mut self, id: u64) {
+        self.live.remove(&id);
+    }
+
+    fn min(&self) -> Option<u64> {
+        self.live.values().copied().min()
     }
 }
 
@@ -2731,6 +2870,30 @@ mod tests {
         assert_eq!(available_memory_startup_line(Some(GIB), 125 * GIB, 0), None);
     }
 
+    /// #2427: the reservation follows token density instead of charging every
+    /// byte as if it were the densest text. Dense text keeps the flat rate.
+    #[test]
+    fn analyze_reservation_follows_token_density_2427() {
+        assert_eq!(estimated_analyzer_tokens(b"{\"body\":\"a a a\"}"), 4);
+        assert_eq!(estimated_analyzer_tokens("\u{4e2d}\u{6587}".as_bytes()), 2);
+        assert_eq!(estimated_analyzer_tokens(b"\"deadbeef0123abcd\""), 1);
+        assert_eq!(estimated_analyzer_tokens(b"foo\\nbar_baz 3.14"), 5);
+
+        let dense = format!("{{\"body\":\"{}\"}}", "a ".repeat(4096));
+        assert_eq!(
+            analyze_reserve_bytes_for_doc(dense.as_bytes()),
+            analyze_reserve_bytes(dense.len() as u64)
+        );
+
+        let prose = format!(
+            "{{\"body\":\"{}\"}}",
+            "the quick brown fox jumps over lazy dogs ".repeat(100)
+        );
+        let reserve = analyze_reserve_bytes_for_doc(prose.as_bytes());
+        assert!(reserve * 3 < analyze_reserve_bytes(prose.len() as u64) * 2);
+        assert!(reserve >= prose.len() as u64 * ANALYZE_RESERVE_PER_INPUT_BYTE_BASE);
+    }
+
     #[test]
     fn analyze_reservation_fits_under_the_watermark_and_rejects_at_it() {
         assert!(analyze_reservation_fits(0, 100, 100, 100));
@@ -2797,6 +2960,47 @@ mod tests {
         drop(second);
         drop(third);
         assert_eq!(governor.analyze_reserved.load(Ordering::Relaxed), 0);
+    }
+
+    /// #2427: memory a held reservation has already allocated shows up in
+    /// RSS and must not be counted a second time on top of the reservation.
+    /// Before, the 350 MiB request below was refused at 300 + 400 + 350 =
+    /// 1050 MiB over the baseline against a 1024 MiB watermark, although at
+    /// most 400 + 350 MiB can still land on top of it.
+    #[test]
+    fn held_reservation_is_counted_from_its_admission_rss_not_on_top_of_live_rss_2427() {
+        const MIB: u64 = 1024 * 1024;
+        assert_eq!(analyze_committed_bytes(1000, 400, Some(900)), 1300);
+        assert_eq!(analyze_committed_bytes(1500, 400, Some(900)), 1500);
+        assert_eq!(analyze_committed_bytes(1000, 400, None), 1400);
+        assert_eq!(analyze_committed_bytes(1000, 0, Some(900)), 1000);
+        // A baseline above live RSS never makes admission stricter.
+        assert_eq!(analyze_committed_bytes(1000, 400, Some(1200)), 1400);
+
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        let governor = build(&cfg);
+        let live = governor.observed_process_memory();
+        governor
+            .memory_watermark_bytes
+            .store(live.saturating_add(1024 * MIB), Ordering::Relaxed);
+        governor.rss_bytes.store(live, Ordering::Relaxed);
+
+        let first = governor.reserve_analyze(400 * MIB).unwrap();
+        // The first batch's analysis has allocated 300 MiB of its 400.
+        governor
+            .rss_bytes
+            .store(live.saturating_add(300 * MIB), Ordering::Relaxed);
+        let second = governor
+            .reserve_analyze(350 * MIB)
+            .expect("750 MiB over the baseline fits under 1024");
+        // Real growth beyond the reservations still counts.
+        let refused = governor.reserve_analyze(300 * MIB).unwrap_err();
+        assert_eq!(refused.http_status(), 429, "{refused}");
+        drop(first);
+        drop(second);
+        assert_eq!(governor.analyze_reserved.load(Ordering::Relaxed), 0);
+        assert_eq!(governor.lock_analyze_baselines().min(), None);
     }
 
     #[test]
