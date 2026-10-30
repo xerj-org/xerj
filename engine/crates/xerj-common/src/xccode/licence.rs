@@ -140,14 +140,78 @@ pub fn effective_licence(recorded: &str, review: Option<&serde_json::Value>) -> 
 /// collapsing it to one licence would be a false record. No candidate file
 /// at all -> "NONE-FOUND".
 pub fn detect_licence(repo_dir: &std::path::Path) -> String {
-    let mut found: Vec<String> = Vec::new();
     let Ok(entries) = std::fs::read_dir(repo_dir) else {
         return "NONE-FOUND".to_string();
     };
-    let mut names: Vec<String> = entries
+    let names: Vec<String> = entries
         .flatten()
         .filter(|e| e.path().is_file())
         .map(|e| e.file_name().to_string_lossy().to_string())
+        .collect();
+    let found = classify_candidates(names, |name| {
+        std::fs::read_to_string(repo_dir.join(name)).ok()
+    });
+    if !found.is_empty() {
+        return found;
+    }
+    // A `paths` harvest (#1842) is a sparse checkout of only the named
+    // directories, so the root LICENSE is in the pin but not on disk and the
+    // corpus was recorded NONE-FOUND (restricted). Read the root licence
+    // files from the checked-out commit instead of the worktree.
+    let pinned = licence_from_git_head(repo_dir);
+    if pinned.is_empty() {
+        "NONE-FOUND".to_string()
+    } else {
+        pinned
+    }
+}
+
+/// Licence files at the root of `HEAD` in a git checkout, read from the
+/// object store, so a sparse worktree still reports the project's licence.
+/// Empty when `repo_dir` is not a git checkout or the commit has none.
+fn licence_from_git_head(repo_dir: &std::path::Path) -> String {
+    let git = |args: &[&str]| -> Option<String> {
+        let out = std::process::Command::new("git")
+            .arg("-C")
+            .arg(repo_dir)
+            .args(args)
+            .stdin(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .output()
+            .ok()?;
+        out.status
+            .success()
+            .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
+    };
+    // Only when repo_dir is itself the top of the checkout: a subdirectory
+    // of some unrelated repository must not borrow that repository's licence.
+    let Some(top) = git(&["rev-parse", "--show-toplevel"]) else {
+        return String::new();
+    };
+    let same = match (
+        std::fs::canonicalize(top.trim()),
+        std::fs::canonicalize(repo_dir),
+    ) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => false,
+    };
+    if !same {
+        return String::new();
+    }
+    let Some(listing) = git(&["ls-tree", "--name-only", "HEAD"]) else {
+        return String::new();
+    };
+    let names: Vec<String> = listing.lines().map(str::to_string).collect();
+    classify_candidates(names, |name| git(&["show", &format!("HEAD:{name}")]))
+}
+
+/// Classify every licence-named file in `names`, reading each with `read`.
+/// Returns the sorted, de-duplicated licences joined with "/", or "" when
+/// no candidate file was read.
+fn classify_candidates(names: Vec<String>, read: impl Fn(&str) -> Option<String>) -> String {
+    let mut found: Vec<String> = Vec::new();
+    let mut names: Vec<String> = names
+        .into_iter()
         // Case-insensitive: plenty of projects ship `license.txt`,
         // `License.md` or `copying` (jfreechart, ta4j; issue #2201), and a
         // missed file records NONE-FOUND, which is treated as restricted.
@@ -168,12 +232,9 @@ pub fn detect_licence(repo_dir: &std::path::Path) -> String {
         {
             continue;
         }
-        if let Ok(text) = std::fs::read_to_string(repo_dir.join(&name)) {
+        if let Some(text) = read(&name) {
             found.push(classify_one(&text).to_string());
         }
-    }
-    if found.is_empty() {
-        return "NONE-FOUND".to_string();
     }
     found.sort();
     found.dedup();
@@ -537,6 +598,53 @@ mod tests {
         let empty = holder.path().join("nolicense");
         std::fs::create_dir_all(&empty).unwrap();
         assert_eq!(detect_licence(&empty), "NONE-FOUND");
+    }
+
+    #[test]
+    fn detect_licence_reads_root_licence_of_a_sparse_paths_checkout() {
+        // A `paths` harvest checks out only the named directories, so the
+        // root LICENSE is in the pin but not in the worktree. It was
+        // recorded NONE-FOUND.
+        let holder = tempfile::tempdir().unwrap();
+        let repo = holder.path().join("sparse");
+        std::fs::create_dir_all(repo.join("src")).unwrap();
+        std::fs::write(
+            repo.join("LICENSE"),
+            "MIT License\n\nPermission is hereby granted, free of charge",
+        )
+        .unwrap();
+        std::fs::write(repo.join("src/lib.zig"), "pub fn f() void {}\n").unwrap();
+        let git = |args: &[&str]| {
+            let st = std::process::Command::new("git")
+                .arg("-C")
+                .arg(&repo)
+                .args([
+                    "-c",
+                    "user.name=t",
+                    "-c",
+                    "user.email=t@example.com",
+                    "-c",
+                    "commit.gpgsign=false",
+                ])
+                .args(args)
+                .output()
+                .unwrap();
+            st.status.success()
+        };
+        if !git(&["init", "-q"]) {
+            return; // no git on this machine
+        }
+        assert!(git(&["add", "-A"]));
+        assert!(git(&["commit", "-q", "-m", "init"]));
+        assert!(git(&["sparse-checkout", "set", "--no-cone", "--", "/src/"]));
+        assert!(
+            !repo.join("LICENSE").exists(),
+            "sparse checkout drops LICENSE"
+        );
+        assert_eq!(detect_licence(&repo), "MIT");
+
+        // A plain subdirectory of a repository does not borrow its licence.
+        assert_eq!(detect_licence(&repo.join("src")), "NONE-FOUND");
     }
 
     #[test]
