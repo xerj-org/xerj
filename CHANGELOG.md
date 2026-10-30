@@ -47,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Vector ingest no longer runs on one core per index: the HNSW construction
+  search (greedy descent, `ef_construction` beam and neighbour selection) now
+  runs under a shared lock, and only the link writes take the graph's write
+  lock. A bulk batch plans its inserts in parallel on the ingest pool, and
+  concurrent batches into one index no longer queue behind each other's
+  inserts (#2427).
 - `_bulk` throughput with explicit `_id`s: `index` actions that carry an `_id`
   (and prepared `semantic_text` documents) are now published as one batch per
   index instead of one `index_document` call each, which took the WAL lock,
