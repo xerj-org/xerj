@@ -184,14 +184,59 @@ impl JudgeConfig {
 const K1: f64 = 1.2;
 const B: f64 = 0.75;
 
-/// Lowercase word tokens: alphanumeric runs, in order, via `char` boundaries
-/// only (a byte split here would panic on multi-byte text — the defect that
-/// crash-looped `autoindex`, see [`crate::clip`]). The same split the
-/// `rerank` conformance tests use for word overlap.
+/// Scripts for which an uninterrupted alphanumeric run is not a word (#2580).
+/// Include Han's supplementary ideographic planes; all slicing below follows
+/// char_indices, including four-byte characters. This is character n-gramming,
+/// not dictionary segmentation, normalization or semantic understanding.
+fn is_cjk(c: char) -> bool {
+    matches!(c as u32,
+        0x3400..=0x4DBF | 0x4E00..=0x9FFF | 0xF900..=0xFAFF |
+        0x20000..=0x3FFFF | 0x3040..=0x309F | 0x30A0..=0x30FF |
+        0xAC00..=0xD7AF)
+}
+
+/// Preserve lowercase non-CJK alphanumeric runs. CJK runs emit each character
+/// and each adjacent pair, so a single-character query can match inside a run
+/// and the pair `雷同` has evidence beyond the separate characters `同雷`.
+/// Separators and non-CJK runs break pairs; title and body are tokenized apart.
+///
+/// Reference approach (MIT, no implementation copied): Tantivy's
+/// src/tokenizer/ngram_tokenizer.rs:115-119 admits all inner n-grams, :154-164
+/// emits codepoint-bounded slices, :253-280 defines the UTF-8 frontiers.
+/// https://github.com/quickwit-oss/tantivy/blob/main/src/tokenizer/ngram_tokenizer.rs
+/// Unlike applying that tokenizer to the whole string, restrict grams to CJK
+/// here so the established Latin/number token and scoring contract survives.
 fn tokens(s: &str) -> impl Iterator<Item = String> + '_ {
     s.split(|c: char| !c.is_alphanumeric())
         .filter(|w| !w.is_empty())
-        .map(str::to_lowercase)
+        .flat_map(|word| {
+            let mut chars = word.char_indices().peekable();
+            let mut pair = None;
+            std::iter::from_fn(move || {
+                if let Some(pair) = pair.take() {
+                    return Some(pair);
+                }
+                let (start, c) = chars.next()?;
+                let mut end = start + c.len_utf8();
+                if is_cjk(c) {
+                    if let Some(&(next_start, next)) = chars.peek() {
+                        if is_cjk(next) {
+                            pair = Some(word[start..next_start + next.len_utf8()].to_string());
+                        }
+                    }
+                    Some(c.to_string())
+                } else {
+                    while let Some(&(next_start, next)) = chars.peek() {
+                        if is_cjk(next) {
+                            break;
+                        }
+                        chars.next();
+                        end = next_start + next.len_utf8();
+                    }
+                    Some(word[start..end].to_lowercase())
+                }
+            })
+        })
 }
 
 /// The deterministic lexical judge.
@@ -240,23 +285,33 @@ pub fn lexical_scores(query: &str, candidates: &[Candidate]) -> Vec<Scored> {
             .collect();
     }
 
-    // Tokenize each candidate once: title and text are one bag of words —
-    // a judge reads a document, not a schema.
-    let docs: Vec<Vec<String>> = candidates
+    // Count tokens once, retaining frequencies only for query terms. CJK
+    // expansion must not turn IDF into a scan of every document token for
+    // every query gram. Length still counts all tokens, exactly as before.
+    let qset: std::collections::HashSet<&str> = q_terms.iter().map(String::as_str).collect();
+    let docs: Vec<(usize, HashMap<&str, u64>)> = candidates
         .iter()
         .map(|c| {
-            let mut ts: Vec<String> = Vec::new();
-            if let Some(t) = &c.title {
-                ts.extend(tokens(t));
+            let mut len = 0;
+            let mut tf = HashMap::new();
+            for token in c
+                .title
+                .iter()
+                .flat_map(|t| tokens(t))
+                .chain(tokens(&c.text))
+            {
+                len += 1;
+                if let Some(&q) = qset.get(token.as_str()) {
+                    *tf.entry(q).or_insert(0) += 1;
+                }
             }
-            ts.extend(tokens(&c.text));
-            ts
+            (len, tf)
         })
         .collect();
 
     let n = docs.len() as f64;
     let avgdl = {
-        let total: usize = docs.iter().map(Vec::len).sum();
+        let total: usize = docs.iter().map(|(len, _)| len).sum();
         (total as f64 / n).max(1.0)
     };
 
@@ -266,26 +321,22 @@ pub fn lexical_scores(query: &str, candidates: &[Candidate]) -> Vec<Scored> {
     let idf: Vec<f64> = q_terms
         .iter()
         .map(|q| {
-            let df = docs.iter().filter(|d| d.iter().any(|t| t == q)).count() as f64;
+            let df = docs
+                .iter()
+                .filter(|(_, tf)| tf.contains_key(q.as_str()))
+                .count() as f64;
             (1.0 + (n - df + 0.5) / (df + 0.5)).ln()
         })
         .collect();
     // The maximum attainable numerator: every query term at full saturation.
     let max_score: f64 = idf.iter().sum::<f64>() * (K1 + 1.0);
 
-    let qset: std::collections::HashSet<&str> = q_terms.iter().map(String::as_str).collect();
     candidates
         .iter()
         .enumerate()
         .map(|(i, c)| {
-            let d = &docs[i];
-            let norm = K1 * (1.0 - B + B * d.len() as f64 / avgdl);
-            let mut tf: HashMap<&str, u64> = HashMap::new();
-            for t in d {
-                if qset.contains(t.as_str()) {
-                    *tf.entry(t.as_str()).or_insert(0) += 1;
-                }
-            }
+            let (len, tf) = &docs[i];
+            let norm = K1 * (1.0 - B + B * *len as f64 / avgdl);
             let numerator: f64 = idf
                 .iter()
                 .zip(q_terms.iter())
@@ -556,6 +607,112 @@ mod tests {
     }
 
     // ── the lexical scorer ──────────────────────────────────────────────────
+
+    #[test]
+    fn cjk_query_matches_inside_unsegmented_text() {
+        let out = lexical_scores(
+            "雷同",
+            &[
+                cand(7, None, "该段内容存在雷同需要核查"),
+                cand(2, None, "今天的天气晴朗适合出行"),
+            ],
+        );
+        assert!(
+            out[0].score > 0.0,
+            "embedded Chinese term must match: {out:?}"
+        );
+        assert_eq!(out[1].score, 0.0);
+        assert_eq!(out.iter().map(|s| s.ordinal).collect::<Vec<_>>(), [7, 2]);
+    }
+
+    #[test]
+    fn cjk_single_character_and_adjacent_pair_have_evidence() {
+        let candidates = [
+            cand(0, Some("中文检索"), "雷同内容"),
+            cand(1, None, "同雷内容"),
+        ];
+        let single = lexical_scores("雷", &candidates);
+        assert!(single.iter().all(|s| s.score > 0.0), "{single:?}");
+        let pair = lexical_scores("雷同", &candidates);
+        assert!(
+            pair[0].score > pair[1].score,
+            "adjacency adds evidence: {pair:?}"
+        );
+    }
+
+    #[test]
+    fn legacy_non_cjk_score_receipt() {
+        let candidates = [
+            cand(9, Some("Trial results"), "vitamin d improved bone density"),
+            cand(3, None, "vitamin rich vegetables"),
+            cand(2, None, "other topic"),
+        ];
+        let out = lexical_scores("vitamin bone density", &candidates);
+        assert_eq!(
+            out.iter().map(|s| s.score.to_bits()).collect::<Vec<_>>(),
+            [4599937497660334437, 4591716393592272481, 0]
+        );
+    }
+
+    #[test]
+    fn cjk_tokens_stop_at_separators_and_keep_non_cjk_words() {
+        assert_eq!(
+            tokens("API中文v2 CAFÉ İSTANBUL 123").collect::<Vec<_>>(),
+            [
+                "api",
+                "中",
+                "中文",
+                "文",
+                "v2",
+                "café",
+                "i\u{307}stanbul",
+                "123"
+            ]
+        );
+        for text in ["雷，同", "雷 同", "雷😀同", "雷A同"] {
+            assert!(!tokens(text).any(|t| t == "雷同"), "{text}");
+        }
+        assert_eq!(
+            tokens("𠀀中文").collect::<Vec<_>>(),
+            ["𠀀", "𠀀中", "中", "中文", "文"]
+        );
+        assert_eq!(
+            tokens("東京都 한국어").collect::<Vec<_>>(),
+            ["東", "東京", "京", "京都", "都", "한", "한국", "국", "국어", "어"]
+        );
+        assert_eq!(
+            tokens("alpha_beta can't naïve").collect::<Vec<_>>(),
+            ["alpha", "beta", "can", "t", "naïve"]
+        );
+    }
+
+    #[test]
+    fn cjk_title_and_text_do_not_create_a_cross_field_pair() {
+        let scores = lexical_scores("雷同", &[cand(4, Some("雷"), "同"), cand(8, None, "雷同")]);
+        assert!(scores[1].score > scores[0].score, "{scores:?}");
+        assert_eq!(
+            scores,
+            lexical_scores("雷同", &[cand(4, Some("雷"), "同"), cand(8, None, "雷同"),])
+        );
+        assert!(scores
+            .iter()
+            .all(|s| s.score.is_finite() && (0.0..=1.0).contains(&s.score)));
+    }
+
+    #[test]
+    fn cjk_scoring_handles_the_query_and_document_character_limits() {
+        let query: String = (0..crate::MAX_QUERY_CHARS)
+            .map(|i| char::from_u32(0x4e00 + i as u32).unwrap())
+            .collect();
+        let text = format!("{query}{query}");
+        assert_eq!(text.chars().count(), crate::MAX_DOC_CHARS);
+        let candidates: Vec<_> = (0..crate::JEV_MAX_DOCS_PER_CALL)
+            .map(|i| cand(i, None, &text))
+            .collect();
+        let scores = lexical_scores(&query, &candidates);
+        assert_eq!(scores.len(), candidates.len());
+        assert!(scores.iter().all(|s| s.score > 0.0 && s.score <= 1.0));
+    }
 
     #[test]
     fn no_query_words_scores_zero_everywhere() {
