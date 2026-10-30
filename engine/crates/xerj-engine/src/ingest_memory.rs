@@ -125,10 +125,14 @@ pub enum Category {
     CacheDecodedStored,
     CacheFtsReader,
     CacheVectorColumn,
+    /// Per-index document version maps (doc id -> seq/segment), sampled
+    /// from every open index (#2427). Lives as long as the index is open
+    /// and grows with every distinct doc id.
+    VersionMap,
 }
 
 impl Category {
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 24] = [
         Self::HttpBody,
         Self::HttpRewriteBuffer,
         Self::RawSource,
@@ -152,6 +156,7 @@ impl Category {
         Self::CacheDecodedStored,
         Self::CacheFtsReader,
         Self::CacheVectorColumn,
+        Self::VersionMap,
     ];
 
     const COUNT: usize = Self::ALL.len();
@@ -506,6 +511,7 @@ fn measurement(category: Category) -> Measurement {
         | Category::CacheDecodedStored
         | Category::CacheFtsReader
         | Category::CacheVectorColumn
+        | Category::VersionMap
         | Category::MergeDecoded
         | Category::MergeSurvivor
         | Category::MergeParsed => Measurement::Estimated,
