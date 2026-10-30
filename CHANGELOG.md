@@ -49,6 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--fresh` run went from 152.0 s to 26.7 s (edges refreshes 1,052 → 3), with
   the same 14,724 edges invalidated (#2640).
 
+- `xerj corpus --help`, `xerj autoindex --help` (`--watch`) and the XERJ.code README now say that corpora and folders do not follow their git remotes, and give the refresh recipe: `git pull` in each checkout, re-run `xerj corpus add` so `corpus.json` records the new commit, then `xerj corpus index`. (#2416)
 - `xerj_batch_search` (and `xerj batch-search`): a batch whose combined `_msearch` response passes the 32 MiB cap no longer fails every item. The request is retried in halves, and only an item whose own response is over the cap fails, with `response_too_large`. (#2694)
 
 - `xerj autoindex` and `xerj autoindex map`: when the node is unreachable at a `localhost` URL, the error now also suggests the same URL with `127.0.0.1`, since the node binds the IPv4 loopback by default and `localhost` can resolve to `::1` first (seen on Windows). (#2688)

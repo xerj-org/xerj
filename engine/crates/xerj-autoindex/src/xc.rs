@@ -480,6 +480,12 @@ not marked own unless you pass the flag, and a --from manifest cannot set
 it — that file is untrusted. Re-adding the corpus keeps a marker already
 recorded. `xerj corpus own <name>` sets it on an existing corpus; `--off`
 clears it. Hub pack licence classes are unchanged;
+a corpus does not follow its git remotes. To refresh one added from
+git URLs, run `git -C <checkout> pull --ff-only` in each checkout under
+corpora/<name>/, re-run the same `xerj corpus add <name> <git-url>...` so
+corpus.json records the new commit, then `xerj corpus index <name>`, which
+updates the build in place. A --from corpus stays at its manifest's pins;
+change the manifest to move it;
 list shows what is loaded on this node.";
 
 pub(crate) fn git(dir: Option<&Path>, args: &[&str]) -> Result<(i32, String)> {
