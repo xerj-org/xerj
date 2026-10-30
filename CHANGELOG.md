@@ -47,6 +47,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A node near its memory cap no longer warms flushed and merged segments into
+  the segment-hydration cache. Publish-time warming used to stop only while
+  the memory breaker was engaged. It now stops once RSS reaches the breaker's
+  release level (85% of the watermark by default), so warming no longer
+  spends the headroom the breaker has just won back. On the 1 GiB release
+  gate (cap 3072 MB) the ingest node only received `_bulk`, yet it held
+  200-580 MB of warmed stored slices between 40 breaker engages. Queries
+  still hydrate a segment on first read. (Refs #2427)
 - A background merge no longer starts alone when its own memory reservation
   would carry the node past the merge-pool ceiling. It waits (at most 30 s)
   while the next batches are planned small enough to fit, so merging still
