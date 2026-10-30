@@ -1,0 +1,23 @@
+{
+ "corpus": "eng-ahmedbagarad--windows-server-admin-toolkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on PowerShell queries this for how Eng-AhmedBagarad/windows-server-admin-toolkit implements it: PowerShell toolkit for Windows infrastructure health monitoring, storage management, and network diagnostics (selected work: tests, scripts)",
+ "repos": [
+  {
+   "repo": "windows-server-admin-toolkit",
+   "url": "https://github.com/Eng-AhmedBagarad/windows-server-admin-toolkit",
+   "sha": "5c6e404d76756946a7813a044f29607f295dae7a",
+   "licence": "MIT (LICENSE file at pin 5c6e404d7675, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:46Z",
+    "consent_receipt": "cfa50b348544",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T21:46Z (receipt cfa50b348544); selected commit 5c6e404d7675: \"Complete toolkit: docs, tests, and code cleanup\". LICENSE file at pin 5c6e404d7675 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head 5c6e404d7675 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

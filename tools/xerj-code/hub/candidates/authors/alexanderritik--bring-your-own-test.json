@@ -1,9 +1,9 @@
 {
- "corpus": "alexanderritik--byot",
+ "corpus": "alexanderritik--bring-your-own-test",
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on alerting, devops, docker queries this for how alexanderritik/BYOT implements it: Open-source, self-hosted production monitoring. Run your existing Playwright, k6, Locust, Node, Python and Go tests on a schedule in isolate (selected work: worker, handler)",
+ "domain": "an agent working on alerting, devops, docker queries this for how alexanderritik/Bring-Your-Own-Test implements it: Open-source, self-hosted production monitoring. Run your existing Playwright, k6, Locust, Node, Python and Go tests on a schedule in isolate (selected work: worker, handler)",
  "repos": [
   {
    "repo": "BYOT",

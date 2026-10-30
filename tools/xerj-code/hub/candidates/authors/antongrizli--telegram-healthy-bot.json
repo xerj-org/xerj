@@ -1,0 +1,23 @@
+{
+ "corpus": "antongrizli--telegram-healthy-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on ai, bot, health queries this for how antongrizli/telegram-healthy-bot implements it: Telegram bot that developed to be your personal AI assistant to track food via photos/text, log weight, and get customized health reports",
+ "repos": [
+  {
+   "repo": "telegram-healthy-bot",
+   "url": "https://github.com/antongrizli/telegram-healthy-bot",
+   "sha": "66605e1a8a5a59a0dfbf3369646b0a364cb54273",
+   "licence": "MIT (LICENSE file at pin 66605e1a8a5a, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:47Z",
+    "consent_receipt": "2e2447824aeb",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:47Z (receipt 2e2447824aeb); pinned to the default-branch head. LICENSE file at pin 66605e1a8a5a detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

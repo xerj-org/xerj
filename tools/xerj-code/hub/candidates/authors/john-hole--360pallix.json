@@ -1,0 +1,23 @@
+{
+ "corpus": "john-hole--360pallix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on admin-dashboard, catalog, ecommerce queries this for how John-Hole/360Pallix implements it: Catalogo prodotti e pannello di amministrazione e-commerce moderno sviluppato con Next.js e TypeScript",
+ "repos": [
+  {
+   "repo": "360Pallix",
+   "url": "https://github.com/John-Hole/360Pallix",
+   "sha": "e5dd8551fecfb88bb188ad524fb634a51b0d457a",
+   "licence": "MIT (LICENSE file at pin e5dd8551fecf, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:35Z",
+    "consent_receipt": "54996cf1b1b8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:35Z (receipt 54996cf1b1b8); pinned to the default-branch head. LICENSE file at pin e5dd8551fecf detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

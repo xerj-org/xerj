@@ -1,0 +1,23 @@
+{
+ "corpus": "ashwanthbalakrishnan5--hermes-whatsapp-voice",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on gemini-live, hermes-agent, hermes-plugin queries this for how ashwanthbalakrishnan5/hermes-whatsapp-voice implements it: Live WhatsApp voice calls with Hermes: call your bot, or let Hermes call you. Hermes plugin + whatsapp-rust sidecar + Gemini Live (selected work: sidecar, the project root, tests)",
+ "repos": [
+  {
+   "repo": "hermes-whatsapp-voice",
+   "url": "https://github.com/ashwanthbalakrishnan5/hermes-whatsapp-voice",
+   "sha": "2bed05aa939e39bfe5b78d7de1a73a226c84cb4a",
+   "licence": "MIT (LICENSE file at pin 2bed05aa939e, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:23Z",
+    "consent_receipt": "9fb0dea6c2b1",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T21:23Z (receipt 9fb0dea6c2b1); selected commit 2bed05aa939e: \"0.2.0: chat-session calls, call simulator and real-model tests, goAwa\u2026\". LICENSE file at pin 2bed05aa939e detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

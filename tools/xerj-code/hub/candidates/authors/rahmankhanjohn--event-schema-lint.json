@@ -1,0 +1,23 @@
+{
+ "corpus": "rahmankhanjohn--event-schema-lint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, event-driven, kafka queries this for how rahmankhanjohn/event-schema-lint implements it: Validate event schemas for versioning, idempotency, and required fields",
+ "repos": [
+  {
+   "repo": "event-schema-lint",
+   "url": "https://github.com/rahmankhanjohn/event-schema-lint",
+   "sha": "87c3873d6afaf7d9dcba40862e75881484837b4a",
+   "licence": "author's permission (LICENSE at pin 87c3873d6afa: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:22Z",
+    "consent_receipt": "a4584fb50d43",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:22Z (receipt a4584fb50d43); pinned to the default-branch head. LICENSE at pin 87c3873d6afa: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

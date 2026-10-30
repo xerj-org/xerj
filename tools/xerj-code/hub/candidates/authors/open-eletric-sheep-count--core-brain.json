@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how open-eletric-sheep-count/core-brain implements it: Why should context be limited? Build smarter memory for your AI agents (selected work: global, tests, scripts)",
+ "domain": "an agent working on Python queries this for how open-eletric-sheep-count/core-brain implements it: Why should context be limited? Build smarter memory for your AI agents (selected work: global, tests, scripts)",
  "repos": [
   {
    "repo": "core-brain",

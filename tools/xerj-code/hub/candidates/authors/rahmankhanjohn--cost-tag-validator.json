@@ -1,0 +1,23 @@
+{
+ "corpus": "rahmankhanjohn--cost-tag-validator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cli, cost-attribution, finops queries this for how rahmankhanjohn/cost-tag-validator implements it: Check the tagging taxonomy before finance asks you for cost per customer",
+ "repos": [
+  {
+   "repo": "cost-tag-validator",
+   "url": "https://github.com/rahmankhanjohn/cost-tag-validator",
+   "sha": "02dd88996fd391d3203b4c03bbc8e38839de95b2",
+   "licence": "MIT (LICENSE file at pin 02dd88996fd3, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:22Z",
+    "consent_receipt": "acd07f1e3baf",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:22Z (receipt acd07f1e3baf); pinned to the default-branch head. LICENSE file at pin 02dd88996fd3 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

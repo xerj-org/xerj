@@ -8,15 +8,15 @@
   {
    "repo": "media-player-m3",
    "url": "https://github.com/Theneillsaaco/media-player-m3",
-   "sha": "bbabba2e14b818a2f8769238a41bc58cdfaceb51",
-   "licence": "MIT (LICENSE file at pin bbabba2e14b8, GitHub licence API 2026-10-30)",
+   "sha": "409cda53f5b2587813e529e569ae4306d7f75a1c",
+   "licence": "MIT (LICENSE file at pin 409cda53f5b2, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:37Z",
     "consent_receipt": "6ca487efcc28",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:37Z (receipt 6ca487efcc28); pinned to the default-branch head. LICENSE file at pin bbabba2e14b8 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:37Z (receipt 6ca487efcc28); pinned to the default-branch head. LICENSE file at pin 409cda53f5b2 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "john-hole--realmong-us",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on among-us, firebase, live-action queries this for how John-Hole/Realmong-Us implements it: Piattaforma web multiplayer in tempo reale per giocare ad Among Us dal vivo con Firebase e schermi dedicati",
+ "repos": [
+  {
+   "repo": "Realmong-Us",
+   "url": "https://github.com/John-Hole/Realmong-Us",
+   "sha": "6e6e62dd859aca375e1c948ffb66766c593031ed",
+   "licence": "MIT (LICENSE file at pin 6e6e62dd859a, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:35Z",
+    "consent_receipt": "bf70040da506",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:35Z (receipt bf70040da506); pinned to the default-branch head. LICENSE file at pin 6e6e62dd859a detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

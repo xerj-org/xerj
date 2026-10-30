@@ -1,0 +1,23 @@
+{
+ "corpus": "zxabinbina--rdp-access-auth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on auth, rdp, safety queries this for how zxaBinbina/rdp-access-auth implements it: \u4e3a\u901a\u8fc7 SakuraFrp \u66b4\u9732\u7684\u8fdc\u7a0b\u684c\u9762\u589e\u52a0\u4e00\u4e2a HTTPS \u8ba4\u8bc1\u5165\u53e3\u3002\u8bbf\u95ee\u8005\u5148\u5b8c\u6210\u7f51\u9875\u8ba4\u8bc1\uff0c\u518d\u4f7f\u7528\u539f\u8fdc\u7a0b\u684c\u9762\u5ba2\u6237\u7aef\u8fde\u63a5\uff1b\u672a\u7ecf\u6388\u6743\u7684\u516c\u7f51 IP \u4f1a\u5728\u8fdb\u5165 RDP \u767b\u5f55\u73af\u8282\u4e4b\u524d\u88ab\u62e6\u622a\u3002 (selected work: the project root, tools)",
+ "repos": [
+  {
+   "repo": "rdp-access-auth",
+   "url": "https://github.com/zxaBinbina/rdp-access-auth",
+   "sha": "e249652cfb14ab4f678dcfcce28c95c1c3367157",
+   "licence": "MIT (LICENSE file at pin e249652cfb14, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T23:01Z",
+    "consent_receipt": "81998ea81016",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T23:01Z (receipt 81998ea81016); selected commit e249652cfb14: \"feat\uff1a\u6dfb\u52a0\u672c\u5730\u51c6\u5165\u7f51\u5173\u914d\u7f6e\u548c\u529f\u80fd\". LICENSE file at pin e249652cfb14 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

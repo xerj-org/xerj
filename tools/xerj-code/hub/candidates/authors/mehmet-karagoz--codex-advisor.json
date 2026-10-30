@@ -1,0 +1,23 @@
+{
+ "corpus": "mehmet-karagoz--codex-advisor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestration, ai-agents, ai-development queries this for how mehmet-karagoz/codex-advisor implements it: Multi-model AI agent orchestration for Codex, GitHub Copilot & Claude Code. Smart task delegation with native agents and skills (selected work: src, test, the project root)",
+ "repos": [
+  {
+   "repo": "codex-advisor",
+   "url": "https://github.com/mehmet-karagoz/codex-advisor",
+   "sha": "34c6f6793b4939ce8edf50da8b5bdd52f96cb78d",
+   "licence": "MIT (LICENSE file at pin 34c6f6793b49, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:27Z",
+    "consent_receipt": "8fb80aafa9b9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T21:27Z (receipt 8fb80aafa9b9); selected commit 34c6f6793b49: \"Implement initial version of codex-advisor CLI with installation and \u2026\". LICENSE file at pin 34c6f6793b49 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head 34c6f6793b49 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

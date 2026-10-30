@@ -1,0 +1,23 @@
+{
+ "corpus": "yamamo2shun1--jumbleq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on audio, dsp, freertos queries this for how yamamo2shun1/JUMBLEQ implements it: JUMBLEQ is a faderless 2ch digital audio mixer (selected work: STM32CubeIDE)",
+ "repos": [
+  {
+   "repo": "JUMBLEQ",
+   "url": "https://github.com/yamamo2shun1/JUMBLEQ",
+   "sha": "49cfcf488f94d01f8f2ad506c514972032d45dc8",
+   "licence": "MIT (LICENSE file at pin 49cfcf488f94, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:59Z",
+    "consent_receipt": "7b15d52d823d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T21:59Z (receipt 7b15d52d823d); selected commit 49cfcf488f94: \"USB IN\u9332\u97f3\u306e\u30b9\u30c8\u30ea\u30fc\u30e0\u5883\u754c\u3068FIFO\u6ede\u7559\u91cf\u3092\u7ba1\u7406\u3059\u308b\". LICENSE file at pin 49cfcf488f94 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

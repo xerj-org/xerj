@@ -8,15 +8,15 @@
   {
    "repo": "LobIQ",
    "url": "https://github.com/Yash-Awasthi/LobIQ",
-   "sha": "1493e0e7a7e92935dc2442b3d224b08d07214de6",
-   "licence": "MIT (LICENSE file at pin 1493e0e7a7e9, GitHub licence API 2026-10-30)",
+   "sha": "9370a047fa00e72aee71ad2db1624d5211209f12",
+   "licence": "MIT (LICENSE file at pin 9370a047fa00, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:25Z",
     "consent_receipt": "24be5d186c91",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:25Z (receipt 24be5d186c91); pinned to the default-branch head. LICENSE file at pin 1493e0e7a7e9 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:25Z (receipt 24be5d186c91); pinned to the default-branch head. LICENSE file at pin 9370a047fa00 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on games, server, tabletop queries this for how Lebbitheplow/open-game-master implements it: Open Game Master, the first easy-to-use, fully local AI 5e app. Story and inline scene images generated 100% on your machine (or with cloud  (selected work: src/lib, scripts, src/app)",
+ "domain": "an agent working on games, server, tabletop queries this for how Lebbitheplow/open-game-master implements it: The first easy-to-use, fully local AI 5e app. Story and inline scene images generated 100% on your machine (or with cloud providers) (selected work: src/lib, scripts, src/app)",
  "repos": [
   {
    "repo": "open-dungeon-master",
