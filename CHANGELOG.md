@@ -53,6 +53,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ~4.7 GB after it had returned, with most decodes refused by the hydration
   budget at publish and thrown away. One background warm per index now runs
   at a time and the others are skipped. Query answers are unchanged.
+- A node whose resting memory sits between the merge-pool ceiling and the
+  memory watermark merges again. Every background merge's output write was
+  refused there, so small batches were retried every 5 s without ever
+  completing, and each retry decoded its inputs again. After three yields in
+  a row with nothing merged, a batch of at most 64 MB now checks its write
+  against the process memory limit instead of the merge-pool ceiling.
+  (Refs #2427)
 - `_bulk` throughput with explicit `_id`s: `index` actions that carry an `_id`
   (and prepared `semantic_text` documents) are now published as one batch per
   index instead of one `index_document` call each, which took the WAL lock,
@@ -212,6 +219,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   print the node's other indices and "the catalog lists no prefixes; --prefix
   is the index name before the dataset slug", which read as a wrong `--prefix`
   (#2670).
+
+- `xerj autoindex` reads a spreadsheet sheet with no header row and no text,
+  such as an all-numbers export, as a table: one record per row, columns named
+  `col_A`, `col_B` and so on, values keeping their cell types. It
+  used to index such a sheet as one text document, which the 4,096-section cap
+  cut off: in the #2720 reproduction a 200,000-row sheet kept rows up to
+  72,724. A sheet whose first 20 rows hold a text cell, uneven rows, one column
+  or only one row is still indexed as a document (#2720).
+- A `--no-graph` rerun no longer aborts when a file gains a part the committed
+  generation has no dataset for, for example a new or renamed spreadsheet
+  sheet, or a sheet that gains a header row and moves from the document
+  reading to the table reading. The file is set aside with a rebuild message
+  (exit 3) and every other file is still indexed. It used to stop the whole
+  run with "frozen assignment has 0 matches for group" (#2720).
 
 ## [1.0.0-rc.100] - 2026-10-26
 

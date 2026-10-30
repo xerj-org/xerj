@@ -14739,7 +14739,14 @@ impl Index {
                 // rule is what waived this batch's yield, the write runs
                 // too, or refusing it would bring the stall back.
                 let exempt = governor.merge_write_exempt(forced_for_task, input_bytes_for_task);
-                if governor.admit_merge_write(reservation, held, extra, forced_for_task, exempt) {
+                if governor.admit_merge_write_for(
+                    reservation,
+                    held,
+                    extra,
+                    forced_for_task,
+                    exempt,
+                    input_bytes_for_task,
+                ) {
                     return true;
                 }
                 let cap = governor.note_merge_yield(input_bytes_for_task);
