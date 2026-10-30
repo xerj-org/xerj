@@ -163,6 +163,7 @@ pub struct IndexCfg {
 
 #[derive(Debug, Clone)]
 pub struct MapCfg {
+    pub report: Option<crate::map_report::Output>,
     pub url: String,
     pub api_key: Option<String>,
     /// Explicit `--prefix` filter (`None` when the user did not pass `--prefix`,
@@ -337,6 +338,11 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20xerj autoindex status [OPTIONS]       resume-journal + index progress view\n\
          \x20\x20\x20\x20xerj autoindex s3://bucket/prefix --watch [OPTIONS]\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20poll object storage and emit a change feed\n\
+         \n\
+         MAP REPORTS (catalog map only):\n\
+         \x20\x20\x20\x20--html <FILE>       write an offline HTML report (new file only)\n\
+         \x20\x20\x20\x20--md <FILE>         write a Markdown report (new file only)\n\
+         \x20\x20\x20\x20--redact-paths      omit file paths and skip reasons from the report\n\
          \n\
          OPTIONS:\n\
          \x20\x20\x20\x20--url <U>            ES-compat endpoint (default http://localhost:9200)\n\
@@ -982,7 +988,9 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
     let mut yes_flag = false;
     let mut remove_root: Option<String> = None;
     let mut remove_uncataloged = false;
-    let mut markdown = false;
+    let markdown = false;
+    let mut report_output = None;
+    let mut redact_paths = false;
     let mut code_analyzer_explicit = false;
     let mut max_index_bytes: Option<u64> = None;
     let mut max_index_explicit = false;
@@ -1254,10 +1262,28 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             "--dry-run" => dry_run = true,
             "--walk-only" => walk_only = true,
             "--json" => json = true,
-            "--md" => {
-                json = false;
-                markdown = true;
+            "--html" | "--md" => {
+                if report_output.is_some() {
+                    return Err("choose one report output: --html <FILE> or --md <FILE>".into());
+                }
+                let path = it
+                    .next()
+                    .filter(|s| !s.is_empty() && !s.starts_with('-'))
+                    .ok_or_else(|| {
+                        format!("{arg} needs an output file; use ./ for a name starting with '-'")
+                    })?;
+                let format = if arg == "--html" {
+                    crate::map_report::Format::Html
+                } else {
+                    crate::map_report::Format::Markdown
+                };
+                report_output = Some(crate::map_report::Output {
+                    path: PathBuf::from(path),
+                    format,
+                    redact_paths: false,
+                });
             }
+            "--redact-paths" => redact_paths = true,
             "--code-analyzer" => {
                 let raw = it
                     .next()
@@ -1467,6 +1493,23 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
                 ));
             }
             other => return Err(format!("unknown argument: {other}")),
+        }
+    }
+
+    if report_output.is_some() || redact_paths {
+        if sub.as_deref() != Some("map") || folder.is_some() {
+            return Err(
+                "--html/--md/--redact-paths apply only to `autoindex map` without a folder".into(),
+            );
+        }
+        if report_output.is_none() {
+            return Err("--redact-paths requires --html <FILE> or --md <FILE>".into());
+        }
+        if json || detail_offset.is_some() || detail_limit.is_some() {
+            return Err("report output cannot be combined with --json/--offset/--limit; reports use the full fetched catalog selection".into());
+        }
+        if let Some(output) = &mut report_output {
+            output.redact_paths = redact_paths;
         }
     }
 
@@ -2039,6 +2082,7 @@ pub fn parse(args: Vec<String>) -> Result<Cmd, String> {
             sub.as_deref().unwrap_or_default()
         )),
         (Some("map"), None) => Ok(Cmd::Map(MapCfg {
+            report: report_output,
             url,
             api_key,
             prefix: prefix_explicit.then_some(prefix),
@@ -2301,6 +2345,34 @@ fn remove_cmd(input: RemoveParse) -> Result<Cmd, String> {
 mod tests {
     use super::{parse, Approval, Cmd, Duration, ProgressMode, DEFAULT_MAX_MINUTES};
     use std::path::PathBuf;
+
+    #[test]
+    fn map_report_flags_select_export_and_refuse_ambiguous_modes() {
+        for flag in ["--html", "--md"] {
+            let args = ["map", flag, "report.out", "--redact-paths"];
+            let result = parse(args.iter().map(|s| s.to_string()).collect());
+            assert!(matches!(result, Ok(Cmd::Map(_))), "{flag}: {result:?}");
+        }
+        for args in [
+            vec!["map", "--html"],
+            vec!["map", "--md"],
+            vec!["map", "--html", "--json"],
+            vec!["map", "--html", "a", "--md", "b"],
+            vec!["map", "--html", "a", "--json"],
+            vec!["map", "--json", "--md", "a"],
+            vec!["map", "--redact-paths"],
+            vec!["map", "folder", "--html", "a"],
+            vec!["folder", "--html", "a"],
+            vec!["status", "--html", "a"],
+            vec!["remove", "--prefix", "p", "--html", "a"],
+            vec!["map", "--html", "a", "--offset", "1"],
+        ] {
+            assert!(
+                parse(args.iter().map(|s| s.to_string()).collect()).is_err(),
+                "{args:?}"
+            );
+        }
+    }
 
     #[test]
     fn a_bare_autoindex_is_a_usage_error() {
