@@ -1,0 +1,30 @@
+{
+ "corpus": "autoplot--autoplot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how autoplot/autoplot implements it: Autoplot application source code (minus Das2 stuff) (selected work: Autoplot)",
+ "repos": [
+  {
+   "repo": "autoplot",
+   "url": "https://github.com/autoplot/autoplot",
+   "sha": "3d41c916ab3fba43c73863e5fa133d17ab0e58ba",
+   "licence": "LGPL-3.0 (LICENSE file at pin 3d41c916ab3f, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T15:00Z",
+    "consent_receipt": "258894960bcf",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T15:00Z (receipt 258894960bcf); selected commit 3d41c916ab3f: \"https://sourceforge.net/p/autoplot/feature-requests/892/: first version\". LICENSE file at pin 3d41c916ab3f detected as LGPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "3d41c916ab3fba43c73863e5fa133d17ab0e58ba",
+     "at": "2026-10-30T15:00Z",
+     "receipt": "258894960bcf"
+    }
+   }
+  }
+ ]
+}

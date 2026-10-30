@@ -1,0 +1,23 @@
+{
+ "corpus": "dundysm--occlubench",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how dundysm/occlubench implements it: OccluBench: GPU-native benchmark for VLA robustness to mid-episode physical occlusion (MuJoCo Warp)",
+ "repos": [
+  {
+   "repo": "occlubench",
+   "url": "https://github.com/dundysm/occlubench",
+   "sha": "edaaec631708f82e222f8cbc0700beeb9b998d68",
+   "licence": "MIT (LICENSE file at pin edaaec631708, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T14:55Z",
+    "consent_receipt": "0b797d7978e6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T14:55Z (receipt 0b797d7978e6); pinned to the default-branch head. LICENSE file at pin edaaec631708 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}
