@@ -400,6 +400,43 @@ pub fn effective_batch_cap_bytes(static_cap: u64, pressure_cap: u64) -> u64 {
     }
 }
 
+/// The memory line a background merge's output-write step is checked
+/// against (#2427, #2468).
+///
+/// Normally that is the merge-pool `ceiling` (the process limit less the
+/// search-read reserve). After [`MERGE_YIELD_STREAK_LIMIT`] yields in a row
+/// with nothing merged, a batch of at most
+/// [`MERGE_YIELD_STREAK_MAX_INPUT_BYTES`] is checked against the hard
+/// process `limit` instead.
+///
+/// Without this a search node whose resting RSS sits between the ceiling
+/// and the watermark never merges. In the #2427 1 GB gate the search
+/// node's floor was 2.3-2.5 GB against a 2,458 MB ceiling, so every write
+/// step was refused (70 yields of 1-10 MB batches, retried every 5 s, none
+/// completed). The #2468 streak exemption did not apply, because it only
+/// covers batches the in-flight yield rule stops, and that rule needs RSS
+/// at the watermark. Each retry decoded its inputs again, which kept RSS
+/// near the watermark. The hard limit still bounds the write, and searches
+/// are refused only at that limit.
+pub fn merge_write_limit_after(
+    ceiling: u64,
+    limit: u64,
+    forced: bool,
+    input_bytes: u64,
+    yield_streak: u64,
+) -> u64 {
+    if !forced
+        && limit > ceiling
+        && yield_streak >= MERGE_YIELD_STREAK_LIMIT
+        && input_bytes > 0
+        && input_bytes <= MERGE_YIELD_STREAK_MAX_INPUT_BYTES
+    {
+        limit
+    } else {
+        ceiling
+    }
+}
+
 /// Multiplier on the merged stored JSON for the merge output-write step
 /// (#2427).
 ///
@@ -470,6 +507,51 @@ pub fn decide_merge_write(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_small_batch_write_uses_the_hard_limit_after_a_yield_streak() {
+        const MIB: u64 = 1024 * 1024;
+        let ceiling = 2458 * MIB;
+        let limit = 3072 * MIB;
+        let small = 6 * MIB;
+        // Before the streak: the merge-pool ceiling.
+        for streak in 0..MERGE_YIELD_STREAK_LIMIT {
+            assert_eq!(
+                merge_write_limit_after(ceiling, limit, false, small, streak),
+                ceiling
+            );
+        }
+        // At the streak: the hard limit, for a small background batch only.
+        let at = MERGE_YIELD_STREAK_LIMIT;
+        assert_eq!(
+            merge_write_limit_after(ceiling, limit, false, small, at),
+            limit
+        );
+        let large = MERGE_YIELD_STREAK_MAX_INPUT_BYTES + 1;
+        assert_eq!(
+            merge_write_limit_after(ceiling, limit, false, large, at),
+            ceiling
+        );
+        assert_eq!(
+            merge_write_limit_after(ceiling, limit, false, 0, at),
+            ceiling
+        );
+        assert_eq!(
+            merge_write_limit_after(ceiling, limit, true, small, at),
+            ceiling
+        );
+        // Never below the ceiling.
+        assert_eq!(
+            merge_write_limit_after(ceiling, 0, false, small, at),
+            ceiling
+        );
+        // The gate-f case: rss 2,517 MB plus a 408 MB write fits under the
+        // hard limit but not under the ceiling.
+        let (rss, extra) = (2517 * MIB, 408 * MIB);
+        assert!(!decide_merge_write(rss, ceiling, extra, false, false));
+        let line = merge_write_limit_after(ceiling, limit, false, small, at);
+        assert!(decide_merge_write(rss, line, extra, false, false));
+    }
 
     #[test]
     fn a_background_merge_yields_only_when_engaged_at_the_limit() {

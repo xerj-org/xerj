@@ -53,6 +53,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lock. A bulk batch plans its inserts in parallel on the ingest pool, and
   concurrent batches into one index no longer queue behind each other's
   inserts (#2427).
+- A node whose resting memory sits between the merge-pool ceiling and the
+  memory watermark merges again. Every background merge's output write was
+  refused there, so small batches were retried every 5 s without ever
+  completing, and each retry decoded its inputs again. After three yields in
+  a row with nothing merged, a batch of at most 64 MB now checks its write
+  against the process memory limit instead of the merge-pool ceiling.
+  (Refs #2427)
 - `_bulk` throughput with explicit `_id`s: `index` actions that carry an `_id`
   (and prepared `semantic_text` documents) are now published as one batch per
   index instead of one `index_document` call each, which took the WAL lock,
