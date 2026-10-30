@@ -47,6 +47,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `_bulk` throughput with explicit `_id`s: `index` actions that carry an `_id`
+  (and prepared `semantic_text` documents) are now published as one batch per
+  index instead of one `index_document` call each, which took the WAL lock,
+  copied the source into the storage memtable and opened a publication bracket
+  per document. Per-item results are unchanged: `created`/`updated`, `_version`,
+  and per-item date and size errors that keep their `_id`. (Refs #2427)
+
 - Search under a memory cap: when the segment hydration cache is full, a query that has to build a segment's stored slices or FTS reader outside the cache now reserves that memory from a separate read budget (`XERJ_READ_TRANSIENT_MB`, default a tenth of `XERJ_MAX_PROCESS_MEMORY_MB`). It waits up to `XERJ_READ_TRANSIENT_WAIT_MS` (default 5 s) for room instead of stacking whole decompressed sections on top of each other. Background cache warms that the full cache would refuse are skipped. While the memory breaker is engaged, its drain still flushes and purges on every tick but releases the read caches at most once per `XERJ_BREAKER_CACHE_RELEASE_SECS` (default 30 s), so queries no longer re-hydrate cold every two seconds. `GET /_nodes/stats` reports the budget under `indices.read_transient_budget`. (Refs #2427, #1122)
 - Opt-in lexical `judge` now matches CJK characters and adjacent pairs inside
   uninterrupted Chinese/Japanese/Korean text instead of treating the whole
