@@ -8,15 +8,15 @@
   {
    "repo": "praxis-runtime",
    "url": "https://github.com/dfg-inc/praxis-runtime",
-   "sha": "6a229b1701d8261eddcfb14de379d13aa32841c9",
-   "licence": "Apache-2.0 (LICENSE file at pin 6a229b1701d8, GitHub licence API 2026-10-29)",
+   "sha": "fafe13044182fead7d3ad3bd1c10a2f7ed344052",
+   "licence": "Apache-2.0 (LICENSE file at pin fafe13044182, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T18:42Z",
     "consent_receipt": "fc7222e95c82",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:42Z (receipt fc7222e95c82); selected commit 6a229b1701d8: \"Runtime: operator-only Playwright, nonce result line, WebSocket and s\u2026\". LICENSE file at pin 6a229b1701d8 detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution. Pinned to head 6a229b1701d8 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:42Z (receipt fc7222e95c82); selected commit fafe13044182: \"Runtime: operator-only Playwright, nonce result line, WebSocket and s\u2026\". LICENSE file at pin fafe13044182 detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head fafe13044182 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

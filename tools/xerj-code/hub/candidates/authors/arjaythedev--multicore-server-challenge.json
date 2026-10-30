@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C queries this for how arjaythedev/multicore-server-challenge implements it: arjaythedev/multicore-server-challenge (C) (selected work: submissions)",
+ "domain": "an agent working on Rust queries this for how arjaythedev/multicore-server-challenge implements it: arjaythedev/multicore-server-challenge (Rust) (selected work: submissions)",
  "repos": [
   {
    "repo": "multicore-server-challenge",

@@ -8,15 +8,15 @@
   {
    "repo": "zafu-pchospital-web",
    "url": "https://github.com/ZAFU-PCHospital/zafu-pchospital-web",
-   "sha": "a09a99fc58216fdb046399cc3aa55b2a78591ac6",
-   "licence": "AGPL-3.0 (LICENSE file at pin a09a99fc5821, GitHub licence API 2026-10-30)",
+   "sha": "b73ac38edf594f64bceeef1600829b4ea4fc4e57",
+   "licence": "AGPL-3.0 (LICENSE file at pin b73ac38edf59, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-30T01:56Z",
     "consent_receipt": "fff0707b5c28",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T01:56Z (receipt fff0707b5c28); selected commit a09a99fc5821: \"fix(repair-activities): \u8865\u9f50\u5f85\u786e\u8ba4\u89e3\u9664\u3001\u91cd\u65b0\u586b\u5199\u4e0e\u5207\u6362\u6d3b\u52a8\u6e05\u7406\uff08#266\uff09\". LICENSE file at pin a09a99fc5821 detected as AGPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head a09a99fc5821 (contains the selected commit): the LICENSE at the selected commit was NONE.",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T01:56Z (receipt fff0707b5c28); selected commit b73ac38edf59: \"fix(repair-activities): \u8865\u9f50\u5f85\u786e\u8ba4\u89e3\u9664\u3001\u91cd\u65b0\u586b\u5199\u4e0e\u5207\u6362\u6d3b\u52a8\u6e05\u7406\uff08#266\uff09\". LICENSE file at pin b73ac38edf59 detected as AGPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head b73ac38edf59 (contains the selected commit): the LICENSE at the selected commit was NONE.",
     "author_grant": {
      "terms": "MIT",
      "scope": "the author's own changes in the selected commit",

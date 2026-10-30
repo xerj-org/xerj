@@ -2,8 +2,8 @@
  "corpus": "giton22--kyllene",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on Kotlin queries this for how Giton22/kyllene implements it: Unofficial Android client for Hermes Agent (selected work: shared)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, android, android-app queries this for how Giton22/kyllene implements it: Unofficial Android client for Hermes Agent (selected work: shared)",
  "repos": [
   {
    "repo": "herald",
