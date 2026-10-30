@@ -47,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `_reindex` applies `source._source` field filtering to the documents it
+  copies, so an excluded secret or large field no longer reaches the
+  destination. `_source:false` is refused with ES's sentence, and a `script`
+  body is refused before any work instead of silently copying the
+  untransformed document (this build has no reindex script context).
+
 - The in-memory HNSW graph no longer stores every vector in one contiguous
   buffer. That buffer doubled on growth, so near ~393K 384-dim vectors a
   single 384 MiB -> 768 MiB realloc kept both copies live (~1.15 GB
