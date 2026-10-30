@@ -5161,7 +5161,7 @@ mod phase_a_grouping_tests {
 
     /// A minimal Excel workbook: inline-string text, numbers, and style 1 =
     /// built-in date format 14 so a serial reads as a date.
-    fn write_xlsx(path: &Path, sheets: &[(&str, &[&[&str]])]) {
+    pub(super) fn write_xlsx(path: &Path, sheets: &[(&str, &[&[&str]])]) {
         use std::io::Write;
         let cell = |r: usize, c: usize, v: &str| {
             let at = format!("{}{}", (b'A' + c as u8) as char, r + 1);

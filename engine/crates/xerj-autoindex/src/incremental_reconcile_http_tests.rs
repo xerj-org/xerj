@@ -7524,3 +7524,103 @@ fn dry_run_refuses_a_changed_option_like_the_real_run() {
     assert_eq!(endpoint.data_bulk_requests(), bulks);
     assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
 }
+
+/// #2720: a workbook rerun whose edit gives it a part the frozen datasets do
+/// not have cannot join them. That file is set aside with the rebuild command
+/// and every other file is still indexed; it used to abort the whole run with
+/// "frozen assignment has 0 matches for group", as if the journal were corrupt.
+fn sheet_edit_is_set_aside(edited: &[(&str, Vec<Vec<String>>)], part: &str) {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    let book = corpus.path().join("book.xlsx");
+    let write = |sheets: &[(&str, Vec<Vec<String>>)]| {
+        let rows: Vec<Vec<Vec<&str>>> = sheets
+            .iter()
+            .map(|(_, rows)| {
+                rows.iter()
+                    .map(|row| row.iter().map(String::as_str).collect())
+                    .collect()
+            })
+            .collect();
+        let slices: Vec<Vec<&[&str]>> = rows
+            .iter()
+            .map(|rows| rows.iter().map(Vec::as_slice).collect())
+            .collect();
+        let named: Vec<(&str, &[&[&str]])> = sheets
+            .iter()
+            .zip(&slices)
+            .map(|((name, _), rows)| (*name, rows.as_slice()))
+            .collect();
+        crate::phase_a_grouping_tests::write_xlsx(&book, &named);
+    };
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    write(&[("Sales", sales_rows(false))]);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+
+    write(edited);
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n2,beta\n").unwrap();
+    let code = run_index(config.clone()).unwrap_or_else(|error| panic!("{error:#}"));
+    assert_eq!(code, 3, "a set-aside file is completed-with-junk");
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 2);
+
+    let catalog = endpoint.catalog_docs();
+    let junk: Vec<&Value> = catalog
+        .iter()
+        .filter(|doc| doc["doc_kind"] == "file" && doc["status"] == "junk")
+        .collect();
+    assert_eq!(junk.len(), 1, "{junk:#?}");
+    assert_eq!(
+        junk[0]["path"].as_str().or(junk[0]["rel"].as_str()),
+        Some("book.xlsx")
+    );
+    let reason = junk[0]["reason"].as_str().unwrap();
+    for needle in [
+        format!("part {part:?} of this file is new or changed shape"),
+        "This file was not indexed; every other file in this pass still is".to_string(),
+        "rebuild".to_string(),
+    ] {
+        assert!(
+            reason.contains(&needle),
+            "{needle:?} missing from: {reason}"
+        );
+    }
+    let docs = serde_json::to_string(&endpoint.data_docs()).unwrap();
+    assert!(docs.contains("beta"), "the edited CSV is still indexed");
+    assert!(
+        !docs.contains("region 59"),
+        "the set-aside workbook's old document is dropped with this generation"
+    );
+}
+
+/// 60 rows of text and numbers with no header: a document, not a table.
+fn sales_rows(header: bool) -> Vec<Vec<String>> {
+    let mut rows = Vec::new();
+    if header {
+        rows.push(vec!["region".to_string(), "amount".to_string()]);
+    }
+    rows.extend((0..60).map(|i| vec![format!("region {i}"), (i * 10).to_string()]));
+    rows
+}
+
+/// A header row turns the sheet from a document into a table.
+#[test]
+fn a_sheet_that_changes_shape_is_set_aside_not_fatal() {
+    sheet_edit_is_set_aside(&[("Sales", sales_rows(true))], "Sales");
+}
+
+/// A new table sheet has no frozen dataset either.
+#[test]
+fn a_new_sheet_in_an_indexed_workbook_is_set_aside_not_fatal() {
+    let q4 = vec![
+        vec!["region".to_string(), "amount".to_string()],
+        vec!["north".to_string(), "5".to_string()],
+    ];
+    sheet_edit_is_set_aside(&[("Sales", sales_rows(false)), ("Q4", q4)], "Q4");
+}
