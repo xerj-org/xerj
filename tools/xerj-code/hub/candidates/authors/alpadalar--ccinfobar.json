@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude, claude-code, cli queries this for how alpadalar/ccinfobar implements it: A customizable status line for Claude Code with a drag-and-drop editor (selected work: test, src/catalog, src/editor)",
+ "domain": "an agent working on claude, claude-code, cli queries this for how alpadalar/ccinfobar implements it: A customizable status line for Claude Code with a drag-and-drop web editor, a terminal editor, 118 widgets, 30 themes and a marketplace; zer (selected work: test, src/catalog, src/editor)",
  "repos": [
   {
    "repo": "ccinfobar",

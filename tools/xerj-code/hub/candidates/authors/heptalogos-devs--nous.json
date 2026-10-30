@@ -1,9 +1,9 @@
 {
- "corpus": "heptalogos-devs--nous-wave",
+ "corpus": "heptalogos-devs--nous",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how Heptalogos-Devs/Nous-Wave implements it: Standalone cognitive substrate with Subject Core and Memory MicroSystem (selected work: apps/nous-cli, apps/nous-kernel, apps/nous-core)",
+ "domain": "an agent working on Rust queries this for how Heptalogos-Devs/Nous implements it: Standalone cognitive substrate with Subject Core and Memory MicroSystem (selected work: apps/nous-cli, apps/nous-kernel, apps/nous-core)",
  "repos": [
   {
    "repo": "Nous-Wave",

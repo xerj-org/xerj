@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "HEALTH",
- "domain": "an agent working on anchor-graph, bioinformatics, clustering queries this for how AkashKundu114/icc-clustering implements it: Official code & benchmark artifact for 'Stable but Wrong: Why Consensus Clustering Can Fail in High Dimensions, and What Helps' (Springer Na (selected work: research_audit, src/icc, tests)",
+ "domain": "an agent working on anchor-graph, bioinformatics, clustering queries this for how AkashKundu114/icc-clustering implements it: Official code and benchmark reproduction suite for 'Feature-Gated Bipartite Graph Ensembles for Stable Clustering in High-Dimensional Extrem (selected work: research_audit, src/icc, tests)",
  "repos": [
   {
    "repo": "icc-clustering",
