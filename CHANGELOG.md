@@ -53,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of prose reserved about 3x and a bulk of code about 4x what parsing and
   analyzing it allocates. The reservation now follows the estimated token
   count of each document, and dense text keeps the old rate (Refs #2427).
+- `_bulk` admission no longer counts analysis memory twice. A held analyze reservation was added on top of live RSS even after its batch had allocated most of it, so a node with several bulks mid-analysis refused writes at about half its watermark. Held reservations are now counted from the RSS they were admitted at (Refs #2427).
 - A node whose resting memory sits between the merge-pool ceiling and the
   memory watermark merges again. Every background merge's output write was
   refused there, so small batches were retried every 5 s without ever

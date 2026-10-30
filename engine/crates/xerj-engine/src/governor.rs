@@ -344,10 +344,27 @@ pub fn analyze_reservation_fits(
     if watermark == 0 {
         return true;
     }
-    observed
-        .saturating_add(already_reserved)
-        .saturating_add(request)
-        < watermark
+    analyze_committed_bytes(observed, already_reserved, None).saturating_add(request) < watermark
+}
+
+/// Memory already committed to live RSS plus held analyze reservations (#2427).
+///
+/// `baseline` is the smallest RSS observed when a still-held reservation was
+/// admitted. Every held reservation was admitted at or above it, so whatever
+/// part of those reservations has been allocated already shows up in
+/// `observed - baseline`. Counting `observed + already_reserved` adds that
+/// part twice: a run with four bulks mid-analysis was refused at an RSS of
+/// 1.5 GB against a 2.9 GB watermark. The committed level is the larger of
+/// live RSS and `baseline + already_reserved`, and never more than the old
+/// sum. Without a baseline the old sum is used.
+pub fn analyze_committed_bytes(observed: u64, already_reserved: u64, baseline: Option<u64>) -> u64 {
+    let summed = observed.saturating_add(already_reserved);
+    match baseline {
+        Some(base) if already_reserved > 0 => observed
+            .max(base.saturating_add(already_reserved))
+            .min(summed),
+        _ => summed,
+    }
 }
 
 /// Process-wide resource governor. See the module docs.
@@ -392,6 +409,10 @@ pub struct ResourceGovernor {
     /// not observed yet (#1122). Released once those tokens exist, so the
     /// next admission sees them in live RSS instead of counting them twice.
     analyze_reserved: Arc<AtomicU64>,
+    /// RSS observed when each held analyze reservation was admitted, keyed by
+    /// reservation id (#2427). Its minimum is the baseline the held
+    /// reservations grow from, see [`analyze_committed_bytes`].
+    analyze_baselines: Arc<Mutex<AnalyzeBaselines>>,
     /// Latched: last sample crossed the RSS watermark.
     memory_tripped: AtomicBool,
     /// The effective watermark in force when the breaker last engaged (#1250).
@@ -565,7 +586,7 @@ impl ResourceGovernor {
         let watermark = self.memory_watermark_bytes.load(Ordering::Relaxed);
         let observed = self.observed_process_memory();
         let already = self.analyze_reserved.load(Ordering::Acquire);
-        if !analyze_reservation_fits(watermark, observed, already, bytes) {
+        if !self.analyze_fits(watermark, observed, already, bytes) {
             return Err(self.analyze_reservation_refused(bytes));
         }
         let prev = self.analyze_reserved.fetch_add(bytes, Ordering::AcqRel);
@@ -575,9 +596,11 @@ impl ResourceGovernor {
             return Ok(AnalyzeReservation::none());
         }
         let observed = self.observed_process_memory();
-        if analyze_reservation_fits(watermark, observed, prev, bytes) {
+        if self.analyze_fits(watermark, observed, prev, bytes) {
+            let id = self.lock_analyze_baselines().insert(observed);
             return Ok(AnalyzeReservation {
                 slot: Some(Arc::clone(&self.analyze_reserved)),
+                baseline: Some((Arc::clone(&self.analyze_baselines), id)),
                 bytes,
             });
         }
@@ -603,6 +626,22 @@ impl ResourceGovernor {
     ) -> Result<AnalyzeReservation, XerjError> {
         self.check_ingest_admission()?;
         self.reserve_analyze(body_bytes)
+    }
+
+    fn lock_analyze_baselines(&self) -> std::sync::MutexGuard<'_, AnalyzeBaselines> {
+        self.analyze_baselines
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// [`analyze_reservation_fits`] with held reservations counted from the
+    /// RSS they were admitted at, not on top of live RSS (#2427).
+    fn analyze_fits(&self, watermark: u64, observed: u64, already: u64, request: u64) -> bool {
+        if watermark == 0 {
+            return true;
+        }
+        let baseline = self.lock_analyze_baselines().min();
+        analyze_committed_bytes(observed, already, baseline).saturating_add(request) < watermark
     }
 
     fn observed_process_memory(&self) -> u64 {
@@ -2156,6 +2195,7 @@ fn build(config: &Config) -> ResourceGovernor {
             0
         }),
         analyze_reserved: Arc::new(AtomicU64::new(0)),
+        analyze_baselines: Arc::new(Mutex::new(AnalyzeBaselines::default())),
         memory_tripped: AtomicBool::new(startup_starved),
         memory_trip_watermark: AtomicU64::new(if startup_starved {
             memory_watermark_bytes
@@ -2652,6 +2692,7 @@ impl Drop for MergeReservation {
 #[derive(Debug)]
 pub(crate) struct AnalyzeReservation {
     slot: Option<Arc<AtomicU64>>,
+    baseline: Option<(Arc<Mutex<AnalyzeBaselines>>, u64)>,
     bytes: u64,
 }
 
@@ -2659,6 +2700,7 @@ impl AnalyzeReservation {
     pub(crate) fn none() -> Self {
         Self {
             slot: None,
+            baseline: None,
             bytes: 0,
         }
     }
@@ -2666,11 +2708,43 @@ impl AnalyzeReservation {
 
 impl Drop for AnalyzeReservation {
     fn drop(&mut self) {
+        // Drop the bytes before the baseline: a reader that sees the bytes
+        // without a baseline falls back to the conservative sum.
         if let Some(slot) = self.slot.take() {
             if self.bytes > 0 {
                 slot.fetch_sub(self.bytes, Ordering::AcqRel);
             }
         }
+        if let Some((baselines, id)) = self.baseline.take() {
+            baselines
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .remove(id);
+        }
+    }
+}
+
+/// Admission RSS of each held analyze reservation (#2427).
+#[derive(Debug, Default)]
+pub(crate) struct AnalyzeBaselines {
+    next_id: u64,
+    live: std::collections::BTreeMap<u64, u64>,
+}
+
+impl AnalyzeBaselines {
+    fn insert(&mut self, rss: u64) -> u64 {
+        let id = self.next_id;
+        self.next_id = self.next_id.wrapping_add(1);
+        self.live.insert(id, rss);
+        id
+    }
+
+    fn remove(&mut self, id: u64) {
+        self.live.remove(&id);
+    }
+
+    fn min(&self) -> Option<u64> {
+        self.live.values().copied().min()
     }
 }
 
@@ -2886,6 +2960,47 @@ mod tests {
         drop(second);
         drop(third);
         assert_eq!(governor.analyze_reserved.load(Ordering::Relaxed), 0);
+    }
+
+    /// #2427: memory a held reservation has already allocated shows up in
+    /// RSS and must not be counted a second time on top of the reservation.
+    /// Before, the 350 MiB request below was refused at 300 + 400 + 350 =
+    /// 1050 MiB over the baseline against a 1024 MiB watermark, although at
+    /// most 400 + 350 MiB can still land on top of it.
+    #[test]
+    fn held_reservation_is_counted_from_its_admission_rss_not_on_top_of_live_rss_2427() {
+        const MIB: u64 = 1024 * 1024;
+        assert_eq!(analyze_committed_bytes(1000, 400, Some(900)), 1300);
+        assert_eq!(analyze_committed_bytes(1500, 400, Some(900)), 1500);
+        assert_eq!(analyze_committed_bytes(1000, 400, None), 1400);
+        assert_eq!(analyze_committed_bytes(1000, 0, Some(900)), 1000);
+        // A baseline above live RSS never makes admission stricter.
+        assert_eq!(analyze_committed_bytes(1000, 400, Some(1200)), 1400);
+
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        let governor = build(&cfg);
+        let live = governor.observed_process_memory();
+        governor
+            .memory_watermark_bytes
+            .store(live.saturating_add(1024 * MIB), Ordering::Relaxed);
+        governor.rss_bytes.store(live, Ordering::Relaxed);
+
+        let first = governor.reserve_analyze(400 * MIB).unwrap();
+        // The first batch's analysis has allocated 300 MiB of its 400.
+        governor
+            .rss_bytes
+            .store(live.saturating_add(300 * MIB), Ordering::Relaxed);
+        let second = governor
+            .reserve_analyze(350 * MIB)
+            .expect("750 MiB over the baseline fits under 1024");
+        // Real growth beyond the reservations still counts.
+        let refused = governor.reserve_analyze(300 * MIB).unwrap_err();
+        assert_eq!(refused.http_status(), 429, "{refused}");
+        drop(first);
+        drop(second);
+        assert_eq!(governor.analyze_reserved.load(Ordering::Relaxed), 0);
+        assert_eq!(governor.lock_analyze_baselines().min(), None);
     }
 
     #[test]
