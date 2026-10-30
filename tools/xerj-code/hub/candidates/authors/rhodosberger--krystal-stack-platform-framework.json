@@ -1,0 +1,23 @@
+{
+ "corpus": "rhodosberger--krystal-stack-platform-framework",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how RhodosBerger/Krystal-stack-platform-framework implements it: RhodosBerger/Krystal-stack-platform-framework (Python) (selected work: scripts, krystal_kernel, tests)",
+ "repos": [
+  {
+   "repo": "Krystal-stack-platform-framework",
+   "url": "https://github.com/RhodosBerger/Krystal-stack-platform-framework",
+   "sha": "90ad15274f092becb4cd6dcaddf63d84b686f3ae",
+   "licence": "Apache-2.0 (LICENSE file at pin 90ad15274f09, GitHub licence API 2026-10-24)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-23T19:16Z",
+    "consent_receipt": "10432c2cba0d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T19:16Z (receipt 10432c2cba0d); selected commit 90ad15274f09: \"feat(llm-substrate): ground SlovakLLMAdapter with real OpenVINO tenso\u2026\". LICENSE file at pin 90ad15274f09 detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+   }
+  }
+ ]
+}

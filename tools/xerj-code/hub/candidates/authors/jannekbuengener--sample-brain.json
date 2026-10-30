@@ -2,8 +2,8 @@
  "corpus": "jannekbuengener--sample-brain",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on ai-assisted-development, audio, local-first queries this for how jannekbuengener/sample-brain implements it: Local-first sample management and editing music in easy ways to spend more time in live performance. never leave the box anymore (selected work: src, tests)",
+ "shelf": "API",
+ "domain": "an agent working on audio, local-first, music-production queries this for how jannekbuengener/sample-brain implements it: Local-first sample management and editing music in easy ways to spend more time in live performance. never leave the box anymore (selected work: src, tests)",
  "repos": [
   {
    "repo": "sample-brain",

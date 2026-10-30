@@ -2,7 +2,7 @@
  "corpus": "yazeed--proc-cli",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
+ "shelf": "AI",
  "domain": "an agent working on cli, command-line, developer-tools queries this for how yazeed/proc-cli implements it: Semantic CLI tool for process management. Target by port, PID, name or path (selected work: src/commands, tests, src/core)",
  "repos": [
   {

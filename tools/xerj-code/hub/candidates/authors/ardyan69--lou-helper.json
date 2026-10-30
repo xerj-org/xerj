@@ -1,0 +1,23 @@
+{
+ "corpus": "ardyan69--lou-helper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how ardyan69/LoU-Helper implements it: Helper **Lord of Ultima: Revival** (lordofultima.me) (selected work: the project root, tools, lib)",
+ "repos": [
+  {
+   "repo": "LoU-Helper",
+   "url": "https://github.com/ardyan69/LoU-Helper",
+   "sha": "db52409dbc5caa0c9c18ea920380d0c1c2c9b5ca",
+   "licence": "MIT (LICENSE file at pin db52409dbc5c, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T04:07Z",
+    "consent_receipt": "02bd53889562",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:07Z (receipt 02bd53889562); selected commit db52409dbc5c: \"add extension for: firefox safari edge chrome\". LICENSE file at pin db52409dbc5c detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

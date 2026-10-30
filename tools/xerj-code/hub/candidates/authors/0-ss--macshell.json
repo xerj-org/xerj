@@ -1,0 +1,23 @@
+{
+ "corpus": "0-ss--macshell",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on QML queries this for how 0-ss/MacShell implements it: MacOS Tahoe-like shell for Hyprland (selected work: hypr-macshell, MacLock)",
+ "repos": [
+  {
+   "repo": "MacShell",
+   "url": "https://github.com/0-ss/MacShell",
+   "sha": "9910967e6f44432ed7e7d1ccecfb407f221ddfbf",
+   "licence": "MIT (LICENSE file at pin 9910967e6f44, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T03:42Z",
+    "consent_receipt": "79bd94f3689f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T03:42Z (receipt 79bd94f3689f); selected commit 9910967e6f44: \"Add files via upload\". LICENSE file at pin 9910967e6f44 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

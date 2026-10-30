@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Vue queries this for how stevqin/zt-ui implements it: A lightweight Vue 3 UI component library with TypeScript support (selected work: tests, src/components)",
+ "domain": "an agent working on TypeScript queries this for how stevqin/zt-ui implements it: A lightweight Vue 3 UI component library with TypeScript support (selected work: tests, src/components)",
  "repos": [
   {
    "repo": "zt-ui",

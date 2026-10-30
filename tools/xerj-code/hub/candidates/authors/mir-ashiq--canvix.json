@@ -1,0 +1,23 @@
+{
+ "corpus": "mir-ashiq--canvix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on canva-alternative, canvas, design queries this for how mir-ashiq/canvix implements it: Canvix \u2014 Free & open-source graphic design tool. A community-built Canva alternative with a drag-and-drop editor, templates, shapes, text, i (selected work: scripts, tests, src/lib)",
+ "repos": [
+  {
+   "repo": "canvix",
+   "url": "https://github.com/mir-ashiq/canvix",
+   "sha": "c99052b0d9cc98be30ec0c109f66e7a5ae0d1e0f",
+   "licence": "MIT (LICENSE file at pin c99052b0d9cc, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T03:13Z",
+    "consent_receipt": "7401ad7a8365",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T03:13Z (receipt 7401ad7a8365); selected commit c99052b0d9cc: \"fix(v0.11.1): production smoke of v0.11.0 \u2014 preview playback, export \u2026\". LICENSE file at pin c99052b0d9cc detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

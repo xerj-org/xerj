@@ -1,0 +1,23 @@
+{
+ "corpus": "devarkadia--rueca",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on call-graph, code-intelligence, coding-agents queries this for how DevArKaDiA/rueca implements it: Code intelligence for coding agents: symbol and call graph over MCP. Rust, local-first (selected work: crates/rueca-query, crates/rueca-cli, crates/rueca-mcp)",
+ "repos": [
+  {
+   "repo": "rueca",
+   "url": "https://github.com/DevArKaDiA/rueca",
+   "sha": "d5a7b271e53c710600bacdce29e1619e375e7059",
+   "licence": "Apache-2.0 (LICENSE file at pin d5a7b271e53c, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T03:24Z",
+    "consent_receipt": "d1dbfa5b6847",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T03:24Z (receipt d1dbfa5b6847); selected commit d5a7b271e53c: \"feat(query): RFC 0005 responses \u2014 pinned ids, snapshot envelope, mult\u2026\". LICENSE file at pin d5a7b271e53c detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

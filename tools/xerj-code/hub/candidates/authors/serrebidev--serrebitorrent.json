@@ -8,15 +8,15 @@
   {
    "repo": "SerrebiTorrent",
    "url": "https://github.com/serrebidev/SerrebiTorrent",
-   "sha": "c3a7fd2e077432c97253dee351ae4412cbab2897",
-   "licence": "author's permission (LICENSE at pin c3a7fd2e0774: NONE; repository: none)",
+   "sha": "450f589a34f01aeb1e3bf1af047c43f50b6470c5",
+   "licence": "author's permission (LICENSE at pin 450f589a34f0: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T23:37Z",
     "consent_receipt": "403bb07fc618",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt 403bb07fc618); pinned to the default-branch head. LICENSE at pin c3a7fd2e0774: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt 403bb07fc618); pinned to the default-branch head. LICENSE at pin 450f589a34f0: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]
