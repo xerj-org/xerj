@@ -1,0 +1,23 @@
+{
+ "corpus": "cyberroute--bruter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on golang, security, bruteforce queries this for how CyberRoute/bruter implements it: Bruter is an OSINT tooling, an experiment to build a reconnaissance simple app to have fun \ud83d\udd75\ufe0f\u200d\u2642\ufe0f (selected work: pkg/ssl, pkg/fuzzer, cmd/bruter)",
+ "repos": [
+  {
+   "repo": "bruter",
+   "url": "https://github.com/CyberRoute/bruter",
+   "sha": "13c96b8382b1c8108f8b3555d0d57f5a4d105d3b",
+   "licence": "GPL-3.0 (LICENSE file at pin 13c96b8382b1, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T06:04Z",
+    "consent_receipt": "b0700772db99",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T06:04Z (receipt b0700772db99); selected commit 13c96b8382b1: \"harden cert lookups and fuzzer against outages and rate limiting\". LICENSE file at pin 13c96b8382b1 detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

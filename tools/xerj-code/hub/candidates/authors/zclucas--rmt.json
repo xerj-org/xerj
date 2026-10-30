@@ -1,0 +1,30 @@
+{
+ "corpus": "zclucas--rmt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on key-macros, automation, gamepad-macros queries this for how zclucas/RMT implements it: RMT (RuoMengTu) is a free, open-source macro tool built on AHKv2. Let the code handle the tedious work\u2014you have more meaningful things to do (selected work: Gui, Main)",
+ "repos": [
+  {
+   "repo": "RMT",
+   "url": "https://github.com/zclucas/RMT",
+   "sha": "4738b9c5b34682bc3f23256a7072a40576015900",
+   "licence": "AGPL-3.0 (LICENSE file at pin 4738b9c5b346, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T05:42Z",
+    "consent_receipt": "50ca0dac6413",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T05:42Z (receipt 50ca0dac6413); selected commit 4738b9c5b346: \"feat(\u53cd\u9988)\uff1a\u8f6f\u4ef6\u5185\u4e00\u952e\u63d0\u4ea4 Bug/\u5efa\u8bae\u5230\u8bba\u575b (#310)\". LICENSE file at pin 4738b9c5b346 detected as AGPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "4738b9c5b34682bc3f23256a7072a40576015900",
+     "at": "2026-10-30T05:42Z",
+     "receipt": "50ca0dac6413"
+    }
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "GLD.SerializerBenchmark",
    "url": "https://github.com/leo-gan/GLD.SerializerBenchmark",
-   "sha": "a84c644716261e3acb62e3d6763edf27172479d7",
-   "licence": "MIT (LICENSE file at pin a84c64471626, GitHub licence API 2026-10-29)",
+   "sha": "f9912af8eb16a1b62c7a81fa1b440fd7edfe3a28",
+   "licence": "MIT (LICENSE file at pin f9912af8eb16, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-05T23:52Z",
     "consent_receipt": "5a5386deb175",
-    "note": "Inclusion consented by the commit author by email at 2026-10-05T23:52Z (receipt 5a5386deb175); selected commit a84c64471626: \"Bump version to 0.7.0 (#254)\". LICENSE file at pin a84c64471626 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-05T23:52Z (receipt 5a5386deb175); selected commit f9912af8eb16: \"Add Kiln cross-link to README (#255)\". LICENSE file at pin f9912af8eb16 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
    }
   }
  ]

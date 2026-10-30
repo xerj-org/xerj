@@ -1,0 +1,23 @@
+{
+ "corpus": "josh012006--nanogoal-rl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on goal-conditioned-rl, gymnasium, rl queries this for how Josh012006/NanoGoal-RL implements it: A goal-conditioned reinforcement learning project where a simulated 2D nanorobot learns to reach various target positions, showcasing autono",
+ "repos": [
+  {
+   "repo": "NanoGoal-RL",
+   "url": "https://github.com/Josh012006/NanoGoal-RL",
+   "sha": "ea3744d0960a3bb2089124571b542c680a5b102f",
+   "licence": "MIT (LICENSE file at pin ea3744d0960a, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T05:39Z",
+    "consent_receipt": "1b02b5eaf73c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T05:39Z (receipt 1b02b5eaf73c); pinned to the default-branch head. LICENSE file at pin ea3744d0960a detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}
