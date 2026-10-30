@@ -2026,13 +2026,20 @@ impl ShardedFtsMemtable {
     /// Drop-in replacement for the old single-memtable `insert` used by
     /// the `IndexStore::index()` single-doc path.
     pub fn insert(&self, doc_id: String, source: &Value, schema: &Schema, seq_no: u64) {
+        self.insert_shared(doc_id, Arc::new(source.clone()), schema, seq_no);
+    }
+
+    /// [`Self::insert`] for a source the caller already holds in an `Arc`.
+    /// The memtable keeps that `Arc` rather than a deep copy, so a document
+    /// the storage memtable also holds is in memory once (#2427).
+    pub fn insert_shared(&self, doc_id: String, source: Arc<Value>, schema: &Schema, seq_no: u64) {
         let s = self.shard_for_dynamic(&doc_id);
         // New writes always land in the ACTIVE generation — frozen ones are
         // immutable snapshots held for an in-flight flush (#1015).
         self.shards[s]
             .write()
             .active
-            .insert(doc_id, source, schema, seq_no);
+            .insert_shared(doc_id, source, schema, seq_no);
     }
 
     /// Drop-in for `insert_pretokenized_with_seq` — picks a shard by
@@ -3121,6 +3128,18 @@ impl FtsMemtable {
 
     /// Insert a document into the memtable, indexing all text fields.
     pub fn insert(&mut self, doc_id: String, source: &Value, schema: &Schema, seq_no: u64) {
+        self.insert_shared(doc_id, Arc::new(source.clone()), schema, seq_no);
+    }
+
+    /// [`Self::insert`] for a source the caller already holds in an `Arc`:
+    /// the entry stores that `Arc` instead of a deep copy (#2427).
+    pub fn insert_shared(
+        &mut self,
+        doc_id: String,
+        source: Arc<Value>,
+        schema: &Schema,
+        seq_no: u64,
+    ) {
         // Prefer a "default" analyzer if one was registered via custom settings
         // (e.g. with synonym expansion), otherwise fall back to "standard".
         let analyzer = self
@@ -3129,13 +3148,13 @@ impl FtsMemtable {
             .or_else(|| self.registry.get_analyzer("standard"))
             .expect("standard analyzer always present");
 
-        let analyzed = analyze_doc(source, schema, &analyzer);
+        let analyzed = analyze_doc(&source, schema, &analyzer);
 
         // See `insert_pretokenized` for sizing rationale.
         let raw_size = source.to_string().len() + doc_id.len();
         let size = raw_size * 3 + 64;
 
-        self.insert_analyzed(seq_no, doc_id, Arc::new(source.clone()), &analyzed, size);
+        self.insert_analyzed(seq_no, doc_id, source, &analyzed, size);
     }
 
     /// Back half of [`insert`] — everything that MUST run under the

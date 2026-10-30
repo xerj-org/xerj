@@ -257,6 +257,45 @@ mod merge_long_effort_tests {
 }
 
 #[cfg(test)]
+mod shared_memtable_source_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// #2427: a document written through the per-document path used to be
+    /// deep-copied twice and both copies kept until the next flush, once in
+    /// the storage memtable and once in the FTS memtable. A late-run heap
+    /// profile of a 1 GB `_bulk` load had these two copies at ~470 MB of
+    /// ~1.75 GB in use. Both memtables now hold the same `Arc`.
+    #[tokio::test]
+    async fn per_doc_write_keeps_one_parsed_source_for_both_memtables_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        engine.create_index("shared-source-2427", schema).unwrap();
+        let idx = engine.get_index("shared-source-2427").unwrap();
+        idx.abort_background_tasks();
+        idx.index_document(Some("one".into()), json!({"body": "alpha beta"}))
+            .await
+            .unwrap();
+
+        let fts = idx.memtable.get_doc_source_arc("one").unwrap();
+        assert_eq!(fts["body"], "alpha beta");
+        // Owners: the FTS memtable, the storage memtable and `fts` itself.
+        // A private FTS copy would leave only two.
+        assert_eq!(
+            Arc::strong_count(&fts),
+            3,
+            "the FTS memtable must share the storage memtable's source, not deep-copy it"
+        );
+    }
+}
+
+#[cfg(test)]
 mod collection_publication_fail_closed_tests {
     use super::*;
     use serde_json::json;
@@ -12061,7 +12100,11 @@ impl Index {
             self.collection_publication.handoff_to_readers().await;
             return Err(e.into());
         }
-        let seq_no = match self.store.index(&doc_id, source.clone()) {
+        // One parsed tree, shared by the storage memtable and the FTS
+        // memtable below; each used to hold its own deep copy until the next
+        // flush (#2427).
+        let source = Arc::new(source);
+        let seq_no = match self.store.index_shared(&doc_id, Arc::clone(&source)) {
             Ok(seq_no) => seq_no,
             Err(e) => {
                 collection_publication.cancel();
@@ -12085,7 +12128,12 @@ impl Index {
         {
             let mem = &*self.memtable;
             mem.remove(&doc_id);
-            mem.insert(doc_id.clone(), &source, &schema_guard.schema, seq_no);
+            mem.insert_shared(
+                doc_id.clone(),
+                Arc::clone(&source),
+                &schema_guard.schema,
+                seq_no,
+            );
         }
         drop(schema_guard);
         #[cfg(test)]
