@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how dayvson/crabcrop implements it: High performance on-demand image optimization service in Rust (selected work: src, tests, fuzz)",
+ "domain": "an agent working on Rust queries this for how dayvson/crabcrop implements it: \ud83e\udd80 High performance on-demand image optimization service in Rust (selected work: src, tests, fuzz)",
  "repos": [
   {
    "repo": "crabcrop",

@@ -1,0 +1,23 @@
+{
+ "corpus": "sergeypugin--itmo-notebook",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on itmo, itmo-education, itmo-university queries this for how sergeypugin/itmo-notebook implements it: \u041c\u0430\u0442\u0435\u0440\u0438\u0430\u043b\u044b \u0434\u043b\u044f \u043f\u043e\u0434\u0433\u043e\u0442\u043e\u0432\u043a\u0438 \u043a \u044d\u043a\u0437\u0430\u043c\u0435\u043d\u0430\u043c \u0441\u0442\u0443\u0434\u0435\u043d\u0442\u043e\u0432 \u0421\u041f\u041f\u041e \u041f\u0418\u0438\u041a\u0422 \u0423\u043d\u0438\u0432\u0435\u0440\u0441\u0438\u0442\u0435\u0442\u0430 \u0418\u0422\u041c\u041e (selected work: quartz, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "itmo-notebook",
+   "url": "https://github.com/sergeypugin/itmo-notebook",
+   "sha": "e27c041aa01e43f8614352d9d8568137e64a0660",
+   "licence": "MIT (LICENSE file at pin e27c041aa01e, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T20:16Z",
+    "consent_receipt": "c63d80da7d2e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T20:16Z (receipt c63d80da7d2e); selected commit e27c041aa01e: \"feat: add image width support, fix blank lines after embeds, fix wiki\u2026\". LICENSE file at pin e27c041aa01e detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

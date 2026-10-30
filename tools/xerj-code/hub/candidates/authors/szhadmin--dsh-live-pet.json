@@ -1,0 +1,23 @@
+{
+ "corpus": "szhadmin--dsh-live-pet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how szhadmin/dsh-live-pet implements it: dsh \u76f4\u64ad\u5ba0\u7269\u63d2\u4ef6 \u652f\u6301\u8bed\u97f3\u5408\u6210 \u6296\u97f3\u6293\u5f39\u5e55 (selected work: live)",
+ "repos": [
+  {
+   "repo": "dsh-live-pet",
+   "url": "https://github.com/szhadmin/dsh-live-pet",
+   "sha": "ac517c2ff7c9c3a61b44f3b5c9311ea9f97b7a8b",
+   "licence": "MIT (LICENSE file at pin ac517c2ff7c9, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T20:48Z",
+    "consent_receipt": "b667061db1cb",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T20:48Z (receipt b667061db1cb); selected commit ac517c2ff7c9: \"feat(live): live core\uff08\u4e1a\u52a1\u903b\u8f91\uff09\". LICENSE file at pin ac517c2ff7c9 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

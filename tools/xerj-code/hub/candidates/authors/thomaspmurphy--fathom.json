@@ -1,0 +1,23 @@
+{
+ "corpus": "thomaspmurphy--fathom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on ai-agents, call-graph, code-intelligence queries this for how thomaspmurphy/fathom implements it: A program database for Elixir codebases. Compiles your project under a compiler tracer and writes its symbols, call graph, module dependenci (selected work: lib/fathom, test, lib/mix)",
+ "repos": [
+  {
+   "repo": "fathom",
+   "url": "https://github.com/thomaspmurphy/fathom",
+   "sha": "f578fa87b48953bc2daa217edb310d05cd404b4b",
+   "licence": "MIT (LICENSE file at pin f578fa87b489, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T20:11Z",
+    "consent_receipt": "c3a5a2365ddb",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T20:11Z (receipt c3a5a2365ddb); selected commit f578fa87b489: \"Add incremental builds and a static analysis pipeline\". LICENSE file at pin f578fa87b489 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

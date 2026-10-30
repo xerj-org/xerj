@@ -1,0 +1,23 @@
+{
+ "corpus": "dmopp--noctalia-opnsense-traffic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Luau queries this for how dMopp/noctalia-opnsense-traffic implements it: Noctalia plugin: live download and upload rate of an OPNsense interface in the bar",
+ "repos": [
+  {
+   "repo": "noctalia-opnsense-traffic",
+   "url": "https://github.com/dMopp/noctalia-opnsense-traffic",
+   "sha": "1fdd75e1716b8c5420ee29f7a4351859f5073bb6",
+   "licence": "author's permission (LICENSE at pin 1fdd75e1716b: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T20:24Z",
+    "consent_receipt": "759c36776d30",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T20:24Z (receipt 759c36776d30); pinned to the default-branch head. LICENSE at pin 1fdd75e1716b: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

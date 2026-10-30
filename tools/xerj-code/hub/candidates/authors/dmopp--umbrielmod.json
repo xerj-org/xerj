@@ -1,0 +1,23 @@
+{
+ "corpus": "dmopp--umbrielmod",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on nixos, noctalia, noctalia-v5 queries this for how dMopp/umbrielmod implements it: GUI for managing Umbriel Conf and GL effects (selected work: tests, umbrielmod)",
+ "repos": [
+  {
+   "repo": "umbrielmod",
+   "url": "https://github.com/dMopp/umbrielmod",
+   "sha": "5ff767d1a8a47092e7e98cc4a601980ac96bcd35",
+   "licence": "MIT (LICENSE file at pin 5ff767d1a8a4, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T20:24Z",
+    "consent_receipt": "465a2dc5020b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T20:24Z (receipt 465a2dc5020b); selected commit 5ff767d1a8a4: \"Fix live preview and keybinds for current Umbriel\". LICENSE file at pin 5ff767d1a8a4 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

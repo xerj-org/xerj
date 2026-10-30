@@ -1,0 +1,23 @@
+{
+ "corpus": "adamdesgns--obsidian-council",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how Adamdesgns/obsidian-council implements it: A local room where your AI coding CLIs (Codex, Grok, Claude) talk to each other, with you in the Black Seat. Zero dependencies (selected work: test, src, scripts)",
+ "repos": [
+  {
+   "repo": "obsidian-council",
+   "url": "https://github.com/Adamdesgns/obsidian-council",
+   "sha": "5dbeee21e56e7088722b60a0291bda743a1fa0ec",
+   "licence": "MIT (LICENSE file at pin 5dbeee21e56e, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T20:19Z",
+    "consent_receipt": "f4001106d276",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T20:19Z (receipt f4001106d276); selected commit 5dbeee21e56e: \"Prepare Council 0.2 release candidate with verified workflow repairs\". LICENSE file at pin 5dbeee21e56e detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

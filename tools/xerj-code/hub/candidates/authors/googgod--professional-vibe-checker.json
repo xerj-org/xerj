@@ -8,15 +8,15 @@
   {
    "repo": "Professional-Vibe-Checker",
    "url": "https://github.com/GoogGod/Professional-Vibe-Checker",
-   "sha": "47212dddec3d3e3e27fbeedd12f3da2b9b30c252",
-   "licence": "Unlicense (LICENSE file at pin 47212dddec3d, GitHub licence API 2026-10-30)",
+   "sha": "c9fb0c875e898427b11ddd99caf54cf5d9b82cc8",
+   "licence": "Unlicense (LICENSE file at pin c9fb0c875e89, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "Unlicense",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-27T21:31Z",
     "consent_receipt": "ed716bbbea0a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T21:31Z (receipt ed716bbbea0a); selected commit 47212dddec3d: \"v0.6.4: add net_session tool \u2014 interactive TCP client without PTY (Wi\u2026\". LICENSE file at pin 47212dddec3d detected as Unlicense by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T21:31Z (receipt ed716bbbea0a); selected commit c9fb0c875e89: \"crypto-solver-archive: add oracle-cascade (custom block cipher key re\u2026\". LICENSE file at pin c9fb0c875e89 detected as Unlicense by the GitHub licence API on 2026-10-30; used under that licence with attribution."
    }
   }
  ]
