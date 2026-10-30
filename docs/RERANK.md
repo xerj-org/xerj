@@ -51,6 +51,26 @@ client, the request parser and the failure policy are the leaf crate
 `engine/crates/xerj-rerank`. The end-to-end tests are
 `engine/crates/xerj-api/tests/rerank_stage_http.rs`.
 
+## Local lexical `judge` and CJK text
+
+The separate opt-in `judge` block can run a deterministic lexical scorer on
+the returned candidate page. It keeps `_score` and adds `_p_relevant`; the
+response identifies this scorer as `judged.scorer: "lexical"`. The lexical
+arm needs no hosted provider or model. A node configured with a local judge
+model uses that model's own tokenizer instead.
+
+The lexical arm splits CJK runs into single characters and adjacent pairs.
+For example, a query containing `雷同` can match inside `内容存在雷同需要核查`;
+the pair contributes evidence beyond two isolated or reversed characters.
+Punctuation, non-CJK runs and the title/body boundary break pairs. Non-CJK
+alphanumeric runs retain their existing lowercase word tokens. This is
+character n-gram overlap, not dictionary segmentation or semantic relevance.
+
+CJK scores and `judge.min_p` filtering can change with this tokenizer; no
+cross-language calibration is claimed. The judge only reorders/filters the
+candidates it receives. It cannot recover a document missed by the first
+stage, and this change does not change index analyzers or require reindexing.
+
 ## Set it up
 
 A node needs a provider key. There are two places to put it, and **a value in

@@ -1,0 +1,4 @@
+parcel_id,status,attempts
+demo-001,accepted,1
+demo-002,refused,2
+demo-003,accepted,1

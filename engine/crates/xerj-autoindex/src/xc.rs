@@ -8,6 +8,7 @@
 //! (`xerj corpus index`). Exit codes: 0 hits / 1 no-match-or-incomplete /
 //! 2 usage-transport-stale / 3 corpus-in-state-but-not-loaded-here.
 
+use std::cell::Cell;
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -504,6 +505,27 @@ pub(crate) fn git(dir: Option<&Path>, args: &[&str]) -> Result<(i32, String)> {
     ))
 }
 
+/// A git that can outlive the `xerj` that started it — `clone`, `fetch`,
+/// `checkout` — so it inherits the corpus lock (#2520). Short commands do not:
+/// a `rev-parse` child that outlives its parent by a microsecond would hold
+/// the lock past its parent and spuriously refuse the next run.
+fn git_long(dir: Option<&Path>, args: &[&str]) -> Result<(i32, String)> {
+    let mut c = Command::new("git");
+    if let Some(d) = dir {
+        c.current_dir(d).arg("-C").arg(d);
+    }
+    inherit_corpus_lock(&mut c);
+    let out = c
+        .args(args)
+        .output()
+        .with_context(|| format!("run git {}", args.first().unwrap_or(&"")))?;
+    Ok((
+        out.status.code().unwrap_or(-1),
+        String::from_utf8_lossy(&out.stdout).trim().to_string()
+            + String::from_utf8_lossy(&out.stderr).trim(),
+    ))
+}
+
 /// `.git` alone does not establish a completed checkout (#2453). Check the
 /// readable commit, the Git-owned index location (also for linked worktrees),
 /// and a pending index lock before reusing an existing checkout.
@@ -611,7 +633,7 @@ fn ensure_pin_origin(target: &Path, url: &str) -> Result<()> {
 }
 
 fn fetch_pin(target: &Path, sha: &str) -> Result<()> {
-    match git(Some(target), &["fetch", "--depth", "1", "origin", sha]) {
+    match git_long(Some(target), &["fetch", "--depth", "1", "origin", sha]) {
         Ok((0, _)) => Ok(()),
         Ok((_, output)) => anyhow::bail!("{}", git_fetch_failure(sha, &output)),
         Err(e) => anyhow::bail!("{}", git_fetch_failure(sha, &e.to_string())),
@@ -619,7 +641,7 @@ fn fetch_pin(target: &Path, sha: &str) -> Result<()> {
 }
 
 fn checkout_pin(target: &Path, sha: &str) -> Result<()> {
-    let co = git(
+    let co = git_long(
         Some(target),
         &["checkout", "--quiet", "--force", "--detach", sha],
     );
@@ -633,10 +655,9 @@ fn checkout_pin(target: &Path, sha: &str) -> Result<()> {
 /// word on stdout; a fetch warning on stderr must not change the word.
 /// Stderr is returned separately so a failed command can still quote git.
 fn git_stdout(dir: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-    let out = Command::new("git")
-        .current_dir(dir)
-        .arg("-C")
-        .arg(dir)
+    let mut c = Command::new("git");
+    c.current_dir(dir).arg("-C").arg(dir);
+    let out = c
         .args(args)
         .output()
         .with_context(|| format!("run git {}", args.first().unwrap_or(&"")))?;
@@ -799,27 +820,43 @@ enum Unfinished {
 }
 
 fn unfinished_clone(target: &Path) -> Option<Unfinished> {
-    let unreadable = |out: &str| {
-        let why = out.lines().next().unwrap_or("").trim();
-        Some(Unfinished::Unreadable(if why.is_empty() {
-            "HEAD names no readable commit".to_string()
-        } else {
-            why.chars().take(200).collect()
-        }))
-    };
-    // --git-dir prevents accidentally resolving an enclosing repository;
-    // --git-path handles linked worktrees and their separate index correctly.
-    let index = match git_stdout(
-        target,
-        &["--git-dir=.git", "rev-parse", "--git-path", "index"],
-    ) {
-        Ok((0, out, _)) if !out.is_empty() => target.join(out),
-        Ok((_, _, err)) => return unreadable(&err),
-        Err(e) => return unreadable(&e.to_string()),
+    let index = match checkout_index_path(target) {
+        Ok(index) => index,
+        Err(state) => return Some(state),
     };
     if index.with_file_name("index.lock").exists() {
         return Some(Unfinished::Locked);
     }
+    unfinished_without_index_lock(target, &index)
+}
+
+/// `--git-dir` prevents accidentally resolving an enclosing repository;
+/// `--git-path` handles linked worktrees and their separate index correctly.
+fn checkout_index_path(target: &Path) -> std::result::Result<PathBuf, Unfinished> {
+    match git_stdout(
+        target,
+        &["--git-dir=.git", "rev-parse", "--git-path", "index"],
+    ) {
+        Ok((0, out, _)) if !out.is_empty() => Ok(target.join(out)),
+        Ok((_, _, err)) => Err(Unfinished::Unreadable(why_unreadable(&err))),
+        Err(e) => Err(Unfinished::Unreadable(why_unreadable(&e.to_string()))),
+    }
+}
+
+fn why_unreadable(out: &str) -> String {
+    let why = out.lines().next().unwrap_or("").trim();
+    if why.is_empty() {
+        "HEAD names no readable commit".to_string()
+    } else {
+        why.chars().take(200).collect()
+    }
+}
+
+/// Everything [`unfinished_clone`] checks except the pending index lock, so a
+/// caller holding the corpus lock can ask whether the checkout itself ever
+/// finished (#2520).
+fn unfinished_without_index_lock(target: &Path, index: &Path) -> Option<Unfinished> {
+    let unreadable = |out: &str| Some(Unfinished::Unreadable(why_unreadable(out)));
     let rev = |spec: &str| {
         git_stdout(
             target,
@@ -849,6 +886,25 @@ fn unfinished_clone(target: &Path) -> Option<Unfinished> {
         }
     }
     None
+}
+
+/// The `.git/index.lock` of a checkout that never finished, if one is left.
+///
+/// A git that `corpus add` started keeps the corpus-add lock after `xerj` dies
+/// (#2520), so while this run holds that lock no such git is alive, and a lock
+/// in a checkout that never finished belongs to an attempt that is over. A lock
+/// in a checkout that did finish is left alone: a git the operator is running
+/// there may own it, and removing it would let two gits write one index.
+#[cfg(unix)]
+fn stale_index_lock(target: &Path) -> Option<PathBuf> {
+    let index = checkout_index_path(target).ok()?;
+    let lock = index.with_file_name("index.lock");
+    if !lock.exists() {
+        return None;
+    }
+    unfinished_without_index_lock(target, &index)
+        .is_some()
+        .then_some(lock)
 }
 
 fn unfinished_checkout_message(target: &Path, state: &Unfinished) -> String {
@@ -918,13 +974,87 @@ fn lock_corpus_add(root: &Path, name: &str) -> Result<std::fs::File> {
     match fs2::FileExt::try_lock_exclusive(&file) {
         Ok(()) => Ok(file),
         Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => anyhow::bail!(
-            "corpus '{name}' is being written by another `xerj corpus add` (lock: {}). \
-             Run this again when it finishes.",
+            "corpus '{name}' is in use by another `xerj corpus add`, or by a git it started that \
+             is still running (lock: {}). Run this again when it exits.",
             path.display()
         ),
         Err(e) => Err(anyhow::Error::new(e).context(format!("cannot lock {}", path.display()))),
     }
 }
+
+// The corpus-add lock's descriptor while a run holds it, `-1` otherwise
+// (#2520). `GitLockHandoff` is the only writer, and it and the gits it covers
+// run on the same thread: `corpus add` clones one repository at a time.
+thread_local! {
+    static GIT_LOCK_FD: Cell<i32> = const { Cell::new(-1) };
+}
+
+/// Hands the corpus-add lock to the git processes that can outlive this run, so
+/// the lock lasts exactly as long as the git a killed `xerj` left behind.
+///
+/// Without it a caller that kills `xerj` alone leaves its git running, and the
+/// next run takes the folder for one stopped before its first checkout and
+/// clones into it while that git still writes there (#2520). With it, the next
+/// run is refused until the git exits, and a `.git/index.lock` it left is known
+/// to be stale ([`stale_index_lock`]).
+///
+/// The descriptor is inherited, not copied: `flock` belongs to the open file
+/// description, so every child holding it keeps the lock. Git helpers start
+/// children of their own (`git remote-https`, `index-pack`), which inherit it
+/// too. `-c core.fsmonitor=false` keeps a fsmonitor daemon, which outlives the
+/// git that started it, from holding the lock for its own timeout.
+struct GitLockHandoff;
+
+impl GitLockHandoff {
+    #[cfg(unix)]
+    fn new(lock: &std::fs::File) -> Self {
+        use std::os::unix::io::AsRawFd;
+        GIT_LOCK_FD.with(|fd| fd.set(lock.as_raw_fd()));
+        Self
+    }
+
+    /// Windows has no `FD_CLOEXEC` to clear and no `flock` to inherit, so a
+    /// killed `xerj` still leaves its git unaccounted for there.
+    #[cfg(not(unix))]
+    fn new(_lock: &std::fs::File) -> Self {
+        Self
+    }
+}
+
+impl Drop for GitLockHandoff {
+    fn drop(&mut self) {
+        GIT_LOCK_FD.with(|fd| fd.set(-1));
+    }
+}
+
+#[cfg(unix)]
+fn inherit_corpus_lock(c: &mut Command) {
+    use std::os::unix::process::CommandExt;
+    let fd = GIT_LOCK_FD.with(|fd| fd.get());
+    if fd < 0 {
+        return;
+    }
+    c.arg("-c").arg("core.fsmonitor=false");
+    // SAFETY: the closure runs in the child between `fork` and `exec`, where
+    // only async-signal-safe calls are allowed; `fcntl` is one, and it does not
+    // allocate or lock. `fd` is still open in the parent: the `File` that holds
+    // the lock outlives every [`GitLockHandoff`] (the handoff is dropped first).
+    unsafe {
+        c.pre_exec(move || {
+            let flags = libc::fcntl(fd, libc::F_GETFD);
+            if flags < 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            if libc::fcntl(fd, libc::F_SETFD, flags & !libc::FD_CLOEXEC) < 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        });
+    }
+}
+
+#[cfg(not(unix))]
+fn inherit_corpus_lock(_c: &mut Command) {}
 
 fn dir_stats(target: &Path) -> (String, u64, u64) {
     let sha = git(Some(target), &["rev-parse", "HEAD"])
@@ -1399,6 +1529,9 @@ fn run_corpus_add(args: &[String]) -> i32 {
             return 1;
         }
     };
+    // The git operations that outlive a killed `xerj` inherit the lock, so
+    // one still writing into a folder the next run reuses is noticed (#2520).
+    let _handoff = GitLockHandoff::new(&_lock);
     // A corpus name is EITHER a cloned-repo corpus or a harvested one.
     // Cloning repos into a harvested corpus's dir would corrupt both views:
     // the manifest's pseudo-repos would sit beside real clones, and
@@ -1488,6 +1621,17 @@ fn run_corpus_add(args: &[String]) -> i32 {
             continue;
         }
         if target.join(".git").exists() {
+            #[cfg(unix)]
+            if let Some(lock) = stale_index_lock(&target) {
+                if std::fs::remove_file(&lock).is_ok() {
+                    println!(
+                        "  [lock] {repo_name}: removed a stale {} left by an interrupted checkout",
+                        lock.file_name()
+                            .map(|n| n.to_string_lossy().into_owned())
+                            .unwrap_or_else(|| "index.lock".to_string())
+                    );
+                }
+            }
             if let Some(state) = unfinished_clone(&target) {
                 eprintln!(
                     "  [FAIL] {repo_name}: {}; continuing",
@@ -1567,7 +1711,8 @@ fn run_corpus_add(args: &[String]) -> i32 {
         let cloned = stage_new_checkout(&target, |checkout| {
             if sha.is_empty() {
                 let target_s = checkout.to_string_lossy().to_string();
-                let (rc, output) = git(None, &["clone", "--depth", "1", "--", &url, &target_s])?;
+                let (rc, output) =
+                    git_long(None, &["clone", "--depth", "1", "--", &url, &target_s])?;
                 if rc != 0 {
                     let shown: String = output
                         .replace(&url, "[source]")
@@ -5853,6 +5998,12 @@ precedence = ["a", "b"]
     /// A leftover `.git/index.lock` may belong to a git that is still
     /// running, so the run fails and touches nothing. Removing a lock alone
     /// does not authorize overwriting files when the index is still absent.
+    ///
+    /// Unix is the exception (#2520): this run holds the corpus lock, so a git
+    /// started by a previous `corpus add` would still hold it, and a lock in a
+    /// checkout that never finished cannot have a live owner. It is removed,
+    /// and the run then fails for the missing index like any other unfinished
+    /// checkout.
     #[test]
     fn corpus_add_refuses_a_checkout_left_with_index_lock() {
         let home = tempfile::tempdir().unwrap();
@@ -5866,13 +6017,21 @@ precedence = ["a", "b"]
         kill_mid_checkout(&clone, "b.txt");
         std::fs::write(clone.join(".git/index.lock"), "").unwrap();
         assert_eq!(add(), 1);
+        #[cfg(unix)]
+        assert!(
+            !clone.join(".git/index.lock").exists(),
+            "a lock in a checkout that never finished has no live owner"
+        );
+        #[cfg(not(unix))]
         assert!(
             clone.join(".git/index.lock").exists(),
             "the lock is not deleted"
         );
         assert!(!clone.join("b.txt").exists());
 
-        std::fs::remove_file(clone.join(".git/index.lock")).unwrap();
+        if clone.join(".git/index.lock").exists() {
+            std::fs::remove_file(clone.join(".git/index.lock")).unwrap();
+        }
         assert_eq!(
             add(),
             1,
@@ -5882,6 +6041,91 @@ precedence = ["a", "b"]
         assert!(backup.join("a.txt").exists());
         assert_eq!(add(), 0);
         assert_eq!(std::fs::read_to_string(clone.join("b.txt")).unwrap(), "b\n");
+    }
+
+    /// #2520: a complete checkout is not provably abandoned, so its
+    /// `.git/index.lock` may belong to a git this run did not start. It is
+    /// kept and the run is refused.
+    #[test]
+    fn corpus_add_keeps_an_index_lock_in_a_complete_checkout() {
+        let home = tempfile::tempdir().unwrap();
+        let _h = code_home(home.path());
+        let origin = home.path().join("widget");
+        init_committed_repo(&origin, &[("a.txt", "a\n")]);
+        let add = || run_corpus_add(&["busy".into(), origin.display().to_string()]);
+        let clone = home.path().join("corpora/busy/widget");
+        assert_eq!(add(), 0);
+
+        std::fs::write(clone.join(".git/index.lock"), "").unwrap();
+        assert_eq!(add(), 1);
+        assert!(
+            clone.join(".git/index.lock").exists(),
+            "a lock in a finished checkout is left for its owner"
+        );
+    }
+
+    /// #2520: the corpus lock is inherited by the git a run starts, so it
+    /// outlives a killed `xerj` for as long as that git lives.
+    #[cfg(unix)]
+    #[test]
+    fn a_git_started_by_corpus_add_keeps_the_corpus_lock() {
+        let home = tempfile::tempdir().unwrap();
+        let lock = lock_corpus_add(home.path(), "held").unwrap();
+        let handoff = GitLockHandoff::new(&lock);
+        // `hash-object --stdin` blocks until its stdin closes, which this test
+        // never does, so a real git holds the lock until it is killed.
+        let mut child = {
+            let mut c = Command::new("git");
+            c.args(["hash-object", "--stdin"])
+                .stdin(std::process::Stdio::piped())
+                .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped());
+            inherit_corpus_lock(&mut c);
+            c.spawn().unwrap()
+        };
+        drop(handoff);
+        drop(lock);
+        // The child holds the descriptor from `fork` on, so the refusal is
+        // immediate; the bounded retry only tolerates a loaded machine.
+        let mut err = String::new();
+        for _ in 0..100 {
+            match lock_corpus_add(home.path(), "held") {
+                Ok(_) => std::thread::sleep(std::time::Duration::from_millis(20)),
+                Err(e) => {
+                    err = format!("{e:#}");
+                    break;
+                }
+            }
+        }
+        assert!(
+            err.contains("still running"),
+            "a running git still holds the corpus lock: {err:?}"
+        );
+        child.kill().unwrap();
+        child.wait().unwrap();
+        drop(lock_corpus_add(home.path(), "held").expect("the lock is free once the git exits"));
+    }
+
+    /// #2520: a fsmonitor daemon outlives the git that started it and would
+    /// keep the inherited lock for its own timeout, so git runs with it off.
+    #[cfg(unix)]
+    #[test]
+    fn a_git_started_by_corpus_add_disables_fsmonitor() {
+        let home = tempfile::tempdir().unwrap();
+        let lock = lock_corpus_add(home.path(), "fm").unwrap();
+        let handoff = GitLockHandoff::new(&lock);
+        let mut c = Command::new("git");
+        inherit_corpus_lock(&mut c);
+        let args: Vec<_> = c
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        drop(handoff);
+        drop(lock);
+        assert_eq!(args, ["-c", "core.fsmonitor=false"]);
+        let mut c = Command::new("git");
+        inherit_corpus_lock(&mut c);
+        assert_eq!(c.get_args().count(), 0, "no handoff, no extra arguments");
     }
 
     /// When the files cannot be restored the run fails and the checkout,

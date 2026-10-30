@@ -293,6 +293,91 @@ async fn no_judge_block_leaves_the_response_untouched() {
 // Applied: _p_relevant per hit, reorder, the judged block
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// #2580: use match_all to hold the candidate set fixed. This isolates the
+/// judge's tokenization from the separate first-stage CJK recall question.
+#[tokio::test]
+async fn cjk_judge_finds_embedded_terms_and_thresholds_without_changing_engine_scores() {
+    let node = node().await;
+    let (st, body) = node
+        .call(
+            "PUT",
+            "/cjk",
+            json!({"mappings":{"properties":{
+                "body":{"type":"text"}
+            }}}),
+        )
+        .await;
+    assert!(st.is_success(), "{st} {body}");
+    for (id, text) in [
+        ("exact", "这里发现雷同内容雷同内容"),
+        ("partial", "部分雷声同时出现"),
+        ("unrelated", "今天阳光明媚风景宜人"),
+    ] {
+        let (st, body) = node
+            .call(
+                "PUT",
+                &format!("/cjk/_doc/{id}?refresh=true"),
+                json!({"body":text}),
+            )
+            .await;
+        assert!(st.is_success(), "{st} {body}");
+    }
+    for flushed in [false, true] {
+        if flushed {
+            let (st, body) = node.call("POST", "/cjk/_flush", json!({})).await;
+            assert!(st.is_success(), "{st} {body}");
+        }
+        let (_, base) = node
+            .search("/cjk/_search", json!({"query":{"match_all":{}},"size":3}))
+            .await;
+        assert!(base.get("judged").is_none(), "{base}");
+        let (st, judged) = node
+            .search(
+                "/cjk/_search",
+                json!({"query":{"match_all":{}},"size":3,"judge":{"query":"雷同"}}),
+            )
+            .await;
+        assert_eq!(st, StatusCode::OK, "{judged}");
+        assert_eq!(ids(&judged)[0], "exact", "{judged}");
+        let p = |id| {
+            judged["hits"]["hits"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|h| h["_id"] == id)
+                .unwrap()["_p_relevant"]
+                .as_f64()
+                .unwrap()
+        };
+        assert!(p("exact") > p("partial"), "{judged}");
+        assert!(p("partial") > 0.0, "{judged}");
+        assert_eq!(p("unrelated"), 0.0, "{judged}");
+        for hit in judged["hits"]["hits"].as_array().unwrap() {
+            let original = base["hits"]["hits"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|h| h["_id"] == hit["_id"])
+                .unwrap();
+            assert_eq!(hit["_score"], original["_score"], "{hit}");
+        }
+        let cut = (p("exact") + p("partial")) / 2.0;
+        let (st, kept) = node
+            .search(
+                "/cjk/_search",
+                json!({"query":{"match_all":{}},"size":3,"judge":{"query":"雷同","min_p":cut}}),
+            )
+            .await;
+        assert_eq!(st, StatusCode::OK, "{kept}");
+        assert_eq!(ids(&kept), ["exact"], "{kept}");
+        assert_eq!(kept["hits"]["total"], base["hits"]["total"]);
+        assert_eq!(kept["judged"]["scorer"], "lexical");
+        assert_eq!(kept["judged"]["judged"], 3);
+        assert_eq!(kept["judged"]["kept"], 1);
+        assert_eq!(kept["judged"]["dropped"], 2);
+    }
+}
+
 #[tokio::test]
 async fn judged_hits_carry_a_probability_and_the_block_reports_the_pass() {
     let node = node().await;

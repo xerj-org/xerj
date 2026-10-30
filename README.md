@@ -150,6 +150,12 @@ phase B: indexing 25329 files with 8 workers
 done in 158.1s, 593 datasets, 83103 records live, 790 junk records
 ```
 
+Share an offline data map with `xerj autoindex map --prefix myproject --html
+xerj-map.html --redact-paths`, or use `--md xerj-map.md` for Markdown. Reports
+include dataset counts, symbol names, graph hubs when available, skipped-file
+information and suggested searches. Review metadata names before sharing.
+[Examples, privacy scope and reproduction](tools/map-report/README.md).
+
 ## What people point it at
 
 - Reference coding: index the OSS projects nearest your problem and retrieve how they solved
