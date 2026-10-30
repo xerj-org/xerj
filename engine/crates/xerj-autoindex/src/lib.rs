@@ -10919,29 +10919,48 @@ fn run_index_report_inner(
             replaced_rels.extend(superseded.iter().map(|(_, rel)| rel.as_str()));
             replaced_rels.sort_unstable();
             replaced_rels.dedup();
-            for rel in replaced_rels {
-                invalidated +=
-                    detect::invalidate_prior_edges(&es, &edges_index, rel, created_at_ms)
-                        .with_context(|| format!("invalidate prior edges taught by {rel}"))?;
-            }
+            // #2640: one batched sweep for every replaced file, not one
+            // search/bulk/refresh round each. After `--fresh` on a switched
+            // branch this set is most of the corpus, and the per-file refresh
+            // storm is what made the phase take hours.
+            invalidated += detect::invalidate_edges_by_field_values(
+                &es,
+                &edges_index,
+                "src_file",
+                &replaced_rels,
+                created_at_ms,
+            )
+            .with_context(|| {
+                format!(
+                    "invalidate prior edges taught by {} replaced files",
+                    replaced_rels.len()
+                )
+            })?;
             // The inbound half. Keyed on the SUPERSEDED anchor only — never on a
             // surviving file — so an unchanged file's edges are left exactly as
             // they are (#868). This runs before any edge this run writes, and
             // this run's edges name the NEW anchor, so it can only ever match
             // prior generations. Same soft-invalidate as the src side: the
             // bi-temporal record survives for `as_of` time travel.
-            for (anchor, rel) in superseded {
-                invalidated += detect::invalidate_edges_by_field(
-                    &es,
-                    &edges_index,
-                    "dst",
-                    anchor,
-                    created_at_ms,
+            let mut superseded_anchors: Vec<&str> = superseded
+                .iter()
+                .map(|(anchor, _)| anchor.as_str())
+                .collect();
+            superseded_anchors.sort_unstable();
+            superseded_anchors.dedup();
+            invalidated += detect::invalidate_edges_by_field_values(
+                &es,
+                &edges_index,
+                "dst",
+                &superseded_anchors,
+                created_at_ms,
+            )
+            .with_context(|| {
+                format!(
+                    "invalidate inbound edges to {} superseded anchor nodes",
+                    superseded_anchors.len()
                 )
-                .with_context(|| {
-                    format!("invalidate inbound edges to the superseded anchor node of {rel}")
-                })?;
-            }
+            })?;
         }
 
         // Structural detection (samedir chains) + bulk write, cut at the same
