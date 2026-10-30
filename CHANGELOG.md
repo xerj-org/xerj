@@ -47,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A small merge write admitted after a run of merge yields is now checked
+  against the memory watermark instead of the process limit, so it can no
+  longer take a node from below the watermark into the parent breaker band and
+  turn ingest into HTTP 429s. The relief for a search node resting between the
+  merge-pool ceiling and the watermark is kept (#2427).
+
 - `_reindex` applies `source._source` field filtering to the documents it
   copies, so an excluded secret or large field no longer reaches the
   destination. `_source:false` is refused with ES's sentence, and a `script`
