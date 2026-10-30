@@ -1,0 +1,23 @@
+{
+ "corpus": "softwaremagico--kendotournamentmanager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on kendo, tournament, sports queries this for how softwaremagico/KendoTournamentManager implements it: Kendo Tournament Manager NG (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "KendoTournamentManager",
+   "url": "https://github.com/softwaremagico/KendoTournamentManager",
+   "sha": "f23c45de70ff74ee3fefdd05eb7f5e81f00b2fb4",
+   "licence": "AGPL-3.0 (LICENSE file at pin f23c45de70ff, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T11:31Z",
+    "consent_receipt": "172544704255",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T11:31Z (receipt 172544704255); selected commit f23c45de70ff: \"test: expand E2E coverage and fix tournament persistence\". LICENSE file at pin f23c45de70ff detected as AGPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

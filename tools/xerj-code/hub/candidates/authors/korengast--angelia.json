@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude-code, coding-agent, daemon queries this for how korengast/angelia implements it: The coding agent CLI you already trust becomes your personal assistant, on WhatsApp and Telegram. Runs on your machine (selected work: src/daemon, tests, examples)",
+ "domain": "an agent working on claude-code, coding-agent, daemon queries this for how korengast/angelia implements it: Claude Code, Codex, Grok Build or pi, on WhatsApp and Telegram. The coding agent CLI you already trust becomes your personal assistant. Runs (selected work: src/daemon, tests, examples)",
  "repos": [
   {
    "repo": "angelia",
