@@ -1,0 +1,23 @@
+{
+ "corpus": "itsalt--nacl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how ITSalt/NaCl implements it: Full-SDLC suite of 57 agent skills for Claude Code & Codex: business analysis \u2192 system architecture \u2192 TDD development \u2192 review \u2192 QA \u2192 releas",
+ "repos": [
+  {
+   "repo": "NaCl",
+   "url": "https://github.com/ITSalt/NaCl",
+   "sha": "20fe4c6a56482e85d3ea9a9ebaadb37206047e41",
+   "licence": "MIT (LICENSE file at pin 20fe4c6a5648, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T20:43Z",
+    "consent_receipt": "1c77ffa5332a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T20:43Z (receipt 1c77ffa5332a); pinned to the default-branch head. LICENSE file at pin 20fe4c6a5648 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

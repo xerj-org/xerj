@@ -1,0 +1,23 @@
+{
+ "corpus": "dmopp--keychron-battery",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Luau queries this for how dMopp/keychron-battery implements it: dMopp/keychron-battery (Luau)",
+ "repos": [
+  {
+   "repo": "keychron-battery",
+   "url": "https://github.com/dMopp/keychron-battery",
+   "sha": "14a227718f275ccbb88f7e6d5d85047d42ed7150",
+   "licence": "author's permission (LICENSE at pin 14a227718f27: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T20:24Z",
+    "consent_receipt": "e12622edeca4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T20:24Z (receipt e12622edeca4); pinned to the default-branch head. LICENSE at pin 14a227718f27: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}
