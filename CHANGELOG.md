@@ -47,6 +47,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `_reindex` applies `source._source` field filtering to the documents it
+  copies, so an excluded secret or large field no longer reaches the
+  destination. `_source:false` is refused with ES's sentence, and a `script`
+  body is refused before any work instead of silently copying the
+  untransformed document (this build has no reindex script context).
 - A document written through the per-document path (single-doc index and the
   `_bulk` per-document path) is now held once in memory until the next flush
   instead of twice: the storage memtable and the full-text memtable share one
