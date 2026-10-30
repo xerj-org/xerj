@@ -314,12 +314,13 @@ pub fn estimated_analyzer_tokens(raw_json: &[u8]) -> u64 {
 /// Bytes of reservation charged per byte of a packed `xerj:f32:` vector
 /// string (#2427).
 ///
-/// A packed vector is one JSON string of lowercase hex, which no analyzer
-/// splits into tokens. Parsing keeps it as one `String` (one byte per input
-/// byte), and decoding it for the graph needs half a byte per input byte for
-/// the `Vec<f32>`. Two bytes per input byte covers both. The HNSW slab copy
-/// is reported separately as the `vector_graph` category.
-pub const ANALYZE_RESERVE_PER_PACKED_VECTOR_BYTE: u64 = 2;
+/// A packed vector is one JSON string of lowercase hex. Parsing keeps it as
+/// one `String` (one byte per input byte), and analyzing it with no mapping
+/// as text brings the measured peak to about 2.3 bytes per input byte
+/// (`tests/analyze_reservation_matches_usage.rs`). Three bytes per input byte
+/// covers that, against the four-plus the token-sized text rate charges. The
+/// HNSW slab copy is reported separately as the `vector_graph` category.
+pub const ANALYZE_RESERVE_PER_PACKED_VECTOR_BYTE: u64 = 3;
 
 /// Reservation for one raw JSON document (#1122, #2427).
 ///
@@ -3038,7 +3039,7 @@ mod tests {
         );
         // Charging the whole row as text reserves far more.
         let as_text = text_rate(&raw, raw.len() as u64);
-        assert!(reserve * 3 < as_text * 2, "{reserve} vs {as_text}");
+        assert!(reserve < as_text, "{reserve} vs {as_text}");
         assert!(
             reserve * 4 < analyze_reserve_bytes(raw.len() as u64),
             "{reserve}"

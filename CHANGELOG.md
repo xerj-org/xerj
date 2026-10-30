@@ -61,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bulks into `semantic_text` indices no longer 429 at low RSS because the
   analyze reservation charged packed vectors like text. A well-formed
-  `xerj:f32:` vector string is now charged 2 bytes per input byte instead of
+  `xerj:f32:` vector string is now charged 3 bytes per input byte instead of
   the text rate, since it never becomes tokens. On the 1 GB autoindex gate one 8 MiB
   bulk had reserved about 1.9 GB against a 2.9 GB watermark, so it was
   refused at 1.2 GB of RSS and the client halved its bulk concurrency on
