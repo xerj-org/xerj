@@ -971,14 +971,45 @@ fn lock_corpus_add(root: &Path, name: &str) -> Result<std::fs::File> {
         .write(true)
         .open(&path)
         .with_context(|| format!("cannot open {}", path.display()))?;
-    match fs2::FileExt::try_lock_exclusive(&file) {
-        Ok(()) => Ok(file),
-        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => anyhow::bail!(
+    let deadline = std::time::Instant::now() + lock_busy_grace();
+    loop {
+        match fs2::FileExt::try_lock_exclusive(&file) {
+            Ok(()) => return Ok(file),
+            Err(e)
+                if e.kind() == std::io::ErrorKind::WouldBlock
+                    && std::time::Instant::now() < deadline =>
+            {
+                std::thread::sleep(std::time::Duration::from_millis(5));
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => anyhow::bail!(
             "corpus '{name}' is in use by another `xerj corpus add`, or by a git it started that \
              is still running (lock: {}). Run this again when it exits.",
             path.display()
         ),
-        Err(e) => Err(anyhow::Error::new(e).context(format!("cannot lock {}", path.display()))),
+            Err(e) => {
+                return Err(
+                    anyhow::Error::new(e).context(format!("cannot lock {}", path.display()))
+                );
+            }
+        }
+    }
+}
+
+/// How long [`lock_corpus_add`] waits out a busy lock before refusing: none
+/// in a real run, which refuses at once.
+///
+/// The unit tests run as threads of one process, and every `Command::spawn`
+/// there forks a child that holds a copy of each open descriptor, a lock some
+/// other test just dropped included, until that child execs (`O_CLOEXEC` only
+/// closes it at `exec`). On a busy runner that keeps a released lock held for
+/// 10-30 ms, and a test that locks the same corpus again in that window was
+/// refused (#2520 test flake). A real `corpus add` locks once per process, so
+/// it never races its own forks this way.
+fn lock_busy_grace() -> std::time::Duration {
+    if cfg!(test) {
+        std::time::Duration::from_millis(500)
+    } else {
+        std::time::Duration::ZERO
     }
 }
 
@@ -6073,14 +6104,17 @@ precedence = ["a", "b"]
         let lock = lock_corpus_add(home.path(), "held").unwrap();
         let handoff = GitLockHandoff::new(&lock);
         // `hash-object --stdin` blocks until its stdin closes, which this test
-        // never does, so a real git holds the lock until it is killed.
+        // never does, so a real git holds the lock until it is killed. The
+        // handoff adds `-c core.fsmonitor=false`, a global option, so it goes
+        // before the subcommand as in `git_long`: after it, git exits 129 at
+        // once and the refusal below only won a race against that exit.
         let mut child = {
             let mut c = Command::new("git");
+            inherit_corpus_lock(&mut c);
             c.args(["hash-object", "--stdin"])
                 .stdin(std::process::Stdio::piped())
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped());
-            inherit_corpus_lock(&mut c);
             c.spawn().unwrap()
         };
         drop(handoff);
@@ -6097,6 +6131,10 @@ precedence = ["a", "b"]
                 }
             }
         }
+        assert!(
+            child.try_wait().unwrap().is_none(),
+            "git is still running when the lock is probed"
+        );
         assert!(
             err.contains("still running"),
             "a running git still holds the corpus lock: {err:?}"

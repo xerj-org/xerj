@@ -47,6 +47,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The `xerj-autoindex` corpus-lock tests no longer fail at random in CI
+  (#2520, Refs #2427). One test put `-c core.fsmonitor=false` after the git
+  subcommand, so git exited 129 at once and the test only passed by winning a
+  race against that exit; and under the test harness a lock another test just
+  released can stay held for 10-30 ms by a sibling test's forked child until it
+  execs. Test builds now wait out a busy lock for up to 500 ms; a real
+  `corpus add` still refuses at once.
 - `_reindex` applies `source._source` field filtering to the documents it
   copies, so an excluded secret or large field no longer reaches the
   destination. `_source:false` is refused with ES's sentence, and a `script`
