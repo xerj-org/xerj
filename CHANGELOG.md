@@ -47,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The per-index document version map is smaller and now visible in the
+  ingest memory trace. Its keys are `Box<str>` instead of `String`, which
+  saves 8 of 64 bytes per hash bucket and drops any spare capacity carried
+  in from the incoming id. The map's estimated heap (hash tables plus key
+  bytes) is reported as the new `version_map` category. On the 1 GB gate's
+  search node the map held ~0.5 GB that no budget saw. (#2427)
 - `_bulk` throughput with explicit `_id`s: `index` actions that carry an `_id`
   (and prepared `semantic_text` documents) are now published as one batch per
   index instead of one `index_document` call each, which took the WAL lock,
