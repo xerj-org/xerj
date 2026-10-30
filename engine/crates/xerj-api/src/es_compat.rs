@@ -28334,6 +28334,12 @@ pub struct ReindexBody {
     /// source or destination work.
     #[serde(default)]
     pub max_docs: Option<i64>,
+    /// `script`: a Painless/expression transformation run on each source
+    /// document before it is written. This build has no reindex script
+    /// context; the field is captured so the handler can refuse it instead
+    /// of silently copying the untransformed (possibly unredacted) source.
+    #[serde(default)]
+    pub script: Option<Value>,
 }
 
 #[derive(Debug, Deserialize, Default)]
@@ -28348,6 +28354,11 @@ pub struct ReindexSource {
     pub index: String,
     #[serde(default)]
     pub query: Option<Value>,
+    /// `source._source`: field filtering for the documents copied into the
+    /// destination. Serde used to drop this, so a caller excluding a secret
+    /// or large field still copied it verbatim (a data-minimization leak).
+    #[serde(default)]
+    pub _source: Option<Value>,
     #[serde(default = "reindex_default_size")]
     pub size: usize,
     /// ES reindex-from-remote spec (`{"host": "http://...", ...}`).
@@ -28470,6 +28481,34 @@ pub async fn reindex(
             })),
         )
             .into_response();
+    }
+
+    // A reindex script would change the document source/metadata before the
+    // write. This build has no script context for that operation, and serde
+    // used to drop `script` entirely, so a redaction/rename script answered
+    // 200 having copied the untransformed document. Refuse it instead of
+    // silently copying bytes the caller asked to change (#204).
+    if body.script.as_ref().is_some_and(|script| !script.is_null()) {
+        return es_bad_request(
+            "illegal_argument_exception",
+            "reindex scripts are not supported by this XERJ version; refusing the request \
+             rather than copying documents without the requested transformation",
+            None,
+        );
+    }
+    // `_source: false` asks to copy no fields, which `_reindex` cannot honor:
+    // the source search must return a document to copy. ES rejects it too.
+    let source_filter = match body.source._source.clone() {
+        Some(value) if value.is_null() => json!(true),
+        Some(value) => value,
+        None => json!(true),
+    };
+    if source_filter == Value::Bool(false) {
+        return es_bad_request(
+            "illegal_argument_exception",
+            "_source:false is not supported in this context",
+            None,
+        );
     }
 
     // Validate request controls before any source is flushed or the
@@ -28626,8 +28665,9 @@ pub async fn reindex(
             "query": effective_query,
             "size": page_size,
             "sort": [{ "_id": "asc" }],
-            // Copies must retain engine-generated vector companions too.
-            "_source": true,
+            // Apply the caller's `source._source` filter. With no filter,
+            // `true` retains engine-generated vector companions too.
+            "_source": source_filter.clone(),
         }))
         .map_err(|e| xerj_common::XerjError::invalid_query(e.to_string()))
         {
@@ -50036,6 +50076,7 @@ mod reindex_keyset_tests {
             source: ReindexSource {
                 index: "src".into(),
                 query: None,
+                _source: None,
                 size: 1000,
                 remote: None,
             },
@@ -50046,6 +50087,7 @@ mod reindex_keyset_tests {
             },
             conflicts: None,
             max_docs: None,
+            script: None,
         };
         let resp = reindex(
             State(state.clone()),
