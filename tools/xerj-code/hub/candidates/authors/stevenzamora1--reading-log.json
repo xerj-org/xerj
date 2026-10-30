@@ -2,8 +2,8 @@
  "corpus": "stevenzamora1--reading-log",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Lua queries this for how stevenzamora1/reading-log implements it: micromodules for bookshelf (selected work: micromodules, tests)",
+ "shelf": "WEB",
+ "domain": "an agent working on koreader-plugin, koreader-plugins queries this for how stevenzamora1/reading-log implements it: Reading dashboard cards for KOReader\u2019s Simple UI and Bookshelf plugings (selected work: micromodules, tests)",
  "repos": [
   {
    "repo": "reading-log",

@@ -1,0 +1,23 @@
+{
+ "corpus": "paolosereno--pyqtindustrialwidget",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on CMake queries this for how paolosereno/pyQtIndustrialWidget implements it: Industrial widgets and instruments in pure Python for PySide6 / PyQt6 (selected work: the project root, tests, pyQtIndustrialWidget)",
+ "repos": [
+  {
+   "repo": "pyQtIndustrialWidget",
+   "url": "https://github.com/paolosereno/pyQtIndustrialWidget",
+   "sha": "186e21a82ff70887d4584c5270d4d9b45efb9b0f",
+   "licence": "MIT (LICENSE file at pin 186e21a82ff7, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T09:27Z",
+    "consent_receipt": "59b40ef0f11a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T09:27Z (receipt 59b40ef0f11a); selected commit 186e21a82ff7: \"feat: initialize PySide6/Shiboken6 bindings with CMake and scikit-bui\u2026\". LICENSE file at pin 186e21a82ff7 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

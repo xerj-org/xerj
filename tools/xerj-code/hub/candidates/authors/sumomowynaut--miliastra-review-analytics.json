@@ -1,0 +1,23 @@
+{
+ "corpus": "sumomowynaut--miliastra-review-analytics",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on data-analysis, genshin-impact, miliastra queries this for how sumomowynaut/miliastra-review-analytics implements it: \u5343\u661f\u5947\u57df\u8bc4\u8bba\u5206\u6790\u5de5\u5177 \u2014\u2014 \u8f93\u5165\u5947\u57df ID,\u4ea7\u51fa\u53ef\u4fe1\u7684\u73a9\u5bb6\u4f53\u9a8c\u5206\u6790(Excel + \u81ea\u5305\u542b\u770b\u677f)\u3002\u6838\u5fc3\u662f\u516d\u4efd\u65b9\u6cd5\u8bba\u6587\u6863:\u6570\u636e\u5b8c\u6574\u6027\u6821\u9a8c\u3001\u6a21\u677f\u8bed\u5265\u79bb\u3001\u75db\u70b9\u805a\u7c7b\u3001\u8d8b\u52bf\u9677\u9631\u3001\u7ed3\u8bba\u7eaa\u5f8b\u3001\u4ea4\u4ed8\u7269\u68c0\u67e5\u3002 (selected work: src, tests, scripts)",
+ "repos": [
+  {
+   "repo": "miliastra-review-analytics",
+   "url": "https://github.com/sumomowynaut/miliastra-review-analytics",
+   "sha": "7ba4a1df78cda4c51da1d3e37457c7056ad407b1",
+   "licence": "MIT (LICENSE file at pin 7ba4a1df78cd, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T10:13Z",
+    "consent_receipt": "7d57ba438d43",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T10:13Z (receipt 7d57ba438d43); selected commit 7ba4a1df78cd: \"fix: \u7b2c\u4e8c\u8f6e\u901a\u8bfb\u4fee\u6b63\uff08\u5b8c\u6574\u6027\u6821\u9a8c / Excel \u5b57\u6bb5 / \u6cc4\u6f0f\u68c0\u67e5\uff09\". LICENSE file at pin 7ba4a1df78cd detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

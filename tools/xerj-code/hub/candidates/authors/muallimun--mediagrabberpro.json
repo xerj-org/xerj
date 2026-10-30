@@ -1,0 +1,23 @@
+{
+ "corpus": "muallimun--mediagrabberpro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how muallimun/MediaGrabberPro implements it: Media Grabber Pro (selected work: the project root, for_mozilla, _locales)",
+ "repos": [
+  {
+   "repo": "MediaGrabberPro",
+   "url": "https://github.com/muallimun/MediaGrabberPro",
+   "sha": "c4a1a3e6c720708763145421aa2f22015c8c7871",
+   "licence": "MIT (LICENSE file at pin c4a1a3e6c720, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T09:30Z",
+    "consent_receipt": "a060f59ef86d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T09:30Z (receipt a060f59ef86d); selected commit c4a1a3e6c720: \"Add files via upload\". LICENSE file at pin c4a1a3e6c720 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

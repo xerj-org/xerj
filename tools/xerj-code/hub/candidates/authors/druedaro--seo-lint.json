@@ -1,0 +1,23 @@
+{
+ "corpus": "druedaro--seo-lint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on astro, ci, cli queries this for how druedaro/seo-lint implements it: Static HTML SEO & GEO linter \u2014 fails your CI build when hreflang, JSON-LD or meta tags are broken (selected work: packages/core, packages/cli, the project root)",
+ "repos": [
+  {
+   "repo": "seo-lint",
+   "url": "https://github.com/druedaro/seo-lint",
+   "sha": "5352e1eec9de553fb7ccf0e711f3910758830c56",
+   "licence": "MIT (LICENSE file at pin 5352e1eec9de, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T10:32Z",
+    "consent_receipt": "6779dd1b0453",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T10:32Z (receipt 6779dd1b0453); selected commit 5352e1eec9de: \"feat(v0.1.1): resolve directory index in links, expand Schema.org typ\u2026\". LICENSE file at pin 5352e1eec9de detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,9 +1,9 @@
 {
- "corpus": "nacho--mecalin",
+ "corpus": "nacho--teclas",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Rust queries this for how nacho/mecalin implements it: Learn touch typing (selected work: src)",
+ "domain": "an agent working on Rust queries this for how nacho/teclas implements it: Learn touch typing (selected work: src)",
  "repos": [
   {
    "repo": "mecalin",
