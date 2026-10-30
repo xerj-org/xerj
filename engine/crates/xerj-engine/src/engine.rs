@@ -222,6 +222,83 @@ pub fn set_allocator_purge_hook(hook: AllocatorPurgeHook) {
     *slot = Some(hook);
 }
 
+/// Spaces breaker-driven cache releases (#2427/#1122). The first engaged
+/// tick releases; later ticks within `interval` only flush and purge.
+/// `XERJ_BREAKER_CACHE_RELEASE_SECS` sets the interval (default 30 s; `0`
+/// releases on every tick, the pre-fix behaviour).
+#[derive(Debug, Clone)]
+pub struct PressureCacheReleaseGate {
+    interval: std::time::Duration,
+    last: Option<std::time::Instant>,
+}
+
+impl PressureCacheReleaseGate {
+    pub const DEFAULT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+
+    pub fn new(interval: std::time::Duration) -> Self {
+        Self {
+            interval,
+            last: None,
+        }
+    }
+
+    pub fn from_env() -> Self {
+        let interval = std::env::var("XERJ_BREAKER_CACHE_RELEASE_SECS")
+            .ok()
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .map(std::time::Duration::from_secs)
+            .unwrap_or(Self::DEFAULT_INTERVAL);
+        Self::new(interval)
+    }
+
+    pub fn interval(&self) -> std::time::Duration {
+        self.interval
+    }
+
+    /// Whether a drain at `now` should release caches; records it if so.
+    pub fn should_release(&mut self, now: std::time::Instant) -> bool {
+        let due = self
+            .last
+            .is_none_or(|last| now.saturating_duration_since(last) >= self.interval);
+        if due {
+            self.last = Some(now);
+        }
+        due
+    }
+}
+
+#[cfg(test)]
+mod pressure_cache_release_gate_tests {
+    use super::PressureCacheReleaseGate;
+    use std::time::{Duration, Instant};
+
+    /// #2427/#1122: the breaker requests a drain every sampler tick while
+    /// engaged. Only the first tick in each interval may release caches.
+    #[test]
+    fn engaged_ticks_release_caches_at_most_once_per_interval() {
+        let mut gate = PressureCacheReleaseGate::new(Duration::from_secs(30));
+        let t0 = Instant::now();
+        assert!(gate.should_release(t0), "the first engaged tick releases");
+        for tick in 1..15u64 {
+            assert!(
+                !gate.should_release(t0 + Duration::from_secs(2 * tick)),
+                "tick at {}s must only flush and purge",
+                2 * tick
+            );
+        }
+        assert!(gate.should_release(t0 + Duration::from_secs(30)));
+        assert!(!gate.should_release(t0 + Duration::from_secs(31)));
+    }
+
+    #[test]
+    fn a_zero_interval_releases_on_every_tick() {
+        let mut gate = PressureCacheReleaseGate::new(Duration::ZERO);
+        let t0 = Instant::now();
+        assert!(gate.should_release(t0));
+        assert!(gate.should_release(t0));
+    }
+}
+
 /// Run the installed allocator purge, if any. Never panics: a broken hook
 /// must not take the drain (or the process) down — purging is an
 /// optimisation for RSS return, not a correctness step.
@@ -4457,6 +4534,29 @@ impl Engine {
         self.release_rebuildable_memory(&loaded).await
     }
 
+    /// The breaker-driven drain (#2427/#1122): always flush memtables and
+    /// purge the allocator, but release the rebuildable caches only when
+    /// `release_caches` is set. The sampler requests a drain on every tick
+    /// while the breaker is engaged; releasing every cache each time made a
+    /// read-heavy node re-hydrate cold on every query, which refilled RSS and
+    /// re-engaged the breaker — a ~2 s thrash loop that drained nothing
+    /// durable. The worker spaces cache releases with
+    /// [`PressureCacheReleaseGate`]; `_cache/clear` and the direct
+    /// [`Self::drain_rebuildable_memory`] still release every time.
+    pub async fn pressure_drain(&self, release_caches: bool) -> usize {
+        let loaded = self.open_indices_largest_memtable_first();
+        if release_caches {
+            return self.release_rebuildable_memory(&loaded).await;
+        }
+        for idx in &loaded {
+            if idx.memtable_bytes() > 0 && idx.flush().await.is_err() {
+                tracing::warn!("memory pressure drain: flush failed");
+            }
+        }
+        purge_allocator_pages();
+        loaded.len()
+    }
+
     /// Open indices, largest live memtable first (#2321).
     ///
     /// The summed budget stays engaged until enough bytes are retired. DashMap
@@ -4575,15 +4675,25 @@ impl Engine {
                 // automatic wiring is inert.
                 return;
             };
+            let mut release_gate = PressureCacheReleaseGate::from_env();
             while let Ok(()) = drain_rx.recv() {
                 let Some(engine) = weak_c.upgrade() else {
                     return; // engine dropped
                 };
-                let drained = handle.block_on(engine.drain_rebuildable_memory());
-                tracing::info!(
+                let release_caches = release_gate.should_release(std::time::Instant::now());
+                let drained = handle.block_on(engine.pressure_drain(release_caches));
+                if release_caches {
+                    tracing::info!(
                         indexes = drained,
                         "memory breaker engaged — drained rebuildable state (flush + cache release + purge)"
                     );
+                } else {
+                    tracing::debug!(
+                        indexes = drained,
+                        "memory breaker engaged — flushed and purged; caches kept (released within the last {:?})",
+                        release_gate.interval()
+                    );
+                }
             }
         });
         // Publish the request channel only once a worker is draining it: with

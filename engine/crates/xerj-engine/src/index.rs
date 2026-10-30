@@ -37,6 +37,7 @@ use xerj_vector::hnsw::{HnswIndex, HnswParams};
 use xerj_vector::{Sq8CodeStore, Sq8Params};
 
 use crate::aggs::run_aggs_with_schema;
+use crate::read_budget::{ReadPermit, ReadTransientBudget};
 use crate::segment_cache_budget::{
     CacheResident, SegmentCacheCategory, SegmentHydrationBudget, CATEGORY_COUNT,
 };
@@ -60,6 +61,34 @@ fn index_segment_hydration_budget(_config: &Config) -> Arc<SegmentHydrationBudge
     }
     #[cfg(not(test))]
     panic!("Index construction requires the process ResourceGovernor to be initialised");
+}
+
+/// Reserve `bytes` of transient read memory unless the hydration cache has
+/// room to keep the value (#2427/#1122). A value the cache admits is
+/// accounted there; only one it will refuse is a per-query allocation.
+fn transient_read_permit(
+    hydration: &SegmentHydrationBudget,
+    read_budget: &Arc<ReadTransientBudget>,
+    bytes: u64,
+) -> Option<ReadPermit> {
+    if hydration.has_headroom(bytes) {
+        None
+    } else {
+        Some(read_budget.acquire(bytes))
+    }
+}
+
+/// Retained-size bound of a `StoredSlices` built from `raw` (the framing-only
+/// estimator; a zstd frame without a content size falls back to 8x raw).
+fn stored_slices_bound(raw: &[u8], expect_docs: u64) -> u64 {
+    xerj_storage::stored_codec::stored_slices_retained_upper_bound(raw, expect_docs)
+        .ok()
+        .flatten()
+        .unwrap_or_else(|| {
+            (raw.len() as u64)
+                .saturating_mul(8)
+                .saturating_add(expect_docs.saturating_mul(8))
+        })
 }
 
 /// Wait for a publication test barrier, on the runtime and bounded.
@@ -2013,6 +2042,74 @@ mod flush_publication_recovery_tests {
         let idx = restarted.get_index("bm25-failed-publication").unwrap();
         idx.abort_background_tasks();
         assert_eq!(idx.search(&request).await.unwrap().hits[0].id, "survivor");
+    }
+
+    /// #2427/#1122: a stored-slices build the hydration cache cannot hold is
+    /// transient, and it must hold a read-budget reservation for as long as a
+    /// query holds the value — so concurrent cold queries are bounded by the
+    /// read budget instead of stacking whole stored sections. A build the
+    /// cache can hold reserves nothing (the cache accounts it).
+    ///
+    /// Fails before the fix (with `transient_read_permit` returning `None`):
+    /// the read budget never sees the transient bytes.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn transient_stored_slices_hold_a_read_reservation_until_dropped() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine
+            .create_index("read-budget", topk_projection_schema())
+            .unwrap();
+        let idx = engine.get_index("read-budget").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..512u64 {
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"title": format!("title {i}"), "body": format!("body text {i}"), "blob": "x".repeat(64)}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        let seg = idx.store.snapshot().segments[0].clone();
+        let read = ReadTransientBudget::new(1 << 30, std::time::Duration::from_secs(5));
+        idx.release_memory();
+        assert!(
+            !idx.stored_slices_cache.contains_key(&seg.id),
+            "precondition: cold"
+        );
+
+        // No room in the cache: transient, reserved until the value drops.
+        let full = SegmentHydrationBudget::new(0);
+        let slices = idx
+            .stored_slices_for_with(&seg.id, seg.doc_count, &full, &read)
+            .expect("slices build");
+        assert!(!idx.stored_slices_cache.contains_key(&seg.id));
+        let held = read.snapshot().current;
+        assert!(
+            held >= slices.bytes.len() as u64,
+            "the transient build must reserve at least its decoded bytes ({} held, {} decoded)",
+            held,
+            slices.bytes.len()
+        );
+        let second = Arc::clone(&slices);
+        drop(slices);
+        assert_eq!(read.snapshot().current, held, "a live reader keeps it");
+        drop(second);
+        assert_eq!(read.snapshot().current, 0, "released with the last reader");
+
+        // Room in the cache: admitted, nothing reserved.
+        let roomy = SegmentHydrationBudget::new(u64::MAX);
+        let cached = idx
+            .stored_slices_for_with(&seg.id, seg.doc_count, &roomy, &read)
+            .expect("slices build");
+        assert!(idx.stored_slices_cache.contains_key(&seg.id));
+        assert_eq!(read.snapshot().current, 0);
+        assert_eq!(
+            read.snapshot().admitted,
+            1,
+            "only the transient build reserved"
+        );
+        drop(cached);
     }
 
     fn topk_projection_config(dir: &std::path::Path) -> Config {
@@ -10445,6 +10542,9 @@ pub struct Index {
     self_ref: std::sync::OnceLock<std::sync::Weak<Index>>,
     /// Segments with a background stored-slices warm queued or running.
     cold_stored_warms: dashmap::DashMap<String, ()>,
+    /// Background warms skipped because the hydration budget had no room
+    /// for the slices they would build (#2427/#1122).
+    cold_stored_warms_skipped: AtomicU64,
     /// Cold segments answered by row-selective hydration (observability and
     /// tests).
     cold_row_hydrations: AtomicU64,
@@ -11150,6 +11250,7 @@ impl Index {
             schema_persist_failures: AtomicU64::new(0),
             self_ref: std::sync::OnceLock::new(),
             cold_stored_warms: dashmap::DashMap::new(),
+            cold_stored_warms_skipped: AtomicU64::new(0),
             cold_row_hydrations: AtomicU64::new(0),
         });
         let _ = index.self_ref.set(Arc::downgrade(&index));
@@ -11615,6 +11716,7 @@ impl Index {
             schema_persist_failures: AtomicU64::new(0),
             self_ref: std::sync::OnceLock::new(),
             cold_stored_warms: dashmap::DashMap::new(),
+            cold_stored_warms_skipped: AtomicU64::new(0),
             cold_row_hydrations: AtomicU64::new(0),
         });
         let _ = index.self_ref.set(Arc::downgrade(&index));
@@ -17992,7 +18094,19 @@ impl Index {
         }
         let segment_id = segment_id.to_string();
         runtime.spawn_blocking(move || {
-            if !index.stored_slices_cache.contains_key(segment_id.as_str()) {
+            // #2427/#1122: a warm exists to leave the slices cached. When the
+            // hydration budget has no room for them the cache would refuse
+            // the result, so the warm would only decompress a whole stored
+            // section to drop it — on every cold query, the transient spike
+            // that kept a search-only node above the breaker watermark.
+            let fits = index
+                .stored_slices_bound_for(&segment_id, doc_count)
+                .is_some_and(|bound| index.segment_hydration_budget.has_headroom(bound));
+            if !fits {
+                index
+                    .cold_stored_warms_skipped
+                    .fetch_add(1, Ordering::Relaxed);
+            } else if !index.stored_slices_cache.contains_key(segment_id.as_str()) {
                 let _ = index.stored_slices_for(&segment_id, doc_count);
             }
             index.cold_stored_warms.remove(segment_id.as_str());
@@ -31598,6 +31712,32 @@ impl Index {
         value: T,
         budget: &Arc<SegmentHydrationBudget>,
     ) -> Resident<T> {
+        self.publish_current_permitted(map, segment_id, key, category, bytes, value, budget, None)
+    }
+
+    /// [`Self::publish_current_with_budget`] for a value built under a
+    /// transient read reservation (#2427/#1122). Admitted to the cache, the
+    /// reservation is returned at once — the hydration budget now accounts
+    /// the bytes. Refused, the value is served uncached and keeps the
+    /// reservation until its last reader drops it, so concurrent transient
+    /// builds stay inside the read budget.
+    #[allow(clippy::too_many_arguments)]
+    fn publish_current_permitted<T>(
+        &self,
+        map: &dashmap::DashMap<String, Resident<T>>,
+        segment_id: &str,
+        key: String,
+        category: SegmentCacheCategory,
+        bytes: u64,
+        value: T,
+        budget: &Arc<SegmentHydrationBudget>,
+        mut permit: Option<ReadPermit>,
+    ) -> Resident<T> {
+        // The permit was sized from a pre-build estimate; account the
+        // measured size while the transient lives.
+        if let Some(permit) = permit.as_mut() {
+            permit.true_up(bytes);
+        }
         #[cfg(test)]
         {
             let bit = 1_u64 << category as usize;
@@ -31620,14 +31760,14 @@ impl Index {
             .iter()
             .any(|meta| meta.id == segment_id)
         {
-            return CacheResident::uncached(value);
+            return CacheResident::uncached_with_permit(value, permit);
         }
         use dashmap::mapref::entry::Entry;
         match map.entry(key) {
             Entry::Occupied(entry) => Arc::clone(entry.get()),
             Entry::Vacant(entry) => {
                 let Some(charge) = budget.try_charge(category, bytes) else {
-                    return CacheResident::uncached(value);
+                    return CacheResident::uncached_with_permit(value, permit);
                 };
                 let resident = CacheResident::admitted(value, charge, category, bytes);
                 entry.insert(Arc::clone(&resident));
@@ -31710,15 +31850,23 @@ impl Index {
             return Some(Arc::clone(hit.value()));
         }
 
+        // #2427/#1122: a reader the cache cannot hold is built per query and
+        // decompresses every requested field's postings; reserve that in the
+        // read budget before paying it (see `stored_slices_for_with`).
+        let read_budget = crate::read_budget::global();
+        let estimate = FtsIndexReader::estimate_open_bytes(fts_dir, segment_id, fields);
+        let permit = transient_read_permit(&self.segment_hydration_budget, read_budget, estimate);
         let reader = Arc::new(FtsIndexReader::open(fts_dir, segment_id, fields).ok()?);
         let bytes = reader.retained_bytes();
-        Some(self.publish_current(
+        Some(self.publish_current_permitted(
             &self.fts_reader_cache,
             segment_id,
             key,
             SegmentCacheCategory::FtsReader,
             bytes,
             reader,
+            &self.segment_hydration_budget,
+            permit,
         ))
     }
 
@@ -34880,6 +35028,29 @@ impl Index {
     /// malformed section (offsets incomplete) — caller falls back to the
     /// legacy scan.
     fn stored_slices_for(&self, seg_id: &str, expect_docs: u64) -> Option<Resident<StoredSlices>> {
+        self.stored_slices_for_with(
+            seg_id,
+            expect_docs,
+            &self.segment_hydration_budget,
+            crate::read_budget::global(),
+        )
+    }
+
+    /// [`Self::stored_slices_for`] against explicit budgets (tests pin them).
+    ///
+    /// #2427/#1122: when the hydration cache has no room for this segment the
+    /// build is transient — decoded, used by this query, dropped. It reserves
+    /// its retained-size bound in `read_budget` *before* the decompress and
+    /// keeps the reservation until the last reader drops the value, so
+    /// concurrent cold queries queue for read memory instead of stacking
+    /// whole stored sections until the shared breaker engages.
+    fn stored_slices_for_with(
+        &self,
+        seg_id: &str,
+        expect_docs: u64,
+        hydration: &Arc<SegmentHydrationBudget>,
+        read_budget: &Arc<ReadTransientBudget>,
+    ) -> Option<Resident<StoredSlices>> {
         if let Some(entry) = self.stored_slices_cache.get(seg_id) {
             return Some(Arc::clone(entry.value()));
         }
@@ -34902,12 +35073,24 @@ impl Index {
         }
         // Reuse already-decompressed bytes from `decoded_stored_cache`
         // before paying a fresh open + decompress.
-        let bytes: Vec<u8> = if let Some(entry) = self.decoded_stored_cache.get(seg_id) {
-            entry.value().value().clone()
+        let decoded = self
+            .decoded_stored_cache
+            .get(seg_id)
+            .map(|entry| Arc::clone(entry.value()));
+        let (bytes, permit): (Vec<u8>, Option<ReadPermit>) = if let Some(decoded) = decoded {
+            let bound =
+                (decoded.value().len() as u64).saturating_add(expect_docs.saturating_mul(8));
+            let permit = transient_read_permit(hydration, read_budget, bound);
+            (decoded.value().clone(), permit)
         } else {
             let reader = self.store.open_segment_arc(seg_id).ok()?;
             let raw = reader.section(SectionType::Stored).ok()??;
-            xerj_storage::stored_codec::decode_stored(raw).ok()?
+            let permit = transient_read_permit(
+                hydration,
+                read_budget,
+                stored_slices_bound(raw, expect_docs),
+            );
+            (xerj_storage::stored_codec::decode_stored(raw).ok()?, permit)
         };
         if bytes.len() > u32::MAX as usize {
             return None;
@@ -34924,14 +35107,24 @@ impl Index {
             slices.bytes.capacity(),
             slices.offsets.capacity(),
         );
-        Some(self.publish_current(
+        Some(self.publish_current_permitted(
             &self.stored_slices_cache,
             seg_id,
             key,
             SegmentCacheCategory::StoredSlices,
             bytes,
             slices,
+            hydration,
+            permit,
         ))
+    }
+
+    /// Retained-size bound of this segment's `StoredSlices`, from framing
+    /// only (no decompress). `None` when the segment or section is missing.
+    fn stored_slices_bound_for(&self, seg_id: &str, expect_docs: u64) -> Option<u64> {
+        let reader = self.store.open_segment_arc(seg_id).ok()?;
+        let raw = reader.section(SectionType::Stored).ok()??;
+        Some(stored_slices_bound(raw, expect_docs))
     }
 
     /// `_id` of every row of a segment's columnar stored section, read from
