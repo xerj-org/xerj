@@ -31677,6 +31677,17 @@ pub async fn nodes_stats(State(state): State<AppState>) -> impl IntoResponse {
         .unwrap_or_default()
         .as_millis() as u64;
 
+    let read_transient_budget = {
+        let b = xerj_engine::read_budget::global().snapshot();
+        json!({
+            "limit_in_bytes": b.limit,
+            "current_in_bytes": b.current,
+            "peak_in_bytes": b.peak,
+            "admitted": b.admitted,
+            "waited": b.waited,
+            "overruns": b.overruns,
+        })
+    };
     Json(json!({
         "_nodes": { "total": 1, "successful": 1, "failed": 0 },
         "cluster_name": "xerj",
@@ -31741,6 +31752,9 @@ pub async fn nodes_stats(State(state): State<AppState>) -> impl IntoResponse {
                     // bbq_hnsw/flat).
                     "dense_vector": dense_vector_off_heap_stats(&state),
                     "segment_hydration_cache": segment_hydration,
+                    // #2427/#1122: transient read-path builds the hydration
+                    // cache refused, bounded by their own budget.
+                    "read_transient_budget": read_transient_budget,
                 },
                 "transport": {
                     "server_open": 1,

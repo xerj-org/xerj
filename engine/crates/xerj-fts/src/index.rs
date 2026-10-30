@@ -2496,6 +2496,104 @@ impl FtsIndexReader {
         Self::open_inner(segment_dir, segment_id, field_names, false)
     }
 
+    /// Upper estimate of the heap a full [`Self::open`] of `field_names`
+    /// would retain, read from file headers and sizes only (#2427/#1122).
+    ///
+    /// Lets the engine reserve read memory *before* it pays the postings
+    /// decompress. Per field: the uncompressed postings length from the
+    /// `ZPS1`/`ZPS2`/`ZPL1` envelope header (or the file length of a raw
+    /// `.post`), the `.fst` file length, 8 bytes per dense norms entry, and
+    /// the decoded `.meta` term records (`num_terms` from its header). A field whose files are
+    /// missing or unreadable counts as zero — `open` will fail or skip it.
+    pub fn estimate_open_bytes(
+        segment_dir: impl AsRef<Path>,
+        segment_id: &str,
+        field_names: &[&str],
+    ) -> u64 {
+        use std::io::Read;
+        let segment_dir = segment_dir.as_ref();
+        let Ok(layout) = segment_filename_layout(segment_dir, segment_id) else {
+            return 0;
+        };
+        let head = |path: &Path, n: usize| -> Option<Vec<u8>> {
+            let mut buf = vec![0u8; n];
+            let mut file = fs::File::open(path).ok()?;
+            file.read_exact(&mut buf).ok()?;
+            Some(buf)
+        };
+        let mut total: u64 = 0;
+        for &field_name in field_names {
+            let filename = |ext: &str| -> Option<PathBuf> {
+                match layout {
+                    FilenameLayout::Legacy => {
+                        legacy_field_sidecar_path(segment_dir, segment_id, field_name, ext)
+                    }
+                    FilenameLayout::Encoded | FilenameLayout::CaseDistinguished => {
+                        Some(field_sidecar_path_for_layout(
+                            segment_dir,
+                            segment_id,
+                            field_name,
+                            ext,
+                            layout,
+                        ))
+                    }
+                }
+            };
+            total = total.saturating_add(field_name.len() as u64);
+            if let Some(post) = filename("post") {
+                if let Some(h) = head(&post, 8) {
+                    let magic = &h[..4];
+                    if magic == POST_MAGIC_ZSTD_V2
+                        || magic == POST_MAGIC_ZSTD
+                        || magic == POST_MAGIC_LZ4
+                    {
+                        let len = u32::from_le_bytes([h[4], h[5], h[6], h[7]]);
+                        total = total.saturating_add(u64::from(len));
+                    } else {
+                        // Raw postings: mmap'd or read whole; count the file.
+                        let len = fs::metadata(&post).map(|m| m.len()).unwrap_or(0);
+                        total = total.saturating_add(len);
+                    }
+                }
+            }
+            if let Some(fst) = filename("fst") {
+                // An FST that cannot be mmap'd is read whole.
+                let len = fs::metadata(&fst).map(|m| m.len()).unwrap_or(0);
+                total = total.saturating_add(len);
+            }
+            if let Some(norms) = filename("norms") {
+                let entries = match head(&norms, 9) {
+                    Some(h) if &h[..4] == NORMS_MAGIC => {
+                        u64::from(u32::from_le_bytes([h[5], h[6], h[7], h[8]]))
+                    }
+                    _ => fs::metadata(&norms).map(|m| m.len()).unwrap_or(0),
+                };
+                total = total.saturating_add(entries.saturating_mul(8));
+            }
+            if let Some(meta) = filename("meta") {
+                // `num_terms` sits at byte 20 of every ZFM header.
+                // ZFM3/4/5 expand to 24-byte flat records; legacy ZFM1/2
+                // keep a term map (`retained_bytes` counts 64 B per term)
+                // plus the term strings, which the file length covers.
+                let len = fs::metadata(&meta).map(|m| m.len()).unwrap_or(0);
+                let add = match head(&meta, 24) {
+                    Some(h) => {
+                        let terms = u64::from(u32::from_le_bytes([h[20], h[21], h[22], h[23]]));
+                        let magic = &h[..4];
+                        if magic == META_MAGIC_V1 || magic == META_MAGIC_V2 {
+                            terms.saturating_mul(64).saturating_add(len)
+                        } else {
+                            terms.saturating_mul(ZFM3_RECORD_LEN as u64)
+                        }
+                    }
+                    None => len.saturating_mul(4),
+                };
+                total = total.saturating_add(add);
+            }
+        }
+        total
+    }
+
     /// Open ONLY what BM25 collection statistics need: the FST term
     /// dictionary (mmap'd) and the small `.meta` side-car.
     ///
@@ -3184,6 +3282,35 @@ mod tests {
         assert!(reader.term_exists("t", "bagels"));
         assert!(reader.term_exists("t", "the"));
         assert!(segment_recorded_analyzers(dir2.path(), "seg0").is_none());
+    }
+
+    /// #2427/#1122: the engine reserves read memory from this estimate before
+    /// a full open, so it must not undercount what the open retains.
+    #[test]
+    fn estimate_open_bytes_covers_the_retained_postings_and_norms() {
+        let dir = TempDir::new().unwrap();
+        let mut writer = FtsIndexWriter::new(dir.path(), "seg-est", make_registry());
+        for i in 0..2_000u32 {
+            let text = format!("doc {i} alpha beta gamma term{} other{}", i % 97, i % 13);
+            let doc: HashMap<String, FieldValues> = [("body".to_owned(), FieldValues::from(text))]
+                .into_iter()
+                .collect();
+            writer.add_document(i, &doc);
+        }
+        writer.finish().unwrap();
+        let reader = FtsIndexReader::open(dir.path(), "seg-est", &["body"]).unwrap();
+        let estimate = FtsIndexReader::estimate_open_bytes(dir.path(), "seg-est", &["body"]);
+        let retained = reader.retained_bytes();
+        assert!(retained > 0);
+        assert!(
+            estimate >= retained,
+            "estimate {estimate} must cover the {retained} bytes the open retains"
+        );
+        assert_eq!(
+            FtsIndexReader::estimate_open_bytes(dir.path(), "seg-missing", &["body"]),
+            "body".len() as u64,
+            "a segment without side-cars costs (almost) nothing"
+        );
     }
 
     #[test]

@@ -54,6 +54,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   per sweep. On a 1,050-file markdown corpus with 14,724 prior edges the
   `--fresh` run went from 152.0 s to 26.7 s (edges refreshes 1,052 → 3), with
   the same 14,724 edges invalidated (#2640).
+- Search under a memory cap: when the segment hydration cache is full, a query that has to build a segment's stored slices or FTS reader outside the cache now reserves that memory from a separate read budget (`XERJ_READ_TRANSIENT_MB`, default a tenth of `XERJ_MAX_PROCESS_MEMORY_MB`). It waits up to `XERJ_READ_TRANSIENT_WAIT_MS` (default 5 s) for room instead of stacking whole decompressed sections on top of each other. Background cache warms that the full cache would refuse are skipped. While the memory breaker is engaged, its drain still flushes and purges on every tick but releases the read caches at most once per `XERJ_BREAKER_CACHE_RELEASE_SECS` (default 30 s), so queries no longer re-hydrate cold every two seconds. `GET /_nodes/stats` reports the budget under `indices.read_transient_budget`. (Refs #2427, #1122)
 - Opt-in lexical `judge` now matches CJK characters and adjacent pairs inside
   uninterrupted Chinese/Japanese/Korean text instead of treating the whole
   run as one word (refs #2580). Single-character evidence is retained, pairs
