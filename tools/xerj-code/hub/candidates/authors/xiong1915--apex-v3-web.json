@@ -8,15 +8,15 @@
   {
    "repo": "apex-v3-web",
    "url": "https://github.com/xiong1915/apex-v3-web",
-   "sha": "a1fa1867c14e4f9a6431cdf56cc40c85618ff249",
-   "licence": "MIT (LICENSE file at pin a1fa1867c14e, GitHub licence API 2026-10-30)",
+   "sha": "3a7289dbe4b1e1b3bddeb36fd1244ccf4698e097",
+   "licence": "MIT (LICENSE file at pin 3a7289dbe4b1, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-24T10:57Z",
     "consent_receipt": "5fc28dbbf631",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T10:57Z (receipt 5fc28dbbf631); selected commit a1fa1867c14e: \"Add private cloud AI conversations and operations monitoring (#6)\". LICENSE file at pin a1fa1867c14e detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head a1fa1867c14e (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T10:57Z (receipt 5fc28dbbf631); selected commit 3a7289dbe4b1: \"Add private cloud AI conversations and operations monitoring (#6)\". LICENSE file at pin 3a7289dbe4b1 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head 3a7289dbe4b1 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

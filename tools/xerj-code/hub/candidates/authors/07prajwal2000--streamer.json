@@ -1,0 +1,23 @@
+{
+ "corpus": "07prajwal2000--streamer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how 07prajwal2000/streamer implements it: A unified, high-performance desktop GUI suite for Apache Kafka, Redpanda, NATS (JetStream & KV), RabbitMQ, and Amazon SQS \u2014 featuring an emb (selected work: frontend, internal/natsmanager, the project root)",
+ "repos": [
+  {
+   "repo": "streamer",
+   "url": "https://github.com/07prajwal2000/streamer",
+   "sha": "cb65cf92477bbbae6722850009749650fca20714",
+   "licence": "MIT (LICENSE file at pin cb65cf92477b, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T16:29Z",
+    "consent_receipt": "d1dc891e7678",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T16:29Z (receipt d1dc891e7678); selected commit cb65cf92477b: \"feat(nats): add NATS Object Store browser with native download save d\u2026\". LICENSE file at pin cb65cf92477b detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

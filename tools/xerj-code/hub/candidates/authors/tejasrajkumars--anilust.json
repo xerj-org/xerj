@@ -1,0 +1,23 @@
+{
+ "corpus": "tejasrajkumars--anilust",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how TejasRajkumarS/AniLust implements it: streaming anime webapp (selected work: src/services, server, src/pages)",
+ "repos": [
+  {
+   "repo": "AniLust",
+   "url": "https://github.com/TejasRajkumarS/AniLust",
+   "sha": "316466f516029ea61855ebd5a0d67449d3434acb",
+   "licence": "MIT (LICENSE file at pin 316466f51602, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T15:27Z",
+    "consent_receipt": "27c905cbef6f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T15:27Z (receipt 27c905cbef6f); selected commit 316466f51602: \"commit\". LICENSE file at pin 316466f51602 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

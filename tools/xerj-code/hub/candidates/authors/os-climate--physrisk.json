@@ -1,0 +1,23 @@
+{
+ "corpus": "os-climate--physrisk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how os-climate/physrisk implements it: Physical climate risk calculation engine (selected work: src/physrisk, tests)",
+ "repos": [
+  {
+   "repo": "physrisk",
+   "url": "https://github.com/os-climate/physrisk",
+   "sha": "a44703365098b2a52d36896f3869400088619242",
+   "licence": "Apache-2.0 (LICENSE file at pin a44703365098, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T15:34Z",
+    "consent_receipt": "72428701d1e0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T15:34Z (receipt 72428701d1e0); selected commit a44703365098: \"Tidy of PregeneratedHazardModel, ZarrReader, HazardDataProvider and I\u2026\". LICENSE file at pin a44703365098 detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

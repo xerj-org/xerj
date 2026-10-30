@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, embeddings, llm queries this for how zinverno/veynrel implements it: Review note connections, prepare guarded Markdown changes, and practise spaced repetition in Obsidian. Optional AI, explicit decisions (selected work: chunking, scripts, decisions)",
+ "domain": "an agent working on ai, embeddings, llm queries this for how zinverno/veynrel implements it: Vault health, connection review and Recall for Obsidian. Studio recipes and editable diagrams in the 2.3.0 release candidate (selected work: chunking, scripts, decisions)",
  "repos": [
   {
    "repo": "veynrel",

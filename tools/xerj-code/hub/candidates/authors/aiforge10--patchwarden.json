@@ -2,8 +2,8 @@
  "corpus": "aiforge10--patchwarden",
  "cloned_at": null,
  "status": "draft",
- "shelf": "SEC",
- "domain": "an agent working on Python queries this for how AIForge10/patchwarden implements it: Autonomous incident-response agent that reproduces a crash in a sandbox, writes a verified fix, and opens a pull request (selected work: patchwarden, tests, the project root)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, e2b, hackathon queries this for how AIForge10/patchwarden implements it: Autonomous incident-response agent that reproduces a crash in a sandbox, writes a verified fix, and opens a pull request (selected work: patchwarden, tests, the project root)",
  "repos": [
   {
    "repo": "patchwarden",

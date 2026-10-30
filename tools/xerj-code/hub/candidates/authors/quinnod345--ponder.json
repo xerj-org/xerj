@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on JavaScript queries this for how Quinnod345/ponder implements it: Convergent deliberation loop for coding agents \u2014 multi-pass, coverage-gated, append-only ledger review and planning (selected work: studies)",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how Quinnod345/ponder implements it: Convergent deliberation loop for coding agents: multi-pass, coverage-gated, append-only ledger review and planning. Claude Code, Codex, Open (selected work: studies)",
  "repos": [
   {
    "repo": "ponder",

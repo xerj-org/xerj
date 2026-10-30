@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on Python queries this for how ChaitanyMishra/invoice-receipt-parser implements it: Automated invoice and receipt data extraction system using FastAPI, PostgreSQL, and AI-based parsing with confidence-based fallback logic (selected work: the project root, app)",
+ "domain": "an agent working on alembic, alembic-migration, backend queries this for how ChaitanyMishra/invoice-receipt-parser implements it: Automated invoice and receipt data extraction system using FastAPI, PostgreSQL, and AI-based parsing with confidence-based fallback logic (selected work: the project root, app)",
  "repos": [
   {
    "repo": "invoice-receipt-parser",
