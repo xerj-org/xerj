@@ -91,6 +91,24 @@ fn stored_slices_bound(raw: &[u8], expect_docs: u64) -> u64 {
         })
 }
 
+/// #2427: whether a publish-time stored-slices warm whose retained size is
+/// at most `bound` may decode at all: the hydration cache must have room to
+/// keep it, and when the parent RSS watermark is armed (`rss_room` is the
+/// distance to it) keeping it must not carry the node over the watermark.
+fn publish_stored_warm_fits(
+    budget: &SegmentHydrationBudget,
+    bound: u64,
+    rss_room: Option<u64>,
+) -> bool {
+    budget.has_headroom(bound) && rss_room.is_none_or(|room| bound < room)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Publish-time stored-section decodes on this thread (#2427 tests).
+    static PUBLISH_STORED_WARM_DECODES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
 /// Wait for a publication test barrier, on the runtime and bounded.
 ///
 /// A test must never park a tokio BLOCKING-pool thread to wait for a signal
@@ -2042,6 +2060,74 @@ mod flush_publication_recovery_tests {
         let idx = restarted.get_index("bm25-failed-publication").unwrap();
         idx.abort_background_tasks();
         assert_eq!(idx.search(&request).await.unwrap().hits[0].id, "survivor");
+    }
+
+    /// #2427: publish-time warming must size a stored-slices warm BEFORE it
+    /// decompresses the section. A merged segment's section decodes to
+    /// hundreds of MB; when the hydration cache has no room the result is
+    /// refused right after the build, so the decode was nothing but a
+    /// transient RSS spike on an ingesting node.
+    ///
+    /// Fails before the fix: the full-budget warm still decodes the section
+    /// once (and the cache then refuses it).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn publish_warm_skips_a_stored_decode_the_cache_would_refuse_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine
+            .create_index("publish-warm-fit", topk_projection_schema())
+            .unwrap();
+        let idx = engine.get_index("publish-warm-fit").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..512u64 {
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"title": format!("title {i}"), "body": format!("body text {i}"), "blob": "x".repeat(64)}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        let seg = idx.store.snapshot().segments[0].clone();
+        idx.release_memory();
+        assert!(
+            !idx.stored_slices_cache.contains_key(&seg.id),
+            "precondition: cold"
+        );
+        let segments_dir = idx.data_dir.join("segments");
+        let decodes = || PUBLISH_STORED_WARM_DECODES.with(|n| n.get());
+
+        // No room in the cache: the section is not decompressed at all.
+        let mut caches = idx.publish_warm_caches();
+        caches.budget = SegmentHydrationBudget::new(0);
+        let before = decodes();
+        warm_segment_at_publish(&idx.store, &segments_dir, &caches, &seg.id, seg.doc_count);
+        assert_eq!(
+            decodes() - before,
+            0,
+            "a warm the hydration cache would refuse must not decode the stored section"
+        );
+        assert!(!idx.stored_slices_cache.contains_key(&seg.id));
+
+        // Room in the cache: warmed and kept, exactly as before.
+        caches.budget = SegmentHydrationBudget::new(u64::MAX);
+        let before = decodes();
+        warm_segment_at_publish(&idx.store, &segments_dir, &caches, &seg.id, seg.doc_count);
+        assert_eq!(decodes() - before, 1);
+        assert!(idx.stored_slices_cache.contains_key(&seg.id));
+    }
+
+    /// #2427: the RSS side of the publish-warm fit — a warm that would carry
+    /// the node to the parent watermark is skipped even with cache room.
+    #[test]
+    fn publish_stored_warm_fit_respects_cache_room_and_rss_watermark_2427() {
+        let roomy = SegmentHydrationBudget::new(u64::MAX);
+        let full = SegmentHydrationBudget::new(0);
+        assert!(publish_stored_warm_fits(&roomy, 100, None), "watermark off");
+        assert!(publish_stored_warm_fits(&roomy, 100, Some(101)));
+        assert!(!publish_stored_warm_fits(&roomy, 100, Some(100)));
+        assert!(!publish_stored_warm_fits(&roomy, 100, Some(0)));
+        assert!(!publish_stored_warm_fits(&full, 100, None), "no cache room");
     }
 
     /// #2427/#1122: a stored-slices build the hydration cache cannot hold is
@@ -54593,6 +54679,25 @@ fn warm_segment_at_publish(
         let built: Option<StoredSlices> = (|| {
             let reader = store.open_segment_arc(seg_id).ok()?;
             let raw = reader.section(SectionType::Stored).ok()??;
+            // #2427: size the warm BEFORE decompressing. A merged segment's
+            // stored section decodes to hundreds of MB (332 MB live in one
+            // late-ingest heap profile of the 1 GB gate) plus the column
+            // materialisation on top while it runs. When the hydration cache
+            // has no room the result is refused right after it is built, so
+            // the whole decode was a pure transient spike; and when the node
+            // is already within that many bytes of the RSS watermark, keeping
+            // it trips the parent breaker on the next sample. Either way the
+            // first query re-hydrates on demand (the pre-warm status quo).
+            let bound = stored_slices_bound(raw, expect_docs);
+            let rss_room = crate::governor::global().and_then(|g| {
+                let watermark = g.memory_watermark_bytes();
+                (watermark > 0).then(|| watermark.saturating_sub(g.observed_rss_bytes()))
+            });
+            if !publish_stored_warm_fits(&caches.budget, bound, rss_room) {
+                return None;
+            }
+            #[cfg(test)]
+            PUBLISH_STORED_WARM_DECODES.with(|n| n.set(n.get() + 1));
             let bytes = xerj_storage::stored_codec::decode_stored(raw).ok()?;
             if bytes.len() > u32::MAX as usize {
                 return None;

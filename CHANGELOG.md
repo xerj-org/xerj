@@ -47,6 +47,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Publishing a flushed or merged segment no longer decompresses its whole
+  stored section when the result cannot be kept. The publish-time warm now
+  sizes the stored slices from the section framing first and skips the warm
+  when the segment hydration cache has no room for them, or when keeping them
+  would carry the node to the memory watermark. Before, a merged segment's
+  section (hundreds of MB on the 1 GB autoindex gate) was decoded and then
+  refused, a transient spike that pushed ingesting nodes over the breaker.
+  Queries hydrate such a segment on demand, as before (#2427).
+
 - A node whose resting memory sits between the merge-pool ceiling and the
   memory watermark merges again. Every background merge's output write was
   refused there, so small batches were retried every 5 s without ever
