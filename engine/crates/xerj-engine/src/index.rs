@@ -12706,6 +12706,93 @@ impl Index {
         Ok(responses)
     }
 
+    /// Batch-index documents that carry caller-chosen `_id`s (#2427).
+    ///
+    /// `_bulk` used to publish every explicit-id `index` action through its
+    /// own [`Index::index_document`] call: one WAL lock and append, one deep
+    /// copy into the storage memtable, and one publication bracket per
+    /// document. At eight concurrent bulks the node used about two cores and
+    /// sat on those per-document locks. This runs the same group through the
+    /// [`Index::index_batch_turbo_raw`] batch instead and keeps the per-doc
+    /// answers the per-doc path gave:
+    ///
+    /// * every id is held in the write-publication registry (sorted, so two
+    ///   batches cannot deadlock) for the whole batch, so no other writer of
+    ///   these ids can change the version map in between;
+    /// * `created`/`updated` and the per-document `_version` are derived from
+    ///   the version map read under those locks, counting repeats of one id
+    ///   inside the batch in request order — the same values
+    ///   `VersionMap::set` assigns as the batch appends;
+    /// * default-format date validation still rejects a document on its own.
+    ///
+    /// The outer `Err` is a whole-batch failure (write block, breaker,
+    /// back-pressure); an inner `Err` belongs to that one document.
+    pub(crate) async fn index_batch_explicit_ids_raw(
+        &self,
+        docs: Vec<(String, Arc<[u8]>)>,
+    ) -> Result<Vec<Result<IndexResponse>>> {
+        let mut results: Vec<Option<Result<IndexResponse>>> =
+            (0..docs.len()).map(|_| None).collect();
+        let mut positions = Vec::with_capacity(docs.len());
+        let mut batch = Vec::with_capacity(docs.len());
+        let check_dates = self.has_date_fields.load(Ordering::Relaxed);
+        for (position, (id, bytes)) in docs.into_iter().enumerate() {
+            // One oversized document would fail the whole turbo batch; the
+            // per-doc path refused only that document, so refuse it here.
+            if xerj_common::document_limit::indexed_document_too_large(bytes.len()) {
+                results[position] = Some(Err(EngineError::Common(
+                    xerj_common::XerjError::invalid_document_json(
+                        xerj_common::document_limit::indexed_document_refusal(bytes.len()),
+                    ),
+                )));
+                continue;
+            }
+            if check_dates {
+                if let Ok(source) = serde_json::from_slice::<Value>(&bytes) {
+                    if let Err(e) = self.validate_default_format_dates(&source).await {
+                        results[position] = Some(Err(e));
+                        continue;
+                    }
+                }
+            }
+            positions.push(position);
+            batch.push((id, bytes));
+        }
+        if !batch.is_empty() {
+            let _publication_guards = self
+                .write_publication
+                .lock_many(batch.iter().map(|(id, _)| id.clone()))
+                .await;
+            // (live, version) per id before this batch, read under the locks.
+            let mut prior: HashMap<String, (bool, u64)> = HashMap::with_capacity(batch.len());
+            for (id, _) in &batch {
+                prior.entry(id.clone()).or_insert_with(|| {
+                    self.store
+                        .version_map
+                        .get(id)
+                        .map(|entry| (!entry.deleted, entry.version))
+                        .unwrap_or((false, 0))
+                });
+            }
+            self.dataset_version.fetch_add(1, Ordering::Release);
+            let responses = self.index_batch_turbo_raw(batch).await?;
+            for (position, mut response) in positions.into_iter().zip(responses) {
+                let (live, version) = prior
+                    .get_mut(&response.id)
+                    .expect("turbo responses keep the request ids");
+                response.result = if *live { "updated" } else { "created" }.to_string();
+                *version += 1;
+                *live = true;
+                response.version = *version;
+                results[position] = Some(Ok(response));
+            }
+        }
+        Ok(results
+            .into_iter()
+            .map(|result| result.expect("every document has a result"))
+            .collect())
+    }
+
     /// M5.11 — ULTRA-turbo raw-bytes ingest.
     ///
     /// Takes already-serialized NDJSON document lines, validates and parses
