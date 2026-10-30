@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A Nix flake: `nix run github:xerj-org/xerj` builds and runs `xerj` from
+  source, `nix build` produces it, and `nix develop` opens a shell with the
+  Rust toolchain. The package builds the engine and embeds the Console assets
+  with no network access during the build. (#2479)
 - `xerj autoindex map --html <FILE>` and `--md <FILE>` export an offline
   report with datasets, format counts, top symbols, graph file hubs,
   catalog exclusions and suggested searches. `--redact-paths` hides file
@@ -47,6 +51,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The per-index document version map is smaller and now visible in the
+  ingest memory trace. Its keys are `Box<str>` instead of `String`, which
+  saves 8 of 64 bytes per hash bucket and drops any spare capacity carried
+  in from the incoming id. The map's estimated heap (hash tables plus key
+  bytes) is reported as the new `version_map` category. On the 1 GB gate's
+  search node the map held ~0.5 GB that no budget saw. (#2427)
 - `_reindex` applies `source._source` field filtering to the documents it
   copies, so an excluded secret or large field no longer reaches the
   destination. `_source:false` is refused with ES's sentence, and a `script`
@@ -59,6 +69,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `_bulk` load a late heap profile had the two copies at ~470 MB of ~1.75 GB
   in use (#2427).
 
+- Publishing a flushed or merged segment no longer decompresses its whole
+  stored section when the result cannot be kept. The publish-time warm now
+  sizes the stored slices from the section framing first and skips the warm
+  when the segment hydration cache has no room for them, or when keeping them
+  would carry the node to the memory watermark. Before, a merged segment's
+  section (hundreds of MB on the 1 GB autoindex gate) was decoded and then
+  refused, a transient spike that pushed ingesting nodes over the breaker.
+  Queries hydrate such a segment on demand, as before (#2427).
+
+- `_bulk` requests of ordinary text and code are no longer refused with a
+  429 while the node has memory to spare. Each raw bulk reserved 28 bytes
+  per input byte for analysis, a rate sized for the densest text, so a bulk
+  of prose reserved about 3x and a bulk of code about 4x what parsing and
+  analyzing it allocates. The reservation now follows the estimated token
+  count of each document, and dense text keeps the old rate (Refs #2427).
+- `_bulk` admission no longer counts analysis memory twice. A held analyze reservation was added on top of live RSS even after its batch had allocated most of it, so a node with several bulks mid-analysis refused writes at about half its watermark. Held reservations are now counted from the RSS they were admitted at (Refs #2427).
 - A node whose resting memory sits between the merge-pool ceiling and the
   memory watermark merges again. Every background merge's output write was
   refused there, so small batches were retried every 5 s without ever
