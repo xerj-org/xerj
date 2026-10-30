@@ -8,15 +8,15 @@
   {
    "repo": "glass-winforms-messagebox",
    "url": "https://github.com/gcfernando/glass-winforms-messagebox",
-   "sha": "29e7e9e4fd133fbab77309de18b527605dae2b72",
-   "licence": "MIT (LICENSE file at pin 29e7e9e4fd13, GitHub licence API 2026-10-29)",
+   "sha": "d85ae945f59fa3419e48c60e3a0fc3ccb65bbf0e",
+   "licence": "MIT (LICENSE file at pin d85ae945f59f, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T19:31Z",
     "consent_receipt": "c8d31c53612c",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:31Z (receipt c8d31c53612c); pinned to the default-branch head. LICENSE file at pin 29e7e9e4fd13 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:31Z (receipt c8d31c53612c); pinned to the default-branch head. LICENSE file at pin d85ae945f59f detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
    }
   }
  ]

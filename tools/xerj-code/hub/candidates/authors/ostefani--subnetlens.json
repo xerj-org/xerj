@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on Go queries this for how ostefani/subnetlens implements it: A fast, concurrent open-source network scanner with a TUI and plain-text CLI, built in Go. It discovers live hosts on your network, scans th (selected work: scanner, ui)",
+ "domain": "an agent working on go, go-package, network queries this for how ostefani/subnetlens implements it: A fast, concurrent open-source network scanner with a TUI and plain-text CLI, built in Go. It discovers live hosts on your network, scans th (selected work: scanner, ui)",
  "repos": [
   {
    "repo": "subnetlens",

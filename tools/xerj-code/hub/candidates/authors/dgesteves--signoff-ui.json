@@ -8,15 +8,15 @@
   {
    "repo": "signoff-ui",
    "url": "https://github.com/dgesteves/signoff-ui",
-   "sha": "79b41ae53447ab791103256b2dfc020a3f66f9be",
-   "licence": "MIT (LICENSE file at pin 79b41ae53447, GitHub licence API 2026-10-30)",
+   "sha": "9912a5528f3226a37ed56f32b5f041a18a7f37de",
+   "licence": "MIT (LICENSE file at pin 9912a5528f32, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T20:38Z",
     "consent_receipt": "bb36bae46909",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:38Z (receipt bb36bae46909); pinned to the default-branch head. LICENSE file at pin 79b41ae53447 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:38Z (receipt bb36bae46909); pinned to the default-branch head. LICENSE file at pin 9912a5528f32 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
    }
   }
  ]

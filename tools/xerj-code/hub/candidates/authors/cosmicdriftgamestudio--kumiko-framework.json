@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on bun, config-driven, event-sourcing queries this for how CosmicDriftGameStudio/kumiko-framework implements it: Kumiko Framework declarative full-stack TypeScript framework (selected work: packages/bundled-features, packages/framework)",
+ "domain": "an agent working on bun, config-driven, event-sourcing queries this for how CosmicDriftGameStudio/kumiko-framework implements it: Backend framework for business software in TypeScript: schema, auth, roles, audit log, multi-tenancy and realtime from one feature declarati (selected work: packages/bundled-features, packages/framework)",
  "repos": [
   {
    "repo": "kumiko-framework",

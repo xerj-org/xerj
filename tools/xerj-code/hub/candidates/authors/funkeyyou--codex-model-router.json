@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on anthropic, claude, codex queries this for how funkeyyou/codex-model-router implements it: Codex \u591a\u6a21\u578b\u8def\u7531\uff1a\u5728 Codex Desktop \u4f7f\u7528 Claude\u3001\u7b2c\u4e09\u65b9 API \u548c\u81ea\u5b9a\u4e49\u6a21\u578b\u3002Local LLM proxy for OpenAI Responses / Chat Completions & Anthropic Messages; experimen (selected work: the project root, src, test)",
+ "domain": "an agent working on anthropic, claude, codex queries this for how funkeyyou/codex-model-router implements it: \u6a21\u578b\u8def\u7531\u5668\uff1a\u5728 Codex Desktop \u548c Claude Desktop \u4f7f\u7528 Claude\u3001\u7b2c\u4e09\u65b9 API \u4e0e\u81ea\u5b9a\u4e49\u6a21\u578b\u3002Local LLM proxy for Codex & Claude Desktop: OpenAI Responses / Chat Completi (selected work: the project root, src, test)",
  "repos": [
   {
    "repo": "codex-model-router",

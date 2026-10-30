@@ -1,0 +1,23 @@
+{
+ "corpus": "syedsenterprises--web3user-permission-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on TypeScript queries this for how syedsenterprises/Web3User-Permission-Lab implements it: A TypeScript prototype for evaluating transaction policies with ERC-20 calldata validation and security-focused tests (selected work: test, src)",
+ "repos": [
+  {
+   "repo": "Web3User-Permission-Lab",
+   "url": "https://github.com/syedsenterprises/Web3User-Permission-Lab",
+   "sha": "8e8d57e56efdca98d6c32b63dd7b7e4c9e8a561f",
+   "licence": "Apache-2.0 (LICENSE file at pin 8e8d57e56efd, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T18:11Z",
+    "consent_receipt": "811d550c121f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T18:11Z (receipt 811d550c121f); selected commit 8e8d57e56efd: \"feat(security): add monotonic witness adapter and fail-closed recover\u2026\". LICENSE file at pin 8e8d57e56efd detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

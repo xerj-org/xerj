@@ -1,0 +1,23 @@
+{
+ "corpus": "clinton-mwachia--fynance",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on expense-tracker, expenses, finance queries this for how clinton-mwachia/Fynance implements it: Open source Personal Finance desktop management Application (selected work: utils)",
+ "repos": [
+  {
+   "repo": "Fynance",
+   "url": "https://github.com/clinton-mwachia/Fynance",
+   "sha": "963248a1a0dd4093766ab32e31437cd625d3e22d",
+   "licence": "author's permission (LICENSE at pin 963248a1a0dd: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T17:39Z",
+    "consent_receipt": "e66256264e03",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T17:39Z (receipt e66256264e03); selected commit 963248a1a0dd: \"Fix: Port all util functions to sqlite\". LICENSE at pin 963248a1a0dd: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}
