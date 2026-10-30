@@ -28475,6 +28475,25 @@ impl Index {
 
     /// Flush the memtable to a new segment on disk, then build the FTS index.
     pub async fn flush(self: &Arc<Self>) -> Result<()> {
+        self.flush_with(FlushFanout::Parallel).await
+    }
+
+    /// [`Self::flush`] with one shard building at a time (#2427).
+    ///
+    /// A shard flush parses the drained documents, builds columns, postings
+    /// and the stored blocks, and none of that working set is charged to the
+    /// memtable budget. The parallel flush builds every non-empty shard at
+    /// once (bounded only by the finalize gate), so a breaker drain on a
+    /// 1,536 MB-capped node took RSS from 1,460 MB to 2,323 MB in about a
+    /// second while four shards built together. A memory-release caller
+    /// wants the peak bounded more than it wants the drain short: each
+    /// shard's segment publishes and its working set is freed before the
+    /// next shard starts.
+    pub async fn flush_one_shard_at_a_time(self: &Arc<Self>) -> Result<()> {
+        self.flush_with(FlushFanout::Serial).await
+    }
+
+    async fn flush_with(self: &Arc<Self>, fanout: FlushFanout) -> Result<()> {
         // #873: this flush is about to take whatever the memtable holds, so
         // every idle-probe observation about it is stale from here on. Clear
         // the pair at the ONE coordinator every flush path runs through
@@ -28538,6 +28557,7 @@ impl Index {
         // coordinator is not aborted (#1015).
         let coordinator = tokio::spawn(async move {
             let mut shard_futures = Vec::with_capacity(n_shards);
+            let mut result: Result<()> = Ok(());
             for shard_idx in 0..n_shards {
                 // #1226 — do not fan a finalize out for an EMPTY shard.
                 //
@@ -28571,7 +28591,9 @@ impl Index {
                 let shard_index_name = coordinator_name.clone();
                 #[cfg(test)]
                 let test_hook = flush_test_hook.clone();
-                shard_futures.push(tokio::spawn(async move {
+                let shard_task = tokio::spawn(async move {
+                    #[cfg(test)]
+                    let _in_flight = FlushShardProbe::enter(&shard_index_name).await;
                     let permit = match wait_for_flush_permit(
                         &shard_index_name,
                         "the flush semaphore",
@@ -28613,19 +28635,14 @@ impl Index {
                         let _ = guard.take();
                     }
                     result
-                }));
-            }
-            let mut result: Result<()> = Ok(());
-            for fut in shard_futures {
-                match fut.await {
-                    Ok(Ok(())) => {}
-                    Ok(Err(e)) => result = Err(e),
-                    Err(error) => {
-                        result = Err(EngineError::Common(xerj_common::XerjError::internal(
-                            format!("flush shard task failed: {error}"),
-                        )));
-                    }
+                });
+                match fanout {
+                    FlushFanout::Parallel => shard_futures.push(shard_task),
+                    FlushFanout::Serial => fold_shard_flush(&mut result, shard_task.await),
                 }
+            }
+            for fut in shard_futures {
+                fold_shard_flush(&mut result, fut.await);
             }
             // Publication completion must invalidate results even when the
             // request that initiated the flush was cancelled. The coordinator
@@ -36451,6 +36468,79 @@ struct FlushPublisherTestHook {
 #[cfg(test)]
 tokio::task_local! {
     static FLUSH_PUBLISHER_TEST_HOOK: FlushPublisherTestHook;
+}
+
+/// How [`Index::flush_with`] runs its shard flushes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FlushFanout {
+    /// Every non-empty shard at once (M5.15): the shortest flush.
+    Parallel,
+    /// One shard after another: the smallest uncharged working set (#2427).
+    Serial,
+}
+
+/// Keep the last shard error, as the parallel join always has.
+fn fold_shard_flush(
+    result: &mut Result<()>,
+    joined: std::result::Result<Result<()>, tokio::task::JoinError>,
+) {
+    match joined {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => *result = Err(e),
+        Err(error) => {
+            *result = Err(EngineError::Common(xerj_common::XerjError::internal(
+                format!("flush shard task failed: {error}"),
+            )));
+        }
+    }
+}
+
+/// Test-only count of shard-flush tasks in flight per index, with the peak.
+#[cfg(test)]
+static FLUSH_SHARD_PROBE: std::sync::LazyLock<
+    dashmap::DashMap<
+        String,
+        (
+            Arc<std::sync::atomic::AtomicUsize>,
+            Arc<std::sync::atomic::AtomicUsize>,
+        ),
+    >,
+> = std::sync::LazyLock::new(dashmap::DashMap::new);
+
+#[cfg(test)]
+pub(crate) struct FlushShardProbe(Arc<std::sync::atomic::AtomicUsize>);
+
+#[cfg(test)]
+impl FlushShardProbe {
+    /// Count this shard task in, then yield so sibling tasks of a parallel
+    /// flush get scheduled while it is still counted.
+    async fn enter(index: &str) -> Self {
+        use std::sync::atomic::Ordering;
+        let (in_flight, peak) = FLUSH_SHARD_PROBE
+            .entry(index.to_string())
+            .or_default()
+            .value()
+            .clone();
+        let now = in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+        peak.fetch_max(now, Ordering::SeqCst);
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        FlushShardProbe(in_flight)
+    }
+
+    /// Peak shard-flush tasks in flight at once for `index` so far.
+    pub(crate) fn peak(index: &str) -> usize {
+        FLUSH_SHARD_PROBE
+            .get(index)
+            .map(|e| e.value().1.load(std::sync::atomic::Ordering::SeqCst))
+            .unwrap_or(0)
+    }
+}
+
+#[cfg(test)]
+impl Drop for FlushShardProbe {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    }
 }
 
 // This deliberately remains a free function so background tasks can own every
