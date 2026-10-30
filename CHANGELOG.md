@@ -63,6 +63,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   body is refused before any work instead of silently copying the
   untransformed document (this build has no reindex script context).
 
+- The in-memory HNSW graph no longer stores every vector in one contiguous
+  buffer. That buffer doubled on growth, so near ~393K 384-dim vectors a
+  single 384 MiB -> 768 MiB realloc kept both copies live (~1.15 GB
+  transient) outside any memory accounting. Vectors now live in 4 MiB
+  chunks (no realloc copy, at most one chunk of slack), and the graph's
+  estimated heap is reported as the new `vector_graph` category in the
+  ingest memory trace. (#2427)
+
 - `_bulk` requests of ordinary text and code are no longer refused with a
   429 while the node has memory to spare. Each raw bulk reserved 28 bytes
   per input byte for analysis, a rate sized for the densest text, so a bulk

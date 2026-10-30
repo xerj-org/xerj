@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use regex::Regex;
@@ -10267,6 +10267,10 @@ pub struct Index {
     /// Optional HNSW index for dense-vector KNN search.
     /// Lazily created on first vector document insertion.
     pub hnsw: Arc<RwLock<Option<HnswIndex>>>,
+    /// Last observed `HnswIndex::heap_bytes` (#2427), refreshed under the
+    /// `hnsw` write guard on every insert and reload so the ingest-memory
+    /// sampler can read it without contending for the graph lock.
+    hnsw_heap_bytes: Arc<AtomicUsize>,
     /// Maps string doc-id → u64 node-id used by HNSW.
     hnsw_id_map: Arc<RwLock<HashMap<String, u64>>>,
     /// Maps u64 node-id → string doc-id (reverse of hnsw_id_map).
@@ -11178,6 +11182,7 @@ impl Index {
             test_segment_cache_publish_ready_mask: Arc::new(AtomicU64::new(0)),
             enrichments: Arc::new(RwLock::new(HashMap::new())),
             hnsw: Arc::new(RwLock::new(None)),
+            hnsw_heap_bytes: Arc::new(AtomicUsize::new(0)),
             hnsw_id_map: Arc::new(RwLock::new(HashMap::new())),
             hnsw_id_rev: Arc::new(RwLock::new(HashMap::new())),
             hnsw_next_id: Arc::new(AtomicU64::new(1)),
@@ -11643,6 +11648,9 @@ impl Index {
             schema_hash_cache: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             schema_hash_epoch: Arc::new(AtomicU64::new(0)),
             last_flush_doc_count: Arc::new(AtomicU64::new(0)),
+            hnsw_heap_bytes: Arc::new(AtomicUsize::new(
+                hnsw_init.as_ref().map_or(0, HnswIndex::heap_bytes),
+            )),
             hnsw: Arc::new(RwLock::new(hnsw_init)),
             hnsw_id_map: Arc::new(RwLock::new(id_map_init)),
             hnsw_id_rev: Arc::new(RwLock::new(id_rev_init)),
@@ -16659,7 +16667,10 @@ impl Index {
                 if let Some(old) = old_node {
                     hnsw.mark_deleted(old);
                 }
-                if let Err(e) = hnsw.insert(node_id, vector) {
+                let inserted = hnsw.insert(node_id, vector);
+                self.hnsw_heap_bytes
+                    .store(hnsw.heap_bytes(), Ordering::Relaxed);
+                if let Err(e) = inserted {
                     warn!(doc_id, error = %e, "HNSW insert failed");
                     return false;
                 }
@@ -21024,7 +21035,9 @@ impl Index {
         self.hnsw_stale
             .store(stale, std::sync::atomic::Ordering::Release);
         let nodes = loaded.graph.len();
+        let graph_bytes = loaded.graph.heap_bytes();
         *self.hnsw.write().await = Some(loaded.graph);
+        self.hnsw_heap_bytes.store(graph_bytes, Ordering::Relaxed);
         info!(
             nodes,
             stale, "HNSW reloaded from disk — skipping WAL replay rebuild"
@@ -28731,6 +28744,12 @@ impl Index {
 
     pub fn memtable_bytes(&self) -> usize {
         self.memtable.size_bytes()
+    }
+
+    /// Estimated heap held by this index's in-memory HNSW graph (#2427).
+    /// Lock-free: reads the value cached on the last insert/reload.
+    pub fn vector_graph_bytes(&self) -> usize {
+        self.hnsw_heap_bytes.load(Ordering::Relaxed)
     }
 
     /// Estimated heap held by this index's document version map (#2427).
