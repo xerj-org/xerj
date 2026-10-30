@@ -1,0 +1,23 @@
+{
+ "corpus": "vorjdux--txc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on base64, cli, command-line-tool queries this for how vorjdux/txc implements it: Offline text toolkit and encrypted secrets vault for the terminal. 143 operations for converting, encoding, hashing and generating text, plu (selected work: src/vault, fuzz, the project root)",
+ "repos": [
+  {
+   "repo": "txc",
+   "url": "https://github.com/vorjdux/txc",
+   "sha": "4b60d4cd201d28236f6eef29eab0945fda23facc",
+   "licence": "author's permission (LICENSE at pin 4b60d4cd201d: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T05:21Z",
+    "consent_receipt": "ca6b0e0a531d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T05:21Z (receipt ca6b0e0a531d); selected commit 4b60d4cd201d: \"Dependency policy, parser robustness, CI gates and reproducible releases\". LICENSE at pin 4b60d4cd201d: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "microchainlabs--microchain-zk-signers",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on account-abstraction, erc-1271, erc-4337 queries this for how MicrochainLabs/microchain-zk-signers implements it: MicrochainLabs/microchain-zk-signers (TypeScript) (selected work: contracts, the project root)",
+ "repos": [
+  {
+   "repo": "microchain-zk-signers",
+   "url": "https://github.com/MicrochainLabs/microchain-zk-signers",
+   "sha": "dba56e2f79be37a775075ae545c060b44f81d3c1",
+   "licence": "Apache-2.0 (LICENSE file at pin dba56e2f79be, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T05:59Z",
+    "consent_receipt": "29ea7537f869",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T05:59Z (receipt 29ea7537f869); selected commit dba56e2f79be: \"add trust boundaries to factroy and singleton contracts\". LICENSE file at pin dba56e2f79be detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}
