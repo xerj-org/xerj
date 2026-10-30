@@ -12,6 +12,7 @@ use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -21,6 +22,8 @@ pub(super) type Docs = BTreeMap<String, BTreeMap<String, Value>>;
 pub(super) struct MockEs {
     pub(super) url: String,
     pub(super) docs: Arc<Mutex<Docs>>,
+    /// `POST /{index}/_refresh` requests served (#2640).
+    pub(super) refreshes: Arc<AtomicU64>,
     stop: Arc<Mutex<bool>>,
     join: Option<thread::JoinHandle<()>>,
 }
@@ -32,14 +35,15 @@ impl MockEs {
         let url = format!("http://{}", listener.local_addr().unwrap());
         let docs: Arc<Mutex<Docs>> = Arc::default();
         let stop = Arc::new(Mutex::new(false));
-        let (sd, ss) = (Arc::clone(&docs), Arc::clone(&stop));
+        let refreshes: Arc<AtomicU64> = Arc::default();
+        let (sd, ss, sr) = (Arc::clone(&docs), Arc::clone(&stop), Arc::clone(&refreshes));
         let join = thread::spawn(move || loop {
             match listener.accept() {
                 Ok((stream, _)) => {
                     // BSD/macOS: accepted sockets inherit the listener's
                     // O_NONBLOCK; the handler does blocking reads.
                     stream.set_nonblocking(false).unwrap();
-                    handle(stream, &sd)
+                    handle(stream, &sd, &sr)
                 }
                 Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                     if *ss.lock().unwrap() {
@@ -53,6 +57,7 @@ impl MockEs {
         Self {
             url,
             docs,
+            refreshes,
             stop,
             join: Some(join),
         }
@@ -113,7 +118,7 @@ fn respond(mut stream: TcpStream, status: u16, body: &Value) {
     .unwrap();
 }
 
-fn handle(stream: TcpStream, docs: &Arc<Mutex<Docs>>) {
+fn handle(stream: TcpStream, docs: &Arc<Mutex<Docs>>, refreshes: &AtomicU64) {
     let clone = stream.try_clone().unwrap();
     let mut reader = BufReader::new(clone);
     let mut request_line = String::new();
@@ -141,6 +146,9 @@ fn handle(stream: TcpStream, docs: &Arc<Mutex<Docs>>) {
     let method = parts.next().unwrap_or("");
     let path = parts.next().unwrap_or("").to_string();
 
+    if method == "POST" && path.ends_with("/_refresh") {
+        refreshes.fetch_add(1, Ordering::SeqCst);
+    }
     if method == "POST" && path == "/_bulk" {
         return respond(stream, 200, &bulk(&body, docs));
     }
@@ -944,6 +952,88 @@ fn replaced_file_soft_invalidates_its_prior_edges() {
     assert!(
         g["edges_invalidated"].as_u64().unwrap() >= 1,
         "invalidation surfaced in the run summary: {g}"
+    );
+}
+
+/// #2640: `autoindex --fresh` after a branch switch supersedes most of the
+/// corpus's anchors at once. Invalidation used to run one
+/// `search → bulk → refresh` round per replaced file (and again per
+/// superseded anchor on `dst`), so a ~1k-file repo paid ~2k refreshes of the
+/// edges index and the phase took hours. The batched sweep must invalidate
+/// exactly the same edges with a constant number of refreshes, across more
+/// values than one `terms` slice and more hits than one bulk page.
+/// Fail-before: the per-value loop issues one refresh per value (600 here).
+#[test]
+fn batched_invalidation_matches_per_file_result_with_constant_refreshes() {
+    let es = MockEs::start();
+    let client = crate::esclient::Es::new(&es.url, None).unwrap();
+    let edges = ".xerj-memory-fresh2640-edges";
+    const FILES: usize = 600; // > SCAN_TERMS (256): several `terms` slices
+    const PER_FILE: usize = 3; // 1,800 hits > SCAN_PAGE (1,000): paged bulks
+    let mut store = BTreeMap::new();
+    let mut replaced: Vec<String> = Vec::new();
+    for f in 0..FILES {
+        let rel = format!("d/{f:04}.md");
+        for e in 0..PER_FILE {
+            store.insert(
+                format!("e-{f:04}-{e}"),
+                json!({"src_file": rel, "dst": format!("n-{e}"), "type": "links_to"}),
+            );
+        }
+        replaced.push(rel);
+    }
+    // Untouched: a surviving file's live edge, and an edge already
+    // invalidated by an earlier generation (its stamp must not move).
+    store.insert(
+        "keep".into(),
+        json!({"src_file": "kept.md", "dst": "n-0", "type": "links_to"}),
+    );
+    store.insert(
+        "old".into(),
+        json!({"src_file": "d/0000.md", "dst": "n-0", "type": "links_to",
+               "invalid_at": 5, "expired_at": 5}),
+    );
+    es.docs.lock().unwrap().insert(edges.to_string(), store);
+
+    let rels: Vec<&str> = replaced.iter().map(String::as_str).collect();
+    let now_ms = 1_800_000_000_000i64;
+    let n = detect::invalidate_edges_by_field_values(&client, edges, "src_file", &rels, now_ms)
+        .unwrap();
+    assert_eq!(n, (FILES * PER_FILE) as u64);
+    let after = es.index(edges);
+    for (id, doc) in &after {
+        match id.as_str() {
+            "keep" => assert!(doc.get("invalid_at").is_none(), "survivor stays live"),
+            "old" => assert_eq!(doc["invalid_at"], json!(5), "prior stamp kept"),
+            _ => {
+                assert_eq!(doc["invalid_at"], json!(now_ms), "{id} invalidated");
+                assert_eq!(doc["expired_at"], json!(now_ms), "{id} expired");
+            }
+        }
+    }
+    assert!(
+        es.refreshes.load(Ordering::SeqCst) <= 2,
+        "one refresh per sweep, not per file: {}",
+        es.refreshes.load(Ordering::SeqCst)
+    );
+
+    // The inbound (`dst`) half takes the same path; a second call is a no-op
+    // sweep over already-invalidated edges and refreshes nothing.
+    let before = es.refreshes.load(Ordering::SeqCst);
+    let again =
+        detect::invalidate_edges_by_field_values(&client, edges, "src_file", &rels, now_ms + 1)
+            .unwrap();
+    assert_eq!(again, 0);
+    assert_eq!(es.refreshes.load(Ordering::SeqCst), before);
+    let dst =
+        detect::invalidate_edges_by_field_values(&client, edges, "dst", &["n-0"], now_ms).unwrap();
+    assert_eq!(dst, 1, "only the surviving file's live edge points at n-0");
+    assert_eq!(es.index(edges)["keep"]["invalid_at"], json!(now_ms));
+    // An absent edges index holds nothing to invalidate.
+    assert_eq!(
+        detect::invalidate_edges_by_field_values(&client, ".missing-edges", "dst", &["x"], 1)
+            .unwrap(),
+        0
     );
 }
 
