@@ -266,6 +266,60 @@ pub fn analyze_reserve_bytes(raw_json_bytes: u64) -> u64 {
     raw_json_bytes.saturating_mul(ANALYZE_RESERVE_PER_INPUT_BYTE)
 }
 
+/// Bytes of reservation charged per byte of a packed `xerj:f32:` vector
+/// string (#2427).
+///
+/// A packed vector is one JSON string of lowercase hex, which no analyzer
+/// splits into tokens. Parsing keeps it as one `String` (one byte per input
+/// byte), and decoding it for the graph needs half a byte per input byte for
+/// the `Vec<f32>`. Two bytes per input byte covers both. The HNSW slab copy
+/// is reported separately as the `vector_graph` category.
+pub const ANALYZE_RESERVE_PER_PACKED_VECTOR_BYTE: u64 = 2;
+
+/// Reservation for one raw JSON document (#1122, #2427).
+///
+/// Text is charged [`ANALYZE_RESERVE_PER_INPUT_BYTE`]. The packed vectors
+/// that `semantic_text` ingest writes into the source (a 384-d vector is a
+/// 3,081-byte hex string, plus one per 512-byte chunk) are charged
+/// [`ANALYZE_RESERVE_PER_PACKED_VECTOR_BYTE`], because they never become
+/// tokens. Charging them as text made a gate-sized 8 MiB bulk reserve about
+/// 1.9 GB against a 2.9 GB watermark and 429 at 1.2 GB of RSS.
+///
+/// Only a well-formed packed string is discounted: the `xerj:f32:` prefix
+/// followed by a non-empty, multiple-of-8 run of lowercase hex up to the
+/// closing quote. Anything else, including text that merely starts with the
+/// prefix, keeps the text rate.
+pub fn analyze_reserve_bytes_for_doc(raw_json: &[u8]) -> u64 {
+    let packed = packed_vector_bytes(raw_json);
+    let text = (raw_json.len() as u64).saturating_sub(packed);
+    analyze_reserve_bytes(text)
+        .saturating_add(packed.saturating_mul(ANALYZE_RESERVE_PER_PACKED_VECTOR_BYTE))
+}
+
+/// Bytes of well-formed packed `xerj:f32:` string content in `raw_json`.
+fn packed_vector_bytes(raw_json: &[u8]) -> u64 {
+    const OPEN: &[u8] = b"\"xerj:f32:";
+    let finder = memchr::memmem::Finder::new(OPEN);
+    let mut packed = 0u64;
+    let mut at = 0usize;
+    while let Some(found) = finder.find(&raw_json[at..]) {
+        let content = at + found + 1;
+        let payload = content + OPEN.len() - 1;
+        let Some(close) = memchr::memchr(b'"', &raw_json[payload..]) else {
+            break;
+        };
+        let hex = &raw_json[payload..payload + close];
+        if !hex.is_empty()
+            && hex.len().is_multiple_of(8)
+            && hex.iter().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+        {
+            packed += (payload + close - content) as u64;
+        }
+        at = payload + close + 1;
+    }
+    packed
+}
+
 /// `true` when `request` bytes of analyze reservation still fit.
 ///
 /// A watermark of `0` is the disabled breaker: every request fits. Otherwise
@@ -2774,6 +2828,68 @@ mod tests {
         drop(second);
         drop(third);
         assert_eq!(governor.analyze_reserved.load(Ordering::Relaxed), 0);
+    }
+
+    /// A `semantic_text` row carries its pooled vector and one vector per
+    /// 512-byte chunk as packed hex strings. Those bytes never become
+    /// tokens, so they must not be charged the 28x text rate (#2427): the
+    /// gate's 8 MiB bulks reserved ~1.9 GB each and 429'd at 1.2 GB RSS.
+    #[test]
+    fn packed_vectors_are_not_charged_the_token_rate() {
+        let text = "quarterly revenue grew in the north region ".repeat(48);
+        let vector: Vec<f32> = (0..384).map(|i| (i as f32 * 0.37).sin()).collect();
+        let packed = xerj_common::packed_f32::pack_f32_vector(&vector).unwrap();
+        let chunks: Vec<&str> = std::iter::repeat_n(packed.as_str(), 5).collect();
+        let doc = serde_json::json!({
+            "body": text,
+            "body_vector": packed,
+            "body_vector_chunks": chunks,
+        });
+        let raw = serde_json::to_vec(&doc).unwrap();
+        let packed_bytes = 6 * packed.len() as u64;
+        let text_bytes = raw.len() as u64 - packed_bytes;
+        assert!(packed_bytes > 4 * text_bytes, "fixture is vector-heavy");
+
+        let reserve = analyze_reserve_bytes_for_doc(&raw);
+        assert_eq!(
+            reserve,
+            text_bytes * ANALYZE_RESERVE_PER_INPUT_BYTE
+                + packed_bytes * ANALYZE_RESERVE_PER_PACKED_VECTOR_BYTE,
+        );
+        // Before #2427 the whole row was charged as text: >4x more.
+        assert!(
+            reserve * 4 < analyze_reserve_bytes(raw.len() as u64),
+            "{reserve}"
+        );
+    }
+
+    /// Only a well-formed packed string is discounted. Prose that starts
+    /// with the prefix, odd-length or upper-case hex, and escaped quotes in
+    /// text all keep the text rate.
+    #[test]
+    fn malformed_packed_strings_keep_the_text_rate() {
+        for raw in [
+            br#"{"a":"xerj:f32: a a a a a a a a a a a a a a a a"}"#.as_slice(),
+            br#"{"a":"xerj:f32:0123456"}"#,
+            br#"{"a":"xerj:f32:0123456789ABCDEF"}"#,
+            br#"{"a":"xerj:f32:"}"#,
+            br#"{"a":"say \"xerj:f32:01234567\" twice"}"#,
+            br#"{"a":"xerj:f32:01234567"#,
+        ] {
+            assert_eq!(
+                analyze_reserve_bytes_for_doc(raw),
+                analyze_reserve_bytes(raw.len() as u64),
+                "{}",
+                String::from_utf8_lossy(raw)
+            );
+        }
+        let ok = br#"{"a":"xerj:f32:01234567","b":"xerj:f32:89abcdef89abcdef"}"#;
+        let packed = ("xerj:f32:01234567".len() + "xerj:f32:89abcdef89abcdef".len()) as u64;
+        assert_eq!(
+            analyze_reserve_bytes_for_doc(ok),
+            analyze_reserve_bytes(ok.len() as u64 - packed)
+                + packed * ANALYZE_RESERVE_PER_PACKED_VECTOR_BYTE
+        );
     }
 
     #[test]

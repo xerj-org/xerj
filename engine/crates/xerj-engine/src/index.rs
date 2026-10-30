@@ -29118,9 +29118,12 @@ impl Index {
         let Some(governor) = crate::governor::global() else {
             return Ok(crate::governor::AnalyzeReservation::none());
         };
-        let raw = docs.iter().map(|(_, bytes)| bytes.len() as u64).sum();
+        let reserve = docs
+            .iter()
+            .map(|(_, bytes)| crate::governor::analyze_reserve_bytes_for_doc(bytes))
+            .fold(0u64, u64::saturating_add);
         governor
-            .reserve_analyze(crate::governor::analyze_reserve_bytes(raw))
+            .reserve_analyze(reserve)
             .map_err(EngineError::Common)
     }
 
