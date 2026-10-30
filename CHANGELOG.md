@@ -47,6 +47,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A node whose resting memory sits between the merge-pool ceiling and the
+  memory watermark merges again. Every background merge's output write was
+  refused there, so small batches were retried every 5 s without ever
+  completing, and each retry decoded its inputs again. After three yields in
+  a row with nothing merged, a batch of at most 64 MB now checks its write
+  against the process memory limit instead of the merge-pool ceiling.
+  (Refs #2427)
+
 - A background merge no longer starts alone when its own memory reservation
   would carry the node past the merge-pool ceiling. It waits (at most 30 s)
   while the next batches are planned small enough to fit, so merging still
