@@ -1,0 +1,23 @@
+{
+ "corpus": "chrj--ssrf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Go queries this for how chrj/ssrf implements it: An SSRF validator for http.Transport",
+ "repos": [
+  {
+   "repo": "ssrf",
+   "url": "https://github.com/chrj/ssrf",
+   "sha": "8b727a14cce70b538cc85ffcdcf92bfb2591001a",
+   "licence": "MIT (LICENSE file at pin 8b727a14cce7, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T22:51Z",
+    "consent_receipt": "307f183a8d26",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt 307f183a8d26); pinned to the default-branch head. LICENSE file at pin 8b727a14cce7 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

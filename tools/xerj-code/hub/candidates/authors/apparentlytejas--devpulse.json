@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how ApparentlyTejas/DevPulse implements it: AI-powered engineering-ops platform: service monitoring, metrics, and incident management, exposed to Claude via MCP (selected work: backend)",
+ "domain": "an agent working on ai, fastapi, mcp queries this for how ApparentlyTejas/DevPulse implements it: AI-powered engineering-ops platform: service monitoring, metrics, and incident management, exposed to Claude via MCP (selected work: backend)",
  "repos": [
   {
    "repo": "DevPulse",

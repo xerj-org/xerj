@@ -1,0 +1,23 @@
+{
+ "corpus": "john-hole--cryptorobber",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on clicker-game, crypto, github-pages queries this for how John-Hole/CryptoRobber implements it: Mini-gioco web clicker a tema crypto realizzato in HTML, CSS e JavaScript con GitHub Pages",
+ "repos": [
+  {
+   "repo": "CryptoRobber",
+   "url": "https://github.com/John-Hole/CryptoRobber",
+   "sha": "adccb934ba08de7726164f10809acf398e7b3f08",
+   "licence": "MIT (LICENSE file at pin adccb934ba08, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:35Z",
+    "consent_receipt": "476396249908",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:35Z (receipt 476396249908); pinned to the default-branch head. LICENSE file at pin adccb934ba08 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

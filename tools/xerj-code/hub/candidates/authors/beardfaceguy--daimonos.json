@@ -1,0 +1,23 @@
+{
+ "corpus": "beardfaceguy--daimonos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how beardfaceguy/daimonos implements it: beardfaceguy/daimonos (Rust) (selected work: src/plugins, src, tests)",
+ "repos": [
+  {
+   "repo": "daimonos",
+   "url": "https://github.com/beardfaceguy/daimonos",
+   "sha": "a088a50f658881e8aeedfcb657b1603406cfaa7a",
+   "licence": "MIT (LICENSE file at pin a088a50f6588, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:18Z",
+    "consent_receipt": "a9bff0756365",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T21:18Z (receipt a9bff0756365); selected commit a088a50f6588: \"feat(#1573): finish hardened git_read and safety checks\". LICENSE file at pin a088a50f6588 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

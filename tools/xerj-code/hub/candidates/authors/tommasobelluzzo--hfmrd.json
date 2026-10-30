@@ -1,0 +1,23 @@
+{
+ "corpus": "tommasobelluzzo--hfmrd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on anti-fraud, financial-analysis, hedge-funds queries this for how TommasoBelluzzo/HFMRD implements it: A framework for detecting misreported returns in hedge funds",
+ "repos": [
+  {
+   "repo": "HFMRD",
+   "url": "https://github.com/TommasoBelluzzo/HFMRD",
+   "sha": "ce9c34d452fcbe932146ba35bf171240a507a8c8",
+   "licence": "Apache-2.0 (LICENSE file at pin ce9c34d452fc, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T22:48Z",
+    "consent_receipt": "45042cbaa2cc",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:48Z (receipt 45042cbaa2cc); pinned to the default-branch head. LICENSE file at pin ce9c34d452fc detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

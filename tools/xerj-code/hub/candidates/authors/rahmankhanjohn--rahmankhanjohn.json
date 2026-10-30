@@ -1,0 +1,23 @@
+{
+ "corpus": "rahmankhanjohn--rahmankhanjohn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cli-tools, cloud, devops queries this for how rahmankhanjohn/rahmankhanjohn implements it: Open-source CLI tools for cloud infrastructure: DNS failover measurement, K8s cost splitting, GitOps validation, and more",
+ "repos": [
+  {
+   "repo": "rahmankhanjohn",
+   "url": "https://github.com/rahmankhanjohn/rahmankhanjohn",
+   "sha": "de696ac45505421a882eab4b26f73456b43f79f4",
+   "licence": "author's permission (LICENSE at pin de696ac45505: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:25Z",
+    "consent_receipt": "a2cabe777cb4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:25Z (receipt a2cabe777cb4); pinned to the default-branch head. LICENSE at pin de696ac45505: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

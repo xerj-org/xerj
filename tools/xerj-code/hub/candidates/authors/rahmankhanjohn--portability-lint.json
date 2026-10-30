@@ -1,0 +1,23 @@
+{
+ "corpus": "rahmankhanjohn--portability-lint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cli, cloud-migration, kubernetes queries this for how rahmankhanjohn/portability-lint implements it: Find what would break if this moved to another cloud, before you promise anyone portability",
+ "repos": [
+  {
+   "repo": "portability-lint",
+   "url": "https://github.com/rahmankhanjohn/portability-lint",
+   "sha": "64c18cafc109590fcce482752c55d5f1c1dca695",
+   "licence": "MIT (LICENSE file at pin 64c18cafc109, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:22Z",
+    "consent_receipt": "0551896dd7f3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:22Z (receipt 0551896dd7f3); pinned to the default-branch head. LICENSE file at pin 64c18cafc109 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

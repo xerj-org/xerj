@@ -1,0 +1,23 @@
+{
+ "corpus": "john-hole--opera-restaurant",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on css3, github-pages, html5 queries this for how John-Hole/Opera-Restaurant implements it: Sito web vetrina per ristorante e gastronomia con design responsivo ospitato su GitHub Pages",
+ "repos": [
+  {
+   "repo": "Opera-Restaurant",
+   "url": "https://github.com/John-Hole/Opera-Restaurant",
+   "sha": "5f28dd769a3c80467f6769146b05723ed0c758a8",
+   "licence": "MIT (LICENSE file at pin 5f28dd769a3c, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:35Z",
+    "consent_receipt": "46fdb1afd225",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:35Z (receipt 46fdb1afd225); pinned to the default-branch head. LICENSE file at pin 5f28dd769a3c detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

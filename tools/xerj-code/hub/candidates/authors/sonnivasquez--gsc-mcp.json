@@ -1,0 +1,23 @@
+{
+ "corpus": "sonnivasquez--gsc-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, cursor, google-search-console queries this for how sonnivasquez/gsc-mcp implements it: Local Google Search Console MCP server for SEO analysis (selected work: src/tools, src, test)",
+ "repos": [
+  {
+   "repo": "gsc-mcp",
+   "url": "https://github.com/sonnivasquez/gsc-mcp",
+   "sha": "f0aa6d19926f7bd27e22064728b19a7f3252b29a",
+   "licence": "Apache-2.0 (LICENSE file at pin f0aa6d19926f, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:58Z",
+    "consent_receipt": "53776307b147",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T21:58Z (receipt 53776307b147); selected commit f0aa6d19926f: \"Credit Sonni Vasquez and rewrite the overlapping modules (#4)\". LICENSE file at pin f0aa6d19926f detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

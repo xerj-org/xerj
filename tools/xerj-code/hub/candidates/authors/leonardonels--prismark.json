@@ -1,0 +1,23 @@
+{
+ "corpus": "leonardonels--prismark",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how leonardonels/prismark implements it: Prismark is a vendor-neutral CPU benchmark for x86-64 and ARM64. It reports single-core, multi-core, sustained, cold-start latency and timin (selected work: pal, src/engine, cmake)",
+ "repos": [
+  {
+   "repo": "prismark",
+   "url": "https://github.com/leonardonels/prismark",
+   "sha": "8ae3f1a708e45ed8372ff07f60749f8b32c2b622",
+   "licence": "Apache-2.0 (LICENSE file at pin 8ae3f1a708e4, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:32Z",
+    "consent_receipt": "2e6770ba5f3a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T21:32Z (receipt 2e6770ba5f3a); selected commit 8ae3f1a708e4: \"macOS build tested on M2\". LICENSE file at pin 8ae3f1a708e4 detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

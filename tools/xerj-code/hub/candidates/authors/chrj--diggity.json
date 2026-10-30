@@ -1,0 +1,23 @@
+{
+ "corpus": "chrj--diggity",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Go queries this for how chrj/diggity implements it: A DNS troubleshooting tool",
+ "repos": [
+  {
+   "repo": "diggity",
+   "url": "https://github.com/chrj/diggity",
+   "sha": "47bdcdf710b73b7343dc67fb1c821d18642904ac",
+   "licence": "MIT (LICENSE file at pin 47bdcdf710b7, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T22:51Z",
+    "consent_receipt": "3b0e36ebde75",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt 3b0e36ebde75); pinned to the default-branch head. LICENSE file at pin 47bdcdf710b7 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}
