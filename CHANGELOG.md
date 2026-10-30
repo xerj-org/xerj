@@ -47,6 +47,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A cold full-text query no longer starts one background whole-section
+  stored decode per cold segment at once (refs #2427). On the 1 GB gate's
+  `pg-docs` (54 cold segments) one 5-hit query drove anon RSS from ~1.0 to
+  ~4.7 GB after it had returned, with most decodes refused by the hydration
+  budget at publish and thrown away. One background warm per index now runs
+  at a time, others are skipped, and a warm whose framing bound cannot fit
+  the hydration budget is not decoded. Query answers are unchanged.
+
 - Opt-in lexical `judge` now matches CJK characters and adjacent pairs inside
   uninterrupted Chinese/Japanese/Korean text instead of treating the whole
   run as one word (refs #2580). Single-character evidence is retained, pairs
