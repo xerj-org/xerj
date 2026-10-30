@@ -53,6 +53,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   copied the source into the storage memtable and opened a publication bracket
   per document. Per-item results are unchanged: `created`/`updated`, `_version`,
   and per-item date and size errors that keep their `_id`. (Refs #2427)
+- `xerj autoindex --fresh` over an already-indexed folder no longer pays one
+  edges-index search, bulk and refresh per replaced file (and again per
+  superseded anchor) to soft-invalidate prior relationship edges. The graph
+  phase now invalidates them in batched, terms-sliced sweeps with one refresh
+  per sweep. On a 1,050-file markdown corpus with 14,724 prior edges the
+  `--fresh` run went from 152.0 s to 26.7 s (edges refreshes 1,052 → 3), with
+  the same 14,724 edges invalidated (#2640).
 - A background merge no longer starts alone when its own memory reservation
   would carry the node past the merge-pool ceiling. It waits (at most 30 s)
   while the next batches are planned small enough to fit, so merging still
