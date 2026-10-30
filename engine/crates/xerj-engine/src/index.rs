@@ -5817,9 +5817,8 @@ mod merge_publication_transaction_tests {
     /// stopped.
     ///
     /// Same contract as `hand_driven_index`: the restart half of these tests
-    /// asserts on a recovered segment set, and `Index::open` schedules its
-    /// own open-time merge check too (`request_merge_check`, #871 — an
-    /// opened index may carry pre-existing merge debt).
+    /// asserts on a recovered segment set, and any flush after the reopen
+    /// arms a background merge check (#871).
     fn reopen_hand_driven(dir: &TempDir, name: &str) -> (Engine, Arc<Index>) {
         let engine = Engine::new(config(dir)).unwrap();
         let index = engine.get_index(name).unwrap();
@@ -6922,6 +6921,70 @@ mod merge_publication_transaction_tests {
                 index.is_merge_in_progress()
             );
         }
+    }
+
+    async fn seed_segments_for_reopen(dir: &TempDir, name: &str, segments: usize) {
+        let (engine, index) = hand_driven_index(dir, name, Schema::empty());
+        for n in 0..segments {
+            index
+                .index_document(Some(format!("d{n}")), serde_json::json!({"value": n}))
+                .await
+                .unwrap();
+            index.flush().await.unwrap();
+        }
+        assert_eq!(index.store.snapshot().segments.len(), segments);
+        drop(index);
+        drop(engine);
+    }
+
+    /// #2427 — a restarted node that receives no writes runs no catch-up
+    /// merges. In the 1 GB release gate every index on the restarted
+    /// search-only node merged its inherited segments a few seconds after
+    /// boot, while it served reads above the breaker watermark on a
+    /// 3,072 MB cap. On the old code the open-time
+    /// `request_merge_check` evaluates (and merges) within the 5 s
+    /// debounce, so the first assertion fails.
+    #[tokio::test(start_paused = true)]
+    async fn a_reopened_index_without_writes_runs_no_catch_up_merge() {
+        const SEGMENTS: usize = 6;
+        let dir = TempDir::new().unwrap();
+        seed_segments_for_reopen(&dir, "no-catchup", SEGMENTS).await;
+
+        // Background scheduling stays running: it is the subject.
+        let engine = Engine::new(config(&dir)).unwrap();
+        let index = engine.get_index("no-catchup").unwrap();
+        for _ in 0..30 {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(
+            index.merge_evaluation_count(),
+            0,
+            "a reopened index with no writes evaluated a merge"
+        );
+        assert!(!index.is_merge_in_progress());
+        assert_eq!(index.store.snapshot().segments.len(), SEGMENTS);
+        let docs = index
+            .search(&SearchRequest::default())
+            .await
+            .unwrap()
+            .total
+            .value;
+        assert_eq!(docs, SEGMENTS as u64);
+
+        // The first write pays the inherited debt.
+        index
+            .index_document(Some("w".into()), serde_json::json!({"value": "w"}))
+            .await
+            .unwrap();
+        index.flush().await.unwrap();
+        settle_merge_scheduler(&index).await;
+        assert!(index.merge_evaluation_count() >= 1);
+        assert!(
+            index.store.snapshot().segments.len() < SEGMENTS,
+            "the first write did not pay the inherited merge debt"
+        );
+        index.abort_background_tasks();
     }
 
     /// #871 — merge scheduling must be event-driven: after an index's merge
@@ -11628,12 +11691,20 @@ impl Index {
                     idx.on_segments_changed();
                 }
             })));
-        // An opened index can carry pre-existing merge debt — a crash
-        // mid-cascade, or merge config lowered since the segments were
-        // written — that no future event would pay off on a read-only
-        // index. Schedule one debounced check now; it quiesces after a
-        // single evaluation when there is nothing to do.
-        index.request_merge_check();
+        // #2427 — no open-time merge check. An opened index can carry
+        // merge debt (a crash mid-cascade, or merge config lowered since
+        // the segments were written). Paying it at open made every index
+        // on a restarted node evaluate (and merge) a few seconds after
+        // boot: in the 1 GB release gate the search-only node, which
+        // received no writes, started merging its inherited segments while
+        // it served reads above the breaker watermark. Merging exists to
+        // bound the segment count that writes create; the debt does not
+        // affect correctness, and the index's first segment-set change
+        // (a flush, a tombstone-only segment, orphan recovery) fires the
+        // segments-changed hook above, which evaluates it then. An
+        // operator who wants it paid on a read-only index runs
+        // `_forcemerge`. This supersedes #2492's open-time quiet period,
+        // which only delayed the same burst by 120 s.
         // RC4 W2 item 17: a flush-time-stale HNSW snapshot used to stay
         // stale for the rest of the process lifetime (ingest kept paying
         // full graph-maintenance cost while the ANN path never served).

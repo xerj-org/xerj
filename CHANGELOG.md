@@ -41,6 +41,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A restarted node that receives no writes no longer runs catch-up merges
+  when its indexes open. Inherited merge debt is now paid at the first
+  segment-set change (a flush, refresh or delete) or on `_forcemerge`. Before,
+  a search-only node in the 1 GB gate started merging straight after the
+  restart, while it was serving reads under the memory breaker. This
+  supersedes the 120 s open quiet period in #2492, which only delayed the
+  same merges (Refs #2427).
+
 - `xerj_batch_search` (and `xerj batch-search`): a batch whose combined `_msearch` response passes the 32 MiB cap no longer fails every item. The request is retried in halves, and only an item whose own response is over the cap fails, with `response_too_large`. (#2694)
 - `xerj autoindex` and `xerj autoindex map`: when the node is unreachable at a `localhost` URL, the error now also suggests the same URL with `127.0.0.1`, since the node binds the IPv4 loopback by default and `localhost` can resolve to `::1` first (seen on Windows). (#2688)
 - The node binds its ES-compat and REST listeners before it opens its
