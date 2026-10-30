@@ -8,15 +8,15 @@
   {
    "repo": "BeanTensor",
    "url": "https://github.com/GreenBean657/BeanTensor",
-   "sha": "6203bf5bde22c1a3f9c76f70ffcd1e775f55870a",
-   "licence": "MIT (LICENSE file at pin 6203bf5bde22, GitHub licence API 2026-10-26; repinned 2026-10-30 from orphaned 7ab3b774fbd6, identical tree 38e180e3)",
+   "sha": "7ab3b774fbd66ad7291dbf9a51790d8cab04f0ec",
+   "licence": "MIT (LICENSE file at pin 7ab3b774fbd6, GitHub licence API 2026-10-26)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-25T03:04Z",
     "consent_receipt": "351081212f30",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T03:04Z (receipt 351081212f30); selected commit 7ab3b774fbd6 (re-signed by the author as 6203bf5bde22, identical tree 38e180e3, #2700): \"add avx2 kernels, tensor move semantics, gpu integer conversions, and\u2026\". LICENSE file at pin 7ab3b774fbd6 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T03:04Z (receipt 351081212f30); selected commit 7ab3b774fbd6: \"add avx2 kernels, tensor move semantics, gpu integer conversions, and\u2026\". LICENSE file at pin 7ab3b774fbd6 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution."
    }
   }
  ]

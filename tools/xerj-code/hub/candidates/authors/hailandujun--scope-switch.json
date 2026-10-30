@@ -1,0 +1,23 @@
+{
+ "corpus": "hailandujun--scope-switch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how HaiLanDuJun/scope-switch implements it: \u9762\u5411 AI \u7f16\u7a0b\u5de5\u5177\u7684 Windows \u672c\u5730\u4ee3\u7406\u4e0e\u6d41\u91cf\u5206\u6d41\u7ba1\u7406\u9762\u677f",
+ "repos": [
+  {
+   "repo": "scope-switch",
+   "url": "https://github.com/HaiLanDuJun/scope-switch",
+   "sha": "91ca666084615ff03aaff907abaa306cfdcbe1d6",
+   "licence": "MIT (LICENSE file at pin 91ca66608461, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T03:57Z",
+    "consent_receipt": "2685c686dc7b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T03:57Z (receipt 2685c686dc7b); pinned to the default-branch head. LICENSE file at pin 91ca66608461 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

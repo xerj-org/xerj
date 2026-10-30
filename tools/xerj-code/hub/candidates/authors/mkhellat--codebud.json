@@ -8,15 +8,15 @@
   {
    "repo": "codebud",
    "url": "https://github.com/mkhellat/codebud",
-   "sha": "37f3158dea12b88b0e96356ae0560de4d95c2428",
-   "licence": "GPL-3.0 (LICENSE file at pin 37f3158dea12, GitHub licence API 2026-10-29)",
+   "sha": "07e5caf6584ee9b618d5b728910c6c78e21b5781",
+   "licence": "GPL-3.0 (LICENSE file at pin 07e5caf6584e, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-27T05:10Z",
     "consent_receipt": "a50e8b31956c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T05:10Z (receipt a50e8b31956c); selected commit 37f3158dea12: \"feat(agent): add agent modes enforced by SafetyEngine and Executor\". LICENSE file at pin 37f3158dea12 detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution. Pinned to head 37f3158dea12 (contains the selected commit): the LICENSE at the selected commit was NONE.",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T05:10Z (receipt a50e8b31956c); selected commit 07e5caf6584e: \"feat(agent): add agent modes enforced by SafetyEngine and Executor\". LICENSE file at pin 07e5caf6584e detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head 07e5caf6584e (contains the selected commit): the LICENSE at the selected commit was NONE.",
     "author_grant": {
      "terms": "MIT",
      "scope": "the author's own changes in the selected commit",
