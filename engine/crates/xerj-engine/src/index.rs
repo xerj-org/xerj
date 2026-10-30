@@ -46384,9 +46384,11 @@ fn check_buildable_query(
 /// only in an unsearchable field still matches when no field is named at all.
 /// `query_string {"query": "…"}` and a `more_like_this` with no `fields` both
 /// still return the document — and so does a *wildcard* spec in
-/// `query_string` / `simple_query_string`, because `fields: ["*"]` lowers to
-/// that same field-less `"*"` placeholder rather than to an expansion over the
-/// searchable fields. Measured, not assumed. That divergence from the FTS
+/// `query_string`, because `fields: ["*"]` lowers to that same field-less
+/// `"*"` placeholder rather than to an expansion over the searchable fields.
+/// (`simple_query_string` `["*"]` now lowers like an absent `fields` (#2427),
+/// so a flushed segment answers it from the FTS projection, which applies the
+/// searchable-field rule; only memtable documents still see the scan arm.) Measured, not assumed. That divergence from the FTS
 /// projection predates this change and is called out in its own comment in
 /// `doc_matches_query`; making it schema-aware means threading a schema
 /// through ~79 call sites and is left as its own change.
@@ -65831,5 +65833,100 @@ mod log_match_operator_tests {
             !hit_ids(&plain.search(&phrase).await.unwrap()).contains(&"is-only".to_string()),
             "the english analyzer already drops is, on a non-log index too"
         );
+    }
+}
+
+#[cfg(test)]
+mod sqs_wildcard_fields_2427_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// #2427 (raw-surface p95 ≈ 30 s on the 1 GB gate):
+    /// `simple_query_string {"fields": ["*"]}` must be answered from the
+    /// inverted index, exactly like the same query with no `fields` at all.
+    ///
+    /// FAIL-BEFORE (watched): on `main` the parser lowered `["*"]` to
+    /// `Match { field: "*" }`, which has no FTS projection, so every flushed
+    /// segment was answered by parsing its stored section — this test saw
+    /// `fts=0 stored_scans=8` (same 200 hits) — and on the gate corpus that walk is what ran
+    /// into the 30 s request deadline. The hit set is asserted too, so the
+    /// faster route cannot quietly change the answer.
+    #[tokio::test]
+    async fn wildcard_fields_simple_query_string_uses_the_inverted_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("title", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        engine.create_index("sqs2427", schema).unwrap();
+        let idx = engine.get_index("sqs2427").unwrap();
+
+        // Two segments: the term lives in `title` in one and in `body` in the
+        // other, so a projection onto a single field would under-match.
+        for i in 0..300 {
+            let (title, body) = match i % 3 {
+                0 => ("raft leader", "nothing here"),
+                1 => ("unrelated", "the raft election timed out"),
+                _ => ("unrelated", "nothing here"),
+            };
+            idx.index_document(
+                Some(format!("a{i}")),
+                json!({ "title": title, "body": body }),
+            )
+            .await
+            .unwrap();
+            if i == 149 {
+                idx.flush().await.unwrap();
+            }
+        }
+        idx.flush().await.unwrap();
+
+        let run = |q: serde_json::Value| {
+            let idx = idx.clone();
+            async move {
+                SEG_FTS_HANDLED.with(|c| c.set(0));
+                SEG_STORED_SCANS.with(|c| c.set(0));
+                let req = xerj_query::parse_request(&json!({
+                    "size": 5, "track_total_hits": true, "query": q
+                }))
+                .unwrap();
+                let res = idx.search(&req).await.unwrap();
+                let fts = SEG_FTS_HANDLED.with(|c| c.get());
+                let scans = SEG_STORED_SCANS.with(|c| c.get());
+                (res.total.value, fts, scans)
+            }
+        };
+
+        let (total_star, fts, scans) = run(json!({"simple_query_string": {
+            "query": "raft", "fields": ["*"], "lenient": true
+        }}))
+        .await;
+        assert_eq!(
+            total_star, 200,
+            "every document with `raft` in title OR body must match"
+        );
+        assert!(
+            fts > 0 && scans == 0,
+            "#2427: `fields: [\"*\"]` must be served by the FTS path on every \
+             segment, not by the stored-section scan: fts={fts} stored_scans={scans}"
+        );
+
+        // Same answer as the field-less spelling ES treats it as.
+        let (total_none, _, _) = run(json!({"simple_query_string": {"query": "raft"}})).await;
+        assert_eq!(total_star, total_none);
+
+        // Multi-token, the gate's raw-surface shape.
+        let (total_multi, fts, scans) = run(json!({"simple_query_string": {
+            "query": "leader election", "fields": ["*"], "lenient": true
+        }}))
+        .await;
+        assert_eq!(total_multi, 200);
+        assert!(fts > 0 && scans == 0, "fts={fts} stored_scans={scans}");
     }
 }

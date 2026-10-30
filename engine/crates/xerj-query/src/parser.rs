@@ -2857,6 +2857,31 @@ fn make_simple_query_node(
                 lenient,
             }
         }
+    } else if targets_every_field(fields) {
+        // No fields, or the bare `"*"` pattern (#2427). ES reads `["*"]` as
+        // "every searchable field" — it is also what an absent `fields`
+        // falls back to (`index.query.default_field` defaults to `*`) — so
+        // both spellings lower to the same field-less placeholder, which the
+        // engine projects onto every mapped text field of each segment's
+        // inverted index.
+        //
+        // `["*"]` used to lower to `Match { field: "*" }` instead. No FTS
+        // projection exists for a literal `"*"` field, so that node forced
+        // the per-document stored-section scan on EVERY segment: on the
+        // 1 GB autoindex gate one 5-hit query walked ~1.2M stored docs in
+        // pg-docs and ran into the 30 s request deadline (raw-surface p95
+        // 30.1 s). A `"*^2"` boost has no field to attach to on this node
+        // and is dropped, as it is for the phrase placeholder below.
+        //
+        // Quoted phrases keep their own arm above: the field-less
+        // placeholder is bag-of-words on the FTS path, so routing a phrase
+        // through it would loosen phrase matching.
+        QueryNode::QueryString {
+            query: term.to_string(),
+            default_field: None,
+            default_operator: None,
+            boost: None,
+        }
     } else if fields.len() == 1 {
         QueryNode::Match {
             field: fields[0].clone(),
@@ -2866,14 +2891,6 @@ fn make_simple_query_node(
             boost: None,
             minimum_should_match: None,
             lenient,
-        }
-    } else if fields.is_empty() {
-        // No fields specified — use a match_all-like placeholder.
-        QueryNode::QueryString {
-            query: term.to_string(),
-            default_field: None,
-            default_operator: None,
-            boost: None,
         }
     } else {
         QueryNode::MultiMatch {
