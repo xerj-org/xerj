@@ -4521,6 +4521,15 @@ impl Engine {
             .sum()
     }
 
+    /// Sum of every open index's version-map estimate (#2427), reported as
+    /// the `version_map` ingest-memory category.
+    pub fn total_version_map_bytes(&self) -> u64 {
+        self.indices
+            .iter()
+            .map(|e| e.value().version_map_bytes() as u64)
+            .sum()
+    }
+
     /// Memory-pressure drain (issue #948): flush every loaded index's
     /// memtable, then release its rebuildable caches via
     /// [`crate::index::Index::release_memory`], then hand the freed pages

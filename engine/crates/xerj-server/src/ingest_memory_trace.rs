@@ -147,6 +147,7 @@ fn refresh_snapshot_state(engine: &Engine) {
     refresh_snapshot_state_with(
         engine.total_memtable_bytes(),
         engine.total_vector_graph_bytes(),
+        engine.total_version_map_bytes(),
         allocator_snapshot(),
         xerj_engine::governor::current_rss_bytes(),
         process_cpu_time_ns(),
@@ -156,6 +157,7 @@ fn refresh_snapshot_state(engine: &Engine) {
 fn refresh_snapshot_state_with(
     memtable_bytes: u64,
     vector_graph_bytes: u64,
+    version_map_bytes: u64,
     allocator: AllocatorSnapshot,
     rss: u64,
     cpu_time_ns: Option<u64>,
@@ -167,6 +169,10 @@ fn refresh_snapshot_state_with(
     LEDGER.observe(
         ingest_memory::Category::VectorGraph,
         vector_graph_bytes as usize,
+    );
+    LEDGER.observe(
+        ingest_memory::Category::VersionMap,
+        version_map_bytes as usize,
     );
     let process = ProcessSnapshot {
         rss: (rss != 0).then_some(rss),
@@ -382,6 +388,7 @@ mod tests {
         refresh_snapshot_state_with(
             0,
             4096,
+            2048,
             AllocatorSnapshot {
                 allocated: Some(11),
                 active: Some(12),
@@ -403,6 +410,11 @@ mod tests {
             ingest_memory::Measurement::Estimated,
         );
         assert_eq!(vector_graph.current, 4096);
+        let version_map = LEDGER.gauge(
+            ingest_memory::Category::VersionMap,
+            ingest_memory::Measurement::Estimated,
+        );
+        assert_eq!(version_map.current, 2048);
     }
 
     #[cfg(unix)]
