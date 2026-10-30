@@ -54,6 +54,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a row with nothing merged, a batch of at most 64 MB now checks its write
   against the process memory limit instead of the merge-pool ceiling.
   (Refs #2427)
+- `_bulk` throughput with explicit `_id`s: `index` actions that carry an `_id`
+  (and prepared `semantic_text` documents) are now published as one batch per
+  index instead of one `index_document` call each, which took the WAL lock,
+  copied the source into the storage memtable and opened a publication bracket
+  per document. Per-item results are unchanged: `created`/`updated`, `_version`,
+  and per-item date and size errors that keep their `_id`. (Refs #2427)
 - `xerj autoindex --fresh` over an already-indexed folder no longer pays one
   edges-index search, bulk and refresh per replaced file (and again per
   superseded anchor) to soft-invalidate prior relationship edges. The graph
