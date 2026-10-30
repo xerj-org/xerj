@@ -47,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The per-index document version map is smaller and now visible in the
+  ingest memory trace. Its keys are `Box<str>` instead of `String`, which
+  saves 8 of 64 bytes per hash bucket and drops any spare capacity carried
+  in from the incoming id. The map's estimated heap (hash tables plus key
+  bytes) is reported as the new `version_map` category. On the 1 GB gate's
+  search node the map held ~0.5 GB that no budget saw. (#2427)
 - `_reindex` applies `source._source` field filtering to the documents it
   copies, so an excluded secret or large field no longer reaches the
   destination. `_source:false` is refused with ES's sentence, and a `script`
@@ -59,6 +65,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lock. A bulk batch plans its inserts in parallel on the ingest pool, and
   concurrent batches into one index no longer queue behind each other's
   inserts (#2427).
+
+- `_bulk` requests of ordinary text and code are no longer refused with a
+  429 while the node has memory to spare. Each raw bulk reserved 28 bytes
+  per input byte for analysis, a rate sized for the densest text, so a bulk
+  of prose reserved about 3x and a bulk of code about 4x what parsing and
+  analyzing it allocates. The reservation now follows the estimated token
+  count of each document, and dense text keeps the old rate (Refs #2427).
+- `_bulk` admission no longer counts analysis memory twice. A held analyze reservation was added on top of live RSS even after its batch had allocated most of it, so a node with several bulks mid-analysis refused writes at about half its watermark. Held reservations are now counted from the RSS they were admitted at (Refs #2427).
 - A node whose resting memory sits between the merge-pool ceiling and the
   memory watermark merges again. Every background merge's output write was
   refused there, so small batches were retried every 5 s without ever
