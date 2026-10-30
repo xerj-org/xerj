@@ -36,6 +36,7 @@ mod node_lock;
 pub mod painless;
 pub mod pools;
 pub mod rbac;
+pub mod read_budget;
 pub mod secret_hash;
 pub mod segment_cache_budget;
 pub mod segment_cache_estimates;
