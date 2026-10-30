@@ -331,7 +331,7 @@ mod chunk_tests {
             let got = t.split('\n').count() as u64;
             assert_eq!(e - s + 1, got, "record {s}..{e} holds {got} lines");
             assert!(
-                t.split('\n').last() == Some(lines[*e as usize - 1].as_str()),
+                t.split('\n').next_back() == Some(lines[*e as usize - 1].as_str()),
                 "end_line {e} must be the record's last line"
             );
         }
