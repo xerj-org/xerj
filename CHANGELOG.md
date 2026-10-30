@@ -53,6 +53,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   turn ingest into HTTP 429s. The relief for a search node resting between the
   merge-pool ceiling and the watermark is kept (#2427).
 
+- The per-index document version map is smaller and now visible in the
+  ingest memory trace. Its keys are `Box<str>` instead of `String`, which
+  saves 8 of 64 bytes per hash bucket and drops any spare capacity carried
+  in from the incoming id. The map's estimated heap (hash tables plus key
+  bytes) is reported as the new `version_map` category. On the 1 GB gate's
+  search node the map held ~0.5 GB that no budget saw. (#2427)
 - `_reindex` applies `source._source` field filtering to the documents it
   copies, so an excluded secret or large field no longer reaches the
   destination. `_source:false` is refused with ES's sentence, and a `script`

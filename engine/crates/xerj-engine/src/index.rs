@@ -28733,6 +28733,11 @@ impl Index {
         self.memtable.size_bytes()
     }
 
+    /// Estimated heap held by this index's document version map (#2427).
+    pub fn version_map_bytes(&self) -> usize {
+        self.store.version_map.heap_bytes()
+    }
+
     /// Retained JSON-heap estimate of every live memtable source. Test-only
     /// so a regression can bound #1940 without sampling process RSS.
     #[cfg(test)]
