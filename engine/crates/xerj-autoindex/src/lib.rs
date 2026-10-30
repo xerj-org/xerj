@@ -33,6 +33,7 @@ pub mod infer;
 pub mod init;
 /// `--label`: ingest-time labelling through the node's `/_decide` (#1062).
 pub mod label;
+pub mod map_report;
 pub mod memory_cli;
 pub mod neural_cost;
 pub mod objsource;
@@ -13389,6 +13390,7 @@ fn run_remove(cfg: cli::RemoveCfg) -> Result<i32> {
 }
 
 fn run_map(cfg: MapCfg) -> Result<i32> {
+    let report_stage = cfg.report.as_ref().map(map_report::prepare).transpose()?;
     if let Some(note) = &cfg.xerj_url_note {
         eprintln!("autoindex: {note}");
     }
@@ -13576,6 +13578,13 @@ fn run_map(cfg: MapCfg) -> Result<i32> {
     if let Some(prefix) = cfg.prefix.as_deref() {
         junk_files.retain(|f| catalog::file_matches_prefix(f, prefix));
         duplicate_files.retain(|f| catalog::file_matches_prefix(f, prefix));
+    }
+    if let Some(output) = &cfg.report {
+        let report =
+            map_report::Report::collect(&es, &runs, &datasets, &junk_files, output.redact_paths);
+        report.publish(report_stage.expect("report staging was prepared"), output)?;
+        println!("report: {}", output.path.display());
+        return Ok(0);
     }
     if cfg.json {
         let (start, end) =

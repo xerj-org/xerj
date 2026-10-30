@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `xerj autoindex map --html <FILE>` and `--md <FILE>` export an offline
+  report with datasets, format counts, top symbols, graph file hubs,
+  catalog exclusions and suggested searches. `--redact-paths` hides file
+  paths and skip reasons. Existing files are never overwritten; ordinary
+  map and JSON output retain their behavior (#2643).
+
 - `xerj autoindex --exclude <glob>` leaves matching paths out of the index
   without editing an ignore file or deleting anything. Repeatable, same glob
   syntax as `--stub` — a pattern without `/` matches a file name at any depth,
@@ -42,6 +48,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Search under a memory cap: when the segment hydration cache is full, a query that has to build a segment's stored slices or FTS reader outside the cache now reserves that memory from a separate read budget (`XERJ_READ_TRANSIENT_MB`, default a tenth of `XERJ_MAX_PROCESS_MEMORY_MB`). It waits up to `XERJ_READ_TRANSIENT_WAIT_MS` (default 5 s) for room instead of stacking whole decompressed sections on top of each other. Background cache warms that the full cache would refuse are skipped. While the memory breaker is engaged, its drain still flushes and purges on every tick but releases the read caches at most once per `XERJ_BREAKER_CACHE_RELEASE_SECS` (default 30 s), so queries no longer re-hydrate cold every two seconds. `GET /_nodes/stats` reports the budget under `indices.read_transient_budget`. (Refs #2427, #1122)
+- Opt-in lexical `judge` now matches CJK characters and adjacent pairs inside
+  uninterrupted Chinese/Japanese/Korean text instead of treating the whole
+  run as one word (refs #2580). Single-character evidence is retained, pairs
+  add adjacency evidence, and non-CJK word tokenization stays unchanged.
+  This changes judged CJK scores/threshold outcomes; it does not change the
+  first-stage analyzer or recover candidates absent from its result page.
+
 - `xerj corpus --help`, `xerj autoindex --help` (`--watch`) and the XERJ.code README now say that corpora and folders do not follow their git remotes, and give the refresh recipe: `git pull` in each checkout, re-run `xerj corpus add` so `corpus.json` records the new commit, then `xerj corpus index`. (#2416)
 - `xerj_batch_search` (and `xerj batch-search`): a batch whose combined `_msearch` response passes the 32 MiB cap no longer fails every item. The request is retried in halves, and only an item whose own response is over the cap fails, with `response_too_large`. (#2694)
 - `xerj autoindex` and `xerj autoindex map`: when the node is unreachable at a `localhost` URL, the error now also suggests the same URL with `127.0.0.1`, since the node binds the IPv4 loopback by default and `localhost` can resolve to `::1` first (seen on Windows). (#2688)
