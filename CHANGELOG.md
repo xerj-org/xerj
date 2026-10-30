@@ -54,6 +54,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   per sweep. On a 1,050-file markdown corpus with 14,724 prior edges the
   `--fresh` run went from 152.0 s to 26.7 s (edges refreshes 1,052 → 3), with
   the same 14,724 edges invalidated (#2640).
+- A background merge no longer starts alone when its own memory reservation
+  would carry the node past the merge-pool ceiling. It waits (at most 30 s)
+  while the next batches are planned small enough to fit, so merging still
+  makes progress without the overshoot behind the 1 GB gate's 3.5 GB ingest
+  peak on a 3,072 MB cap (Refs #2427).
 - Search under a memory cap: when the segment hydration cache is full, a query that has to build a segment's stored slices or FTS reader outside the cache now reserves that memory from a separate read budget (`XERJ_READ_TRANSIENT_MB`, default a tenth of `XERJ_MAX_PROCESS_MEMORY_MB`). It waits up to `XERJ_READ_TRANSIENT_WAIT_MS` (default 5 s) for room instead of stacking whole decompressed sections on top of each other. Background cache warms that the full cache would refuse are skipped. While the memory breaker is engaged, its drain still flushes and purges on every tick but releases the read caches at most once per `XERJ_BREAKER_CACHE_RELEASE_SECS` (default 30 s), so queries no longer re-hydrate cold every two seconds. `GET /_nodes/stats` reports the budget under `indices.read_transient_budget`. (Refs #2427, #1122)
 - Opt-in lexical `judge` now matches CJK characters and adjacent pairs inside
   uninterrupted Chinese/Japanese/Korean text instead of treating the whole
@@ -64,7 +69,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `xerj corpus --help`, `xerj autoindex --help` (`--watch`) and the XERJ.code README now say that corpora and folders do not follow their git remotes, and give the refresh recipe: `git pull` in each checkout, re-run `xerj corpus add` so `corpus.json` records the new commit, then `xerj corpus index`. (#2416)
 - `xerj_batch_search` (and `xerj batch-search`): a batch whose combined `_msearch` response passes the 32 MiB cap no longer fails every item. The request is retried in halves, and only an item whose own response is over the cap fails, with `response_too_large`. (#2694)
-
 - `xerj autoindex` and `xerj autoindex map`: when the node is unreachable at a `localhost` URL, the error now also suggests the same URL with `127.0.0.1`, since the node binds the IPv4 loopback by default and `localhost` can resolve to `::1` first (seen on Windows). (#2688)
 - The node binds its ES-compat and REST listeners before it opens its
   indices, and on plain-HTTP ports answers every request with
