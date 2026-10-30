@@ -47,6 +47,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `_bulk` requests of ordinary text and code are no longer refused with a
+  429 while the node has memory to spare. Each raw bulk reserved 28 bytes
+  per input byte for analysis, a rate sized for the densest text, so a bulk
+  of prose reserved about 3x and a bulk of code about 4x what parsing and
+  analyzing it allocates. The reservation now follows the estimated token
+  count of each document, and dense text keeps the old rate (Refs #2427).
+
 - A node whose resting memory sits between the merge-pool ceiling and the
   memory watermark merges again. Every background merge's output write was
   refused there, so small batches were retried every 5 s without ever

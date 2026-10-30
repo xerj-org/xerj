@@ -266,6 +266,70 @@ pub fn analyze_reserve_bytes(raw_json_bytes: u64) -> u64 {
     raw_json_bytes.saturating_mul(ANALYZE_RESERVE_PER_INPUT_BYTE)
 }
 
+/// Bytes of analyze-time reservation charged per estimated token (#2427).
+///
+/// The same `document_limit` measurement as
+/// [`ANALYZE_RESERVE_PER_INPUT_BYTE`]: about 56 bytes of RSS per token. A
+/// token is a `Token` (a `String` plus three `u32`s) in a growing `Vec`, plus
+/// the token text on the heap.
+pub const ANALYZE_RESERVE_PER_TOKEN: u64 = 56;
+
+/// Bytes of analyze-time reservation charged per raw JSON input byte on top
+/// of the per-token charge (#2427): the parsed `serde_json::Value` (string
+/// bodies, map keys and nodes) and the copy of each text field the analyzer
+/// reads.
+pub const ANALYZE_RESERVE_PER_INPUT_BYTE_BASE: u64 = 4;
+
+/// Upper bound on the analyzer tokens `raw_json` can produce (#2427).
+///
+/// Counts runs of ASCII letters and digits, plus one token per non-ASCII
+/// character (the standard tokenizer emits one token per CJK ideograph). Map
+/// keys, numbers, `_` and `.` all start or split runs here, which the
+/// analyzer joins or never analyzes, so the count errs high. A packed
+/// `xerj:f32:` vector is one run of hex, matching the one string the parser
+/// keeps for it.
+pub fn estimated_analyzer_tokens(raw_json: &[u8]) -> u64 {
+    let mut tokens = 0u64;
+    let mut in_run = false;
+    for &b in raw_json {
+        if b >= 0xC0 {
+            // UTF-8 lead byte: count every non-ASCII character.
+            tokens += 1;
+            in_run = true;
+        } else if b >= 0x80 {
+            // UTF-8 continuation byte: same character.
+            in_run = true;
+        } else if b.is_ascii_alphanumeric() {
+            if !in_run {
+                tokens += 1;
+            }
+            in_run = true;
+        } else {
+            in_run = false;
+        }
+    }
+    tokens
+}
+
+/// Reservation for one raw JSON document (#1122, #2427).
+///
+/// [`ANALYZE_RESERVE_PER_TOKEN`] per [`estimated_analyzer_tokens`] plus
+/// [`ANALYZE_RESERVE_PER_INPUT_BYTE_BASE`] per byte, capped at the old flat
+/// [`ANALYZE_RESERVE_PER_INPUT_BYTE`] rate. The flat rate assumed the densest
+/// input (one token per two bytes) for every document, so a bulk of prose
+/// reserved about 3x and a bulk of code about 4x what parsing and analyzing
+/// it allocates (`tests/analyze_reservation_matches_usage.rs`). Four 8 MiB
+/// bulks in flight reserved 1.4 GB while RSS was 1.46 GB, and the gate's
+/// bulks were refused long before real memory was short. Dense input still
+/// reserves the flat rate.
+pub fn analyze_reserve_bytes_for_doc(raw_json: &[u8]) -> u64 {
+    let len = raw_json.len() as u64;
+    estimated_analyzer_tokens(raw_json)
+        .saturating_mul(ANALYZE_RESERVE_PER_TOKEN)
+        .saturating_add(len.saturating_mul(ANALYZE_RESERVE_PER_INPUT_BYTE_BASE))
+        .min(analyze_reserve_bytes(len))
+}
+
 /// `true` when `request` bytes of analyze reservation still fit.
 ///
 /// A watermark of `0` is the disabled breaker: every request fits. Otherwise
@@ -485,7 +549,8 @@ impl ResourceGovernor {
 
     /// Reserve `bytes` of upcoming analysis allocations (#1122).
     ///
-    /// Callers pass [`analyze_reserve_bytes`] of the raw JSON, before the
+    /// Callers pass [`analyze_reserve_bytes_for_doc`] summed over the raw JSON
+    /// documents, before the
     /// batch is parsed. The check uses the max of the sampled RSS and a live
     /// probe, plus reservations already held, and rechecks after the atomic
     /// add so two bulks cannot both pass the same snapshot. A watermark of
@@ -2729,6 +2794,30 @@ mod tests {
             None
         );
         assert_eq!(available_memory_startup_line(Some(GIB), 125 * GIB, 0), None);
+    }
+
+    /// #2427: the reservation follows token density instead of charging every
+    /// byte as if it were the densest text. Dense text keeps the flat rate.
+    #[test]
+    fn analyze_reservation_follows_token_density_2427() {
+        assert_eq!(estimated_analyzer_tokens(b"{\"body\":\"a a a\"}"), 4);
+        assert_eq!(estimated_analyzer_tokens("\u{4e2d}\u{6587}".as_bytes()), 2);
+        assert_eq!(estimated_analyzer_tokens(b"\"deadbeef0123abcd\""), 1);
+        assert_eq!(estimated_analyzer_tokens(b"foo\\nbar_baz 3.14"), 5);
+
+        let dense = format!("{{\"body\":\"{}\"}}", "a ".repeat(4096));
+        assert_eq!(
+            analyze_reserve_bytes_for_doc(dense.as_bytes()),
+            analyze_reserve_bytes(dense.len() as u64)
+        );
+
+        let prose = format!(
+            "{{\"body\":\"{}\"}}",
+            "the quick brown fox jumps over lazy dogs ".repeat(100)
+        );
+        let reserve = analyze_reserve_bytes_for_doc(prose.as_bytes());
+        assert!(reserve * 3 < analyze_reserve_bytes(prose.len() as u64) * 2);
+        assert!(reserve >= prose.len() as u64 * ANALYZE_RESERVE_PER_INPUT_BYTE_BASE);
     }
 
     #[test]
