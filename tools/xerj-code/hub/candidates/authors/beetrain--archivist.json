@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on JavaScript queries this for how BeeTrain/archivist implements it: Claude Code plugin that learns from each agent task and records commands, pitfalls and decisions as project docs (selected work: test, plugin, src/core)",
+ "domain": "an agent working on JavaScript queries this for how BeeTrain/archivist implements it: Claude Code/Codex plugin that learns from each agent task and records commands, pitfalls and decisions as project docs (selected work: test, plugin, src/core)",
  "repos": [
   {
    "repo": "archivist",

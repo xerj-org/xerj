@@ -8,15 +8,15 @@
   {
    "repo": "BlindRSS",
    "url": "https://github.com/serrebidev/BlindRSS",
-   "sha": "708e5a288e84418e7032e93279c6e6a4b73e23ec",
-   "licence": "MIT (LICENSE file at pin 708e5a288e84, GitHub licence API 2026-10-30)",
+   "sha": "ec5915429027f2a9d0bc3416df7406683f52ade1",
+   "licence": "MIT (LICENSE file at pin ec5915429027, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T23:37Z",
     "consent_receipt": "cd88233ba6b9",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt cd88233ba6b9); pinned to the default-branch head. LICENSE file at pin 708e5a288e84 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt cd88233ba6b9); pinned to the default-branch head. LICENSE file at pin ec5915429027 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
    }
   }
  ]

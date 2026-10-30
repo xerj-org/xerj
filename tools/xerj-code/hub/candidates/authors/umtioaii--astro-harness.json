@@ -1,9 +1,9 @@
 {
- "corpus": "umtioaii--astro",
+ "corpus": "umtioaii--astro-harness",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how UmTioAii/ASTRO implements it: ASTRO \u2014 harness single-agent em Bun/TypeScript com ledger de uso e auditoria append-only (selected work: src, tests, src/tools)",
+ "domain": "an agent working on ai, harness, multi-agentic-systems queries this for how UmTioAii/ASTRO-Harness implements it: Multi-agent coding harness for AI agents. Features deterministic model routing, append-only audit ledgers, cost governance, and durable hand (selected work: src, tests, src/tools)",
  "repos": [
   {
    "repo": "ASTRO",
