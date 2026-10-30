@@ -737,24 +737,44 @@ impl ResourceGovernor {
         let engaged = self.memory_breaker_engaged();
         let mut ledger = self.merge_ledger.lock().unwrap_or_else(|e| e.into_inner());
         // #2427 ingest overshoot: a lone background batch does not start
-        // inside the read reserve; it waits (bounded) for the drain. See
-        // `merge_budget::lone_merge_waits_for_headroom`.
-        if !forced && ledger.in_flight == 0 && watermark > 0 && observed >= watermark {
+        // inside the read reserve, and does not start when its own
+        // reservation would carry RSS into it (the 1 GB gate's ingest node
+        // peaked at 3.5 GB against a 3,072 MB cap this way). It waits,
+        // bounded, for the drain; meanwhile the next batches are planned
+        // to fit the headroom. See `merge_budget::lone_merge_waits_for_headroom`
+        // and `merge_budget::pressure_cap_for_headroom`.
+        let lone_background = !forced && ledger.in_flight == 0 && watermark > 0 && observed > 0;
+        let mut headroom_wait_expired = false;
+        if lone_background && observed.saturating_add(bytes) >= watermark {
             let since = *ledger
                 .headroom_wait_since
                 .get_or_insert_with(std::time::Instant::now);
             if crate::merge_budget::lone_merge_waits_for_headroom(
                 observed,
                 watermark,
+                bytes,
                 ledger.in_flight,
                 forced,
                 since.elapsed(),
                 self.merge_headroom_max_wait,
             ) {
+                if observed < watermark {
+                    ledger.pressure_cap = crate::merge_budget::pressure_cap_for_headroom(
+                        ledger.pressure_cap,
+                        input_bytes,
+                        bytes,
+                        watermark - observed,
+                    );
+                }
                 return None;
             }
+            // Waited the full bound: start it anyway so merging progresses.
+            headroom_wait_expired = true;
         } else if observed < watermark {
-            // Headroom came back: the next wait starts its own clock.
+            // Headroom came back: the next wait starts its own clock. Only
+            // when the batch fits, not merely when RSS is under the
+            // ceiling; otherwise a batch that never fits restarts the clock
+            // on every pass and never runs.
             ledger.headroom_wait_since = None;
         }
         if !crate::merge_budget::decide_merge_admission(
@@ -765,6 +785,7 @@ impl ResourceGovernor {
             engaged,
             bytes,
             forced,
+            headroom_wait_expired,
         ) {
             return None;
         }
@@ -4046,8 +4067,10 @@ mod tests {
         );
 
         // A big merge starts on a quiet node and reserves about half the
-        // limit: the merge budget is held.
-        let base = limit / 2;
+        // limit: the merge budget is held. The node is quiet enough that
+        // the reservation fits under the merge pool, which a lone merge
+        // now needs (or a full bounded wait).
+        let base = limit / 4;
         g.refresh(0, base, 0);
         let input = (limit / 2) / crate::merge_budget::MERGE_WORKING_SET_NUMERATOR;
         let merge = g
@@ -4062,7 +4085,7 @@ mod tests {
         // The merge allocates its working set: RSS goes past the hard limit.
         // Its working set plus a little other growth takes RSS past the hard
         // limit, while the non-merge part stays well under it.
-        let other = limit / 16;
+        let other = limit / 4 + limit / 16;
         g.refresh(0, base + held + other, 0);
         assert!(base + held + other >= limit);
         assert!(g.memory_breaker_engaged());
@@ -4556,6 +4579,57 @@ mod tests {
         assert!(!g.memory_breaker_engaged());
         let late = g.try_reserve_merge(1, false).expect("bounded wait");
         drop(late);
+    }
+
+    /// #2427 1 GB gate on `0eaa8af9`, ingest node (3.5 GB peak, 47 breaker
+    /// trips against a 3,072 MB cap): with nothing else merging, a batch
+    /// started whenever RSS was under the merge-pool ceiling, even when its
+    /// own reservation was larger than the room left. Now it waits while
+    /// it does not fit, the next batches are planned to the headroom, and
+    /// the wait clock is not restarted by RSS merely being under the
+    /// ceiling, so the bounded wait still guarantees it runs.
+    #[test]
+    fn a_lone_merge_whose_reservation_exceeds_the_headroom_waits_and_shrinks() {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let mut g = build(&cfg);
+        let ceiling = g.merge_pool_ceiling_bytes();
+        assert!(ceiling > 0, "this test needs a live RSS watermark");
+        let headroom = 64 * 1024 * 1024;
+        let rss = ceiling - headroom;
+        g.refresh(0, rss, 0);
+        assert!(!g.memory_breaker_engaged());
+
+        // Its reservation alone is more than the headroom: held back.
+        let big_input = headroom;
+        let big = crate::merge_budget::merge_reservation_bytes(big_input, 0);
+        assert!(big >= headroom);
+        assert!(g.try_reserve_merge(big_input, false).is_none());
+        let (cap, since) = {
+            let l = g.merge_ledger.lock().unwrap();
+            (l.pressure_cap, l.headroom_wait_since)
+        };
+        // The next batches are planned to fit what is left.
+        assert!(cap > 0 && cap < big_input);
+        assert!(crate::merge_budget::merge_reservation_bytes(cap, 0) < headroom);
+        assert!(since.is_some(), "the wait clock started");
+        // A retry under the ceiling keeps the same clock (it used to reset
+        // whenever RSS was under the ceiling).
+        assert!(g.try_reserve_merge(big_input, false).is_none());
+        assert_eq!(g.merge_ledger.lock().unwrap().headroom_wait_since, since);
+
+        // A batch planned under the narrowed cap fits and starts alone.
+        let small = g.try_reserve_merge(cap, false).expect("fits the headroom");
+        drop(small);
+        assert!(g.merge_ledger.lock().unwrap().headroom_wait_since.is_none());
+
+        // `_forcemerge` is never held back by this check.
+        drop(g.try_reserve_merge(big_input, true).expect("forced"));
+
+        // Progress: past the bound the oversized lone batch starts.
+        g.merge_headroom_max_wait = Duration::ZERO;
+        drop(g.try_reserve_merge(big_input, false).expect("bounded wait"));
     }
 
     /// #2427: the merge output-write step (doc-values build, stored encode,
