@@ -1,0 +1,23 @@
+{
+ "corpus": "exec-software--exec-nil-framework",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bytecode, cmake, compiler queries this for how exec-software/exec-nil-framework implements it: Shared compiler, runtime, standard library, and development tools for Ny and Matrix (selected work: tests, vscode, nilcompiler)",
+ "repos": [
+  {
+   "repo": "exec-nil-framework",
+   "url": "https://github.com/exec-software/exec-nil-framework",
+   "sha": "6b846cbcd8e473cedf719da789a35e60f0ee2d84",
+   "licence": "MIT (LICENSE file at pin 6b846cbcd8e4, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T17:36Z",
+    "consent_receipt": "cc459dc20ec9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T17:36Z (receipt cc459dc20ec9); selected commit 6b846cbcd8e4: \"Add compiler-resolved source definitions for Ny and Matrix\". LICENSE file at pin 6b846cbcd8e4 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

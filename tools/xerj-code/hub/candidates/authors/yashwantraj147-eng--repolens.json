@@ -2,8 +2,8 @@
  "corpus": "yashwantraj147-eng--repolens",
  "cloned_at": null,
  "status": "draft",
- "shelf": "HEALTH",
- "domain": "an agent working on Python queries this for how yashwantraj147-eng/repolens implements it: Instant architecture diagrams, plain-English summaries, contributor onboarding guides, and health scores for any GitHub repository (selected work: frontend)",
+ "shelf": "WEB",
+ "domain": "an agent working on architecture, code-analysis, developer-tools queries this for how yashwantraj147-eng/repolens implements it: Instant architecture diagrams, plain-English summaries, contributor onboarding guides, and health scores for any GitHub repository (selected work: frontend)",
  "repos": [
   {
    "repo": "repolens",

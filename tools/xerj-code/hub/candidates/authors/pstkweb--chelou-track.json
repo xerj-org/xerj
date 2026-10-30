@@ -1,0 +1,30 @@
+{
+ "corpus": "pstkweb--chelou-track",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how pstkweb/chelou-track implements it: Follow guitar methods progress and ease practicing proposed exercices (selected work: src-tauri, src/components, src/hooks)",
+ "repos": [
+  {
+   "repo": "chelou-track",
+   "url": "https://github.com/pstkweb/chelou-track",
+   "sha": "35c3cbe4f7f039253d5a4d3778f6031a8237bbcd",
+   "licence": "GPL-3.0 (LICENSE file at pin 35c3cbe4f7f0, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T18:38Z",
+    "consent_receipt": "c73bacd950be",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T18:38Z (receipt c73bacd950be); selected commit 35c3cbe4f7f0: \"feat: Transfer all audio to Rust with a new mixer\". LICENSE file at pin 35c3cbe4f7f0 detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "35c3cbe4f7f039253d5a4d3778f6031a8237bbcd",
+     "at": "2026-10-30T18:38Z",
+     "receipt": "c73bacd950be"
+    }
+   }
+  }
+ ]
+}

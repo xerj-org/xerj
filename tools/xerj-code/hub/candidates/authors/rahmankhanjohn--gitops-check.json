@@ -8,15 +8,15 @@
   {
    "repo": "gitops-check",
    "url": "https://github.com/rahmankhanjohn/gitops-check",
-   "sha": "e8bc03e04a8ff16eb8c884e14958162c443692e3",
-   "licence": "author's permission (LICENSE at pin e8bc03e04a8f: NONE; repository: none)",
+   "sha": "65374a59350e052e373dcd167a44fbea5195327a",
+   "licence": "author's permission (LICENSE at pin 65374a59350e: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T18:09Z",
     "consent_receipt": "7ab472c4fe4b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:09Z (receipt 7ab472c4fe4b); pinned to the default-branch head. LICENSE at pin e8bc03e04a8f: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:09Z (receipt 7ab472c4fe4b); pinned to the default-branch head. LICENSE at pin 65374a59350e: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

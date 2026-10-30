@@ -8,15 +8,15 @@
   {
    "repo": "gshock_api",
    "url": "https://github.com/izivkov/gshock_api",
-   "sha": "f15ba343f8b805ee209c1c30dab8fc9e82a52995",
-   "licence": "MIT (LICENSE file at pin f15ba343f8b8, GitHub licence API 2026-10-28)",
+   "sha": "da955e1d09c614f90c48c28eb4af908eb96dbd74",
+   "licence": "MIT (LICENSE file at pin da955e1d09c6, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:09Z",
     "consent_receipt": "ee597634b639",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:09Z (receipt ee597634b639); pinned to the default-branch head. LICENSE file at pin f15ba343f8b8 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:09Z (receipt ee597634b639); pinned to the default-branch head. LICENSE file at pin da955e1d09c6 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
    }
   }
  ]

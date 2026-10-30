@@ -1,0 +1,23 @@
+{
+ "corpus": "postnikov--open-brain",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how postnikov/open-brain implements it: Personal second brain with AI-powered semantic search. Capture thoughts from anywhere, find them by meaning (selected work: src/distillation, ops, src)",
+ "repos": [
+  {
+   "repo": "open-brain",
+   "url": "https://github.com/postnikov/open-brain",
+   "sha": "e55eccf150fa5c47d76922e8b168dc475fc4a10e",
+   "licence": "MIT (LICENSE file at pin e55eccf150fa, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T18:16Z",
+    "consent_receipt": "0c88991c22d4",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T18:16Z (receipt 0c88991c22d4); selected commit e55eccf150fa: \"feat: activate durable distillation with TTL guards and bounded retries\". LICENSE file at pin e55eccf150fa detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

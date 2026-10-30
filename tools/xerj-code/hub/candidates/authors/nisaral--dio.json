@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on llm-serving, vllm, admission-control queries this for how nisaral/DIO implements it: Drop-in OpenAI- and Ollama-compatible LLM gateway that learns each backend's latency online and routes vLLM / SGLang / TGI / Ollama with SLO (selected work: dio-serve)",
+ "domain": "an agent working on llm-serving, vllm, ai-infrastructure queries this for how nisaral/DIO implements it: Drop-in OpenAI- and Ollama-compatible LLM gateway that learns each backend's latency online and routes vLLM / SGLang / TGI / Ollama with SLO (selected work: dio-serve)",
  "repos": [
   {
    "repo": "DIO",
