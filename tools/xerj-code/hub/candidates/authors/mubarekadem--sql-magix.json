@@ -8,15 +8,15 @@
   {
    "repo": "sql-magix",
    "url": "https://github.com/MubarekAdem/sql-magix",
-   "sha": "8767045e9334e1b37132d3d4a7306f23fb433c22",
-   "licence": "MIT (LICENSE file at pin 8767045e9334, GitHub licence API 2026-10-28)",
+   "sha": "1f34d9456beab4a522b32320ff98cee11643349d",
+   "licence": "MIT (LICENSE file at pin 1f34d9456bea, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T08:52Z",
     "consent_receipt": "14870884147d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T08:52Z (receipt 14870884147d); selected commit 8767045e9334: \"feat(ui): start with clean empty state and prompt user to insert or c\u2026\". LICENSE file at pin 8767045e9334 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Pinned to head 8767045e9334 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T08:52Z (receipt 14870884147d); selected commit 1f34d9456bea: \"feat(ui): start with clean empty state and prompt user to insert or c\u2026\". LICENSE file at pin 1f34d9456bea detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head 1f34d9456bea (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

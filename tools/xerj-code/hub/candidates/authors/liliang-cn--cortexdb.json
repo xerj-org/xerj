@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on embeddings, llm, vector-database queries this for how liliang-cn/cortexdb implements it: AI memory and a knowledge graph in one SQLite file. Pure Go: vectors, RAG, agent memory, RDF/SPARQL, Cypher, 80+ MCP tools. Works without an (selected work: pkg/authz, pkg/rpcserver)",
+ "domain": "an agent working on embeddings, llm, vector-database queries this for how liliang-cn/cortexdb implements it: Local-first AI agent memory with a knowledge graph, ontology constraints, and traceable reasoning\u2014all in one SQLite file (selected work: pkg/authz, pkg/rpcserver)",
  "repos": [
   {
    "repo": "cortexdb",

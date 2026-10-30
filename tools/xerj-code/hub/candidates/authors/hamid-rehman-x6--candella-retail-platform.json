@@ -1,0 +1,23 @@
+{
+ "corpus": "hamid-rehman-x6--candella-retail-platform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on 2fa, authentication, golang queries this for how hamid-rehman-X6/candella-retail-platform implements it: Multi-tenant retail SaaS platform \u2014 POS, inventory, pharmacy, garments, cosmetics & CRM in one workspace-based system. Next.js + Go (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "candella-retail-platform",
+   "url": "https://github.com/hamid-rehman-X6/candella-retail-platform",
+   "sha": "bcf6bbb199de708f0dea47f2bb7d36ce069246e8",
+   "licence": "Apache-2.0 (LICENSE file at pin bcf6bbb199de, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T08:06Z",
+    "consent_receipt": "d288e04a7821",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T08:06Z (receipt d288e04a7821); selected commit bcf6bbb199de: \"feat(reports): add daily cash and stock reports\". LICENSE file at pin bcf6bbb199de detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

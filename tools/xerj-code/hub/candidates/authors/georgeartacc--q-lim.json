@@ -1,0 +1,30 @@
+{
+ "corpus": "georgeartacc--q-lim",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how GeorgeArtAcc/Q-LiM implements it: Live clip launcher for Linux and Windows (selected work: src, tests, tests-win)",
+ "repos": [
+  {
+   "repo": "Q-LiM",
+   "url": "https://github.com/GeorgeArtAcc/Q-LiM",
+   "sha": "5769555a5cb6ca35d679b65315f813c8e79359ab",
+   "licence": "GPL-3.0 (LICENSE file at pin 5769555a5cb6, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T08:21Z",
+    "consent_receipt": "89c13611242d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T08:21Z (receipt 89c13611242d); selected commit 5769555a5cb6: \"Add files via upload\". LICENSE file at pin 5769555a5cb6 detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "5769555a5cb6ca35d679b65315f813c8e79359ab",
+     "at": "2026-10-30T08:21Z",
+     "receipt": "89c13611242d"
+    }
+   }
+  }
+ ]
+}

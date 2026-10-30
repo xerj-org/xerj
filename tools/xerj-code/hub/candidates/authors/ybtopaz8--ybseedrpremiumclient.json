@@ -1,0 +1,23 @@
+{
+ "corpus": "ybtopaz8--ybseedrpremiumclient",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how YBTopaz8/YBSeedrPremiumClient implements it: YBSeedrClient is a .NET client library for interacting with the [Seedr.cc](https://www.seedr.cc) API. It allows you to manage your files, fo",
+ "repos": [
+  {
+   "repo": "YBSeedrPremiumClient",
+   "url": "https://github.com/YBTopaz8/YBSeedrPremiumClient",
+   "sha": "621cb6ab0775b274440e81e45b24a617b08f459a",
+   "licence": "MIT (LICENSE file at pin 621cb6ab0775, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T07:16Z",
+    "consent_receipt": "6d110333e03c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T07:16Z (receipt 6d110333e03c); pinned to the default-branch head. LICENSE file at pin 621cb6ab0775 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}
