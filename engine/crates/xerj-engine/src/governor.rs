@@ -959,14 +959,37 @@ impl ResourceGovernor {
         forced: bool,
         exempt: bool,
     ) -> bool {
+        self.admit_merge_write_for(reservation, held, extra, forced, exempt, 0)
+    }
+
+    /// [`Self::admit_merge_write`] for a batch of `input_bytes`: after a
+    /// streak of yields with nothing merged, a small background batch's
+    /// write is checked against the hard process limit instead of the
+    /// merge-pool ceiling, so a node resting between the two still merges
+    /// (#2427). See `merge_budget::merge_write_limit_after`.
+    pub fn admit_merge_write_for(
+        &self,
+        reservation: Option<&mut MergeReservation>,
+        held: u64,
+        extra: u64,
+        forced: bool,
+        exempt: bool,
+        input_bytes: u64,
+    ) -> bool {
         let observed = self.observed_process_memory();
-        if !crate::merge_budget::decide_merge_write(
-            observed,
+        let streak = self
+            .merge_ledger
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .yield_streak;
+        let line = crate::merge_budget::merge_write_limit_after(
             self.merge_pool_ceiling_bytes(),
-            extra,
+            self.memory_limit_bytes,
             forced,
-            exempt,
-        ) {
+            input_bytes,
+            streak,
+        );
+        if !crate::merge_budget::decide_merge_write(observed, line, extra, forced, exempt) {
             return false;
         }
         if let Some(reservation) = reservation {
@@ -4808,6 +4831,57 @@ mod tests {
         drop(reservation);
         assert_eq!(g.merge_reserved_bytes(), 0);
         assert_eq!(g.merges_in_flight(), 0);
+    }
+
+    /// #2427: in the 1 GB gate the search node rested between the merge-pool
+    /// ceiling and the watermark, so the breaker never engaged, the #2468
+    /// exemption never applied, and every write step was refused: 70 yields
+    /// of 1-10 MB batches and nothing merged. After the streak, a small
+    /// batch's write is checked against the hard limit and runs.
+    #[test]
+    fn a_small_batch_write_runs_after_a_streak_below_the_watermark() {
+        const MIB: u64 = 1024 * 1024;
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        cfg.limits.memory_watermark_percent = 95;
+        let g = build(&cfg);
+        let wm = g.memory_watermark_bytes.load(Ordering::Relaxed);
+        let limit = g.process_memory_limit_bytes();
+        let ceiling = g.merge_pool_ceiling_bytes();
+        assert!(
+            ceiling < wm && wm < limit,
+            "this test needs ceiling < watermark < limit"
+        );
+        // Resting above the ceiling, below the watermark: not engaged.
+        let rss = ceiling + (wm - ceiling) / 2;
+        g.refresh(0, rss, 0);
+        assert!(!g.memory_breaker_engaged());
+        let small = 6 * MIB;
+        let large = crate::merge_budget::MERGE_YIELD_STREAK_MAX_INPUT_BYTES + 1;
+        // Fits under the hard limit, not under the ceiling.
+        let write = (limit - rss) / 2;
+        assert!(!g.merge_write_exempt(false, small));
+
+        // Before the streak: refused, as before.
+        assert!(!g.admit_merge_write_for(None, small, write, false, false, small));
+        for _ in 0..crate::merge_budget::MERGE_YIELD_STREAK_LIMIT {
+            g.note_merge_yield(small);
+        }
+        // The old exemption still does not apply below the watermark ...
+        assert!(!g.merge_write_exempt(false, small));
+        // ... but the small batch's write now runs, charged to the ledger.
+        let mut reservation = g.try_reserve_merge(small, true).expect("forced admission");
+        let held = reservation.bytes();
+        assert!(g.admit_merge_write_for(Some(&mut reservation), held, write, false, false, small));
+        assert_eq!(reservation.bytes(), held + write);
+        drop(reservation);
+        // A large batch, or a write that would reach the hard limit, is
+        // still refused.
+        assert!(!g.admit_merge_write_for(None, large, write, false, false, large));
+        assert!(!g.admit_merge_write_for(None, small, limit - rss, false, false, small));
+        // A completed batch ends the streak.
+        g.note_merge_completed(small);
+        assert!(!g.admit_merge_write_for(None, small, write, false, false, small));
     }
 
     /// #2427 x #2468: a small background batch that the yield-streak rule
