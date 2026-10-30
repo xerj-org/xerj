@@ -580,6 +580,20 @@ fn retained_slug(
         .iter()
         .filter(|(assigned_group, _)| assigned_group == group)
         .collect::<Vec<_>>();
+    // #2720: no match for a file the journal assigned is this file's content,
+    // not the journal: a new or renamed sheet, an edit (a sheet that gains a
+    // header row) or a reader change can give it a part the frozen datasets
+    // do not have. The file is set aside like a family change. An empty
+    // assignment list or two matches would be a contradictory journal.
+    if matches.is_empty() && !owner.assignments.is_empty() {
+        let part = match group {
+            Some(group) => format!("part {group:?} of this file"),
+            None => "the document part of this file".to_string(),
+        };
+        return Err(AssignFailure::File(format!(
+            "{part} is new or changed shape since it was indexed, so it has no dataset in the committed generation."
+        )));
+    }
     if matches.len() != 1 {
         return Err(AssignFailure::Fatal(anyhow::anyhow!(
             "frozen assignment has {} matches for group {:?}",
