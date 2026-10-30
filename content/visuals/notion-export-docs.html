@@ -1,0 +1,16 @@
+<figure class="vz" id="fig-nt-docs" aria-labelledby="fig-nt-docs-cap">
+  <span class="vz-label">Recorded run: documents per exported file</span>
+  <p class="vz-title">8 documents, and where each one comes from</p>
+  <p class="vz-legend"><span><i></i>Markdown page</span><span><i class="is-cmp"></i>Database CSV</span></p>
+  <ul class="vz-bars">
+    <li class="vz-bar"><span><code>Engineering Handbook &lt;32-hex&gt;.md</code></span><span class="vz-track"><span class="vz-fill" style="width:50%"></span></span><span class="vz-v">2</span></li>
+    <li class="vz-bar"><span><code>Engineering Handbook .../Runbooks &lt;32-hex&gt;.md</code></span><span class="vz-track"><span class="vz-fill" style="width:50%"></span></span><span class="vz-v">2</span></li>
+    <li class="vz-bar"><span>3 database row pages in <code>Decisions &lt;id&gt;/</code></span><span class="vz-track"></span><span class="vz-v">0</span></li>
+    <li class="vz-bar"><span><code>Decisions &lt;id&gt;_all.csv</code></span><span class="vz-track"><span class="vz-fill is-cmp" style="width:100%"></span></span><span class="vz-v">4</span></li>
+  </ul>
+  <div class="vz-cols">
+    <div class="vz-card"><span class="vz-k">each Markdown page</span><span class="vz-t">2 documents</span><span class="vz-d">One whole-file document, <code>ax_locator</code> <code>file</code>, and one passage, <code>s0</code>. Same <code>ax_path</code>, same title text.</span></div>
+    <div class="vz-card"><span class="vz-k">the row pages</span><span class="vz-t">Refused as <code>yaml</code></span><span class="vz-d">Title over <code>Status:</code>, <code>Owner:</code> and <code>Decided:</code> lines. The run reported <code>junk_files=3</code>. The CSV keeps the rows as <code>r0</code>, <code>r1</code> and <code>r2</code>.</span></div>
+  </div>
+  <figcaption id="fig-nt-docs-cap">Bars are drawn to scale against 4. Counts from RUN-B, captured on 2026-08-21 on an export folder written to Notion's file naming by the fixture generator.</figcaption>
+</figure>

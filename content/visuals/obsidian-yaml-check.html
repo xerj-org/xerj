@@ -1,0 +1,18 @@
+<figure class="vz" id="fig-ob-yaml" aria-labelledby="fig-ob-yaml-cap">
+  <span class="vz-label">Try it: will a note read as YAML?</span>
+  <p class="vz-title">The 60 percent line test</p>
+  <div class="vz-check" data-vz-yaml>
+    <label class="vz-d" for="ob-yaml-input">Paste a note. The example has the shape of Index.md, 1 heading over 3 link bullets, with placeholder names.</label>
+    <textarea id="ob-yaml-input" spellcheck="false" aria-describedby="ob-yaml-out"># Index
+- [[Note A]]
+- [[Note B]]
+- [[Note C]]</textarea>
+    <div class="vz-js-only">
+      <div class="vz-meter" aria-hidden="true"><span class="vz-meter-fill"></span><span class="vz-meter-mark"></span></div>
+      <p class="vz-out" id="ob-yaml-out" aria-live="polite"></p>
+      <ol class="vz-lines" aria-label="Each non-blank line and how it counts"></ol>
+    </div>
+    <p class="vz-nojs vz-out">For the example: 3 of 4 non-blank lines read as YAML (75%), which is over the 60% line.</p>
+  </div>
+  <figcaption id="fig-ob-yaml-cap">The checker runs in your browser and sends nothing. It applies the line rule from <a href="https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/sniff.rs">sniff.rs</a>: a non-blank line counts when it matches <code>key: value</code> or starts with <code>- </code>, except <code>- [ ]</code> and <code>- [x]</code> task items. Under 3 non-blank lines the share is 0. The sniffer also needs the text to parse as YAML, which this checker does not test.</figcaption>
+</figure>
