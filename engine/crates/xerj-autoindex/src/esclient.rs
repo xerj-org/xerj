@@ -640,6 +640,13 @@ pub const THROTTLE_PATIENCE: Duration = Duration::from_secs(600);
 /// tier's 2 GiB memtable budget, and short of a multi-minute spin.
 pub const ZERO_PROGRESS_PATIENCE: Duration = Duration::from_secs(90);
 
+/// The engine's per-query guard (`limits.max_query_memory_mb`) refusing a
+/// request whose estimated allocation exceeds the budget. Unlike the parent
+/// breaker this is a property of the query and the data, not of the moment.
+pub(crate) fn is_query_allocation_refusal(reason: &str) -> bool {
+    reason.contains("would exceed limits.max_query_memory_mb")
+}
+
 /// The parent memory breaker, as opposed to a disk flood-stage 429 or a
 /// thread-pool rejection. Both of its reasons carry one of these phrases.
 pub(crate) fn is_parent_memory_breaker(reason: &str) -> bool {
@@ -1528,7 +1535,19 @@ impl Es {
     ) -> Attempt<T> {
         let status = resp.status();
         if status.as_u16() == 429 {
-            return Attempt::Throttled(server_reason(resp));
+            let reason = server_reason(resp);
+            if let Some(reason) = reason.as_deref().filter(|r| is_query_allocation_refusal(r)) {
+                // The per-query memory guard prices THIS request against a
+                // fixed budget. Nothing a wait can change makes the same query
+                // over the same documents cheaper, so retrying only stalls the
+                // caller for the whole throttle patience (#2427: 600 s per
+                // dataset in finalize-count).
+                return Attempt::Abort(anyhow!(
+                    "{what}: HTTP 429 Too Many Requests: {reason} (not retried: the per-query \
+                     memory guard refuses the same query again)"
+                ));
+            }
+            return Attempt::Throttled(reason);
         }
         if status.is_server_error() {
             return Attempt::Failed(match server_reason(resp) {
@@ -4771,6 +4790,59 @@ mod tests {
         assert!(
             (1..=8).contains(&backoffs),
             "retried inside the short budget: {backoffs} backoffs"
+        );
+    }
+
+    /// #2427: a 429 from the per-query memory guard is deterministic for the
+    /// same query, so even a loading client (admission on, long patience)
+    /// gives up after the first answer instead of re-asking until the
+    /// patience runs out.
+    #[test]
+    fn a_query_allocation_429_is_not_retried() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let hits = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let server_hits = Arc::clone(&hits);
+        let stop = Arc::new(AtomicBool::new(false));
+        let server_stop = Arc::clone(&stop);
+        listener.set_nonblocking(true).unwrap();
+        let server = std::thread::spawn(move || loop {
+            match listener.accept() {
+                Ok((mut stream, _)) => {
+                    stream.set_nonblocking(false).unwrap();
+                    let _ = read_request(&mut stream);
+                    server_hits.fetch_add(1, Ordering::SeqCst);
+                    let body = br#"{"error":{"type":"circuit_breaking_exception","reason":"[request] query allocation (768.2mb) would exceed limits.max_query_memory_mb=512MB at [aggregation corpus materialisation]; reduce size/aggregation cardinality"},"status":429}"#;
+                    respond_status(&mut stream, "429 Too Many Requests", body);
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    if server_stop.load(Ordering::SeqCst) {
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+                Err(error) => panic!("accept: {error}"),
+            }
+        });
+        let es = client(address, 4)
+            .with_throttle_patience(Duration::from_secs(2))
+            .with_zero_progress_patience(Duration::from_secs(2));
+        let started = Instant::now();
+        let error = es
+            .search(
+                "i",
+                &serde_json::json!({"size": 0, "aggs": {"mn": {"min": {"field": "t"}}}}),
+            )
+            .unwrap_err();
+        let elapsed = started.elapsed();
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+        let rendered = format!("{error:#}");
+        assert!(rendered.contains("max_query_memory_mb"), "{rendered}");
+        assert_eq!(hits.load(Ordering::SeqCst), 1, "asked once: {rendered}");
+        assert!(
+            elapsed < Duration::from_millis(500),
+            "a query-allocation refusal must not wait out the patience, took {elapsed:?}"
         );
     }
 

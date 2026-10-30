@@ -8655,6 +8655,52 @@ fn catalog_runs(es: &Es) -> Result<Vec<Value>> {
         })
         .unwrap_or_default())
 }
+/// A dataset's time bounds from two size-1 searches sorted on its time field.
+///
+/// #2427: this used to be one `size:0` search with `min`/`max` aggs. Neither
+/// has a columnar fast path, so the node deep-cloned every document into
+/// owned values first ("aggregation corpus materialisation", ~2 KB a doc
+/// against `limits.max_query_memory_mb`). A 393 k-record dataset priced at
+/// 768 MB against the 512 MB default, the node answered 429, and the client
+/// re-asked for its full 600 s patience before the run moved on without the
+/// bounds. A sort reads doc values and clones nothing — the same shape the
+/// generation read-back has used since #1183.
+fn dataset_time_range(
+    es: &Es,
+    index: &str,
+    field: &str,
+) -> Result<(Option<String>, Option<String>)> {
+    let bound = |order: &str| -> Result<Option<String>> {
+        let body = json!({
+            "size": 1,
+            "query": {"exists": {"field": field}},
+            "sort": [{field: {"order": order}}],
+            "_source": [field]
+        });
+        let v = es.search(index, &body)?;
+        let hit = match v.pointer("/hits/hits/0") {
+            Some(hit) => hit,
+            None => return Ok(None),
+        };
+        // The stored value first, exactly like the generation read-back
+        // (`sync_executor::extreme_time`); the sort key (epoch ms for a
+        // date) only when `_source` lacks the field.
+        let from_source = hit
+            .pointer("/_source")
+            .and_then(|src| src.get(field))
+            .and_then(|v| match v {
+                Value::String(s) => Some(s.clone()),
+                Value::Number(n) => n.as_i64().map(xerj_common::schema::epoch_ms_to_iso8601_utc),
+                _ => None,
+            });
+        Ok(from_source.or_else(|| {
+            hit.pointer("/sort/0")
+                .and_then(Value::as_i64)
+                .map(xerj_common::schema::epoch_ms_to_iso8601_utc)
+        }))
+    };
+    Ok((bound("asc")?, bound("desc")?))
+}
 
 fn run_index_report_inner(
     mut cfg: IndexCfg,
@@ -12090,22 +12136,8 @@ fn run_index_report_inner(
             }
         }
         if let Some(t) = &d.time_field {
-            let body = json!({"size":0,"aggs":{
-                "mn":{"min":{"field":t}},"mx":{"max":{"field":t}}}});
-            if let Ok(v) = es.search(&d.index, &body) {
-                let get = |k: &str| -> Option<String> {
-                    let a = v.pointer(&format!("/aggregations/{k}"))?;
-                    a.get("value_as_string")
-                        .and_then(|s| s.as_str())
-                        .map(|s| s.to_string())
-                        .or_else(|| {
-                            a.get("value").and_then(|f| f.as_f64()).and_then(|ms| {
-                                chrono::DateTime::from_timestamp_millis(ms as i64)
-                                    .map(|d| infer::dates::to_rfc3339_millis(&d))
-                            })
-                        })
-                };
-                ds_timerange.insert(d.slug.clone(), (get("mn"), get("mx")));
+            if let Ok(range) = dataset_time_range(&es, &d.index, t) {
+                ds_timerange.insert(d.slug.clone(), range);
             }
         }
     }
@@ -17355,5 +17387,93 @@ mod map_folder_preview {
             writes.is_empty(),
             "map <folder> must not write an index: {writes:?}"
         );
+    }
+}
+
+#[cfg(test)]
+mod dataset_time_range_tests {
+    use super::*;
+    use std::io::Read;
+    use std::net::TcpListener;
+    use std::sync::Arc;
+
+    const T_MIN: i64 = 1_790_812_800_000; // 2026-10-01T00:00:00Z
+    const T_MAX: i64 = 1_790_985_600_000; // 2026-10-03T00:00:00Z
+
+    fn iso(ms: i64) -> String {
+        xerj_common::schema::epoch_ms_to_iso8601_utc(ms)
+    }
+
+    fn read_body(stream: &mut std::net::TcpStream) -> Value {
+        stream
+            .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+            .unwrap();
+        let mut request = Vec::new();
+        let mut buffer = [0u8; 4096];
+        loop {
+            let count = stream.read(&mut buffer).unwrap_or(0);
+            if count == 0 {
+                break;
+            }
+            request.extend_from_slice(&buffer[..count]);
+            if let Some(end) = request.windows(4).position(|w| w == b"\r\n\r\n") {
+                let headers = String::from_utf8_lossy(&request[..end]).to_ascii_lowercase();
+                let length = headers
+                    .lines()
+                    .find_map(|l| l.strip_prefix("content-length:")?.trim().parse().ok())
+                    .unwrap_or(0usize);
+                if request.len() >= end + 4 + length {
+                    return serde_json::from_slice(&request[end + 4..end + 4 + length])
+                        .unwrap_or(Value::Null);
+                }
+            }
+        }
+        Value::Null
+    }
+
+    /// A node that behaves like xerj on a large index: any aggregation that
+    /// needs the corpus is refused by the per-query memory guard, while a
+    /// sorted size-1 search answers from doc values.
+    #[test]
+    fn time_bounds_come_from_sorted_searches_not_materialising_aggs() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        let bodies = Arc::new(Mutex::new(Vec::<Value>::new()));
+        let seen = Arc::clone(&bodies);
+        let server = std::thread::spawn(move || {
+            for stream in listener.incoming().take(2) {
+                let mut stream = stream.unwrap();
+                let body = read_body(&mut stream);
+                seen.lock().unwrap().push(body.clone());
+                let (status, reply) = if body.get("aggs").is_some() {
+                    (
+                        "429 Too Many Requests",
+                        json!({"error":{"type":"circuit_breaking_exception","reason":"[request] query allocation (768.2mb) would exceed limits.max_query_memory_mb=512MB at [aggregation corpus materialisation]"},"status":429}),
+                    )
+                } else {
+                    let asc = body.pointer("/sort/0/t/order") == Some(&json!("asc"));
+                    let key = if asc { T_MIN } else { T_MAX };
+                    (
+                        "200 OK",
+                        json!({"hits":{"total":{"value":3},"hits":[
+                            {"_id":"x","_source":{"t":iso(key)},"sort":[key]}]}}),
+                    )
+                };
+                let reply = reply.to_string();
+                let _ = write!(
+                    stream,
+                    "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{reply}",
+                    reply.len()
+                );
+            }
+        });
+        let es = Es::new(&format!("http://{address}"), None).unwrap();
+        let range = dataset_time_range(&es, "i", "t").unwrap();
+        server.join().unwrap();
+        assert_eq!(range, (Some(iso(T_MIN)), Some(iso(T_MAX))));
+        for body in bodies.lock().unwrap().iter() {
+            assert!(body.get("aggs").is_none(), "materialising agg sent: {body}");
+            assert_eq!(body.get("size"), Some(&json!(1)), "{body}");
+        }
     }
 }

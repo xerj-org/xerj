@@ -47,6 +47,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `xerj autoindex` no longer stalls for up to 10 minutes per large dataset in
+  `finalize-count`. The dataset time range was read with `min`/`max`
+  aggregations, which make the node copy every document first; on a
+  393 k-record dataset that priced at 768 MB against the 512 MB
+  `limits.max_query_memory_mb` default and the client re-asked for its full
+  600 s patience. The bounds now come from two sorted size-1 searches, and a
+  429 from the per-query memory guard is no longer retried, since the same
+  query is refused again (#2427).
+
 - `_reindex` applies `source._source` field filtering to the documents it
   copies, so an excluded secret or large field no longer reaches the
   destination. `_source:false` is refused with ES's sentence, and a `script`
