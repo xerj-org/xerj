@@ -47,6 +47,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The in-memory HNSW graph no longer stores every vector in one contiguous
+  buffer. That buffer doubled on growth, so near ~393K 384-dim vectors a
+  single 384 MiB -> 768 MiB realloc kept both copies live (~1.15 GB
+  transient) outside any memory accounting. Vectors now live in 4 MiB
+  chunks (no realloc copy, at most one chunk of slack), and the graph's
+  estimated heap is reported as the new `vector_graph` category in the
+  ingest memory trace. (#2427)
 - `xerj autoindex --fresh` over an already-indexed folder no longer pays one
   edges-index search, bulk and refresh per replaced file (and again per
   superseded anchor) to soft-invalidate prior relationship edges. The graph
