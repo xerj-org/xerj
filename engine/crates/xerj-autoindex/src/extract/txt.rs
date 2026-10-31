@@ -335,8 +335,17 @@ pub fn extract_lines(
     let mut line_no = 0usize;
     let mut stopped = false;
 
-    // Emit `window[..CHUNK_LINES]` as one record, then drop the non-overlapping
-    // prefix.  Returns false when the sink asks us to stop.
+    // Emit the window's leading lines as one record, up to `CHUNK_MAX_BYTES`,
+    // then drop the non-overlapping prefix of what was emitted.  `drain`
+    // (end of file) keeps emitting until every buffered line is in a record.
+    // Returns false when the sink asks us to stop.
+    //
+    // Only lines that made it into the record may be dropped: when the byte
+    // cap cuts the window short, the lines past the cut stay buffered and lead
+    // the next record.  Dropping `window.len() - CHUNK_OVERLAP` lines
+    // regardless lost every line between the cut and the overlap tail — one
+    // long line among short ones made up to 29 neighbours unsearchable — and
+    // reported an `end_line` the record's text did not reach.
     fn flush(
         window: &mut Vec<(String, usize, u64)>,
         extra: &Map<String, Value>,
@@ -344,50 +353,64 @@ pub fn extract_lines(
         stats: &mut ExtractStats,
         sink: Sink,
     ) -> bool {
-        if window.is_empty() {
-            return true;
-        }
-        let mut text = String::new();
-        let mut used = 0usize;
-        for (l, _, _) in window.iter() {
-            if used > 0 && used + l.len() + 1 > CHUNK_MAX_BYTES {
-                break;
+        loop {
+            if window.is_empty() {
+                return true;
             }
-            if used > 0 {
-                text.push('\n');
+            let mut text = String::new();
+            let mut used = 0usize;
+            let mut taken = 0usize;
+            for (l, _, _) in window.iter() {
+                if used > 0 && used + l.len() + 1 > CHUNK_MAX_BYTES {
+                    break;
+                }
+                if used > 0 {
+                    text.push('\n');
+                }
+                text.push_str(l);
+                used += l.len() + 1;
+                taken += 1;
             }
-            text.push_str(l);
-            used += l.len() + 1;
-        }
-        if text.trim().is_empty() {
-            return true;
-        }
-        let start_line = window[0].1;
-        let start_byte = window[0].2;
-        let end_line = window[window.len() - 1].1;
+            let start_line = window[0].1;
+            let start_byte = window[0].2;
+            let end_line = window[taken - 1].1;
 
-        let mut fields = extra.clone();
-        fields.insert("text".into(), Value::String(text));
-        fields.insert(
-            "start_line".into(),
-            Value::Number((start_line as u64).into()),
-        );
-        fields.insert("end_line".into(), Value::Number((end_line as u64).into()));
-        stats.records += 1;
-        let ok = sink(RawRecord {
-            fields,
-            locator: format!("b{start_byte}"),
-            group: None,
-            // text/start_line/end_line describe this chunker, not the file.
-            origin: FieldOrigin::Extractor,
-        });
-        if drain {
-            window.clear();
-        } else {
-            let keep = CHUNK_OVERLAP.min(window.len());
-            window.drain(..window.len() - keep);
+            let mut ok = true;
+            if !text.trim().is_empty() {
+                let mut fields = extra.clone();
+                fields.insert("text".into(), Value::String(text));
+                fields.insert(
+                    "start_line".into(),
+                    Value::Number((start_line as u64).into()),
+                );
+                fields.insert("end_line".into(), Value::Number((end_line as u64).into()));
+                stats.records += 1;
+                ok = sink(RawRecord {
+                    fields,
+                    locator: format!("b{start_byte}"),
+                    group: None,
+                    // text/start_line/end_line describe this chunker, not the file.
+                    origin: FieldOrigin::Extractor,
+                });
+            }
+            if taken == window.len() {
+                if drain {
+                    window.clear();
+                } else {
+                    let keep = CHUNK_OVERLAP.min(window.len());
+                    window.drain(..window.len() - keep);
+                }
+                return ok;
+            }
+            // Cut short by the byte cap: keep the overlap tail of what was
+            // emitted plus everything after it.  At least one line is always
+            // dropped, so a run of oversized lines still advances.
+            let keep = CHUNK_OVERLAP.min(taken - 1);
+            window.drain(..taken - keep);
+            if !drain || !ok {
+                return ok;
+            }
         }
-        ok
     }
 
     loop {
@@ -518,6 +541,36 @@ mod chunk_tests {
                 t.len() <= CHUNK_MAX_BYTES + 4001,
                 "chunk of {} bytes exceeds the cap",
                 t.len()
+            );
+        }
+    }
+
+    /// FAIL-BEFORE: the first record held lines 1-2 (the byte cap stopped it
+    /// at the 4000-byte line 3), then 30 lines were dropped from the window, so
+    /// lines 3-30 appeared in no record, and that record claimed `end_line` 40.
+    #[test]
+    fn byte_cap_cut_loses_no_line_and_reports_its_real_end() {
+        let long = format!("long {}", "y".repeat(4000));
+        let mut lines: Vec<String> = (1..=77).map(|i| format!("line{i}")).collect();
+        for i in [2usize, 3, 4, 41, 42] {
+            lines[i] = format!("{long} {i}");
+        }
+        let refs: Vec<&str> = lines.iter().map(|s| s.as_str()).collect();
+        let out = run(&refs);
+        for (i, line) in lines.iter().enumerate() {
+            assert!(
+                out.iter()
+                    .any(|(t, _, _, _)| t.split('\n').any(|l| l == line)),
+                "line {} lost",
+                i + 1
+            );
+        }
+        for (t, s, e, _) in &out {
+            let got = t.split('\n').count() as u64;
+            assert_eq!(e - s + 1, got, "record {s}..{e} holds {got} lines");
+            assert!(
+                t.split('\n').next_back() == Some(lines[*e as usize - 1].as_str()),
+                "end_line {e} must be the record's last line"
             );
         }
     }

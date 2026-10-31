@@ -28,9 +28,9 @@ use std::sync::OnceLock;
 use streaming_iterator::StreamingIterator;
 use tree_sitter::{Language, Node, Parser, Query, QueryCursor};
 
-/// Skip machine-generated giants (minified bundles, generated parsers) — past a
-/// couple MB a single "file" is not human code and only bloats the index.
-const CODE_CAP: u64 = 2 << 20;
+/// Whole-file AST extraction budget. Hand-written source can exceed it too;
+/// size is not evidence that a file is generated.
+pub(crate) const CODE_CAP: u64 = 2 << 20;
 
 /// The reason a source file over [`CODE_CAP`] is skipped (#2483). It names
 /// the cap and the file's size, says the run is otherwise unaffected, and
@@ -38,13 +38,16 @@ const CODE_CAP: u64 = 2 << 20;
 fn code_cap_refusal(path: &Path) -> String {
     let mib = |b: u64| b as f64 / (1u64 << 20) as f64;
     let size = std::fs::metadata(path)
-        .map(|m| format!("{:.1} MiB", mib(m.len())))
-        .unwrap_or_else(|_| "size unknown".into());
+        .map(|m| format!("{} bytes", m.len()))
+        .unwrap_or_else(|_| "unavailable".into());
     format!(
-        "source file over the {:.0} MiB code cap ({size}): too large to be hand-written \
-         code (generated stubs, minified bundles), so it is not parsed. The rest of the \
-         run is unaffected. To leave it out of the plan, add its path to .xerjignore",
-        mib(CODE_CAP)
+        "source file over the {:.0} MiB code cap ({} bytes; reported file size: {size}). \
+         It was not parsed and produced no records. This is a separate fixed \
+         code-extraction limit: changing --max-file-gb, --max-file-mb or --max-file-bytes \
+         does not raise it. Other files can continue to index. To leave this file \
+         out of the plan, add its path to .xerjignore",
+        mib(CODE_CAP),
+        CODE_CAP
     )
 }
 
@@ -65,6 +68,57 @@ struct LangDef {
 pub fn is_code_ext(ext: &str) -> bool {
     let e = ext.to_ascii_lowercase();
     registry().iter().any(|d| d.exts.contains(&e.as_str()))
+}
+
+/// #2732: Vue and Svelte single-file components. No grammar claims the whole
+/// file — markup, script and style in one — so it is not a registry row; its
+/// `<script>` blocks are parsed with the JS/TS grammar instead
+/// ([`component_script`]) and the file keeps its own `language`.
+pub fn is_component_ext(ext: &str) -> bool {
+    matches!(ext.to_ascii_lowercase().as_str(), "vue" | "svelte")
+}
+
+/// The component with everything outside its `<script>` blocks blanked to
+/// spaces, newlines kept, so every byte offset and line of a captured
+/// declaration is the component's own; plus the grammar that reads it —
+/// `typescript` when a block says `lang="ts"` (`tsx` for `lang="tsx"`),
+/// `javascript` otherwise.
+fn component_script(text: &str) -> (String, &'static str) {
+    let lower = text.to_ascii_lowercase();
+    let mut keep = vec![false; text.len()];
+    let mut grammar = "javascript";
+    let mut from = 0;
+    while let Some(open) = lower[from..].find("<script").map(|i| from + i) {
+        let Some(tag_end) = lower[open..].find('>').map(|i| open + i + 1) else {
+            break;
+        };
+        let tag = &lower[open..tag_end];
+        for (needle, name) in [
+            ("tsx", "tsx"),
+            ("ts", "typescript"),
+            ("typescript", "typescript"),
+        ] {
+            if [format!("lang=\"{needle}\""), format!("lang='{needle}'")]
+                .iter()
+                .any(|attr| tag.contains(attr.as_str()))
+            {
+                grammar = name;
+            }
+        }
+        let close = lower[tag_end..]
+            .find("</script")
+            .map_or(text.len(), |i| tag_end + i);
+        keep[tag_end..close].iter_mut().for_each(|k| *k = true);
+        from = close;
+    }
+    // Only ASCII is written outside the kept spans, and the spans start and
+    // end at ASCII `>` / `<`, so the result is still UTF-8.
+    let masked: Vec<u8> = text
+        .bytes()
+        .zip(&keep)
+        .map(|(b, &k)| if k || b == b'\n' { b } else { b' ' })
+        .collect();
+    (String::from_utf8(masked).unwrap_or_default(), grammar)
 }
 
 /// #2205: the `language` a code record carries is the registry row's NAME
@@ -372,6 +426,22 @@ pub fn extract(path: &Path, sn: &crate::sniff::Sniffed, sink: Sink) -> Result<Ex
     // (or the dump extractor emitted nothing and the caller fell through).
     if crate::sniff::is_sql_filename(named) {
         return super::sqlsrc::extract(path, named, sn.gzip, sink);
+    }
+    if is_component_ext(&ext) {
+        let Some(bytes) = super::read_whole(path, false, CODE_CAP)? else {
+            stats.junk += 1;
+            stats.refusal = Some(code_cap_refusal(path));
+            return Ok(stats);
+        };
+        let (text, _) = crate::sniff::decode_text(&bytes);
+        let (script, grammar) = component_script(&text);
+        let symbols = registry()
+            .iter()
+            .find(|d| d.name == grammar)
+            .and_then(|d| parse_symbols(d, &script))
+            .unwrap_or_default();
+        emit_code_doc(named, &ext, &text, &symbols, &mut stats, sink);
+        return Ok(stats);
     }
     let claimants: Vec<&LangDef> = registry()
         .iter()
@@ -2465,6 +2535,106 @@ const SCHEME_Q: &str = r#"
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #2732: a Vue/Svelte component is code, not junk-filed XML, and its
+    /// script declarations are symbols on the component's own lines.
+    #[test]
+    fn vue_and_svelte_components_index_their_script_declarations() {
+        let vue = "<template>\n  <div>{{ count }}</div>\n</template>\n\n\
+                   <script setup lang=\"ts\">\nimport { ref } from 'vue'\n\
+                   export function useCounter(start: number) {\n  return ref(start)\n}\n\
+                   </script>\n\n<style scoped>\ndiv { color: red; }\n</style>\n";
+        let svelte = "<script>\n  export let name = 'world';\n  \
+                      function greet() { return name; }\n</script>\n\n<h1>Hello {name}!</h1>\n";
+        let dir = tempfile::tempdir().unwrap();
+        for (file, src, want, line) in [
+            ("Counter.vue", vue, "useCounter", 7),
+            ("Hello.svelte", svelte, "greet", 3),
+        ] {
+            let f = dir.path().join(file);
+            std::fs::write(&f, src).unwrap();
+            let sn = crate::sniff::sniff_with_name(&f, Path::new(file)).unwrap();
+            assert_eq!(sn.family, crate::sniff::Family::Code, "{file}");
+            let mut records: Vec<RawRecord> = Vec::new();
+            let stats = extract(&f, &sn, &mut |record| {
+                records.push(record);
+                true
+            })
+            .unwrap();
+            assert_eq!(stats.junk, 0, "{file}");
+            let ext = file.rsplit('.').next().unwrap();
+            assert!(
+                records
+                    .iter()
+                    .any(|r| r.fields.get("language").is_some_and(|l| l == ext)),
+                "{file}: the file keeps its own language"
+            );
+            let decl = records
+                .iter()
+                .find(|r| r.fields.get("name").is_some_and(|n| n == want))
+                .unwrap_or_else(|| panic!("{file}: no {want} declaration"));
+            assert_eq!(decl.fields["line"], line, "{file}");
+        }
+        // The grammar follows the block's `lang`; markup and styles are blanked.
+        let (script, grammar) = component_script(vue);
+        assert_eq!(grammar, "typescript");
+        assert_eq!(component_script(svelte).1, "javascript");
+        assert_eq!(script.len(), vue.len());
+        assert_eq!(script.lines().count(), vue.lines().count());
+        assert!(!script.contains("color") && !script.contains("<div>"));
+    }
+
+    #[test]
+    fn perl_code_cap_boundary_reports_exact_bytes_without_guessing_authorship() {
+        let dir = tempfile::tempdir().unwrap();
+        for size in [CODE_CAP - 1, CODE_CAP, CODE_CAP + 1] {
+            let path = dir.path().join("handwritten.pl");
+            let head = "sub boundary_probe { return 1; }\n#";
+            let tail = "\nsub tail_probe { return 2; }\n";
+            let source = format!(
+                "{head}{}{tail}",
+                "x".repeat(size as usize - head.len() - tail.len())
+            );
+            assert_eq!(source.len() as u64, size);
+            std::fs::write(&path, &source).unwrap();
+            // Exercise logical naming too: durable preparation parses a blob,
+            // but language/source identity still come from the archived name.
+            let blob = dir.path().join("00000000");
+            std::fs::write(&blob, &source).unwrap();
+            for content in [&path, &blob] {
+                let sniffed = crate::sniff::sniff_with_name(content, &path).unwrap();
+                let mut records = Vec::new();
+                let stats = extract(content, &sniffed, &mut |record| {
+                    records.push(record);
+                    true
+                })
+                .unwrap();
+                if size <= CODE_CAP {
+                    assert!(stats.refusal.is_none());
+                    assert!(records.iter().any(|record| record
+                        .fields
+                        .get("name")
+                        .and_then(Value::as_str)
+                        == Some("boundary_probe")));
+                    assert!(records.iter().any(|record| record
+                        .fields
+                        .get("name")
+                        .and_then(Value::as_str)
+                        == Some("tail_probe")));
+                } else {
+                    assert!(records.is_empty());
+                    assert_eq!(stats.records, 0);
+                    let reason = stats.refusal.unwrap();
+                    assert!(reason.contains(&format!("{size} bytes")), "{reason}");
+                    assert!(reason.contains(&format!("{CODE_CAP} bytes")), "{reason}");
+                    assert!(reason.contains("--max-file-mb"), "{reason}");
+                    assert!(reason.contains("does not raise"), "{reason}");
+                    assert!(!reason.contains("too large to be hand-written"), "{reason}");
+                    assert!(!reason.contains("generated stubs"), "{reason}");
+                }
+            }
+        }
+    }
 
     /// #2205: `--lang js` must filter on the stored `javascript`, not on a
     /// value no record carries.

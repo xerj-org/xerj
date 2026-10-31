@@ -1,0 +1,39 @@
+<figure class="vz" id="fig-hy-lab" aria-labelledby="fig-hy-lab-cap">
+  <span class="vz-label">Try it: fuse two rankings</span>
+  <p class="vz-title">Reciprocal Rank Fusion, live</p>
+  <div class="vz-check" data-vz-search>
+    <p class="vz-d">Six lines to search:</p>
+    <ol class="vz-docs">
+      <li>Error: connection refused on port 9200</li>
+      <li>The agent cannot reach the search server</li>
+      <li>Restart the server if the index looks stuck</li>
+      <li>Give a coding agent memory across sessions</li>
+      <li>Port 9200 is the default search API port</li>
+      <li>My assistant forgets what we discussed yesterday</li>
+    </ol>
+    <div class="vz-q">
+      <label class="vz-d" for="hy-lab-q">Query</label>
+      <input type="text" id="hy-lab-q" value="search server down" spellcheck="false" aria-describedby="hy-lab-out">
+    </div>
+    <div class="vz-js-only">
+      <div class="vz-q">
+        <button type="button" class="vz-btn" data-q="search server down">search server down</button>
+        <button type="button" class="vz-btn" data-q="network down">network down</button>
+        <button type="button" class="vz-btn" data-q="port 9200">port 9200</button>
+      </div>
+      <div class="vz-sliders">
+        <label>k<output data-for="k"></output><input type="range" name="k" min="1" max="100" step="1" value="60"></label>
+        <label>BM25 weight<output data-for="wb"></output><input type="range" name="wb" min="0" max="2" step="0.1" value="1"></label>
+        <label>Vector weight<output data-for="wv"></output><input type="range" name="wv" min="0" max="2" step="0.1" value="1"></label>
+      </div>
+      <div class="vz-cols vz-cols-3">
+        <div class="vz-card"><span class="vz-k">BM25 top 3</span><ol class="vz-hits" data-out="bm25"></ol></div>
+        <div class="vz-card"><span class="vz-k">Vector top 3 (toy)</span><ol class="vz-hits" data-out="vec"></ol></div>
+        <div class="vz-card is-hi"><span class="vz-k">Fused (RRF)</span><ol class="vz-hits" data-out="rrf"></ol></div>
+      </div>
+      <p class="vz-out" id="hy-lab-out" aria-live="polite"></p>
+    </div>
+    <p class="vz-nojs vz-out">With JavaScript off, here is the BM25 side for "search server down", as a local XERJ node scored it: line 2 at 2.079, lines 3 and 5 at 0.9829. The word "down" is in no line, so it adds nothing.</p>
+  </div>
+  <figcaption id="fig-hy-lab-cap">Runs in your browser and sends nothing. The BM25 column uses the formula and defaults in XERJ's bm25.rs (k1 1.2, b 0.75); on these six lines it matched a local XERJ v1.0.0-rc.97 node to 4 decimals for 6 test queries on 2026-10-30. The vector column is a toy: each word gets 5 hand-set numbers (network, server, memory, error, time), not a trained model. Fused score per line is the sum of weight / (k + rank).</figcaption>
+</figure>

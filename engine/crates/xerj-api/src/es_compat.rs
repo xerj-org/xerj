@@ -8088,6 +8088,29 @@ fn find_invalid_agg_params(aggs: Option<&Value>) -> Option<String> {
             _ => None,
         }
     }
+    /// `hdr` options shared by `percentiles` and `percentile_ranks`. ES
+    /// accepts 0..=5 significant digits; anything else is a 400. The engine
+    /// sizes its histogram as `2 * 10^digits` rounded up to a power of two,
+    /// so an unchecked value such as 20 overflowed that `u64` and spun the
+    /// rounding loop forever on the search thread.
+    fn check_hdr(name: &str, params: &Value) -> Option<String> {
+        let digits = params
+            .get("hdr")?
+            .get("number_of_significant_value_digits")?;
+        if digits.as_u64().is_some_and(|d| d <= 5) {
+            return None;
+        }
+        if digits.is_null() {
+            return Some(
+                "[hdr] number_of_significant_value_digits doesn't support values of type: \
+                 VALUE_NULL"
+                    .to_string(),
+            );
+        }
+        Some(format!(
+            "[numberOfSignificantValueDigits] must be between 0 and 5: [{name}]"
+        ))
+    }
     /// Every descendant definition below `def`, as `(type, name)`.
     fn descendants<'a>(def: &'a Value, out: &mut Vec<(&'a str, &'a str)>) {
         for (name, child) in sub_aggs(def).into_iter().flatten() {
@@ -8178,9 +8201,31 @@ fn find_invalid_agg_params(aggs: Option<&Value>) -> Option<String> {
                     }
                 }
             }
-            "percentiles" => return check_tdigest(params),
+            "percentiles" => {
+                if let Some(e) = check_tdigest(params) {
+                    return Some(e);
+                }
+                if let Some(e) = check_hdr(name, params) {
+                    return Some(e);
+                }
+                match params.get("percents") {
+                    Some(Value::Null) => {
+                        return Some(format!("[percents] must not be null: [{name}]"))
+                    }
+                    Some(Value::Array(a)) if a.is_empty() => {
+                        return Some(format!("[percents] must not be empty: [{name}]"))
+                    }
+                    Some(Value::Array(a)) if !a.iter().all(Value::is_number) => {
+                        return Some(format!("[percents] must be numbers: [{name}]"))
+                    }
+                    _ => {}
+                }
+            }
             "percentile_ranks" => {
                 if let Some(e) = check_tdigest(params) {
+                    return Some(e);
+                }
+                if let Some(e) = check_hdr(name, params) {
                     return Some(e);
                 }
                 match params.get("values") {
@@ -8327,6 +8372,47 @@ mod agg_param_validation_tests {
             json!({"c": {"composite": {"sources": [{"k": {"terms": {"field": "k"}}}]}},
                    "r": {"rare_terms": {"field": "k"}}}),
         ] {
+            assert_eq!(check(aggs.clone()), None, "{aggs}");
+        }
+    }
+
+    /// FAIL-BEFORE: none of these were refused. `hdr` digits of 20 (or any
+    /// value whose `2 * 10^digits` wraps `u64` past 2^63) also hung the search
+    /// thread in the engine's histogram sizing loop instead of erroring.
+    #[test]
+    fn percentiles_hdr_and_percents_are_validated() {
+        for digits in [
+            json!(-1),
+            json!(6),
+            json!(10),
+            json!(20),
+            json!(4294967316u64),
+        ] {
+            for kind in ["percentiles", "percentile_ranks"] {
+                let aggs = json!({"p": {kind: {"field": "f", "values": [1],
+                    "hdr": {"number_of_significant_value_digits": digits}}}});
+                assert_eq!(
+                    check(aggs.clone()).as_deref(),
+                    Some("[numberOfSignificantValueDigits] must be between 0 and 5: [p]"),
+                    "{aggs}"
+                );
+            }
+        }
+        let null_digits = json!({"p": {"percentiles": {"field": "f",
+            "hdr": {"number_of_significant_value_digits": null}}}});
+        assert!(check(null_digits).is_some_and(|e| e.contains("VALUE_NULL")));
+        for (percents, reason) in [
+            (json!([]), "[percents] must not be empty: [p]"),
+            (json!(null), "[percents] must not be null: [p]"),
+            (json!(["foo"]), "[percents] must be numbers: [p]"),
+        ] {
+            let aggs = json!({"p": {"percentiles": {"field": "f", "hdr": {},
+                                                    "percents": percents}}});
+            assert_eq!(check(aggs.clone()).as_deref(), Some(reason), "{aggs}");
+        }
+        for digits in 0..=5 {
+            let aggs = json!({"p": {"percentiles": {"field": "f", "percents": [50],
+                "hdr": {"number_of_significant_value_digits": digits}}}});
             assert_eq!(check(aggs.clone()), None, "{aggs}");
         }
     }
@@ -9236,7 +9322,10 @@ fn hdr_percentiles_values(vals: &[f64], spec: &Value) -> Value {
         .get("hdr")
         .and_then(|h| h.get("number_of_significant_value_digits"))
         .and_then(Value::as_u64)
-        .unwrap_or(3) as u32;
+        .unwrap_or(3)
+        // ES bounds this to 0..=5; past 18 `10^digits` overflows `u64` and the
+        // power-of-two loop below never terminates.
+        .min(5) as u32;
     let sub_bucket_count: u64 = {
         let target = 2u64 * 10u64.pow(digits);
         let mut p = 1u64;
@@ -32632,6 +32721,76 @@ async fn by_query_matches_anything(
     Ok(results.total.value > 0)
 }
 
+/// What [`by_query_single_page`] found.
+enum SinglePage {
+    /// Nothing matches: the #1222 no-op.
+    Empty,
+    /// Every match, in one page. `total` was exact and equal to the page.
+    Complete(Vec<String>),
+    /// More than one page, or a total that is not exact: the flush-first
+    /// paged runner owns it.
+    Larger,
+}
+
+/// #2640: the #1222 probe, widened to return the match set when it fits in
+/// one page.
+///
+/// The by-query runner flushes before paging because `_id`-keyset paging is
+/// only correct over on-disk segments (#1019). A selector whose whole match
+/// set comes back in ONE page with an exact `hits.total` does not page, so
+/// that precondition has nothing to protect. And the flush cost is not the
+/// selector's to pay: it drains the WHOLE memtable, every concurrent writer's
+/// fresh documents included, into a new segment. `autoindex --fresh` fires
+/// one delete-before-replace per file while its workers bulk the
+/// replacements, so each matching delete cut a tiny segment out of the other
+/// workers' writes. 1,050 of them on the #2640 corpus, about 19 s of the
+/// 26.7 s run after #2703.
+///
+/// Same search path and same strictness as `by_query_matches_anything`:
+/// memtable documents count, an unanswered probe propagates, and a script
+/// limit refuses the run.
+async fn by_query_single_page(
+    idx: &std::sync::Arc<xerj_engine::Index>,
+    query: &Value,
+    page: usize,
+) -> Result<SinglePage, Value> {
+    let mut probe = match xerj_query::parse_request(&json!({
+        "query": query,
+        "size": page,
+        "track_total_hits": true,
+        "_source": false,
+    })) {
+        Ok(r) => r,
+        Err(e) => {
+            return Err(
+                ApiError::new(xerj_common::XerjError::invalid_query(e.to_string())).into_value(),
+            )
+        }
+    };
+    probe.ids_only = true;
+    let results = match idx.search(&probe).await {
+        Ok(r) => r,
+        Err(e) => return Err(ApiError::new(xerj_common::XerjError::from(e)).into_value()),
+    };
+    if let Some(reason) = &results.script_failure {
+        return Err(script_limit_error_value(reason));
+    }
+    if results.total.value == 0 {
+        return Ok(SinglePage::Empty);
+    }
+    let exact = results.total.relation == xerj_query::executor::TotalHitsRelation::Eq;
+    if !exact || results.hits.len() as u64 != results.total.value {
+        return Ok(SinglePage::Larger);
+    }
+    let mut ids: Vec<String> = results.hits.into_iter().map(|h| h.id).collect();
+    ids.sort_unstable();
+    ids.dedup();
+    if ids.len() as u64 != results.total.value {
+        return Ok(SinglePage::Larger);
+    }
+    Ok(SinglePage::Complete(ids))
+}
+
 fn record_deleted(deleted_ids: &Option<std::sync::Arc<std::sync::Mutex<Vec<String>>>>, id: &str) {
     let Some(ids) = deleted_ids else {
         return;
@@ -32702,9 +32861,57 @@ pub(crate) async fn run_delete_by_query_recorded(
     // #1222: no match, no flush (see `by_query_matches_anything`). The zero
     // response mirrors what both arms below already return for a no-match
     // run over a flushed index: `batches: 0` with `total: 0`.
-    match by_query_matches_anything(idx, query).await {
-        Ok(true) => {}
-        Ok(false) => {
+    //
+    // #2640: a small match set, no flush either (see
+    // `by_query_single_page`). The probe reads the whole match set in one
+    // exact page through the ordinary search path, memtable included, so
+    // there is nothing to page over and the flush precondition has no job.
+    let single_page = if max_docs.is_none() {
+        by_query_single_page(idx, query, scroll_size).await
+    } else {
+        by_query_matches_anything(idx, query).await.map(|any| {
+            if any {
+                SinglePage::Larger
+            } else {
+                SinglePage::Empty
+            }
+        })
+    };
+    match single_page {
+        Ok(SinglePage::Larger) => {}
+        Ok(SinglePage::Complete(ids)) => {
+            let total = ids.len() as u64;
+            let mut deleted: u64 = 0;
+            let mut failures: Vec<Value> = Vec::new();
+            for id in &ids {
+                match idx.delete_document(id).await {
+                    Ok(_) => {
+                        deleted += 1;
+                        record_deleted(&deleted_ids, id);
+                    }
+                    Err(e) => {
+                        failures.push(json!({
+                            "id": id,
+                            "cause": { "reason": e.to_string() },
+                        }));
+                    }
+                }
+            }
+            return json!({
+                "took": started.elapsed().as_millis() as u64,
+                "timed_out": false,
+                "total": total,
+                "deleted": deleted,
+                "batches": 1,
+                "version_conflicts": 0,
+                "noops": 0,
+                "failures": failures,
+                "throttled_millis": 0,
+                "requests_per_second": -1,
+                "throttled_until_millis": 0,
+            });
+        }
+        Ok(SinglePage::Empty) => {
             return json!({
                 "took": started.elapsed().as_millis() as u64,
                 "timed_out": false,
@@ -33927,11 +34134,10 @@ mod scripted_update_publication_tests {
     }
 
     /// The #1222 gate must not weaken the real run: a matching
-    /// `_delete_by_query` still flushes, purges, and reports ES totals —
-    /// the unflushed matching doc is visible to the gate's probe (ordinary
-    /// search path), so it takes the flush arm exactly as before.
+    /// `_delete_by_query` still purges and reports ES totals — the unflushed
+    /// matching doc is visible to the gate's probe (ordinary search path).
     #[tokio::test]
-    async fn matching_delete_by_query_still_flushes_and_purges() {
+    async fn matching_delete_by_query_still_purges() {
         let state = test_state();
         let idx = state
             .engine
@@ -33964,6 +34170,81 @@ mod scripted_update_publication_tests {
             idx.get_document("stay").await.unwrap().is_some(),
             "the non-matching doc must survive"
         );
+    }
+
+    /// #2640: a match set that fits in one page is deleted without the
+    /// flush. `autoindex --fresh` sends one delete-before-replace per file
+    /// while other workers bulk; pre-fix every matching delete drained THEIR
+    /// unflushed writes into a new segment (one per file). The match set
+    /// here spans a segment and the memtable, and both copies must go, while
+    /// the bystander's unflushed write stays in the memtable.
+    #[tokio::test]
+    async fn single_page_delete_by_query_purges_without_flushing() {
+        let state = test_state();
+        let idx = state
+            .engine
+            .get_or_create_index("byquery-single-page")
+            .unwrap();
+        idx.index_document(Some("old".into()), json!({"file": "a"}))
+            .await
+            .unwrap();
+        idx.flush().await.unwrap();
+        idx.index_document(Some("new".into()), json!({"file": "a"}))
+            .await
+            .unwrap();
+        idx.index_document(Some("bystander".into()), json!({"file": "b"}))
+            .await
+            .unwrap();
+        assert!(idx.memtable_bytes() > 0, "precondition: writes unflushed");
+
+        let out = run_delete_by_query(
+            &idx,
+            &json!({ "term": { "file": "a" } }),
+            None,
+            DEFAULT_BY_QUERY_SCROLL_SIZE as usize,
+        )
+        .await;
+        assert_eq!(out["failures"], json!([]));
+        assert_eq!(out["total"], json!(2));
+        assert_eq!(out["deleted"], json!(2));
+        assert_eq!(out["batches"], json!(1));
+        assert_eq!(idx.get_document("old").await.unwrap(), None);
+        assert_eq!(idx.get_document("new").await.unwrap(), None);
+        assert!(idx.get_document("bystander").await.unwrap().is_some());
+        assert!(
+            idx.memtable_bytes() > 0,
+            "a one-page delete must not drain other writers' memtable \
+             documents into a segment (#2640)"
+        );
+    }
+
+    /// The #2640 fast path covers ONE complete page only. A match set larger
+    /// than `scroll_size` still takes the flush-first paged runner and is
+    /// removed in full.
+    #[tokio::test]
+    async fn multi_page_delete_by_query_still_purges_everything() {
+        let state = test_state();
+        let idx = state
+            .engine
+            .get_or_create_index("byquery-multi-page")
+            .unwrap();
+        for i in 0..5 {
+            idx.index_document(Some(format!("m{i}")), json!({"file": "a"}))
+                .await
+                .unwrap();
+        }
+        idx.index_document(Some("keep".into()), json!({"file": "b"}))
+            .await
+            .unwrap();
+
+        let out = run_delete_by_query(&idx, &json!({ "term": { "file": "a" } }), None, 2).await;
+        assert_eq!(out["failures"], json!([]));
+        assert_eq!(out["total"], json!(5));
+        assert_eq!(out["deleted"], json!(5));
+        for i in 0..5 {
+            assert_eq!(idx.get_document(&format!("m{i}")).await.unwrap(), None);
+        }
+        assert!(idx.get_document("keep").await.unwrap().is_some());
     }
 }
 

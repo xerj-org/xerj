@@ -2,13 +2,13 @@
 ---
 title: "Agentic memory vs RAG: what is the difference?"
 canonical: "https://xerj.org/answers/agentic-memory-vs-rag"
-updated: "2026-10-28"
+updated: "2026-10-30"
 source: "content/answers/agentic-memory-vs-rag.md"
 ---
 
 # Agentic memory vs RAG: what is the difference?
 
-**Short answer** (updated 2026-10-28): What is the difference between agentic memory and RAG? RAG retrieves evidence to inform generation, including documents or conversation history. Agentic memory retains information across tasks; RAG can be its retrieval step. Both depend on good search, so XERJ serves document search and agent memory from the same local binary.
+**Short answer** (updated 2026-10-30): What is the difference between agentic memory and RAG? RAG retrieves evidence to inform generation, including documents or conversation history. Agentic memory retains information across tasks; RAG can be its retrieval step. Both depend on good search, so XERJ serves document search and agent memory from the same local binary.
 
 **TL;DR**: RAG retrieves evidence for generation. Agentic memory keeps information across tasks and can use RAG to retrieve it. Both depend on search. XERJ serves document search and agent memory from the same local binary, so an agent uses one tool for both.
 
@@ -55,7 +55,7 @@ curl -s -XPOST 'http://127.0.0.1:9200/_memory/project' -H 'content-type: applica
 
 ## Agentic RAG sits in between
 
-Agentic RAG means the agent decides when and what to search, often in several rounds. Its sources can change during work. Persisting notes or history for later tasks adds a memory workflow; the two are compatible.
+Agentic RAG means the agent decides when and what to search, often in several rounds. Its sources can change during work. Persisting notes or history for later tasks adds a memory workflow; the two are compatible. See [agentic RAG vs RAG](/answers/agentic-rag-vs-rag) for a step-by-step comparison.
 
 ## Simple often wins
 
@@ -110,8 +110,9 @@ Yes. XERJ indexes your files for search and also has a /_memory API for agent no
 - [What is agentic memory?](/answers/what-is-agentic-memory)
 - [What is an MCP memory server?](/answers/what-is-an-mcp-memory-server)
 - [How do I build RAG without a vector database?](/answers/rag-without-vector-database)
+- [Agentic RAG vs RAG: what is the difference?](/answers/agentic-rag-vs-rag)
 - [XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee](/compare/xerj-vs-agent-memory-tools)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database)
 - [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant) (same intent: agent memory)
+- [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory) (same intent: agent memory)
 - [How can agent-memory links retain evidence?](/answers/evidence-for-agent-memory-links) (same intent: agent memory)
-- [How do I give two agents private memory on one laptop?](/answers/private-agent-memory-namespaces) (same intent: agent memory)

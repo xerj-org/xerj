@@ -136,4 +136,4 @@ No. The `node.lock` file guards the directory, and XERJ is single-node with no r
 - [What is an MCP memory server?](/answers/what-is-an-mcp-memory-server)
 - [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant) (same intent: agent memory)
 - [What is agentic memory?](/answers/what-is-agentic-memory) (same intent: agent memory)
-- [How do I give two agents private memory on one laptop?](/answers/private-agent-memory-namespaces) (same intent: agent memory)
+- [claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?](/compare/xerj-vs-claude-mem-and-mempalace) (same intent: agent memory)

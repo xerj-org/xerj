@@ -132,5 +132,5 @@ No. The default embedder is lexical feature hashing inside the binary, and our c
 - [What is agentic memory?](/answers/what-is-agentic-memory)
 - [XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee](/compare/xerj-vs-agent-memory-tools)
 - [How do I set the MCP memory storage path?](/answers/set-mcp-memory-storage-path) (same intent: agent memory)
+- [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory) (same intent: agent memory)
 - [What's a simpler alternative to Khoj if I only need search and memory?](/compare/xerj-vs-khoj) (same intent: agent memory)
-- [How do I give two agents private memory on one laptop?](/answers/private-agent-memory-namespaces) (same intent: agent memory)

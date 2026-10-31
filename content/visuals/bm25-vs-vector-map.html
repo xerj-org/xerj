@@ -1,0 +1,38 @@
+<figure class="vz" id="fig-bv-map" aria-labelledby="fig-bv-map-cap">
+  <span class="vz-label">Diagram</span>
+  <p class="vz-title">Two ways to look up "server unreachable"</p>
+  <div class="vz-svg">
+    <svg viewBox="0 0 720 250" role="img" aria-describedby="fig-bv-map-svg" aria-label="How BM25 and vector search match a query">
+      <desc id="fig-bv-map-svg">Left: an inverted index maps each word to the lines that contain it. Right: a vector space places lines as points, and the query lands near lines with a similar meaning.</desc>
+      <text class="vz-s-t vz-s-b" x="20" y="24">BM25: a word list</text>
+      <rect class="vz-s-box" x="20" y="40" width="320" height="190" rx="4"/>
+      <text class="vz-s-m" x="40" y="72">server</text>
+      <text class="vz-s-m vz-s-acc" x="170" y="72">d2, d3</text>
+      <rect class="vz-s-hi" x="30" y="56" width="300" height="24" rx="2" fill-opacity="0.35"/>
+      <text class="vz-s-m" x="40" y="104">unreachable</text>
+      <text class="vz-s-m vz-s-mute" x="170" y="104">(no line)</text>
+      <text class="vz-s-m" x="40" y="136">port</text>
+      <text class="vz-s-m vz-s-mute" x="170" y="136">d1, d5</text>
+      <text class="vz-s-m" x="40" y="168">memory</text>
+      <text class="vz-s-m vz-s-mute" x="170" y="168">d4</text>
+      <text class="vz-s-t vz-s-mute" x="40" y="210">Hits only lines with a shared word.</text>
+      <text class="vz-s-t vz-s-b" x="380" y="24">Vectors: a map of meaning</text>
+      <rect class="vz-s-box" x="380" y="40" width="320" height="190" rx="4"/>
+      <circle class="vz-s-faint" cx="490" cy="110" r="52"/>
+      <circle class="vz-s-brand" cx="470" cy="100" r="6"/>
+      <text class="vz-s-m" x="440" y="88">query</text>
+      <circle class="vz-s-cmp" cx="505" cy="125" r="5"/>
+      <text class="vz-s-m" x="514" y="129">d2</text>
+      <circle class="vz-s-cmp" cx="455" cy="135" r="5"/>
+      <text class="vz-s-m" x="420" y="150">d1</text>
+      <circle class="vz-s-cmp" cx="520" cy="85" r="5"/>
+      <text class="vz-s-m" x="529" y="89">d5</text>
+      <circle class="vz-s-off" cx="640" cy="190" r="5"/>
+      <text class="vz-s-m vz-s-mute" x="650" y="194">d4</text>
+      <circle class="vz-s-off" cx="610" cy="200" r="5"/>
+      <text class="vz-s-m vz-s-mute" x="575" y="215">d6</text>
+      <text class="vz-s-t vz-s-mute" x="400" y="210">Hits the nearest lines, words or not.</text>
+    </svg>
+  </div>
+  <figcaption id="fig-bv-map-cap">BM25 looks words up in an inverted index, so "unreachable" finds nothing and only "server" scores. A vector search embeds the query and returns the nearest lines, so it can find the connection error that uses none of the query words. The map is a sketch, not a real projection.</figcaption>
+</figure>

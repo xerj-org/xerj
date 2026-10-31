@@ -108,6 +108,6 @@ In the node data directory, one .xerj-memory-{namespace} index per namespace. Ch
 - [How do I give two agents private memory on one laptop?](/answers/private-agent-memory-namespaces)
 - [XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee](/compare/xerj-vs-agent-memory-tools)
 - [Agent memory](/docs/recipes/agentic-memory)
+- [claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?](/compare/xerj-vs-claude-mem-and-mempalace) (same intent: agent memory)
 - [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant) (same intent: agent memory)
-- [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions) (same intent: agent memory)
-- [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag) (same intent: agent memory)
+- [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory) (same intent: agent memory)

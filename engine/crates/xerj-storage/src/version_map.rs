@@ -82,20 +82,170 @@ pub struct VersionEntry {
 
 // ── VersionMap ───────────────────────────────────────────────────────────────
 
-/// Owned doc-id key stored in every bucket of the map.
-type MapKey = Box<str>;
+/// Owned doc-id key stored in every bucket of the map (#2427).
+///
+/// 24 B, and in the common cases the id needs no heap allocation at all:
+/// - a 32-char lowercase hex id (what `xerj autoindex` and many content
+///   hash schemes write) packs into 16 raw bytes;
+/// - a lowercase hyphenated UUID packs the same way;
+/// - anything else is a `CompactString`, inline up to 24 bytes (ES auto
+///   ids are 20 chars) and heap-allocated only beyond that.
+///
+/// A `Box<str>` key (16 B) always paid a separate allocation on top of the
+/// bucket: one 48 B allocator size class for a 32-char id. The encoding is
+/// canonical (an id has exactly one form), so the derived `Hash`/`Eq` match
+/// string equality, and [`MapKey::to_id`] round-trips the exact string.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum MapKey {
+    Hex32([u8; 16]),
+    Uuid([u8; 16]),
+    Str(compact_str::CompactString),
+}
+
+const UUID_DASHES: [usize; 4] = [8, 13, 18, 23];
+const HEX_DIGITS: &[u8; 16] = b"0123456789abcdef";
+
+#[inline]
+fn hex_nibble(c: u8) -> Option<u8> {
+    match c {
+        b'0'..=b'9' => Some(c - b'0'),
+        b'a'..=b'f' => Some(c - b'a' + 10),
+        _ => None,
+    }
+}
+
+/// Pack 32 lowercase hex digits (yielded in order) into 16 bytes.
+#[inline]
+fn pack_hex(mut digits: impl Iterator<Item = u8>) -> Option<[u8; 16]> {
+    let mut out = [0u8; 16];
+    for byte in &mut out {
+        let hi = hex_nibble(digits.next()?)?;
+        let lo = hex_nibble(digits.next()?)?;
+        *byte = hi << 4 | lo;
+    }
+    Some(out)
+}
+
+impl MapKey {
+    fn new(id: &str) -> Self {
+        let b = id.as_bytes();
+        if b.len() == 32 {
+            if let Some(packed) = pack_hex(b.iter().copied()) {
+                return MapKey::Hex32(packed);
+            }
+        } else if b.len() == 36 && UUID_DASHES.iter().all(|&i| b[i] == b'-') {
+            let digits = b
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| !UUID_DASHES.contains(i))
+                .map(|(_, &c)| c);
+            if let Some(packed) = pack_hex(digits) {
+                return MapKey::Uuid(packed);
+            }
+        }
+        MapKey::Str(compact_str::CompactString::new(id))
+    }
+
+    /// The original id string.
+    fn to_id(&self) -> String {
+        fn hex(bytes: &[u8; 16], dashes: bool) -> String {
+            let mut out = String::with_capacity(36);
+            for (i, byte) in bytes.iter().enumerate() {
+                if dashes && matches!(i, 4 | 6 | 8 | 10) {
+                    out.push('-');
+                }
+                out.push(HEX_DIGITS[(byte >> 4) as usize] as char);
+                out.push(HEX_DIGITS[(byte & 0xf) as usize] as char);
+            }
+            out
+        }
+        match self {
+            MapKey::Hex32(b) => hex(b, false),
+            MapKey::Uuid(b) => hex(b, true),
+            MapKey::Str(s) => s.to_string(),
+        }
+    }
+
+    /// Bytes this key holds outside its bucket (0 unless a long `Str`).
+    #[inline]
+    fn heap_len(&self) -> usize {
+        match self {
+            MapKey::Str(s) if s.is_heap_allocated() => s.len(),
+            _ => 0,
+        }
+    }
+}
+
+/// High bit of [`Slot::version_deleted`]: the tombstone flag.
+const DELETED_BIT: u64 = 1 << 63;
+
+/// In-map representation of a [`VersionEntry`] (#2427).
+///
+/// The tombstone flag is folded into the high bit of the version counter,
+/// so a slot is 32 B instead of the 40 B `VersionEntry` (whose `bool` pads
+/// out to a full word). Converted to/from `VersionEntry` only at the
+/// public API boundary; callers never see this type.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Slot {
+    seq_no: SeqNo,
+    segment_id: Arc<str>,
+    version_deleted: u64,
+}
+
+impl Slot {
+    #[inline]
+    fn new(seq_no: SeqNo, segment_id: Arc<str>, deleted: bool, version: u64) -> Self {
+        let flag = if deleted { DELETED_BIT } else { 0 };
+        Self {
+            seq_no,
+            segment_id,
+            version_deleted: (version & !DELETED_BIT) | flag,
+        }
+    }
+
+    #[inline]
+    fn deleted(&self) -> bool {
+        self.version_deleted & DELETED_BIT != 0
+    }
+
+    #[inline]
+    fn version(&self) -> u64 {
+        self.version_deleted & !DELETED_BIT
+    }
+
+    #[inline]
+    fn set_version(&mut self, version: u64) {
+        self.version_deleted = (self.version_deleted & DELETED_BIT) | (version & !DELETED_BIT);
+    }
+
+    #[inline]
+    fn to_entry(&self) -> VersionEntry {
+        VersionEntry {
+            seq_no: self.seq_no,
+            segment_id: Arc::clone(&self.segment_id),
+            deleted: self.deleted(),
+            version: self.version(),
+        }
+    }
+}
+
+impl From<VersionEntry> for Slot {
+    fn from(e: VersionEntry) -> Self {
+        Slot::new(e.seq_no, e.segment_id, e.deleted, e.version)
+    }
+}
 
 /// Concurrent, lock-free document version map.
 pub struct VersionMap {
     /// doc_id → VersionEntry
     ///
-    /// Keys are `Box<str>`, not `String` (#2427): the key lives inline in
-    /// every hash bucket, so dropping the unused capacity word saves 8 of
-    /// the 64 bytes per bucket, and an incoming `String` with spare capacity
-    /// is shrunk to its length instead of being kept for the life of the
-    /// index.
-    inner: DashMap<MapKey, VersionEntry>,
-    /// Sum of key lengths currently in the map: the key heap half of
+    /// Buckets are `(MapKey, Slot)` = 56 B (#2427): hex, UUID and short
+    /// ids live inside the key with no separate allocation, and the
+    /// tombstone flag shares a word with the version counter. An incoming `String` is copied to its exact length,
+    /// never kept with spare capacity for the life of the index.
+    inner: DashMap<MapKey, Slot>,
+    /// Sum of out-of-line key bytes ([`MapKey::heap_len`]) in the map: the
+    /// key heap half of
     /// [`VersionMap::heap_bytes`] (#2427). Maintained on every insert of a
     /// new key and every removal.
     key_heap: AtomicUsize,
@@ -135,8 +285,8 @@ pub struct VersionMap {
 #[derive(Debug)]
 struct VersionRepointChange {
     doc_id: String,
-    previous: Option<VersionEntry>,
-    installed: VersionEntry,
+    previous: Option<Slot>,
+    installed: Slot,
 }
 
 /// Panic- and cancellation-safe group of physical version-map repoints.
@@ -174,33 +324,23 @@ impl VersionRepointTransaction {
             "merge rollback log must be reserved before repoint"
         );
         use dashmap::mapref::entry::Entry;
-        let (previous, installed) = match self.map.inner.entry(MapKey::from(doc_id)) {
+        let (previous, installed) = match self.map.inner.entry(MapKey::new(doc_id)) {
             Entry::Occupied(mut occupied) => {
                 if seq_no < occupied.get().seq_no {
                     return;
                 }
                 let previous = occupied.get().clone();
-                let installed = VersionEntry {
-                    seq_no,
-                    segment_id,
-                    deleted,
-                    version: previous.version,
-                };
+                let installed = Slot::new(seq_no, segment_id, deleted, previous.version());
                 occupied.insert(installed.clone());
-                if previous.seq_no != seq_no || (deleted && !previous.deleted) {
+                if previous.seq_no != seq_no || (deleted && !previous.deleted()) {
                     self.map.ghost_events.fetch_add(1, Ordering::Relaxed);
                 }
-                self.map.live_delta(!previous.deleted, !deleted);
+                self.map.live_delta(!previous.deleted(), !deleted);
                 (Some(previous), installed)
             }
             Entry::Vacant(vacant) => {
                 self.map.key_added(vacant.key());
-                let installed = VersionEntry {
-                    seq_no,
-                    segment_id,
-                    deleted,
-                    version: 1,
-                };
+                let installed = Slot::new(seq_no, segment_id, deleted, 1);
                 vacant.insert(installed.clone());
                 if deleted {
                     self.map.ghost_events.fetch_add(1, Ordering::Relaxed);
@@ -224,18 +364,17 @@ impl VersionRepointTransaction {
     fn rollback(&mut self) {
         use dashmap::mapref::entry::Entry;
         for change in self.changes.drain(..).rev() {
-            let Entry::Occupied(mut occupied) =
-                self.map.inner.entry(change.doc_id.into_boxed_str())
+            let Entry::Occupied(mut occupied) = self.map.inner.entry(MapKey::new(&change.doc_id))
             else {
                 continue;
             };
             if occupied.get() != &change.installed {
                 continue;
             }
-            let current_live = !occupied.get().deleted;
+            let current_live = !occupied.get().deleted();
             match change.previous {
                 Some(previous) => {
-                    let previous_live = !previous.deleted;
+                    let previous_live = !previous.deleted();
                     occupied.insert(previous);
                     self.map.live_delta(current_live, previous_live);
                 }
@@ -273,13 +412,13 @@ impl VersionMap {
     }
 
     #[inline]
-    fn key_added(&self, key: &str) {
-        self.key_heap.fetch_add(key.len(), Ordering::Relaxed);
+    fn key_added(&self, key: &MapKey) {
+        self.key_heap.fetch_add(key.heap_len(), Ordering::Relaxed);
     }
 
     #[inline]
-    fn key_removed(&self, key: &str) {
-        self.key_heap.fetch_sub(key.len(), Ordering::Relaxed);
+    fn key_removed(&self, key: &MapKey) {
+        self.key_heap.fetch_sub(key.heap_len(), Ordering::Relaxed);
     }
 
     /// Estimated heap held by this map, in bytes (#2427): the hash tables
@@ -288,7 +427,7 @@ impl VersionMap {
     /// as the `version_map` ingest-memory category; on a search node with
     /// ~2.6 M docs open this was ~0.5 GB that no budget saw.
     pub fn heap_bytes(&self) -> usize {
-        let slot = std::mem::size_of::<(MapKey, VersionEntry)>() + 1;
+        let slot = std::mem::size_of::<(MapKey, Slot)>() + 1;
         let buckets = self.inner.capacity().saturating_mul(8) / 7;
         buckets.saturating_mul(slot) + self.key_heap.load(Ordering::Relaxed)
     }
@@ -304,7 +443,9 @@ impl VersionMap {
 
     /// Return the current version entry for `doc_id`, if any.
     pub fn get(&self, doc_id: &str) -> Option<VersionEntry> {
-        self.inner.get(doc_id).map(|e| e.value().clone())
+        self.inner
+            .get(&MapKey::new(doc_id))
+            .map(|e| e.value().to_entry())
     }
 
     /// Unconditionally record a new version for `doc_id`.
@@ -334,32 +475,21 @@ impl VersionMap {
         // counted itself).  Computed and written under the dashmap shard
         // guard so racing writers on the same key each derive from the
         // exact entry they displace.
-        let (version, was_overwrite, old_was_live) = match self.inner.entry(doc_id.into_boxed_str())
-        {
+        let (version, was_overwrite, old_was_live) = match self.inner.entry(MapKey::new(&doc_id)) {
             Entry::Occupied(mut occ) => {
                 let old_seq = occ.get().seq_no;
-                let old_live = !occ.get().deleted;
+                let old_live = !occ.get().deleted();
                 let version = if seq_no > old_seq {
-                    occ.get().version + 1
+                    occ.get().version() + 1
                 } else {
-                    occ.get().version
+                    occ.get().version()
                 };
-                occ.insert(VersionEntry {
-                    seq_no,
-                    segment_id: segment_id.into(),
-                    deleted,
-                    version,
-                });
+                occ.insert(Slot::new(seq_no, segment_id.into(), deleted, version));
                 (version, old_seq != seq_no, old_live)
             }
             Entry::Vacant(vac) => {
                 self.key_added(vac.key());
-                vac.insert(VersionEntry {
-                    seq_no,
-                    segment_id: segment_id.into(),
-                    deleted,
-                    version: 1,
-                });
+                vac.insert(Slot::new(seq_no, segment_id.into(), deleted, 1));
                 (1, false, false)
             }
         };
@@ -408,38 +538,28 @@ impl VersionMap {
     ) {
         let doc_id = doc_id.into();
         use dashmap::mapref::entry::Entry;
-        match self.inner.entry(doc_id.into_boxed_str()) {
+        match self.inner.entry(MapKey::new(&doc_id)) {
             Entry::Occupied(mut occ) => {
                 if seq_no >= occ.get().seq_no {
                     // Physical repoint of an already-counted write — the
                     // per-doc `_version` is carried over unchanged (A1-A3).
-                    let version = occ.get().version;
+                    let version = occ.get().version();
                     // Capture the displaced entry for live/ghost accounting
                     // (RC4 W2 #14).
-                    let old = occ.insert(VersionEntry {
-                        seq_no,
-                        segment_id: segment_id.into(),
-                        deleted,
-                        version,
-                    });
+                    let old = occ.insert(Slot::new(seq_no, segment_id.into(), deleted, version));
                     // Mirror `set`: a same-seq repoint is NOT an overwrite
                     // (see the flush-repoint note there); a tombstone that
                     // REPLACES a live entry is a ghost event.
                     let is_overwrite = old.seq_no != seq_no;
-                    if is_overwrite || (deleted && !old.deleted) {
+                    if is_overwrite || (deleted && !old.deleted()) {
                         self.ghost_events.fetch_add(1, Ordering::Relaxed);
                     }
-                    self.live_delta(!old.deleted, !deleted);
+                    self.live_delta(!old.deleted(), !deleted);
                 }
             }
             Entry::Vacant(vac) => {
                 self.key_added(vac.key());
-                vac.insert(VersionEntry {
-                    seq_no,
-                    segment_id: segment_id.into(),
-                    deleted,
-                    version: 1,
-                });
+                vac.insert(Slot::new(seq_no, segment_id.into(), deleted, 1));
                 if deleted {
                     self.ghost_events.fetch_add(1, Ordering::Relaxed);
                 }
@@ -470,13 +590,13 @@ impl VersionMap {
 
         use dashmap::mapref::entry::Entry;
 
-        match self.inner.entry(MapKey::from(doc_id.as_str())) {
+        match self.inner.entry(MapKey::new(&doc_id)) {
             Entry::Occupied(mut occ) => {
                 let current = occ.get().seq_no;
                 match expected_seq_no {
                     None => {
                         // create-only: document must not already exist (or must be deleted)
-                        if !occ.get().deleted {
+                        if !occ.get().deleted() {
                             return Err(StorageError::VersionConflict {
                                 doc_id,
                                 expected: 0,
@@ -494,15 +614,10 @@ impl VersionMap {
                         }
                     }
                 }
-                let was_live = !occ.get().deleted;
+                let was_live = !occ.get().deleted();
                 // A CAS write is a genuine new logical write.
-                let version = occ.get().version + 1;
-                occ.insert(VersionEntry {
-                    seq_no: new_seq_no,
-                    segment_id: new_segment_id,
-                    deleted,
-                    version,
-                });
+                let version = occ.get().version() + 1;
+                occ.insert(Slot::new(new_seq_no, new_segment_id, deleted, version));
                 self.ghost_events.fetch_add(1, Ordering::Relaxed);
                 self.live_delta(was_live, !deleted);
                 Ok(new_seq_no)
@@ -517,12 +632,7 @@ impl VersionMap {
                     });
                 }
                 self.key_added(vac.key());
-                vac.insert(VersionEntry {
-                    seq_no: new_seq_no,
-                    segment_id: new_segment_id,
-                    deleted,
-                    version: 1,
-                });
+                vac.insert(Slot::new(new_seq_no, new_segment_id, deleted, 1));
                 if deleted {
                     self.ghost_events.fetch_add(1, Ordering::Relaxed);
                 }
@@ -542,21 +652,16 @@ impl VersionMap {
         seq_no: SeqNo,
         segment_id: impl Into<Arc<str>>,
     ) -> Result<bool> {
-        match self.inner.get_mut(doc_id) {
+        match self.inner.get_mut(&MapKey::new(doc_id)) {
             Some(mut entry) => {
-                if entry.deleted {
+                if entry.deleted() {
                     return Ok(false); // already deleted
                 }
                 // ES bumps `_version` on delete: the tombstone carries the
                 // bumped value (surfaced in the delete response, and a
                 // subsequent re-index continues from it).
-                let version = entry.version + 1;
-                *entry = VersionEntry {
-                    seq_no,
-                    segment_id: segment_id.into(),
-                    deleted: true,
-                    version,
-                };
+                let version = entry.version() + 1;
+                *entry = Slot::new(seq_no, segment_id.into(), true, version);
                 self.ghost_events.fetch_add(1, Ordering::Relaxed);
                 self.live_delta(true, false);
                 Ok(true)
@@ -580,7 +685,7 @@ impl VersionMap {
     /// - No entry → record it (recovery parity with the old `set` call).
     pub fn repoint(&self, doc_id: &str, seq_no: SeqNo, segment_id: impl Into<Arc<str>>) {
         use dashmap::mapref::entry::Entry;
-        match self.inner.entry(MapKey::from(doc_id)) {
+        match self.inner.entry(MapKey::new(doc_id)) {
             Entry::Occupied(mut occ) => {
                 if occ.get().seq_no == seq_no {
                     occ.get_mut().segment_id = segment_id.into();
@@ -588,12 +693,7 @@ impl VersionMap {
             }
             Entry::Vacant(vac) => {
                 self.key_added(vac.key());
-                vac.insert(VersionEntry {
-                    seq_no,
-                    segment_id: segment_id.into(),
-                    deleted: false,
-                    version: 1,
-                });
+                vac.insert(Slot::new(seq_no, segment_id.into(), false, 1));
                 self.live_delta(false, true);
             }
         }
@@ -611,17 +711,17 @@ impl VersionMap {
         prior: Option<VersionEntry>,
     ) {
         use dashmap::mapref::entry::Entry;
-        let Entry::Occupied(mut occupied) = self.inner.entry(MapKey::from(doc_id)) else {
+        let Entry::Occupied(mut occupied) = self.inner.entry(MapKey::new(doc_id)) else {
             return;
         };
         if occupied.get().seq_no != seq_no || occupied.get().segment_id.as_ref() != failed_segment {
             return;
         }
-        let old_live = !occupied.get().deleted;
+        let old_live = !occupied.get().deleted();
         match prior {
             Some(prior) => {
                 let new_live = !prior.deleted;
-                occupied.insert(prior);
+                occupied.insert(Slot::from(prior));
                 self.live_delta(old_live, new_live);
             }
             None => {
@@ -638,12 +738,13 @@ impl VersionMap {
     /// the document's version, and a later re-index continues from it.
     /// Returns `None` when the doc is unknown or live.
     pub fn bump_tombstone_version(&self, doc_id: &str) -> Option<u64> {
-        let mut entry = self.inner.get_mut(doc_id)?;
-        if !entry.deleted {
+        let mut entry = self.inner.get_mut(&MapKey::new(doc_id))?;
+        if !entry.deleted() {
             return None;
         }
-        entry.version += 1;
-        Some(entry.version)
+        let bumped = entry.version() + 1;
+        entry.set_version(bumped);
+        Some(bumped)
     }
 
     /// Remove all entries whose `segment_id` is in `stale_segment_ids`.
@@ -661,8 +762,8 @@ impl VersionMap {
         self.inner.retain(|k, v| {
             let keep = !stale.contains(&*v.segment_id);
             if !keep {
-                removed_key_bytes += k.len();
-                if !v.deleted {
+                removed_key_bytes += k.heap_len();
+                if !v.deleted() {
                     removed_live += 1;
                 }
             }
@@ -686,26 +787,21 @@ impl VersionMap {
     {
         for (doc_id, seq_no, segment_id, deleted) in entries {
             // Only update if the incoming entry is newer
-            let (should_insert, version) = match self.inner.get(doc_id.as_str()) {
-                Some(existing) => (seq_no > existing.seq_no, existing.version + 1),
+            let (should_insert, version) = match self.inner.get(&MapKey::new(&doc_id)) {
+                Some(existing) => (seq_no > existing.seq_no, existing.version() + 1),
                 None => (true, 1),
             };
             if should_insert {
-                let key = doc_id.into_boxed_str();
-                let key_len = key.len();
+                let key = MapKey::new(&doc_id);
+                let key_len = key.heap_len();
                 let old = self.inner.insert(
                     key,
-                    VersionEntry {
-                        seq_no,
-                        segment_id: Arc::from(segment_id),
-                        deleted,
-                        version,
-                    },
+                    Slot::new(seq_no, Arc::from(segment_id), deleted, version),
                 );
                 if old.is_none() {
                     self.key_heap.fetch_add(key_len, Ordering::Relaxed);
                 }
-                self.live_delta(old.is_some_and(|e| !e.deleted), !deleted);
+                self.live_delta(old.is_some_and(|e| !e.deleted()), !deleted);
             }
         }
     }
@@ -728,8 +824,8 @@ impl VersionMap {
         let mut ids: Vec<String> = self
             .inner
             .iter()
-            .filter(|entry| !entry.value().deleted)
-            .map(|entry| entry.key().to_string())
+            .filter(|entry| !entry.value().deleted())
+            .map(|entry| entry.key().to_id())
             .collect();
         ids.sort();
         ids
@@ -780,7 +876,7 @@ mod tests {
     /// fall back to zero key bytes when every entry is removed.
     #[test]
     fn version_map_bucket_is_compact_and_heap_is_accounted_2427() {
-        let bucket = std::mem::size_of::<(MapKey, VersionEntry)>();
+        let bucket = std::mem::size_of::<(MapKey, Slot)>();
         assert!(
             bucket <= 56,
             "version map bucket is {bucket} B, want <= 56 B"
@@ -791,7 +887,8 @@ mod tests {
         for i in 0..n {
             vm.set(format!("doc-{i:08}"), i as u64 + 1, "seg-a", false);
         }
-        let keys = n * 12;
+        // 12-byte ids are stored inline in the key: no key heap.
+        let keys = 0;
         let heap = vm.heap_bytes();
         assert!(heap >= n * bucket + keys, "heap_bytes {heap} below floor");
         assert!(
@@ -801,6 +898,70 @@ mod tests {
 
         vm.remove_segment(&["seg-a".to_string()]);
         assert_eq!(vm.len(), 0);
+        assert_eq!(vm.key_heap.load(Ordering::Relaxed), 0);
+    }
+
+    /// #2427: the common id shapes must not cost a separate heap
+    /// allocation per entry, and the tombstone flag must not pad the entry
+    /// out by a word. On the cap-2048 autoindex run the map was ~190 MB of
+    /// heap, every id a 32-char hex string that a `Box<str>` key stored in
+    /// a 48 B allocation beside the 56 B bucket. Packed ids must round-trip
+    /// exactly, and near misses must stay distinct strings.
+    #[test]
+    fn version_map_common_ids_need_no_key_heap_2427() {
+        assert!(std::mem::size_of::<MapKey>() <= 24);
+        assert!(std::mem::size_of::<Slot>() <= 32);
+        assert!(std::mem::size_of::<(MapKey, Slot)>() <= 56);
+
+        let vm = VersionMap::new();
+        let hex = |i: u64| format!("{:016x}{:016x}", i.wrapping_mul(0x9E37_79B9_7F4A_7C15), i);
+        for i in 0..1_000u64 {
+            vm.set(hex(i), i + 1, "seg-a", i % 3 == 0);
+            // 20 bytes, the length of an ES auto-generated id.
+            vm.set(format!("auto-id-{i:012}"), i + 1, "seg-a", false);
+        }
+        let uuid = "1b4e28ba-2fa1-11d2-883f-0016d3cca427";
+        vm.set(uuid, 9_000, "seg-a", false);
+        assert_eq!(vm.key_heap.load(Ordering::Relaxed), 0);
+        assert!(matches!(MapKey::new(&hex(7)), MapKey::Hex32(_)));
+        assert!(matches!(MapKey::new(uuid), MapKey::Uuid(_)));
+
+        // Near misses are plain strings and never collide with packed ids.
+        let upper = hex(1).to_uppercase();
+        let dashed_wrong = "1b4e28ba2-fa1-11d2-883f-0016d3cca427";
+        for id in [upper.as_str(), &hex(1)[..31], dashed_wrong] {
+            assert!(matches!(MapKey::new(id), MapKey::Str(_)), "{id}");
+            assert!(vm.get(id).is_none(), "{id} must not alias a packed id");
+        }
+        vm.set(upper.as_str(), 9_001, "seg-b", false);
+        assert_eq!(vm.key_heap.load(Ordering::Relaxed), 32);
+
+        // Exact round-trip through the packed forms.
+        let mut want: Vec<String> = (0..1_000u64)
+            .filter(|i| i % 3 != 0)
+            .map(hex)
+            .chain((0..1_000u64).map(|i| format!("auto-id-{i:012}")))
+            .chain([uuid.to_string(), upper.clone()])
+            .collect();
+        want.sort();
+        assert_eq!(vm.live_ids(), want);
+
+        let tomb_id = hex(3);
+        let tomb = vm.get(&tomb_id).unwrap();
+        assert!(tomb.deleted);
+        assert_eq!(tomb.version, 1);
+        assert_eq!(vm.bump_tombstone_version(&tomb_id), Some(2));
+        let tomb = vm.get(&tomb_id).unwrap();
+        assert!(
+            tomb.deleted,
+            "bumping the version must keep the tombstone flag"
+        );
+        assert_eq!(tomb.version, 2);
+        let live = vm.get(&hex(1)).unwrap();
+        assert!(!live.deleted);
+        assert_eq!((live.seq_no, live.segment_id.as_ref()), (2, "seg-a"));
+
+        vm.remove_segment(&["seg-b".to_string()]);
         assert_eq!(vm.key_heap.load(Ordering::Relaxed), 0);
     }
 
@@ -814,18 +975,25 @@ mod tests {
             .is_err());
         assert_eq!(vm.len(), 0);
         assert_eq!(vm.key_heap.load(Ordering::Relaxed), 0);
+        // Ids longer than the 24-byte inline CompactString and not packable
+        // as hex or UUID, so they hold key heap and exercise its accounting.
+        // A short id is stored inline and adds nothing to the key heap.
+        const FRESH: &str = "fresh-doc-with-a-heap-allocated-key";
+        const KEPT: &str = "kept-doc-with-a-heap-allocated-key";
         let empty = vm.heap_bytes();
         {
             let mut tx = VersionRepointTransaction::with_capacity(Arc::clone(&vm), 1);
-            tx.repoint_if_latest("fresh-doc", 3, Arc::from("seg-m"), false);
+            tx.repoint_if_latest(FRESH, 3, Arc::from("seg-m"), false);
             assert_eq!(vm.len(), 1);
-            assert!(vm.heap_bytes() >= empty + "fresh-doc".len());
+            assert_eq!(vm.key_heap.load(Ordering::Relaxed), FRESH.len());
+            assert!(vm.heap_bytes() >= empty + FRESH.len());
         }
         assert_eq!(vm.len(), 0);
         assert_eq!(vm.key_heap.load(Ordering::Relaxed), 0);
-        vm.set("kept", 1, "seg", false);
-        vm.set("kept", 2, "seg", false);
-        assert!(vm.heap_bytes() >= "kept".len());
+        vm.set(KEPT, 1, "seg", false);
+        vm.set(KEPT, 2, "seg", false);
+        assert_eq!(vm.key_heap.load(Ordering::Relaxed), KEPT.len());
+        assert!(vm.heap_bytes() >= KEPT.len());
         vm.remove_segment(&["seg".to_string()]);
         assert_eq!(vm.len(), 0);
         assert_eq!(vm.key_heap.load(Ordering::Relaxed), 0);

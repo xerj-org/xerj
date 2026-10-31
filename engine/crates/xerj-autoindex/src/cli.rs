@@ -431,6 +431,9 @@ pub fn help_text_with(feedback: bool) -> String {
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20watcher); mutually exclusive with --max-file-gb/-bytes\n\
          \x20\x20\x20\x20--max-file-bytes <N> same cap expressed in whole bytes; mutually exclusive\n\
          \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20with --max-file-gb/--max-file-mb\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20AST source files have a separate fixed {code_cap_mib} MiB code cap\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20({code_cap_bytes} bytes); these flags do not raise it. Oversized\n\
+         \x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20\x20source is skipped with a size reason, including hand-written code.\n\
          \x20\x20\x20\x20--sample <N>         records sampled per file for inference (default 500)\n\
          \x20\x20\x20\x20--no-semantic        skip semantic_text on body fields (pure BM25+keyword)\n\
          \x20\x20\x20\x20--code-analyzer <A>  standard (default) or code: `code` declares the built-in\n\
@@ -845,6 +848,8 @@ pub fn help_text_with(feedback: bool) -> String {
         default_gets = crate::objwatch::cost::DEFAULT_MAX_MONTHLY_CLASS_B,
         max_poll = MAX_POLL_INTERVAL_SECS,
         max_bulk_mb = MAX_BULK_MB,
+        code_cap_mib = crate::extract::code::CODE_CAP / (1 << 20),
+        code_cap_bytes = crate::extract::code::CODE_CAP,
         fresh_help = FRESH_HELP,
         resume_policy_help = RESUME_POLICY_HELP,
         defaults = crate::ignore_rules::DEFAULT_IGNORE_PATTERNS.join(" ")
@@ -2574,6 +2579,14 @@ mod tests {
         assert!(help.contains("--label <FILE>"), "{help}");
         assert!(help.contains("/_decide"), "{help}");
         assert!(help.contains("calibration is #1063"), "{help}");
+    }
+
+    #[test]
+    fn code_cap_is_documented_independently_of_the_whole_file_flags() {
+        let help = super::help_text_with(false);
+        assert!(help.contains("2097152 bytes"), "{help}");
+        assert!(help.contains("separate fixed 2 MiB code cap"), "{help}");
+        assert!(help.contains("these flags do not raise it"), "{help}");
     }
 
     /// **The merge guard.** Four routes share one positional argument, and each
