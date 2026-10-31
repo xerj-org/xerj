@@ -1,0 +1,20 @@
+{
+  "corpus": "mesh-patterns",
+  "cloned_at": "2026-10-29T14:13:40Z",
+  "repos": [
+    {
+      "repo": "mesh-patterns",
+      "url": "https://github.com/autobanco-frd/mesh-patterns.git",
+      "licence": "MIT",
+      "sha": "1758bec8fbdb43f3603ef46d334fa5151b66214f",
+      "files": 14,
+      "bytes": 31572,
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "autobanco-frd",
+        "at": "2026-10-29"
+      }
+    }
+  ]
+}

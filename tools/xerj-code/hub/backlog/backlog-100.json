@@ -13678,7 +13678,8 @@
     }
    ],
    "status": "live"
-  }
+  },
+  {"cat": "AI", "domain": "an agent building paid, verifiable services queries this for production patterns: x402 payment verification, A2A inboxes, Ed25519 signed receipts, deterministic guardrails, streaming recall, anti-SSRF and rate limiting — distilled from a live sovereign node (mesh-01.com)", "lane": "A", "refresh": "pinned", "slug": "mesh-patterns", "sources": [{"licence_hint": "MIT; reviewed at pin, see manifest review", "url": "https://github.com/autobanco-frd/mesh-patterns"}], "status": "live", "tags": {"region": "GLOBAL", "topics": ["agent-infrastructure", "x402", "a2a", "ed25519", "payments", "guardrails"]}}
  ],
  "lanes": [
   "A",
