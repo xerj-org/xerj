@@ -51,6 +51,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The HNSW doc-id maps now share one allocation per graphed document between
+  the forward and reverse maps, instead of storing every id as two `String`s,
+  and their bucket arrays and id bytes count toward the `vector_graph` ingest
+  memory category, so the breaker budget sees them. On the cap-2048 ingest
+  run these maps held about 110 MB of live heap that no category reported
+  (Refs #2427).
+
 - The per-index document version map is smaller and now visible in the
   ingest memory trace. Its keys are `Box<str>` instead of `String`, which
   saves 8 of 64 bytes per hash bucket and drops any spare capacity carried
