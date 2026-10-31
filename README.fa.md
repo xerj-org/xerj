@@ -428,3 +428,29 @@ done in 158.1s, 593 datasets, 83103 records live, 790 junk records</code></pre>
 <p dir="rtl" align="right">
 برای خواندن دارایی‌هایی که به‌صورت باینری ذخیره شده‌اند، باید گزینه <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>Force Text</code></span> را فعال کنید. همچنین پوشه‌های تولیدشده مانند <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>Library/</code></span> به‌صورت خودکار نادیده گرفته می‌شوند و اطلاعات آن‌ها در گزارش ثبت می‌شود.
 </p>
+
+<h2 dir="rtl" align="right">در داده‌ها جست‌وجو کنید</h2>
+
+<p dir="rtl" align="right">
+این همان <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">API</span> مربوط به <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Elasticsearch</span> است؛ بنابراین اگر قبلاً با آن کار کرده باشید، نحوه استفاده از این بخش برایتان آشنا خواهد بود:
+</p>
+
+<pre dir="ltr"><code># what did it find?
+curl localhost:9200/_cat/indices
+
+# full-text
+curl "localhost:9200/ax-*/_search?q=checkout+error"
+
+# structured
+curl localhost:9200/ax-orders/_search -H 'content-type: application/json' -d '{
+  "query": { "range": { "total": { "gte": 100 } } },
+  "aggs":  { "by_status": { "terms": { "field": "status" } } }
+}'</code></pre>
+
+<p dir="rtl" align="right">
+جست‌وجوی برداری (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Vector Search</span>) و جست‌وجوی ترکیبی (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Hybrid Search</span>) نیز از همان ساختار دستورات <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>knn</code></span> و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>semantic</code></span> استفاده می‌کنند که در <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Elasticsearch</span> به کار می‌برید.
+</p>
+
+<p dir="rtl" align="right">
+هر کتابخانه کلاینت <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Elasticsearch</span> نیز با تنظیم نشانی سرور روی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>localhost:9200</code></span> قابل استفاده است.
+</p>
