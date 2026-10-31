@@ -8,15 +8,15 @@
   {
    "repo": "imgvault",
    "url": "https://github.com/FahadBinHussain/imgvault",
-   "sha": "3e6fb2cbf116e7fe5cd58a5580cec6b8af4bc43c",
-   "licence": "MIT (LICENSE file at pin 3e6fb2cbf116, GitHub licence API 2026-10-30)",
+   "sha": "28f32e85df889b2a2e009b754d0be74539549762",
+   "licence": "MIT (LICENSE file at pin 28f32e85df88, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T02:34Z",
     "consent_receipt": "b75e3e757097",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt b75e3e757097); pinned to the default-branch head. LICENSE file at pin 3e6fb2cbf116 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:34Z (receipt b75e3e757097); pinned to the default-branch head. LICENSE file at pin 28f32e85df88 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
    }
   }
  ]

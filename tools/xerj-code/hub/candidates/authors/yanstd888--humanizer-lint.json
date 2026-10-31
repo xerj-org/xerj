@@ -1,0 +1,23 @@
+{
+ "corpus": "yanstd888--humanizer-lint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-text-detection, copywriting queries this for how yanstd888/humanizer-lint implements it: A fast linter and style checker to detect AI-generated phrasing, eliminate corporate fluff, and enforce clear, natural, human-like writing a",
+ "repos": [
+  {
+   "repo": "humanizer-lint",
+   "url": "https://github.com/yanstd888/humanizer-lint",
+   "sha": "ef9a53912fb3899197f47de5091e86656253c6bf",
+   "licence": "MIT (LICENSE file at pin ef9a53912fb3, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T03:00Z",
+    "consent_receipt": "e9ad79bf123a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T03:00Z (receipt e9ad79bf123a); pinned to the default-branch head. LICENSE file at pin ef9a53912fb3 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

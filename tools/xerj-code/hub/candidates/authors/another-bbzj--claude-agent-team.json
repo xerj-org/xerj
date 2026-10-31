@@ -1,0 +1,23 @@
+{
+ "corpus": "another-bbzj--claude-agent-team",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how another-bbzj/claude-agent-team implements it: Department-based Claude Code agent team with a live team board (selected work: tests, tools, examples)",
+ "repos": [
+  {
+   "repo": "claude-agent-team",
+   "url": "https://github.com/another-bbzj/claude-agent-team",
+   "sha": "980869e79ebca2ede665db08e8ac611f4838fba8",
+   "licence": "MIT (LICENSE file at pin 980869e79ebc, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T02:24Z",
+    "consent_receipt": "7f17d21485e5",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T02:24Z (receipt 7f17d21485e5); selected commit 980869e79ebc: \"feat: add Prometheus textfile export and monitoring integration recip\u2026\". LICENSE file at pin 980869e79ebc detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}
