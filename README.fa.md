@@ -1125,3 +1125,68 @@ cargo build --release -p xerj-server
 </p>
 
 <pre dir="ltr"><code>cargo run --release -p es-yaml-runner -- --dir tests/es-compat-yaml/yaml</code></pre>
+
+<h2 dir="rtl" align="right">مستندات</h2>
+
+<ul dir="rtl" align="right">
+<li>
+<a href="https://xerj.org/docs/">راهنماها و مرجع API</a>
+</li>
+<li>
+<a href="https://xerj.org/docs/recipes/">دستورالعمل‌ها (Recipes)</a> برای انجام وظایف رایج
+</li>
+<li>
+<a href="./ROADMAP.md">نقشه راه (Roadmap)</a>:
+قابلیت‌هایی که در نسخه فعلی ارائه شده‌اند و قابلیت‌هایی که در آینده منتشر خواهند شد. این اطلاعات با فایل اجرایی نسخه منتشرشده تطبیق داده شده‌اند.
+نمای کلی انتشار نسخه‌ها:
+<a href="https://github.com/xerj-org/xerj/milestones">Milestones</a>؛
+وضعیت لحظه‌ای:
+<a href="https://github.com/users/xerj-org/projects/1">تابلوی پروژه</a>؛
+مرجع ثابت:
+<a href="https://github.com/xerj-org/xerj/issues/298">مسئله سنجاق‌شده نقشه راه</a>
+</li>
+<li>
+<a href="./CHANGELOG.md">تاریخچه تغییرات (Changelog)</a>
+</li>
+</ul>
+
+<p dir="rtl" align="right">
+در ادامه، مستندات مرجع مربوط به زیرسیستم‌های مختلف را می‌بینید که بر اساس کد منبع نوشته شده‌اند و محدودیت‌هایی را که هر زیرسیستم برطرف نمی‌کند نیز توضیح می‌دهند:
+</p>
+
+<ul dir="rtl" align="right">
+<li>
+<a href="./docs/SECOND_BRAIN.md">حافظه دوم (Second Brain)</a>:
+لایه ارتباطی روی اسناد ایندکس‌شده؛ شامل مسیرهای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>/_graph</code></span>، شواهد موجود برای ارتباط‌ها، هشت آشکارساز و محدودیت پیمایش حداکثر دو مرحله‌ای.
+</li>
+<li>
+<a href="./docs/CONSOLE_READER.md">خوانشگر کنسول (Console Reader)</a>:
+صفحه اصلی مجموعه‌داده‌ها در کنسول، خوانشگر هر نوع رکورد (مانند یک ایمیل به همراه پیوست‌های آن یا یک صفحه از فایل PDF) و حالت دسترسی مهمان فقط‌خواندنی؛ همچنین قوانین نمایش محتوا که از اجرای محتوای مخرب اسناد جلوگیری می‌کنند و محدودیت‌های مربوط به محتوای قابل نمایش.
+</li>
+<li>
+<a href="./docs/SCRIPTING.md">اسکریپت‌نویسی (Scripting)</a>:
+زیرمجموعه زبان <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Painless</span>، محل اجرای اسکریپت‌ها و محدودیت منابعی که اجرای آن‌ها را کنترل می‌کنند.
+</li>
+<li>
+<a href="./docs/SNAPSHOT_AND_RESTORE.md">تهیه و بازیابی اسنپ‌شات (Snapshot and Restore)</a>:
+زیرمجموعه پشتیبانی‌شده از <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Snapshot API</span> و توضیح اینکه عملیات بازیابی چه بخش‌هایی را جایگزین می‌کند.
+</li>
+<li>
+<a href="./docs/SHARING.md">اشتراک‌گذاری (Sharing)</a>:
+دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj share</code></span> برای دسترسی مهمان فقط‌خواندنی به یک پوشه ایندکس‌شده از طریق لینک و رمز عبور؛ شامل توضیح محدوده دسترسی مهمان و مدل تهدید.
+</li>
+<li>
+<a href="./docs/SECURITY_MODEL.md">مدل امنیتی (Security Model)</a>:
+احراز هویت، فضای نام رزروشده <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>.xerj-memory-*</code></span>، کلیدهای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>API</code></span> و مواردی که توسط سیستم اعمال و کنترل نمی‌شوند.
+</li>
+<li>
+<a href="./docs/RERANK.md">بازرتبه‌بندی (Reranking)</a>:
+مرحله اختیاری <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>rerank</code></span> در فرایند جست‌وجو که در آن یک ارزیاب خارجی، نتایج برتر را بر اساس احتمال کالیبره‌شده دوباره مرتب می‌کند.
+این تنها قابلیت زمان جست‌وجو است که متن اسناد را از گره خارج می‌کند. (تعبیه‌سازی‌های واسط و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">WAL tap</span> نیز در صورت پیکربندی توسط اپراتور، متن را ارسال می‌کنند؛ این صفحه تمام اتصال‌های خروجی قابل ایجاد توسط یک گره را فهرست می‌کند.)
+برای استفاده از این قابلیت، اپراتور باید کلید ارائه‌دهنده سرویس را پیکربندی کند. همچنین کیفیت رتبه‌بندی با مدل واقعی هنوز تأیید نشده است.
+</li>
+<li>
+<a href="./docs/XERJ_VS_LUCENE.md">مقایسه XERJ با Lucene 10.3.1</a>:
+مقایسه‌ای مبتنی بر نسخه مشخصی از کد منبع، در شش محور مختلف از طراحی ذخیره‌سازی و جست‌وجوی این دو پروژه.
+</li>
+</ul>
