@@ -1,0 +1,23 @@
+{
+ "corpus": "auxon--bsv-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on TypeScript queries this for how auxon/bsv-os implements it: BSV OS \u2014 Omarchy remix with a system BRC-100 wallet daemon (selected work: packages/walletd)",
+ "repos": [
+  {
+   "repo": "bsv-os",
+   "url": "https://github.com/auxon/bsv-os",
+   "sha": "fb06fc548594355e8ac0638066483893350242f1",
+   "licence": "MIT (LICENSE file at pin fb06fc548594, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T22:00Z",
+    "consent_receipt": "330b235fbc0b",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T22:00Z (receipt 330b235fbc0b); selected commit fb06fc548594: \"tiers P2: hybrid recall (keyword+vector, depths, seller scope, depth \u2026\". LICENSE file at pin fb06fc548594 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head fb06fc548594 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

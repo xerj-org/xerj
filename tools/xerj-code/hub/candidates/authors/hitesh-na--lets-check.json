@@ -1,0 +1,23 @@
+{
+ "corpus": "hitesh-na--lets-check",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on distributed-computing, distributed-systems, networking queries this for how hitesh-na/Lets-Check implements it: Let\u2019s Check, a website monitoring API using Python, FastAPI, Redis Streams, HTTPX, and Docker Compose. Two background workers check sites co (selected work: tests, app, scripts)",
+ "repos": [
+  {
+   "repo": "Lets-Check",
+   "url": "https://github.com/hitesh-na/Lets-Check",
+   "sha": "ef8537026ce45fed88c321d9f62a002e9a68951a",
+   "licence": "MIT (LICENSE file at pin ef8537026ce4, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T21:32Z",
+    "consent_receipt": "41ddbea315ab",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T21:32Z (receipt 41ddbea315ab); selected commit ef8537026ce4: \"Add Let's Check health checker\". LICENSE file at pin ef8537026ce4 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

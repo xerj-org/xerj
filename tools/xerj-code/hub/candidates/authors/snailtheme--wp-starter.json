@@ -2,8 +2,8 @@
  "corpus": "snailtheme--wp-starter",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on wordpress, wordpress-boilerplate, wordpress-development queries this for how SnailTheme/wp-starter implements it: Starter Theme for WordPress | development CLI Toolkit (selected work: core, the project root)",
+ "shelf": "AI",
+ "domain": "an agent working on wordpress, wordpress-boilerplate, wordpress-development queries this for how SnailTheme/wp-starter implements it: WordPress starter theme with an updateable core, Composer CLI toolkit, composable ACF blocks, Bare/Blueprint/Tailwind UI profiles, mega menu (selected work: core, the project root)",
  "repos": [
   {
    "repo": "wp-starter",

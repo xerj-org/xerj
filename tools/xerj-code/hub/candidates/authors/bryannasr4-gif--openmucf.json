@@ -1,0 +1,23 @@
+{
+ "corpus": "bryannasr4-gif--openmucf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how bryannasr4-gif/openmucf implements it: Open, reproducible auditor of the muon-catalyzed fusion cycle (no new physics) (selected work: data, tests, openmucf)",
+ "repos": [
+  {
+   "repo": "openmucf",
+   "url": "https://github.com/bryannasr4-gif/openmucf",
+   "sha": "398a0d40f7bf54e482ac05366856d9889da0ab72",
+   "licence": "author's permission (LICENSE at pin 398a0d40f7bf: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T21:53Z",
+    "consent_receipt": "db332fe9654a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T21:53Z (receipt db332fe9654a); selected commit 398a0d40f7bf: \"Record the fresh D3 numerical-check solve that failed reproduction an\u2026\". LICENSE at pin 398a0d40f7bf: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

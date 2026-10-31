@@ -1,0 +1,23 @@
+{
+ "corpus": "emsec--hal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on reverse-engineering, hardware, hal queries this for how emsec/hal implements it: HAL \u2013 The Hardware Analyzer (selected work: plugins, include, src/netlist)",
+ "repos": [
+  {
+   "repo": "hal",
+   "url": "https://github.com/emsec/hal",
+   "sha": "4f6421e03f05dc97e385c92c5b210f0b989a2c78",
+   "licence": "MIT (LICENSE file at pin 4f6421e03f05, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T22:01Z",
+    "consent_receipt": "c35309800cc4",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T22:01Z (receipt c35309800cc4); selected commit 4f6421e03f05: \"Added upgrade function for old .hgl files. User will be requested to \u2026\". LICENSE file at pin 4f6421e03f05 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "moxno--ztds-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-security, claude-code, claude-desktop queries this for how moxno/ztds-mcp implements it: Zero-Trust Data Sanitization (ZTDS RFC v1.0) reference MCP server for Claude Desktop, Cursor, and Windsurf. In-memory PII de-identification ",
+ "repos": [
+  {
+   "repo": "ztds-mcp",
+   "url": "https://github.com/moxno/ztds-mcp",
+   "sha": "adc75d8a4effa606c88f6e6376e9f5f1db0c9306",
+   "licence": "Apache-2.0 (LICENSE file at pin adc75d8a4eff, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T22:10Z",
+    "consent_receipt": "be5c9d21a3fd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T22:10Z (receipt be5c9d21a3fd); pinned to the default-branch head. LICENSE file at pin adc75d8a4eff detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}
