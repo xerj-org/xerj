@@ -988,6 +988,85 @@ mod collection_publication_fail_closed_tests {
         assert!(super::merge_doc_value_sources(b"not json").is_err());
     }
 
+    /// #2427: the flush prep parses raw-bytes rows a chunk at a time and builds
+    /// the doc-values columns there, so no `_source` tree outlives its chunk.
+    /// The FTS field values and the columns must match what the old prep
+    /// produced from every tree held at once, in drain order, across chunk
+    /// boundaries, for raw, parsed, and empty rows alike.
+    #[test]
+    fn flush_prep_in_chunks_matches_held_source_trees() {
+        use std::sync::Arc;
+        let sources: Vec<Value> = (0..11)
+            .map(|i| {
+                if i == 7 {
+                    json!({"n": "seven", "msg": "mixed type row"})
+                } else {
+                    json!({"k": format!("key-{}", i % 3), "n": i, "msg": format!("hello world {i}"), "b": i % 2 == 0})
+                }
+            })
+            .collect();
+        let rows: Vec<(u64, String, Arc<Value>, Arc<[u8]>)> = sources
+            .iter()
+            .enumerate()
+            .map(|(i, src)| {
+                let id = format!("d{i}");
+                if i == 4 {
+                    // A tombstone-like empty row: no tree, no bytes.
+                    (i as u64, id, Arc::new(Value::Null), Arc::from(Vec::new()))
+                } else if i % 2 == 0 {
+                    // Raw-bytes row (turbo path).
+                    let bytes = serde_json::to_vec(src).unwrap();
+                    (i as u64, id, Arc::new(Value::Null), Arc::from(bytes))
+                } else {
+                    // Parsed row.
+                    (i as u64, id, Arc::new(src.clone()), Arc::from(Vec::new()))
+                }
+            })
+            .collect();
+        let mut excluded = std::collections::HashSet::new();
+        excluded.insert("k".to_string());
+        let mut dv_skip = std::collections::HashSet::new();
+        dv_skip.insert("msg".to_string());
+
+        // The pre-#2427 prep: one held tree per row.
+        let held: Vec<Value> = rows
+            .iter()
+            .map(|(_, _, arc, bytes)| {
+                if !arc.is_null() {
+                    (**arc).clone()
+                } else if !bytes.is_empty() {
+                    serde_json::from_slice(bytes).unwrap()
+                } else {
+                    Value::Null
+                }
+            })
+            .collect();
+        let want_fields: Vec<_> = held
+            .iter()
+            .map(|v| crate::memtable::extract_field_values_excluding(v, &excluded))
+            .collect();
+        let want_cols = super::build_doc_value_columns(held.iter().map(Some), &dv_skip);
+
+        for chunk in [1, 3, 4, 11, 64] {
+            let (docs, cols) = super::prepare_flush_payload(&rows, &excluded, &dv_skip, chunk);
+            assert_eq!(docs.len(), rows.len(), "chunk {chunk}");
+            for (i, (id, fields, ())) in docs.iter().enumerate() {
+                assert_eq!(id, &format!("d{i}"), "chunk {chunk}: drain order");
+                assert_eq!(fields, &want_fields[i], "chunk {chunk}: fields of d{i}");
+            }
+            assert_eq!(
+                format!("{cols:?}"),
+                format!("{want_cols:?}"),
+                "chunk {chunk}: doc-values columns"
+            );
+        }
+        assert!(want_cols.contains_key("b") && want_cols.contains_key("msg"));
+        assert!(
+            !want_cols.contains_key("n"),
+            "type-mixed field ships no column"
+        );
+    }
+
     #[test]
     fn build_doc_value_columns_ships_nothing_for_a_type_mixed_field() {
         let legacy = json!({"b": "true", "n": "5", "ok": "kw"});
@@ -31370,6 +31449,69 @@ fn merge_doc_value_sources(
     }))
 }
 
+/// One drained document as the flush FTS writer consumes it: id and the
+/// extracted text field values. The `_source` tree is not kept (#2427).
+type FlushFtsDoc = (
+    String,
+    std::collections::HashMap<String, xerj_fts::index::FieldValues>,
+    (),
+);
+
+/// Documents parsed per chunk by [`prepare_flush_payload`].
+const FLUSH_PREP_CHUNK_DOCS: usize = 1024;
+
+/// Phase-1 flush prep: the FTS field values for every drained document plus
+/// the segment's doc-values columns, in drain order.
+///
+/// Raw-bytes rows (`Value::Null` plus JSON bytes) are parsed `chunk_docs` at
+/// a time in parallel, and each chunk's trees are dropped as soon as the
+/// doc-values builder has read them. Parsed rows share the memtable's
+/// `Arc`. Before #2427 every parsed tree stayed alive until the side-car
+/// build at the end of the flush, on top of the stored encoder's own parse
+/// of the same segment. The columns are the same as building them from all
+/// trees at once: the builder takes one document at a time in order.
+fn prepare_flush_payload(
+    raw: &[(u64, String, Arc<Value>, Arc<[u8]>)],
+    excluded_fts_fields: &std::collections::HashSet<String>,
+    dv_skip: &std::collections::HashSet<String>,
+    chunk_docs: usize,
+) -> (
+    Vec<FlushFtsDoc>,
+    std::collections::BTreeMap<String, xerj_storage::doc_values::Column>,
+) {
+    use rayon::prelude::*;
+    let mut docs: Vec<FlushFtsDoc> = Vec::with_capacity(raw.len());
+    let docs_out = &mut docs;
+    let sources = raw.chunks(chunk_docs.max(1)).flat_map(move |chunk| {
+        let parsed: Vec<(FlushFtsDoc, Arc<Value>)> = chunk
+            .par_iter()
+            .map(|(_seq, doc_id, arc, bytes)| {
+                // Raw-bytes path stores Value::Null in `arc` and the JSON in
+                // `bytes` (skip-parse drain): parse it just in time. The
+                // parsed path shares the memtable's Arc (P2.2).
+                let val: Arc<Value> = if !arc.is_null() {
+                    Arc::clone(arc)
+                } else if !bytes.is_empty() {
+                    Arc::new(serde_json::from_slice::<Value>(bytes).unwrap_or(Value::Null))
+                } else {
+                    Arc::new(Value::Null)
+                };
+                let fields =
+                    crate::memtable::extract_field_values_excluding(&val, excluded_fts_fields);
+                ((doc_id.clone(), fields, ()), val)
+            })
+            .collect();
+        let mut trees = Vec::with_capacity(parsed.len());
+        for (doc, val) in parsed {
+            docs_out.push(doc);
+            trees.push(Some(val));
+        }
+        trees
+    });
+    let columns = build_doc_value_columns(sources, dv_skip);
+    (docs, columns)
+}
+
 /// Build the per-segment doc-values columns.
 ///
 /// `skip` names fields whose declared mapping says they must not have
@@ -38346,11 +38488,8 @@ async fn do_flush_shard(
     let mut prof_prep_us: u128 = 0;
 
     let drained_opt: Option<(
-        Vec<(
-            String,
-            std::collections::HashMap<String, xerj_fts::index::FieldValues>,
-            std::sync::Arc<serde_json::Value>,
-        )>,
+        Vec<FlushFtsDoc>,
+        std::collections::BTreeMap<String, xerj_storage::doc_values::Column>,
         xerj_storage::index_store::DrainedMemtable,
         crate::memtable::FrozenClaim,
     )> = {
@@ -38391,44 +38530,28 @@ async fn do_flush_shard(
             // parse on the raw-bytes path) is pure and was a ~140 ms
             // SERIAL stretch per 31k-doc flush on the flush task —
             // par_iter preserves order and spreads it across the pool.
-            let build_drained_fts = || {
-                use rayon::prelude::*;
-                raw.par_iter()
-                    .map(|(_seq, doc_id, arc, bytes)| {
-                        // Raw-bytes path stores Value::Null in `arc` and
-                        // the actual JSON in `bytes` (skip-parse drain).
-                        // Re-parse just-in-time for FTS field extraction.
-                        // P2.2: the parsed path SHARES the memtable's Arc
-                        // instead of deep-cloning every Value (~3.7s CPU
-                        // per 1M docs on the background flush thread).
-                        let val: std::sync::Arc<serde_json::Value> = if !arc.is_null() {
-                            std::sync::Arc::clone(arc)
-                        } else if !bytes.is_empty() {
-                            std::sync::Arc::new(
-                                serde_json::from_slice::<serde_json::Value>(bytes)
-                                    .unwrap_or(serde_json::Value::Null),
-                            )
-                        } else {
-                            std::sync::Arc::new(serde_json::Value::Null)
-                        };
-                        let fields = crate::memtable::extract_field_values_excluding(
-                            &val,
-                            &excluded_fts_fields,
-                        );
-                        (doc_id.clone(), fields, val)
-                    })
-                    .collect()
+            // #2427: the raw-bytes path used to keep every re-parsed
+            // `_source` tree alive from here to the end of the side-car
+            // build, only so `build_doc_value_columns` could read them
+            // after the stored section was encoded. The stored encoder
+            // parses its own copy of the segment, so a raw flush held
+            // two full parse trees at once. The doc-values columns are
+            // now built here, while the trees are parsed one chunk at a
+            // time, and only the FTS field values ride into Phase 2.
+            let prepare = || {
+                prepare_flush_payload(
+                    &raw,
+                    &excluded_fts_fields,
+                    &dv_skip_for_flush,
+                    FLUSH_PREP_CHUNK_DOCS,
+                )
             };
             // Off the global rayon pool (default) so the flush-storm prep
             // doesn't queue ahead of concurrent search/agg par_iters.
-            let drained_fts: Vec<(
-                String,
-                std::collections::HashMap<String, xerj_fts::index::FieldValues>,
-                std::sync::Arc<serde_json::Value>,
-            )> = if prep_offload {
-                crate::background_pool().install(build_drained_fts)
+            let (drained_fts, dv_columns) = if prep_offload {
+                crate::background_pool().install(prepare)
             } else {
-                build_drained_fts()
+                prepare()
             };
 
             let storage_entries: Vec<xerj_storage::index_store::MemEntry> = raw
@@ -38452,7 +38575,7 @@ async fn do_flush_shard(
                 entries: storage_entries,
             };
             prof_prep_us = t_prep.elapsed().as_micros();
-            Some((drained_fts, storage_drained, claim))
+            Some((drained_fts, dv_columns, storage_drained, claim))
         }
     };
 
@@ -38469,7 +38592,7 @@ async fn do_flush_shard(
     // tmpfs.
     on_drained();
 
-    let (drained_fts, storage_drained, claim) = match drained_opt {
+    let (drained_fts, dv_columns, storage_drained, claim) = match drained_opt {
         Some(pair) => pair,
         None => {
             // Another concurrent flush may have claimed this shard after the
@@ -38550,14 +38673,10 @@ async fn do_flush_shard(
             // ── Doc-values side-car (always built) ────────────────────
             let t_dv = std::time::Instant::now();
             {
-                let columns = build_doc_value_columns(
-                    drained_fts_for_build
-                        .iter()
-                        .map(|(_id, _fields, src)| Some(&**src)),
-                    &dv_skip_for_flush,
-                );
+                // Built in Phase 1 (see `prepare_flush_payload`).
+                let columns = &dv_columns;
                 if !columns.is_empty() {
-                    write_doc_values_sidecar(&segments_dir_for_dv, meta.id.as_str(), &columns)
+                    write_doc_values_sidecar(&segments_dir_for_dv, meta.id.as_str(), columns)
                         .map_err(|error| {
                             xerj_storage::StorageError::Io(std::io::Error::other(format!(
                                 "doc-values side-car write failed: {error:#}"
