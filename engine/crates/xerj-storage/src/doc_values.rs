@@ -1119,6 +1119,68 @@ pub fn decode_columns(bytes: &[u8]) -> Result<BTreeMap<String, Column>> {
     Ok(out)
 }
 
+/// Upper estimate of the heap [`decode_columns`] retains for a sidecar of
+/// `doc_count` rows, read from the column headers alone (no payload is
+/// decompressed). Lets a caller reserve memory before paying the decode
+/// (#2427): a numeric column decodes to 24 B/row (value plus sorted
+/// index) whatever its packed size, a keyword column to its ordinals and
+/// per-term counts plus up to 3x its decompressed dictionary (each term
+/// becomes an owned `String`). Header damage stops the walk; the columns
+/// counted so far are returned.
+pub fn estimate_decoded_bytes(bytes: &[u8], doc_count: u64) -> u64 {
+    fn le_u32(bytes: &[u8], at: usize) -> Option<u32> {
+        Some(u32::from_le_bytes(bytes.get(at..at + 4)?.try_into().ok()?))
+    }
+    fn le_u64(bytes: &[u8], at: usize) -> Option<u64> {
+        Some(u64::from_le_bytes(bytes.get(at..at + 8)?.try_into().ok()?))
+    }
+    if le_u32(bytes, 0) != Some(MAGIC) {
+        return 0;
+    }
+    let Some(num_columns) = le_u32(bytes, 4) else {
+        return 0;
+    };
+    let mut at = 8usize;
+    let mut total = 0u64;
+    for _ in 0..num_columns {
+        let Some(&kind_byte) = bytes.get(at) else {
+            break;
+        };
+        let Some(name_len) = le_u32(bytes, at + 1) else {
+            break;
+        };
+        let payload_at = at + 5 + name_len as usize;
+        let Some(payload_len) = le_u64(bytes, payload_at) else {
+            break;
+        };
+        let start = payload_at + 8;
+        let Some(payload) = usize::try_from(payload_len)
+            .ok()
+            .and_then(|len| bytes.get(start..start.checked_add(len)?))
+        else {
+            break;
+        };
+        at = start + payload.len();
+        let decompressed = if kind_byte & KIND_FLAG_ZSTD != 0 {
+            zstd::zstd_safe::get_frame_content_size(payload)
+                .ok()
+                .flatten()
+                .unwrap_or_else(|| payload_len.saturating_mul(8))
+        } else {
+            le_u32(payload, 0).map_or(0, u64::from)
+        };
+        total = total.saturating_add(match kind_byte & KIND_MASK {
+            KIND_NUMERIC => doc_count.saturating_mul(24).saturating_add(decompressed),
+            KIND_KEYWORD => doc_count
+                .saturating_mul(8)
+                .saturating_add(decompressed.saturating_mul(3)),
+            KIND_PRESENCE => decompressed.saturating_mul(2),
+            _ => 0,
+        });
+    }
+    total
+}
+
 fn io_to_storage(e: std::io::Error) -> StorageError {
     StorageError::Other(anyhow::anyhow!("doc-values io: {e}"))
 }
@@ -1126,6 +1188,51 @@ fn io_to_storage(e: std::io::Error) -> StorageError {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #2427: the header-only estimate must cover what the decode retains,
+    /// so a reservation taken from it before decoding is not an undercount.
+    #[test]
+    fn estimate_decoded_bytes_covers_the_decoded_columns_2427() {
+        let n = 50_000u64;
+        let mut columns = BTreeMap::new();
+        columns.insert(
+            "bytes".to_string(),
+            Column::Numeric(NumericColumn::from_iter(
+                (0..n).map(|i| Some((i * 7919) as i64)),
+            )),
+        );
+        columns.insert(
+            "status".to_string(),
+            Column::Keyword(
+                KeywordColumn::from_iter((0..n).map(|i| Some(format!("term-{}", i % 4093))))
+                    .unwrap(),
+            ),
+        );
+        columns.insert(
+            "ids".to_string(),
+            Column::Keyword(
+                KeywordColumn::from_iter((0..n).map(|i| Some(format!("doc-{i:012}")))).unwrap(),
+            ),
+        );
+        let bytes = encode_columns(&columns);
+        let decoded: u64 = decode_columns(&bytes)
+            .unwrap()
+            .values()
+            .map(Column::estimated_retained_bytes)
+            .sum();
+        let estimate = estimate_decoded_bytes(&bytes, n);
+        assert!(
+            estimate >= decoded,
+            "estimate {estimate} B < decoded {decoded} B"
+        );
+        assert!(
+            estimate <= decoded.saturating_mul(4),
+            "estimate {estimate} B is far above decoded {decoded} B"
+        );
+        assert_eq!(estimate_decoded_bytes(b"not a sidecar", n), 0);
+        // A torn sidecar counts only the columns whose payload is whole.
+        assert!(estimate_decoded_bytes(&bytes[..bytes.len() - 1], n) < estimate);
+    }
 
     #[test]
     fn numeric_roundtrip() {

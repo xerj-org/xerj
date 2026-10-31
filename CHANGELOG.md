@@ -63,6 +63,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The version map takes about 23% less memory per document (#2427). A
+  32-character lowercase hex id (what `xerj autoindex` writes) or a lowercase
+  UUID is now packed into 16 bytes inside its bucket instead of paying a
+  separate 48 B heap allocation, other ids up to 24 bytes are stored inline,
+  and the tombstone flag shares the version word. On the 2.46 M-entry perf-gate
+  corpus the map drops from about 347 MB to 268 MB.
 - A search no longer hangs forever when a cold segment's stored fields are
   being warmed in the background. A search-pool thread that waited for the
   warm's decode could block the decode it waited for, so every later search
@@ -81,6 +87,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   600 s patience. The bounds now come from two sorted size-1 searches, and a
   429 from the per-query memory guard is no longer retried, since the same
   query is refused again (#2427).
+- A search that decodes a segment's doc-values sidecar the segment cache has
+  no room to keep now reserves the decoded size in the read transient budget
+  before decoding, and holds it until the query drops the columns. Before,
+  such decodes were neither cached nor reserved, so concurrent searches during
+  heavy ingest could stack decoded sidecars (about 100 MB late in the
+  cap-2048 run) that no memory budget counted (Refs #2427).
 - **A memory-pressure drain no longer spikes RSS past the cap while it
   flushes** (#2427). The breaker drain and the cache-release path
   flushed each index with every non-empty memtable shard building its
@@ -96,6 +108,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in from the incoming id. The map's estimated heap (hash tables plus key
   bytes) is reported as the new `version_map` category. On the 1 GB gate's
   search node the map held ~0.5 GB that no budget saw. (#2427)
+- `xerj autoindex`: Vue (`.vue`) and Svelte (`.svelte`) single-file components are indexed as code instead of being junk-filed as malformed XML. Their `<script>` blocks are parsed with the TypeScript or JavaScript grammar (by `lang`), so their declarations are symbols on the component's own lines, and the record's `language` is `vue` or `svelte`. (#2732)
 - `_reindex` applies `source._source` field filtering to the documents it
   copies, so an excluded secret or large field no longer reaches the
   destination. `_source:false` is refused with ES's sentence, and a `script`
@@ -161,6 +174,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   restart, while it was serving reads under the memory breaker. This
   supersedes the 120 s open quiet period in #2492, which only delayed the
   same merges (Refs #2427).
+
+- Vector ingest no longer runs on one core per index: the HNSW construction
+  search (greedy descent, `ef_construction` beam and neighbour selection) now
+  runs under a shared lock, and only the link writes take the graph's write
+  lock. A bulk batch plans its inserts in parallel on the ingest pool, and
+  concurrent batches into one index no longer queue behind each other's
+  inserts (#2427).
 
 - `_bulk` requests of ordinary text and code are no longer refused with a
   429 while the node has memory to spare. Each raw bulk reserved 28 bytes

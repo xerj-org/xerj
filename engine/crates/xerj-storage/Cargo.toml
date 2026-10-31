@@ -31,6 +31,7 @@ byteorder = { workspace = true }
 memmap2 = { workspace = true }
 
 # Concurrent data structures
+compact_str = "0.9"
 dashmap = { workspace = true }
 arc-swap = { workspace = true }
 crossbeam = { workspace = true }
