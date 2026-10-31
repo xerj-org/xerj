@@ -531,6 +531,32 @@ class ContributorVolumeTest(unittest.TestCase):
         self.assertIn("selected commit: 3 files", html)
         self.assertIn("whole repository at the pinned commit", html)
 
+    def test_card_shows_only_the_github_facts_that_exist(self):
+        # Search Console: contributor pages "crawled, not indexed" carried only a handle, stars and the
+        # commit. Cards now add the repository as GitHub reports it, and nothing GitHub did not return.
+        st = {"description": "Modern lobby management", "commits": 23, "forks": 0, "created": "2026-10-01",
+              "pushed": "2026-10-18", "languages": [["Java", 99.6], ["Shell", 0.4]],
+              "tree": {"files": 41, "bytes": 1, "sha": "a" * 40}}
+        h = contributors.repo_facts_html(st, gen.esc)
+        self.assertIn("Modern lobby management", h)
+        self.assertIn("23 commits · 41 files at the pinned commit · created 2026-10 · last push 2026-10-18", h)
+        self.assertIn("Languages: Java 100%", h)
+        self.assertNotIn("forks", h)      # zero forks: not worth a line
+        self.assertNotIn("Shell", h)      # under 1%
+        self.assertEqual(contributors.repo_facts_html({}, gen.esc), "")
+        self.assertNotIn("files at", contributors.repo_facts_html({"commits": 3}, gen.esc))
+        with tempfile.TemporaryDirectory() as d:
+            people = contributors.load(self._hub(d))
+        w = next(iter(people["Ann"]["work"].values()))
+        html = contributors.person_body(people["Ann"], gen.esc, set(), gh={repo_pages.key(w["repo_url"]): st})
+        self.assertIn('class="repofacts"', html)
+        self.assertNotIn('class="repofacts"', contributors.person_body(people["Ann"], gen.esc, set()))
+
+    def test_gsc_seen_lists_contributors(self):
+        seen = repo_pages.load_seen_contributors()
+        self.assertGreater(len(seen), 100)
+        self.assertTrue(all("/" not in l and not l.endswith(".html") for l in seen))
+
 
 class SignInNavTest(unittest.TestCase):
     def test_sign_in_box_ships_hidden_and_asks_api_me(self):
