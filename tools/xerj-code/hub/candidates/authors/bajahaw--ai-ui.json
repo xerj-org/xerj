@@ -2,8 +2,8 @@
  "corpus": "bajahaw--ai-ui",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how Bajahaw/ai-ui implements it: Lightweight AI chat interface built with React and Golang (selected work: frontend)",
+ "shelf": "AI",
+ "domain": "an agent working on artificial-intelligence, chatbot, chatgpt queries this for how Bajahaw/ai-ui implements it: Lightweight AI chat interface built with React and Golang (selected work: frontend)",
  "repos": [
   {
    "repo": "ai-ui",

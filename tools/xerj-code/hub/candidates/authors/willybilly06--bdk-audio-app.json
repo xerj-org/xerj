@@ -1,0 +1,23 @@
+{
+ "corpus": "willybilly06--bdk-audio-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on aac, android, androidapp queries this for how WillyBilly06/BDK-AUDIO-APP implements it: Flutter companion for BDK ESP32 Bluetooth speakers. Visual EQ presets, 22 LED effects, BLE controls and detailed Android codec preferences. ",
+ "repos": [
+  {
+   "repo": "BDK-AUDIO-APP",
+   "url": "https://github.com/WillyBilly06/BDK-AUDIO-APP",
+   "sha": "b11c84ee2a57c4baae64c040d0f53fa97e665cbf",
+   "licence": "author's permission (LICENSE at pin b11c84ee2a57: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T09:44Z",
+    "consent_receipt": "450c50693e36",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T09:44Z (receipt 450c50693e36); pinned to the default-branch head. LICENSE at pin b11c84ee2a57: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -2,8 +2,8 @@
  "corpus": "deveshkolte--ragmortem",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how deveshkolte/RAGmortem implements it: RAGmortem is an experimental open-source debugger for Retrieval-Augmented Generation applications. It helps developers investigate whether i (selected work: src/ragmortem, tests)",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how deveshkolte/RAGmortem implements it: Local-first deterministic root-cause debugger for RAG pipelines (0.19ms CPU latency, ScoreCalibrator, local NLI, Pytest plugin) (selected work: src/ragmortem, tests)",
  "repos": [
   {
    "repo": "RAGmortem",

@@ -1,0 +1,23 @@
+{
+ "corpus": "davewalker5--octopuscontroller",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on artificial-life, bio-inspired, biomimetics queries this for how davewalker5/OctopusController implements it: An octopus-inspired simulation of distributed arm control, local sensing, obstacle avoidance and grasping",
+ "repos": [
+  {
+   "repo": "OctopusController",
+   "url": "https://github.com/davewalker5/OctopusController",
+   "sha": "0a8506953dd3d39dc20ea207d1fda91c204ea2bc",
+   "licence": "MIT (LICENSE file at pin 0a8506953dd3, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T10:04Z",
+    "consent_receipt": "a5a3fffeab3b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T10:04Z (receipt a5a3fffeab3b); pinned to the default-branch head. LICENSE file at pin 0a8506953dd3 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

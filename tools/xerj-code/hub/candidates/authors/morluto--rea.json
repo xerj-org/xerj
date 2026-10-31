@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, binary-analysis, cli queries this for how morluto/rea implements it: Reverse engineer anything with agents, from app behavior down to native binaries (selected work: src/application, tests, scripts)",
+ "domain": "an agent working on cli, mcp, agent-skills queries this for how morluto/rea implements it: Reverse engineer anything with agents, from app behavior down to native binaries (selected work: src/application, tests, scripts)",
  "repos": [
   {
    "repo": "rea",

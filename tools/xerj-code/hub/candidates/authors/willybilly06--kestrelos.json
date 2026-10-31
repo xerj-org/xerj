@@ -1,0 +1,23 @@
+{
+ "corpus": "willybilly06--kestrelos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how WillyBilly06/KestrelOS implements it: Experimental x86-64 OS with custom UEFI loader, kernel, drivers and C userland. Graphical desktop demonstrated in a VM; compatibility remain",
+ "repos": [
+  {
+   "repo": "KestrelOS",
+   "url": "https://github.com/WillyBilly06/KestrelOS",
+   "sha": "e5cd77491c52a074975907093490e89eae85756b",
+   "licence": "author's permission (LICENSE at pin e5cd77491c52: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T09:44Z",
+    "consent_receipt": "bd91bced18f9",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T09:44Z (receipt bd91bced18f9); pinned to the default-branch head. LICENSE at pin e5cd77491c52: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}
