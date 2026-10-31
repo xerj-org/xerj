@@ -1,0 +1,23 @@
+{
+ "corpus": "sandstream--kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on TypeScript queries this for how sandstream/kit implements it: kit \u2014 security-first developer CLI. Zero LLM, local-first, multi-vault (selected work: src)",
+ "repos": [
+  {
+   "repo": "kit",
+   "url": "https://github.com/sandstream/kit",
+   "sha": "80c734573ee3ad082b11ca1e2ef3364b1f2d26de",
+   "licence": "MIT (LICENSE file at pin 80c734573ee3, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T06:18Z",
+    "consent_receipt": "06e4f6ff85ed",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T06:18Z (receipt 06e4f6ff85ed); selected commit 80c734573ee3: \"feat(check): detect public grants, Docker secrets, and disabled guards\". LICENSE file at pin 80c734573ee3 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

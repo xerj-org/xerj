@@ -1,0 +1,23 @@
+{
+ "corpus": "fullfran--fifi-keyboard-vial",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Astro queries this for how FullFran/fifi-keyboard-vial implements it: FullFran/fifi-keyboard-vial (Astro)",
+ "repos": [
+  {
+   "repo": "fifi-keyboard-vial",
+   "url": "https://github.com/FullFran/fifi-keyboard-vial",
+   "sha": "1e3b8ce6fd84f4a462787ecbb5d42fb9ef9ee139",
+   "licence": "author's permission (LICENSE at pin 1e3b8ce6fd84: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T07:14Z",
+    "consent_receipt": "8e779b51ce75",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T07:14Z (receipt 8e779b51ce75); pinned to the default-branch head. LICENSE at pin 1e3b8ce6fd84: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

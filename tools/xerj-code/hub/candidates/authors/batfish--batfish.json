@@ -1,0 +1,23 @@
+{
+ "corpus": "batfish--batfish",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on network, configuration, configuration-parser queries this for how batfish/batfish implements it: Batfish is a network configuration analysis tool that can find bugs and guarantee the correctness of (planned or current) network configurat (selected work: projects)",
+ "repos": [
+  {
+   "repo": "batfish",
+   "url": "https://github.com/batfish/batfish",
+   "sha": "bc7236f8acd1264ba811c4e8c9422b0fc74dbbe4",
+   "licence": "Apache-2.0 (LICENSE file at pin bc7236f8acd1, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T06:05Z",
+    "consent_receipt": "b78fc849d030",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T06:05Z (receipt b78fc849d030); selected commit bc7236f8acd1: \"FRR: max-metric router-lsa also advertises inter-area summary LSAs wi\u2026\". LICENSE file at pin bc7236f8acd1 detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}
