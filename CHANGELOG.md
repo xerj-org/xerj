@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A second Claude plugin in the xerj marketplace, `xerj-knowledge`, for
+  document search rather than code: a skill and `/xerj-knowledge:index` and
+  `/xerj-knowledge:find` commands that search local folders, notes, PDFs,
+  Office files and mail exports and cite the file and page. Same `xerj mcp`
+  server; the existing `xerj` plugin is unchanged. Untested in Claude Cowork
+  so far. (#2646)
 - A Nix flake: `nix run github:xerj-org/xerj` builds and runs `xerj` from
   source, `nix build` produces it, and `nix develop` opens a shell with the
   Rust toolchain. The package builds the engine and embeds the Console assets

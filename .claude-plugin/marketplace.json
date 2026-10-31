@@ -13,6 +13,13 @@
       "description": "XERJ MCP server: cited search over your code, docs, specs and logs, plus Corpus Hub packs.",
       "category": "search",
       "homepage": "https://xerj.org/for-agents"
+    },
+    {
+      "name": "xerj-knowledge",
+      "source": "./plugins/xerj-knowledge",
+      "description": "Local document search for Claude Cowork and Claude Code: your folders, notes, PDFs, Office files and mail exports, answered with the file and page. Files stay on your machine.",
+      "category": "productivity",
+      "homepage": "https://xerj.org/for-agents"
     }
   ]
 }

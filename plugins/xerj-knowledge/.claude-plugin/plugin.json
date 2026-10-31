@@ -1,0 +1,13 @@
+{
+  "name": "xerj-knowledge",
+  "description": "Local knowledge search for Claude Cowork and Claude Code: search your own folders, notes, mail exports, PDFs and spreadsheets with XERJ, and cite the file and page. Files stay on your machine.",
+  "author": {
+    "name": "xerj-org",
+    "email": "git@xerj.org",
+    "url": "https://xerj.org"
+  },
+  "homepage": "https://xerj.org/for-agents",
+  "repository": "https://github.com/xerj-org/xerj",
+  "license": "Apache-2.0",
+  "keywords": ["knowledge-search", "documents", "pdf", "email", "local-first", "mcp", "cowork"]
+}
