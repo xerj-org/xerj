@@ -251,3 +251,28 @@ done in 158.1s, 593 datasets, 83103 records live, 790 junk records</code></pre>
 <p dir="rtl" align="right">
 <a href="tools/map-report/README.md">نمونه‌ها، محدوده اطلاعات حریم خصوصی و روش بازتولید گزارش</a>
 </p>
+
+<h2 dir="rtl" align="right">کاربران XERJ از آن برای چه کارهایی استفاده می‌کنند؟</h2>
+
+<ul dir="rtl" align="right">
+<li>
+<strong>برنامه‌نویسی مبتنی بر ارجاع (Reference Coding):</strong>
+پروژه‌های متن‌باز (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">OSS</span>) نزدیک به مسئله خود را ایندکس کنید و پیش از نوشتن کد، راهکارهایی را که در آن پروژه‌ها برای حل مسئله به کار رفته‌اند بازیابی کنید (همان کاربردی که نتایج آن در بخش قبل اندازه‌گیری شد).
+</li>
+<li>
+<strong>پرسش‌وپاسخ درباره پایگاه کد و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">RAG</span>:</strong>
+یک مخزن کد را ایندکس کنید، درباره سازوکار بخش‌های مختلف آن سؤال بپرسید و به‌جای دریافت فهرستی از پوشه‌ها و فایل‌ها، بخش مرتبط را همراه با مسیر فایل و شماره خط (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>file:line</code></span>) دریافت کنید.
+</li>
+<li>
+<strong>ممیزی امنیتی:</strong>
+ساختار فایل‌های هدف را ایندکس کنید و الگوهای نقاط ورود به توابع حساس (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Sink Patterns</span>)، اطلاعات محرمانه و فراخوانی‌های خطرناک را به‌صورت یکجا در تمام انواع فایل‌ها جست‌وجو کنید.
+</li>
+<li>
+<strong>تحلیل گزارش‌ها و رخدادها:</strong>
+فایل‌های گزارش با قالب‌های مختلف به ایندکس‌های ساختاریافته تبدیل می‌شوند و امکان انجام تجمیع داده‌ها (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Aggregations</span>)، مشابه آنچه از <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Elasticsearch</span> انتظار دارید، فراهم می‌شود.
+</li>
+<li>
+<strong>حافظه بلندمدت عامل‌های هوش مصنوعی:</strong>
+مسیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>/_memory/{namespace}</code></span> اطلاعاتی را که یک عامل یاد می‌گیرد ذخیره می‌کند تا در نشست بعدی بتواند آن‌ها را بر اساس معنا بازیابی کند.
+</li>
+</ul>
