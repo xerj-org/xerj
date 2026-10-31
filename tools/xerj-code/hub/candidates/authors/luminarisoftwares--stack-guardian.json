@@ -1,0 +1,23 @@
+{
+ "corpus": "luminarisoftwares--stack-guardian",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on deepseek-harness, dsh-plugin, gpu queries this for how LuminariSoftwares/stack-guardian implements it: One command tells you why your local AI stack is slow or broken: unloaded Ollama models, VRAM held by something else, offline or relayed tai",
+ "repos": [
+  {
+   "repo": "stack-guardian",
+   "url": "https://github.com/LuminariSoftwares/stack-guardian",
+   "sha": "9776b59f3adfd8aecffa4cdbea37590a8dac72a6",
+   "licence": "MIT (LICENSE file at pin 9776b59f3adf, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T15:40Z",
+    "consent_receipt": "1355a8fa778b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T15:40Z (receipt 1355a8fa778b); pinned to the default-branch head. LICENSE file at pin 9776b59f3adf detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

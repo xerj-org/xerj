@@ -8,15 +8,15 @@
   {
    "repo": "nanosparks",
    "url": "https://github.com/tim0n1994/nanosparks",
-   "sha": "8f8ed75ecacbbe4c86587c2fd57471252e18338a",
-   "licence": "ISC (LICENSE file at pin 8f8ed75ecacb, GitHub licence API 2026-10-31)",
+   "sha": "c530a3e5b0c2e9937d9dffd932d4d1e9ba110810",
+   "licence": "ISC (LICENSE file at pin c530a3e5b0c2, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "ISC",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-26T04:10Z",
     "consent_receipt": "2aadfb285675",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T04:10Z (receipt 2aadfb285675); selected commit 8f8ed75ecacb: \"feat(youtube): make YOUTUBE_API_KEY optional with placeholder detecti\u2026\". LICENSE file at pin 8f8ed75ecacb detected as ISC by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head 8f8ed75ecacb (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T04:10Z (receipt 2aadfb285675); selected commit c530a3e5b0c2: \"feat(youtube): make YOUTUBE_API_KEY optional with placeholder detecti\u2026\". LICENSE file at pin c530a3e5b0c2 detected as ISC by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head c530a3e5b0c2 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

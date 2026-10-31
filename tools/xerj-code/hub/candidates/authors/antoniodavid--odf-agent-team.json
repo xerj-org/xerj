@@ -1,0 +1,23 @@
+{
+ "corpus": "antoniodavid--odf-agent-team",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how antoniodavid/odf-agent-team implements it: antoniodavid/odf-agent-team (TypeScript) (selected work: scripts, the project root, odf-plugin)",
+ "repos": [
+  {
+   "repo": "odf-agent-team",
+   "url": "https://github.com/antoniodavid/odf-agent-team",
+   "sha": "4f978c2fe8ef1b69bbdf1c2a7127d4bdc13a628b",
+   "licence": "MIT (LICENSE file at pin 4f978c2fe8ef, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T16:00Z",
+    "consent_receipt": "2cafd76a46aa",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T16:00Z (receipt 2cafd76a46aa); selected commit 4f978c2fe8ef: \"feat(skills): validate Agent Skills spec and regenerate rules (#182)\". LICENSE file at pin 4f978c2fe8ef detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head 4f978c2fe8ef (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

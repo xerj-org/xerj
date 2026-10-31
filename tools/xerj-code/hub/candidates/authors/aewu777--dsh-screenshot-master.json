@@ -1,0 +1,23 @@
+{
+ "corpus": "aewu777--dsh-screenshot-master",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how aewu777/dsh-screenshot-master implements it: Cross-platform full-screen and per-window screenshot capture for DeepSeek Harness (Windows 10/11 and macOS 14+). Saves PNG files and returns (selected work: src/platforms, tests)",
+ "repos": [
+  {
+   "repo": "dsh-screenshot-master",
+   "url": "https://github.com/aewu777/dsh-screenshot-master",
+   "sha": "1191bbc21aecd4d0cf9c1865ae741da58a4f1efc",
+   "licence": "MIT (LICENSE file at pin 1191bbc21aec, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T16:17Z",
+    "consent_receipt": "46fcd31ce402",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T16:17Z (receipt 46fcd31ce402); selected commit 1191bbc21aec: \"fix: crop window captures to the visible frame\". LICENSE file at pin 1191bbc21aec detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

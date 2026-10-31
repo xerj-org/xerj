@@ -1,0 +1,23 @@
+{
+ "corpus": "amrhasanain--duckpilot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, cli, coding queries this for how amrhasanain/duckpilot implements it: DuckPilot is an AI coding agent that lives in your terminal. You describe what you want in plain language, and it does the work: it reads yo",
+ "repos": [
+  {
+   "repo": "duckpilot",
+   "url": "https://github.com/amrhasanain/duckpilot",
+   "sha": "663644cfd4e0cc07b1fdc74bb01303c3fe573c08",
+   "licence": "Apache-2.0 (LICENSE file at pin 663644cfd4e0, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T16:49Z",
+    "consent_receipt": "75bb3729c591",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T16:49Z (receipt 75bb3729c591); pinned to the default-branch head. LICENSE file at pin 663644cfd4e0 detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

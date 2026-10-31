@@ -1,0 +1,23 @@
+{
+ "corpus": "luminarisoftwares--code-guardian",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-coding, cli queries this for how LuminariSoftwares/code-guardian implements it: Static repo scanner: is it safe to run, will it work, does it have what it needs? Scores out of 100 + A\u2013F grade from deterministic checks. N",
+ "repos": [
+  {
+   "repo": "code-guardian",
+   "url": "https://github.com/LuminariSoftwares/code-guardian",
+   "sha": "8de87fc96ce022dca722aa25687500ef16a67b7d",
+   "licence": "MIT (LICENSE file at pin 8de87fc96ce0, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T15:40Z",
+    "consent_receipt": "b79005e98a2e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T15:40Z (receipt b79005e98a2e); pinned to the default-branch head. LICENSE file at pin 8de87fc96ce0 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}
