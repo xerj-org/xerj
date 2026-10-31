@@ -617,15 +617,31 @@ async fn documented_gaps_are_still_open_and_still_documented() {
 
     // GAP 3 — GAP 2 reached through a WILDCARD `fields` spec. A pattern is
     // never an error (that half is ES's rule and is deliberate), but in
-    // `query_string` / `simple_query_string` a pattern lowers to the same
-    // field-less `"*"` placeholder as GAP 2, so it is answered by the
-    // schema-free scan and still matches through `note`. Identical on `main`:
-    // this change neither introduced nor closed it, and the CHANGELOG says so
-    // instead of claiming a pattern is "answered over the searchable fields".
-    for query in [
+    // `query_string` a pattern lowers to the field-less `"*"` placeholder,
+    // so it is answered by the schema-free scan and still matches through
+    // `note`. Identical on `main`, and the CHANGELOG says so instead of
+    // claiming a pattern is "answered over the searchable fields".
+    //
+    // `simple_query_string` with `["*"]` no longer belongs here (#2427): it
+    // now lowers to the same node as an ABSENT `fields`, which the segment's
+    // FTS projection answers over the mapped searchable text fields — the
+    // fix for its 30 s stored-scan walk — so on a flushed segment it finds
+    // nothing in `note`, like `multi_match` below. (A document still in the
+    // memtable is answered by the field-less scan arm, exactly as the
+    // field-less spelling always was; that is GAP 2, not a new gap.)
+    let (status, body) = search(
+        &app,
         json!({ "simple_query_string": { "query": "zzquagga", "fields": ["*"] } }),
-        json!({ "query_string": { "query": "zzquagga", "fields": ["*"] } }),
-    ] {
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        body.pointer("/hits/total/value").and_then(Value::as_u64),
+        Some(0),
+        "#2427: a flushed `simple_query_string` `[\"*\"]` is answered over the \
+         searchable fields and must not reach `note`: {body}"
+    );
+    for query in [json!({ "query_string": { "query": "zzquagga", "fields": ["*"] } })] {
         let (status, body) = search(&app, query.clone()).await;
         assert_eq!(status, StatusCode::OK, "GAP 3 changed for {query}: {body}");
         assert_eq!(

@@ -699,6 +699,35 @@ impl ResourceGovernor {
         self.memory_tripped.load(Ordering::Relaxed)
     }
 
+    /// Whether publish-time cache warming may run (#2427).
+    ///
+    /// Warming decodes every flushed segment's stored section into the
+    /// segment-hydration cache. A node that is still ingesting gains nothing
+    /// from that: queries hydrate on demand, while the warmed bytes count
+    /// against RSS. On the 1 GiB release gate (cap 3072 MB, watermark
+    /// 2918 MB) the ingest node kept 200-580 MB of warmed stored slices
+    /// while the breaker engaged 30 times in ten minutes. Each engage
+    /// rejected writes with HTTP 429 and drained the cache, and the next
+    /// flush warmed it again.
+    ///
+    /// Warming therefore stops at the breaker's RELEASE level, not only
+    /// while it is engaged. The release level is the point the breaker
+    /// treats as safe again, so warming above it uses memory the breaker
+    /// has to win back. The last sampled RSS is used, not a live read, so
+    /// the decision costs one atomic load. With the watermark disabled, or
+    /// no RSS sample yet, warming is allowed as before.
+    pub fn publish_warm_allowed(&self) -> bool {
+        if self.memory_breaker_engaged() || self.memtable_breaker_engaged() {
+            return false;
+        }
+        let watermark = self.memory_watermark_bytes.load(Ordering::Relaxed);
+        if watermark == 0 {
+            return true;
+        }
+        let rss = self.rss_bytes.load(Ordering::Relaxed);
+        rss < memory_release_bytes(watermark, self.memory_release_percent)
+    }
+
     /// Start or read the flat-footprint clock. The first sample inside the
     /// noise band records `now` and returns zero; later samples return how
     /// long RSS has stayed there. Cleared when RSS leaves that band, the
@@ -3785,6 +3814,53 @@ mod tests {
         assert!(line.contains("Windows commit limit is 16384MB"));
         assert!(line.contains("pagefile"));
         assert!(line.contains("XERJ_MAX_PROCESS_MEMORY_MB"));
+    }
+
+    /// #2427: publish-time warming stops at the breaker's release level,
+    /// not only once the breaker is engaged. On the 1 GiB gate the ingest
+    /// node sat between the release level and the watermark with 200-580 MB
+    /// of warmed stored slices, and every flush pushed it back over.
+    #[test]
+    fn publish_warm_stops_at_release_level_before_breaker_engages() {
+        const MIB: u64 = 1024 * 1024;
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        let mut g = build(&cfg);
+        g.memory_release_percent = 85;
+        g.commit_capped = false;
+        g.commit_starved.store(false, Ordering::Relaxed);
+        g.memory_tripped.store(false, Ordering::Relaxed);
+        g.memory_watermark_bytes
+            .store(2918 * MIB, Ordering::Relaxed);
+        let release = memory_release_bytes(2918 * MIB, 85);
+
+        // Well under the release level: warm as before.
+        g.refresh_memory_observing(1500 * MIB, 0, 0, None);
+        assert!(!g.memory_breaker_engaged());
+        assert!(g.publish_warm_allowed());
+
+        // Between release and watermark: the breaker is NOT engaged, writes
+        // are admitted, but warming would spend the remaining headroom.
+        g.refresh_memory_observing(release + 50 * MIB, 0, 0, None);
+        assert!(!g.memory_breaker_engaged(), "under the watermark");
+        assert!(g.check_ingest_admission().is_ok());
+        assert!(
+            !g.publish_warm_allowed(),
+            "warming must stop at the release level ({} MB), rss {} MB",
+            release / MIB,
+            (release + 50 * MIB) / MIB
+        );
+
+        // Engaged: still off.
+        g.refresh_memory_observing(2950 * MIB, 0, 0, None);
+        assert!(g.memory_breaker_engaged());
+        assert!(!g.publish_warm_allowed());
+
+        // A disabled watermark keeps the old behaviour.
+        g.memory_tripped.store(false, Ordering::Relaxed);
+        g.memory_watermark_bytes.store(0, Ordering::Relaxed);
+        g.rss_bytes.store(2950 * MIB, Ordering::Relaxed);
+        assert!(g.publish_warm_allowed());
     }
 
     /// RSS is under the watermark. Available commit is under the reserve.
