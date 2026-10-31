@@ -971,6 +971,20 @@ fn highest_live_entry(graph: &impl GraphStorageRead) -> Option<(u32, usize)> {
     best
 }
 
+/// Feeds every byte read through it into a CRC32 hasher.
+struct CrcReader<R> {
+    inner: R,
+    hasher: crc32fast::Hasher,
+}
+
+impl<R: Read> Read for CrcReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = self.inner.read(buf)?;
+        self.hasher.update(&buf[..n]);
+        Ok(n)
+    }
+}
+
 fn encode_graph_bytes(
     params: &HnswParams,
     graph: &impl GraphStorageRead,
@@ -1622,23 +1636,26 @@ impl HnswIndex {
     /// Returns `Err(...)` on any inconsistency so the caller can fall
     /// back to WAL replay rather than silently load a corrupt graph.
     pub fn load_from(path: &Path) -> Result<Self> {
-        let bytes = std::fs::read(path).map_err(io_to_xerj)?;
-        if bytes.len() < HNSW_MAGIC.len() + 4 + 4 {
+        // Stream the file instead of reading it whole (#2427): the old
+        // `fs::read` held a copy of the graph file next to the graph being
+        // built, ~1 GB extra at startup for a 0.93 GB graph. The CRC is
+        // computed while parsing and checked before the graph is returned,
+        // and every allocation sized by a file field is capped by the bytes
+        // actually left, so a corrupt count fails as a short read instead of
+        // a huge allocation.
+        let file = std::fs::File::open(path).map_err(io_to_xerj)?;
+        let file_len = file.metadata().map_err(io_to_xerj)?.len();
+        if file_len < (HNSW_MAGIC.len() + 4 + 4) as u64 {
             return Err(corrupt("file too small"));
         }
-        // Verify CRC over everything before the trailing u32.
-        let payload_len = bytes.len() - 4;
-        let stored_crc = (&bytes[payload_len..])
-            .read_u32::<LittleEndian>()
-            .map_err(io_to_xerj)?;
-        let computed_crc = crc32fast::hash(&bytes[..payload_len]);
-        if stored_crc != computed_crc {
-            return Err(corrupt(&format!(
-                "CRC mismatch: stored={stored_crc:#x} computed={computed_crc:#x}"
-            )));
-        }
-
-        let mut cur = std::io::Cursor::new(&bytes[..payload_len]);
+        let payload_len = file_len - 4;
+        let mut cur = CrcReader {
+            inner: std::io::BufReader::with_capacity(1024 * 1024, file).take(payload_len),
+            hasher: crc32fast::Hasher::new(),
+        };
+        let budget = |c: &CrcReader<std::io::Take<std::io::BufReader<std::fs::File>>>| {
+            c.inner.limit() as usize
+        };
         let mut magic = [0u8; 8];
         cur.read_exact(&mut magic).map_err(io_to_xerj)?;
         if &magic != HNSW_MAGIC {
@@ -1670,21 +1687,35 @@ impl HnswIndex {
 
         // Pass 1: read raw nodes (neighbors keyed by external id).
         let mut g = SlabGraphStorage::new(dim, metric);
-        let mut raw_neighbors: Vec<Vec<Vec<u64>>> = Vec::with_capacity(num_nodes);
+        if dim.saturating_mul(4) > budget(&cur) {
+            return Err(corrupt(&format!("dimension {dim} exceeds file size")));
+        }
+        // A node is at least id + layer + vector + one neighbour count.
+        let min_node = 8 + 4 + dim * 4 + 4;
+        let mut raw_neighbors: Vec<Vec<Vec<u64>>> =
+            Vec::with_capacity(num_nodes.min(budget(&cur) / min_node));
         for _ in 0..num_nodes {
             let id = cur.read_u64::<LittleEndian>().map_err(io_to_xerj)?;
             let max_layer = cur.read_u32::<LittleEndian>().map_err(io_to_xerj)? as usize;
             let mut vector = vec![0f32; dim];
-            for v in vector.iter_mut() {
-                *v = cur.read_f32::<LittleEndian>().map_err(io_to_xerj)?;
+            cur.read_f32_into::<LittleEndian>(&mut vector)
+                .map_err(io_to_xerj)?;
+            if max_layer >= budget(&cur) / 4 {
+                return Err(corrupt(&format!(
+                    "node {id}: layer {max_layer} exceeds file size"
+                )));
             }
             let mut neighbors: Vec<Vec<u64>> = Vec::with_capacity(max_layer + 1);
             for _ in 0..=max_layer {
                 let nn = cur.read_u32::<LittleEndian>().map_err(io_to_xerj)? as usize;
-                let mut layer = Vec::with_capacity(nn);
-                for _ in 0..nn {
-                    layer.push(cur.read_u64::<LittleEndian>().map_err(io_to_xerj)?);
+                if nn > budget(&cur) / 8 {
+                    return Err(corrupt(&format!(
+                        "node {id}: {nn} neighbours exceed file size"
+                    )));
                 }
+                let mut layer = vec![0u64; nn];
+                cur.read_u64_into::<LittleEndian>(&mut layer)
+                    .map_err(io_to_xerj)?;
                 neighbors.push(layer);
             }
             g.alloc_slot(id, vector, max_layer, m);
@@ -1727,6 +1758,21 @@ impl HnswIndex {
                 }
                 g.tomb_ids.insert(t);
             }
+        }
+
+        // The CRC covers the whole payload, including any bytes this
+        // version does not parse; hash the rest, then compare.
+        std::io::copy(&mut cur, &mut std::io::sink()).map_err(io_to_xerj)?;
+        let CrcReader { inner, hasher } = cur;
+        let computed_crc = hasher.finalize();
+        let stored_crc = inner
+            .into_inner()
+            .read_u32::<LittleEndian>()
+            .map_err(io_to_xerj)?;
+        if stored_crc != computed_crc {
+            return Err(corrupt(&format!(
+                "CRC mismatch: stored={stored_crc:#x} computed={computed_crc:#x}"
+            )));
         }
 
         Ok(Self {
@@ -2672,6 +2718,55 @@ mod tests {
         let path = dir.path().join("hnsw.bin");
         std::fs::write(&path, b"garbage").unwrap();
         assert!(HnswIndex::load_from(&path).is_err());
+    }
+
+    #[test]
+    fn streamed_load_rejects_every_single_byte_flip_and_truncation() {
+        let index = HnswIndex::new(HnswParams::new(3, DistanceMetric::Cosine));
+        for id in 0..12u64 {
+            let f = id as f32;
+            index.insert(id + 100, vec![f + 1.0, 7.0 - f, 0.5]).unwrap();
+        }
+        index.mark_deleted(104);
+        let dir = tempfile::tempdir().unwrap();
+        let good = dir.path().join("good.bin");
+        index.save_to(&good).unwrap();
+        let bytes = std::fs::read(&good).unwrap();
+        let reloaded = HnswIndex::load_from(&good).unwrap();
+        assert_eq!(reloaded.len(), index.len());
+
+        let bad = dir.path().join("bad.bin");
+        for pos in 0..bytes.len() {
+            let mut flipped = bytes.clone();
+            flipped[pos] ^= 0x41;
+            std::fs::write(&bad, &flipped).unwrap();
+            assert!(
+                HnswIndex::load_from(&bad).is_err(),
+                "flip at {pos} accepted"
+            );
+        }
+        for len in 0..bytes.len() {
+            std::fs::write(&bad, &bytes[..len]).unwrap();
+            assert!(
+                HnswIndex::load_from(&bad).is_err(),
+                "truncation to {len} accepted"
+            );
+        }
+        // A huge node count / dimension / layer must not allocate its claim.
+        for (offset, value) in [
+            (21usize, u32::MAX),
+            (8 + 4 + 4 + 4 + 1 + 4 + 8 + 4, u32::MAX),
+        ] {
+            let mut forged = bytes[..bytes.len() - 4].to_vec();
+            forged[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+            let crc = crc32fast::hash(&forged);
+            forged.extend_from_slice(&crc.to_le_bytes());
+            std::fs::write(&bad, &forged).unwrap();
+            assert!(
+                HnswIndex::load_from(&bad).is_err(),
+                "forged u32 at {offset} accepted"
+            );
+        }
     }
 
     #[test]
