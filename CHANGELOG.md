@@ -63,6 +63,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A `_delete_by_query` whose matches fit in one scroll page no longer flushes
+  the whole memtable before deleting. `autoindex --fresh` sends one such
+  delete-before-replace per file, and each one used to cut a new tiny segment
+  out of every other worker's pending bulks (about 1,050 segments on the
+  #2640 corpus). Larger deletes keep the flush-then-page path (#2640).
+
 - A small merge write admitted after a run of merge yields is now checked
   against the memory watermark instead of the process limit, so it can no
   longer take a node from below the watermark into the parent breaker band and
