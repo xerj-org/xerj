@@ -2,13 +2,13 @@
 ---
 title: "Improve a basic FAISS RAG pipeline with hybrid search"
 canonical: "https://xerj.org/answers/improve-basic-faiss-rag-pipeline"
-updated: "2026-10-28"
+updated: "2026-10-31"
 source: "content/answers/improve-basic-faiss-rag-pipeline.md"
 ---
 
 # How do I improve a basic FAISS RAG pipeline?
 
-**Short answer** (updated 2026-10-28): How can I improve a basic FAISS RAG pipeline? Load the chunk store into one XERJ index with a semantic_text field and retrieve with the hybrid clause, which fuses BM25 and kNN, instead of vectors alone. Our 20-chunk migration indexed cleanly, and the two request shapes FAISS users write first both returned HTTP 400.
+**Short answer** (updated 2026-10-31): How can I improve a basic FAISS RAG pipeline? Load the chunk store into one XERJ index with a semantic_text field and retrieve with the hybrid clause, which fuses BM25 and kNN, instead of vectors alone. Our 20-chunk migration indexed cleanly, and the two request shapes FAISS users write first both returned HTTP 400.
 
 **Key number:** With the neural embedder, hybrid RRF beat vectors alone on BEIR SciFact: nDCG@10 0.6993 against 0.6764. (as of 2026-09-18; source: [benchmarks/beir-hybrid/results/scifact.txt](https://github.com/xerj-org/xerj/blob/main/benchmarks/beir-hybrid/results/scifact.txt))
 
@@ -153,6 +153,9 @@ Partly. Weighted `linear` fusion reached 0.4583 precision at 3 on the lexical de
 - [How do I build RAG without a vector database?](/answers/rag-without-vector-database)
 - [What is Reciprocal Rank Fusion?](/answers/reciprocal-rank-fusion-when-to-use)
 - [What's the actual difference between a vector database and full-text search when I have a folder?](/answers/vector-database-vs-full-text-search)
+- [Agentic RAG vs RAG: what is the difference?](/answers/agentic-rag-vs-rag)
+- [What is hybrid search?](/answers/what-is-hybrid-search)
+- [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag)
 - [How does XERJ combine BM25 and kNN?](/answers/how-xerj-combines-search) (same intent: retrieval research and eval)
 - [How much better is hybrid search than BM25? Measured nDCG numbers](/answers/hybrid-search-quality-measured-ndcg) (same intent: retrieval research and eval)
 - [How do I rerank search results with a relevance judge?](/answers/rerank-search-results-calibrated-judge) (same intent: retrieval research and eval)

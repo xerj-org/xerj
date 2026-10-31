@@ -2,13 +2,13 @@
 ---
 title: "Stop agent memory filling with duplicate notes"
 canonical: "https://xerj.org/answers/store-agent-memory-without-llm-call"
-updated: "2026-10-28"
+updated: "2026-10-31"
 source: "content/answers/store-agent-memory-without-llm-call.md"
 ---
 
 # How do I stop an agent memory store from filling with near-duplicate notes?
 
-**Short answer** (updated 2026-10-28): How do I dedup agent memory so it stops filling with duplicate notes? Send dedup: true on the store call. XERJ compares the new memory against what the namespace already holds and returns the existing id with deduplicated: true instead of writing a second document. There is no generative summarization step; the configured embedder still runs.
+**Short answer** (updated 2026-10-31): How do I dedup agent memory so it stops filling with duplicate notes? Send dedup: true on the store call. XERJ compares the new memory against what the namespace already holds and returns the existing id with deduplicated: true instead of writing a second document. There is no generative summarization step; the configured embedder still runs.
 
 **Key number:** The default dedup threshold is a cosine similarity of 0.95. (as of 2026-10-19; source: [engine/crates/xerj-api/src/memory_api.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-api/src/memory_api.rs))
 
@@ -171,6 +171,8 @@ No. The stored `text` is the text you sent. Embedding creates a companion vector
 - [When should I turn on neural embeddings, and when is the lexical default enough?](/answers/do-search-embeddings-help)
 - [I want local search that works offline, no cloud embeddings. What are my options?](/answers/local-embeddings-without-openai-api)
 - [XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee](/compare/xerj-vs-agent-memory-tools)
+- [XERJ vs Mem0: which memory fits your AI agent?](/compare/xerj-vs-mem0)
+- [What is an MCP memory server?](/answers/what-is-an-mcp-memory-server)
 - [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag) (same intent: agent memory)
 - [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory) (same intent: agent memory)
 - [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions) (same intent: agent memory)

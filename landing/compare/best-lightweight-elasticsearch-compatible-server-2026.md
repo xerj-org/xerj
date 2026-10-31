@@ -2,13 +2,13 @@
 ---
 title: "Best lightweight Elasticsearch-compatible server (2026)"
 canonical: "https://xerj.org/compare/best-lightweight-elasticsearch-compatible-server-2026"
-updated: "2026-10-23"
+updated: "2026-10-31"
 source: "content/compare/best-lightweight-elasticsearch-compatible-server-2026.md"
 ---
 
 # The best lightweight Elasticsearch-compatible search servers in 2026
 
-**Short answer** (updated 2026-10-23): What is the best lightweight Elasticsearch-compatible server in 2026? If you need the whole API and a cluster, OpenSearch. For one small node, ZincSearch or XERJ. For logs on object storage, Quickwit or OpenObserve. Manticore suits teams that prefer SQL. Each covers a different slice of the Elasticsearch API.
+**Short answer** (updated 2026-10-31): What is the best lightweight Elasticsearch-compatible server in 2026? If you need the whole API and a cluster, OpenSearch. For one small node, ZincSearch or XERJ. For logs on object storage, Quickwit or OpenObserve. Manticore suits teams that prefer SQL. Each covers a different slice of the Elasticsearch API.
 
 **Key number:** XERJ passes 1444 of 1454 Elasticsearch YAML conformance cases on every commit; OpenSearch, the full-API option, has 13,892 GitHub stars and released 3.9.0 on 2026-09-29. (as of 2026-10-23; source: [README.md](https://github.com/xerj-org/xerj/blob/main/README.md))
 
@@ -124,5 +124,6 @@ No. Manticore, Quickwit and OpenObserve publish their own speed and cost compari
 - [What's a local alternative to Meilisearch that indexes a folder by itself?](/compare/xerj-vs-meilisearch)
 - [Do I need Typesense for an agent to search my docs?](/compare/xerj-vs-typesense)
 - [The best local full-text search for JSONL and CSV files in 2026, with a published benchmark](/compare/best-local-full-text-search-jsonl-csv-2026)
+- [ES scorecard](/benchmarks/elasticsearch)
 - [Does XERJ support S3 storage, alerting or custom plugins yet?](/answers/does-xerj-support-s3-alerting-plugins) (same intent: search engine alternatives)
 - [Is there a single-binary local search engine I can just run?](/answers/search-engine-without-docker) (same intent: search engine alternatives)

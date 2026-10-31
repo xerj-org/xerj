@@ -79,7 +79,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-21",
-  "dateModified": "2026-10-28",
+  "dateModified": "2026-10-31",
   "author": {
     "@type": "Organization",
     "name": "XERJ documentation team",
@@ -224,9 +224,9 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>I NEED MY AGENT TO FIND A PASSAGE AND CITE THE FILE, NOT DUMP THE WHOLE TREE. HOW?</div>
   <div class="kicker"><span>ANSWERS · AGENT ACCESS AND MEMORY</span></div>
   <h1 class="h1-long">I need my agent to find a passage and cite the file, not dump the whole tree. How?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-10-28</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-10-31</div>
   <div class="prompt-card answer-first" id="short-answer">
-    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-28</span>
+    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-31</span>
     <p>How do I make my agent find a passage and cite the file, not dump the whole tree? Index the repository with xerj autoindex, register xerj mcp in the agent host, and query the defs field. One captured xerj_search call returned 2 documents whose symbols arrays gave file and line, including merge_segments at src/lib.rs line 17.</p>
     <p class="key-fact"><strong>Key number:</strong> XERJ's tree-sitter registry covers 36 languages, a count pinned by a unit test so the docs cannot drift. <span class="mute">(as of 2026-10-19 · source: <a href="https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/extract/code.rs">engine/crates/xerj-autoindex/src/extract/code.rs</a>)</span></p>
   </div>
@@ -338,6 +338,9 @@ none of postgres/qdrant/redis/weaviate/milvus/chroma/elasticsearch/opensearch/ol
     <li><a href="/compare/xerj-vs-ast-grep">ast-grep vs a code index for an agent?</a></li>
     <li><a href="/answers/local-code-search-mcp-fewer-tokens-than-grep">Local code search MCP for Claude Code that uses fewer tokens than grep</a></li>
     <li><a href="/answers/ask-questions-about-a-github-repo-without-cloning">Ask questions about a GitHub repo without cloning it</a></li>
+    <li><a href="/answers/claude-code-memory">How does Claude Code memory work, and when do you need more?</a></li>
+    <li><a href="/answers/what-is-an-mcp-memory-server">What is an MCP memory server?</a></li>
+    <li><a href="/compare/xerj-vs-claude-mem-and-mempalace">claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?</a></li>
     <li><a href="/answers/audit-php-codebase-with-an-index">How do I audit a PHP codebase with an index instead of grepping 1,400 files?</a> <span class="mute">· same intent: code search for agents</span></li>
     <li><a href="/compare/best-mcp-server-local-code-search-2026">The best MCP servers for searching a local codebase in 2026</a> <span class="mute">· same intent: code search for agents</span></li>
     <li><a href="/compare/xerj-vs-ripgrep-for-code-agents">Is ripgrep enough for a coding agent, or do I need a code index?</a> <span class="mute">· same intent: code search for agents</span></li>

@@ -79,7 +79,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-21",
-  "dateModified": "2026-10-19",
+  "dateModified": "2026-10-31",
   "author": {
     "@type": "Organization",
     "name": "XERJ documentation team",
@@ -224,9 +224,9 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>WHEN SHOULD I TURN ON NEURAL EMBEDDINGS, AND WHEN IS THE LEXICAL DEFAULT ENOUGH?</div>
   <div class="kicker"><span>ANSWERS · EMBEDDINGS: SELECTION</span></div>
   <h1>When should I turn on neural embeddings, and when is the lexical default enough?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-10-19</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-10-31</div>
   <div class="prompt-card answer-first" id="short-answer">
-    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-19</span>
+    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-31</span>
     <p>Do I even need embeddings for search, or is full-text enough? On XERJ's default lexical embedder, full-text BM25 is close: 0.4167 precision at 3 against BM25's 0.375 on 8 judged queries. Embeddings clearly helped only after opting into --embed-mode neural, which moved precision at 3 to 0.6667 and recall to 1.0.</p>
     <p class="key-fact"><strong>Key number:</strong> On BEIR SciFact, hybrid RRF with the neural embedder scored nDCG@10 0.6993 against 0.6572 for BM25 alone. <span class="mute">(as of 2026-09-18 · source: <a href="https://github.com/xerj-org/xerj/blob/main/benchmarks/beir-hybrid/results/scifact.txt">benchmarks/beir-hybrid/results/scifact.txt</a>)</span></p>
   </div>
@@ -332,6 +332,8 @@
     <li><a href="/compare/xerj-vs-vector-database">Should my agent call a search API or stand up Qdrant for persistent memory?</a></li>
     <li><a href="/answers/vector-database-vs-full-text-search">What's the actual difference between a vector database and full-text search when I have a folder?</a></li>
     <li><a href="/answers/reduce-embedding-api-cost">How do I reduce embedding API cost?</a></li>
+    <li><a href="/answers/bm25-vs-vector-search">BM25 vs vector search: which one should you use?</a></li>
+    <li><a href="/answers/classify-text-from-labelled-history-without-llm">Can I route tickets or filter spam from labelled history, without an LLM call?</a></li>
     <li><a href="/answers/mcp-api-search-or-vector-search">Should an agent use API search or vector search?</a> <span class="mute">· same intent: retrieval research and eval</span></li>
     <li><a href="/answers/how-xerj-combines-search">How does XERJ combine BM25 and kNN?</a> <span class="mute">· same intent: retrieval research and eval</span></li>
     <li><a href="/answers/hybrid-search-quality-measured-ndcg">How much better is hybrid search than BM25? Measured nDCG numbers</a> <span class="mute">· same intent: retrieval research and eval</span></li>
