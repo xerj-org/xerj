@@ -1011,3 +1011,36 @@ DeepSeek Harness هر سرور MCP را به‌عنوان یک افزونه مس
 <p dir="rtl" align="right">
 در مقابل، جست‌وجو در یک ایندکس برای هر پرس‌وجو تنها چند کیلوبایت داده مصرف می‌کند. در <a href="https://xerj.org/use-cases/code-security-audit.html">ممیزی امنیتی هسته WordPress با کمک هوش مصنوعی</a>، یک عامل توانست روی ۱٬۴۹۲ فایل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">PHP</span> کار کند و این کار را با مصرف حدود ۲۶ هزار توکن انجام دهد؛ یعنی تقریباً به‌اندازه بارگذاری تنها نیم درصد از کل کدهای پروژه.
 </p>
+
+<h2 dir="rtl" align="right">موارد استفاده</h2>
+
+<ul dir="rtl" align="right">
+<li>
+<a href="https://xerj.org/case-studies/reference-coding.html">برنامه‌نویسی مبتنی بر ارجاع (Reference Coding)</a>:
+عامل برنامه‌نویسی شما به‌جای حل دوباره مسئله از ابتدا، راهکارهایی را بازیابی می‌کند که پروژه‌های مشابه قبلاً برای آن مسئله به کار برده‌اند. طبق اندازه‌گیری‌ها، این روش در مقایسه با برنامه‌نویسی مبتنی بر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">grep</span>، ۲٫۷ برابر توکن خروجی کمتری مصرف می‌کند؛ این مقدار در مقایسه با اتکای صرف به حافظه به ۲۶ برابر می‌رسد. کاربران نیز در فرایند توسعه واقعی، کاهش تقریبی ۵ برابری مصرف توکن را گزارش کرده‌اند.
+</li>
+<li>
+<a href="https://xerj.org/use-cases/code-security-audit.html">جست‌وجوی کد و ممیزی امنیتی</a>:
+ایندکس‌گذاری آگاه از ساختار درخت نحوی انتزاعی (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">AST</span>) به عامل اجازه می‌دهد به‌جای پیدا کردن یک خط، مستقیماً تابع موردنظر را پیدا کند.
+</li>
+<li>
+<a href="https://xerj.org/use-cases/ai-search-retrieval.html">جست‌وجوی هوش مصنوعی و بازیابی اطلاعات (RAG)</a>:
+جست‌وجوی متنی کامل، برداری و ترکیبی را در یک پرس‌وجو ارائه می‌دهد؛ بدون نیاز به پایگاه داده برداری جداگانه.
+</li>
+<li>
+<a href="https://xerj.org/use-cases/second-brain.html">حافظه عامل‌های هوش مصنوعی</a>:
+بازیابی اطلاعات ماندگار با استفاده از یک گراف دانش ساخته‌شده بر اساس اسناد خودتان.
+</li>
+<li>
+<a href="https://xerj.org/use-cases/unified-observability.html">تحلیل گزارش‌ها و مشاهده‌پذیری</a>:
+گزارش‌ها (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Logs</span>)، معیارها (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Metrics</span>) و ردگیری‌ها (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Traces</span>) را در یک موتور واحد گرد هم می‌آورد.
+</li>
+<li>
+<a href="https://xerj.org/use-cases/elasticsearch-replacement.html">جایگزینی Elasticsearch</a>:
+با همان پروتکل ارتباطی، اما در قالب یک فایل اجرایی واحد.
+</li>
+</ul>
+
+<p dir="rtl" align="right">
+نمونه‌های قابل اجرا در پوشه‌های <a href="./recipes/"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>recipes/</code></span></a> و <a href="./docs/examples/"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>docs/examples/</code></span></a> قرار دارند.
+</p>
