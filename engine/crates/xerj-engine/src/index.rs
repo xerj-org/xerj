@@ -78,6 +78,42 @@ fn transient_read_permit(
     }
 }
 
+/// How long a rayon worker polls a segment's stored-decode flight lock
+/// before decoding on its own (#2427).
+const STORED_FLIGHT_WORKER_WAIT: std::time::Duration = std::time::Duration::from_millis(200);
+
+/// #2427: take a segment's stored-decode single-flight lock (`None`: decode
+/// without it).
+///
+/// The lock is held across a whole stored-section decode, and that decode
+/// fans its columns out on the global rayon pool. A rayon worker that
+/// blocked on the lock could therefore deadlock forever: while it waits in a
+/// `join` it steals a query's hydration job that wants the lock, so the
+/// decode job the holder is waiting for sits beneath a frame that never
+/// returns. A post-ingest node froze in exactly this cycle (a cold-stored
+/// warm held the lock; a query's `hydrate_deferred_cold_sources` job on
+/// `xerj-search-4` waited on it), and every later search touching the
+/// segment hung to the 30 s request deadline. Threads outside the pool keep
+/// the blocking single-flight; a worker polls for a bounded time, then pays
+/// a duplicate decode rather than block.
+fn lock_stored_flight(flight: &std::sync::Mutex<()>) -> Option<std::sync::MutexGuard<'_, ()>> {
+    if rayon::current_thread_index().is_none() {
+        return flight.lock().ok();
+    }
+    let deadline = std::time::Instant::now() + STORED_FLIGHT_WORKER_WAIT;
+    loop {
+        match flight.try_lock() {
+            Ok(guard) => return Some(guard),
+            Err(std::sync::TryLockError::Poisoned(_)) => return None,
+            Err(std::sync::TryLockError::WouldBlock) => {}
+        }
+        if std::time::Instant::now() >= deadline {
+            return None;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+}
+
 /// Retained-size bound of a `StoredSlices` built from `raw` (the framing-only
 /// estimator; a zstd frame without a content size falls back to 8x raw).
 fn stored_slices_bound(raw: &[u8], expect_docs: u64) -> u64 {
@@ -317,6 +353,45 @@ mod merge_long_effort_tests {
         for v in ["1", "true", "TRUE", " yes ", "on"] {
             assert!(uses(false, Some(v)), "{v}");
         }
+    }
+}
+
+#[cfg(test)]
+mod shared_memtable_source_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// #2427: a document written through the per-document path used to be
+    /// deep-copied twice and both copies kept until the next flush, once in
+    /// the storage memtable and once in the FTS memtable. A late-run heap
+    /// profile of a 1 GB `_bulk` load had these two copies at ~470 MB of
+    /// ~1.75 GB in use. Both memtables now hold the same `Arc`.
+    #[tokio::test]
+    async fn per_doc_write_keeps_one_parsed_source_for_both_memtables_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        engine.create_index("shared-source-2427", schema).unwrap();
+        let idx = engine.get_index("shared-source-2427").unwrap();
+        idx.abort_background_tasks();
+        idx.index_document(Some("one".into()), json!({"body": "alpha beta"}))
+            .await
+            .unwrap();
+
+        let fts = idx.memtable.get_doc_source_arc("one").unwrap();
+        assert_eq!(fts["body"], "alpha beta");
+        // Owners: the FTS memtable, the storage memtable and `fts` itself.
+        // A private FTS copy would leave only two.
+        assert_eq!(
+            Arc::strong_count(&fts),
+            3,
+            "the FTS memtable must share the storage memtable's source, not deep-copy it"
+        );
     }
 }
 
@@ -2803,6 +2878,94 @@ mod flush_publication_recovery_tests {
         assert!(row_projection_keeps_column(&keep, "prefix"));
         assert!(!row_projection_keeps_column(&keep, "metadata"));
         assert!(!row_projection_keeps_column(&keep, "ab"));
+    }
+
+    /// #2427: a rayon worker must not block on a segment's stored-decode
+    /// flight lock. The holder (a cold-stored warm) waits on its own
+    /// rayon-parallel decode, so a worker parked on the lock can sit on top
+    /// of the very job the holder needs: a permanent deadlock that pinned
+    /// every later search of the segment at the 30 s request deadline.
+    /// Threads outside the pool still single-flight.
+    ///
+    /// Fails before the fix: the worker blocks on the held lock, so the
+    /// holder, which waits for the pool before it releases, times out.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn rayon_worker_never_blocks_on_a_held_stored_flight_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine
+            .create_index("flight-lock", topk_projection_schema())
+            .unwrap();
+        let idx = engine.get_index("flight-lock").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..256u64 {
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"title": format!("title {i}"), "body": format!("body text {i}")}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        let seg = idx.store.snapshot().segments[0].clone();
+        idx.release_memory();
+        assert!(
+            !idx.stored_slices_cache.contains_key(&seg.id),
+            "precondition: cold"
+        );
+
+        let flight = Arc::clone(
+            idx.stored_slices_build_locks
+                .entry(seg.id.clone())
+                .or_default()
+                .value(),
+        );
+        let held = flight.lock().unwrap();
+        let roomy = SegmentHydrationBudget::new(u64::MAX);
+        let read = ReadTransientBudget::new(1 << 30, std::time::Duration::from_secs(5));
+        let build = |idx: Arc<Index>,
+                     roomy: Arc<SegmentHydrationBudget>,
+                     read: Arc<ReadTransientBudget>| {
+            let (seg_id, docs) = (seg.id.clone(), seg.doc_count);
+            move || {
+                idx.stored_slices_for_with(&seg_id, docs, &roomy, &read)
+                    .is_some()
+            }
+        };
+
+        // Outside the pool: still single-flight, waits for the holder.
+        let (outside_tx, outside_rx) = std::sync::mpsc::channel();
+        let outside = build(Arc::clone(&idx), Arc::clone(&roomy), Arc::clone(&read));
+        let outside_thread = std::thread::spawn(move || outside_tx.send(outside()).unwrap());
+        assert!(
+            outside_rx
+                .recv_timeout(std::time::Duration::from_millis(500))
+                .is_err(),
+            "a caller outside the pool keeps the blocking single-flight"
+        );
+
+        // On a rayon worker: the holder waits for the pool, as a warm's
+        // parallel decode does; the worker must decode without the lock.
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(1)
+            .build()
+            .unwrap();
+        let (worker_tx, worker_rx) = std::sync::mpsc::channel();
+        let worker = build(Arc::clone(&idx), Arc::clone(&roomy), Arc::clone(&read));
+        pool.spawn(move || worker_tx.send(worker()).unwrap());
+        let worker_result = worker_rx.recv_timeout(std::time::Duration::from_secs(10));
+        drop(held);
+        assert_eq!(
+            worker_result,
+            Ok(true),
+            "a rayon worker must not block on a held stored flight lock"
+        );
+        assert_eq!(
+            outside_rx.recv_timeout(std::time::Duration::from_secs(10)),
+            Ok(true)
+        );
+        outside_thread.join().unwrap();
+        assert!(idx.stored_slices_cache.contains_key(&seg.id));
     }
 
     /// #950: building the id→position map must NOT materialise the full
@@ -6145,9 +6308,8 @@ mod merge_publication_transaction_tests {
     /// stopped.
     ///
     /// Same contract as `hand_driven_index`: the restart half of these tests
-    /// asserts on a recovered segment set, and `Index::open` schedules its
-    /// own open-time merge check too (`request_merge_check`, #871 — an
-    /// opened index may carry pre-existing merge debt).
+    /// asserts on a recovered segment set, and any flush after the reopen
+    /// arms a background merge check (#871).
     fn reopen_hand_driven(dir: &TempDir, name: &str) -> (Engine, Arc<Index>) {
         let engine = Engine::new(config(dir)).unwrap();
         let index = engine.get_index(name).unwrap();
@@ -7250,6 +7412,70 @@ mod merge_publication_transaction_tests {
                 index.is_merge_in_progress()
             );
         }
+    }
+
+    async fn seed_segments_for_reopen(dir: &TempDir, name: &str, segments: usize) {
+        let (engine, index) = hand_driven_index(dir, name, Schema::empty());
+        for n in 0..segments {
+            index
+                .index_document(Some(format!("d{n}")), serde_json::json!({"value": n}))
+                .await
+                .unwrap();
+            index.flush().await.unwrap();
+        }
+        assert_eq!(index.store.snapshot().segments.len(), segments);
+        drop(index);
+        drop(engine);
+    }
+
+    /// #2427 — a restarted node that receives no writes runs no catch-up
+    /// merges. In the 1 GB release gate every index on the restarted
+    /// search-only node merged its inherited segments a few seconds after
+    /// boot, while it served reads above the breaker watermark on a
+    /// 3,072 MB cap. On the old code the open-time
+    /// `request_merge_check` evaluates (and merges) within the 5 s
+    /// debounce, so the first assertion fails.
+    #[tokio::test(start_paused = true)]
+    async fn a_reopened_index_without_writes_runs_no_catch_up_merge() {
+        const SEGMENTS: usize = 6;
+        let dir = TempDir::new().unwrap();
+        seed_segments_for_reopen(&dir, "no-catchup", SEGMENTS).await;
+
+        // Background scheduling stays running: it is the subject.
+        let engine = Engine::new(config(&dir)).unwrap();
+        let index = engine.get_index("no-catchup").unwrap();
+        for _ in 0..30 {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(
+            index.merge_evaluation_count(),
+            0,
+            "a reopened index with no writes evaluated a merge"
+        );
+        assert!(!index.is_merge_in_progress());
+        assert_eq!(index.store.snapshot().segments.len(), SEGMENTS);
+        let docs = index
+            .search(&SearchRequest::default())
+            .await
+            .unwrap()
+            .total
+            .value;
+        assert_eq!(docs, SEGMENTS as u64);
+
+        // The first write pays the inherited debt.
+        index
+            .index_document(Some("w".into()), serde_json::json!({"value": "w"}))
+            .await
+            .unwrap();
+        index.flush().await.unwrap();
+        settle_merge_scheduler(&index).await;
+        assert!(index.merge_evaluation_count() >= 1);
+        assert!(
+            index.store.snapshot().segments.len() < SEGMENTS,
+            "the first write did not pay the inherited merge debt"
+        );
+        index.abort_background_tasks();
     }
 
     /// #871 — merge scheduling must be event-driven: after an index's merge
@@ -11983,12 +12209,20 @@ impl Index {
                     idx.on_segments_changed();
                 }
             })));
-        // An opened index can carry pre-existing merge debt — a crash
-        // mid-cascade, or merge config lowered since the segments were
-        // written — that no future event would pay off on a read-only
-        // index. Schedule one debounced check now; it quiesces after a
-        // single evaluation when there is nothing to do.
-        index.request_merge_check();
+        // #2427 — no open-time merge check. An opened index can carry
+        // merge debt (a crash mid-cascade, or merge config lowered since
+        // the segments were written). Paying it at open made every index
+        // on a restarted node evaluate (and merge) a few seconds after
+        // boot: in the 1 GB release gate the search-only node, which
+        // received no writes, started merging its inherited segments while
+        // it served reads above the breaker watermark. Merging exists to
+        // bound the segment count that writes create; the debt does not
+        // affect correctness, and the index's first segment-set change
+        // (a flush, a tombstone-only segment, orphan recovery) fires the
+        // segments-changed hook above, which evaluates it then. An
+        // operator who wants it paid on a read-only index runs
+        // `_forcemerge`. This supersedes #2492's open-time quiet period,
+        // which only delayed the same burst by 120 s.
         // RC4 W2 item 17: a flush-time-stale HNSW snapshot used to stay
         // stale for the rest of the process lifetime (ingest kept paying
         // full graph-maintenance cost while the ANN path never served).
@@ -12314,7 +12548,11 @@ impl Index {
             self.collection_publication.handoff_to_readers().await;
             return Err(e.into());
         }
-        let seq_no = match self.store.index(&doc_id, source.clone()) {
+        // One parsed tree, shared by the storage memtable and the FTS
+        // memtable below; each used to hold its own deep copy until the next
+        // flush (#2427).
+        let source = Arc::new(source);
+        let seq_no = match self.store.index_shared(&doc_id, Arc::clone(&source)) {
             Ok(seq_no) => seq_no,
             Err(e) => {
                 collection_publication.cancel();
@@ -12338,7 +12576,12 @@ impl Index {
         {
             let mem = &*self.memtable;
             mem.remove(&doc_id);
-            mem.insert(doc_id.clone(), &source, &schema_guard.schema, seq_no);
+            mem.insert_shared(
+                doc_id.clone(),
+                Arc::clone(&source),
+                &schema_guard.schema,
+                seq_no,
+            );
         }
         drop(schema_guard);
         #[cfg(test)]
@@ -22435,7 +22678,7 @@ impl Index {
                             .or_default();
                         std::sync::Arc::clone(entry.value())
                     };
-                    let _flight_guard = flight.lock().ok();
+                    let _flight_guard = lock_stored_flight(&flight);
                     // Re-check under the flight lock — another thread may
                     // have decoded and published while we waited.
                     let rechecked: Option<Vec<u8>> = self
@@ -27435,7 +27678,7 @@ impl Index {
                                 .or_default();
                             Arc::clone(entry.value())
                         };
-                        let _flight_guard = flight.lock().ok();
+                        let _flight_guard = lock_stored_flight(&flight);
                         // Re-check both caches now that we hold this
                         // segment's flight lock — another thread may have
                         // decoded and published while we waited.
@@ -28761,6 +29004,25 @@ impl Index {
 
     /// Flush the memtable to a new segment on disk, then build the FTS index.
     pub async fn flush(self: &Arc<Self>) -> Result<()> {
+        self.flush_with(FlushFanout::Parallel).await
+    }
+
+    /// [`Self::flush`] with one shard building at a time (#2427).
+    ///
+    /// A shard flush parses the drained documents, builds columns, postings
+    /// and the stored blocks, and none of that working set is charged to the
+    /// memtable budget. The parallel flush builds every non-empty shard at
+    /// once (bounded only by the finalize gate), so a breaker drain on a
+    /// 1,536 MB-capped node took RSS from 1,460 MB to 2,323 MB in about a
+    /// second while four shards built together. A memory-release caller
+    /// wants the peak bounded more than it wants the drain short: each
+    /// shard's segment publishes and its working set is freed before the
+    /// next shard starts.
+    pub async fn flush_one_shard_at_a_time(self: &Arc<Self>) -> Result<()> {
+        self.flush_with(FlushFanout::Serial).await
+    }
+
+    async fn flush_with(self: &Arc<Self>, fanout: FlushFanout) -> Result<()> {
         // #873: this flush is about to take whatever the memtable holds, so
         // every idle-probe observation about it is stale from here on. Clear
         // the pair at the ONE coordinator every flush path runs through
@@ -28824,6 +29086,7 @@ impl Index {
         // coordinator is not aborted (#1015).
         let coordinator = tokio::spawn(async move {
             let mut shard_futures = Vec::with_capacity(n_shards);
+            let mut result: Result<()> = Ok(());
             for shard_idx in 0..n_shards {
                 // #1226 — do not fan a finalize out for an EMPTY shard.
                 //
@@ -28857,7 +29120,9 @@ impl Index {
                 let shard_index_name = coordinator_name.clone();
                 #[cfg(test)]
                 let test_hook = flush_test_hook.clone();
-                shard_futures.push(tokio::spawn(async move {
+                let shard_task = tokio::spawn(async move {
+                    #[cfg(test)]
+                    let _in_flight = FlushShardProbe::enter(&shard_index_name).await;
                     let permit = match wait_for_flush_permit(
                         &shard_index_name,
                         "the flush semaphore",
@@ -28899,19 +29164,14 @@ impl Index {
                         let _ = guard.take();
                     }
                     result
-                }));
-            }
-            let mut result: Result<()> = Ok(());
-            for fut in shard_futures {
-                match fut.await {
-                    Ok(Ok(())) => {}
-                    Ok(Err(e)) => result = Err(e),
-                    Err(error) => {
-                        result = Err(EngineError::Common(xerj_common::XerjError::internal(
-                            format!("flush shard task failed: {error}"),
-                        )));
-                    }
+                });
+                match fanout {
+                    FlushFanout::Parallel => shard_futures.push(shard_task),
+                    FlushFanout::Serial => fold_shard_flush(&mut result, shard_task.await),
                 }
+            }
+            for fut in shard_futures {
+                fold_shard_flush(&mut result, fut.await);
             }
             // Publication completion must invalidate results even when the
             // request that initiated the flush was cancelled. The coordinator
@@ -35465,7 +35725,7 @@ impl Index {
                 .or_default();
             Arc::clone(entry.value())
         };
-        let _flight_guard = flight.lock().ok()?;
+        let _flight_guard = lock_stored_flight(&flight);
         if let Some(entry) = self.stored_slices_cache.get(seg_id) {
             return Some(Arc::clone(entry.value()));
         }
@@ -36755,6 +37015,79 @@ struct FlushPublisherTestHook {
 #[cfg(test)]
 tokio::task_local! {
     static FLUSH_PUBLISHER_TEST_HOOK: FlushPublisherTestHook;
+}
+
+/// How [`Index::flush_with`] runs its shard flushes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FlushFanout {
+    /// Every non-empty shard at once (M5.15): the shortest flush.
+    Parallel,
+    /// One shard after another: the smallest uncharged working set (#2427).
+    Serial,
+}
+
+/// Keep the last shard error, as the parallel join always has.
+fn fold_shard_flush(
+    result: &mut Result<()>,
+    joined: std::result::Result<Result<()>, tokio::task::JoinError>,
+) {
+    match joined {
+        Ok(Ok(())) => {}
+        Ok(Err(e)) => *result = Err(e),
+        Err(error) => {
+            *result = Err(EngineError::Common(xerj_common::XerjError::internal(
+                format!("flush shard task failed: {error}"),
+            )));
+        }
+    }
+}
+
+/// Test-only count of shard-flush tasks in flight per index, with the peak.
+#[cfg(test)]
+static FLUSH_SHARD_PROBE: std::sync::LazyLock<
+    dashmap::DashMap<
+        String,
+        (
+            Arc<std::sync::atomic::AtomicUsize>,
+            Arc<std::sync::atomic::AtomicUsize>,
+        ),
+    >,
+> = std::sync::LazyLock::new(dashmap::DashMap::new);
+
+#[cfg(test)]
+pub(crate) struct FlushShardProbe(Arc<std::sync::atomic::AtomicUsize>);
+
+#[cfg(test)]
+impl FlushShardProbe {
+    /// Count this shard task in, then yield so sibling tasks of a parallel
+    /// flush get scheduled while it is still counted.
+    async fn enter(index: &str) -> Self {
+        use std::sync::atomic::Ordering;
+        let (in_flight, peak) = FLUSH_SHARD_PROBE
+            .entry(index.to_string())
+            .or_default()
+            .value()
+            .clone();
+        let now = in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+        peak.fetch_max(now, Ordering::SeqCst);
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        FlushShardProbe(in_flight)
+    }
+
+    /// Peak shard-flush tasks in flight at once for `index` so far.
+    pub(crate) fn peak(index: &str) -> usize {
+        FLUSH_SHARD_PROBE
+            .get(index)
+            .map(|e| e.value().1.load(std::sync::atomic::Ordering::SeqCst))
+            .unwrap_or(0)
+    }
+}
+
+#[cfg(test)]
+impl Drop for FlushShardProbe {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    }
 }
 
 // This deliberately remains a free function so background tasks can own every
@@ -46973,9 +47306,11 @@ fn check_buildable_query(
 /// only in an unsearchable field still matches when no field is named at all.
 /// `query_string {"query": "…"}` and a `more_like_this` with no `fields` both
 /// still return the document — and so does a *wildcard* spec in
-/// `query_string` / `simple_query_string`, because `fields: ["*"]` lowers to
-/// that same field-less `"*"` placeholder rather than to an expansion over the
-/// searchable fields. Measured, not assumed. That divergence from the FTS
+/// `query_string`, because `fields: ["*"]` lowers to that same field-less
+/// `"*"` placeholder rather than to an expansion over the searchable fields.
+/// (`simple_query_string` `["*"]` now lowers like an absent `fields` (#2427),
+/// so a flushed segment answers it from the FTS projection, which applies the
+/// searchable-field rule; only memtable documents still see the scan arm.) Measured, not assumed. That divergence from the FTS
 /// projection predates this change and is called out in its own comment in
 /// `doc_matches_query`; making it schema-aware means threading a schema
 /// through ~79 call sites and is left as its own change.
@@ -54887,7 +55222,10 @@ fn warm_segment_at_publish(
     // the worst moment (the breaker only rejects; it cannot reclaim what
     // warming keeps re-adding). Skip when engaged — the next read
     // re-hydrates on demand, and warming resumes once memory frees up.
-    if crate::governor::global().is_some_and(|g| g.memory_breaker_engaged()) {
+    // #2427: also skip above the breaker's release level, so warming does
+    // not push a still-ingesting node back over the watermark
+    // (`ResourceGovernor::publish_warm_allowed`).
+    if crate::governor::global().is_some_and(|g| !g.publish_warm_allowed()) {
         return;
     }
     // 1. Stored slices.
@@ -66439,5 +66777,100 @@ mod log_match_operator_tests {
             !hit_ids(&plain.search(&phrase).await.unwrap()).contains(&"is-only".to_string()),
             "the english analyzer already drops is, on a non-log index too"
         );
+    }
+}
+
+#[cfg(test)]
+mod sqs_wildcard_fields_2427_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// #2427 (raw-surface p95 ≈ 30 s on the 1 GB gate):
+    /// `simple_query_string {"fields": ["*"]}` must be answered from the
+    /// inverted index, exactly like the same query with no `fields` at all.
+    ///
+    /// FAIL-BEFORE (watched): on `main` the parser lowered `["*"]` to
+    /// `Match { field: "*" }`, which has no FTS projection, so every flushed
+    /// segment was answered by parsing its stored section — this test saw
+    /// `fts=0 stored_scans=8` (same 200 hits) — and on the gate corpus that walk is what ran
+    /// into the 30 s request deadline. The hit set is asserted too, so the
+    /// faster route cannot quietly change the answer.
+    #[tokio::test]
+    async fn wildcard_fields_simple_query_string_uses_the_inverted_index() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("title", FieldType::Text))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("body", FieldType::Text))
+            .unwrap();
+        engine.create_index("sqs2427", schema).unwrap();
+        let idx = engine.get_index("sqs2427").unwrap();
+
+        // Two segments: the term lives in `title` in one and in `body` in the
+        // other, so a projection onto a single field would under-match.
+        for i in 0..300 {
+            let (title, body) = match i % 3 {
+                0 => ("raft leader", "nothing here"),
+                1 => ("unrelated", "the raft election timed out"),
+                _ => ("unrelated", "nothing here"),
+            };
+            idx.index_document(
+                Some(format!("a{i}")),
+                json!({ "title": title, "body": body }),
+            )
+            .await
+            .unwrap();
+            if i == 149 {
+                idx.flush().await.unwrap();
+            }
+        }
+        idx.flush().await.unwrap();
+
+        let run = |q: serde_json::Value| {
+            let idx = idx.clone();
+            async move {
+                SEG_FTS_HANDLED.with(|c| c.set(0));
+                SEG_STORED_SCANS.with(|c| c.set(0));
+                let req = xerj_query::parse_request(&json!({
+                    "size": 5, "track_total_hits": true, "query": q
+                }))
+                .unwrap();
+                let res = idx.search(&req).await.unwrap();
+                let fts = SEG_FTS_HANDLED.with(|c| c.get());
+                let scans = SEG_STORED_SCANS.with(|c| c.get());
+                (res.total.value, fts, scans)
+            }
+        };
+
+        let (total_star, fts, scans) = run(json!({"simple_query_string": {
+            "query": "raft", "fields": ["*"], "lenient": true
+        }}))
+        .await;
+        assert_eq!(
+            total_star, 200,
+            "every document with `raft` in title OR body must match"
+        );
+        assert!(
+            fts > 0 && scans == 0,
+            "#2427: `fields: [\"*\"]` must be served by the FTS path on every \
+             segment, not by the stored-section scan: fts={fts} stored_scans={scans}"
+        );
+
+        // Same answer as the field-less spelling ES treats it as.
+        let (total_none, _, _) = run(json!({"simple_query_string": {"query": "raft"}})).await;
+        assert_eq!(total_star, total_none);
+
+        // Multi-token, the gate's raw-surface shape.
+        let (total_multi, fts, scans) = run(json!({"simple_query_string": {
+            "query": "leader election", "fields": ["*"], "lenient": true
+        }}))
+        .await;
+        assert_eq!(total_multi, 200);
+        assert!(fts > 0 && scans == 0, "fts={fts} stored_scans={scans}");
     }
 }

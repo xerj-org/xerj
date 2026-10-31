@@ -4566,8 +4566,11 @@ impl Engine {
         if release_caches {
             return self.release_rebuildable_memory(&loaded).await;
         }
+        // One shard at a time (#2427): the flush working set is uncharged,
+        // and building every shard at once is what pushed RSS past the cap
+        // in the middle of the drain meant to bring it down.
         for idx in &loaded {
-            if idx.memtable_bytes() > 0 && idx.flush().await.is_err() {
+            if idx.memtable_bytes() > 0 && idx.flush_one_shard_at_a_time().await.is_err() {
                 tracing::warn!("memory pressure drain: flush failed");
             }
         }
@@ -4641,7 +4644,9 @@ impl Engine {
     /// released.
     pub async fn release_rebuildable_memory(&self, indices: &[Arc<Index>]) -> usize {
         for idx in indices {
-            if idx.memtable_bytes() > 0 && idx.flush().await.is_err() {
+            // Serial for the same reason as `pressure_drain` (#2427): a
+            // release must not spike RSS on its way down.
+            if idx.memtable_bytes() > 0 && idx.flush_one_shard_at_a_time().await.is_err() {
                 tracing::warn!("memory release: flush failed, releasing caches anyway");
             }
             idx.release_memory();
@@ -6614,5 +6619,77 @@ mod pressure_drain_tests {
             mem_fires, steps,
             "memtable pressure keeps the fixed window while RSS does not fall"
         );
+    }
+}
+
+#[cfg(test)]
+mod serial_pressure_flush_tests {
+    use super::Engine;
+    use crate::index::FlushShardProbe;
+    use serde_json::json;
+    use tempfile::TempDir;
+    use xerj_common::config::Config;
+    use xerj_common::types::{FieldConfig, FieldType, Schema};
+
+    async fn seed(engine: &Engine, name: &str, n: usize) {
+        let mut schema = Schema::empty();
+        schema
+            .fields
+            .push(FieldConfig::new("body", FieldType::Text));
+        engine.create_index(name, schema).expect("create");
+        let idx = engine.get_index(name).expect("get");
+        for i in 0..n {
+            idx.index_document(
+                Some(format!("d{i}")),
+                json!({ "body": format!("document number {i}") }),
+            )
+            .await
+            .expect("index");
+        }
+    }
+
+    async fn count_all(engine: &Engine, name: &str) -> u64 {
+        let idx = engine.get_index(name).expect("get index");
+        let req = xerj_query::parse_request(
+            &json!({ "query": { "match_all": {} }, "size": 0, "from": 0 }),
+        )
+        .expect("parse_request");
+        idx.search(&req).await.expect("search").total.value
+    }
+
+    /// #2427: a breaker drain builds one shard segment at a time. The flush
+    /// working set (parsed docs, columns, postings, stored blocks) is not
+    /// charged to the memtable budget, and a drain that built every shard at
+    /// once took RSS from 1,460 MB to 2,323 MB on a 1,536 MB-capped node.
+    /// The control index shows the ordinary flush still fans out, so the
+    /// probe does see concurrency when there is some. FAIL-BEFORE:
+    /// `pressure_drain` called `Index::flush`, which runs every non-empty
+    /// shard at once (peak > 1 here).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn a_pressure_drain_flushes_one_shard_at_a_time() {
+        let dir = TempDir::new().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_str().unwrap().to_string();
+        let engine = Engine::new(config).expect("engine::new");
+
+        seed(&engine, "serial-drain-control", 400).await;
+        let control = engine.get_index("serial-drain-control").unwrap();
+        control.flush().await.expect("flush");
+        assert!(
+            FlushShardProbe::peak("serial-drain-control") > 1,
+            "the ordinary flush runs shards concurrently"
+        );
+
+        seed(&engine, "serial-drain", 400).await;
+        let idx = engine.get_index("serial-drain").unwrap();
+        assert!(idx.memtable_bytes() > 0);
+        engine.pressure_drain(false).await;
+        assert_eq!(idx.memtable_bytes(), 0, "the drain published the memtable");
+        assert_eq!(
+            FlushShardProbe::peak("serial-drain"),
+            1,
+            "a pressure drain must build one shard at a time"
+        );
+        assert_eq!(count_all(&engine, "serial-drain").await, 400);
     }
 }
