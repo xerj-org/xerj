@@ -407,7 +407,8 @@ pub fn effective_batch_cap_bytes(static_cap: u64, pressure_cap: u64) -> u64 {
 /// search-read reserve). After [`MERGE_YIELD_STREAK_LIMIT`] yields in a row
 /// with nothing merged, a batch of at most
 /// [`MERGE_YIELD_STREAK_MAX_INPUT_BYTES`] is checked against the hard
-/// process `limit` instead.
+/// line `limit` instead. The governor passes [`merge_write_hard_line`], the
+/// process limit capped at the memory watermark.
 ///
 /// Without this a search node whose resting RSS sits between the ceiling
 /// and the watermark never merges. In the #2427 1 GB gate the search
@@ -434,6 +435,25 @@ pub fn merge_write_limit_after(
         limit
     } else {
         ceiling
+    }
+}
+
+/// The hard line [`merge_write_limit_after`] may relax a small batch's write
+/// to after a yield streak: the process `limit`, but never above the memory
+/// `watermark` (#2427).
+///
+/// Admitting against the limit let a write take RSS from below the watermark
+/// to just under the limit. The parent breaker trips at the watermark, so the
+/// write itself could turn ingest into HTTP 429s until the next drain: the
+/// gate-f case (2,517 MB resting plus a 408 MB write) fits under 3,072 MB
+/// but ends 7 MB above the 2,918 MB watermark. The watermark still sits above the merge-pool
+/// ceiling, so the starvation relief #2468 added keeps working. `0` for
+/// either input keeps the other (no limit or no watermark configured).
+pub fn merge_write_hard_line(limit: u64, watermark: u64) -> u64 {
+    if limit == 0 || watermark == 0 {
+        limit
+    } else {
+        limit.min(watermark)
     }
 }
 
@@ -480,8 +500,9 @@ pub fn merge_write_phase_bytes(json_bytes: u64, fts_bytes: u64) -> u64 {
 /// cannot stop without throwing the batch away, so the check runs before
 /// it starts. `extra` is [`merge_write_phase_bytes`], and `observed_rss`
 /// already includes what the batch holds. The step is refused when
-/// `observed_rss + extra` would reach the process `limit` (the hard limit,
-/// not the watermark). A refused batch yields like any other: no output,
+/// `observed_rss + extra` would reach `limit`: the merge-pool ceiling, or
+/// after a yield streak [`merge_write_hard_line`] (the process limit capped
+/// at the watermark). A refused batch yields like any other: no output,
 /// inputs kept, and later batches narrowed.
 ///
 /// These always run:
@@ -507,6 +528,51 @@ pub fn decide_merge_write(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #2427: after a yield streak a small write is admitted up to the
+    /// watermark, not up to the process limit, so it cannot by itself push
+    /// the node into the parent breaker band.
+    #[test]
+    fn a_streak_write_is_capped_at_the_watermark() {
+        const MIB: u64 = 1024 * 1024;
+        let ceiling = 2458 * MIB;
+        let limit = 3072 * MIB;
+        let watermark = 2918 * MIB;
+        let small = 6 * MIB;
+        let at = MERGE_YIELD_STREAK_LIMIT;
+        let hard = merge_write_hard_line(limit, watermark);
+        assert_eq!(hard, watermark);
+        let line = merge_write_limit_after(ceiling, hard, false, small, at);
+        assert_eq!(line, watermark);
+        // Gate f: 2,517 MB + 408 MB ends above the watermark — refused.
+        assert!(!decide_merge_write(
+            2517 * MIB,
+            line,
+            408 * MIB,
+            false,
+            false
+        ));
+        // A write that ends under the watermark still runs, above the
+        // ceiling: the #2468 starvation relief is kept.
+        assert!(decide_merge_write(
+            2517 * MIB,
+            line,
+            300 * MIB,
+            false,
+            false
+        ));
+        assert!(!decide_merge_write(
+            2517 * MIB,
+            ceiling,
+            300 * MIB,
+            false,
+            false
+        ));
+        // Unconfigured inputs keep the other side.
+        assert_eq!(merge_write_hard_line(limit, 0), limit);
+        assert_eq!(merge_write_hard_line(0, watermark), 0);
+        assert_eq!(merge_write_hard_line(limit, limit + MIB), limit);
+    }
 
     #[test]
     fn a_small_batch_write_uses_the_hard_limit_after_a_yield_streak() {

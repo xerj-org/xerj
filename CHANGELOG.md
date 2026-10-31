@@ -63,6 +63,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A small merge write admitted after a run of merge yields is now checked
+  against the memory watermark instead of the process limit, so it can no
+  longer take a node from below the watermark into the parent breaker band and
+  turn ingest into HTTP 429s. The relief for a search node resting between the
+  merge-pool ceiling and the watermark is kept (#2427).
 - A search that decodes a segment's doc-values sidecar the segment cache has
   no room to keep now reserves the decoded size in the read transient budget
   before decoding, and holds it until the query drops the columns. Before,
@@ -89,6 +94,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   section (hundreds of MB on the 1 GB autoindex gate) was decoded and then
   refused, a transient spike that pushed ingesting nodes over the breaker.
   Queries hydrate such a segment on demand, as before (#2427).
+
+- The in-memory HNSW graph no longer stores every vector in one contiguous
+  buffer. That buffer doubled on growth, so near ~393K 384-dim vectors a
+  single 384 MiB -> 768 MiB realloc kept both copies live (~1.15 GB
+  transient) outside any memory accounting. Vectors now live in 4 MiB
+  chunks (no realloc copy, at most one chunk of slack), and the graph's
+  estimated heap is reported as the new `vector_graph` category in the
+  ingest memory trace. (#2427)
 
 - `_bulk` requests of ordinary text and code are no longer refused with a
   429 while the node has memory to spare. Each raw bulk reserved 28 bytes

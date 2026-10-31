@@ -144,8 +144,12 @@ prost = "0.13"
 # into Rust via `compile_fds` (never shelling out to protoc).
 tonic-build = { version = "0.12", default-features = false, features = ["prost", "transport"] }
 protox = "0.7"
-# HTTP client (for embedding proxy)
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "http2", "charset"] }
+# HTTP client (embedding proxy, hub, feedback). `rustls-tls-native-roots`
+# adds the OS certificate store on top of the bundled Mozilla roots, so
+# machines behind a TLS-inspecting proxy or antivirus (whose CA lives only
+# in the OS store) can still reach hub.xerj.org instead of failing with
+# rustls `UnknownIssuer` (#2746). Both root sets are loaded additively.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "rustls-tls-native-roots", "http2", "charset"] }
 # Testing
 tempfile = "3"
 # Benchmarking
