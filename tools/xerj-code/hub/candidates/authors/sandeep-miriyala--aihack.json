@@ -1,0 +1,23 @@
+{
+ "corpus": "sandeep-miriyala--aihack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how sandeep-miriyala/AIHACK implements it: sandeep-miriyala/AIHACK (TypeScript)",
+ "repos": [
+  {
+   "repo": "AIHACK",
+   "url": "https://github.com/sandeep-miriyala/AIHACK",
+   "sha": "30bf3cfae75089405b001059e9f9d042ceea3d7f",
+   "licence": "author's permission (LICENSE at pin 30bf3cfae750: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-28T01:43Z",
+    "consent_receipt": "298b28036538",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T01:43Z (receipt 298b28036538); pinned to the default-branch head. LICENSE at pin 30bf3cfae750: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

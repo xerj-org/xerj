@@ -8,15 +8,15 @@
   {
    "repo": "openstack-lab",
    "url": "https://github.com/rahmankhanjohn/openstack-lab",
-   "sha": "890461e775f2eff29f862f2be05024166b1d943a",
-   "licence": "MIT (LICENSE file at pin 890461e775f2, GitHub licence API 2026-10-30)",
+   "sha": "c632121f35ab9c87616e52c914fc83d53556dbec",
+   "licence": "MIT (LICENSE file at pin c632121f35ab, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T21:22Z",
     "consent_receipt": "31f1e945dd1f",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:22Z (receipt 31f1e945dd1f); pinned to the default-branch head. LICENSE file at pin 890461e775f2 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:22Z (receipt 31f1e945dd1f); pinned to the default-branch head. LICENSE file at pin c632121f35ab detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
    }
   }
  ]

@@ -8,15 +8,15 @@
   {
    "repo": "airgap-ai-stack",
    "url": "https://github.com/rahmankhanjohn/airgap-ai-stack",
-   "sha": "7ba1ededdf4e3d8cda63bf74c87f4922ff779397",
-   "licence": "MIT (LICENSE file at pin 7ba1ededdf4e, GitHub licence API 2026-10-31)",
+   "sha": "48314ad51ee13a1418950c4b6dad8fa0a6fa54ae",
+   "licence": "MIT (LICENSE file at pin 48314ad51ee1, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T07:07Z",
     "consent_receipt": "69fa3de297f2",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T07:07Z (receipt 69fa3de297f2); pinned to the default-branch head. LICENSE file at pin 7ba1ededdf4e detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T07:07Z (receipt 69fa3de297f2); pinned to the default-branch head. LICENSE file at pin 48314ad51ee1 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
    }
   }
  ]

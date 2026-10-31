@@ -8,15 +8,15 @@
   {
    "repo": "event-schema-lint",
    "url": "https://github.com/rahmankhanjohn/event-schema-lint",
-   "sha": "87c3873d6afaf7d9dcba40862e75881484837b4a",
-   "licence": "author's permission (LICENSE at pin 87c3873d6afa: NONE; repository: none)",
+   "sha": "f7a282c73817d1aaf2c80c14814b17db9f0a7b7d",
+   "licence": "author's permission (LICENSE at pin f7a282c73817: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T21:22Z",
     "consent_receipt": "a4584fb50d43",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:22Z (receipt a4584fb50d43); pinned to the default-branch head. LICENSE at pin 87c3873d6afa: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:22Z (receipt a4584fb50d43); pinned to the default-branch head. LICENSE at pin f7a282c73817: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]
