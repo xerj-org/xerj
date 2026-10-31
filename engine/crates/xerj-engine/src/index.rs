@@ -188,17 +188,6 @@ async fn await_publication_barrier<T>(rx: tokio::sync::oneshot::Receiver<T>, wha
     }
 }
 
-/// Forcemerge batch selection over segments sorted smallest first: chunks
-/// of at most `chunk_len` segments whose input stays under `cap` bytes
-/// (`0` = no cap, #948). Returns index lists into `sizes`.
-///
-/// Convergence: when every segment is already larger than half the cap,
-/// no chunk can hold two, and the old selection returned nothing — an
-/// explicit `max_num_segments=1` stopped at 2+ segments (seen on a 2 GiB
-/// cap: two 16-27 MB segments vs a 32 MiB batch cap). In that case the two
-/// smallest segments are merged anyway: one minimal batch is the least an
-/// explicit force-merge must do to make progress, and the caller loops
-/// passes until it reaches its target.
 /// Heap held by the bucket arrays of the HNSW id maps (#2427). hashbrown
 /// keeps one `(K, V)` slot and one control byte per bucket, and its bucket
 /// count is the power of two above `capacity * 8 / 7`. The doc-id strings
@@ -245,6 +234,17 @@ fn hnsw_id_maps_from(
     (id_map, id_rev)
 }
 
+/// Forcemerge batch selection over segments sorted smallest first: chunks
+/// of at most `chunk_len` segments whose input stays under `cap` bytes
+/// (`0` = no cap, #948). Returns index lists into `sizes`.
+///
+/// Convergence: when every segment is already larger than half the cap,
+/// no chunk can hold two, and the old selection returned nothing — an
+/// explicit `max_num_segments=1` stopped at 2+ segments (seen on a 2 GiB
+/// cap: two 16-27 MB segments vs a 32 MiB batch cap). In that case the two
+/// smallest segments are merged anyway: one minimal batch is the least an
+/// explicit force-merge must do to make progress, and the caller loops
+/// passes until it reaches its target.
 pub(crate) fn forcemerge_chunks(sizes: &[u64], chunk_len: usize, cap: u64) -> Vec<Vec<usize>> {
     let chunk_len = chunk_len.max(2);
     let mut chunks: Vec<Vec<usize>> = Vec::new();
