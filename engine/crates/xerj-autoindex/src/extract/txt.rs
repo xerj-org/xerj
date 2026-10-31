@@ -22,9 +22,12 @@
 //! caller can jump straight to the source — the old per-line record only
 //! carried an opaque byte locator.
 
-use super::{emit_document, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_RECORDS_PER_FILE};
+use super::{
+    emit_document_extra, ExtractStats, FieldOrigin, RawRecord, Sink, MAX_RECORDS_PER_FILE,
+};
 use anyhow::Result;
 use serde_json::{Map, Value};
+use std::io::Read;
 use std::path::Path;
 
 const TXT_CAP: u64 = 16 << 20;
@@ -43,21 +46,19 @@ const CHUNK_MAX_BYTES: usize = 8 << 10;
 /// prefix, so this bounds the parse locally rather than by that invariant.
 const FRONTMATTER_MAX_BYTES: usize = 64 << 10;
 
-pub fn extract_prose(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
+/// `skill`: the logical file is an agent skill's `SKILL.md` ([`is_skill_file`]).
+pub fn extract_prose(path: &Path, gzip: bool, skill: bool, sink: Sink) -> Result<ExtractStats> {
     let mut stats = ExtractStats::default();
     let Some(bytes) = super::read_whole(path, gzip, TXT_CAP)? else {
         stats.junk += 1;
         return Ok(stats);
     };
     let (text, _) = crate::sniff::decode_text(&bytes);
-    let title = prose_title(&text)
-        .map(|t| {
-            let mut s: String = t.chars().take(200).collect();
-            if s.len() < t.len() {
-                s.push('…');
-            }
-            s
-        })
+    let card = if skill { skill_card(&text) } else { None };
+    let title = card
+        .as_ref()
+        .and_then(|c| c.name.clone())
+        .or_else(|| prose_title(&text).map(|t| cap_title(&t)))
         .unwrap_or_else(|| {
             path.file_stem()
                 .map(|s| s.to_string_lossy().to_string())
@@ -68,9 +69,10 @@ pub fn extract_prose(path: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats
     // `body` below is `text.trim()`, so shift by the newlines the trim removed.
     let leading = &text[..text.len() - text.trim_start().len()];
     let base_line = 1 + leading.bytes().filter(|b| *b == b'\n').count() as u64;
-    emit_document(
+    emit_document_extra(
         &title,
         &[],
+        &card.map(|c| c.fields()).unwrap_or_default(),
         text.trim(),
         Some(base_line),
         MAX_RECORDS_PER_FILE,
@@ -103,13 +105,48 @@ fn prose_title(text: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+/// A prose title, at most 200 characters, with `…` when it was cut.
+fn cap_title(t: &str) -> String {
+    cap_chars(t, 200)
+}
+
+/// A SKILL.md `description` is stamped on every record of its file, so it is
+/// bounded too: 1024 characters, the Agent Skills format's own limit.
+const DESCRIPTION_MAX_CHARS: usize = 1024;
+
+/// `t`, at most `max` characters, with `…` when it was cut.
+fn cap_chars(t: &str, max: usize) -> String {
+    let mut s: String = t.chars().take(max).collect();
+    if s.len() < t.len() {
+        s.push('…');
+    }
+    s
+}
+
 /// Splits a leading frontmatter block off `text`: its `title:` (whitespace
 /// collapsed, `None` when absent or blank) and the text after the closing
-/// fence. The fences follow the sniffer's #551 lookahead (first non-blank line
-/// `---`, next `---` line closes it); the block must be at most
-/// `FRONTMATTER_MAX_BYTES` and parse as a YAML mapping, so prose between two
-/// `---` rules is not frontmatter.
+/// fence. See [`frontmatter`] for what counts as a block.
 fn split_frontmatter(text: &str) -> Option<(Option<String>, &str)> {
+    let (map, rest) = frontmatter(text)?;
+    Some((frontmatter_line(&map, "title"), rest))
+}
+
+/// Splits a leading frontmatter block off `text`: its YAML mapping and the
+/// text after the closing fence. The block must parse as a YAML mapping, so
+/// prose between two `---` rules is not frontmatter.
+fn frontmatter(text: &str) -> Option<(serde_yaml::Mapping, &str)> {
+    let (block, rest) = frontmatter_block(text)?;
+    let serde_yaml::Value::Mapping(map) = serde_yaml::from_str(block).ok()? else {
+        return None;
+    };
+    Some((map, rest))
+}
+
+/// Splits a leading fenced block off `text`, unparsed: the text between the
+/// fences and the text after the closing one. The fences follow the sniffer's
+/// #551 lookahead (first non-blank line `---`, next `---` line closes it); the
+/// block must be at most `FRONTMATTER_MAX_BYTES`.
+fn frontmatter_block(text: &str) -> Option<(&str, &str)> {
     let mut lines = text.split_inclusive('\n');
     let mut offset = 0;
     loop {
@@ -130,34 +167,161 @@ fn split_frontmatter(text: &str) -> Option<(Option<String>, &str)> {
         }
         offset += line.len();
         if line.trim() == "---" {
-            let serde_yaml::Value::Mapping(map) =
-                serde_yaml::from_str(&text[block_start..line_start]).ok()?
-            else {
-                return None;
-            };
-            // `title: 1984` is a YAML number, still a title.
-            let title = map
-                .get("title")
-                .and_then(|v| match v {
-                    serde_yaml::Value::String(s) => Some(s.clone()),
-                    serde_yaml::Value::Number(n) => Some(n.to_string()),
-                    serde_yaml::Value::Bool(b) => Some(b.to_string()),
-                    _ => None,
-                })
-                .map(|t| t.split_whitespace().collect::<Vec<_>>().join(" "))
-                .filter(|t| !t.is_empty());
-            return Some((title, &text[offset..]));
+            return Some((&text[block_start..line_start], &text[offset..]));
         }
     }
     None
 }
 
+/// A frontmatter key as one line of text: a string, number or bool (`title:
+/// 1984` is a YAML number, still a title), whitespace collapsed. `None` when
+/// the key is absent, not a scalar, or blank.
+fn frontmatter_line(map: &serde_yaml::Mapping, key: &str) -> Option<String> {
+    map.get(key)
+        .and_then(|v| match v {
+            serde_yaml::Value::String(s) => Some(s.clone()),
+            serde_yaml::Value::Number(n) => Some(n.to_string()),
+            serde_yaml::Value::Bool(b) => Some(b.to_string()),
+            _ => None,
+        })
+        .map(|t| t.split_whitespace().collect::<Vec<_>>().join(" "))
+        .filter(|t| !t.is_empty())
+}
+
+/// Whether `logical` is an agent skill's definition file. Skill loaders read a
+/// file named exactly `SKILL.md`; the name is the logical one, never the
+/// content path, which can be a snapshot blob (#294).
+pub(crate) fn is_skill_file(logical: &Path) -> bool {
+    logical.file_name().is_some_and(|n| n == "SKILL.md")
+}
+
+/// #2644: what a SKILL.md's frontmatter says the skill is. An agent with
+/// hundreds of skills finds one by what it is for, and two keys already say
+/// that: `name` and `description`. Without them as fields, a prose SKILL.md was
+/// titled by the first line after its frontmatter and a line-window one had no
+/// title at all.
+struct SkillCard {
+    name: Option<String>,
+    description: Option<String>,
+}
+
+impl SkillCard {
+    /// The fields every record of the file carries: `title` from `name`, and
+    /// `description`. A key the frontmatter does not have adds nothing.
+    fn fields(self) -> Map<String, Value> {
+        let mut fields = Map::new();
+        if let Some(name) = self.name {
+            fields.insert("title".into(), Value::String(name));
+        }
+        if let Some(description) = self.description {
+            fields.insert("description".into(), Value::String(description));
+        }
+        fields
+    }
+}
+
+/// The skill card in `text`'s frontmatter. `None` when there is no
+/// frontmatter, or it has neither key as a non-blank scalar.
+///
+/// A block strict YAML refuses is still a skill's frontmatter to the loaders
+/// that read it: an `argument-hint: [path] [--dry-run]` line, which 3 of 78
+/// skills in one real library carry, is two flow sequences on one line and a
+/// YAML syntax error. For such a block the two keys are read from their own
+/// lines ([`loose_line`]). A leading byte-order mark, which a Windows editor
+/// may write, is skipped here only, so no other file's title changes.
+fn skill_card(text: &str) -> Option<SkillCard> {
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let (block, _) = frontmatter_block(text)?;
+    let card = match serde_yaml::from_str(block) {
+        Ok(serde_yaml::Value::Mapping(map)) => SkillCard {
+            name: frontmatter_line(&map, "name"),
+            description: frontmatter_line(&map, "description"),
+        },
+        Ok(_) => return None,
+        Err(_) => SkillCard {
+            name: loose_line(block, "name"),
+            description: loose_line(block, "description"),
+        },
+    };
+    let card = SkillCard {
+        name: card.name.map(|n| cap_title(&n)),
+        description: card
+            .description
+            .map(|d| cap_chars(&d, DESCRIPTION_MAX_CHARS)),
+    };
+    (card.name.is_some() || card.description.is_some()).then_some(card)
+}
+
+/// `key`'s value in a frontmatter block YAML refused, when it is written on
+/// one top-level line: plain, or wrapped in one pair of quotes. A block
+/// scalar (`>`, `|`), a flow collection, an anchor or a tag is not guessed at,
+/// and neither is a quoted value with an escape in it, nor one continued on
+/// an indented line. Whitespace collapsed; `None` when blank.
+fn loose_line(block: &str, key: &str) -> Option<String> {
+    let mut lines = block.lines();
+    let value = loop {
+        let line = lines.next()?;
+        if let Some(v) = line.strip_prefix(key).and_then(|r| r.strip_prefix(':')) {
+            break v.trim();
+        }
+    };
+    if lines
+        .next()
+        .is_some_and(|n| n.starts_with([' ', '\t']) && !n.trim().is_empty())
+    {
+        return None;
+    }
+    let value = if let Some(q) = value.strip_prefix('\'') {
+        q.strip_suffix('\'')?.replace("''", "'")
+    } else if let Some(q) = value.strip_prefix('"') {
+        let q = q.strip_suffix('"')?;
+        if q.contains('\\') {
+            return None;
+        }
+        q.to_string()
+    } else {
+        if value.starts_with(['>', '|', '[', '{', '&', '*', '!', '#']) {
+            return None;
+        }
+        value.split(" #").next().unwrap_or_default().to_string()
+    };
+    let value = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    (!value.is_empty()).then_some(value)
+}
+
+/// The skill card of a SKILL.md read as line windows. The windows stream, so
+/// the frontmatter is read first from the head of the file: as much as the
+/// longest block [`frontmatter`] accepts, plus room for the fences. Each line
+/// is decoded on its own, as the windows decode theirs, so one Latin-1 byte
+/// further down cannot re-decode the frontmatter as Windows-1252. The head
+/// is read whole even when `limit_bytes` bounds a sampling pass.
+fn skill_card_from_head(path: &Path, gzip: bool) -> Result<Option<SkillCard>> {
+    let mut head = Vec::new();
+    super::open_reader(path, gzip, Some(FRONTMATTER_MAX_BYTES as u64 + 8192))?
+        .read_to_end(&mut head)?;
+    let text: String = head
+        .split_inclusive(|b| *b == b'\n')
+        .map(|line| crate::sniff::decode_text(line).0)
+        .collect();
+    Ok(skill_card(&text))
+}
+
+/// `skill`: the logical file is an agent skill's `SKILL.md` ([`is_skill_file`]);
+/// every window then carries its [`SkillCard`] fields.
 pub fn extract_lines(
     path: &Path,
     gzip: bool,
     limit_bytes: Option<u64>,
+    skill: bool,
     sink: Sink,
 ) -> Result<ExtractStats> {
+    let extra = if skill {
+        skill_card_from_head(path, gzip)?
+            .map(SkillCard::fields)
+            .unwrap_or_default()
+    } else {
+        Map::new()
+    };
     let mut r = super::open_reader(path, gzip, limit_bytes)?;
     let mut stats = ExtractStats::default();
     let mut offset = 0u64;
@@ -175,6 +339,7 @@ pub fn extract_lines(
     // prefix.  Returns false when the sink asks us to stop.
     fn flush(
         window: &mut Vec<(String, usize, u64)>,
+        extra: &Map<String, Value>,
         drain: bool,
         stats: &mut ExtractStats,
         sink: Sink,
@@ -201,7 +366,7 @@ pub fn extract_lines(
         let start_byte = window[0].2;
         let end_line = window[window.len() - 1].1;
 
-        let mut fields = Map::new();
+        let mut fields = extra.clone();
         fields.insert("text".into(), Value::String(text));
         fields.insert(
             "start_line".into(),
@@ -240,14 +405,14 @@ pub fn extract_lines(
             continue;
         }
         window.push((line.to_string(), line_no, start));
-        if window.len() >= CHUNK_LINES && !flush(&mut window, false, &mut stats, sink) {
+        if window.len() >= CHUNK_LINES && !flush(&mut window, &extra, false, &mut stats, sink) {
             stopped = true;
             break;
         }
     }
     // Trailing partial window (also the whole-file case for short files).
     if !stopped {
-        flush(&mut window, true, &mut stats, sink);
+        flush(&mut window, &extra, true, &mut stats, sink);
     }
     Ok(stats)
 }
@@ -277,7 +442,7 @@ mod chunk_tests {
                 ));
                 true
             };
-            extract_lines(&p, false, None, &mut sink).unwrap();
+            extract_lines(&p, false, None, false, &mut sink).unwrap();
         }
         let _ = std::fs::remove_file(&p);
         out
@@ -391,7 +556,7 @@ mod chunk_tests {
                 ));
                 true
             };
-            extract_prose(&p, false, &mut sink).unwrap();
+            extract_prose(&p, false, false, &mut sink).unwrap();
         }
         let _ = std::fs::remove_file(&p);
         let lines: Vec<&str> = text.lines().collect();
@@ -429,10 +594,73 @@ mod chunk_tests {
                 ));
                 true
             };
-            extract_prose(&p, false, &mut sink).unwrap();
+            extract_prose(&p, false, false, &mut sink).unwrap();
         }
         let _ = std::fs::remove_file(&p);
         got
+    }
+
+    /// #2644: [`loose_line`] reads only what a one-line YAML scalar would
+    /// say. A nested key, a block scalar, a flow value and an escaped quote
+    /// are refused rather than read wrong.
+    #[test]
+    fn loose_line_reads_only_one_line_scalars() {
+        let block = "name: pdf # the short name\nlicense: x\n  description: nested\ndescription: \"Fill \\\"forms\\\".\"\nargument-hint: [a] [b]\n";
+        assert_eq!(loose_line(block, "name").as_deref(), Some("pdf"));
+        assert_eq!(loose_line(block, "description"), None);
+        assert_eq!(
+            loose_line("description: >-\n  Folded.\n", "description"),
+            None
+        );
+        assert_eq!(loose_line("name: [a]\n", "name"), None);
+        assert_eq!(
+            loose_line("name: 'it''s   here'\n", "name").as_deref(),
+            Some("it's here")
+        );
+        assert_eq!(loose_line("names: x\n", "name"), None);
+        assert_eq!(loose_line("name:\n", "name"), None);
+        assert_eq!(
+            loose_line(
+                "description: Fill PDF forms\n  and merge them.\n",
+                "description"
+            ),
+            None,
+            "a value continued on an indented line is not cut short"
+        );
+    }
+
+    /// Review of #2644: a byte-order mark does not hide a skill's frontmatter,
+    /// and a description is bounded like a title.
+    #[test]
+    fn skill_card_skips_a_bom_and_caps_the_description() {
+        let long = "d".repeat(DESCRIPTION_MAX_CHARS + 50);
+        let card = skill_card(&format!(
+            "\u{feff}---\nname: pdf\ndescription: {long}\n---\nbody\n"
+        ))
+        .expect("a card");
+        assert_eq!(card.name.as_deref(), Some("pdf"));
+        let d = card.description.unwrap();
+        assert_eq!(d.chars().count(), DESCRIPTION_MAX_CHARS + 1);
+        assert!(d.ends_with('…'));
+    }
+
+    /// Review of #2644: one Latin-1 byte deep in the body does not re-decode a
+    /// UTF-8 frontmatter as Windows-1252 (`café` read back as `cafÃ©`).
+    #[test]
+    fn a_latin1_byte_in_the_body_leaves_the_head_utf8() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("SKILL.md");
+        let mut bytes = "---\nname: café\ndescription: Ünïcode\n---\n"
+            .as_bytes()
+            .to_vec();
+        for _ in 0..500 {
+            bytes.extend_from_slice(b"some body line of text here\n");
+        }
+        bytes.extend_from_slice(b"caf\xe9 latin-1\n");
+        std::fs::write(&p, &bytes).unwrap();
+        let card = skill_card_from_head(&p, false).unwrap().expect("a card");
+        assert_eq!(card.name.as_deref(), Some("café"));
+        assert_eq!(card.description.as_deref(), Some("Ünïcode"));
     }
 
     /// #2556: the sniffer routes frontmatter over a prose body here (#551), so
@@ -541,7 +769,7 @@ mod chunk_tests {
                 titles.push(r.fields["title"].as_str().unwrap().to_string());
                 true
             };
-            extract_prose(&p, false, &mut sink).unwrap();
+            extract_prose(&p, false, false, &mut sink).unwrap();
         }
         let _ = std::fs::remove_file(&p);
         assert_eq!(titles, ["Deploy runbook"]);
@@ -562,7 +790,7 @@ mod chunk_tests {
                 "short body must survive the YAML-looking bullets: {extension}"
             );
             let mut records = Vec::new();
-            extract_prose(&path, false, &mut |record| {
+            extract_prose(&path, false, false, &mut |record| {
                 records.push(record);
                 true
             })
