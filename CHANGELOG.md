@@ -457,7 +457,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   retried on the next run. It used to abort the whole run, every rerun, until
   `--fresh`. On a `semantic_text` field the vectors the server adds count
   toward that limit: a 2 MB generated `.d.ts` file grew to 16.6 MB this way.
-  `--no-semantic` indexes such a file (#2807).
+  `--no-semantic` may index such a file (#2807).
 
 ## [1.0.0-rc.100] - 2026-10-26
 

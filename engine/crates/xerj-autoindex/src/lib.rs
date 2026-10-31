@@ -3451,8 +3451,6 @@ fn record_bulk_outcome(
 
 // ─── phase-B bulk coalescing (#1147) ─────────────────────────────────────
 
-/// Shared mutable state of [`BulkPipe`]. One lock covers the buffer and the
-/// per-token bookkeeping so a flush is atomic against submissions.
 /// One flushed bulk: the body, the tokens with records in it, and the
 /// token behind each `_id`.
 type PipeJob = (Vec<u8>, Vec<u64>, HashMap<String, u64>);
@@ -3464,6 +3462,8 @@ fn bulk_action_id(action: &[u8]) -> Option<String> {
     op.get("_id")?.as_str().map(str::to_owned)
 }
 
+/// Shared mutable state of [`BulkPipe`]. One lock covers the buffer and the
+/// per-token bookkeeping so a flush is atomic against submissions.
 #[derive(Default)]
 struct PipeState {
     /// NDJSON body under construction. Never holds more than one flush's
@@ -3480,6 +3480,12 @@ struct PipeState {
     /// byte limit, with the server's reason. A retry cannot clear that, so the
     /// file is set aside instead of failing the run (#2807).
     too_large: HashMap<u64, String>,
+    /// Tokens that also failed for any other reason. Never set aside: one
+    /// refusal a rerun could clear is enough to fail the run instead.
+    other_refusal: HashSet<u64>,
+    /// Bulks in flight per token, so a set-aside purge waits for the file's
+    /// last records to land before deleting them.
+    in_flight_tokens: HashMap<u64, usize>,
     /// Terminal result per token, observed (and removed) by the token's
     /// owner in [`BulkPipe::settle`].
     done: std::collections::HashMap<u64, Result<(), String>>,
@@ -3646,16 +3652,46 @@ where
         self.deliver(job.1, job.2, outcome);
     }
 
-    /// Whether any bulk carrying this file's records has failed. The drain
-    /// loop breaks on it, mirroring the per-file `send_err` break it
-    /// replaced: no point reading and shipping the rest of a file whose
-    /// earlier records were already refused.
     /// The server's reason when this token failed only on records over the
     /// per-document byte limit. Taken once, by the file's own worker.
     fn take_too_large(&self, token: u64) -> Option<String> {
         self.lock().too_large.remove(&token)
     }
 
+    /// Block until no bulk holding this file's records is buffered or in
+    /// flight. A failed token settles at its first refusal, while its later
+    /// chunks may still be on the wire; a purge before they land would leave
+    /// a junk file half searchable.
+    fn quiesce(&self, token: u64) {
+        let mut st = self.lock();
+        loop {
+            let buffered = st.pending.contains(&token);
+            if !buffered && !st.in_flight_tokens.contains_key(&token) {
+                return;
+            }
+            if buffered {
+                if let Some(job) = self.take_job(&mut st) {
+                    drop(st);
+                    let outcome = (self.send)(job.0);
+                    self.deliver(job.1, job.2, outcome);
+                    st = self.lock();
+                    continue;
+                }
+            }
+            st.parked_workers += 1;
+            let (guard, _) = self
+                .ready
+                .wait_timeout(st, std::time::Duration::from_secs(30))
+                .unwrap_or_else(|p| p.into_inner());
+            st = guard;
+            st.parked_workers -= 1;
+        }
+    }
+
+    /// Whether any bulk carrying this file's records has failed. The drain
+    /// loop breaks on it, mirroring the per-file `send_err` break it
+    /// replaced: no point reading and shipping the rest of a file whose
+    /// earlier records were already refused.
     fn failed(&self, token: u64) -> bool {
         self.lock().failed.contains(&token)
     }
@@ -3745,6 +3781,9 @@ where
         }
         st.in_flight += 1;
         st.docs = 0;
+        for t in &st.pending {
+            *st.in_flight_tokens.entry(*t).or_default() += 1;
+        }
         Some((
             std::mem::take(&mut st.buf),
             std::mem::take(&mut st.pending),
@@ -3764,6 +3803,14 @@ where
     ) {
         let mut st = self.lock();
         st.in_flight = st.in_flight.saturating_sub(1);
+        for t in &tokens {
+            if let Some(n) = st.in_flight_tokens.get_mut(t) {
+                *n -= 1;
+                if *n == 0 {
+                    st.in_flight_tokens.remove(t);
+                }
+            }
+        }
         match outcome {
             Ok(outcome) => {
                 if outcome.server_errors > 0 {
@@ -3776,6 +3823,8 @@ where
                     );
                     for t in &tokens {
                         st.failed.insert(*t);
+                        st.other_refusal.insert(*t);
+                        st.too_large.remove(t);
                         st.done.insert(*t, Err(msg.clone()));
                     }
                 } else if outcome.item_errors > 0 {
@@ -3803,12 +3852,13 @@ where
                     // A file set aside for size is junk, not a backend
                     // rejection, so it is not counted as one.
                     let mut set_aside = 0u64;
-                    if !unowned {
-                        for (t, (all_too_large, reason)) in too_large {
-                            if all_too_large {
-                                set_aside += refused.get(&t).map_or(0, |e| e.len() as u64);
-                                st.too_large.insert(t, reason);
-                            }
+                    for (t, (all_too_large, reason)) in too_large {
+                        if all_too_large && !unowned && !st.other_refusal.contains(&t) {
+                            set_aside += refused.get(&t).map_or(0, |e| e.len() as u64);
+                            st.too_large.insert(t, reason);
+                        } else {
+                            st.other_refusal.insert(t);
+                            st.too_large.remove(&t);
                         }
                     }
                     self.rejected_records
@@ -3829,6 +3879,10 @@ where
                                     outcome.first_error.as_deref().unwrap_or("no reason given")
                                 ),
                             };
+                            if unowned {
+                                st.other_refusal.insert(*t);
+                                st.too_large.remove(t);
+                            }
                             st.failed.insert(*t);
                             st.done.insert(*t, Err(msg));
                         } else if !st.failed.contains(t) {
@@ -3847,6 +3901,8 @@ where
                 let msg = format!("{error:#}");
                 for t in &tokens {
                     st.failed.insert(*t);
+                    st.other_refusal.insert(*t);
+                    st.too_large.remove(t);
                     st.done.insert(*t, Err(msg.clone()));
                 }
             }
@@ -11877,6 +11933,7 @@ fn run_index_report_inner(
                         // Its accepted records are removed first, so a junk
                         // file is never half searchable.
                         Some(reason) => {
+                            pipe.quiesce(file_token);
                             let query = replacement_purge_query(key, &f.rel, None);
                             let indices: BTreeSet<String> = fa
                                 .assignments
@@ -17015,6 +17072,42 @@ mod bulk_pipe_tests {
     /// A refused record fails only the file whose `_id` it carried, so that
     /// file is not journaled; a neighbour in the same bulk settles Ok (#2807).
     /// A refusal the pipe cannot attribute fails every file in the bulk.
+    /// #2807: a file is set aside only when every refusal it got was a size
+    /// refusal. A size refusal in one bulk and a mapping refusal in a later one
+    /// must fail the run, not set the file aside; the flag is not sticky.
+    #[test]
+    fn a_file_with_any_other_refusal_is_not_set_aside() {
+        let rejected = AtomicU64::new(0);
+        let calls = AtomicU64::new(0);
+        let pipe = BulkPipe::new(
+            |_body| {
+                let first = calls.fetch_add(1, Ordering::Relaxed) == 0;
+                Ok(BulkOutcome {
+                    item_errors: 1,
+                    refused: vec![crate::esclient::RefusedItem {
+                        id: Some(if first { "a-1" } else { "a-2" }.into()),
+                        error: if first { "too large" } else { "mapper refused" }.into(),
+                        too_large: first,
+                    }],
+                    first_error: Some("refused".into()),
+                    ..outcome()
+                })
+            },
+            1,
+            5000,
+            &rejected,
+            1,
+        );
+        let a = pipe.token();
+        pipe.submit(a, b"{\"index\":{\"_id\":\"a-1\"}}\n{}\n".to_vec(), 1);
+        pipe.submit(a, b"{\"index\":{\"_id\":\"a-2\"}}\n{}\n".to_vec(), 1);
+        pipe.settle(a).unwrap_err();
+        pipe.quiesce(a);
+        assert_eq!(calls.load(Ordering::Relaxed), 2, "both bulks landed");
+        assert_eq!(pipe.take_too_large(a), None);
+        pipe.retire();
+    }
+
     #[test]
     fn a_refused_record_fails_only_its_own_file() {
         let rejected = AtomicU64::new(0);

@@ -964,11 +964,11 @@ fn is_whole_request_too_large(v: &Value, sent_actions: Option<usize>) -> bool {
         == Some(413)
 }
 
-/// Read a bulk response body item by item.
 /// The server's wording for a document over its per-document byte limit
 /// (`xerj_common::document_limit`), however the item's status reads.
 const DOCUMENT_LIMIT_REASON: &str = "byte limit for one indexed JSON document";
 
+/// Read a bulk response body item by item.
 fn parse_round(v: &Value) -> Round {
     let items = v.get("items").and_then(|i| i.as_array());
     let mut round = Round {
@@ -1970,6 +1970,9 @@ impl Es {
         // 400): the record is not re-offered, its error is still reported.
         let mut settled_item_errors = 0u64;
         let mut settled_first_error: Option<String> = None;
+        // Their refused items too, so a refusal from an earlier round is still
+        // traced to its file after a 429 retry (#2807).
+        let mut settled_refused: Vec<RefusedItem> = Vec::new();
         // Set once any round took an item. From then on the full patience
         // applies, even if later rounds are all 429: a drain in progress
         // (#944 held 57 s) must be allowed to finish.
@@ -1984,6 +1987,9 @@ impl Es {
             }
             let mut outcome = round.outcome;
             outcome.item_errors += settled_item_errors;
+            let mut refused = std::mem::take(&mut settled_refused);
+            refused.append(&mut outcome.refused);
+            outcome.refused = refused;
             if outcome.first_error.is_none() {
                 outcome.first_error = settled_first_error.clone();
             }
@@ -2031,6 +2037,7 @@ impl Es {
             settled_item_errors = outcome
                 .item_errors
                 .saturating_sub(round.throttled.len() as u64);
+            settled_refused = outcome.refused.clone();
             if round.first_settled_error.is_some() {
                 settled_first_error = round.first_settled_error;
             }
