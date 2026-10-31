@@ -8,15 +8,15 @@
   {
    "repo": "king-pong",
    "url": "https://github.com/KingAlexGilbert/king-pong",
-   "sha": "3ee01c458e4f770602d5977fa64060314fecb769",
-   "licence": "AGPL-3.0 (LICENSE file at pin 3ee01c458e4f, GitHub licence API 2026-10-31)",
+   "sha": "11441c4c0cf302c572476985531776c31b536321",
+   "licence": "AGPL-3.0 (LICENSE file at pin 11441c4c0cf3, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-05T18:22Z",
     "consent_receipt": "9dda67c3032e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-05T18:22Z (receipt 9dda67c3032e); selected commit 3ee01c458e4f: \"Polish gameplay, audio, match rules, and retro UI\". LICENSE file at pin 3ee01c458e4f detected as AGPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head 3ee01c458e4f (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-10-05T18:22Z (receipt 9dda67c3032e); selected commit 11441c4c0cf3: \"Polish gameplay, audio, match rules, and retro UI\". LICENSE file at pin 11441c4c0cf3 detected as AGPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head 11441c4c0cf3 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]

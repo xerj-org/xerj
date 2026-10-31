@@ -1,0 +1,23 @@
+{
+ "corpus": "gentoo888--victom-of-shofel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Rust queries this for how gentoo888/victom-of-shofel implements it: A digital twin of the Jibo robot's hardware that's interacting with the ShofEL exploit (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "victom-of-shofel",
+   "url": "https://github.com/gentoo888/victom-of-shofel",
+   "sha": "a92c63d99442145902d76c207958bb5341b90e60",
+   "licence": "MIT (LICENSE file at pin a92c63d99442, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T17:58Z",
+    "consent_receipt": "233ad24a7313",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T17:58Z (receipt 233ad24a7313); selected commit a92c63d99442: \"victom can do enumeration now\". LICENSE file at pin a92c63d99442 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

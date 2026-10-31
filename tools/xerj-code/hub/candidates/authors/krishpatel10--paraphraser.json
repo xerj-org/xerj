@@ -1,0 +1,23 @@
+{
+ "corpus": "krishpatel10--paraphraser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on C# queries this for how KrishPatel10/ParaPhraser implements it: ParaPhraser is a Windows-resident writing assistant. It captures selected text from the current application, runs a requested transformation (selected work: src/ParaPhraser.Desktop, src/ParaPhraser.Core, tests)",
+ "repos": [
+  {
+   "repo": "ParaPhraser",
+   "url": "https://github.com/KrishPatel10/ParaPhraser",
+   "sha": "7d21d8730d2191c95796d4ba363304023f68d402",
+   "licence": "MIT (LICENSE file at pin 7d21d8730d21, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T18:11Z",
+    "consent_receipt": "bdb33aa1e099",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:11Z (receipt bdb33aa1e099); selected commit 7d21d8730d21: \"Add review, safety, and direct replace features\". LICENSE file at pin 7d21d8730d21 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head 7d21d8730d21 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

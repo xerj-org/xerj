@@ -1,9 +1,9 @@
 {
- "corpus": "dario-cositore--elitza-code",
+ "corpus": "dario-cositore--ai-enablement-agent",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, ai-agent, autonomous-agents queries this for how dario-cositore/elitza-code implements it: Elitza: a free, bring-your-own-key AI agent for your terminal. Memory, personas and skills on your machine. TUI, browser and desktop. One-li (selected work: packages/tui, packages/cli, packages/theme)",
+ "domain": "an agent working on ai, ai-agent, autonomous-agents queries this for how dario-cositore/ai-enablement-agent implements it: Elitza: a free, bring-your-own-key AI agent for your terminal. Memory, personas and skills on your machine. TUI, browser and desktop. One-li (selected work: packages/tui, packages/cli, packages/theme)",
  "repos": [
   {
    "repo": "elitza-code",

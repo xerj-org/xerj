@@ -1,0 +1,23 @@
+{
+ "corpus": "williambossard--gens-launcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on delta-sync, delta-synchronization, electron queries this for how WilliamBossard/Gens-Launcher implements it: Modern and lightweight open-source Minecraft launcher based on Electron. Integrates a native catalog mod,shader,texture (Modrinth), secure M (selected work: tests, src/main, src/gens-core)",
+ "repos": [
+  {
+   "repo": "Gens-Launcher",
+   "url": "https://github.com/WilliamBossard/Gens-Launcher",
+   "sha": "69a5bbd8c165b6be81b863578dd3f1735219b2d5",
+   "licence": "MIT (LICENSE file at pin 69a5bbd8c165, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T17:55Z",
+    "consent_receipt": "7a8247b6a629",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T17:55Z (receipt 7a8247b6a629); selected commit 69a5bbd8c165: \"feat: launcher audit fixes, fast java selection, and performance opti\u2026\". LICENSE file at pin 69a5bbd8c165 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

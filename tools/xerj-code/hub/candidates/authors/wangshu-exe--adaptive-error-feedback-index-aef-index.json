@@ -1,0 +1,23 @@
+{
+ "corpus": "wangshu-exe--adaptive-error-feedback-index-aef-index",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Python queries this for how WangShu-exe/Adaptive-Error-Feedback-Index-AEF-Index- implements it: A lightweight prototype of Learned Index for streaming rank estimation on dirty data. | \u4e00\u4e2a\u8f7b\u91cf\u7ea7\u7684\u81ea\u9002\u5e94\u5b66\u4e60\u578b\u7d22\u5f15\u539f\u578b\uff1a\u4e13\u4e3a\u810f\u6570\u636e\u4e0a\u7684\u6d41\u5f0f\u6392\u540d\u4f30\u8ba1\u8bbe\u8ba1\u3002 (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "Adaptive-Error-Feedback-Index-AEF-Index-",
+   "url": "https://github.com/WangShu-exe/Adaptive-Error-Feedback-Index-AEF-Index-",
+   "sha": "9029241e56a7b13fb5f780d3f27363e04a99d09d",
+   "licence": "MIT (LICENSE file at pin 9029241e56a7, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T17:42Z",
+    "consent_receipt": "ba1e1ea9c0a2",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T17:42Z (receipt ba1e1ea9c0a2); selected commit 9029241e56a7: \"Add files via upload\". LICENSE file at pin 9029241e56a7 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

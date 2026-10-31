@@ -1,0 +1,23 @@
+{
+ "corpus": "andy-takker--opencode-plugin-subagents-sidebar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, bun, cli queries this for how andy-takker/opencode-plugin-subagents-sidebar implements it: OpenCode plugin: live subagent status, nested task tracking and clickable session navigation in a collapsible terminal sidebar (selected work: src, test, the project root)",
+ "repos": [
+  {
+   "repo": "opencode-plugin-subagents-sidebar",
+   "url": "https://github.com/andy-takker/opencode-plugin-subagents-sidebar",
+   "sha": "7680e6a2fa009528e9baec5b20fe814020f0d40b",
+   "licence": "MIT (LICENSE file at pin 7680e6a2fa00, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T18:30Z",
+    "consent_receipt": "df48d7d59d2c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:30Z (receipt df48d7d59d2c); selected commit 7680e6a2fa00: \"feat: render navigable subagents sidebar\". LICENSE file at pin 7680e6a2fa00 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head 7680e6a2fa00 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

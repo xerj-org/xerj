@@ -1,0 +1,23 @@
+{
+ "corpus": "lucassmferreira--calc-comprimento-equivalente",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how LucasSMFerreira/calc-comprimento-equivalente implements it: Calculadora de comprimento equivalente de tubula\u00e7\u00f5es hidr\u00e1ulicas (P2 Fen\u00f4menos de Transporte) (selected work: app/dados, tests, app/dominio)",
+ "repos": [
+  {
+   "repo": "calc-comprimento-equivalente",
+   "url": "https://github.com/LucasSMFerreira/calc-comprimento-equivalente",
+   "sha": "393eb438e0b69af17fac9db80de1476247efe7aa",
+   "licence": "MIT (LICENSE file at pin 393eb438e0b6, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T18:05Z",
+    "consent_receipt": "bf125547b32e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:05Z (receipt bf125547b32e); selected commit 393eb438e0b6: \"feat: importa a planilha de comprimentos equivalentes (#18)\". LICENSE file at pin 393eb438e0b6 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}
