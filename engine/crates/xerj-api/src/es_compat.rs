@@ -6544,6 +6544,32 @@ fn merge_metric_agg(old: &Value, new: &Value) -> Option<Value> {
         .and_then(Value::as_str)
         .or_else(|| new_obj.get("__xy_agg__").and_then(Value::as_str));
     if let Some(t) = agg_type {
+        // Weighted averages combine as total weighted sum over total weight;
+        // averaging the two per-index values would weight each index equally.
+        if t == "weighted_avg" {
+            let sums = |o: &serde_json::Map<String, Value>| {
+                Some((
+                    o.get("__xy_weight_sum__").and_then(Value::as_f64)?,
+                    o.get("__xy_weighted_sum__").and_then(Value::as_f64)?,
+                ))
+            };
+            if let (Some((weight_a, value_a)), Some((weight_b, value_b))) =
+                (sums(old_obj), sums(new_obj))
+            {
+                let total_weight = weight_a + weight_b;
+                let value = if total_weight == 0.0 {
+                    Value::Null
+                } else {
+                    serde_json::json!((value_a + value_b) / total_weight)
+                };
+                return Some(serde_json::json!({
+                    "value": value,
+                    "__xy_agg__": "weighted_avg",
+                    "__xy_weight_sum__": total_weight,
+                    "__xy_weighted_sum__": value_a + value_b,
+                }));
+            }
+        }
         // Cardinality unions the distinct value sets carried as an
         // internal `__xy_values__` array so multi-index results are a
         // true union, not a sum (which would double-count values present
@@ -6943,6 +6969,28 @@ mod merge_bucket_agg_keyed_tests {
         let merged = merge_bucket_agg(&from_index_a, &from_index_b).expect("must merge");
         assert_eq!(merged["buckets"]["a"]["doc_count"], 3);
         assert_eq!(merged["buckets"]["b"]["doc_count"], 4);
+    }
+
+    /// `weighted_avg` carries its numerator and denominator as internal
+    /// tracking keys so a multi-index search recombines them. Averaging the
+    /// two per-index values would weight each index equally regardless of its
+    /// total weight — here that would be 3.0, not the correct 3.5.
+    #[test]
+    fn weighted_avg_recombines_across_indices() {
+        let index_a = json!({"value": 2.0, "__xy_agg__": "weighted_avg",
+                             "__xy_weight_sum__": 1.0, "__xy_weighted_sum__": 2.0});
+        let index_b = json!({"value": 4.0, "__xy_agg__": "weighted_avg",
+                             "__xy_weight_sum__": 3.0, "__xy_weighted_sum__": 12.0});
+        let merged = merge_metric_agg(&index_a, &index_b).expect("weighted_avg must merge");
+        assert_eq!(merged["value"].as_f64(), Some(3.5), "{merged}");
+        assert_eq!(merged["__xy_weight_sum__"].as_f64(), Some(4.0));
+        assert_eq!(merged["__xy_weighted_sum__"].as_f64(), Some(14.0));
+
+        // Zero total weight on both sides stays null, never NaN.
+        let empty = json!({"value": null, "__xy_agg__": "weighted_avg",
+                           "__xy_weight_sum__": 0.0, "__xy_weighted_sum__": 0.0});
+        let merged = merge_metric_agg(&empty, &empty).expect("must merge");
+        assert_eq!(merged["value"], Value::Null);
     }
 }
 
@@ -8249,6 +8297,42 @@ fn find_invalid_agg_params(aggs: Option<&Value>) -> Option<String> {
                     );
                 }
             }
+            // `weighted_avg` is field-based here: ES also accepts a `script`
+            // on either side, which XERJ does not run for this agg. Refuse it
+            // rather than answering `value: null` for a valid ES request.
+            "weighted_avg" => {
+                for side in ["value", "weight"] {
+                    let cfg = match params.get(side) {
+                        Some(v) if v.is_object() => v,
+                        _ => {
+                            return Some(format!(
+                                "[weighted_avg] aggregation [{name}] requires [{side}] \
+                                 to be an object with a [field]"
+                            ))
+                        }
+                    };
+                    if cfg.get("script").is_some() {
+                        return Some(format!(
+                            "[weighted_avg] aggregation [{name}] does not support [script] \
+                             in [{side}]; use [field]"
+                        ));
+                    }
+                    if cfg.get("field").and_then(Value::as_str).is_none() {
+                        return Some(format!(
+                            "[weighted_avg] aggregation [{name}] requires [field] in [{side}]"
+                        ));
+                    }
+                    if cfg
+                        .get("missing")
+                        .is_some_and(|m| !m.is_number() && !m.is_null())
+                    {
+                        return Some(format!(
+                            "[weighted_avg] aggregation [{name}] requires a numeric \
+                             [missing] in [{side}]"
+                        ));
+                    }
+                }
+            }
             "random_sampler" => {
                 if let Some(p) = params.get("probability").and_then(Value::as_f64) {
                     if p <= 0.0 {
@@ -8371,6 +8455,11 @@ mod agg_param_validation_tests {
             // An incompatible type is fine when the request has no time_series.
             json!({"c": {"composite": {"sources": [{"k": {"terms": {"field": "k"}}}]}},
                    "r": {"rare_terms": {"field": "k"}}}),
+            // Both sides field-based, with and without `missing`.
+            json!({"w": {"weighted_avg": {"value": {"field": "v"},
+                                          "weight": {"field": "w"}}}}),
+            json!({"w": {"weighted_avg": {"value": {"field": "v", "missing": 1},
+                                          "weight": {"field": "w", "missing": null}}}}),
         ] {
             assert_eq!(check(aggs.clone()), None, "{aggs}");
         }
@@ -8449,6 +8538,15 @@ mod agg_param_validation_tests {
             (json!({"by_time": {"auto_date_histogram": {"field": "@timestamp"},
                                 "aggs": {"ts": {"time_series": {}}}}}),
              "[by_time] aggregation is incompatible with time series execution mode"),
+            // `weighted_avg` accepted these and answered `value: null`.
+            (json!({"w": {"weighted_avg": {"value": {"script": {"source": "1"}},
+                                           "weight": {"field": "w"}}}}),
+             "[weighted_avg] aggregation [w] does not support [script] in [value]"),
+            (json!({"w": {"weighted_avg": {"value": {"field": "v"},
+                                           "weight": {"field": "w", "missing": "n/a"}}}}),
+             "[weighted_avg] aggregation [w] requires a numeric [missing] in [weight]"),
+            (json!({"w": {"weighted_avg": {"value": {"field": "v"}}}}),
+             "[weighted_avg] aggregation [w] requires [weight] to be an object with a [field]"),
         ];
         for (aggs, want) in cases {
             let got = check(aggs.clone()).unwrap_or_else(|| panic!("not refused: {aggs}"));

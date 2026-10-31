@@ -7,7 +7,7 @@ cluster: "Comparison: search engines"
 question: "What is the best lightweight Elasticsearch-compatible server in 2026?"
 intent: "comparison"
 published: "2026-10-19"
-updated: "2026-10-23"
+updated: "2026-10-31"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -61,6 +61,7 @@ links_out:
   - /compare/xerj-vs-meilisearch
   - /compare/xerj-vs-typesense
   - /compare/best-local-full-text-search-jsonl-csv-2026
+  - "/benchmarks/elasticsearch"
 evidence:
   - claim: "OpenSearch is Apache-2.0, includes Apache-licensed Elasticsearch code, and runs as a single node with docker run and discovery.type=single-node."
     source: "https://github.com/opensearch-project/OpenSearch"

@@ -2,13 +2,13 @@
 ---
 title: "When are neural embeddings worth turning on?"
 canonical: "https://xerj.org/answers/do-search-embeddings-help"
-updated: "2026-10-19"
+updated: "2026-10-31"
 source: "content/answers/do-search-embeddings-help.md"
 ---
 
 # When should I turn on neural embeddings, and when is the lexical default enough?
 
-**Short answer** (updated 2026-10-19): Do I even need embeddings for search, or is full-text enough? On XERJ's default lexical embedder, full-text BM25 is close: 0.4167 precision at 3 against BM25's 0.375 on 8 judged queries. Embeddings clearly helped only after opting into --embed-mode neural, which moved precision at 3 to 0.6667 and recall to 1.0.
+**Short answer** (updated 2026-10-31): Do I even need embeddings for search, or is full-text enough? On XERJ's default lexical embedder, full-text BM25 is close: 0.4167 precision at 3 against BM25's 0.375 on 8 judged queries. Embeddings clearly helped only after opting into --embed-mode neural, which moved precision at 3 to 0.6667 and recall to 1.0.
 
 **Key number:** On BEIR SciFact, hybrid RRF with the neural embedder scored nDCG@10 0.6993 against 0.6572 for BM25 alone. (as of 2026-09-18; source: [benchmarks/beir-hybrid/results/scifact.txt](https://github.com/xerj-org/xerj/blob/main/benchmarks/beir-hybrid/results/scifact.txt))
 
@@ -158,6 +158,8 @@ BM25 alone scored 0.375 precision at 3 and 0.6875 recall on our set. It found ev
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database)
 - [What's the actual difference between a vector database and full-text search when I have a folder?](/answers/vector-database-vs-full-text-search)
 - [How do I reduce embedding API cost?](/answers/reduce-embedding-api-cost)
+- [BM25 vs vector search: which one should you use?](/answers/bm25-vs-vector-search)
+- [Can I route tickets or filter spam from labelled history, without an LLM call?](/answers/classify-text-from-labelled-history-without-llm)
 - [Should an agent use API search or vector search?](/answers/mcp-api-search-or-vector-search) (same intent: retrieval research and eval)
 - [How does XERJ combine BM25 and kNN?](/answers/how-xerj-combines-search) (same intent: retrieval research and eval)
 - [How much better is hybrid search than BM25? Measured nDCG numbers](/answers/hybrid-search-quality-measured-ndcg) (same intent: retrieval research and eval)

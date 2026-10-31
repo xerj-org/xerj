@@ -7,7 +7,7 @@ cluster: "Comparison: code retrieval"
 question: "What is the best grep or ripgrep alternative for an AI coding agent in 2026?"
 intent: "comparison"
 published: "2026-10-19"
-updated: "2026-10-28"
+updated: "2026-10-31"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -64,6 +64,7 @@ links_out:
   - /compare/best-mcp-server-local-code-search-2026
   - "/compare/xerj-vs-localsynapse"
   - "/answers/search-jupyter-notebook-cells"
+  - "/compare/best-local-full-text-search-jsonl-csv-2026"
 evidence:
   - claim: "ripgrep installs with brew install ripgrep, apt-get install ripgrep or cargo install ripgrep."
     source: "https://github.com/BurntSushi/ripgrep"

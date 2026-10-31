@@ -79,7 +79,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-21",
-  "dateModified": "2026-10-28",
+  "dateModified": "2026-10-31",
   "author": {
     "@type": "Organization",
     "name": "XERJ documentation team",
@@ -224,9 +224,9 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>HOW DO I STOP AN AGENT MEMORY STORE FROM FILLING WITH NEAR-DUPLICATE NOTES?</div>
   <div class="kicker"><span>ANSWERS · AGENT MEMORY: MODEL DEPENDENCY</span></div>
   <h1>How do I stop an agent memory store from filling with near-duplicate notes?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-10-28</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-10-31</div>
   <div class="prompt-card answer-first" id="short-answer">
-    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-28</span>
+    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-31</span>
     <p>How do I dedup agent memory so it stops filling with duplicate notes? Send dedup: true on the store call. XERJ compares the new memory against what the namespace already holds and returns the existing id with deduplicated: true instead of writing a second document. There is no generative summarization step; the configured embedder still runs.</p>
     <p class="key-fact"><strong>Key number:</strong> The default dedup threshold is a cosine similarity of 0.95. <span class="mute">(as of 2026-10-19 · source: <a href="https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-api/src/memory_api.rs">engine/crates/xerj-api/src/memory_api.rs</a>)</span></p>
   </div>
@@ -330,6 +330,8 @@
     <li><a href="/answers/do-search-embeddings-help">When should I turn on neural embeddings, and when is the lexical default enough?</a></li>
     <li><a href="/answers/local-embeddings-without-openai-api">I want local search that works offline, no cloud embeddings. What are my options?</a></li>
     <li><a href="/compare/xerj-vs-agent-memory-tools">XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee</a></li>
+    <li><a href="/compare/xerj-vs-mem0">XERJ vs Mem0: which memory fits your AI agent?</a></li>
+    <li><a href="/answers/what-is-an-mcp-memory-server">What is an MCP memory server?</a></li>
     <li><a href="/answers/agentic-memory-vs-rag">Agentic memory vs RAG: what is the difference?</a> <span class="mute">· same intent: agent memory</span></li>
     <li><a href="/answers/claude-code-memory">How does Claude Code memory work, and when do you need more?</a> <span class="mute">· same intent: agent memory</span></li>
     <li><a href="/answers/coding-agent-memory-across-sessions">How do people store user preferences so an agent can recall them next week?</a> <span class="mute">· same intent: agent memory</span></li>

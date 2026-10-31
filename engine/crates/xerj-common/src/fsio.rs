@@ -481,6 +481,30 @@ pub enum DurableWriteStage {
 pub fn write_file_durable_with_hook(
     path: &Path,
     bytes: &[u8],
+    hook: impl FnMut(DurableWriteStage) -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    durable_publish(path, |f| f.write_all(bytes), hook)
+}
+
+/// [`write_file_durable`] for a body produced by a writer instead of a slice.
+///
+/// `write_body` writes the whole file content into the temp file; the temp
+/// file is then fsynced, renamed over `path`, and the parent directory is
+/// fsynced, exactly like [`write_file_durable`]. Use it when the content is
+/// large enough that building it in memory first would double its footprint
+/// (an HNSW graph snapshot is the size of the graph, #2427). On error the
+/// temp file is removed and `path` is untouched. Buffer the writes yourself
+/// (e.g. `std::io::BufWriter`) — the `File` is handed over unbuffered.
+pub fn write_file_durable_streaming(
+    path: &Path,
+    write_body: impl FnOnce(&mut std::fs::File) -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    durable_publish(path, write_body, |_| Ok(()))
+}
+
+fn durable_publish(
+    path: &Path,
+    write_body: impl FnOnce(&mut std::fs::File) -> std::io::Result<()>,
     mut hook: impl FnMut(DurableWriteStage) -> std::io::Result<()>,
 ) -> std::io::Result<()> {
     let nonce = format!("{:x}-{:?}", std::process::id(), std::thread::current().id());
@@ -492,8 +516,12 @@ pub fn write_file_durable_with_hook(
     hook(DurableWriteStage::BeforeTempWrite)?;
     {
         let mut f = std::fs::File::create(&tmp)?;
-        f.write_all(bytes)?;
-        sync_file_full(&f)?;
+        let written = write_body(&mut f).and_then(|()| sync_file_full(&f));
+        if let Err(error) = written {
+            drop(f);
+            let _ = std::fs::remove_file(&tmp);
+            return Err(error);
+        }
     }
     if let Err(error) = hook(DurableWriteStage::BeforeRename) {
         let _ = std::fs::remove_file(&tmp);
@@ -526,6 +554,32 @@ mod tests {
         write_file_durable(&p, b"world").unwrap();
         assert_eq!(std::fs::read(&p).unwrap(), b"world");
         // No stray temp files left behind.
+        let leftovers: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.file_name().to_string_lossy().contains(".tmp."))
+            .collect();
+        assert!(leftovers.is_empty(), "temp files left: {leftovers:?}");
+    }
+
+    #[test]
+    fn write_file_durable_streaming_round_trip_and_failure_keeps_old_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("graph.bin");
+        write_file_durable_streaming(&p, |f| {
+            f.write_all(b"hel")?;
+            f.write_all(b"lo")
+        })
+        .unwrap();
+        assert_eq!(std::fs::read(&p).unwrap(), b"hello");
+        // A body that fails part-way must leave the old file and no temp file.
+        let err = write_file_durable_streaming(&p, |f| {
+            f.write_all(b"torn")?;
+            Err(std::io::Error::other("encode failed"))
+        })
+        .unwrap_err();
+        assert_eq!(err.to_string(), "encode failed");
+        assert_eq!(std::fs::read(&p).unwrap(), b"hello");
         let leftovers: Vec<_> = std::fs::read_dir(dir.path())
             .unwrap()
             .filter_map(|e| e.ok())

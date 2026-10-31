@@ -2,13 +2,13 @@
 ---
 title: "What is agentic memory? A plain answer"
 canonical: "https://xerj.org/answers/what-is-agentic-memory"
-updated: "2026-10-28"
+updated: "2026-10-31"
 source: "content/answers/what-is-agentic-memory.md"
 ---
 
 # What is agentic memory?
 
-**Short answer** (updated 2026-10-28): What is agentic memory? It is memory that an AI agent manages itself: the agent decides what to save, writes it through a tool call, and searches it again in a later task or session. It differs from a chat history because it is stored outside the model and survives restarts. XERJ serves it as a search endpoint.
+**Short answer** (updated 2026-10-31): What is agentic memory? It is memory that an AI agent manages itself: the agent decides what to save, writes it through a tool call, and searches it again in a later task or session. It differs from a chat history because it is stored outside the model and survives restarts. XERJ serves it as a search endpoint.
 
 **TL;DR**: Agentic memory is memory an AI agent manages for itself. The agent decides what to keep, saves it with a tool call, and searches it again in a later task. Recall is a search problem, so XERJ serves agent memory as two endpoints on one local search engine.
 
@@ -125,6 +125,10 @@ No. There is no decay and no TTL. A memory is permanent until explicitly forgott
 - [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant)
 - [How do I stop an agent memory store from filling with near-duplicate notes?](/answers/store-agent-memory-without-llm-call)
 - [Agent memory](/docs/recipes/agentic-memory)
+- [Agentic RAG vs RAG: what is the difference?](/answers/agentic-rag-vs-rag)
+- [XERJ vs Mem0: which memory fits your AI agent?](/compare/xerj-vs-mem0)
+- [claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?](/compare/xerj-vs-claude-mem-and-mempalace)
+- [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory)
 - [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions) (same intent: agent memory)
-- [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory) (same intent: agent memory)
 - [How do I give two agents private memory on one laptop?](/answers/private-agent-memory-namespaces) (same intent: agent memory)
+- [How do I set the MCP memory storage path?](/answers/set-mcp-memory-storage-path) (same intent: agent memory)

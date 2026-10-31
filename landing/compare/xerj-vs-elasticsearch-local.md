@@ -2,13 +2,13 @@
 ---
 title: "Elasticsearch-compatible engine that isn't Elasticsearch"
 canonical: "https://xerj.org/compare/xerj-vs-elasticsearch-local"
-updated: "2026-10-23"
+updated: "2026-10-31"
 source: "content/compare/xerj-vs-elasticsearch-local.md"
 ---
 
 # Is there an Elasticsearch-compatible engine that isn't Elasticsearch?
 
-**Short answer** (updated 2026-10-23): Is there an Elasticsearch-compatible engine that isn't Elasticsearch? XERJ speaks the Elasticsearch REST API from one binary. One published board measured both on one host: 55 wins, 26 ties, 4 losses and 3 not-applicable across 88 cells against Elasticsearch 8.13.4 at 100,000 documents. XERJ is single-node only.
+**Short answer** (updated 2026-10-31): Is there an Elasticsearch-compatible engine that isn't Elasticsearch? XERJ speaks the Elasticsearch REST API from one binary. One published board measured both on one host: 55 wins, 26 ties, 4 losses and 3 not-applicable across 88 cells against Elasticsearch 8.13.4 at 100,000 documents. XERJ is single-node only.
 
 **Key number:** Elasticsearch has 78,319 GitHub stars and its latest release is v9.5.5 (2026-10-06); the board was measured against 8.13.4. (as of 2026-10-19; source: [github.com/elastic/elasticsearch](https://github.com/elastic/elasticsearch))
 
@@ -198,6 +198,7 @@ When you read while a heavy writer runs, when you need more than one host, or wh
 - [Migrate from Elasticsearch](/docs/recipes/migrate-from-elasticsearch)
 - [Full-text search over JSONL files from the CLI: index a folder and query it with BM25](/answers/full-text-search-over-jsonl-files-cli)
 - [Batch lookup CVE IDs and GHSA IDs offline, without GitHub API rate limits](/answers/batch-lookup-cve-ghsa-ids-offline)
+- [ES scorecard](/benchmarks/elasticsearch)
 - [Does XERJ support S3 storage, alerting or custom plugins yet?](/answers/does-xerj-support-s3-alerting-plugins) (same intent: search engine alternatives)
 - [The best lightweight Elasticsearch-compatible search servers in 2026](/compare/best-lightweight-elasticsearch-compatible-server-2026) (same intent: search engine alternatives)
 - [What's a local alternative to Meilisearch that indexes a folder by itself?](/compare/xerj-vs-meilisearch) (same intent: search engine alternatives)

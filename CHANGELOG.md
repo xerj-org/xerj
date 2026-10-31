@@ -95,6 +95,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `weighted_avg` now executes field-based requests (`value` / `weight`, each
+  with a `field` and optional numeric `missing`) instead of returning HTTP 200
+  with an `unsupported aggregation type` error in the aggregations body. A
+  `script` on either side, a malformed side, a missing `field`, and a
+  non-numeric `missing` return a 400 naming the side. Multi-index searches
+  recombine by weighted sum, not by averaging the per-index values. A
+  multi-valued weight field is skipped rather than refused, because the
+  aggregation evaluator has no error channel; that case stays in
+  `catch-lenient.txt` (#204).
+
 - Re-indexing the same doc ids no longer grows `hnsw/graph.bin` without
   bound. Each overwrite tombstoned the old graph node and nothing ever
   removed one, so the graph (on disk and in memory) kept every vector ever

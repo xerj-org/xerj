@@ -2,13 +2,13 @@
 ---
 title: "Store user preferences an agent can recall later"
 canonical: "https://xerj.org/answers/coding-agent-memory-across-sessions"
-updated: "2026-10-28"
+updated: "2026-10-31"
 source: "content/answers/coding-agent-memory-across-sessions.md"
 ---
 
 # How do people store user preferences so an agent can recall them next week?
 
-**Short answer** (updated 2026-10-28): How do people store user preferences so an agent can recall them next week? XERJ stores each memory as a document in a reserved index, .xerj-memory-{namespace}, inside the node's data directory. Our capture stored two memories, restarted the node on the same directory, recalled both by id, and one forget call removed exactly one.
+**Short answer** (updated 2026-10-31): How do people store user preferences so an agent can recall them next week? XERJ stores each memory as a document in a reserved index, .xerj-memory-{namespace}, inside the node's data directory. Our capture stored two memories, restarted the node on the same directory, recalled both by id, and one forget call removed exactly one.
 
 **Key number:** A memory store call deduplicates at a default cosine similarity of 0.95 when `dedup` is on. (as of 2026-10-19; source: [engine/crates/xerj-api/src/memory_api.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-api/src/memory_api.rs))
 
@@ -147,6 +147,9 @@ Only if you ask. Plain `query` runs BM25, `semantic: true` embeds server-side, a
 - [Agent memory](/docs/recipes/agentic-memory)
 - [What is agentic memory?](/answers/what-is-agentic-memory)
 - [What is an MCP memory server?](/answers/what-is-an-mcp-memory-server)
+- [XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee](/compare/xerj-vs-agent-memory-tools)
+- [XERJ vs Mem0: which memory fits your AI agent?](/compare/xerj-vs-mem0)
+- [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database) (same intent: agent memory)
-- [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory) (same intent: agent memory)
 - [claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?](/compare/xerj-vs-claude-mem-and-mempalace) (same intent: agent memory)
+- [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag) (same intent: agent memory)

@@ -2,13 +2,13 @@
 ---
 title: "Reduce embedding API cost: embed inside the search engine"
 canonical: "https://xerj.org/answers/reduce-embedding-api-cost"
-updated: "2026-10-28"
+updated: "2026-10-31"
 source: "content/answers/reduce-embedding-api-cost.md"
 ---
 
 # How do I reduce embedding API cost?
 
-**Short answer** (updated 2026-10-28): My embedding bill is too high; how do I reduce embedding API cost? Embed inside the search node. XERJ embeds semantic_text fields in-process by default, so the default configuration bills nothing to an embedding API: a capture of a default node saw 0 non-loopback peers in 3.51 s. Proxy mode sent exactly 2 requests for 100 documents.
+**Short answer** (updated 2026-10-31): My embedding bill is too high; how do I reduce embedding API cost? Embed inside the search node. XERJ embeds semantic_text fields in-process by default, so the default configuration bills nothing to an embedding API: a capture of a default node saw 0 non-loopback peers in 3.51 s. Proxy mode sent exactly 2 requests for 100 documents.
 
 **Key number:** Proxy embedding mode batched 100 documents into exactly 2 outbound requests in the captured run. (as of 2026-08-23; source: the captured run documented on this page)
 
@@ -138,6 +138,7 @@ Call GET /v1/embedding/identity on the native REST port. The backend field reads
 - [When should I turn on neural embeddings, and when is the lexical default enough?](/answers/do-search-embeddings-help)
 - [I want local search that works offline, no cloud embeddings. What are my options?](/answers/local-embeddings-without-openai-api)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database)
+- [Can I route tickets or filter spam from labelled history, without an LLM call?](/answers/classify-text-from-labelled-history-without-llm)
 - [Should an agent use API search or vector search?](/answers/mcp-api-search-or-vector-search) (same intent: retrieval research and eval)
 - [How does XERJ combine BM25 and kNN?](/answers/how-xerj-combines-search) (same intent: retrieval research and eval)
 - [How much better is hybrid search than BM25? Measured nDCG numbers](/answers/hybrid-search-quality-measured-ndcg) (same intent: retrieval research and eval)

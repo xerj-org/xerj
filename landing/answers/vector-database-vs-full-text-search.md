@@ -2,13 +2,13 @@
 ---
 title: "Vector database or full-text search for a folder?"
 canonical: "https://xerj.org/answers/vector-database-vs-full-text-search"
-updated: "2026-10-19"
+updated: "2026-10-31"
 source: "content/answers/vector-database-vs-full-text-search.md"
 ---
 
 # What's the actual difference between a vector database and full-text search when I have a folder?
 
-**Short answer** (updated 2026-10-19): What's the actual difference between a vector database and full-text search? Full-text search matches tokens and ranks with BM25; a kNN query compares one embedding against stored dense vectors. XERJ holds both in one index, so the choice is which clause to send. On our 8 judged queries the three modes disagreed on the top hit once.
+**Short answer** (updated 2026-10-31): What's the actual difference between a vector database and full-text search? Full-text search matches tokens and ranks with BM25; a kNN query compares one embedding against stored dense vectors. XERJ holds both in one index, so the choice is which clause to send. On our 8 judged queries the three modes disagreed on the top hit once.
 
 **Key number:** On BEIR SciFact, BM25 scored nDCG@10 0.6572, vectors alone 0.6764, and hybrid RRF 0.6993. (as of 2026-09-18; source: [benchmarks/beir-hybrid/results/scifact.txt](https://github.com/xerj-org/xerj/blob/main/benchmarks/beir-hybrid/results/scifact.txt))
 
@@ -167,6 +167,8 @@ Only when seven conditions hold, including cosine similarity, no filter and at l
 - [When should I turn on neural embeddings, and when is the lexical default enough?](/answers/do-search-embeddings-help)
 - [Should an agent use API search or vector search?](/answers/mcp-api-search-or-vector-search)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database)
+- [BM25 vs vector search: which one should you use?](/answers/bm25-vs-vector-search)
+- [What is hybrid search?](/answers/what-is-hybrid-search)
 - [How does XERJ combine BM25 and kNN?](/answers/how-xerj-combines-search) (same intent: retrieval research and eval)
 - [Can I route tickets or filter spam from labelled history, without an LLM call?](/answers/classify-text-from-labelled-history-without-llm) (same intent: retrieval research and eval)
 - [How much better is hybrid search than BM25? Measured nDCG numbers](/answers/hybrid-search-quality-measured-ndcg) (same intent: retrieval research and eval)
