@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, ai-agents, antigravity queries this for how CreativeAiTech/FuriousAISkill implements it: Rules, skills and a file-based task board for running Claude Code, Gemini and other AI agents on one repo, cheaply and without collisions (selected work: tools)",
+ "domain": "an agent working on agent-skills, ai-agents, antigravity queries this for how CreativeAiTech/FuriousAISkill implements it: Rules, skills and hooks for running Claude Code, Gemini, Codex and other AI agents on one repo: a manager picks cheap models, delegates and  (selected work: tools)",
  "repos": [
   {
    "repo": "FuriousAISkill",

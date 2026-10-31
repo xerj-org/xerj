@@ -8,15 +8,15 @@
   {
    "repo": "Movix",
    "url": "https://github.com/muthumanikandanb2005-ux/Movix",
-   "sha": "3079f0582204b57819044948e42456b0bb42c10f",
-   "licence": "author's permission (LICENSE at pin 3079f0582204: NONE; repository: none)",
+   "sha": "7a21f5ef611d299ea915d796efec91bd488bd519",
+   "licence": "author's permission (LICENSE at pin 7a21f5ef611d: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T02:25Z",
     "consent_receipt": "a7217a0a5145",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:25Z (receipt a7217a0a5145); pinned to the default-branch head. LICENSE at pin 3079f0582204: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:25Z (receipt a7217a0a5145); pinned to the default-branch head. LICENSE at pin 7a21f5ef611d: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

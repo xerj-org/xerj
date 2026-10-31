@@ -1,0 +1,23 @@
+{
+ "corpus": "jphacks--hs-2605",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on baby-monitor, breathing, fastapi queries this for how jphacks/hs_2605 implements it: \u606f\u5439\uff5eIBUKI\uff5e: 60 GHz radar that watches a sleeping baby's breathing, no camera, nothing on the body. \u96fb\u6ce2\u3067\u8d64\u3061\u3083\u3093\u306e\u547c\u5438\u3092\u898b\u5b88\u308b\u3002JPHACKS 2026 (selected work: pc, the project root)",
+ "repos": [
+  {
+   "repo": "hs_2605",
+   "url": "https://github.com/jphacks/hs_2605",
+   "sha": "f138e6998f100be26d32c718737406e339f7c4cf",
+   "licence": "MIT (LICENSE file at pin f138e6998f10, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T13:40Z",
+    "consent_receipt": "f795ce748065",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T13:40Z (receipt f795ce748065); selected commit f138e6998f10: \"feat: add Windows launcher and native alarm playback\". LICENSE file at pin f138e6998f10 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

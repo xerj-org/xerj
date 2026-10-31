@@ -8,15 +8,15 @@
   {
    "repo": "Photograde",
    "url": "https://github.com/vafabara/Photograde",
-   "sha": "406d05e7b5c1c9bf303db2015262514c305e450e",
-   "licence": "MIT (LICENSE file at pin 406d05e7b5c1, GitHub licence API 2026-10-28)",
+   "sha": "9ff29d634ea88d86fb59dd1a7b1a70ced8b4eb51",
+   "licence": "MIT (LICENSE file at pin 9ff29d634ea8, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-25T19:40Z",
     "consent_receipt": "97b35e4ccd0b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T19:40Z (receipt 97b35e4ccd0b); selected commit 406d05e7b5c1: \"new GUI\". LICENSE file at pin 406d05e7b5c1 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Pinned to head 406d05e7b5c1 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T19:40Z (receipt 97b35e4ccd0b); selected commit 9ff29d634ea8: \"new GUI\". LICENSE file at pin 9ff29d634ea8 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head 9ff29d634ea8 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

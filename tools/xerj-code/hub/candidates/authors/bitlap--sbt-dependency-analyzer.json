@@ -1,0 +1,30 @@
+{
+ "corpus": "bitlap--sbt-dependency-analyzer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dependency-analysis, sbt, scala queries this for how bitlap/sbt-dependency-analyzer implements it: Sbt Dependency Analyzer plugin for IntelliJ based IDEs/Android Studio (selected work: src/test, tools, src/main)",
+ "repos": [
+  {
+   "repo": "sbt-dependency-analyzer",
+   "url": "https://github.com/bitlap/sbt-dependency-analyzer",
+   "sha": "2408b84ba0d7ccd1581dadcd9d95cdeb6ffa5d9f",
+   "licence": "GPL-3.0 (LICENSE file at pin 2408b84ba0d7, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T14:24Z",
+    "consent_receipt": "5c404e31cb0a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T14:24Z (receipt 5c404e31cb0a); selected commit 2408b84ba0d7: \"fix: \u9690\u85cf sbt \u5de5\u5177\u7a97\u53e3\u4e2d\u8bef\u663e\u793a\u7684 Gradle \u4f9d\u8d56\u5206\u6790\u5165\u53e3 (#367)\". LICENSE file at pin 2408b84ba0d7 detected as GPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "2408b84ba0d7ccd1581dadcd9d95cdeb6ffa5d9f",
+     "at": "2026-10-31T14:24Z",
+     "receipt": "5c404e31cb0a"
+    }
+   }
+  }
+ ]
+}

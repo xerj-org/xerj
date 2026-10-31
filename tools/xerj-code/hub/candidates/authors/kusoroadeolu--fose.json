@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Java queries this for how kusoroadeolu/fose implements it: A flat combining sync primitive (selected work: fose-jmh, fose-core, the project root)",
+ "domain": "an agent working on Java queries this for how kusoroadeolu/fose implements it: A scalable flat combining sync primitive (selected work: fose-jmh, fose-core, the project root)",
  "repos": [
   {
    "repo": "fose",

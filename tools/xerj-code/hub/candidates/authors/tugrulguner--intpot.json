@@ -8,15 +8,15 @@
   {
    "repo": "intpot",
    "url": "https://github.com/tugrulguner/intpot",
-   "sha": "8806130332247f7bd5334571ac6b0a0507e42c78",
-   "licence": "MIT (LICENSE file at pin 880613033224, GitHub licence API 2026-10-31)",
+   "sha": "5e741d2b4194523b5a70a067105fa23bb080ca5d",
+   "licence": "MIT (LICENSE file at pin 5e741d2b4194, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:45Z",
     "consent_receipt": "f6ac8caf77aa",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:45Z (receipt f6ac8caf77aa); pinned to the default-branch head. LICENSE file at pin 880613033224 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:45Z (receipt f6ac8caf77aa); pinned to the default-branch head. LICENSE file at pin 5e741d2b4194 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
    }
   }
  ]
