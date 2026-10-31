@@ -564,3 +564,440 @@ xerj mcp                                # 2. MCP stdio server (your client runs 
 <p dir="rtl" align="right">
 اگر نود با احراز هویت اجرا می‌شود (یعنی در زمان راه‌اندازی از پارامتر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>--insecure</code></span> استفاده نشده است)، متغیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>"XERJ_AUTH": "ApiKey &lt;key&gt;"</code></span> را نیز در کنار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>XERJ_URL</code></span> به بخش <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>env</code></span> اضافه کنید. کلید دسترسی در مسیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>&lt;data-dir&gt;/admin.key</code></span> قرار دارد.
 </p>
+
+<h2 dir="rtl" align="right">عامل‌های هوش مصنوعی پشتیبانی‌شده</h2>
+
+<p dir="rtl" align="right">
+۲۶ کلاینت می‌توانند <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj mcp</code></span> را به‌عنوان یک سرور محلی مبتنی بر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">stdio</span> ثبت کنند. ساختار این تنظیمات همیشه از دو فیلد یکسان تشکیل می‌شود: مسیر مطلق فایل اجرایی و دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>mcp</code></span> به‌عنوان تنها آرگومان آن. با این حال، محل ذخیره این تنظیمات و نحوه تعریف کلیدها در هر کلاینت متفاوت است.
+</p>
+
+<p dir="rtl" align="right">
+وضعیت <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">tested</span> به این معناست که سرور در کلاینت موردنظر ثبت شده و ابزار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_search</code></span> در فهرست ابزارهای آن ظاهر شده است. وضعیت <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">untested</span> یعنی مسیر و ساختار تنظیمات از مستندات رسمی خود کلاینت استخراج شده‌اند، اما هنوز کسی آن‌ها را عملاً آزمایش نکرده است.
+</p>
+
+<p dir="rtl" align="right">
+پنج ردیف تاکنون آزمایش شده‌اند. در <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">OpenCode v2.1.2</span> روی ویندوز، با <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">xerj v1.0.0-rc.97</span>، درخواست‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>initialize</code></span> و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>tools/list</code></span> پاسخ داده شدند و فهرست کامل ابزارها دریافت شد.
+</p>
+
+<p dir="rtl" align="right">
+در <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Cline CLI 3.0.73</span> روی لینوکس، با <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">xerj v1.0.0-rc.98</span>، بخش <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>mcpServers</code></span> همین قسمت از فایل تنظیمات <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>~/.cline/data/settings/cline_mcp_settings.json</code></span> بارگذاری شد. ابزار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_search</code></span> با نام <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj__xerj_search</code></span> در فهرست ۲۰ ابزار این فایل اجرایی که Cline در اختیار مدل قرار داد، ظاهر شد و Cline یک فراخوانی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_search</code></span> را اجرا کرد. از آنجا که کلید ارائه‌دهنده مدل در دسترس نبود، نوبت اجرای مدل از یک نمونه محلی سازگار با OpenAI استفاده کرد؛ اما فرایند MCP، همان فرایند واقعی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj mcp</code></span> بود. دکمه <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Configure</span> در بخش <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">MCP Servers</span> محیط IDE در این آزمایش استفاده نشد.
+</p>
+
+<p dir="rtl" align="right">
+در <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Kimi Code CLI 2.3.1</span> و برنامه دسکتاپ Kimi روی لینوکس، با <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">xerj v1.0.0-rc.99</span> که از کد منبع ساخته شده بود، بخش <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>mcpServers</code></span> این قسمت از فایل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>~/.kimi-code/mcp.json</code></span> بارگذاری شد. کلاینت، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj mcp</code></span> را به‌عنوان یک فرایند فرزند اجرا کرد و بلوک <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>env</code></span> را بدون تغییر در اختیار آن قرار داد؛ این موضوع از طریق <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>/proc/&lt;pid&gt;/environ</code></span> تأیید شد. ابزار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_search</code></span> نیز در فهرست ابزارها ظاهر شد.
+</p>
+
+<p dir="rtl" align="right">
+در <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Claude Code 2.1.311</span> روی Kali Linux، با <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">xerj v1.0.0-rc.100</span>، سرور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj mcp</code></span> با استفاده از دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>claude mcp add</code></span> در سه محدوده محلی، پروژه و کاربر ثبت شد. ابزار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_search</code></span> در خروجی دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>/mcp</code></span>، در میان ۲۲ ابزار این فایل اجرایی ظاهر شد. همچنین Claude Code یک فراخوانی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_search</code></span> و یک فراخوانی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_def</code></span> را روی یک مخزن ایندکس‌شده با قابلیت <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">autoindex</span> اجرا کرد.
+</p>
+
+<p dir="rtl" align="right">
+در <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">DeepSeek Harness 44.7.0</span> روی ویندوز، با <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">xerj v1.0.0-rc.99</span>، بلوک <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>- insert:</code></span> این ردیف از طریق یک اصلاحیه پروفایل در مسیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>$DSH_HOME/profiles/desktop/cordis.patch.yml</code></span> بارگذاری شد. در آزمایش مشارکت‌کننده، Harness بدون نیاز به راه‌اندازی مجدد برنامه، فرایند <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj mcp</code></span> را اجرا کرد، ابزار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>mcp__xerj__xerj_search</code></span> را در دسترس قرار داد و یک جست‌وجو اجرا کرد. آنچه آزمایش شد، تنظیمات اصلاحیه پروفایل بود؛ بسته موجود در پوشه <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>dsh/</code></span> آزمایش نشد. در این اجرا، متغیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>XERJ_DISABLE_FEEDBACK=true</code></span> تنظیم شد و هیچ گزارش میدانی خودکاری مشاهده نشد. <a href="https://github.com/xerj-org/xerj/pull/2446">گزارش تأیید و محدودیت‌های آزمایش توسط مشارکت‌کننده</a>
+</p>
+
+<p dir="rtl" align="right">
+اصلاح هر یک از ردیف‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">untested</span>، می‌تواند اولین مشارکت شما در قالب یک <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">PR</span> باشد و از آن استقبال می‌کنیم.
+</p>
+
+<table>
+<thead>
+<tr>
+<th align="right">کلاینت</th>
+<th align="right">فایل تنظیمات</th>
+<th align="right">کلید</th>
+<th align="right">توضیحات</th>
+<th align="right">وضعیت</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OpenCode</td>
+<td><code>opencode.json</code> در پروژه یا <code>~/.config/opencode/opencode.json</code></td>
+<td><code>mcp.servers</code></td>
+<td>از یک آرایه <code>command</code> استفاده می‌کند، نه <code>env</code> بلکه <code>environment</code>؛ همچنین به ریشه پروژه نیاز دارد.</td>
+<td>تست‌شده</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td><code>.mcp.json</code> (محدوده پروژه) یا <code>~/.claude.json</code> (محدوده محلی، حالت پیش‌فرض یا محدوده کاربر)؛ دستور <code>claude mcp add</code> هر یک از این فایل‌ها را ایجاد می‌کند.</td>
+<td><code>mcpServers</code></td>
+<td>استفاده از <code>--</code> پیش از دستور توصیه می‌شود؛ با این حال، <code>xerj mcp</code> بدون آن نیز ثبت می‌شود.</td>
+<td>تست‌شده</td>
+</tr>
+<tr>
+<td>Cursor</td>
+<td><code>.cursor/mcp.json</code> در پروژه یا <code>~/.cursor/mcp.json</code></td>
+<td><code>mcpServers</code></td>
+<td>برای ارتباط از نوع stdio نیازی به <code>type</code> نیست.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Codex</td>
+<td><code>~/.codex/config.toml</code> یا <code>.codex/config.toml</code> در پروژه‌های مورد اعتماد</td>
+<td><code>[mcp_servers.xerj]</code></td>
+<td>از TOML استفاده می‌کند، نه JSON.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Gemini CLI</td>
+<td><code>.gemini/settings.json</code> یا <code>~/.gemini/settings.json</code></td>
+<td><code>mcpServers</code></td>
+<td>باید پوشه را با دستور <code>gemini trust</code> مورد اعتماد قرار دهید؛ در غیر این صورت، وضعیت stdio به‌صورت Disconnected نمایش داده می‌شود.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>GitHub Copilot در VS Code</td>
+<td><code>.vscode/mcp.json</code></td>
+<td><code>servers</code></td>
+<td>به <code>"type": "stdio"</code> نیاز دارد؛ فایل قابل‌حمل <code>.mcp.json</code> از <code>mcpServers</code> استفاده می‌کند.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Windsurf</td>
+<td><code>%APPDATA%\devin\mcp_config.json</code> یا <code>~/.config/devin/mcp_config.json</code></td>
+<td><code>mcpServers</code></td>
+<td>مسیر فعلی متعلق به Devin است، نه <code>~/.codeium/windsurf</code>.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Claude Desktop</td>
+<td><code>%APPDATA%\Claude\claude_desktop_config.json</code>، <code>~/Library/Application Support/Claude/claude_desktop_config.json</code> یا <code>~/.config/Claude/claude_desktop_config.json</code></td>
+<td><code>mcpServers</code></td>
+<td>برنامه را به‌طور کامل ببندید؛ صرفاً بستن پنجره کافی نیست.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Cline</td>
+<td><code>~/.cline/data/settings/cline_mcp_settings.json</code> (در CLI)؛ در نسخه IDE از مسیر MCP Servers &gt; Configure قابل دسترسی است.</td>
+<td><code>mcpServers</code></td>
+<td>گزینه‌های <code>disabled</code> و <code>autoApprove</code> مخصوص Cline هستند؛ در آزمایش CLI نیازی به آن‌ها نبود.</td>
+<td>تست‌شده</td>
+</tr>
+<tr>
+<td>Roo Code</td>
+<td><code>.roo/mcp.json</code> در پروژه یا <code>&lt;VS Code User&gt;/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json</code></td>
+<td><code>mcpServers</code></td>
+<td>در صورت تداخل نام‌ها، تنظیمات پروژه اولویت دارند.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Kilo Code</td>
+<td><code>kilo.jsonc</code> یا <code>.kilo/kilo.jsonc</code> در پروژه؛ <code>~/.config/kilo/kilo.jsonc</code> در محدوده سراسری</td>
+<td><code>mcp</code></td>
+<td>مانند OpenCode از یک آرایه <code>command</code> استفاده می‌کند.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Continue</td>
+<td><code>~/.continue/config.yaml</code> یا هر فایلی در <code>.continue/mcpServers/</code></td>
+<td><code>mcpServers</code></td>
+<td>از یک فهرست YAML استفاده می‌کند، نه یک نگاشت؛ فقط در حالت Agent فعال است.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Zed</td>
+<td><code>~/.config/zed/settings.json</code> (در ویندوز، دستور <code>zed: open settings file</code> را اجرا کنید.)</td>
+<td><code>context_servers</code></td>
+<td>نام کلید <code>mcpServers</code> نیست.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>JetBrains AI Assistant</td>
+<td>فقط از طریق رابط تنظیمات: Settings &gt; Tools &gt; AI Assistant &gt; Model Context Protocol</td>
+<td><code>mcpServers</code></td>
+<td>محل ذخیره تنظیمات آن از Junie جداست.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Junie</td>
+<td><code>.junie/mcp/mcp.json</code> در پروژه یا <code>~/.junie/mcp/mcp.json</code> در محدوده کاربر</td>
+<td><code>mcpServers</code></td>
+<td>در راهنماهای قدیمی‌تر، پوشه <code>mcp/</code> از مسیر حذف شده است.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Amp</td>
+<td><code>~/.config/amp/settings.json</code>، <code>.amp/settings.json</code> در فضای کاری یا دستور <code>amp mcp add</code></td>
+<td><code>amp.mcpServers</code></td>
+<td>پیشوند <code>amp.</code> بخشی از نام کلید است.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Goose</td>
+<td><code>~/.config/goose/config.yaml</code> یا <code>%APPDATA%\Block\goose\config\config.yaml</code></td>
+<td><code>extensions</code></td>
+<td>به‌جای <code>command</code> از <code>cmd</code> استفاده می‌کند و قالب فایل آن YAML است.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Kiro</td>
+<td><code>.kiro/settings/mcp.json</code> در فضای کاری یا <code>~/.kiro/settings/mcp.json</code> در محدوده کاربر</td>
+<td><code>mcpServers</code></td>
+<td>برای گسترش متغیرهای <code>${VAR}</code> به تأیید نیاز دارد.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Antigravity</td>
+<td><code>~/.gemini/config/mcp_config.json</code> یا <code>.agents/mcp_config.json</code> در فضای کاری</td>
+<td><code>mcpServers</code></td>
+<td>سرورهای راه دور از <code>serverUrl</code> استفاده می‌کنند.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>OpenClaw</td>
+<td><code>~/.openclaw/openclaw.json</code> (قالب JSON5)</td>
+<td><code>mcp.servers</code></td>
+<td>از <code>transport: "stdio"</code> استفاده می‌کند.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td><a href="dsh/">DeepSeek Harness (dsh)</a></td>
+<td><code>$DSH_HOME/cordis.patch.yml</code> یا یک اصلاحیه پروفایل</td>
+<td><code>- insert:</code> همراه با <code>@deepseek-ai/dsh-mcp-client</code></td>
+<td>برای هر سرور، یک نمونه از افزونه تعریف می‌شود.</td>
+<td>تست‌شده</td>
+</tr>
+<tr>
+<td>Warp</td>
+<td>Settings &gt; Agents &gt; MCP servers یا <code>~/.warp/.mcp.json</code> و <code>.warp/.mcp.json</code> در پروژه</td>
+<td><code>mcpServers</code></td>
+<td>از <code>working_directory</code> استفاده می‌کند، نه <code>cwd</code>.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Augment Code</td>
+<td><code>~/.augment/settings.json</code> برای Auggie CLI؛ نسخه IDE پنل مخصوص خود را دارد.</td>
+<td><code>mcpServers</code></td>
+<td>این فایل تنظیمات، نسخه IDE را کنترل نمی‌کند.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Qwen Code</td>
+<td><code>~/.qwen/settings.json</code> یا <code>.qwen/settings.json</code> در پروژه</td>
+<td><code>mcpServers</code></td>
+<td>گزینه <code>mcp.allowed</code> می‌تواند بدون نمایش خطا، سرور را از دسترس خارج کند.</td>
+<td>تست‌نشده</td>
+</tr>
+<tr>
+<td>Kimi CLI</td>
+<td><code>~/.kimi-code/mcp.json</code> یا <code>.kimi-code/mcp.json</code> در پروژه</td>
+<td><code>mcpServers</code></td>
+<td>مربوط به نسخه فعلی Kimi Code CLI است، نه مسیر قدیمی و بایگانی‌شده <code>~/.kimi/mcp.json</code>.</td>
+<td>تست‌شده</td>
+</tr>
+<tr>
+<td>Grok CLI</td>
+<td><code>~/.grok/config.toml</code> یا <code>.grok/config.toml</code> در پروژه</td>
+<td><code>[mcp_servers.xerj]</code></td>
+<td>Grok Bot امکان ثبت سرور محلی stdio را ندارد.</td>
+<td>تست‌نشده</td>
+</tr>
+</tbody>
+</table>
+
+<p dir="rtl" align="right">
+Codex و Grok CLI از قالب TOML استفاده می‌کنند؛ بنابراین تنظیمات سرور باید به شکل یک جدول تعریف شوند:
+</p>
+
+<pre dir="ltr"><code>[mcp_servers.xerj]
+command = "/abs/path/to/xerj"
+args = ["mcp"]</code></pre>
+
+<p dir="rtl" align="right">
+OpenCode و Kilo Code از یک آرایه <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>command</code></span> استفاده می‌کنند. ساختار تنظیمات Kilo نیز مشابه OpenCode است، با این تفاوت که یک سطح تو‌در‌تویی کمتر دارد:
+</p>
+
+<pre dir="ltr"><code>{"mcp": {"servers": {"xerj": {"type": "local", "command": ["/abs/path/to/xerj", "mcp"], "environment": {"XERJ_URL": "http://localhost:9200"}}}}</code></pre>
+
+<pre dir="ltr"><code>{"mcp": {"xerj": {"type": "local", "command": ["/abs/path/to/xerj", "mcp"]}}}</code></pre>
+
+<p dir="rtl" align="right">
+Continue و Goose تنظیمات خود را از فایل‌های YAML می‌خوانند:
+</p>
+
+<pre dir="ltr"><code># ~/.continue/config.yaml
+mcpServers:
+  - name: xerj
+    command: /abs/path/to/xerj
+    args:
+      - mcp</code></pre>
+
+<pre dir="ltr"><code># ~/.config/goose/config.yaml
+extensions:
+  xerj:
+    type: stdio
+    cmd: /abs/path/to/xerj
+    args:
+      - mcp
+    enabled: true</code></pre>
+
+<p dir="rtl" align="right">
+Amp نام کلیدها را در فضای نام مخصوص خود نگه می‌دارد؛ VS Code و Copilot به کلید <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>servers</code></span> به همراه تعریف نوع ارتباط نیاز دارند؛ Zed از عنوان <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">context servers</span> استفاده می‌کند و OpenClaw تنظیمات را درون کلید <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>mcp</code></span> قرار می‌دهد:
+</p>
+
+<pre dir="ltr"><code>{"amp.mcpServers": {"xerj": {"command": "/abs/path/to/xerj", "args": ["mcp"]}}}</code></pre>
+
+<pre dir="ltr"><code>{"servers": {"xerj": {"type": "stdio", "command": "/abs/path/to/xerj", "args": ["mcp"]}}}</code></pre>
+
+<pre dir="ltr"><code>{"context_servers": {"xerj": {"command": "/abs/path/to/xerj", "args": ["mcp"], "env": {}}}}</code></pre>
+
+<pre dir="ltr"><code>{mcp: {servers: {xerj: {command: "/abs/path/to/xerj", args: ["mcp"], transport: "stdio"}}}}</code></pre>
+
+<p dir="rtl" align="right">
+DeepSeek Harness هر سرور MCP را به‌عنوان یک افزونه مستقل در فایل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>$DSH_HOME/cordis.patch.yml</code></span> یا در یک اصلاحیه پروفایل با مسیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>$DSH_HOME/profiles/&lt;profile&gt;/cordis.patch.yml</code></span> بارگذاری می‌کند. همین بلوک، بسته پروفایل موجود در پوشه <a href="dsh/"><code>dsh/</code></a> را نیز تشکیل می‌دهد و مقدار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>command</code></span> آن باید <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj</code></span> باشد که از طریق <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">PATH</span> قابل دسترسی است.
+</p>
+
+<p dir="rtl" align="right">
+اگر محتوای این فایل فقط <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>[]</code></span> است، آرایه را با بلوک زیر جایگزین کنید؛ افزودن این بلوک به زیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>[]</code></span> ساختار YAML معتبری ایجاد نمی‌کند. فیلدهای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>env</code></span> و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>cwd</code></span> برای ارتباط stdio اختیاری هستند؛ مقادیر پیش‌فرض به‌ترتیب برای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>args</code></span> برابر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>[]</code></span>، برای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>env</code></span> برابر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>{}</code></span> و برای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>cwd</code></span> برابر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>""</code></span> است. اگر نود با گزینه <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>--insecure</code></span> اجرا نمی‌شود، مقدار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>XERJ_AUTH: "ApiKey &lt;key&gt;"</code></span> را نیز درون <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>env</code></span> اضافه کنید:
+</p>
+
+<pre dir="ltr"><code># $DSH_HOME/cordis.patch.yml
+- insert:
+    - id: mcp-xerj
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: xerj
+        transport: stdio
+        command: xerj
+        args:
+          - mcp
+        env:
+          XERJ_URL: "http://localhost:9200"
+        cwd: ""</code></pre>
+
+<p dir="rtl" align="right">
+سه گزینه از فهرست اولیه عمداً حذف شده‌اند. Aider در حال حاضر از کلاینت MCP پشتیبانی نمی‌کند؛ مسئله مربوط به آن در <a href="https://github.com/Aider-AI/aider/issues/3314">Aider-AI/aider#3314</a> همچنان باز است. T3 Code در جهت مخالف عمل می‌کند: این ابزار یک نقطه پایانی MCP ارائه می‌دهد تا عامل‌های دیگر به آن متصل شوند و نشست‌های آن نیز سرورهای خود را از طریق Harness زیرین دریافت می‌کنند. Grok Bot ثبت سرور محلی stdio را به‌صورت مستندشده پشتیبانی نمی‌کند؛ اما Grok CLI این قابلیت را دارد و در ردیف مربوط به <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Grok</span> در جدول بالا آمده است.
+</p>
+
+<h2 dir="rtl" align="right">ابزارهای در دسترس از طریق MCP</h2>
+
+<p dir="rtl" align="right">
+در صورت فعال بودن ابزارهای Hub، تعداد ۲۳ ابزار در اختیار عامل قرار می‌گیرد. یازده مورد از این ابزارها، پراکسی‌های ساده‌ای برای نقاط پایانی هستند که XERJ از قبل ارائه می‌دهد:
+</p>
+
+<table>
+<thead>
+<tr>
+<th align="right">ابزار</th>
+<th align="right">عملکرد</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>xerj_search</code></td>
+<td>جست‌وجوی کلیدواژه‌ای در یک ایندکس؛ با استفاده از کلمات معمولی در <code>query</code> یا یک عبارت از Query DSL در قالب Elasticsearch در <code>query_dsl</code>.</td>
+</tr>
+<tr>
+<td><code>xerj_semantic_search</code></td>
+<td>بازیابی بر اساس معنا در یک فیلد <code>semantic_text</code>؛ تبدیل پرس‌وجو به بردار در سمت سرور انجام می‌شود. به‌صورت پیش‌فرض، از روش واژگانی مبتنی بر هش‌گذاری ویژگی‌ها استفاده می‌شود، نه مدل عصبی؛ مگر اینکه نود با گزینه <code>--embed-mode neural</code> اجرا شده باشد.</td>
+</tr>
+<tr>
+<td><code>xerj_vector_search</code></td>
+<td>جست‌وجوی kNN روی یک فیلد از نوع <code>dense_vector</code>.</td>
+</tr>
+<tr>
+<td><code>xerj_hybrid_search</code></td>
+<td>ترکیب نتایج زیرپرس‌وجوها با روش RRF یا ادغام خطی.</td>
+</tr>
+<tr>
+<td><code>xerj_memory_store</code> / <code>xerj_memory_recall</code></td>
+<td>ذخیره حافظه پایدار عامل در یک فضای نام و بازیابی آن بر اساس متن، معنا یا بردار.</td>
+</tr>
+<tr>
+<td><code>xerj_brain_overview</code> / <code>xerj_brain_ego</code> / <code>xerj_brain_link</code> / <code>xerj_brain_unlink</code></td>
+<td>ایندکس پیوندهای حافظه دوم (Second Brain): بررسی ساختار کلی، گسترش همسایگی یک گره با شواهد پشتیبان و ایجاد یا حذف پیوندها.</td>
+</tr>
+<tr>
+<td><code>xerj_plan</code></td>
+<td>دریافت فیلتر به زبان طبیعی و تبدیل آن به Query DSL اعتبارسنجی‌شده؛ از طریق <code>POST /_ask</code>. این قابلیت قطعی و مبتنی بر قواعد است و از LLM استفاده نمی‌کند.</td>
+</tr>
+</tbody>
+</table>
+
+<p dir="rtl" align="right">
+برای استفاده از <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_search</code></span>، مقدار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>{"prefix":"project","query":"retry policy"}</code></span> را ارسال کنید تا در ایندکس‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>project-*</code></span> جست‌وجو انجام شود؛ درست مانند اجرای دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj search --prefix project</code></span>.
+</p>
+
+<p dir="rtl" align="right">
+مقدار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>prefix</code></span> با همان تابعی پردازش می‌شود که CLI از آن استفاده می‌کند؛ یعنی پیشوندی که با گزینه <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj autoindex --prefix</code></span> ذخیره شده است. برای مثال، پیشوند <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>My_Proj</code></span> در ایندکس‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>my-proj-*</code></span> جست‌وجو می‌کند.
+</p>
+
+<p dir="rtl" align="right">
+به‌جای آن می‌توانید از <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>index</code></span> برای مشخص کردن نام یا الگوی یک ایندکس استفاده کنید؛ اما نمی‌توان هم‌زمان مقادیر غیرخالی برای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>index</code></span> و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>prefix</code></span> ارسال کرد. پیشوند خالی، پیشوندی که هیچ نویسه‌ای از مجموعه <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>[a-z0-9]</code></span> نداشته باشد یا پیشوندی که نتوان از آن نام یک ایندکس ساخت، باعث بروز خطا می‌شود. اگر هیچ‌کدام از این دو آرگومان ارسال نشوند، جست‌وجو در <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>ax-*</code></span> انجام می‌شود.
+</p>
+
+<p dir="rtl" align="right">
+برای فراخوانی‌های جدید، مقدار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>query</code></span> باید یک رشته متنی ساده باشد و Query DSL ساختاریافته Elasticsearch باید در فیلد <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>query_dsl</code></span> قرار بگیرد؛ برای مثال:
+<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>{"index":"docs","query_dsl":{"match_all":{}}}</code></span>.
+این دو فیلد را هم‌زمان ارسال نکنید.
+</p>
+
+<p dir="rtl" align="right">
+برای ساده‌تر شدن فراخوانی ابزارها، طرح‌واره منتشرشده این دو نوع را از یکدیگر جدا می‌کند (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">#2549</span>)؛ با این حال، این طرح‌واره نمی‌تواند تضمین کند که مدل JSON معتبری تولید می‌کند. فراخوانی‌های قدیمی‌تر همچنان می‌توانند یک شیء را در فیلد <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>query</code></span> ارسال کنند و اگر هر دو فیلد حذف شوند، رفتار پیش‌فرض <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>match_all</code></span> برای مرور داده‌ها حفظ می‌شود. در مواردی که هدف مرور داده‌هاست، بهتر است از یک عبارت صریح در <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>query_dsl</code></span> استفاده کنید.
+</p>
+
+<p dir="rtl" align="right">
+ابزارهای جست‌وجو و دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj batch-search</code></span>، در صورتی که مقدار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>max_tokens</code></span> حذف شده باشد یا مقدار آن <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>null</code></span> باشد، به‌صورت پیش‌فرض از بودجه ۸٬۰۰۰ واژه‌ای بر اساس استاندارد UAX #29 استفاده می‌کنند. ارسال یک عدد صحیح بزرگ‌تر، شواهد بیشتری را درخواست می‌کند و گزارش حسابداری مشخص می‌کند که چه مواردی و چرا کوتاه شده‌اند.
+</p>
+
+<p dir="rtl" align="right">
+این محدودیت، سقف تعداد بایت‌ها یا محدودیت توکن‌های مدل و BPE نیست. خطاها و هشدارهای ضروری مربوط به قدیمی بودن داده‌ها در <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_search</code></span> نیز خارج از این بودجه قرار دارند و همچنان نمایش داده می‌شوند.
+</p>
+
+<p dir="rtl" align="right">
+ابزار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_def</code></span> تعاریف محلی را با همان پرس‌وجو، رتبه‌بندی و حذف نتایج تکراری بر اساس محل، مشابه دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj def --json</code></span> پیدا می‌کند.
+</p>
+
+<p dir="rtl" align="right">
+برای مثال، مقدار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>{"symbol":"Cache","prefix":"project","kind":"struct","lang":"rust","k":5}</code></span> در ایندکس‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>project-*</code></span> جست‌وجو می‌کند. می‌توان به‌جای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>prefix</code></span> از <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>index</code></span> استفاده کرد؛ قواعد محدوده جست‌وجو نیز مشابه <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_search</code></span> هستند.
+</p>
+
+<p dir="rtl" align="right">
+فیلد <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>symbol</code></span> علاوه بر نام نمادها، عبارت‌هایی را نیز می‌پذیرد که یک قابلیت را توصیف می‌کنند. مقدار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>k</code></span> باید بین ۱ تا ۵۰ باشد و مقدار پیش‌فرض آن ۵ است. فیلد اختیاری <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>max_tokens</code></span> نیز سقف حجم پاسخ را مشخص می‌کند.
+</p>
+
+<p dir="rtl" align="right">
+نتایج در قالب JSON مربوط به Elasticsearch برگردانده می‌شوند: اعلان‌ها در <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>hits.hits[].\_source.code</code></span>، موقعیت‌ها در <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>ax_path</code></span> یا <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>path</code></span> و شماره خطوط در <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>line</code></span> یا <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>start_line</code></span> قرار دارند. نتایج فایل‌های قدیمی‌تر ممکن است از <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>fields.\_passage</code></span> استفاده کنند.
+</p>
+
+<p dir="rtl" align="right">
+مقدار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>hits.total</code></span> تعداد تطبیق‌های موتور جست‌وجو را پیش از حذف موارد تکراری نشان می‌دهد. در صورت نبود نتیجه، فهرست <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>hits</code></span> خالی برگردانده می‌شود.
+</p>
+
+<p dir="rtl" align="right">
+مانند CLI، فیلترهای نوع و زبان در صورتی نادیده گرفته می‌شوند که هیچ‌یک از ایندکس‌های هدف، فیلد مربوطه را نگاشت نکرده باشند یا حداقل یکی از ایندکس‌های هدف آن فیلد را به‌صورت عددی نگاشت کرده باشد. رتبه‌بندی نتایج واژگانی است. این ابزار روی نود پیکربندی‌شده جست‌وجو می‌کند؛ در مقابل، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_hub_def</code></span> تعاریف را در یک بسته مشخص از Hub جست‌وجو می‌کند.
+</p>
+
+<p dir="rtl" align="right">
+دو ابزار دیگر، پراکسی ساده‌ای برای یک نقطه پایانی نیستند: ابزار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_map</code></span> نقشه فیلدهای هر ایندکس را از کاتالوگ autoindex برمی‌گرداند؛ خروجی آن در صورت نیاز تا سقف مشخصی از بایت‌ها کوتاه می‌شود و در غیر این صورت بدون تغییر ارائه می‌شود. ابزار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_code_search</code></span> نیز خط لوله برنامه‌نویسی مبتنی بر ارجاع را از طریق دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj code</code></span> اجرا می‌کند؛ این قابلیت در پوشه <a href="tools/xerj-code/"><code>tools/xerj-code/</code></a> قرار دارد و متن پردازش‌شده خود را برمی‌گرداند.
+</p>
+
+<p dir="rtl" align="right">
+ابزار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_index_budget</code></span> پیش از آنکه دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj autoindex</code></span> هر فایلی را هش کند، تعداد فایل‌های یک پوشه را محاسبه و حجم ایندکس آن را بر اساس بودجه فضای دیسک نود تخمین می‌زند؛ این ابزار هیچ ایندکسی ایجاد نمی‌کند.
+</p>
+
+<p dir="rtl" align="right">
+ابزار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_autoindex_remove</code></span> پس از نمایش فهرست پوشه‌های ایندکس‌شده، یک پوشه را از فهرست autoindex حذف می‌کند؛ اما تا زمانی که مقدار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>confirm</code></span> برابر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>true</code></span> نباشد، هیچ داده‌ای حذف نمی‌شود.
+</p>
+
+<p dir="rtl" align="right">
+ابزار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_status</code></span> با حداکثر سه درخواست محدودشده، بنر نود، سلامت کلاستر و ایندکس‌های قابل مشاهده را بررسی می‌کند. نبود کاتالوگ autoindex به این معنا نیست که نود هیچ داده‌ای ندارد؛ درخواست‌های ردشده یا پاسخ‌های نامعتبر نیز به‌عنوان خطا یا وضعیت نامشخص گزارش می‌شوند.
+</p>
+
+<p dir="rtl" align="right">
+ابزار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_batch_search</code></span> نتایج را در دسته‌های مرتب‌شده، همراه با وضعیت هر مورد و ارجاعات آن، بازیابی می‌کند. ابزار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_corpus_feedback</code></span> برای ثبت ارزیابی یک مجموعه‌داده در Hub استفاده می‌شود.
+</p>
+
+<p dir="rtl" align="right">
+ابزار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_field_report</code></span> یک گزارش میدانی ثبت می‌کند. ابزارهای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_hub_find</code></span>، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_hub_def</code></span> و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_hub_ask</code></span> نیز با استفاده از بسته‌های Corpus Hub که از قبل روی سیستم قرار دارند، به پرس‌وجوها پاسخ می‌دهند؛ این همان جریان کاری دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj ask</code></span> است.
+</p>
+
+<p dir="rtl" align="right">
+اجرای دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj mcp --help</code></span> همان بلوک تنظیمات و فهرست کامل گزینه‌ها را نمایش می‌دهد.
+</p>
+
+<p dir="rtl" align="right">
+طرح‌واره‌های قابل‌خواندن توسط ماشین برای ابزارها در این نشانی منتشر شده‌اند:
+<a href="https://xerj.org/docs/agents/schemas/mcp-tools.json">xerj.org/docs/agents/schemas/mcp-tools.json</a>.
+این طرح‌واره‌ها مستقیماً از یک فراخوانی زنده <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>tools/list</code></span> تولید می‌شوند و به‌صورت دستی نوشته نشده‌اند. همچنین با بررسی‌های CI در فایل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>scripts/mcp-schema-check.sh</code></span> و یک تست واحد کنترل می‌شوند تا فهرست منتشرشده هیچ‌گاه با فهرست ابزارهای واقعی سرور مغایرت پیدا نکند.
+</p>
