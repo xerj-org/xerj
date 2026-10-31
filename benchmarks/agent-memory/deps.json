@@ -1,0 +1,12 @@
+{
+ "method": "Python: `uv pip compile -p 3.12` on the exact spec we installed, count of resolved packages (includes the package itself). npm: `npm install --package-lock-only --omit=optional`, count of non-optional packages in package-lock.json (includes the package itself). Measured 2026-10-31.",
+ "systems": {
+  "xerj": {"install": "download the release tarball (one binary)", "spec": "xerj v1.0.0-rc.100 x86_64-unknown-linux-gnu", "packages": 0, "extra_runtime": "none; the MiniLM model ships inside the binary for --embed-mode neural"},
+  "mem0": {"install": "pip install mem0ai fastembed", "spec": "mem0ai==2.2.1, fastembed", "packages": 50, "extra_runtime": "embedder and LLM are configured in code; Qdrant runs in local mode"},
+  "mempalace": {"install": "pip install mempalace", "spec": "mempalace==3.11.0", "packages": 86, "extra_runtime": "embeds with all-MiniLM-L6-v2 (ONNX) through Chroma"},
+  "reme": {"install": "pip install 'reme-ai[as]'", "spec": "reme-ai[as]==0.4.2.1", "packages": 138, "extra_runtime": "`reme start` service; embeddings need an OpenAI-compatible endpoint (default config points at DashScope)"},
+  "agentmemory": {"install": "npm install @agentmemory/agentmemory", "spec": "@agentmemory/agentmemory@0.9.31", "packages": 143, "extra_runtime": "downloads the iii-engine v0.25.0 runtime binary on first start"},
+  "mcp-memory-service": {"install": "pip install 'mcp-memory-service[sqlite]'", "spec": "mcp-memory-service[sqlite]==12.4.0", "packages": 72, "extra_runtime": "embeds with all-MiniLM-L6-v2 (ONNX)"},
+  "memvid": {"install": "pip install memvid-sdk", "spec": "memvid-sdk==2.0.160", "packages": 2, "extra_runtime": "none for lexical search; local embeddings need the fastembed feature, which this platform build lacks"}
+ }
+}

@@ -1,0 +1,114 @@
+{
+ "fetched_at": "2026-10-31T07:39:38+00:00",
+ "command": "gh api repos/<owner>/<repo>",
+ "repos": [
+  {
+   "full_name": "thedotmack/claude-mem",
+   "license": "Apache-2.0",
+   "pushed_at": "2026-10-31T02:09:54Z",
+   "stargazers_count": 106728
+  },
+  {
+   "full_name": "mem0ai/mem0",
+   "license": "Apache-2.0",
+   "pushed_at": "2026-10-30T21:36:23Z",
+   "stargazers_count": 68132
+  },
+  {
+   "full_name": "MemPalace/mempalace",
+   "license": "MIT",
+   "pushed_at": "2026-10-31T05:41:28Z",
+   "stargazers_count": 60171
+  },
+  {
+   "full_name": "vectorize-io/hindsight",
+   "license": "MIT",
+   "pushed_at": "2026-10-31T04:26:20Z",
+   "stargazers_count": 56745
+  },
+  {
+   "full_name": "topoteretes/cognee",
+   "license": "Apache-2.0",
+   "pushed_at": "2026-10-30T20:04:38Z",
+   "stargazers_count": 32941
+  },
+  {
+   "full_name": "getzep/graphiti",
+   "license": "Apache-2.0",
+   "pushed_at": "2026-10-28T23:22:52Z",
+   "stargazers_count": 32380
+  },
+  {
+   "full_name": "supermemoryai/supermemory",
+   "license": "MIT",
+   "pushed_at": "2026-10-30T21:21:21Z",
+   "stargazers_count": 31474
+  },
+  {
+   "full_name": "TencentCloud/TencentDB-Agent-Memory",
+   "license": "NOASSERTION",
+   "pushed_at": "2026-10-28T14:33:21Z",
+   "stargazers_count": 30291
+  },
+  {
+   "full_name": "rohitg00/agentmemory",
+   "license": "Apache-2.0",
+   "pushed_at": "2026-10-29T15:58:00Z",
+   "stargazers_count": 30041
+  },
+  {
+   "full_name": "letta-ai/letta",
+   "license": "Apache-2.0",
+   "pushed_at": "2026-10-18T22:28:04Z",
+   "stargazers_count": 25301
+  },
+  {
+   "full_name": "xerj-org/xerj",
+   "license": "Apache-2.0",
+   "pushed_at": "2026-10-31T07:24:44Z",
+   "stargazers_count": 17801
+  },
+  {
+   "full_name": "memvid/memvid",
+   "license": "Apache-2.0",
+   "pushed_at": "2026-07-14T14:39:07Z",
+   "stargazers_count": 17323
+  },
+  {
+   "full_name": "MemoriLabs/Memori",
+   "license": "NOASSERTION",
+   "pushed_at": "2026-10-03T01:33:14Z",
+   "stargazers_count": 17242
+  },
+  {
+   "full_name": "NevaMind-AI/memU",
+   "license": "NOASSERTION",
+   "pushed_at": "2026-10-31T07:09:48Z",
+   "stargazers_count": 14584
+  },
+  {
+   "full_name": "EverMind-AI/EverOS",
+   "license": "Apache-2.0",
+   "pushed_at": "2026-10-30T08:54:31Z",
+   "stargazers_count": 13729
+  },
+  {
+   "full_name": "MemTensor/MemOS",
+   "license": "Apache-2.0",
+   "pushed_at": "2026-10-29T11:26:35Z",
+   "stargazers_count": 12204
+  },
+  {
+   "full_name": "agentscope-ai/ReMe",
+   "license": "Apache-2.0",
+   "pushed_at": "2026-10-30T03:21:51Z",
+   "stargazers_count": 3727
+  },
+  {
+   "full_name": "doobidoo/mcp-memory-service",
+   "license": "Apache-2.0",
+   "pushed_at": "2026-10-31T07:13:48Z",
+   "stargazers_count": 2056
+  }
+ ]
+}

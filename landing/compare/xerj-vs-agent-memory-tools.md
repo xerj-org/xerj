@@ -2,13 +2,13 @@
 ---
 title: "XERJ vs Mem0, Zep, Letta and Cognee for agent memory"
 canonical: "https://xerj.org/compare/xerj-vs-agent-memory-tools"
-updated: "2026-10-30"
+updated: "2026-10-31"
 source: "content/compare/xerj-vs-agent-memory-tools.md"
 ---
 
 # XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee
 
-**Short answer** (updated 2026-10-30): Should I use Mem0, Zep, Letta, Cognee or XERJ for agent memory? Pick Mem0 or Cognee to have a model extract facts and links for you, Zep or Graphiti for facts that change over time, Letta for a full stateful agent. Pick XERJ for plain local memory, searched like any other data, with no generative fact-extraction step.
+**Short answer** (updated 2026-10-31): Should I use Mem0, Zep, Letta, Cognee or XERJ for agent memory? Pick Mem0 or Cognee to have a model extract facts and links for you, Zep or Graphiti for facts that change over time, Letta for a full stateful agent. Pick XERJ for plain local memory, searched like any other data, with no generative fact-extraction step.
 
 **TL;DR**: Mem0, Zep, Letta and Cognee add intelligence on top of memory: models that extract facts, graphs that track change, or a whole agent runtime. XERJ does less on purpose. It stores what your agent writes and finds it with search, in one local binary with no generative fact-extraction step. No head-to-head was run.
 
@@ -51,7 +51,7 @@ curl -s -XPOST 'http://127.0.0.1:9200/_memory/project/_recall' -H 'content-type:
 | Mem0 | fact extraction by default; raw inserts with infer=false | LLM extraction optional; embeddings still apply | Apache 2.0 |
 | Zep and Graphiti | Zep Cloud, plus the open Graphiti framework for temporal context graphs | Graphiti: you supply the LLM | Graphiti: Apache 2.0 |
 | Letta | harness for stateful agents with memory blocks and MemFS | runs your agent's model | Apache 2.0 |
-| Cognee | memory platform that builds a graph of entities and relationships | local extraction and embedding models; LLM optional | Apache 2.0 |
+| Cognee | memory platform that builds a graph of entities and relationships | local extraction model and embedder; LLM optional | Apache 2.0 |
 | XERJ | search engine for AI agents with a memory API | lexical by default; neural/proxy embedder optional | Apache 2.0 |
 
 Each row comes from the project's own README, linked in the sources.
@@ -72,7 +72,7 @@ Choose Zep Cloud when you want Zep to run it for you. Choose self-hosted Graphit
 
 ## When to choose Letta instead
 
-Choose Letta when you want the whole agent, not just a store. It puts memory blocks, a memory filesystem, skills and channels in one harness.
+Choose Letta when you want the whole agent and not only a store. It puts memory blocks, a memory filesystem, skills and channels in one harness.
 
 ## When to choose Cognee instead
 
@@ -92,7 +92,7 @@ XERJ is single-node: no replication and no failover. It does not extract facts o
 
 ## What was not measured
 
-No head-to-head was run. No accuracy, speed or cost numbers are claimed for any tool here. Competitor behavior is described from the linked project documentation, checked on 2026-10-29. These integrations were not executed in this review.
+This page compares design, not scores. Zep, Letta and Cognee were not run. For measured recall, update and speed numbers on mem0, MemPalace, ReMe, agentmemory, mcp-memory-service, memvid and XERJ, see the [AI agent memory benchmark](/compare/ai-agent-memory-benchmark). Competitor behavior is described from the linked project documentation, checked on 2026-10-29. These integrations were not executed in this review.
 
 ## FAQ
 
@@ -132,6 +132,7 @@ No. No head-to-head was run. This page compares what each project documents abou
 
 ## Related
 
+- [AI agent memory compared: real tests on 7 open-source projects](/compare/ai-agent-memory-benchmark)
 - [XERJ vs Mem0: which memory fits your AI agent?](/compare/xerj-vs-mem0)
 - [claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?](/compare/xerj-vs-claude-mem-and-mempalace)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database)
@@ -141,5 +142,5 @@ No. No head-to-head was run. This page compares what each project documents abou
 - [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag)
 - [How do I stop an agent memory store from filling with near-duplicate notes?](/answers/store-agent-memory-without-llm-call)
 - [Should agent memory use a knowledge graph?](/answers/knowledge-graphs-for-agent-memory) (same intent: agent memory)
-- [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant) (same intent: agent memory)
-- [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory) (same intent: agent memory)
+- [XERJ vs agentmemory: which memory for your coding agent?](/compare/xerj-vs-agentmemory) (same intent: agent memory)
+- [XERJ vs memvid: one memory file or one local server?](/compare/xerj-vs-memvid) (same intent: agent memory)

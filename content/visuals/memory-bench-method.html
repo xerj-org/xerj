@@ -1,0 +1,11 @@
+<figure class="vz" id="fig-mb-method" aria-labelledby="fig-mb-method-cap">
+  <span class="vz-label">Diagram</span>
+  <p class="vz-title">How every system was tested</p>
+  <ol class="vz-flow">
+    <li><span class="vz-k">1. Same data</span><span class="vz-t">85 memories</span><span class="vz-d">Notes about one user and one project, written in 6 sessions. 15 facts change in later sessions.</span></li>
+    <li><span class="vz-k">2. Same calls</span><span class="vz-t">One adapter each</span><span class="vz-d">A short script calls the project's own write and search API with its default settings.</span></li>
+    <li><span class="vz-k">3. Same questions</span><span class="vz-t">75 recalls, top 5</span><span class="vz-d">25 with the same words, 25 reworded, 15 about changed facts, 10 near misses.</span></li>
+    <li class="is-hi"><span class="vz-k">4. Same scoring</span><span class="vz-t">One score script</span><span class="vz-d">Does a returned memory hold the answer? For a changed fact, does the new value rank above the old?</span></li>
+  </ol>
+  <figcaption id="fig-mb-method-cap">Every adapter, the data set and the scoring script are in benchmarks/agent-memory in the XERJ repository. Systems that need embeddings all used all-MiniLM-L6-v2 on CPU, so the model is the same and the design is what differs.</figcaption>
+</figure>

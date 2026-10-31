@@ -7,7 +7,7 @@ cluster: "Comparison: agent memory"
 question: "Should I use claude-mem, MemPalace or XERJ as memory for Claude Code?"
 intent: "comparison"
 published: "2026-10-30"
-updated: "2026-10-30"
+updated: "2026-10-31"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "Article"
@@ -21,18 +21,24 @@ queries:
   - "best mcp memory server for claude code"
   - "claude-mem vs mempalace"
 links_out:
+  - "/compare/ai-agent-memory-benchmark"
   - "what-is-an-mcp-memory-server"
   - "claude-code-memory"
   - "search-claude-code-past-sessions"
   - "/compare/xerj-vs-mem0"
   - "coding-agent-memory-across-sessions"
+evidence:
+  - claim: "MemPalace 3.11.0 at defaults: top 5 84.0%, reworded questions 56%. XERJ semantic: 94.7%, reworded 84%."
+    source: "benchmarks/agent-memory/out/summary.csv"
+  - claim: "The MemPalace README reports 96.6% R@5 raw on LongMemEval with zero API calls."
+    source: "https://github.com/MemPalace/mempalace"
 faq:
   - q: "What is the difference between claude-mem and MemPalace?"
     a: "claude-mem has a model compress each session into short observations and adds them at the next session start. MemPalace stores the conversation word for word and finds it with search, with no summary step."
   - q: "Does claude-mem need a paid service?"
     a: "Its installer offers a hosted observer with a 30 day free trial. You can instead pass a --provider flag to use your own OpenRouter or Gemini key, or your Anthropic plan."
   - q: "Is MemPalace's 96.6% score independent?"
-    a: "No. MemPalace reports 96.6% R@5 on LongMemEval in raw mode in its own README. We did not rerun it."
+    a: "No. MemPalace reports 96.6% R@5 on LongMemEval in raw mode in its own README. We did not rerun LongMemEval. On our own 75 question test at default settings, MemPalace 3.11.0 found the right memory in the top 5 for 84.0% of questions."
   - q: "How is XERJ different from both?"
     a: "XERJ has no hooks. The agent saves and recalls through MCP tools when it decides to. The same local engine also searches logs, docs, code and past session files."
   - q: "Can I use more than one?"
@@ -49,14 +55,14 @@ claude-memory-designs
 
 ## Side by side
 
-Read from each project's README and the XERJ source on 2026-10-30. We did not run a head-to-head benchmark.
+Read from each project's README and the XERJ source on 2026-10-30. Our [agent memory benchmark](/compare/ai-agent-memory-benchmark) has MemPalace results. It has none for claude-mem, which has no standalone store to call.
 
 | | claude-mem | MemPalace | XERJ |
 | --- | --- | --- | --- |
 | How it saves | Lifecycle hooks, automatic | Hooks, periodically and before compaction | The agent calls `xerj_memory_store` |
 | What it keeps | Model-written observations and summaries | Original text, word for word | The text the agent sends |
 | Model on write | Yes: hosted observer, your key, or your Anthropic plan | No, in raw mode | No |
-| Search | SQLite FTS5 plus Chroma | ChromaDB by default; other backends | BM25, semantic or hybrid in one index |
+| Search | SQLite FTS5 plus Chroma | ChromaDB by default; other backends | BM25 by default; semantic or hybrid in neural mode |
 | How it recalls | Context at session start, plus MCP search | MCP tools and a recall skill | MCP `xerj_memory_recall` or HTTP |
 | Runtime | Bun worker service | Python package | One binary |
 | Other agents | Codex, OpenCode and others | Codex CLI and Cursor hooks | Any MCP client or HTTP caller |
@@ -77,6 +83,8 @@ Pick it when you want memory that works without the agent thinking about it.
 ## MemPalace in short
 
 MemPalace keeps the conversation as written, with no summarizing. It organizes text into wings, rooms and drawers so searches can be scoped. ChromaDB is the default backend and others can be plugged in. Its README reports 96.6% R@5 on LongMemEval in raw mode with no API calls; that is the project's own number.
+
+Our benchmark gave every system the same 85 memories and 75 questions. MemPalace 3.11.0 at its defaults found the right memory in the top 5 for 84.0% of questions and 56% of reworded ones. XERJ semantic recall, with the same MiniLM model, found 94.7% and 84%. MemPalace's median query took 22.7 ms and XERJ's 6.3 ms.
 
 Pick it when you never want a model to decide what to forget.
 
