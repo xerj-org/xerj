@@ -36,7 +36,8 @@ marketplace. Both use the same `xerj mcp` server and can be installed together.
 ## What is stored, and how to remove it
 
 The index lives in the data folder you started XERJ with (`~/xerj-data` above).
-To remove one folder's index: `xerj autoindex remove --prefix <name>`. To remove
+To remove one folder's index: `xerj autoindex remove --prefix <name>` shows what
+would be deleted, and adding `--yes` deletes it. To remove
 everything, stop XERJ and delete that data folder.
 
 ## Status
