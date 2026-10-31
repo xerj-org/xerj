@@ -148,5 +148,5 @@ Only if you ask. Plain `query` runs BM25, `semantic: true` embeds server-side, a
 - [What is agentic memory?](/answers/what-is-agentic-memory)
 - [What is an MCP memory server?](/answers/what-is-an-mcp-memory-server)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database) (same intent: agent memory)
-- [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag) (same intent: agent memory)
-- [How can agent-memory links retain evidence?](/answers/evidence-for-agent-memory-links) (same intent: agent memory)
+- [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory) (same intent: agent memory)
+- [claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?](/compare/xerj-vs-claude-mem-and-mempalace) (same intent: agent memory)

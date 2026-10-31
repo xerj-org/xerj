@@ -1,0 +1,28 @@
+<figure class="vz" id="fig-cc-layers" aria-labelledby="fig-cc-layers-cap">
+  <span class="vz-label">Diagram</span>
+  <p class="vz-title">Where Claude Code memory comes from</p>
+  <div class="vz-svg">
+    <svg viewBox="0 0 720 250" role="img" aria-describedby="fig-cc-layers-svg" aria-label="Where Claude Code memory comes from">
+      <desc id="fig-cc-layers-svg">Three sources feed a Claude Code session. CLAUDE.md files you write and the auto memory index Claude writes load at session start. An MCP memory server such as XERJ is read only when the agent calls it.</desc>
+      <rect class="vz-s-box" x="10" y="20" width="200" height="90" rx="4"/>
+      <text class="vz-s-t vz-s-b" x="110" y="48" text-anchor="middle">CLAUDE.md files</text>
+      <text class="vz-s-m vz-s-mute" x="110" y="70" text-anchor="middle">You write them</text>
+      <text class="vz-s-m vz-s-mute" x="110" y="90" text-anchor="middle">Load every session</text>
+      <rect class="vz-s-box" x="10" y="140" width="200" height="90" rx="4"/>
+      <text class="vz-s-t vz-s-b" x="110" y="168" text-anchor="middle">Auto memory</text>
+      <text class="vz-s-m vz-s-mute" x="110" y="190" text-anchor="middle">Claude writes it</text>
+      <text class="vz-s-m vz-s-mute" x="110" y="210" text-anchor="middle">MEMORY.md loads at start</text>
+      <path class="vz-s-line" d="M210 65 L300 115"/>
+      <path class="vz-s-line" d="M210 185 L300 135"/>
+      <rect class="vz-s-hi" x="300" y="90" width="150" height="70" rx="4"/>
+      <text class="vz-s-t vz-s-b" x="375" y="122" text-anchor="middle">Session context</text>
+      <text class="vz-s-m vz-s-mute" x="375" y="142" text-anchor="middle">what the model sees</text>
+      <path class="vz-s-line vz-s-dash" d="M540 125 L450 125"/>
+      <rect class="vz-s-box" x="540" y="80" width="170" height="90" rx="4"/>
+      <text class="vz-s-t vz-s-b" x="625" y="108" text-anchor="middle">MCP memory server</text>
+      <text class="vz-s-m vz-s-mute" x="625" y="130" text-anchor="middle">e.g. XERJ</text>
+      <text class="vz-s-m vz-s-mute" x="625" y="150" text-anchor="middle">Read only when called</text>
+    </svg>
+  </div>
+  <figcaption id="fig-cc-layers-cap">The two built-in systems load on their own. A memory server adds search over more than fits in context, and only costs tokens when the agent asks. Based on the Claude Code memory docs, checked 2026-10-30.</figcaption>
+</figure>

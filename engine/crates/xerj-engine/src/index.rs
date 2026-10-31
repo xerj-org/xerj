@@ -2273,6 +2273,83 @@ mod flush_publication_recovery_tests {
         drop(cached);
     }
 
+    /// #2427: a doc-values decode the hydration cache refuses is rebuilt by
+    /// every query, and it must hold a read-budget reservation for as long
+    /// as a query holds it, the same as a transient stored-slices build. A
+    /// decode the cache keeps reserves nothing.
+    ///
+    /// Fails before the fix: the refused decode was served uncached with no
+    /// reservation, so the read budget saw 0 bytes.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn transient_doc_values_hold_a_read_reservation_until_dropped_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("status", FieldType::Keyword))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("bytes", FieldType::Long))
+            .unwrap();
+        engine.create_index("dv-read-budget", schema).unwrap();
+        let idx = engine.get_index("dv-read-budget").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..2048u64 {
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"status": format!("s{}", i % 37), "bytes": i * 7}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        let seg = idx.store.snapshot().segments[0].clone();
+        let segments_dir = idx.data_dir.join("segments");
+        assert!(
+            segments_dir.join(format!("{}.dv", seg.id)).exists(),
+            "precondition: the segment has a doc-values sidecar"
+        );
+        let read = ReadTransientBudget::new(1 << 30, std::time::Duration::from_secs(5));
+        idx.release_memory();
+        assert!(!idx.dv_cache.contains_key(&seg.id), "precondition: cold");
+
+        // No room in the cache: transient, reserved until the value drops.
+        let full = SegmentHydrationBudget::new(0);
+        let cols = idx
+            .dv_columns_for_with(&segments_dir, &seg.id, &full, &read)
+            .expect("doc values decode");
+        assert!(!idx.dv_cache.contains_key(&seg.id));
+        let decoded: u64 = cols
+            .value()
+            .values()
+            .map(|c| c.estimated_retained_bytes())
+            .sum();
+        let held = read.snapshot().current;
+        assert!(
+            decoded > 0 && held >= decoded,
+            "the transient decode must reserve at least its decoded bytes ({held} held, {decoded} decoded)"
+        );
+        let second = Arc::clone(&cols);
+        drop(cols);
+        assert_eq!(read.snapshot().current, held, "a live reader keeps it");
+        drop(second);
+        assert_eq!(read.snapshot().current, 0, "released with the last reader");
+
+        // Room in the cache: admitted, nothing reserved.
+        let roomy = SegmentHydrationBudget::new(u64::MAX);
+        let cached = idx
+            .dv_columns_for_with(&segments_dir, &seg.id, &roomy, &read)
+            .expect("doc values decode");
+        assert!(idx.dv_cache.contains_key(&seg.id));
+        assert_eq!(read.snapshot().current, 0);
+        assert_eq!(
+            read.snapshot().admitted,
+            1,
+            "only the transient decode reserved"
+        );
+        drop(cached);
+    }
+
     fn topk_projection_config(dir: &std::path::Path) -> Config {
         let mut config = Config::default();
         config.server.data_dir = dir.to_string_lossy().into_owned();
@@ -8202,6 +8279,82 @@ mod semantic_deadline_regression_tests {
         assert!(sync_idx.passage_chunks_require_exact("body_vector"));
     }
 
+    /// #2427: a vector-bearing batch goes into the graph through one
+    /// parallel-planned `insert_batch`. Every doc must still get exactly one
+    /// live node, a doc id repeated inside the batch must tombstone its
+    /// earlier node (the per-doc update semantics), and the graph must
+    /// answer exact nearest-neighbour queries.
+    #[tokio::test]
+    async fn batched_hnsw_inserts_keep_per_doc_semantics_2427() {
+        let dir = TempDir::new().unwrap();
+        let engine_instance = engine(&dir);
+        let mut schema = Schema::empty();
+        let mut vector = FieldConfig::new("v", FieldType::Vector);
+        vector.options.dimensions = Some(8);
+        vector.options.similarity = Some("cosine".into());
+        schema.add_field(vector).unwrap();
+        engine_instance
+            .create_index("batched-hnsw", schema)
+            .unwrap();
+        let idx = engine_instance.get_index("batched-hnsw").unwrap();
+
+        let vector_for = |i: usize| -> Vec<f32> {
+            (0..8u64)
+                .map(|d| {
+                    let h = (i as u64 * 8 + d + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                    ((h >> 40) % 2001) as f32 / 1000.0 - 1.0
+                })
+                .collect()
+        };
+        let mut docs: Vec<(String, Value)> = (0..1500)
+            .map(|i| {
+                (
+                    format!("doc-{i}"),
+                    serde_json::json!({ "text": "t", "v": vector_for(i) }),
+                )
+            })
+            .collect();
+        // Re-index doc-7 later in the same batch with doc-1234's vector.
+        docs.push((
+            "doc-7".to_string(),
+            serde_json::json!({ "text": "t", "v": vector_for(1234) }),
+        ));
+        idx.index_batch_turbo(docs, true, false).await.unwrap();
+
+        let (graph_len, tombstones) = {
+            let guard = idx.hnsw.read().await;
+            let hnsw = guard.as_ref().expect("graph built");
+            (hnsw.len(), hnsw.tombstone_count())
+        };
+        assert_eq!(graph_len, 1501, "one node per inserted vector");
+        assert_eq!(
+            tombstones, 1,
+            "the in-batch update tombstones doc-7's first node"
+        );
+        let id_map = idx.hnsw_id_map.read().await.clone();
+        let id_rev = idx.hnsw_id_rev.read().await.clone();
+        assert_eq!(id_map.len(), 1500);
+        assert_eq!(id_rev.len(), 1500);
+        for (doc_id, node) in &id_map {
+            assert_eq!(id_rev.get(node), Some(doc_id));
+        }
+        assert_eq!(idx.vector_doc_count.load(Ordering::Relaxed), 1500);
+
+        for probe in [0usize, 333, 999, 1499] {
+            let hits = idx.knn_search(&vector_for(probe), 1).await;
+            assert_eq!(
+                hits.first().map(|h| h.0.as_str()),
+                Some(format!("doc-{probe}").as_str())
+            );
+        }
+        // doc-7 now carries doc-1234's vector; its old vector is gone.
+        let hits = idx.knn_search(&vector_for(1234), 2).await;
+        let ids: HashSet<&str> = hits.iter().map(|h| h.0.as_str()).collect();
+        assert_eq!(ids, HashSet::from(["doc-7", "doc-1234"]));
+        let hits = idx.knn_search(&vector_for(7), 1).await;
+        assert_ne!(hits.first().map(|h| h.0.as_str()), Some("doc-7"));
+    }
+
     #[tokio::test]
     async fn hnsw_save_racing_first_passage_write_reopens_fail_closed() {
         let dir = TempDir::new().unwrap();
@@ -13019,9 +13172,13 @@ impl Index {
                 })
                 .unwrap_or(false)
         }) {
-            for ingest in &processed {
-                self.index_vectors(&ingest.id, &ingest.source).await;
-            }
+            self.index_vectors_batch(
+                processed
+                    .iter()
+                    .map(|ingest| (ingest.id.as_str(), ingest.source.as_ref()))
+                    .collect(),
+            )
+            .await;
         }
 
         // ── Step 5: check flush threshold ─────────────────────────────────
@@ -13473,9 +13630,13 @@ impl Index {
         if let Some((doc, _)) = docs.first() {
             self.publication_test_point(doc, PublicationTestPoint::RawBeforeHnsw);
         }
-        for (doc, source) in docs.iter().zip(&sources) {
-            self.index_vectors(&doc.0, source).await;
-        }
+        self.index_vectors_batch(
+            docs.iter()
+                .zip(&sources)
+                .map(|(doc, source)| (doc.0.as_str(), source.as_ref()))
+                .collect(),
+        )
+        .await;
 
         self.maybe_spawn_flush().await;
 
@@ -13804,11 +13965,14 @@ impl Index {
             #[cfg(test)]
             self.publication_test_point(&vector_sources[0].0, PublicationTestPoint::RawBeforeHnsw);
             let rt = self.flush_signal.runtime().expect("validated above");
-            rt.block_on(async {
-                for (id, source) in vector_sources {
-                    self.index_vectors(&id, &source).await;
-                }
-            });
+            rt.block_on(
+                self.index_vectors_batch(
+                    vector_sources
+                        .iter()
+                        .map(|(id, source)| (id.as_str(), source.as_ref()))
+                        .collect(),
+                ),
+            );
         }
 
         for shard in touched_shards {
@@ -16990,20 +17154,53 @@ impl Index {
     /// node before inserting the fresh vector — otherwise the graph would
     /// keep serving the pre-update vector forever.
     async fn index_vectors(&self, doc_id: &str, source: &Value) {
+        if let Some(vector) = self.graph_vector_for(doc_id, source).await {
+            self.hnsw_insert_vector(doc_id, vector).await;
+        }
+    }
+
+    /// [`index_vectors`](Self::index_vectors) for a whole batch (#2427):
+    /// every doc's SQ8 codes and graph field are handled in order exactly as
+    /// the per-doc path does, but the graph inserts go through one
+    /// [`hnsw_insert_vectors`](Self::hnsw_insert_vectors) call, whose
+    /// construction searches run in parallel. A doc id repeated inside the
+    /// batch flushes the inserts collected so far first, so the later
+    /// version still tombstones the earlier one.
+    ///
+    /// Takes a collected `Vec`, not an iterator: a borrowing iterator held
+    /// across the `.await`s makes the future not provably `Send`.
+    async fn index_vectors_batch(&self, docs: Vec<(&str, &Value)>) {
+        let mut pending: Vec<(String, Vec<f32>)> = Vec::new();
+        let mut pending_ids: HashSet<&str> = HashSet::new();
+        for (doc_id, source) in docs {
+            let Some(vector) = self.graph_vector_for(doc_id, source).await else {
+                continue;
+            };
+            if !pending_ids.insert(doc_id) {
+                self.hnsw_insert_vectors(std::mem::take(&mut pending)).await;
+                pending_ids.clear();
+                pending_ids.insert(doc_id);
+            }
+            pending.push((doc_id.to_string(), vector));
+        }
+        self.hnsw_insert_vectors(pending).await;
+    }
+
+    /// SQ8-ingest one doc and return the vector it contributes to the HNSW
+    /// graph (pinning the graph field on the first vector-bearing doc), or
+    /// `None` when it contributes none.
+    async fn graph_vector_for(&self, doc_id: &str, source: &Value) -> Option<Vec<f32>> {
         // #392: SQ8 code stores are maintained for EVERY scalar8 field on
         // every write, independent of the single field the HNSW graph pins.
         self.sq8_ingest(doc_id, source).await;
         let obj = match source.as_object() {
             Some(o) => o,
-            None => return,
+            None => return None,
         };
         let pinned: Option<String> = self.hnsw_field.read().unwrap().clone();
         if let Some(field) = pinned {
             // Enforced path: only the pinned field ever enters the graph.
-            if let Some(vector) = extract_numeric_vector(source, &field) {
-                self.hnsw_insert_vector(doc_id, vector).await;
-            }
-            return;
+            return extract_numeric_vector(source, &field);
         }
 
         // No pinned field yet. Cheap sync pre-screen: bail before any async
@@ -17024,15 +17221,12 @@ impl Index {
                     .unwrap_or(false)
         });
         if !has_candidate {
-            return;
+            return None;
         }
 
         // First vector-bearing doc: decide the field, then pin it under the
         // write lock (re-checking, so concurrent deciders agree on one).
-        let decided = match self.choose_hnsw_field(source).await {
-            Some(f) => f,
-            None => return,
-        };
+        let decided = self.choose_hnsw_field(source).await?;
         let field = {
             let mut fg = self.hnsw_field.write().unwrap();
             match fg.as_ref() {
@@ -17043,9 +17237,7 @@ impl Index {
                 }
             }
         };
-        if let Some(vector) = extract_numeric_vector(source, &field) {
-            self.hnsw_insert_vector(doc_id, vector).await;
-        }
+        extract_numeric_vector(source, &field)
     }
 
     /// Pick the field the HNSW graph will index, given the first
@@ -17084,57 +17276,134 @@ impl Index {
     /// insert error) — the doc then has no `hnsw_id_map` entry, so the
     /// coverage guard keeps the kNN query path on brute force.
     async fn hnsw_insert_vector(&self, doc_id: &str, vector: Vec<f32>) -> bool {
-        let dim = vector.len();
-        if dim == 0 {
-            return false;
+        self.hnsw_insert_vectors(vec![(doc_id.to_string(), vector)])
+            .await
+            .first()
+            .copied()
+            .unwrap_or(false)
+    }
+
+    /// Insert several docs' vectors (distinct doc ids) into the HNSW graph
+    /// under one write-guard hold, with the per-doc semantics of
+    /// [`hnsw_insert_vector`](Self::hnsw_insert_vector). Returns, per item,
+    /// whether it went in.
+    ///
+    /// #2427: the graph inserts go through [`HnswIndex::insert_batch`] on the
+    /// ingest pool, which runs the construction searches (the
+    /// `ef_construction` beams — ~a quarter of node CPU in the 1 GB gate) in
+    /// parallel and keeps only the link writes serial. Before, each doc's
+    /// whole insert ran serially on one runtime thread under the graph
+    /// write guard, so a vector-bearing bulk was bounded by one core no
+    /// matter how idle the rest of the machine was, and concurrent bulks
+    /// into one index queued behind each other. Inserts now hold the outer
+    /// guard shared, so concurrent batches also plan in parallel.
+    async fn hnsw_insert_vectors(&self, items: Vec<(String, Vec<f32>)>) -> Vec<bool> {
+        let mut inserted = vec![false; items.len()];
+        if items.iter().all(|(_, vector)| vector.is_empty()) {
+            return inserted;
         }
         // UPDATE staleness fix: a doc_id that already has a node must have
         // that node tombstoned before the fresh vector goes in (fresh
         // node_id; the old node is never unmarked).
-        let old_node: Option<u64> = self.hnsw_id_map.read().await.get(doc_id).copied();
-        if old_node.is_none() {
-            // Item 8: a new vector-bearing doc-id. Counted on ATTEMPT (here),
-            // not on success below: if the insert then fails (dim mismatch /
-            // graph error), `id_map.len()` stays behind `vector_doc_count`,
-            // which holds the coverage gate on brute force — the safe
-            // direction (a doc that isn't in the graph must not be answered
-            // from it). An update (old_node.is_some()) is already counted.
-            self.vector_doc_count.fetch_add(1, Ordering::Relaxed);
-        }
-        let node_id = self.hnsw_next_id.fetch_add(1, Ordering::Relaxed);
-        {
-            let mut hnsw_guard = self.hnsw.write().await;
-            if hnsw_guard.is_none() {
-                let params = HnswParams::new(dim, DistanceMetric::Cosine);
-                *hnsw_guard = Some(HnswIndex::new(params));
+        let old_nodes: Vec<Option<u64>> = {
+            let id_map = self.hnsw_id_map.read().await;
+            items
+                .iter()
+                .map(|(doc_id, _)| id_map.get(doc_id).copied())
+                .collect()
+        };
+        let mut node_ids = Vec::with_capacity(items.len());
+        for ((_, vector), old_node) in items.iter().zip(&old_nodes) {
+            if vector.is_empty() {
+                node_ids.push(None);
+                continue;
             }
-            if let Some(ref hnsw) = *hnsw_guard {
-                if hnsw.params().dim != dim {
-                    // Mismatched dimension — skip (no id_map entry → the
-                    // coverage guard keeps queries on brute force).
-                    return false;
+            if old_node.is_none() {
+                // Item 8: a new vector-bearing doc-id. Counted on ATTEMPT
+                // (here), not on success below: if the insert then fails (dim
+                // mismatch / graph error), `id_map.len()` stays behind
+                // `vector_doc_count`, which holds the coverage gate on brute
+                // force — the safe direction (a doc that isn't in the graph
+                // must not be answered from it). An update (old_node.is_some())
+                // is already counted.
+                self.vector_doc_count.fetch_add(1, Ordering::Relaxed);
+            }
+            node_ids.push(Some(self.hnsw_next_id.fetch_add(1, Ordering::Relaxed)));
+        }
+        let mut items = items;
+        {
+            // Inserts share the outer guard (#2427): `HnswIndex` serializes
+            // its own link writes under its inner lock, so concurrent batches
+            // only overlap in the read-only construction searches. The
+            // exclusive guard is taken once, to create the graph. Save and
+            // the ANN query paths stay fail-closed against a concurrent
+            // insert through the publication guard every vector write holds
+            // (`hnsw_publications_in_flight` / `hnsw_publication_generation`),
+            // not through this lock.
+            let hnsw_guard = {
+                let read = self.hnsw.read().await;
+                if read.is_some() {
+                    read
+                } else {
+                    drop(read);
+                    let mut write = self.hnsw.write().await;
+                    if write.is_none() {
+                        let dim = items
+                            .iter()
+                            .map(|(_, vector)| vector.len())
+                            .find(|&dim| dim > 0)
+                            .unwrap_or(0);
+                        let params = HnswParams::new(dim, DistanceMetric::Cosine);
+                        *write = Some(HnswIndex::new(params));
+                    }
+                    write.downgrade()
                 }
-                if let Some(old) = old_node {
+            };
+            let Some(ref hnsw) = *hnsw_guard else {
+                return inserted;
+            };
+            let dim = hnsw.params().dim;
+            let mut batch = Vec::with_capacity(items.len());
+            for (i, (_, vector)) in items.iter_mut().enumerate() {
+                // Mismatched dimension — skip (no id_map entry → the coverage
+                // guard keeps queries on brute force).
+                let Some(node_id) = node_ids[i] else { continue };
+                if vector.len() != dim {
+                    continue;
+                }
+                if let Some(old) = old_nodes[i] {
                     hnsw.mark_deleted(old);
                 }
-                let inserted = hnsw.insert(node_id, vector);
+                batch.push((node_id, std::mem::take(vector)));
+                inserted[i] = true;
+            }
+            if !batch.is_empty() {
+                let result = crate::ingest_pool().install(|| hnsw.insert_batch(batch));
                 self.hnsw_heap_bytes
                     .store(hnsw.heap_bytes(), Ordering::Relaxed);
-                if let Err(e) = inserted {
-                    warn!(doc_id, error = %e, "HNSW insert failed");
-                    return false;
+                if let Err(e) = result {
+                    // Unreachable after the dim filter above; fail safe by
+                    // leaving every item of the batch out of the id maps.
+                    warn!(error = %e, "HNSW batch insert failed");
+                    return vec![false; items.len()];
                 }
             }
         }
         // Update id maps.
         let mut id_map = self.hnsw_id_map.write().await;
         let mut id_rev = self.hnsw_id_rev.write().await;
-        if let Some(old) = old_node {
-            id_rev.remove(&old);
+        for (i, (doc_id, _)) in items.iter().enumerate() {
+            if !inserted[i] {
+                continue;
+            }
+            let node_id = node_ids[i].expect("inserted items have a node id");
+            if let Some(old) = old_nodes[i] {
+                id_rev.remove(&old);
+            }
+            id_map.insert(doc_id.clone(), node_id);
+            id_rev.insert(node_id, doc_id.clone());
         }
-        id_map.insert(doc_id.to_string(), node_id);
-        id_rev.insert(node_id, doc_id.to_string());
-        true
+        inserted
     }
 
     // ── SQ8 ingest-time code stores (#392) ──────────────────────────────
@@ -17953,11 +18222,11 @@ impl Index {
             .max(HNSW_EF_FLOOR);
 
         // LOCK DISCIPLINE: hold the graph read guard only for the sync
-        // sub-ms beam search and copy the results out — index_vectors takes
-        // `hnsw.write().await` per ingested doc, so holding this guard
-        // across the doc-fetch awaits below would head-of-line-block vector
-        // ingest (and, via writer preference, subsequent readers): exactly
-        // the mixed-read-under-write failure class.
+        // sub-ms beam search and copy the results out — graph creation and
+        // snapshot load take `hnsw.write().await`, so holding this guard
+        // across the doc-fetch awaits below would head-of-line-block them
+        // (and, via writer preference, every later reader and vector
+        // insert): exactly the mixed-read-under-write failure class.
         let raw: Vec<(u64, f32)> = {
             let hnsw_guard = self.hnsw.read().await;
             let hnsw = hnsw_guard.as_ref()?;
@@ -32495,10 +32764,45 @@ impl Index {
         segments_dir: &std::path::Path,
         segment_id: &str,
     ) -> Option<Resident<DocValueMap>> {
+        self.dv_columns_for_with(
+            segments_dir,
+            segment_id,
+            &self.segment_hydration_budget,
+            crate::read_budget::global(),
+        )
+    }
+
+    /// [`Self::dv_columns_for`] against explicit budgets (#2427). A decode
+    /// the hydration cache cannot keep is rebuilt by every query that needs
+    /// it; it reserves its size in the read budget before decoding and
+    /// holds the reservation until its last reader drops it, like the
+    /// stored-slices and FTS-reader builds. Before this, a refused decode
+    /// was neither cached nor reserved, so concurrent searches stacked
+    /// whole decoded sidecars (~100 MB late in the cap-2048 ingest run)
+    /// that no budget saw.
+    fn dv_columns_for_with(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        hydration: &Arc<SegmentHydrationBudget>,
+        read_budget: &Arc<ReadTransientBudget>,
+    ) -> Option<Resident<DocValueMap>> {
         if let Some(entry) = self.dv_cache.get(segment_id) {
             return Some(Arc::clone(entry.value()));
         }
-        let cols = read_doc_values_sidecar(segments_dir, segment_id);
+        let raw = std::fs::read(segments_dir.join(format!("{segment_id}.dv"))).ok()?;
+        let doc_count = self
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .find(|meta| meta.id == segment_id)
+            .map_or(0, |meta| meta.doc_count);
+        let estimate = xerj_storage::doc_values::estimate_decoded_bytes(&raw, doc_count)
+            .saturating_add(raw.len() as u64);
+        let permit = transient_read_permit(hydration, read_budget, estimate);
+        let cols = xerj_storage::doc_values::decode_columns(&raw).unwrap_or_default();
+        drop(raw);
         if cols.is_empty() {
             return None;
         }
@@ -32508,13 +32812,15 @@ impl Index {
             std::mem::size_of::<CacheResident<DocValueMap>>(),
             &cols,
         );
-        Some(self.publish_current(
+        Some(self.publish_current_permitted(
             &self.dv_cache,
             segment_id,
             key,
             SegmentCacheCategory::DocValues,
             bytes,
             cols,
+            hydration,
+            permit,
         ))
     }
 

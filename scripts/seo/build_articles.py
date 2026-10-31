@@ -959,7 +959,7 @@ def _head(title: str, description: str, rel: str, block: str,
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
 <script src="/theme.js"></script>
 <link rel="stylesheet" href="/style.css?v=as2">
-{'<link rel="stylesheet" href="/visuals.css?v=1">' + chr(10) if visuals else ''}{alternate}{block}
+{'<link rel="stylesheet" href="/visuals.css?v=2">' + chr(10) if visuals else ''}{alternate}{block}
 </head>'''
 
 
@@ -998,7 +998,7 @@ def render_article(article: article_data.Article, context: BuildContext) -> str:
 {article_nav(context, article)}
 </div>
 {footer(article.category)}
-{'<script src="/visuals.js?v=1"></script>' + chr(10) if visuals else ''}<script src="/interact.js"></script>
+{'<script src="/visuals.js?v=2"></script>' + chr(10) if visuals else ''}<script src="/interact.js"></script>
 </body>
 </html>
 '''

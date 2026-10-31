@@ -212,4 +212,4 @@ No. XERJ is single-node with no data-plane replication, and filtered kNN falls b
 - [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag)
 - [What's a simpler alternative to Khoj if I only need search and memory?](/compare/xerj-vs-khoj) (same intent: agent memory)
 - [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions) (same intent: agent memory)
-- [Should agent memory use a knowledge graph?](/answers/knowledge-graphs-for-agent-memory) (same intent: agent memory)
+- [XERJ vs Mem0: which memory fits your AI agent?](/compare/xerj-vs-mem0) (same intent: agent memory)

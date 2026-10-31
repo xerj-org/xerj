@@ -179,4 +179,4 @@ Khoj is AGPL-3.0, which obliges you to publish your source if you offer a modifi
 - [XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee](/compare/xerj-vs-agent-memory-tools)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database) (same intent: agent memory)
 - [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag) (same intent: agent memory)
-- [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions) (same intent: agent memory)
+- [XERJ vs Mem0: which memory fits your AI agent?](/compare/xerj-vs-mem0) (same intent: agent memory)
