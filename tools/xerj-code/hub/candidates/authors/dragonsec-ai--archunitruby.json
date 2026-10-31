@@ -1,9 +1,9 @@
 {
- "corpus": "lukasniessen--archunitruby",
+ "corpus": "dragonsec-ai--archunitruby",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on architecture, architecture-rules, architecture-tests queries this for how LukasNiessen/ArchUnitRuby implements it: ArchUnitRuby is an architecture testing library. Specify and ensure architecture rules in your Ruby app. Easy setup and pipeline integration (selected work: spec, scripts, the project root)",
+ "domain": "an agent working on architecture, architecture-rules, architecture-tests queries this for how dragonsec-ai/ArchUnitRuby implements it: ArchUnitRuby is an architecture testing library. Specify and ensure architecture rules in your Ruby app. Easy setup and pipeline integration (selected work: spec, scripts, the project root)",
  "repos": [
   {
    "repo": "ArchUnitRuby",

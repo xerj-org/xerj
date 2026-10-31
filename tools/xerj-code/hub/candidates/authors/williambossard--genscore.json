@@ -1,0 +1,23 @@
+{
+ "corpus": "williambossard--genscore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on discord-bot, java, javalin queries this for how WilliamBossard/GensCore implements it: High-performance Paper & Folia core plugin for survival servers (Minecraft 26.1+, Java 25)",
+ "repos": [
+  {
+   "repo": "GensCore",
+   "url": "https://github.com/WilliamBossard/GensCore",
+   "sha": "a894f5898c4c83ac2c4fbb637c0bd393088e94aa",
+   "licence": "MIT (LICENSE file at pin a894f5898c4c, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:29Z",
+    "consent_receipt": "62751d777174",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T20:29Z (receipt 62751d777174); pinned to the default-branch head. LICENSE file at pin a894f5898c4c detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

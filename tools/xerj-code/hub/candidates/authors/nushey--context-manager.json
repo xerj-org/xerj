@@ -1,0 +1,23 @@
+{
+ "corpus": "nushey--context-manager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, ai, mcp queries this for how nushey/context-manager implements it: C# MCP server for cheap context extraction in agentic AI workflows (selected work: src/ContextManager.Analysis, tests)",
+ "repos": [
+  {
+   "repo": "context-manager",
+   "url": "https://github.com/nushey/context-manager",
+   "sha": "cb1e79dae626de754a4735616443f3fe4c969818",
+   "licence": "MIT (LICENSE file at pin cb1e79dae626, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:43Z",
+    "consent_receipt": "45efe741e722",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:43Z (receipt 45efe741e722); selected commit cb1e79dae626: \"fix: extract missing graph edges and correct inspection output\". LICENSE file at pin cb1e79dae626 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head cb1e79dae626 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

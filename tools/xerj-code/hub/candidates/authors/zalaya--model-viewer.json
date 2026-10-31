@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how zalaya/model-viewer implements it: Explore and create 3D models directly in your browser (selected work: source, the project root)",
+ "domain": "an agent working on JavaScript queries this for how zalaya/model-viewer implements it: Explore and create 3D models directly in your browser (selected work: source, the project root)",
  "repos": [
   {
    "repo": "3d-model-visualizer",

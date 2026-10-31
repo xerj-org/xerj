@@ -1,0 +1,23 @@
+{
+ "corpus": "digitalhand--uopengolf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on C++ queries this for how digitalhand/uopengolf implements it: An open source unreal golf simulation game with physics, and launch monitor connectivity. All completely open source, including assets (selected work: Plugins, Source, Content)",
+ "repos": [
+  {
+   "repo": "uopengolf",
+   "url": "https://github.com/digitalhand/uopengolf",
+   "sha": "1163f3a7e5173a232046e5fda701754869eb8082",
+   "licence": "MIT (LICENSE file at pin 1163f3a7e517, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:22Z",
+    "consent_receipt": "d0b368f9f670",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:22Z (receipt d0b368f9f670); selected commit 1163f3a7e517: \"fix: wind physics, asset reaction, doc updates, cleanup.\". LICENSE file at pin 1163f3a7e517 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

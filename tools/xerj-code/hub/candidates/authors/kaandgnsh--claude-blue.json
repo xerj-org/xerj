@@ -1,0 +1,23 @@
+{
+ "corpus": "kaandgnsh--claude-blue",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on agent-skills, blue-team, claude-code queries this for how kaandgnsh/Claude-Blue implements it: Defensive cybersecurity skill library for Claude Code: 253 task-specific skills across 49 categories for SOC, DFIR, detection engineering, c (selected work: skills, tests, the project root)",
+ "repos": [
+  {
+   "repo": "Claude-Blue",
+   "url": "https://github.com/kaandgnsh/Claude-Blue",
+   "sha": "ccd6fefe5fbe4e18341a77863001f3e21d110913",
+   "licence": "MIT (LICENSE file at pin ccd6fefe5fbe, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:16Z",
+    "consent_receipt": "fa8bcbc6ac42",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:16Z (receipt fa8bcbc6ac42); selected commit ccd6fefe5fbe: \"Add security-engineering category: firewall, SSH, TLS proxy, IDS, log\u2026\". LICENSE file at pin ccd6fefe5fbe detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head ccd6fefe5fbe (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+   }
+  }
+ ]
+}

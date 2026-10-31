@@ -1,0 +1,30 @@
+{
+ "corpus": "klarastellaa--fh6-vinyl-group-editor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how KlaraStellaa/FH6-Vinyl-Group-Editor implements it: \u4e00\u4e2a\u72ec\u7acb\u4e8e Forza \u6e38\u620f\u8fd0\u884c\u7684\u684c\u9762\u7248\u5f69\u7ed8\u7eb9\u9970\u7f16\u8f91\u5668/A standalone desktop Vinyl Group editor for Forza (selected work: js, the project root)",
+ "repos": [
+  {
+   "repo": "FH6-Vinyl-Group-Editor",
+   "url": "https://github.com/KlaraStellaa/FH6-Vinyl-Group-Editor",
+   "sha": "3ed70318efde2c9b3f1fae54267f820fbebc2471",
+   "licence": "MIT (LICENSE file at pin 3ed70318efde, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:46Z",
+    "consent_receipt": "ee771dff9eb6",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:46Z (receipt ee771dff9eb6); selected commit 3ed70318efde: \"Fixed known issues\". LICENSE file at pin 3ed70318efde detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head 3ed70318efde (contains the selected commit): the LICENSE at the selected commit was GPL-3.0.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "dbcadf6327cd8858b393224870ef1d12d22154bd",
+     "at": "2026-10-31T19:46Z",
+     "receipt": "ee771dff9eb6"
+    }
+   }
+  }
+ ]
+}

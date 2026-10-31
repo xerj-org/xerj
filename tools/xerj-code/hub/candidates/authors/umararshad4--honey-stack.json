@@ -1,0 +1,23 @@
+{
+ "corpus": "umararshad4--honey-stack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how umararshad4/honey-stack implements it: One always-on toolkit for Claude Code and Codex that learns from every session (RSI: recursive self-improvement) (selected work: tests, honey)",
+ "repos": [
+  {
+   "repo": "honey-stack",
+   "url": "https://github.com/umararshad4/honey-stack",
+   "sha": "72f7a31ecbe8dd9427712562a4744125a51d5fad",
+   "licence": "MIT (LICENSE file at pin 72f7a31ecbe8, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:33Z",
+    "consent_receipt": "880d785ebc40",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T20:33Z (receipt 880d785ebc40); selected commit 72f7a31ecbe8: \"feat(rsi): complete automatic delivery and release installation\". LICENSE file at pin 72f7a31ecbe8 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "zksbx--tunefree",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on audio-converter, flac, flac-converter queries this for how zksbx/TuneFree implements it: mflac / mgg \u8f6c FLAC\u3001MP3 \u2014 \u89e3\u5bc6 QQ\u97f3\u4e50\u52a0\u5bc6\u6b4c\u66f2\uff0c\u5168\u7a0b\u672c\u5730\u3001\u4e0d\u4e0a\u4f20 (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "TuneFree",
+   "url": "https://github.com/zksbx/TuneFree",
+   "sha": "94a82687cd8bf25bf2bd484b60cf2c2635b517b8",
+   "licence": "MIT (LICENSE file at pin 94a82687cd8b, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:37Z",
+    "consent_receipt": "27c3ecc66645",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:37Z (receipt 27c3ecc66645); selected commit 94a82687cd8b: \"2.1.3\". LICENSE file at pin 94a82687cd8b detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}
