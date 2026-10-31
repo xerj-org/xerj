@@ -570,7 +570,7 @@
       "canonical_url": "https://xerj.org/answers/read-indexed-email-and-pdf-folder",
       "markdown_url": "https://xerj.org/answers/read-indexed-email-and-pdf-folder.md",
       "cluster": "Files and formats",
-      "updated": "2026-10-28",
+      "updated": "2026-10-30",
       "summary": "xerj brain indexes the folder and the console opens any record: an email with its attachments, a PDF page, and the files it links to. Extracted text only.",
       "intent_group": "logs and docs",
       "answer": "I indexed a folder of email and PDFs; how do I actually read what it found? Run xerj brain on the folder and open the console it prints. The Corpus page lists what was indexed, and the Reader opens an email with headers, body and attachments, or one PDF page. It shows extracted text only.",
@@ -584,10 +584,10 @@
       "canonical_url": "https://xerj.org/answers/syntax-aware-code-search-refactoring",
       "markdown_url": "https://xerj.org/answers/syntax-aware-code-search-refactoring.md",
       "cluster": "Files and formats",
-      "updated": "2026-10-20",
+      "updated": "2026-10-30",
       "summary": "XERJ indexes source files with a defs field and a symbols array, so one query finds declarations with kind, name and line while another finds raw text.",
       "intent_group": "code search for agents",
-      "answer": "Is there a syntax-aware code search tool for refactoring? XERJ gives you two code queries on one index: match on body for raw text, and match on defs for declared symbols, which returns a symbols array with kind, name and line. It extracts definitions only and rewrites nothing; for structural rewrites use ast-grep.",
+      "answer": "Is there a syntax-aware code search tool for refactoring? XERJ gives you two code queries on one index: match on body for raw text, and match on defs for declared symbols, which returns a symbols array with kind, name and line. It extracts definitions only and rewrites nothing. For structural rewrites use ast-grep.",
       "queries": [
         "tree-sitter code search CLI",
         "find function definition across repo CLI"
@@ -671,10 +671,10 @@
       "canonical_url": "https://xerj.org/answers/search-gzipped-csv-or-json",
       "markdown_url": "https://xerj.org/answers/search-gzipped-csv-or-json.md",
       "cluster": "Files and formats",
-      "updated": "2026-10-19",
+      "updated": "2026-10-30",
       "summary": "Gzip is a wrapper, not a family. autoindex unwraps it and sniffs the inner CSV or JSON, so a compressed export becomes typed fields rather than one opaque blob.",
       "intent_group": "JSONL and data files",
-      "answer": "How do I search gzipped CSV exports without unzipping them? Point xerj autoindex at the folder. Gzip is a wrapper, not a family: autoindex strips it during the run and sniffs the bytes underneath, so a .csv.gz becomes typed columns and a .json.gz becomes documents with fields. No query re-reads the archive.",
+      "answer": "How do I search gzipped CSV exports without unzipping them? Point xerj autoindex at the folder. The run strips the gzip wrapper once and sniffs the bytes underneath, so a .csv.gz becomes typed columns and a .json.gz becomes documents with fields. No query reads the archive again.",
       "queries": [
         "search large csv files fast without database"
       ]
@@ -822,10 +822,10 @@
       "canonical_url": "https://xerj.org/answers/search-obsidian-pdf-docx-attachments",
       "markdown_url": "https://xerj.org/answers/search-obsidian-pdf-docx-attachments.md",
       "cluster": "Files and formats",
-      "updated": "2026-10-19",
+      "updated": "2026-10-30",
       "summary": "A captured XERJ run indexed a vault of markdown notes and returned text from inside a PDF attachment and a DOCX attachment, plus wikilink edges between the notes.",
       "intent_group": "logs and docs",
-      "answer": "What's the best way to search Markdown notes and PDFs in the same vault? Run xerj autoindex on the vault folder; it reads attachments too. In a captured run a phrase found only inside a PDF attachment returned 1 hit, a phrase only inside a DOCX returned 1 hit, and wikilinks became edges carrying the line that made them.",
+      "answer": "What's the best way to search Markdown notes and PDFs in the same vault? Run xerj autoindex on the vault folder. It reads attachments too. In a captured run a phrase found only inside a PDF attachment returned 1 hit, a phrase only inside a DOCX returned 1 hit, and wikilinks became edges carrying the line that made them.",
       "queries": [
         "search markdown notes MCP server"
       ]
@@ -877,7 +877,7 @@
       "canonical_url": "https://xerj.org/answers/notion-export-duplicate-search-results",
       "markdown_url": "https://xerj.org/answers/notion-export-duplicate-search-results.md",
       "cluster": "Files and formats",
-      "updated": "2026-10-19",
+      "updated": "2026-10-30",
       "summary": "A captured run indexed a Notion Markdown export twice and got the same 8 documents with byte-identical ids. The duplicates come from the export layout.",
       "intent_group": "logs and docs",
       "answer": "Why does my Notion export duplicate titles in search results? The duplicates come from the export layout and from the 2 documents XERJ writes per Markdown file, not from re-indexing. A captured run indexed the same Notion export twice and returned 8 documents both times, with byte-identical ids, so the index never doubled.",

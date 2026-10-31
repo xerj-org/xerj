@@ -507,7 +507,38 @@ fn sniff_bytes(
     if is_sql_filename(logical_path) && matches!(out.family, Family::TxtLines | Family::TxtProse) {
         out.family = Family::Code;
     }
+    // #2740: an HTML partial or a server/JS template opens with `<` and has
+    // closing tags, so the content check calls it XML, and the XML extractor
+    // junks it at the first `<%`, `&&` or unclosed `<br>`, losing the text
+    // after it. The name settles it, as it does for `.sql` above. Only an XML
+    // verdict is replaced: a full page stays HTML, and a template that reads
+    // as anything else keeps that family.
+    if out.family == Family::Xml {
+        if let Some(family) = markup_template_family(logical_path, &nonblank) {
+            out.family = family;
+        }
+    }
     Ok(out)
+}
+
+/// #2740: the family for a name that is never standalone XML. `.html` and
+/// `.htm` are HTML, read by its tolerant tokenizer. A template is text, so the
+/// code inside `<% %>`, `{{ }}` and `{% %}` stays searchable. `.vue` and
+/// `.svelte` are not here: #2732 tracks them as code. A trailing `.gz` is
+/// looked through, as [`is_sql_filename`] does, since the sniff reads the
+/// decompressed bytes.
+fn markup_template_family(path: &Path, nonblank: &[&str]) -> Option<Family> {
+    let name = path.file_name()?.to_str()?.to_ascii_lowercase();
+    let name = name.strip_suffix(".gz").unwrap_or(&name);
+    let (_, ext) = name.rsplit_once('.')?;
+    match ext {
+        "html" | "htm" => Some(Family::Html),
+        "hbs" | "handlebars" | "mustache" | "ejs" | "erb" | "jsp" | "aspx" | "cshtml" | "razor"
+        | "twig" | "jinja" | "jinja2" | "j2" | "njk" | "liquid" | "astro" | "marko" | "riot" => {
+            Some(txt_kind(nonblank))
+        }
+        _ => None,
+    }
 }
 
 /// `.sql`, or a gzipped `.sql.gz`. Case-insensitive. The dump-vs-source
@@ -5859,5 +5890,103 @@ mod ole2_sniff_tests {
         .unwrap()
         .family;
         assert_eq!(fam, Family::Xml);
+    }
+}
+
+#[cfg(test)]
+mod template_sniff_tests {
+    use super::*;
+
+    fn family(body: &str, name: &str) -> Family {
+        sniff_bytes(body.as_bytes(), Path::new(name), Path::new(name), false)
+            .unwrap()
+            .family
+    }
+
+    /// #2740: an Angular-style partial has no `<html>` or `<body>`, so the
+    /// content check calls it XML; a `.html` or `.htm` name makes it HTML.
+    #[test]
+    fn an_html_fragment_is_html_not_xml() {
+        let fragment = "<div class=\"widget\" *ngIf=\"items.length > 0 && !loading\">\n\
+                        \x20 <input [(ngModel)]=\"query\" placeholder=\"search\">\n\
+                        \x20 <span>{{ label }}</span>\n\
+                        </div>\n";
+        assert_eq!(family(fragment, "widget.component.html"), Family::Html);
+        assert_eq!(family(fragment, "WIDGET.HTM"), Family::Html);
+        assert_eq!(family(fragment, "widget.html.gz"), Family::Html);
+        assert_eq!(family(fragment, "widget.xml"), Family::Xml);
+        let page =
+            "<!DOCTYPE html>\n<html><head><title>t</title></head><body><p>x</p></body></html>\n";
+        assert_eq!(family(page, "index.html"), Family::Html);
+    }
+
+    /// #2740: a markup-first template is text under its own name, and the
+    /// same bytes under a `.xml` name are still XML.
+    #[test]
+    fn a_markup_first_template_is_text_not_xml() {
+        let template = "<div class=\"profile\">\n\
+                        \x20 <% if @user && @user.admin? %>\n\
+                        \x20   <%= link_to \"Admin\", admin_path %>\n\
+                        \x20 <% end %>\n\
+                        \x20 {{#if author}}<h1>{{ name }}</h1>{{/if}}\n\
+                        \x20 {% for item in menu %}<a href=\"{{ item.url }}\">x</a><br>{% endfor %}\n\
+                        </div>\n";
+        assert_eq!(family(template, "profile.xml"), Family::Xml);
+        for ext in [
+            "hbs",
+            "handlebars",
+            "mustache",
+            "ejs",
+            "erb",
+            "jsp",
+            "aspx",
+            "cshtml",
+            "razor",
+            "twig",
+            "jinja",
+            "jinja2",
+            "j2",
+            "njk",
+            "liquid",
+            "astro",
+            "marko",
+            "riot",
+            "ERB",
+        ] {
+            let fam = family(template, &format!("profile.{ext}"));
+            assert!(
+                matches!(fam, Family::TxtLines | Family::TxtProse),
+                ".{ext} sniffed as {fam:?}"
+            );
+        }
+        let fam = family(template, "profile.html.erb.GZ");
+        assert!(
+            matches!(fam, Family::TxtLines | Family::TxtProse),
+            ".erb.gz sniffed as {fam:?}"
+        );
+    }
+
+    /// The name only replaces an XML verdict. A template that is a full page
+    /// keeps HTML, and one that opens with a directive keeps what it had.
+    #[test]
+    fn a_template_name_only_overrides_xml() {
+        let page = "<!DOCTYPE html>\n<html><body>{{ title }}</body></html>\n";
+        assert_eq!(family(page, "layout.hbs"), Family::Html);
+        let json = "{\n  \"name\": \"{{ app_name }}\",\n  \"port\": 8080\n}\n";
+        assert_eq!(family(json, "config.json.j2"), family(json, "config.json"));
+    }
+
+    /// Real XML keeps the XML path: data files, XAML, plain SVG. XHTML with
+    /// its `<html>` root is HTML, as before.
+    #[test]
+    fn real_xml_keeps_its_family() {
+        let xml = "<?xml version=\"1.0\"?>\n<settings>\n  <feature name=\"a\">on</feature>\n</settings>\n";
+        assert_eq!(family(xml, "settings.xml"), Family::Xml);
+        let xaml = "<Window x:Class=\"App.Main\"\n  xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\">\n  <Grid><Button Content=\"OK\"/></Grid>\n</Window>\n";
+        assert_eq!(family(xaml, "Main.xaml"), Family::Xml);
+        let svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\">\n  <path d=\"M12 2L2 7z\"/>\n  <title>logo</title>\n</svg>\n";
+        assert_eq!(family(svg, "logo.svg"), Family::Xml);
+        let xhtml = "<?xml version=\"1.0\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\">\n<body><p>x</p></body>\n</html>\n";
+        assert_eq!(family(xhtml, "page.xhtml"), Family::Html);
     }
 }

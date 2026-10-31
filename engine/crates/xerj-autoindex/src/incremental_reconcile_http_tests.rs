@@ -7624,3 +7624,55 @@ fn a_new_sheet_in_an_indexed_workbook_is_set_aside_not_fatal() {
     ];
     sheet_edit_is_set_aside(&[("Sales", sales_rows(false)), ("Q4", q4)], "Q4");
 }
+
+/// #2740: a views folder holds dozens of similar templates. Sixteen or more
+/// form an XML dataset of their own (`dataset::MIN_DATASET_RECORDS`), where
+/// the strict XML reader junked every one at its first `<%` or unclosed tag
+/// and dropped the text after it. Twenty ERB views and twenty HTML partials
+/// must index cleanly, end of file included.
+#[test]
+fn a_folder_of_templates_and_html_fragments_is_indexed_not_junked() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(corpus.path().join("views")).unwrap();
+    fs::create_dir_all(corpus.path().join("partials")).unwrap();
+    for i in 1..=20 {
+        fs::write(
+            corpus.path().join(format!("views/view{i}.erb")),
+            format!(
+                "<div class=\"profile\">\n  <% if @user && @user.admin? %>\n    \
+                 <%= link_to \"Admin\", admin_path %>\n  <% end %>\n</div>\n\
+                 <p>lateerb{i}</p>\n"
+            ),
+        )
+        .unwrap();
+        fs::write(
+            corpus.path().join(format!("partials/card{i}.html")),
+            format!(
+                "<div class=\"card\" *ngIf=\"items.length > 0 && !loading\">\n  \
+                 <input [(ngModel)]=\"query\">\n  <span>{{{{ label }}}}</span>\n</div>\n\
+                 <p>latehtml{i}</p>\n"
+            ),
+        )
+        .unwrap();
+    }
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let (code, summary) = run_index_report(config).unwrap();
+    let summary = summary.expect("the run commits a generation");
+    assert_eq!(summary["junk_records_total"], 0, "{summary}");
+    assert_eq!(summary["files_junk"], 0, "{summary}");
+    assert_eq!(code, 0, "{summary}");
+    let docs: Vec<String> = endpoint.data_docs().iter().map(Value::to_string).collect();
+    for needle in ["lateerb7", "latehtml7"] {
+        assert!(
+            docs.iter().any(|d| d.contains(needle)),
+            "{needle} is not in any indexed record"
+        );
+    }
+}

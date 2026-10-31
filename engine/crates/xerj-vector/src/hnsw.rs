@@ -178,6 +178,89 @@ impl HnswParams {
 // Flat slab storage
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Upper bound on one vector-storage chunk (#2427).
+///
+/// The slab used to keep every vector in one contiguous `Vec<f32>`, which
+/// grows by doubling. With 384-dim embeddings a 1 GB autoindex corpus
+/// reaches ~393K vectors: the next grow is a single 384 MiB -> 768 MiB
+/// `realloc`, so old and new buffers are both live during the copy
+/// (~1.15 GB for one index) and the freed half stays dirty in the
+/// allocator afterwards. The heap profile of the 1 GB gate attributed the
+/// largest untracked allocation on the ingest node to exactly that grow.
+/// Fixed-size chunks never move existing vectors, never copy, and leave at
+/// most one partly filled chunk of slack.
+const VECTOR_CHUNK_BYTES: usize = 4 << 20;
+
+/// Append-only vector storage in fixed-size chunks. `vector(slot)` stays a
+/// shift + mask + slice, and a vector never straddles two chunks.
+struct ChunkedVectors {
+    dim: usize,
+    /// log2(vectors per chunk).
+    chunk_shift: u32,
+    chunks: Vec<Vec<f32>>,
+    len: usize,
+}
+
+impl ChunkedVectors {
+    fn new(dim: usize) -> Self {
+        let per_vector = dim.max(1) * std::mem::size_of::<f32>();
+        let per_chunk = (VECTOR_CHUNK_BYTES / per_vector).max(1);
+        // Largest power of two <= per_chunk, so slot -> chunk is a shift.
+        let chunk_shift = usize::BITS - 1 - per_chunk.leading_zeros();
+        Self {
+            dim,
+            chunk_shift,
+            chunks: Vec::new(),
+            len: 0,
+        }
+    }
+
+    #[inline(always)]
+    fn per_chunk(&self) -> usize {
+        1usize << self.chunk_shift
+    }
+
+    fn push(&mut self, vector: &[f32]) {
+        debug_assert_eq!(vector.len(), self.dim);
+        if self.len & (self.per_chunk() - 1) == 0 {
+            // Exact capacity: the chunk is filled by `extend_from_slice`
+            // and never reallocates.
+            self.chunks
+                .push(Vec::with_capacity(self.per_chunk() * self.dim));
+        }
+        let chunk = self.chunks.last_mut().expect("chunk allocated above");
+        chunk.extend_from_slice(vector);
+        self.len += 1;
+    }
+
+    #[inline(always)]
+    fn get(&self, slot: u32) -> &[f32] {
+        let slot = slot as usize;
+        let chunk = &self.chunks[slot >> self.chunk_shift];
+        let start = (slot & (self.per_chunk() - 1)) * self.dim;
+        &chunk[start..start + self.dim]
+    }
+
+    /// Bytes reserved for vector data (capacity, not length).
+    fn reserved_bytes(&self) -> usize {
+        self.chunks
+            .iter()
+            .map(|c| c.capacity() * std::mem::size_of::<f32>())
+            .sum::<usize>()
+            + self.chunks.capacity() * std::mem::size_of::<Vec<f32>>()
+    }
+
+    /// Largest single allocation backing the vectors.
+    #[cfg(test)]
+    fn largest_allocation_bytes(&self) -> usize {
+        self.chunks
+            .iter()
+            .map(|c| c.capacity() * std::mem::size_of::<f32>())
+            .max()
+            .unwrap_or(0)
+    }
+}
+
 /// Slot-indexed node storage. A `slot` is a dense `u32` handle assigned in
 /// insertion order; all hot-path state is `slot`-addressed so beam search
 /// runs on contiguous arrays with no per-node locks or hashing.
@@ -188,8 +271,8 @@ struct SlabGraphStorage {
     ids: Vec<u64>,
     /// external node id → slot.
     slot_of: HashMap<u64, u32>,
-    /// Contiguous vector data, `slot * dim ..= slot * dim + dim`.
-    vectors: Vec<f32>,
+    /// Vector data by slot, in fixed-size chunks (#2427).
+    vectors: ChunkedVectors,
     /// slot → 1/‖v‖ (cosine metric only; 1.0 placeholder otherwise,
     /// 0.0 for zero-norm vectors so their cosine similarity is 0 — the
     /// same value the previous `cosine()` helper produced).
@@ -203,6 +286,9 @@ struct SlabGraphStorage {
     tomb_ids: HashSet<u64>,
     entry_slot: Option<u32>,
     entry_layer: usize,
+    /// Sum of `node_level` over all slots (layers above 0), for the O(1)
+    /// heap estimate in [`SlabGraphStorage::heap_bytes`].
+    upper_layer_slots: usize,
 }
 
 /// Read-only, slot-stable graph storage consumed by HNSW traversal and
@@ -274,8 +360,7 @@ impl GraphStorageRead for SlabGraphRead<'_> {
 
     #[inline(always)]
     fn vector(&self, slot: u32) -> &[f32] {
-        let start = slot as usize * self.slab.dim;
-        &self.slab.vectors[start..start + self.slab.dim]
+        self.slab.vectors.get(slot)
     }
 
     #[inline(always)]
@@ -300,11 +385,7 @@ impl GraphStorageRead for SlabGraphRead<'_> {
             use core::arch::x86_64::{_mm_prefetch, _MM_HINT_T0};
             // Preserve the slab hot path exactly: neighbor lists contain
             // allocated slots, so this direct address calculation is valid.
-            let base = self
-                .slab
-                .vectors
-                .as_ptr()
-                .add(slot as usize * self.slab.dim) as *const i8;
+            let base = self.slab.vectors.get(slot).as_ptr() as *const i8;
             _mm_prefetch(base, _MM_HINT_T0);
             if self.slab.dim > 16 {
                 _mm_prefetch(base.add(64), _MM_HINT_T0);
@@ -354,14 +435,35 @@ impl SlabGraphStorage {
             metric,
             ids: Vec::new(),
             slot_of: HashMap::new(),
-            vectors: Vec::new(),
+            vectors: ChunkedVectors::new(dim),
             inv_norms: Vec::new(),
             neighbors: Vec::new(),
             tomb: Vec::new(),
             tomb_ids: HashSet::new(),
             entry_slot: None,
             entry_layer: 0,
+            upper_layer_slots: 0,
         }
+    }
+
+    /// O(1) estimate of the heap this graph holds (#2427). Vector storage is
+    /// exact (reserved capacity); neighbour lists are bounded by the layer
+    /// degree caps (`2m` on layer 0, `m` above), which is what pruning keeps
+    /// them at; hash tables count one control byte per entry slot.
+    fn heap_bytes(&self, m: usize) -> usize {
+        use std::mem::size_of;
+        let nodes = self.ids.len();
+        let layer_slots = nodes + self.upper_layer_slots;
+        let neighbor_ids = nodes * 2 * m + self.upper_layer_slots * m;
+        self.vectors.reserved_bytes()
+            + self.ids.capacity() * size_of::<u64>()
+            + self.inv_norms.capacity() * size_of::<f32>()
+            + self.tomb.capacity()
+            + self.neighbors.capacity() * size_of::<Vec<Vec<u32>>>()
+            + layer_slots * size_of::<Vec<u32>>()
+            + neighbor_ids * size_of::<u32>()
+            + self.slot_of.capacity() * (size_of::<(u64, u32)>() + 1)
+            + self.tomb_ids.capacity() * (size_of::<u64>() + 1)
     }
 
     #[inline(always)]
@@ -384,7 +486,7 @@ impl SlabGraphStorage {
         };
         self.ids.push(id);
         self.slot_of.insert(id, slot);
-        self.vectors.extend_from_slice(&vector);
+        self.vectors.push(&vector);
         self.inv_norms.push(inv);
         self.neighbors.push(
             (0..=node_level)
@@ -392,6 +494,7 @@ impl SlabGraphStorage {
                 .collect(),
         );
         self.tomb.push(self.tomb_ids.contains(&id));
+        self.upper_layer_slots += node_level;
         slot
     }
 }
@@ -903,6 +1006,13 @@ struct PlanProbe {
 }
 
 impl HnswIndex {
+    /// Estimated heap bytes held by this graph (vectors, neighbour lists,
+    /// id maps, tombstones). O(1); takes the read lock briefly. Reported as
+    /// the `vector_graph` ingest-memory category (#2427).
+    pub fn heap_bytes(&self) -> usize {
+        self.inner.read().unwrap().heap_bytes(self.params.m)
+    }
+
     /// Create a new empty index.
     pub fn new(params: HnswParams) -> Self {
         let inner = SlabGraphStorage::new(params.dim, params.metric);
@@ -1538,6 +1648,62 @@ mod ordered_float {
 mod tests {
     use super::*;
 
+    /// #2427: the slab's vector storage must grow in bounded chunks. One
+    /// contiguous `Vec<f32>` doubled on every grow; at the 1 GB gate's ~393K
+    /// 384-dim vectors that is a single 384 MiB -> 768 MiB realloc with both
+    /// buffers live, the largest untracked allocation in the ingest heap
+    /// profile. Chunks keep every allocation <= VECTOR_CHUNK_BYTES and the
+    /// unused tail <= one chunk, and vectors read back intact across chunk
+    /// boundaries.
+    #[test]
+    fn slab_vector_storage_grows_in_bounded_chunks_2427() {
+        let dim = 384;
+        let per_vector = dim * std::mem::size_of::<f32>();
+        let n = 3 * (VECTOR_CHUNK_BYTES / per_vector) + 7;
+        let mut slab = SlabGraphStorage::new(dim, DistanceMetric::Cosine);
+        for i in 0..n {
+            let v: Vec<f32> = (0..dim).map(|d| (i * dim + d) as f32).collect();
+            slab.alloc_slot(i as u64, v, 0, 16);
+        }
+        let view = slab.read_view();
+        for i in (0..n).step_by(97).chain([n - 1]) {
+            let v = view.vector(i as u32);
+            assert_eq!(v.len(), dim);
+            assert_eq!(v[0], (i * dim) as f32, "slot {i}");
+            assert_eq!(v[dim - 1], (i * dim + dim - 1) as f32, "slot {i}");
+        }
+        let largest = slab.vectors.largest_allocation_bytes();
+        assert!(
+            largest <= VECTOR_CHUNK_BYTES,
+            "largest vector allocation {largest} B exceeds the {VECTOR_CHUNK_BYTES} B chunk bound"
+        );
+        let used = n * per_vector;
+        let slack = slab.vectors.reserved_bytes() - used;
+        assert!(
+            slack <= VECTOR_CHUNK_BYTES + 4096,
+            "vector storage reserves {slack} B beyond the {used} B in use"
+        );
+        assert!(slab.heap_bytes(16) >= used);
+    }
+
+    /// #2427: `HnswIndex::heap_bytes` is what the `vector_graph` trace
+    /// category reports; it must cover the vectors and grow with inserts.
+    #[test]
+    fn hnsw_heap_bytes_tracks_inserted_vectors_2427() {
+        let dim = 16;
+        let index = HnswIndex::new(HnswParams::new(dim, DistanceMetric::Cosine));
+        let empty = index.heap_bytes();
+        for i in 0..200u64 {
+            let v: Vec<f32> = (0..dim)
+                .map(|d| ((i as usize * 31 + d) % 17) as f32 + 1.0)
+                .collect();
+            index.insert(i, v).unwrap();
+        }
+        let full = index.heap_bytes();
+        assert!(full > empty);
+        assert!(full >= 200 * dim * std::mem::size_of::<f32>());
+    }
+
     struct FragmentedTestGraph {
         ids: Vec<u64>,
         vectors: Vec<Vec<f32>>,
@@ -1684,8 +1850,7 @@ mod tests {
             buffer
                 .write_u32::<LittleEndian>(layers.len().saturating_sub(1) as u32)
                 .unwrap();
-            let start = slot as usize * graph.dim;
-            for &value in &graph.vectors[start..start + graph.dim] {
+            for &value in graph.vectors.get(slot) {
                 buffer.write_f32::<LittleEndian>(value).unwrap();
             }
             for neighbors in layers {
@@ -1731,8 +1896,7 @@ mod tests {
             1.0
         };
         let distance = |slot: u32| {
-            let start = slot as usize * graph.dim;
-            let vector = &graph.vectors[start..start + graph.dim];
+            let vector = graph.vectors.get(slot);
             match graph.metric {
                 DistanceMetric::Cosine => {
                     1.0 - dot_scalar(query, vector)
@@ -2190,8 +2354,7 @@ mod tests {
                     view.current_slot(view.external_id(slot)),
                     slab.slot_of.get(&slab.ids[slot as usize]).copied()
                 );
-                let start = slot as usize * slab.dim;
-                assert_eq!(view.vector(slot), &slab.vectors[start..start + slab.dim]);
+                assert_eq!(view.vector(slot), slab.vectors.get(slot));
                 assert_eq!(view.inverse_norm(slot), slab.inv_norms[slot as usize]);
                 assert_eq!(view.layer_count(slot), slab.neighbors[slot as usize].len());
                 assert_eq!(view.tombstoned(slot), slab.tomb[slot as usize]);

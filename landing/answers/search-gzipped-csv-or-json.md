@@ -2,17 +2,17 @@
 ---
 title: "Search a .csv.gz or .json.gz without unzipping it"
 canonical: "https://xerj.org/answers/search-gzipped-csv-or-json"
-updated: "2026-10-19"
+updated: "2026-10-30"
 source: "content/answers/search-gzipped-csv-or-json.md"
 ---
 
 # How do I search a .csv.gz or .json.gz without unzipping it first?
 
-**Short answer** (updated 2026-10-19): How do I search gzipped CSV exports without unzipping them? Point xerj autoindex at the folder. Gzip is a wrapper, not a family: autoindex strips it during the run and sniffs the bytes underneath, so a .csv.gz becomes typed columns and a .json.gz becomes documents with fields. No query re-reads the archive.
+**Short answer** (updated 2026-10-30): How do I search gzipped CSV exports without unzipping them? Point xerj autoindex at the folder. The run strips the gzip wrapper once and sniffs the bytes underneath, so a .csv.gz becomes typed columns and a .json.gz becomes documents with fields. No query reads the archive again.
 
 **Key number:** The sniffer classifies the decompressed stream from its first 8,192 bytes (`PREFIX`), the same window it uses for a plain file. (as of 2026-10-19; source: [engine/crates/xerj-autoindex/src/sniff.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/sniff.rs))
 
-**TL;DR** — Gzip is a wrapper, not a family. `xerj autoindex` strips it during the run and sniffs the bytes underneath. A `.csv.gz` becomes typed columns, and a `.json.gz` becomes documents with fields. You never decompress anything yourself, and no query re-reads the archive.
+**TL;DR** Point `xerj autoindex` at the folder and do not unzip anything. The run strips the gzip wrapper once and sniffs the bytes underneath. A `.csv.gz` becomes typed columns, and a `.json.gz` becomes documents with fields.
 
 ## Agent prompt
 
@@ -32,93 +32,56 @@ xerj autoindex ./exports --url http://127.0.0.1:9200 --prefix gzx --state-dir ./
 
 ### Command 2
 
-Note: Index the folder. The .gz files are decompressed once, during this run.
-
-```sh
-xerj autoindex ./exports --url http://127.0.0.1:9200 --prefix gzx --state-dir ./state-gzx --progress plain
-```
-
-### Command 3
-
-Note: Print the data map so the next query names a real index and a real field.
-
-```sh
-xerj autoindex map --url http://127.0.0.1:9200
-```
-
-### Command 4
-
 Note: Confirm the inner columns are typed, rather than one text blob per file.
 
 ```sh
 curl -s -XGET http://127.0.0.1:9200/gzx-*/_mapping
 ```
 
-## What this page measured, and what it did not
-
-The measured gzip capture on this site is the **log** family. A plain log and its gzip copy both returned `5001` from `_count`, and both returned 1250 hits for `level=ERROR`. The gzip index stored `ax_format` as `logs(gzip)`. That run is published on the [gzip logs page](/answers/search-gzip-logs-without-zgrep).
-
-**No `.csv.gz` or `.json.gz` capture was run for this page.** The wrapper-plus-inner-dialect behaviour below is a documented capability of the extractors, not a measurement. This page publishes no counts, no field lists and no timings for those two shapes.
-
-If your export matters, run the dry run on your own folder first and read the plan. That takes one command and it answers the question for your files rather than for someone else's.
+*Figure: The path a compressed CSV takes through xerj autoindex . The 8,192-byte sniff window is the PREFIX constant in sniff.rs . A .json.gz takes the same path and lands as documents with fields.*
 
 ## Gzip is a wrapper, not a family
 
-XERJ detects file families by content, not by file extension. Gzip sits one layer above that. The streaming extractors cover JSON and JSONL, CSV with dialect sniffing, structured logs, `sqldump` files, SQLite, PDF, DOCX, HTML, XML, YAML and plain text — **and gzip variants of them**.
+XERJ picks a file family from the content, not from the extension. Gzip sits one layer above that, so the family is decided after the wrapper comes off. A `sales.csv.gz` is a CSV, and an `events.json.gz` is JSON.
 
-So the question "which family is this file?" is answered after the wrapper comes off, not before. A `sales.csv.gz` is a CSV. An `events.json.gz` is JSON.
+The inner dialect still gets sniffed. CSV detection covers semicolon delimiters, decimal commas, a byte-order mark and quoted multiline fields.
 
-The practical consequence is that the inner dialect still gets sniffed. CSV detection covers semicolon delimiters, decimal commas, a byte-order mark and quoted multiline fields, and none of that is skipped because the bytes arrived compressed.
+## Check that the columns are typed
 
-## Why this is different from grepping the archive
+Run the dry run command above first. It walks, sniffs and prints the plan, and it indexes nothing. Then drop `--dry-run` to index the folder.
 
-`zgrep` and `ripgrep-all` both give you the text inside a `.gz`. What they cannot give you is the **shape**.
+Read the mapping with the second command. If each column appears with its own type, the dialect survived the wrapper. If the whole file is one text field, it did not.
 
-A compressed CSV read as text is a stream of lines. A compressed CSV read as a CSV is a dataset with named columns. A numeric column is then a number you can range over, and a keyword column is a term you can filter and aggregate.
+`xerj autoindex map --url http://127.0.0.1:9200` prints the data map, so the next query names a real index and a real field.
 
-```sh
-curl -s -XGET 'http://127.0.0.1:9200/gzx-*/_mapping'
-```
+## What was measured
 
-That request is the check that matters. If the inner columns appear in the mapping with their own types, the dialect survived the wrapper. If the whole file is one text field, it did not, and you should say so rather than write around it.
+The measured gzip capture on this site is the log family. A plain log and its gzip copy returned the same counts.
 
-## Read the plan before the run
+*Figure: Bars are drawn to scale against 5001. The gzip index recorded ax_format as logs(gzip) . Source: the capture on the gzip logs page . This is the log family; no .csv.gz or .json.gz run was measured.*
 
-```sh
-xerj autoindex ./exports --url http://127.0.0.1:9200 --prefix gzx --state-dir ./state-gzx --progress plain --dry-run
-```
-
-A dry run walks, sniffs and infers, prints the plan, and indexes nothing. It is the cheapest way to see which family each compressed file was recognised as, and it costs one command.
-
-Then run it for real and read the data map, which names the datasets and the fields your next query can use.
-
-```sh
-xerj autoindex map --url http://127.0.0.1:9200
-```
+No `.csv.gz` or `.json.gz` capture was run for this page. The CSV and JSON behaviour here is a documented capability of the extractors, so run the dry run on your own folder to see it for your files.
 
 ## Decompression happens once
 
-XERJ pays for decompression during the `autoindex` run, not during a query. The compressed file is not re-read to answer a search.
+XERJ decompresses during the `autoindex` run, not during a query. You pay in index size and in memory during the run instead. XERJ is single-node and the server retains heap per indexed document, so keep a compressed-export corpus to a modest volume.
 
-What you pay instead is index size and memory during the run. XERJ is single-node and the server currently retains heap per indexed document, so keep a compressed-export corpus to a modest volume rather than pointing it at an archive directory of unknown size.
+Provenance names the compressed source. `ax_path` keeps the `.gz` file name, and `ax_format` names the wrapper next to the family.
 
-Provenance still names the compressed source. `ax_path` keeps the `.gz` file name, and `ax_format` names the wrapper alongside the family. A hit from a compressed export is therefore never mistaken for a hit from a plain one.
+## XERJ or ripgrep-all
 
-## When to choose ripgrep-all instead
+| Job | XERJ | ripgrep-all |
+| --- | --- | --- |
+| Typed columns from a `.csv.gz` | Yes | No, matching lines |
+| An agent asking over HTTP or MCP | Yes | No |
+| A `.tar.gz` or a `.zip` | No archive handler | Yes |
+| One regex, asked once | Needs a node and an index | Yes, no index |
 
-Choose `ripgrep-all` when the archive is **nested**. It wraps ripgrep with adapters for PDF, Office documents, zip, tar, compressed files and SQLite. It walks into them without building an index.
-
-XERJ has no archive handler. A `.tar.gz` and a `.zip` are not unpacked, so their contents are not searchable in XERJ at all. That is a real rga win and it is not worked around on this page. A mail archive is the exception, because it needs no unpacking: since v1.0.0-rc.75 an `mbox` file is detected by content — a From-separator plus RFC 5322 headers, the extension is irrelevant — and streamed one message at a time ([#949](https://github.com/xerj-org/xerj/pull/949)), so its messages are searchable. PST, OST and Maildir are still unhandled.
-
-Choose `ripgrep-all` for one question asked once, too. There is no node to start and no index to build. For a single regex over a single compressed file, that is less work by every measure.
-
-Choose XERJ when the folder will be asked more than one question. Choose it when the answer needs typed columns rather than matching lines. Choose it when the caller is an agent that wants HTTP or MCP. The [ripgrep-all comparison](/compare/xerj-vs-ripgrep-all) covers that trade in full.
+XERJ does not unpack a `.tar.gz` or a `.zip`, so their contents are not searchable in XERJ. An `mbox` file needs no unpacking: since v1.0.0-rc.75 XERJ detects it by content and streams one message at a time ([#949](https://github.com/xerj-org/xerj/pull/949)). PST, OST and Maildir are unhandled. The [ripgrep-all comparison](/compare/xerj-vs-ripgrep-all) covers the trade in full.
 
 ## Related shapes
 
-Uncompressed CSV exports in a folder are the [multiple CSV files page](/answers/index-multiple-csv-files), which carries a real capture of how headers split into datasets.
-
-JSON and JSONL logs sitting next to gzip logs are the [JSON logs page](/answers/search-json-and-jsonl-logs). Both of those pages measured what they publish; this one names its documented mechanism and stops there.
+Plain CSV exports are on the [multiple CSV files page](/answers/index-multiple-csv-files), with a capture of how headers split into datasets. JSON and JSONL logs are on the [JSON logs page](/answers/search-json-and-jsonl-logs).
 
 ## FAQ
 

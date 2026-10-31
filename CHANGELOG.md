@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A Nix flake: `nix run github:xerj-org/xerj` builds and runs `xerj` from
+  source, `nix build` produces it, and `nix develop` opens a shell with the
+  Rust toolchain. The package builds the engine and embeds the Console assets
+  with no network access during the build. (#2479)
 - `xerj autoindex map --html <FILE>` and `--md <FILE>` export an offline
   report with datasets, format counts, top symbols, graph file hubs,
   catalog exclusions and suggested searches. `--redact-paths` hides file
@@ -45,7 +49,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   at `/.well-known/agent-skills/`. The index is generated from the published
   skill's metadata and exact-byte SHA-256, with a CI drift check.
 
+- `xerj autoindex` reads an agent skill's `SKILL.md` frontmatter: every
+  passage of the file is titled with the skill's `name` and carries its
+  `description` as a field of its own, whether the file is read as prose or
+  as line windows. Before, a prose `SKILL.md` was titled by the first line
+  after its frontmatter and a line-window one had no title at all. Only files named exactly
+  `SKILL.md` change; the body, record ids and every other Markdown file index
+  as before. A frontmatter block strict YAML refuses, such as one with an
+  `argument-hint: [path] [--dry-run]` line, still gives its one-line `name`
+  and `description`. Unchanged files are not re-extracted, so an
+  existing index gains the fields as each skill changes, or all at once with
+  `xerj autoindex --fresh`. Part of #2644.
+
 ### Fixed
+
+- A small merge write admitted after a run of merge yields is now checked
+  against the memory watermark instead of the process limit, so it can no
+  longer take a node from below the watermark into the parent breaker band and
+  turn ingest into HTTP 429s. The relief for a search node resting between the
+  merge-pool ceiling and the watermark is kept (#2427).
 
 - The per-index document version map is smaller and now visible in the
   ingest memory trace. Its keys are `Box<str>` instead of `String`, which
@@ -58,6 +80,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   destination. `_source:false` is refused with ES's sentence, and a `script`
   body is refused before any work instead of silently copying the
   untransformed document (this build has no reindex script context).
+- A document written through the per-document path (single-doc index and the
+  `_bulk` per-document path) is now held once in memory until the next flush
+  instead of twice: the storage memtable and the full-text memtable share one
+  parsed `_source` rather than each keeping its own deep copy. On a 1 GB
+  `_bulk` load a late heap profile had the two copies at ~470 MB of ~1.75 GB
+  in use (#2427).
+
+- Publishing a flushed or merged segment no longer decompresses its whole
+  stored section when the result cannot be kept. The publish-time warm now
+  sizes the stored slices from the section framing first and skips the warm
+  when the segment hydration cache has no room for them, or when keeping them
+  would carry the node to the memory watermark. Before, a merged segment's
+  section (hundreds of MB on the 1 GB autoindex gate) was decoded and then
+  refused, a transient spike that pushed ingesting nodes over the breaker.
+  Queries hydrate such a segment on demand, as before (#2427).
+
+- The in-memory HNSW graph no longer stores every vector in one contiguous
+  buffer. That buffer doubled on growth, so near ~393K 384-dim vectors a
+  single 384 MiB -> 768 MiB realloc kept both copies live (~1.15 GB
+  transient) outside any memory accounting. Vectors now live in 4 MiB
+  chunks (no realloc copy, at most one chunk of slack), and the graph's
+  estimated heap is reported as the new `vector_graph` category in the
+  ingest memory trace. (#2427)
+
+- A node near its memory cap no longer warms flushed and merged segments into
+  the segment-hydration cache. Publish-time warming used to stop only while
+  the memory breaker was engaged. It now stops once RSS reaches the breaker's
+  release level (85% of the watermark by default), so warming no longer
+  spends the headroom the breaker has just won back. On the 1 GiB release
+  gate (cap 3072 MB) the ingest node only received `_bulk`, yet it held
+  200-580 MB of warmed stored slices between 40 breaker engages. Queries
+  still hydrate a segment on first read. (Refs #2427)
+
+- `simple_query_string` with `"fields": ["*"]` is answered from the inverted
+  index instead of a stored-document scan of every segment (refs #2427). The
+  bare `*` pattern lowered to a literal `"*"` field that has no index
+  projection, so each query parsed every flushed document; on the 1 GB
+  autoindex release gate a 5-hit query walked ~1.2M stored docs and ran into
+  the 30 s request deadline (raw-surface p95 ≈ 30 s). `["*"]` now lowers like
+  an absent `fields` list, which is what ES means by it: unquoted terms are
+  matched over every mapped searchable text field. A boost on the bare
+  pattern (`"*^2"`) is dropped, and quoted phrases are unchanged. On a
+  flushed segment this also applies the searchable-field rule, so `["*"]` no
+  longer matches through an `index: false` field. `query_string` with
+  `["*"]` is unchanged.
+
+- A restarted node that receives no writes no longer runs catch-up merges
+  when its indexes open. Inherited merge debt is now paid at the first
+  segment-set change (a flush, refresh or delete) or on `_forcemerge`. Before,
+  a search-only node in the 1 GB gate started merging straight after the
+  restart, while it was serving reads under the memory breaker. This
+  supersedes the 120 s open quiet period in #2492, which only delayed the
+  same merges (Refs #2427).
 
 - Vector ingest no longer runs on one core per index: the HNSW construction
   search (greedy descent, `ef_construction` beam and neighbour selection) now
@@ -253,6 +328,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reading to the table reading. The file is set aside with a rebuild message
   (exit 3) and every other file is still indexed. It used to stop the whole
   run with "frozen assignment has 0 matches for group" (#2720).
+- `xerj autoindex` indexes HTML partials and template files instead of
+  junk-filing them as malformed XML. A file that opens with markup and has
+  closing tags was read as XML, so a folder of 16 or more such files became an
+  XML dataset and every file was junked at its first `<%`, `&&` or unclosed
+  tag, with the text after that point lost. `.html` and `.htm` are now read as
+  HTML, and `.hbs`, `.handlebars`, `.mustache`, `.ejs`, `.erb`, `.jsp`,
+  `.aspx`, `.cshtml`, `.razor`, `.twig`, `.jinja`, `.jinja2`, `.j2`, `.njk`,
+  `.liquid`, `.astro`, `.marko` and `.riot` as text, also when gzipped. Real
+  XML, including `.xml`, `.xaml` and `.svg`, is unchanged. An index built
+  before this fix keeps its junked files until each one changes or the folder
+  is indexed again with `--fresh` (#2740).
 
 ## [1.0.0-rc.100] - 2026-10-26
 

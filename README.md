@@ -215,6 +215,12 @@ Windows PowerShell:
 irm https://xerj.org/get.ps1 | iex
 ```
 
+Nix (builds from source; `nix develop` opens a shell with the Rust toolchain):
+
+```sh
+nix run github:xerj-org/xerj -- --version
+```
+
 One static binary, no JVM, no dependencies. Prebuilt for Linux, macOS and Windows on x86-64
 and arm64. The x86-64 builds target x86-64-v2 (SSE4.2: Intel Nehalem 2008 and later, AMD
 Bulldozer and later) and use AVX2 and FMA at runtime when the CPU has them, so a pre-Haswell
