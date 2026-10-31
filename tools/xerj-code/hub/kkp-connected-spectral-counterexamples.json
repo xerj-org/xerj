@@ -1,0 +1,21 @@
+{
+ "corpus": "kkp-connected-spectral-counterexamples",
+ "cloned_at": "2026-10-29T05:14:20Z",
+ "repos": [
+  {
+   "repo": "kkp-connected-spectral-counterexamples",
+   "url": "https://github.com/shaikidris/kkp-connected-spectral-counterexamples",
+   "licence": "Apache-2.0",
+   "sha": "c611a4a733fe796809cd941f96ff8f2c294fd1ef",
+   "files": 25,
+   "bytes": 160353,
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "Codex for @shaikidris",
+    "at": "2026-10-29",
+    "note": "Apache-2.0 in LICENSE and the five bundled BN headers. Preserve Idris Ali Shaik's project attribution and Shengtong Zhang's copyright, authorship and Apache-2.0 notices in the adapted BN spectral modules. Mathlib is a pinned external dependency. Human licence confirmation pending."
+   }
+  }
+ ]
+}
