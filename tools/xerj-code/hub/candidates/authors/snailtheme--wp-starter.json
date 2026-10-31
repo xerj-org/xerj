@@ -1,0 +1,30 @@
+{
+ "corpus": "snailtheme--wp-starter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on wordpress, wordpress-boilerplate, wordpress-development queries this for how SnailTheme/wp-starter implements it: Starter Theme for WordPress | development CLI Toolkit (selected work: core, the project root)",
+ "repos": [
+  {
+   "repo": "wp-starter",
+   "url": "https://github.com/SnailTheme/wp-starter",
+   "sha": "2d1f0237c26c7cfd5c8c977c116d48d2cff3e132",
+   "licence": "GPL-2.0 (LICENSE file at pin 2d1f0237c26c, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T17:47Z",
+    "consent_receipt": "3a8c60f3e243",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T17:47Z (receipt 3a8c60f3e243); selected commit 2d1f0237c26c: \"feat(schema): prepare theme 1.3 with toolkit 1.4\". LICENSE file at pin 2d1f0237c26c detected as GPL-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "2d1f0237c26c7cfd5c8c977c116d48d2cff3e132",
+     "at": "2026-10-31T17:47Z",
+     "receipt": "3a8c60f3e243"
+    }
+   }
+  }
+ ]
+}

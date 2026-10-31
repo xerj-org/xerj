@@ -1,0 +1,23 @@
+{
+ "corpus": "uplaydb--uplay-protobufs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how UplayDB/Uplay-Protobufs implements it: Uplay / Ubisoft Connect protobufs. (C#) (selected work: Uplay-Protobufs)",
+ "repos": [
+  {
+   "repo": "Uplay-Protobufs",
+   "url": "https://github.com/UplayDB/Uplay-Protobufs",
+   "sha": "87aac375731b559d56581c88feb94dbac1819c96",
+   "licence": "MIT (LICENSE file at pin 87aac375731b, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T18:52Z",
+    "consent_receipt": "716029fd24f8",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:52Z (receipt 716029fd24f8); selected commit 87aac375731b: \"Updated to 175.0.0.13393\". LICENSE file at pin 87aac375731b detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

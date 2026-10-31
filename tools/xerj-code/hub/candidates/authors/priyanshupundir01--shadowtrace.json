@@ -1,0 +1,23 @@
+{
+ "corpus": "priyanshupundir01--shadowtrace",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how PriyanshuPundir01/ShadowTrace implements it: ShadowTrace is a lightweight, real-time keystroke monitoring tool featuring a live web-based dashboard. Built with Python, Flask, and pynput (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "ShadowTrace",
+   "url": "https://github.com/PriyanshuPundir01/ShadowTrace",
+   "sha": "7638fa7e813362b86e4357fa70443cd35aa66b2c",
+   "licence": "MIT (LICENSE file at pin 7638fa7e8133, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T17:40Z",
+    "consent_receipt": "04c041a1a29f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T17:40Z (receipt 04c041a1a29f); selected commit 7638fa7e8133: \"feat: upgrade to v2.0 with full security hardening, auth gateway, and\u2026\". LICENSE file at pin 7638fa7e8133 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

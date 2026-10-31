@@ -1,0 +1,30 @@
+{
+ "corpus": "vnnc1--gow-native-pc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on cpp, emulation, game-port queries this for how Vnnc1/gow-native-pc implements it: Native Windows PC port of God of War (PS2), built by statically recompiling MIPS R5900 code to C++ with PS2Recomp. Includes an installer lau (selected work: engine, tools, games)",
+ "repos": [
+  {
+   "repo": "gow-native-pc",
+   "url": "https://github.com/Vnnc1/gow-native-pc",
+   "sha": "c81b5ae4dddd8e9194c10246714d55fb0c4581e2",
+   "licence": "GPL-3.0 (LICENSE file at pin c81b5ae4dddd, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T19:10Z",
+    "consent_receipt": "e4cbe6065578",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:10Z (receipt e4cbe6065578); selected commit c81b5ae4dddd: \"Implement patches 30-35 for enhanced memory handling and performance \u2026\". LICENSE file at pin c81b5ae4dddd detected as GPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "c81b5ae4dddd8e9194c10246714d55fb0c4581e2",
+     "at": "2026-10-31T19:10Z",
+     "receipt": "e4cbe6065578"
+    }
+   }
+  }
+ ]
+}

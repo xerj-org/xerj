@@ -1,0 +1,23 @@
+{
+ "corpus": "dibun75--visor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-coding, code-intelligence, context-engine queries this for how dibun75/visor implements it: \ud83d\udd2d V.I.S.O.R. \u2014 Visual Intelligence System for Orchestrated Reasoning. A local-first MCP server that indexes your codebase via AST parsing, r (selected work: src/visor, tests)",
+ "repos": [
+  {
+   "repo": "visor",
+   "url": "https://github.com/dibun75/visor",
+   "sha": "abc8e47a7de204a59ed7117ada29de132fe68ab5",
+   "licence": "MIT (LICENSE file at pin abc8e47a7de2, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:04Z",
+    "consent_receipt": "1740971531a0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:04Z (receipt 1740971531a0); selected commit abc8e47a7de2: \"fix: enforce graph index integrity\". LICENSE file at pin abc8e47a7de2 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

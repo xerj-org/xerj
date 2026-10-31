@@ -1,0 +1,23 @@
+{
+ "corpus": "denzyldick--phanalist",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on php, refactoring, static-analysis queries this for how denzyldick/phanalist implements it: Performant static analyzer for PHP, which is extremely easy to use. It helps you catch common mistakes in your PHP code (selected work: src/rules, src/resource)",
+ "repos": [
+  {
+   "repo": "phanalist",
+   "url": "https://github.com/denzyldick/phanalist",
+   "sha": "70370b484c5b1114c524169e3940fd853b82944f",
+   "licence": "MIT (LICENSE file at pin 70370b484c5b, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T18:08Z",
+    "consent_receipt": "ac88565a7eb1",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:08Z (receipt ac88565a7eb1); selected commit 70370b484c5b: \"fix(e0045): tighten retained-heap reporting\". LICENSE file at pin 70370b484c5b detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

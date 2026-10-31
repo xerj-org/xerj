@@ -1,0 +1,23 @@
+{
+ "corpus": "alllivesupport--ytdx-studio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Dart queries this for how AllLiveSupport/YTDx-Studio implements it: Ultra-fast, modern YouTube Video & Music Downloader with 4K/8K MP4, 320kbps MP3 (with Album Art), Playlist Batch Engine, In-App Player & 120 (selected work: scripts, aura_app)",
+ "repos": [
+  {
+   "repo": "YTDx-Studio",
+   "url": "https://github.com/AllLiveSupport/YTDx-Studio",
+   "sha": "8d650af23bbe73784e5d3c17c3c1483a13f94c01",
+   "licence": "MIT (LICENSE file at pin 8d650af23bbe, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T18:26Z",
+    "consent_receipt": "3e53946c8df3",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:26Z (receipt 3e53946c8df3); selected commit 8d650af23bbe: \"fix(playlist): Resolve Wrap layout crash and add Windows CI/CD build \u2026\". LICENSE file at pin 8d650af23bbe detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}
