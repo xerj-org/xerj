@@ -8,15 +8,15 @@
   {
    "repo": "obelisk",
    "url": "https://github.com/amrelsawalhi/obelisk",
-   "sha": "6929bb6d02aaa15074d23e38dcaca714073a54c6",
-   "licence": "MIT (LICENSE file at pin 6929bb6d02aa, GitHub licence API 2026-10-31)",
+   "sha": "eef571055ec2fc0c8eb70977f74ac5455a14e984",
+   "licence": "MIT (LICENSE file at pin eef571055ec2, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-23T21:34Z",
     "consent_receipt": "d1d073cb7fea",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T21:34Z (receipt d1d073cb7fea); selected commit 6929bb6d02aa: \"feat(frontend): URL-routed shell with a data-backed command palette\". LICENSE file at pin 6929bb6d02aa detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head 6929bb6d02aa (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T21:34Z (receipt d1d073cb7fea); selected commit eef571055ec2: \"feat(frontend): URL-routed shell with a data-backed command palette\". LICENSE file at pin eef571055ec2 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head eef571055ec2 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

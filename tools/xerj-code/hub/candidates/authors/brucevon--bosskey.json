@@ -1,0 +1,30 @@
+{
+ "corpus": "brucevon--bosskey",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how brucevon/bosskey implements it: \u4e00\u952e\u9690\u85cf\u7a0b\u5e8f\u7a97\u53e3\u3001\u6258\u76d8\u56fe\u6807\u3001\u5f39\u7a97\u901a\u77e5 (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "bosskey",
+   "url": "https://github.com/brucevon/bosskey",
+   "sha": "9cdf017e42149c540820b7b708f832150e2fd6e1",
+   "licence": "GPL-3.0 (LICENSE file at pin 9cdf017e4214, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T03:40Z",
+    "consent_receipt": "c168bdc3d935",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T03:40Z (receipt c168bdc3d935); selected commit 9cdf017e4214: \"v0.1.16\uff1a\u8bbe\u7f6e\u9875\u6539\u4e3a\u5de6\u76ee\u5f55\u5e03\u5c40\uff08\u5feb\u6377\u952e / \u68c0\u67e5\u66f4\u65b0 / \u5173\u4e8e\uff09\". LICENSE file at pin 9cdf017e4214 detected as GPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "9cdf017e42149c540820b7b708f832150e2fd6e1",
+     "at": "2026-10-31T03:40Z",
+     "receipt": "c168bdc3d935"
+    }
+   }
+  }
+ ]
+}

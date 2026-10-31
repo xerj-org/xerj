@@ -1,0 +1,23 @@
+{
+ "corpus": "oedante--ognelissshare",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how oedante/OgnelissShare implements it: OgnelissShare",
+ "repos": [
+  {
+   "repo": "OgnelissShare",
+   "url": "https://github.com/oedante/OgnelissShare",
+   "sha": "adcd32eb2eaf939a4c65fff9a61649e968e3b9d7",
+   "licence": "Apache-2.0 (LICENSE file at pin adcd32eb2eaf, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T05:13Z",
+    "consent_receipt": "4f96951ae8d3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T05:13Z (receipt 4f96951ae8d3); pinned to the default-branch head. LICENSE file at pin adcd32eb2eaf detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

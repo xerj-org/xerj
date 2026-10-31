@@ -8,15 +8,15 @@
   {
    "repo": "gshock-smart-sync-webapp",
    "url": "https://github.com/izivkov/gshock-smart-sync-webapp",
-   "sha": "1eaf2f0743cf9e71c31c8a0cac10f9fd913cf8b7",
-   "licence": "author's permission (LICENSE at pin 1eaf2f0743cf: NONE; repository: none)",
+   "sha": "9532512727329e86dd7c17a21959822df89cdad2",
+   "licence": "author's permission (LICENSE at pin 953251272732: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:09Z",
     "consent_receipt": "38dd1a05c7a7",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:09Z (receipt 38dd1a05c7a7); pinned to the default-branch head. LICENSE at pin 1eaf2f0743cf: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:09Z (receipt 38dd1a05c7a7); pinned to the default-branch head. LICENSE at pin 953251272732: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]
