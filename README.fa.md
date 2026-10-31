@@ -1094,3 +1094,34 @@ DeepSeek Harness هر سرور MCP را به‌عنوان یک افزونه مس
 <p dir="rtl" align="right">
 البته برای تشخیص تغییرات، همچنان هش کامل محتوای فایل محاسبه می‌شود؛ بنابراین حداقل زمان لازم برای ایندکس‌گذاری مجدد را عملیات محاسبه هش تعیین می‌کند، نه مرحله تجزیه فایل‌ها.
 </p>
+
+<h2 dir="rtl" align="right">ساخت از کد منبع</h2>
+
+<p dir="rtl" align="right">
+برای ساخت <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> از کد منبع، به نسخه پایدار ابزارهای توسعه <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Rust</span> نیاز دارید.
+</p>
+
+<pre dir="ltr"><code>git clone https://github.com/xerj-org/xerj
+cd xerj/engine
+cargo build --release -p xerj-server
+./target/release/xerj --insecure --data-dir ~/xerj-data</code></pre>
+
+<p dir="rtl" align="right">
+نسخه‌های قابل انتشار برای معماری <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">x86-64</span> با هدف <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">x86-64-v2</span> ساخته می‌شوند که از دستورالعمل‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">SSE4.2</span> پشتیبانی می‌کند. این هدف برای هر معماری به‌صورت جداگانه در فایل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>engine/.cargo/config.toml</code></span> تنظیم شده است.
+</p>
+
+<p dir="rtl" align="right">
+هسته محاسبات ضرب داخلی (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Dot-product</span>) در الگوریتم <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">HNSW</span> نیز یک نسخه بهینه‌شده با دستورالعمل‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">AVX2</span> و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">FMA</span> کامپایل می‌کند و در زمان اجرا، در صورت پشتیبانی پردازنده از هر دو قابلیت، به‌طور خودکار از آن استفاده می‌کند.
+</p>
+
+<p dir="rtl" align="right">
+از آنجا که متغیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>RUSTFLAGS</code></span> تنظیمات فایل مذکور را بازنویسی می‌کند، می‌توانید در ساخت محلی، قابلیت‌های پردازنده میزبان را مستقیماً فعال کنید:
+</p>
+
+<pre dir="ltr"><code>RUSTFLAGS="-C target-cpu=native" cargo build --release -p xerj-server</code></pre>
+
+<p dir="rtl" align="right">
+برای اجرای مجموعه آزمون‌های سازگاری در برابر یک سرور در حال اجرا، دستور زیر را اجرا کنید:
+</p>
+
+<pre dir="ltr"><code>cargo run --release -p es-yaml-runner -- --dir tests/es-compat-yaml/yaml</code></pre>
