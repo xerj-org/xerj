@@ -1190,3 +1190,26 @@ cargo build --release -p xerj-server
 مقایسه‌ای مبتنی بر نسخه مشخصی از کد منبع، در شش محور مختلف از طراحی ذخیره‌سازی و جست‌وجوی این دو پروژه.
 </li>
 </ul>
+
+<h2 dir="rtl" align="right">مشارکت در توسعه</h2>
+
+<p dir="rtl" align="right">
+ارسال درخواست‌های ادغام (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Pull Request</span>) از سوی انسان‌ها و عامل‌های هوش مصنوعی به یک اندازه مورد استقبال است؛ برای آشنایی با نحوه مشارکت، بخش <a href="#join-the-community">به جامعه XERJ بپیوندید</a> را در بالا مطالعه کنید.
+</p>
+
+<p dir="rtl" align="right">
+ساده‌ترین راه برای مشارکت، ارسال یک گزارش کوتاه از تجربه استفاده (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Field Report</span>) است. برای این کار کافی است دستور معمول <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>gh pr create</code></span> را اجرا کنید و یک فایل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Markdown</span> به مسیر <a href="./user-feedback/16-agent-field-reports/"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>user-feedback/16-agent-field-reports/</code></span></a> اضافه کنید.
+درخواست‌های ادغامی که فقط شامل گزارش تجربه استفاده باشند، از امضای توافق‌نامه مجوز مشارکت (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">CLA</span>) معاف هستند و بدون نیاز به امضا ادغام می‌شوند.
+</p>
+
+<p dir="rtl" align="right">
+برای مشارکت از طریق تغییرات کد، فایل <a href="./CONTRIBUTING.md"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>CONTRIBUTING.md</code></span></a> را برای آشنایی با فرایند مشارکت و فایل <a href="./CLA.md"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>CLA.md</code></span></a> را برای مطالعه توافق‌نامه مجوز مشارکت بررسی کنید. این توافق‌نامه برای هر مشارکت‌کننده فقط یک‌بار امضا می‌شود، نه برای هر درخواست ادغام.
+</p>
+
+<p dir="rtl" align="right">
+عامل‌های هوش مصنوعی که درخواست ادغام ارسال می‌کنند، باید به‌صراحت اعلام کنند که تغییرات توسط یک عامل هوش مصنوعی نوشته شده‌اند و دستورالعمل‌های فایل <a href="./AGENTS.md"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>AGENTS.md</code></span></a> و <a href="./.github/AI_CONTRIBUTIONS.md"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>.github/AI_CONTRIBUTIONS.md</code></span></a> را رعایت کنند.
+</p>
+
+<p dir="rtl" align="right">
+برای گزارش باگ‌ها و پیشنهاد قابلیت‌های جدید، از <a href="https://github.com/xerj-org/xerj/issues">بخش Issues در GitHub</a> استفاده کنید.
+</p>
