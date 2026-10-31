@@ -3451,6 +3451,17 @@ fn record_bulk_outcome(
 
 // ─── phase-B bulk coalescing (#1147) ─────────────────────────────────────
 
+/// One flushed bulk: the body, the tokens with records in it, and the
+/// token behind each `_id`.
+type PipeJob = (Vec<u8>, Vec<u64>, HashMap<String, u64>);
+
+/// The `_id` an NDJSON bulk action line names, if any.
+fn bulk_action_id(action: &[u8]) -> Option<String> {
+    let value: Value = serde_json::from_slice(action).ok()?;
+    let op = value.as_object()?.values().next()?;
+    op.get("_id")?.as_str().map(str::to_owned)
+}
+
 /// Shared mutable state of [`BulkPipe`]. One lock covers the buffer and the
 /// per-token bookkeeping so a flush is atomic against submissions.
 #[derive(Default)]
@@ -3462,6 +3473,19 @@ struct PipeState {
     /// Tokens with bytes in `buf`, in submission order. A token appears once
     /// even across several chunk submissions (one file larger than the cut).
     pending: Vec<u64>,
+    /// The token that submitted each `_id` in `buf`, so a refused item is
+    /// charged to its own file rather than to every file in the bulk (#2807).
+    owners: HashMap<String, u64>,
+    /// Tokens whose every refused record was over the server's per-document
+    /// byte limit, with the server's reason. A retry cannot clear that, so the
+    /// file is set aside instead of failing the run (#2807).
+    too_large: HashMap<u64, String>,
+    /// Tokens that also failed for any other reason. Never set aside: one
+    /// refusal a rerun could clear is enough to fail the run instead.
+    other_refusal: HashSet<u64>,
+    /// Bulks in flight per token, so a set-aside purge waits for the file's
+    /// last records to land before deleting them.
+    in_flight_tokens: HashMap<u64, usize>,
     /// Terminal result per token, observed (and removed) by the token's
     /// owner in [`BulkPipe::settle`].
     done: std::collections::HashMap<u64, Result<(), String>>,
@@ -3539,7 +3563,6 @@ struct BulkPipe<'a, F> {
     bulk_cut: usize,
     doc_cap: usize,
     rejected_records: &'a AtomicU64,
-    bulk_errors: &'a Mutex<Vec<String>>,
     state: Mutex<PipeState>,
     ready: Condvar,
 }
@@ -3553,7 +3576,6 @@ where
         bulk_cut: usize,
         doc_cap: usize,
         rejected_records: &'a AtomicU64,
-        bulk_errors: &'a Mutex<Vec<String>>,
         workers: usize,
     ) -> Self {
         Self {
@@ -3561,7 +3583,6 @@ where
             bulk_cut: bulk_cut.max(1),
             doc_cap: doc_cap.max(1),
             rejected_records,
-            bulk_errors,
             state: Mutex::new(PipeState {
                 live_workers: workers,
                 ..PipeState::default()
@@ -3601,6 +3622,11 @@ where
         if !st.pending.contains(&token) {
             st.pending.push(token);
         }
+        for action in bytes.split(|b| *b == b'\n').step_by(2) {
+            if let Some(id) = bulk_action_id(action) {
+                st.owners.insert(id, token);
+            }
+        }
         st.buf.extend_from_slice(&bytes);
         st.docs += docs;
         if st.buf.len() < self.bulk_cut && st.docs < self.doc_cap {
@@ -3623,7 +3649,43 @@ where
         };
         drop(st);
         let outcome = (self.send)(job.0);
-        self.deliver(job.1, outcome);
+        self.deliver(job.1, job.2, outcome);
+    }
+
+    /// The server's reason when this token failed only on records over the
+    /// per-document byte limit. Taken once, by the file's own worker.
+    fn take_too_large(&self, token: u64) -> Option<String> {
+        self.lock().too_large.remove(&token)
+    }
+
+    /// Block until no bulk holding this file's records is buffered or in
+    /// flight. A failed token settles at its first refusal, while its later
+    /// chunks may still be on the wire; a purge before they land would leave
+    /// a junk file half searchable.
+    fn quiesce(&self, token: u64) {
+        let mut st = self.lock();
+        loop {
+            let buffered = st.pending.contains(&token);
+            if !buffered && !st.in_flight_tokens.contains_key(&token) {
+                return;
+            }
+            if buffered {
+                if let Some(job) = self.take_job(&mut st) {
+                    drop(st);
+                    let outcome = (self.send)(job.0);
+                    self.deliver(job.1, job.2, outcome);
+                    st = self.lock();
+                    continue;
+                }
+            }
+            st.parked_workers += 1;
+            let (guard, _) = self
+                .ready
+                .wait_timeout(st, std::time::Duration::from_secs(30))
+                .unwrap_or_else(|p| p.into_inner());
+            st = guard;
+            st.parked_workers -= 1;
+        }
     }
 
     /// Whether any bulk carrying this file's records has failed. The drain
@@ -3655,7 +3717,7 @@ where
                 if let Some(job) = self.take_job(&mut st) {
                     drop(st);
                     let outcome = (self.send)(job.0);
-                    self.deliver(job.1, outcome);
+                    self.deliver(job.1, job.2, outcome);
                     st = self.lock();
                     continue;
                 }
@@ -3695,7 +3757,7 @@ where
             if let Some(job) = self.take_job(&mut st) {
                 drop(st);
                 let outcome = (self.send)(job.0);
-                self.deliver(job.1, outcome);
+                self.deliver(job.1, job.2, outcome);
                 st = self.lock();
                 continue;
             }
@@ -3713,22 +3775,42 @@ where
 
     /// Detach the buffer as a send job if a wire slot is free. Called with
     /// the lock held; the caller drops the lock before sending.
-    fn take_job(&self, st: &mut PipeState) -> Option<(Vec<u8>, Vec<u64>)> {
+    fn take_job(&self, st: &mut PipeState) -> Option<PipeJob> {
         if st.buf.is_empty() || st.in_flight >= MAX_IN_FLIGHT {
             return None;
         }
         st.in_flight += 1;
         st.docs = 0;
-        Some((std::mem::take(&mut st.buf), std::mem::take(&mut st.pending)))
+        for t in &st.pending {
+            *st.in_flight_tokens.entry(*t).or_default() += 1;
+        }
+        Some((
+            std::mem::take(&mut st.buf),
+            std::mem::take(&mut st.pending),
+            std::mem::take(&mut st.owners),
+        ))
     }
 
     /// Resolve a completed job: reclaim the wire slot, settle every token it
     /// carried, wake the parked. Same outcome handling as
     /// `record_bulk_outcome`, resolved per token instead of through the
     /// caller's `send_err`.
-    fn deliver(&self, tokens: Vec<u64>, outcome: anyhow::Result<crate::esclient::BulkOutcome>) {
+    fn deliver(
+        &self,
+        tokens: Vec<u64>,
+        owners: HashMap<String, u64>,
+        outcome: anyhow::Result<crate::esclient::BulkOutcome>,
+    ) {
         let mut st = self.lock();
         st.in_flight = st.in_flight.saturating_sub(1);
+        for t in &tokens {
+            if let Some(n) = st.in_flight_tokens.get_mut(t) {
+                *n -= 1;
+                if *n == 0 {
+                    st.in_flight_tokens.remove(t);
+                }
+            }
+        }
         match outcome {
             Ok(outcome) => {
                 if outcome.server_errors > 0 {
@@ -3741,19 +3823,73 @@ where
                     );
                     for t in &tokens {
                         st.failed.insert(*t);
+                        st.other_refusal.insert(*t);
+                        st.too_large.remove(t);
                         st.done.insert(*t, Err(msg.clone()));
                     }
-                } else {
-                    if outcome.item_errors > 0 {
-                        self.rejected_records
-                            .fetch_add(outcome.item_errors, Ordering::Relaxed);
-                        if let Some(error) = outcome.first_error {
-                            let mut errors = self.bulk_errors.lock().unwrap();
-                            if errors.len() < 5 {
-                                errors.push(error);
+                } else if outcome.item_errors > 0 {
+                    // Charge each refused record to the file whose `_id` it
+                    // carried: that file is not journaled, so the rerun the
+                    // abort asks for re-sends it, and the files whose records
+                    // were all accepted settle Ok. A refusal without a known
+                    // `_id` fails every file in the bulk. Settling all of them
+                    // Ok journaled a file past a record never stored (#2807).
+                    let mut refused: HashMap<u64, Vec<String>> = HashMap::new();
+                    let mut too_large: HashMap<u64, (bool, String)> = HashMap::new();
+                    let mut unowned = outcome.refused.len() as u64 != outcome.item_errors;
+                    for item in &outcome.refused {
+                        match item.id.as_ref().and_then(|id| owners.get(id)) {
+                            Some(token) => {
+                                refused.entry(*token).or_default().push(item.error.clone());
+                                let entry = too_large
+                                    .entry(*token)
+                                    .or_insert_with(|| (true, item.error.clone()));
+                                entry.0 &= item.too_large;
                             }
+                            None => unowned = true,
                         }
                     }
+                    // A file set aside for size is junk, not a backend
+                    // rejection, so it is not counted as one.
+                    let mut set_aside = 0u64;
+                    for (t, (all_too_large, reason)) in too_large {
+                        if all_too_large && !unowned && !st.other_refusal.contains(&t) {
+                            set_aside += refused.get(&t).map_or(0, |e| e.len() as u64);
+                            st.too_large.insert(t, reason);
+                        } else {
+                            st.other_refusal.insert(t);
+                            st.too_large.remove(&t);
+                        }
+                    }
+                    self.rejected_records
+                        .fetch_add(outcome.item_errors - set_aside, Ordering::Relaxed);
+                    for t in &tokens {
+                        let errors = refused.get(t);
+                        if unowned || errors.is_some() {
+                            let msg = match errors {
+                                Some(errors) => format!(
+                                    "the backend refused {} of this file's record(s): {}",
+                                    errors.len(),
+                                    errors[0]
+                                ),
+                                None => format!(
+                                    "the backend refused {} record(s) in the bulk carrying \
+                                     this file: {}",
+                                    outcome.item_errors,
+                                    outcome.first_error.as_deref().unwrap_or("no reason given")
+                                ),
+                            };
+                            if unowned {
+                                st.other_refusal.insert(*t);
+                                st.too_large.remove(t);
+                            }
+                            st.failed.insert(*t);
+                            st.done.insert(*t, Err(msg));
+                        } else if !st.failed.contains(t) {
+                            st.done.insert(*t, Ok(()));
+                        }
+                    }
+                } else {
                     for t in &tokens {
                         if !st.failed.contains(t) {
                             st.done.insert(*t, Ok(()));
@@ -3765,6 +3901,8 @@ where
                 let msg = format!("{error:#}");
                 for t in &tokens {
                     st.failed.insert(*t);
+                    st.other_refusal.insert(*t);
+                    st.too_large.remove(t);
                     st.done.insert(*t, Err(msg.clone()));
                 }
             }
@@ -11166,13 +11304,11 @@ fn run_index_report_inner(
     let pipe = {
         let es = &es;
         let rejected = &rejected_records;
-        let errors = &bulk_errors;
         BulkPipe::new(
             move |body| es.bulk(body),
             bulk_cut,
             5000,
             rejected,
-            errors,
             worker_count,
         )
     };
@@ -11790,7 +11926,54 @@ fn run_index_report_inner(
             // nor the journal commit may run.
             if send_err.is_none() {
                 if let Err(e) = pipe.settle(file_token) {
-                    send_err = Some(e);
+                    match pipe.take_too_large(file_token) {
+                        // The server refused a record as too large, which the
+                        // same record will hit on every rerun: set the file
+                        // aside and keep going, as for any junk file (#2807).
+                        // Its accepted records are removed first, so a junk
+                        // file is never half searchable.
+                        Some(reason) => {
+                            pipe.quiesce(file_token);
+                            let query = replacement_purge_query(key, &f.rel, None);
+                            let indices: BTreeSet<String> = fa
+                                .assignments
+                                .iter()
+                                .filter_map(|(_, slug)| ds_rt.get(slug).map(|rt| rt.index.clone()))
+                                .collect();
+                            for index in &indices {
+                                if let Err(error) = es.delete_by_query(index, &query) {
+                                    send_err = Some(format!(
+                                        "{}: remove its records after the server refused one as \
+                                         too large: {error:#}",
+                                        f.rel
+                                    ));
+                                    break;
+                                }
+                            }
+                            if send_err.is_none() {
+                                extra_junk.lock().unwrap().push(JunkFile {
+                                    file_key: key.clone(),
+                                    rel: f.rel.clone(),
+                                    format: format_str(Some(&sn)),
+                                    status: "junk".into(),
+                                    reason: format!(
+                                        "set aside at index time: the server refused a record \
+                                         from this file: {reason}. On a semantic field the \
+                                         vectors the server adds count toward that limit; \
+                                         `--no-semantic` indexes the file without them"
+                                    ),
+                                    bytes: f.size,
+                                });
+                                pr.note(&format!(
+                                    "{}: set aside, the server refused a record from it as \
+                                     over its per-document size limit",
+                                    f.rel
+                                ));
+                                continue;
+                            }
+                        }
+                        None => send_err = Some(format!("{}: {e}", f.rel)),
+                    }
                 }
             }
             // Second-brain edges for this file (§6.7): only after the
@@ -11804,6 +11987,9 @@ fn run_index_report_inner(
                     let out = detect::assemble(&edge_drafts, &gr.edges_index, gr.created_at_ms);
                     gr.self_dropped
                         .fetch_add(out.self_dropped, Ordering::Relaxed);
+                    // Counted per file, not from the shared total, which
+                    // other workers move at the same time.
+                    let edge_refused = AtomicU64::new(0);
                     let mut ebuf: Vec<u8> = Vec::new();
                     for edge in &out.edges {
                         ebuf.extend_from_slice(&edge.ndjson);
@@ -11811,7 +11997,7 @@ fn run_index_report_inner(
                             && record_bulk_outcome(
                                 &es,
                                 std::mem::take(&mut ebuf),
-                                &rejected_records,
+                                &edge_refused,
                                 &bulk_errors,
                                 &mut send_err,
                             )
@@ -11820,13 +12006,17 @@ fn run_index_report_inner(
                         }
                     }
                     if send_err.is_none() && !ebuf.is_empty() {
-                        record_bulk_outcome(
-                            &es,
-                            ebuf,
-                            &rejected_records,
-                            &bulk_errors,
-                            &mut send_err,
-                        );
+                        record_bulk_outcome(&es, ebuf, &edge_refused, &bulk_errors, &mut send_err);
+                    }
+                    // A refused edge is a failed send too: leave the file
+                    // un-journaled so the rerun republishes it (#2807).
+                    let refused = edge_refused.load(Ordering::Relaxed);
+                    rejected_records.fetch_add(refused, Ordering::Relaxed);
+                    if send_err.is_none() && refused > 0 {
+                        send_err = Some(format!(
+                            "{}: the backend refused {refused} of this file's graph edge(s)",
+                            f.rel
+                        ));
                     }
                     if send_err.is_none() {
                         let mut written = gr.written.lock().unwrap();
@@ -16662,6 +16852,7 @@ mod bulk_pipe_tests {
     fn outcome() -> BulkOutcome {
         BulkOutcome {
             item_errors: 0,
+            refused: Vec::new(),
             server_errors: 0,
             first_error: None,
             first_server_error: None,
@@ -16687,15 +16878,7 @@ mod bulk_pipe_tests {
     fn small_files_coalesce_into_one_bulk() {
         let bodies = Mutex::new(Vec::new());
         let rejected = AtomicU64::new(0);
-        let errors = Mutex::new(Vec::new());
-        let pipe = BulkPipe::new(
-            recording_send(&bodies),
-            1 << 20,
-            5000,
-            &rejected,
-            &errors,
-            1,
-        );
+        let pipe = BulkPipe::new(recording_send(&bodies), 1 << 20, 5000, &rejected, 1);
 
         let t1 = pipe.token();
         let t2 = pipe.token();
@@ -16731,8 +16914,7 @@ mod bulk_pipe_tests {
     fn an_oversized_chunk_flushes_inline() {
         let bodies = Mutex::new(Vec::new());
         let rejected = AtomicU64::new(0);
-        let errors = Mutex::new(Vec::new());
-        let pipe = BulkPipe::new(recording_send(&bodies), 64, 5000, &rejected, &errors, 1);
+        let pipe = BulkPipe::new(recording_send(&bodies), 64, 5000, &rejected, 1);
 
         let t = pipe.token();
         let big: Vec<u8> = vec![b'x'; 200];
@@ -16754,8 +16936,7 @@ mod bulk_pipe_tests {
     fn abandoned_workers_do_not_hold_back_the_residual_buffer() {
         let bodies = Mutex::new(Vec::new());
         let rejected = AtomicU64::new(0);
-        let errors = Mutex::new(Vec::new());
-        let pipe = BulkPipe::new(recording_send(&bodies), 64, 5000, &rejected, &errors, 4);
+        let pipe = BulkPipe::new(recording_send(&bodies), 64, 5000, &rejected, 4);
         pipe.abandon_workers(3);
 
         let t = pipe.token();
@@ -16778,13 +16959,11 @@ mod bulk_pipe_tests {
     #[test]
     fn a_failed_bulk_fails_every_file_it_carried() {
         let rejected = AtomicU64::new(0);
-        let errors = Mutex::new(Vec::new());
         let pipe = BulkPipe::new(
             |_body| Err(anyhow::anyhow!("connection reset by peer")),
             1 << 20,
             5000,
             &rejected,
-            &errors,
             1,
         );
         let t1 = pipe.token();
@@ -16810,7 +16989,6 @@ mod bulk_pipe_tests {
     #[test]
     fn a_later_successful_bulk_does_not_erase_an_earlier_failure() {
         let rejected = AtomicU64::new(0);
-        let errors = Mutex::new(Vec::new());
         let attempts = Mutex::new(0);
         let pipe = BulkPipe::new(
             {
@@ -16829,7 +17007,6 @@ mod bulk_pipe_tests {
             1 << 20,
             1,
             &rejected,
-            &errors,
             1,
         );
         let big_file = pipe.token();
@@ -16858,7 +17035,6 @@ mod bulk_pipe_tests {
     #[test]
     fn server_errors_settle_err_without_poisoning_later_batches() {
         let rejected = AtomicU64::new(0);
-        let errors = Mutex::new(Vec::new());
         let attempts = Mutex::new(0);
         let pipe = BulkPipe::new(
             {
@@ -16880,7 +17056,6 @@ mod bulk_pipe_tests {
             1 << 20,
             5000,
             &rejected,
-            &errors,
             1,
         );
         let bad = pipe.token();
@@ -16894,16 +17069,58 @@ mod bulk_pipe_tests {
         pipe.retire();
     }
 
-    /// Per-item rejections are counted and surfaced but stay non-fatal — the
-    /// file's OTHER records are live and it journals complete.
+    /// A refused record fails only the file whose `_id` it carried, so that
+    /// file is not journaled; a neighbour in the same bulk settles Ok (#2807).
+    /// A refusal the pipe cannot attribute fails every file in the bulk.
+    /// #2807: a file is set aside only when every refusal it got was a size
+    /// refusal. A size refusal in one bulk and a mapping refusal in a later one
+    /// must fail the run, not set the file aside; the flag is not sticky.
     #[test]
-    fn item_errors_are_counted_and_non_fatal() {
+    fn a_file_with_any_other_refusal_is_not_set_aside() {
         let rejected = AtomicU64::new(0);
-        let errors = Mutex::new(Vec::new());
+        let calls = AtomicU64::new(0);
+        let pipe = BulkPipe::new(
+            |_body| {
+                let first = calls.fetch_add(1, Ordering::Relaxed) == 0;
+                Ok(BulkOutcome {
+                    item_errors: 1,
+                    refused: vec![crate::esclient::RefusedItem {
+                        id: Some(if first { "a-1" } else { "a-2" }.into()),
+                        error: if first { "too large" } else { "mapper refused" }.into(),
+                        too_large: first,
+                    }],
+                    first_error: Some("refused".into()),
+                    ..outcome()
+                })
+            },
+            1,
+            5000,
+            &rejected,
+            1,
+        );
+        let a = pipe.token();
+        pipe.submit(a, b"{\"index\":{\"_id\":\"a-1\"}}\n{}\n".to_vec(), 1);
+        pipe.submit(a, b"{\"index\":{\"_id\":\"a-2\"}}\n{}\n".to_vec(), 1);
+        pipe.settle(a).unwrap_err();
+        pipe.quiesce(a);
+        assert_eq!(calls.load(Ordering::Relaxed), 2, "both bulks landed");
+        assert_eq!(pipe.take_too_large(a), None);
+        pipe.retire();
+    }
+
+    #[test]
+    fn a_refused_record_fails_only_its_own_file() {
+        let rejected = AtomicU64::new(0);
+        let refused = |id: Option<&str>| crate::esclient::RefusedItem {
+            id: id.map(str::to_owned),
+            error: "mapper refused field".into(),
+            too_large: false,
+        };
         let pipe = BulkPipe::new(
             |_body| {
                 Ok(BulkOutcome {
-                    item_errors: 2,
+                    item_errors: 1,
+                    refused: vec![refused(Some("a-1"))],
                     first_error: Some("mapper refused field".into()),
                     ..outcome()
                 })
@@ -16911,14 +17128,43 @@ mod bulk_pipe_tests {
             1 << 20,
             5000,
             &rejected,
-            &errors,
+            2,
+        );
+        let a = pipe.token();
+        let b = pipe.token();
+        pipe.submit(a, b"{\"index\":{\"_id\":\"a-1\"}}\n{}\n".to_vec(), 1);
+        pipe.submit(b, b"{\"index\":{\"_id\":\"b-1\"}}\n{}\n".to_vec(), 1);
+        let error = pipe.settle(a).unwrap_err();
+        assert!(
+            error.contains("refused 1 of this file's record(s)"),
+            "{error}"
+        );
+        pipe.settle(b)
+            .expect("a file whose records were all accepted settles Ok");
+        assert_eq!(rejected.load(Ordering::Relaxed), 1);
+        pipe.retire();
+
+        let rejected = AtomicU64::new(0);
+        let pipe = BulkPipe::new(
+            |_body| {
+                Ok(BulkOutcome {
+                    item_errors: 1,
+                    refused: vec![refused(None)],
+                    first_error: Some("mapper refused field".into()),
+                    ..outcome()
+                })
+            },
+            1 << 20,
+            5000,
+            &rejected,
             1,
         );
         let t = pipe.token();
         pipe.submit(t, b"a\n".to_vec(), 3);
-        pipe.settle(t).expect("item errors do not fail the file");
-        assert_eq!(rejected.load(Ordering::Relaxed), 2);
-        assert_eq!(errors.lock().unwrap().len(), 1);
+        assert!(
+            pipe.settle(t).is_err(),
+            "an unattributed refusal fails the file"
+        );
         pipe.retire();
     }
 
@@ -16928,15 +17174,7 @@ mod bulk_pipe_tests {
     fn a_file_with_no_records_settles_without_sending() {
         let bodies = Mutex::new(Vec::new());
         let rejected = AtomicU64::new(0);
-        let errors = Mutex::new(Vec::new());
-        let pipe = BulkPipe::new(
-            recording_send(&bodies),
-            1 << 20,
-            5000,
-            &rejected,
-            &errors,
-            1,
-        );
+        let pipe = BulkPipe::new(recording_send(&bodies), 1 << 20, 5000, &rejected, 1);
         let t = pipe.token();
         pipe.settle(t).expect("pre-resolved");
         pipe.retire();
@@ -16952,7 +17190,6 @@ mod bulk_pipe_tests {
     #[test]
     fn wire_slots_overlap_instead_of_serializing() {
         let rejected = AtomicU64::new(0);
-        let errors = Mutex::new(Vec::new());
         let concurrent = AtomicU64::new(0);
         let peak = AtomicU64::new(0);
         let pipe = BulkPipe::new(
@@ -16970,7 +17207,6 @@ mod bulk_pipe_tests {
             64,
             5000,
             &rejected,
-            &errors,
             4,
         );
         let tokens: Vec<_> = (0..4).map(|_| pipe.token()).collect();
@@ -16999,7 +17235,6 @@ mod bulk_pipe_tests {
     fn many_workers_many_files_coalesce_without_deadlock() {
         let bodies = Mutex::new(Vec::new());
         let rejected = AtomicU64::new(0);
-        let errors = Mutex::new(Vec::new());
         let pipe = BulkPipe::new(
             {
                 let bodies = &bodies;
@@ -17012,7 +17247,6 @@ mod bulk_pipe_tests {
             1 << 20,
             5000,
             &rejected,
-            &errors,
             8,
         );
         const WORKERS: usize = 8;

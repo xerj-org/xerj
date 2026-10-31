@@ -163,6 +163,9 @@ struct MockState {
     /// and the type is not a block, so the run continues and must still
     /// report the rejection.
     reject_first_data_item: bool,
+    /// As `reject_first_data_item`, with the server's per-document size
+    /// refusal, which a retry cannot clear (#2807).
+    reject_first_data_item_as_too_large: bool,
     /// Opt-in (#929): refuse the create-index PUT — which on this path carries
     /// the dataset's whole mapping — of every index whose name contains one of
     /// these, with the 400 a real engine returns for a field it cannot map.
@@ -916,15 +919,27 @@ fn bulk_response(body: &[u8], state: &Arc<Mutex<MockState>>) -> Value {
     if locked.swallow_data_bulks {
         return json!({"errors": false, "items": []});
     }
-    if locked.reject_first_data_item {
+    if locked.reject_first_data_item || locked.reject_first_data_item_as_too_large {
+        let too_large = locked.reject_first_data_item_as_too_large;
         let mut items = Vec::new();
         for (nth, pair) in lines.as_chunks::<2>().0.iter().enumerate() {
             if nth == 0 {
+                let action: Value = serde_json::from_slice(pair[0]).unwrap();
                 items.push(json!({"index": {
+                    "_id": action.pointer("/index/_id").cloned().unwrap_or(Value::Null),
                     "status": 400,
-                    "error": {
-                        "type": "document_parsing_exception",
-                        "reason": "refused: value could not be parsed"
+                    "error": if too_large {
+                        json!({
+                            "type": "engine_exception",
+                            "reason": "document is 16590136 bytes, over the 8388608 byte \
+                                       limit for one indexed JSON document; it was not \
+                                       indexed. Split it into smaller documents"
+                        })
+                    } else {
+                        json!({
+                            "type": "document_parsing_exception",
+                            "reason": "refused: value could not be parsed"
+                        })
                     }
                 }}));
                 continue;
@@ -3934,6 +3949,9 @@ fn write_block_rejections_are_backend_fatal_and_the_file_stays_pending() {
 /// The rejection count is therefore reported in the one place a rejected run
 /// ever reaches: the abort message, where it supplies the scale that
 /// `bulk_errors`' first-five sample cannot.
+///
+/// The file that carried the refused record is named and stays un-journaled,
+/// so the rerun the message asks for really retries it (#2807).
 #[test]
 fn backend_rejected_records_abort_the_run_before_any_map_is_written() {
     let _guard = FAILPOINT_TEST_LOCK
@@ -3966,23 +3984,24 @@ fn backend_rejected_records_abort_the_run_before_any_map_is_written() {
         "the abort must state how many records were refused, not just sample the errors: {error}"
     );
 
-    // Measured, and deliberately pinned even though it is NOT what the abort
-    // message implies: `record_bulk_outcome` treats a per-item rejection as
-    // non-fatal to the worker (only `server_errors` set `send_err`), so the
-    // file is journaled COMPLETE and the run aborts only at the end. A rerun
-    // therefore resumes past this file and never retries the refused record,
-    // while the message says failed sources "were not journaled complete".
-    //
-    // That divergence predates this branch — it is `main`'s behaviour for the
-    // item-error class — and fixing it means changing when a worker treats a
-    // rejection as fatal, which is a resume-semantics change with nothing to
-    // do with map metadata. Recorded here so the next reader finds the fact
-    // rather than the assumption; tracked in the PR body as a known gap.
+    // #2807: the refused record's source file is named and is NOT journaled
+    // complete, as the message says. It used to be journaled, so a rerun
+    // resumed past it, reported success and never sent the refused record.
+    assert!(
+        error.contains("records.csv"),
+        "the abort must name the file whose record was refused: {error}"
+    );
     assert_eq!(
         file_done_count(state_dir.path()),
-        1,
-        "pre-existing: a per-item rejection still journals the source complete"
+        0,
+        "a source with a refused record must not be journaled complete"
     );
+
+    // With the refusal gone, the same command resumes and sends every record.
+    endpoint.state.lock().unwrap().reject_first_data_item = false;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    run_index_report(config).unwrap();
+    assert_eq!(file_done_count(state_dir.path()), 1);
 }
 
 /// #195 last-resort gate: a backend that ACCEPTS every bulk but persists
@@ -5210,4 +5229,60 @@ fn a_refused_dataset_on_the_graph_path_costs_that_dataset_not_the_run() {
         .find(|line| line.starts_with("xerj-done "))
         .unwrap();
     assert!(done.contains("datasets_refused=1"), "{done}");
+}
+
+/// #2807: a record the server refuses as over its per-document size limit is
+/// refused again on every rerun, so its file is set aside as junk and the run
+/// completes (exit 3) instead of aborting. The file's accepted records are
+/// removed, it is not journaled, and it indexes once the refusal goes away.
+#[test]
+fn a_record_refused_as_too_large_sets_its_file_aside() {
+    let _guard = FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _io_guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(
+        corpus.path().join("records.csv"),
+        "id,value\n0,kept\n1,kept\n2,kept\n",
+    )
+    .unwrap();
+    let endpoint = MockEndpoint::start(usize::MAX);
+    endpoint
+        .state
+        .lock()
+        .unwrap()
+        .reject_first_data_item_as_too_large = true;
+
+    for round in 0..2 {
+        let (code, _) = run_index_report(cfg(corpus.path(), state_dir.path(), &endpoint.url))
+            .unwrap_or_else(|error| panic!("round {round} must not abort: {error:#}"));
+        assert_eq!(code, 3, "round {round}: completed with junk");
+        let state = endpoint.state.lock().unwrap();
+        let catalog = serde_json::to_string(&state.catalog_docs).unwrap();
+        assert!(
+            catalog.contains("set aside at index time") && catalog.contains("records.csv"),
+            "round {round}: the file is listed as junk with the reason: {catalog}"
+        );
+        assert!(
+            !serde_json::to_string(&state.docs)
+                .unwrap()
+                .contains("\"kept\""),
+            "round {round}: the file's accepted records are removed"
+        );
+        drop(state);
+        assert_eq!(file_done_count(state_dir.path()), 0, "round {round}");
+    }
+
+    endpoint
+        .state
+        .lock()
+        .unwrap()
+        .reject_first_data_item_as_too_large = false;
+    let (code, _) = run_index_report(cfg(corpus.path(), state_dir.path(), &endpoint.url)).unwrap();
+    assert_eq!(code, 0);
+    assert_eq!(file_done_count(state_dir.path()), 1);
 }

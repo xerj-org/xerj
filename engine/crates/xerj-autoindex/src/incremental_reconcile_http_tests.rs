@@ -25,6 +25,9 @@ struct HttpState {
     search_bodies: Vec<Value>,
     data_bulk_requests: usize,
     fail_next_data_bulk: bool,
+    /// #2807: refuse the first `index` action of the next data bulk as over
+    /// the per-document byte limit, echoing its `_id` as the server does.
+    refuse_next_data_item_as_too_large: bool,
     /// Apply the first half of the next data bulk's items and *then* report
     /// `errors: true`. This is the dangerous backend shape the legacy
     /// replacement transaction was hardened against (visibility changed, but
@@ -587,6 +590,28 @@ fn bulk_http(body: &[u8], state: &Arc<Mutex<HttpState>>) -> (u16, Value) {
         let numbered = locked.fail_data_bulk_number == Some(locked.data_bulk_requests);
         if numbered {
             locked.fail_data_bulk_number = None;
+        }
+        if std::mem::take(&mut locked.refuse_next_data_item_as_too_large) {
+            let action: Value = serde_json::from_slice(lines[0]).unwrap();
+            let id = action["index"]["_id"]
+                .as_str()
+                .unwrap_or_default()
+                .to_owned();
+            return (
+                200,
+                json!({
+                    "errors": true,
+                    "items": [{"index": {
+                        "_id": id,
+                        "status": 413,
+                        "error": {
+                            "type": "engine_exception",
+                            "reason": "document is 16590136 bytes, over the 8388608 byte limit for one indexed JSON document; it was not indexed. Split it into smaller documents",
+                            "status": 413
+                        }
+                    }}]
+                }),
+            );
         }
         if std::mem::take(&mut locked.fail_next_data_bulk) || numbered {
             return (
@@ -7675,4 +7700,39 @@ fn a_folder_of_templates_and_html_fragments_is_indexed_not_junked() {
             "{needle} is not in any indexed record"
         );
     }
+}
+
+/// #2807 on the generated (`--no-graph`) path, which `xerj corpus index` uses.
+/// That path seals the generation before it sends, so a file the server
+/// refuses for size cannot be set aside there. The abort must at least name
+/// the file and a way out that works; it used to say only "prepared bulk
+/// contained 1 rejected items".
+#[test]
+fn a_record_refused_for_size_on_the_generated_path_names_its_file() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    endpoint
+        .state
+        .lock()
+        .unwrap()
+        .refuse_next_data_item_as_too_large = true;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let error = format!("{:#}", run_index(config).unwrap_err());
+    assert!(
+        error.contains("from a.csv"),
+        "the file must be named: {error}"
+    );
+    assert!(error.contains("16590136 bytes"), "{error}");
+    assert!(
+        error.contains("--no-semantic") && error.contains("--exclude"),
+        "the abort must give a way out that works: {error}"
+    );
+    assert!(!error.contains("prepared bulk contained"), "{error}");
 }

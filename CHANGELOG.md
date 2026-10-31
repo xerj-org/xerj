@@ -456,6 +456,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   XML, including `.xml`, `.xaml` and `.svg`, is unchanged. An index built
   before this fix keeps its junked files until each one changes or the folder
   is indexed again with `--fresh` (#2740).
+- When the server refuses a record or a graph edge, `xerj autoindex` now
+  names the file it came from and does not mark that file done. It used to
+  mark every file in the same bulk done, so the rerun the abort message asks
+  for resumed past the file, reported success and never sent the refused
+  record (#2807).
+- A file whose record the server refuses as over its 8 MiB per-document
+  limit is now set aside as junk, with its file name and the server's reason,
+  and the run completes with exit 3. Its other records are removed and it is
+  retried on the next run. It used to abort the whole run, every rerun, until
+  `--fresh`. On a `semantic_text` field the vectors the server adds count
+  toward that limit: a 2 MB generated `.d.ts` file grew to 16.6 MB this way.
+  `--no-semantic` may index such a file (#2807).
+- `xerj corpus index` and `xerj autoindex --no-graph` now name the file a
+  refused record came from, and for a size refusal they say how to index the
+  rest: under a new `--prefix` and `--state-dir`, with the file left out
+  (`--exclude`) or with `--no-semantic`. That route fixes its file list before
+  it sends anything, so it cannot set the file aside, and a rerun repeats the
+  refusal. It used to say only "prepared bulk contained 1 rejected items"
+  (#2807).
 
 ## [1.0.0-rc.100] - 2026-10-26
 
