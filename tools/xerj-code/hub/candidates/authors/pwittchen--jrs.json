@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on build-system, jvm, rust queries this for how pwittchen/jrs implements it: A simple, fast JVM build system, written in Rust. \ud83e\udd80 \u2615 (selected work: src, tests)",
+ "domain": "an agent working on build-system, jvm, rust queries this for how pwittchen/jrs implements it: a simple, fast JVM build system, written in Rust \ud83e\udd80 \u2615 (selected work: src, tests)",
  "repos": [
   {
    "repo": "jrs",

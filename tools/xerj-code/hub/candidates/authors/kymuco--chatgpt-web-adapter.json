@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on chatgpt, python, developer-tools queries this for how kymuco/chatgpt-web-adapter implements it: Local Python SDK and CLI for integrating consumer AI web products into apps and agents, with browser-backed sessions (selected work: src/chatgpt_web_adapter, tests)",
+ "domain": "an agent working on chatgpt, python, developer-tools queries this for how kymuco/chatgpt-web-adapter implements it: Python SDK & CLI for authenticated ChatGPT web sessions (Direct HTTP), plus experimental integrations for other AI web products (selected work: src/chatgpt_web_adapter, tests)",
  "repos": [
   {
    "repo": "chatgpt-web-adapter",
