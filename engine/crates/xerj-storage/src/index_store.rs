@@ -2029,10 +2029,24 @@ impl IndexStore {
 
     /// Index a document.  Returns the assigned sequence number.
     pub fn index(&self, doc_id: impl Into<String>, source: serde_json::Value) -> Result<SeqNo> {
+        self.index_shared(doc_id, std::sync::Arc::new(source))
+    }
+
+    /// Index a document whose parsed source the caller also keeps.
+    ///
+    /// The storage memtable holds `source` until the next flush. Taking an
+    /// `Arc` lets a caller that also puts the document in the engine's FTS
+    /// memtable share one parsed tree between the two, instead of each
+    /// holding its own deep copy until the flush (#2427).
+    pub fn index_shared(
+        &self,
+        doc_id: impl Into<String>,
+        source: std::sync::Arc<serde_json::Value>,
+    ) -> Result<SeqNo> {
         let doc_id = doc_id.into();
         let entry = WalEntry::Index {
             doc_id: doc_id.clone(),
-            source: source.clone(),
+            source: (*source).clone(),
         };
 
         let seq_no = {
@@ -2051,7 +2065,7 @@ impl IndexStore {
         mem.push(MemEntry {
             seq_no,
             doc_id,
-            source: Some(std::sync::Arc::new(source)),
+            source: Some(source),
             source_bytes,
             charge,
         });

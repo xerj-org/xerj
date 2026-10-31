@@ -63,6 +63,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A search no longer hangs forever when a cold segment's stored fields are
+  being warmed in the background. A search-pool thread that waited for the
+  warm's decode could block the decode it waited for, so every later search
+  of that segment timed out at 30 s after ingest stopped. Search-pool threads
+  now wait at most 200 ms and then decode the segment themselves (#2427).
 - A small merge write admitted after a run of merge yields is now checked
   against the memory watermark instead of the process limit, so it can no
   longer take a node from below the watermark into the parent breaker band and
@@ -76,6 +81,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   600 s patience. The bounds now come from two sorted size-1 searches, and a
   429 from the per-query memory guard is no longer retried, since the same
   query is refused again (#2427).
+- **A memory-pressure drain no longer spikes RSS past the cap while it
+  flushes** (#2427). The breaker drain and the cache-release path
+  flushed each index with every non-empty memtable shard building its
+  segment at once, and that working set (parsed documents, columns,
+  postings, stored blocks) is not charged to the memtable budget. On a
+  1,536 MB-capped node one drain took RSS from 1,460 MB to 2,323 MB in
+  about a second. Memory-release flushes now build one shard at a time;
+  ordinary flushes still run in parallel.
 
 - The per-index document version map is smaller and now visible in the
   ingest memory trace. Its keys are `Box<str>` instead of `String`, which
@@ -88,6 +101,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   destination. `_source:false` is refused with ES's sentence, and a `script`
   body is refused before any work instead of silently copying the
   untransformed document (this build has no reindex script context).
+- A document written through the per-document path (single-doc index and the
+  `_bulk` per-document path) is now held once in memory until the next flush
+  instead of twice: the storage memtable and the full-text memtable share one
+  parsed `_source` rather than each keeping its own deep copy. On a 1 GB
+  `_bulk` load a late heap profile had the two copies at ~470 MB of ~1.75 GB
+  in use (#2427).
+
 - Publishing a flushed or merged segment no longer decompresses its whole
   stored section when the result cannot be kept. The publish-time warm now
   sizes the stored slices from the section framing first and skips the warm
@@ -113,6 +133,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gate (cap 3072 MB) the ingest node only received `_bulk`, yet it held
   200-580 MB of warmed stored slices between 40 breaker engages. Queries
   still hydrate a segment on first read. (Refs #2427)
+
+- `simple_query_string` with `"fields": ["*"]` is answered from the inverted
+  index instead of a stored-document scan of every segment (refs #2427). The
+  bare `*` pattern lowered to a literal `"*"` field that has no index
+  projection, so each query parsed every flushed document; on the 1 GB
+  autoindex release gate a 5-hit query walked ~1.2M stored docs and ran into
+  the 30 s request deadline (raw-surface p95 ≈ 30 s). `["*"]` now lowers like
+  an absent `fields` list, which is what ES means by it: unquoted terms are
+  matched over every mapped searchable text field. A boost on the bare
+  pattern (`"*^2"`) is dropped, and quoted phrases are unchanged. On a
+  flushed segment this also applies the searchable-field rule, so `["*"]` no
+  longer matches through an `index: false` field. `query_string` with
+  `["*"]` is unchanged.
+
+- A restarted node that receives no writes no longer runs catch-up merges
+  when its indexes open. Inherited merge debt is now paid at the first
+  segment-set change (a flush, refresh or delete) or on `_forcemerge`. Before,
+  a search-only node in the 1 GB gate started merging straight after the
+  restart, while it was serving reads under the memory breaker. This
+  supersedes the 120 s open quiet period in #2492, which only delayed the
+  same merges (Refs #2427).
 
 - `_bulk` requests of ordinary text and code are no longer refused with a
   429 while the node has memory to spare. Each raw bulk reserved 28 bytes
