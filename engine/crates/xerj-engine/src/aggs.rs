@@ -8146,7 +8146,12 @@ fn run_percentiles(params: &Value, docs: &[Value]) -> Value {
         .get("hdr")
         .and_then(|v| v.get("number_of_significant_value_digits"))
         .and_then(Value::as_u64)
-        .unwrap_or(3) as u32;
+        .unwrap_or(3)
+        // ES bounds this to 0..=5. Past 18 `10^digits` overflows `u64` (it
+        // wraps in release) and the power-of-two loop below never ends, so
+        // clamp here too: agg definitions also reach the engine without the
+        // HTTP validator (MCP, msearch, async search, watchers).
+        .min(5) as u32;
     // subBucketCount = 2^ceil(log2(2 * 10^digits)). For digits=3 that's 2048.
     let sub_bucket_count: u64 = {
         let target = 2u64 * 10u64.pow(hdr_digits);
@@ -14321,6 +14326,24 @@ fn run_ip_range(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// FAIL-BEFORE: `2 * 10^20` wraps `u64` to a value above 2^63, so the
+    /// power-of-two rounding loop shifted `p` to 0 and spun forever. Run on a
+    /// side thread so a regression fails on the timeout instead of hanging.
+    #[test]
+    fn hdr_out_of_range_digits_terminate() {
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let docs = vec![json!({ "n": 1 }), json!({ "n": 51 }), json!({ "n": 151 })];
+            let params = json!({"field": "n", "percents": [50],
+                                "hdr": {"number_of_significant_value_digits": 20}});
+            let _ = tx.send(run_percentiles(&params, &docs));
+        });
+        let out = rx
+            .recv_timeout(std::time::Duration::from_secs(10))
+            .expect("run_percentiles must return for out-of-range hdr digits");
+        assert!(out.get("values").is_some(), "{out}");
+    }
 
     #[test]
     fn multivalued_numeric_metric_aggs_use_all_values() {

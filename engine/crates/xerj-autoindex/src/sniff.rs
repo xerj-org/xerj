@@ -470,7 +470,9 @@ fn sniff_bytes(
     // routes to the tree-sitter AST extractor (crate::extract::code). Extension
     // is the right signal — code vs prose is not reliably content-sniffable.
     if let Some(ext) = logical_path.extension().and_then(|e| e.to_str()) {
-        if crate::extract::code::is_code_ext(ext) {
+        // #2732: a Vue/Svelte component opens with `<template>` or `<script>`
+        // and used to fall to the XML branch below, whose extractor junked it.
+        if crate::extract::code::is_code_ext(ext) || crate::extract::code::is_component_ext(ext) {
             let mut s = mk(Family::Code);
             s.encoding = encoding;
             return Ok(s);
@@ -2999,6 +3001,16 @@ mod unity_sniff_tests {
         let path = dir.path().join(name);
         std::fs::write(&path, bytes).unwrap();
         sniff(&path).unwrap().family
+    }
+
+    /// #2732: the extension decides a component, not its leading `<template>`;
+    /// the same bytes in a `.xml` file are still XML.
+    #[test]
+    fn a_vue_or_svelte_component_is_code_not_xml() {
+        let src = b"<template>\n  <p>{{ msg }}</p>\n</template>\n<script>\nexport default { data() { return { msg: 'x' } } }\n</script>\n";
+        assert_eq!(sniff_file(src, "App.vue"), Family::Code);
+        assert_eq!(sniff_file(src, "App.svelte"), Family::Code);
+        assert_eq!(sniff_file(src, "App.xml"), Family::Xml);
     }
 
     /// Regression (round 2): a guard on "lossy windows-1252 AND over 30%

@@ -67,6 +67,57 @@ pub fn is_code_ext(ext: &str) -> bool {
     registry().iter().any(|d| d.exts.contains(&e.as_str()))
 }
 
+/// #2732: Vue and Svelte single-file components. No grammar claims the whole
+/// file — markup, script and style in one — so it is not a registry row; its
+/// `<script>` blocks are parsed with the JS/TS grammar instead
+/// ([`component_script`]) and the file keeps its own `language`.
+pub fn is_component_ext(ext: &str) -> bool {
+    matches!(ext.to_ascii_lowercase().as_str(), "vue" | "svelte")
+}
+
+/// The component with everything outside its `<script>` blocks blanked to
+/// spaces, newlines kept, so every byte offset and line of a captured
+/// declaration is the component's own; plus the grammar that reads it —
+/// `typescript` when a block says `lang="ts"` (`tsx` for `lang="tsx"`),
+/// `javascript` otherwise.
+fn component_script(text: &str) -> (String, &'static str) {
+    let lower = text.to_ascii_lowercase();
+    let mut keep = vec![false; text.len()];
+    let mut grammar = "javascript";
+    let mut from = 0;
+    while let Some(open) = lower[from..].find("<script").map(|i| from + i) {
+        let Some(tag_end) = lower[open..].find('>').map(|i| open + i + 1) else {
+            break;
+        };
+        let tag = &lower[open..tag_end];
+        for (needle, name) in [
+            ("tsx", "tsx"),
+            ("ts", "typescript"),
+            ("typescript", "typescript"),
+        ] {
+            if [format!("lang=\"{needle}\""), format!("lang='{needle}'")]
+                .iter()
+                .any(|attr| tag.contains(attr.as_str()))
+            {
+                grammar = name;
+            }
+        }
+        let close = lower[tag_end..]
+            .find("</script")
+            .map_or(text.len(), |i| tag_end + i);
+        keep[tag_end..close].iter_mut().for_each(|k| *k = true);
+        from = close;
+    }
+    // Only ASCII is written outside the kept spans, and the spans start and
+    // end at ASCII `>` / `<`, so the result is still UTF-8.
+    let masked: Vec<u8> = text
+        .bytes()
+        .zip(&keep)
+        .map(|(b, &k)| if k || b == b'\n' { b } else { b' ' })
+        .collect();
+    (String::from_utf8(masked).unwrap_or_default(), grammar)
+}
+
 /// #2205: the `language` a code record carries is the registry row's NAME
 /// (`javascript`, `typescript`, `python` …), so `--lang js` matched nothing
 /// and `xerj code` answered "No passage". Resolve what a user types — a
@@ -372,6 +423,22 @@ pub fn extract(path: &Path, sn: &crate::sniff::Sniffed, sink: Sink) -> Result<Ex
     // (or the dump extractor emitted nothing and the caller fell through).
     if crate::sniff::is_sql_filename(named) {
         return super::sqlsrc::extract(path, named, sn.gzip, sink);
+    }
+    if is_component_ext(&ext) {
+        let Some(bytes) = super::read_whole(path, false, CODE_CAP)? else {
+            stats.junk += 1;
+            stats.refusal = Some(code_cap_refusal(path));
+            return Ok(stats);
+        };
+        let (text, _) = crate::sniff::decode_text(&bytes);
+        let (script, grammar) = component_script(&text);
+        let symbols = registry()
+            .iter()
+            .find(|d| d.name == grammar)
+            .and_then(|d| parse_symbols(d, &script))
+            .unwrap_or_default();
+        emit_code_doc(named, &ext, &text, &symbols, &mut stats, sink);
+        return Ok(stats);
     }
     let claimants: Vec<&LangDef> = registry()
         .iter()
@@ -2465,6 +2532,54 @@ const SCHEME_Q: &str = r#"
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #2732: a Vue/Svelte component is code, not junk-filed XML, and its
+    /// script declarations are symbols on the component's own lines.
+    #[test]
+    fn vue_and_svelte_components_index_their_script_declarations() {
+        let vue = "<template>\n  <div>{{ count }}</div>\n</template>\n\n\
+                   <script setup lang=\"ts\">\nimport { ref } from 'vue'\n\
+                   export function useCounter(start: number) {\n  return ref(start)\n}\n\
+                   </script>\n\n<style scoped>\ndiv { color: red; }\n</style>\n";
+        let svelte = "<script>\n  export let name = 'world';\n  \
+                      function greet() { return name; }\n</script>\n\n<h1>Hello {name}!</h1>\n";
+        let dir = tempfile::tempdir().unwrap();
+        for (file, src, want, line) in [
+            ("Counter.vue", vue, "useCounter", 7),
+            ("Hello.svelte", svelte, "greet", 3),
+        ] {
+            let f = dir.path().join(file);
+            std::fs::write(&f, src).unwrap();
+            let sn = crate::sniff::sniff_with_name(&f, Path::new(file)).unwrap();
+            assert_eq!(sn.family, crate::sniff::Family::Code, "{file}");
+            let mut records: Vec<RawRecord> = Vec::new();
+            let stats = extract(&f, &sn, &mut |record| {
+                records.push(record);
+                true
+            })
+            .unwrap();
+            assert_eq!(stats.junk, 0, "{file}");
+            let ext = file.rsplit('.').next().unwrap();
+            assert!(
+                records
+                    .iter()
+                    .any(|r| r.fields.get("language").is_some_and(|l| l == ext)),
+                "{file}: the file keeps its own language"
+            );
+            let decl = records
+                .iter()
+                .find(|r| r.fields.get("name").is_some_and(|n| n == want))
+                .unwrap_or_else(|| panic!("{file}: no {want} declaration"));
+            assert_eq!(decl.fields["line"], line, "{file}");
+        }
+        // The grammar follows the block's `lang`; markup and styles are blanked.
+        let (script, grammar) = component_script(vue);
+        assert_eq!(grammar, "typescript");
+        assert_eq!(component_script(svelte).1, "javascript");
+        assert_eq!(script.len(), vue.len());
+        assert_eq!(script.lines().count(), vue.lines().count());
+        assert!(!script.contains("color") && !script.contains("<div>"));
+    }
 
     /// #2205: `--lang js` must filter on the stored `javascript`, not on a
     /// value no record carries.
