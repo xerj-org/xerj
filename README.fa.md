@@ -144,3 +144,63 @@ xerj gain                                        # what it did for you — count
 <p dir="rtl" align="right">
 در نسخه‌هایی که این قابلیت را دارند، دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj feedback</code></span> پیش‌نویس گزارش را آماده می‌کند و اطلاعاتی مانند نسخه برنامه، سیستم‌عامل و محتوای ایندکس‌شده را در آن قرار می‌دهد. همچنین دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj feedback --open-pr</code></span> به‌صورت خودکار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">PR</span> را برای شما ایجاد می‌کند. برای بررسی اینکه فایل اجرایی شما از این دستور پشتیبانی می‌کند یا خیر، راهنمای آن را با اجرای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj --help</code></span> بررسی کنید.
 </p>
+
+<h2 dir="rtl" align="right">دلیل اثبات‌شده: برنامه‌نویسی مبتنی بر ارجاع (Reference Coding)</h2>
+
+<p dir="rtl" align="right">
+عاملی که از دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>grep</code></span> استفاده می‌کند، کل محتوای فایل‌ها را وارد فضای زمینه خود (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Context</span>) می‌کند. طبق اندازه‌گیری‌های ما، این مقدار در یکی از مجموعه‌داده‌ها به ۱٫۰۶ میلیون توکن ورودی می‌رسد؛ با این حال، عامل همچنان باید تمام آن فایل‌ها را بخواند. اما عاملی که از <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> پرس‌وجو می‌کند، مستقیماً بخش مرتبط با مسئله را دریافت می‌کند.
+</p>
+
+<p dir="rtl" align="right">
+این نتایج در یک آزمایش سرتاسری روی کدی اندازه‌گیری شده‌اند که مدل از قبل آن را به خاطر نداشته است
+(<a href="https://xerj.org/case-studies/reference-coding.html">مطالعه موردی</a>):
+۸ وظیفه، ۴ زبان برنامه‌نویسی، ۱۶ بار اجرا برای هر روش و شمارش واقعی توکن‌ها با استفاده از <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>claude -p</code></span>.
+</p>
+
+<table>
+<thead>
+<tr>
+<th align="right">روش</th>
+<th align="right">توکن خروجی</th>
+<th align="right">هزینه</th>
+<th align="right">مسائل حل‌شده</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><span dir="rtl">فقط با تکیه بر حافظه</span></td>
+<td align="right">260,916</td>
+<td align="right">$11.18</td>
+<td align="right">11/16</td>
+</tr>
+<tr>
+<td dir="rtl" align="right">عامل مبتنی بر &#x200E;grep&#x200E;</td>
+<td align="right">26,477</td>
+<td align="right">$3.27</td>
+<td align="right">16/16</td>
+</tr>
+<tr>
+<td><strong><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span></strong></td>
+<td align="right"><strong>9,982</strong></td>
+<td align="right"><strong>$1.58</strong></td>
+<td align="right"><strong>16/16</strong></td>
+</tr>
+</tbody>
+</table>
+
+<p dir="rtl" align="right">
+این یعنی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> در مقایسه با روش <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">grep</span>، با همان نرخ حل مسئله، ۲٫۷ برابر توکن خروجی کمتری مصرف می‌کند؛ این کاهش در مقایسه با اتکای صرف به حافظه به ۲۶ برابر می‌رسد. در یک وظیفه مشخص با زبان <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Java</span> نیز این کاهش به حداکثر ۲۷۸ برابر رسیده است.
+</p>
+
+<p dir="rtl" align="right">
+در توسعه نرم‌افزار واقعی، کاربران از کاهش تقریبی ۵ برابری مصرف توکن در کل فرایند گزارش داده‌اند
+(<a href="./user-feedback/11-reference-coding-field-reports/2026-08-11-token-savings-reports.md">گزارش‌های کاربران</a>).
+</p>
+
+<p dir="rtl" align="right">
+میزان اثربخشی این روش به میزان آشنایی قبلی مدل با کد بستگی دارد: <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> برای کدهای خصوصی، داخلی، تخصصی یا کدهایی که پس از تاریخ پایان آموزش مدل منتشر شده‌اند، مزیت قابل‌توجهی دارد؛ اما در مورد کتابخانه‌های عمومی و پرکاربردی که مدل از قبل آن‌ها را می‌شناسد، ممکن است تأثیر خاصی نداشته باشد یا حتی نتیجه را بدتر کند.
+</p>
+
+<p dir="rtl" align="right">
+محدودیت‌های واقعی این روش به‌طور شفاف در <a href="https://xerj.org/case-studies/reference-coding.html">مطالعه موردی</a> توضیح داده شده‌اند.
+</p>
