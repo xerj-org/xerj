@@ -1213,3 +1213,9 @@ cargo build --release -p xerj-server
 <p dir="rtl" align="right">
 برای گزارش باگ‌ها و پیشنهاد قابلیت‌های جدید، از <a href="https://github.com/xerj-org/xerj/issues">بخش Issues در GitHub</a> استفاده کنید.
 </p>
+
+<h2 dir="rtl" align="right">مجوز استفاده</h2>
+
+<p dir="rtl" align="right">
+این پروژه تحت مجوز <a href="./LICENSE">Apache License 2.0</a> منتشر شده است.
+</p>
