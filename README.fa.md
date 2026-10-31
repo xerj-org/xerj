@@ -87,42 +87,38 @@ xerj --insecure --data-dir ~/xerj-data &
 xerj init                                        # wire XERJ into Claude Code/Cursor (MCP + skill), one command
 xerj autoindex ~/my-project
 xerj search "how do we rotate the WAL segment"   # ranked passages, file:line
-xerj def "euler_to_rotationmatrix"                # go-to-definition: file:line + signature
+xerj def "euler_to_rotationmatrix"               # go-to-definition: file:line + signature
 xerj gain                                        # what it did for you — counted, not estimated</code></pre>
 
 <p dir="rtl" align="right">
-برای اجرای هم‌زمان چند شناسه یا پرسش، از دستور <bdi>xerj batch-search --input queries.json</bdi> یا متد <bdi>xerj_batch_search</bdi> در <bdi>MCP</bdi> استفاده کنید:
+برای اجرای هم‌زمان چند شناسه یا پرسش، از دستور <bdi><code>xerj batch-search --input queries.json</code></bdi> یا <bdi><code>MCP</code></bdi> و متد <bdi><code>xerj_batch_search</code></bdi> استفاده کنید:
 <a href="docs/recipes/batch-search.md"><bdi>نتایج مرتب‌شده، ارجاعات و خطاهای هر مورد</bdi></a>.
 </p>
 
 <p dir="rtl" align="right">
-مسیر پوشه داده را خارج از پوشه‌هایی قرار دهید که قصد دارید با <bdi>autoindex</bdi> ایندکس کنید. مسیر <bdi>data/</bdi> به‌صورت پیش‌فرض در فهرست مسیرهای نادیده‌گرفته‌شده قرار ندارد؛ بنابراین اگر پوشه داده را با پارامتر <bdi>--data-dir ./data</bdi> داخل پروژه‌ای قرار دهید که بعداً آن را ایندکس می‌کنید، اطلاعات ذخیره‌سازی خود <bdi>XERJ</bdi> نیز ایندکس خواهد شد.
+پوشه داده را خارج از هر پوشه‌ای قرار دهید که قصد دارید با <bdi><code>autoindex</code></bdi> ایندکس کنید. مسیر <bdi><code>data/</code></bdi> در فهرست مسیرهای نادیده‌گرفته‌شده پیش‌فرض قرار ندارد؛ بنابراین اگر پوشه داده را با استفاده از <bdi><code>--data-dir ./data</code></bdi> داخل درخت پوشه‌ای قرار دهید که بعداً آن را ایندکس می‌کنید، نود اطلاعات ذخیره‌سازی خودش را نیز ایندکس خواهد کرد.
 </p>
 
 <p dir="rtl" align="right">
-هنگام راه‌اندازی، مقدار <bdi>Data dir</bdi> مسیر مطلق نهایی را نمایش می‌دهد، <bdi>Data source</bdi> مشخص می‌کند این مسیر از کجا انتخاب شده است (پارامتر خط فرمان، فایل پیکربندی انتخاب‌شده یا مقدار پیش‌فرض) و <bdi>Data status</bdi> نشان می‌دهد که آیا این اجرا پوشه را ایجاد کرده است یا خیر.
+هنگام راه‌اندازی، مقدار <bdi><code>Data dir</code></bdi> مسیر مطلق نهایی را نمایش می‌دهد، <bdi><code>Data source</code></bdi> مشخص می‌کند این مسیر از کجا انتخاب شده است (پارامتر خط فرمان، فایل پیکربندی انتخاب‌شده یا مقدار پیش‌فرض) و <bdi><code>Data status</code></bdi> نشان می‌دهد که آیا این اجرا پوشه را ایجاد کرده است یا خیر.
 </p>
 
 <p dir="rtl" align="right">
-استفاده از یک پوشه جدید ممکن است باعث شود ایندکس‌ها یا حساب مالک موجود در یک نود قدیمی، دیگر در دسترس به نظر نرسند. برای دسترسی مجدد، برنامه را با مسیر قبلی <bdi>--data-dir</bdi> یا فایل پیکربندی قبلی از طریق <bdi>--config</bdi> راه‌اندازی کنید. <bdi>XERJ</bdi> پوشه‌های داده دیگر را به‌صورت خودکار شناسایی یا مهاجرت نمی‌دهد.
+استفاده از یک پوشه جدید ممکن است باعث شود ایندکس‌ها یا حساب مالک موجود در یک نود قدیمی، دیگر در دسترس به نظر نرسند. برای دسترسی مجدد، برنامه را با مسیر قبلی <bdi><code>--data-dir</code></bdi> یا فایل پیکربندی قبلی از طریق <bdi><code>--config</code></bdi> راه‌اندازی کنید. <bdi><code>XERJ</code></bdi> پوشه‌های داده دیگر را به‌صورت خودکار شناسایی یا مهاجرت نمی‌دهد.
 </p>
 
 <p dir="rtl" align="right">
-راهنمای نصب در ویندوز و نصب دستیِ تأییدشده را در بخش
-<a href="#install-by-hand"><bdi>نصب دستی</bdi></a>
-ببینید.
+راهنمای نصب در ویندوز و نصب دستیِ تأییدشده در بخش <a href="#install-by-hand"><bdi><code>Install by hand</code></bdi></a> قرار دارد.
 </p>
 
 <p dir="rtl" align="right">
-پارامتر <bdi>--insecure</bdi> یک مرز امنیتی مهم را تغییر می‌دهد و صرفاً یک گزینه ساده نیست. این پارامتر <bdi>TLS</bdi> و احراز هویت مبتنی بر <bdi>API Key</bdi> را غیرفعال می‌کند؛ بنابراین هر کلاینتی که بتواند به پورت دسترسی پیدا کند، دسترسی <bdi>Superuser</bdi> خواهد داشت و می‌تواند تمام ایندکس‌ها، از جمله تمام فضاهای نام <bdi>/_memory</bdi> را بخواند یا حذف کند.
+پارامتر <bdi><code>--insecure</code></bdi> یک مرز امنیتی مهم را تغییر می‌دهد و صرفاً یک گزینه تشریفاتی نیست. این پارامتر <bdi><code>TLS</code></bdi> و احراز هویت مبتنی بر <bdi><code>API Key</code></bdi> را غیرفعال می‌کند؛ بنابراین هر کلاینتی که بتواند به پورت دسترسی پیدا کند، دسترسی <bdi><code>Superuser</code></bdi> خواهد داشت و می‌تواند تمام ایندکس‌ها، از جمله تمام فضاهای نام <bdi><code>/_memory</code></bdi> را بخواند یا حذف کند.
 </p>
 
 <p dir="rtl" align="right">
-این حالت برای استفاده یک کاربر روی یک دستگاه توسعه در نظر گرفته شده است: یک نود تازه به‌طور پیش‌فرض فقط به آدرس <bdi>127.0.0.1</bdi> متصل می‌شود و اگر بخواهید آن را بدون رمزنگاری روی رابط شبکه دیگری در دسترس قرار دهید، برنامه تا زمانی که صراحتاً اجازه این کار را صادر نکنید، راه‌اندازی نخواهد شد.
+این حالت برای استفاده یک کاربر روی یک دستگاه توسعه در نظر گرفته شده است: یک نود تازه به‌طور پیش‌فرض فقط به آدرس <bdi><code>127.0.0.1</code></bdi> متصل می‌شود و اگر بخواهید آن را بدون رمزنگاری روی رابط شبکه دیگری در دسترس قرار دهید، برنامه تا زمانی که صراحتاً اجازه این کار را صادر نکنید، راه‌اندازی نخواهد شد.
 </p>
 
 <p dir="rtl" align="right">
-مدل امنیتی کامل را در
-<a href="./docs/SECURITY_MODEL.md"><bdi>docs/SECURITY_MODEL.md</bdi></a>
-مطالعه کنید.
+مدل امنیتی کامل در فایل <a href="./docs/SECURITY_MODEL.md"><bdi><code>docs/SECURITY_MODEL.md</code></bdi></a> توضیح داده شده است.
 </p>
