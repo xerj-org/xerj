@@ -2,8 +2,8 @@
  "corpus": "meridiandb--meridiandb",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Java queries this for how MeridianDB/meridiandb implements it: Java based framework for bi-temporal streaming data (selected work: src/test, src/main, examples)",
+ "shelf": "DB",
+ "domain": "an agent working on Java queries this for how MeridianDB/meridiandb implements it: Experimental embeddable Java bitemporal database with built-in local persistence (selected work: src/test, src/main, examples)",
  "repos": [
   {
    "repo": "meridiandb",

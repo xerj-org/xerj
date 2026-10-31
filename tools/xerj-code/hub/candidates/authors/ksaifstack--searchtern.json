@@ -1,0 +1,23 @@
+{
+ "corpus": "ksaifstack--searchtern",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on career, college-students, internship queries this for how KSaifStack/SearchTern implements it: Automated internship aggregator for college students. Scrapes 20,000+ listings hourly, with search, sorting, and a drag-and-drop application (selected work: frontend, backend)",
+ "repos": [
+  {
+   "repo": "SearchTern",
+   "url": "https://github.com/KSaifStack/SearchTern",
+   "sha": "516b346936620233772c5217fba16678793efb6b",
+   "licence": "MIT (LICENSE file at pin 516b34693662, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:18Z",
+    "consent_receipt": "ea0db5e6e06b",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:18Z (receipt ea0db5e6e06b); selected commit 516b34693662: \"feat: landing page refresh, H-1B sponsorship in feed/filters/detail, \u2026\". LICENSE file at pin 516b34693662 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

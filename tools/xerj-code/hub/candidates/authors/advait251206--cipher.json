@@ -1,0 +1,23 @@
+{
+ "corpus": "advait251206--cipher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on Python queries this for how Advait251206/CIPHER implements it: Advait251206/CIPHER (Python) (selected work: backend, the project root, frontend)",
+ "repos": [
+  {
+   "repo": "CIPHER",
+   "url": "https://github.com/Advait251206/CIPHER",
+   "sha": "d0b3e183726809101a945d130ae8e4bf466c8b3d",
+   "licence": "MIT (LICENSE file at pin d0b3e1837268, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:28Z",
+    "consent_receipt": "69378b9583e1",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:28Z (receipt 69378b9583e1); selected commit d0b3e1837268: \"v1.3.0 - Publication hardening (security, prevention-engine, detectio\u2026\". LICENSE file at pin d0b3e1837268 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

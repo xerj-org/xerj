@@ -1,0 +1,23 @@
+{
+ "corpus": "drjhonatan00--cooler-speed-change-and-management",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on C# queries this for how drJhonatan00/Cooler_Speed_Change_and_Management implements it: A C#/.NET application for real-time temperature monitoring and dynamic fan speed control (PWM) that consumes minimal CPU resources and does ",
+ "repos": [
+  {
+   "repo": "Cooler_Speed_Change_and_Management",
+   "url": "https://github.com/drJhonatan00/Cooler_Speed_Change_and_Management",
+   "sha": "6cf4b9cd84a20af320a16c7fac0cfaaf4d6ae671",
+   "licence": "MIT (LICENSE file at pin 6cf4b9cd84a2, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:39Z",
+    "consent_receipt": "7d2f44551538",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T20:39Z (receipt 7d2f44551538); pinned to the default-branch head. LICENSE file at pin 6cf4b9cd84a2 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

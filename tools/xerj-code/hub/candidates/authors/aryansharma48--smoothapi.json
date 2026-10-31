@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on api, circuit-breaker, distributed-systems queries this for how AryanSharma48/smoothAPI implements it: A zero-dependency, dual-language API shielding and fault-tolerance library implemented natively in TypeScript and Python (selected work: bindings, packages/smooth-api-ts)",
+ "domain": "an agent working on TypeScript queries this for how AryanSharma48/smoothAPI implements it: A zero-dependency, dual-language API shielding and fault-tolerance library implemented natively in TypeScript and Python (selected work: bindings, packages/smooth-api-ts)",
  "repos": [
   {
    "repo": "smoothAPI",

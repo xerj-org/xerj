@@ -1,0 +1,23 @@
+{
+ "corpus": "drjhonatan00--zenforms",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how drJhonatan00/ZenForms implements it: Collection of individually implemented Windows Forms controls. It combines themed replacements for everyday WinForms widgets with experiment",
+ "repos": [
+  {
+   "repo": "ZenForms",
+   "url": "https://github.com/drJhonatan00/ZenForms",
+   "sha": "c8adfa51d4b3df51ade1e0c07df5a77804d99007",
+   "licence": "MIT (LICENSE file at pin c8adfa51d4b3, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:39Z",
+    "consent_receipt": "1c19bf75dcf6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T20:39Z (receipt 1c19bf75dcf6); pinned to the default-branch head. LICENSE file at pin c8adfa51d4b3 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}
