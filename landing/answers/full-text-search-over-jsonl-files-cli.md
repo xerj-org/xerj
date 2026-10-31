@@ -2,7 +2,7 @@
 ---
 title: "Full-text search over JSONL and CSV files from the CLI"
 canonical: "https://xerj.org/answers/full-text-search-over-jsonl-files-cli"
-updated: "2026-10-20"
+updated: "2026-10-31"
 source: "content/answers/full-text-search-over-jsonl-files-cli.md"
 ---
 
@@ -153,3 +153,4 @@ Yes, but check the label. Our 1,385-record file was detected as format `json` ra
 - [Batch lookup CVE IDs and GHSA IDs offline, without GitHub API rate limits](/answers/batch-lookup-cve-ghsa-ids-offline)
 - [Is there an Elasticsearch-compatible engine that isn't Elasticsearch?](/compare/xerj-vs-elasticsearch-local)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database)
+- [The best local full-text search for JSONL and CSV files in 2026, with a published benchmark](/compare/best-local-full-text-search-jsonl-csv-2026)

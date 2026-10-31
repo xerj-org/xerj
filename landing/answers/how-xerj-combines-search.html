@@ -79,7 +79,7 @@
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-21",
-  "dateModified": "2026-10-19",
+  "dateModified": "2026-10-31",
   "author": {
     "@type": "Organization",
     "name": "XERJ documentation team",
@@ -224,9 +224,9 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>HOW DOES XERJ COMBINE BM25 AND KNN?</div>
   <div class="kicker"><span>ANSWERS · HYBRID SEARCH</span></div>
   <h1>How does XERJ combine BM25 and kNN?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-10-19</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-21 · UPDATED · 2026-10-31</div>
   <div class="prompt-card answer-first" id="short-answer">
-    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-19</span>
+    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-31</span>
     <p>How does XERJ combine BM25 and kNN? One hybrid request carries a BM25 sub-query and a kNN sub-query against a single index, and Reciprocal Rank Fusion merges the two ranked lists. Fusion reads rank positions, not scores, so the BM25 and cosine scales never need to be normalized against each other.</p>
     <p class="key-fact"><strong>Key number:</strong> XERJ's RRF uses a default k of 60, so a document ranked first in both lists scores 1/61 + 1/61 = 0.032787. <span class="mute">(as of 2026-08-23 · source: <a href="/answers/reciprocal-rank-fusion-when-to-use">/answers/reciprocal-rank-fusion-when-to-use</a>)</span></p>
   </div>
@@ -306,6 +306,8 @@
     <li><a href="/answers/what-is-xerj">What is XERJ?</a></li>
     <li><a href="/docs/recipes/hybrid-search">Hybrid search</a></li>
     <li><a href="/docs/playbooks/vector-search">Playbook · Vector &amp; RAG</a></li>
+    <li><a href="/answers/what-is-hybrid-search">What is hybrid search?</a></li>
+    <li><a href="/answers/bm25-vs-vector-search">BM25 vs vector search: which one should you use?</a></li>
     <li><a href="/answers/mcp-api-search-or-vector-search">Should an agent use API search or vector search?</a> <span class="mute">· same intent: retrieval research and eval</span></li>
     <li><a href="/answers/do-search-embeddings-help">When should I turn on neural embeddings, and when is the lexical default enough?</a> <span class="mute">· same intent: retrieval research and eval</span></li>
     <li><a href="/answers/hybrid-search-quality-measured-ndcg">How much better is hybrid search than BM25? Measured nDCG numbers</a> <span class="mute">· same intent: retrieval research and eval</span></li>

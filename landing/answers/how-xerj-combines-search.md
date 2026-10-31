@@ -2,13 +2,13 @@
 ---
 title: "How does XERJ combine BM25 and kNN?"
 canonical: "https://xerj.org/answers/how-xerj-combines-search"
-updated: "2026-10-19"
+updated: "2026-10-31"
 source: "content/answers/how-xerj-combines-search.md"
 ---
 
 # How does XERJ combine BM25 and kNN?
 
-**Short answer** (updated 2026-10-19): How does XERJ combine BM25 and kNN? One hybrid request carries a BM25 sub-query and a kNN sub-query against a single index, and Reciprocal Rank Fusion merges the two ranked lists. Fusion reads rank positions, not scores, so the BM25 and cosine scales never need to be normalized against each other.
+**Short answer** (updated 2026-10-31): How does XERJ combine BM25 and kNN? One hybrid request carries a BM25 sub-query and a kNN sub-query against a single index, and Reciprocal Rank Fusion merges the two ranked lists. Fusion reads rank positions, not scores, so the BM25 and cosine scales never need to be normalized against each other.
 
 **Key number:** XERJ's RRF uses a default k of 60, so a document ranked first in both lists scores 1/61 + 1/61 = 0.032787. (as of 2026-08-23; source: [/answers/reciprocal-rank-fusion-when-to-use](/answers/reciprocal-rank-fusion-when-to-use))
 
@@ -136,6 +136,8 @@ Not on a default node. The default embedder is lexical feature hashing, so fusin
 - [What is XERJ?](/answers/what-is-xerj)
 - [Hybrid search](/docs/recipes/hybrid-search)
 - [Playbook · Vector & RAG](/docs/playbooks/vector-search)
+- [What is hybrid search?](/answers/what-is-hybrid-search)
+- [BM25 vs vector search: which one should you use?](/answers/bm25-vs-vector-search)
 - [Should an agent use API search or vector search?](/answers/mcp-api-search-or-vector-search) (same intent: retrieval research and eval)
 - [When should I turn on neural embeddings, and when is the lexical default enough?](/answers/do-search-embeddings-help) (same intent: retrieval research and eval)
 - [How much better is hybrid search than BM25? Measured nDCG numbers](/answers/hybrid-search-quality-measured-ndcg) (same intent: retrieval research and eval)

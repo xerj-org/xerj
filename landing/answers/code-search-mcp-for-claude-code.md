@@ -2,13 +2,13 @@
 ---
 title: "Code search MCP for Claude Code: cite file:line, not grep"
 canonical: "https://xerj.org/answers/code-search-mcp-for-claude-code"
-updated: "2026-10-28"
+updated: "2026-10-31"
 source: "content/answers/code-search-mcp-for-claude-code.md"
 ---
 
 # I need my agent to find a passage and cite the file, not dump the whole tree. How?
 
-**Short answer** (updated 2026-10-28): How do I make my agent find a passage and cite the file, not dump the whole tree? Index the repository with xerj autoindex, register xerj mcp in the agent host, and query the defs field. One captured xerj_search call returned 2 documents whose symbols arrays gave file and line, including merge_segments at src/lib.rs line 17.
+**Short answer** (updated 2026-10-31): How do I make my agent find a passage and cite the file, not dump the whole tree? Index the repository with xerj autoindex, register xerj mcp in the agent host, and query the defs field. One captured xerj_search call returned 2 documents whose symbols arrays gave file and line, including merge_segments at src/lib.rs line 17.
 
 **Key number:** XERJ's tree-sitter registry covers 36 languages, a count pinned by a unit test so the docs cannot drift. (as of 2026-10-19; source: [engine/crates/xerj-autoindex/src/extract/code.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/extract/code.rs))
 
@@ -184,6 +184,9 @@ No. Both list 6 tools, while on main the binary serves 23 (checked 2026-10-28). 
 - [ast-grep vs a code index for an agent?](/compare/xerj-vs-ast-grep)
 - [Local code search MCP for Claude Code that uses fewer tokens than grep](/answers/local-code-search-mcp-fewer-tokens-than-grep)
 - [Ask questions about a GitHub repo without cloning it](/answers/ask-questions-about-a-github-repo-without-cloning)
+- [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory)
+- [What is an MCP memory server?](/answers/what-is-an-mcp-memory-server)
+- [claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?](/compare/xerj-vs-claude-mem-and-mempalace)
 - [How do I audit a PHP codebase with an index instead of grepping 1,400 files?](/answers/audit-php-codebase-with-an-index) (same intent: code search for agents)
 - [The best MCP servers for searching a local codebase in 2026](/compare/best-mcp-server-local-code-search-2026) (same intent: code search for agents)
 - [Is ripgrep enough for a coding agent, or do I need a code index?](/compare/xerj-vs-ripgrep-for-code-agents) (same intent: code search for agents)
