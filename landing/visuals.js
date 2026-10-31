@@ -1,7 +1,8 @@
 // Figures on article pages (content/visuals/*.html). Progressive enhancement:
 // every figure reads without this file. With it, stacked panels become ARIA tabs
 // (arrow keys, Home, End), and the YAML line checker, the search lab, the
-// step-through and the picker run. No network, no storage.
+// step-through, the picker, the sortable table, the question explorer and the
+// all-words lab run. No network, no storage.
 (function () {
   'use strict';
   document.documentElement.classList.add('vz-js');
@@ -148,7 +149,7 @@
     if (!hits.length) { var e = document.createElement('li'); e.className = 'is-none'; e.textContent = empty; ol.appendChild(e); return; }
     hits.slice(0, 3).forEach(function (h) {
       var li = document.createElement('li'), b = document.createElement('b');
-      b.textContent = h.s.toFixed(digits);
+      b.textContent = digits < 0 ? 'match' : h.s.toFixed(digits);
       li.appendChild(b);
       li.appendChild(document.createTextNode(docs[h.i]));
       ol.appendChild(li);
@@ -218,6 +219,122 @@
       if (out) out.textContent = best > 0 ? 'Closest fit for your answers: ' + names.join(' or ') + '.' : 'Pick an answer above.';
     }
     each('input', function (el) { el.addEventListener('change', run); }, box);
+    run();
+  });
+
+  // Sortable table: header cells with data-sort get a button; cells sort by
+  // data-v when present, else by text. Filter buttons show rows whose data-tags
+  // hold the chosen tag. Without JS the table reads as printed.
+  each('[data-vz-sort]', function (box) {
+    var table = box.querySelector('table'), body = table && table.tBodies[0];
+    if (!body) return;
+    var rows = [].slice.call(body.rows), out = box.querySelector('.vz-out');
+    var heads = [].slice.call(table.tHead.rows[0].cells);
+    var state = { col: -1, dir: -1, tag: 'all' };
+    function val(row, i) {
+      var c = row.cells[i], v = c.getAttribute('data-v');
+      return v === null ? c.textContent.trim().toLowerCase() : +v;
+    }
+    function render() {
+      var list = rows.slice();
+      if (state.col >= 0) {
+        var i = state.col, num = heads[i].getAttribute('data-sort') === 'num';
+        list.sort(function (a, b) {
+          var x = val(a, i), y = val(b, i);
+          if (num) return (x - y) * state.dir;
+          return x < y ? -state.dir : x > y ? state.dir : 0;
+        });
+      }
+      var shown = 0;
+      list.forEach(function (r) {
+        var on = state.tag === 'all' || (' ' + (r.getAttribute('data-tags') || '') + ' ').indexOf(' ' + state.tag + ' ') >= 0;
+        r.hidden = !on;
+        if (on) shown++;
+        body.appendChild(r);
+      });
+      heads.forEach(function (h, j) {
+        if (h.hasAttribute('data-sort')) h.setAttribute('aria-sort', j === state.col ? (state.dir > 0 ? 'ascending' : 'descending') : 'none');
+      });
+      if (out) out.textContent = shown + ' of ' + rows.length + ' rows shown' + (state.col >= 0 ? ', sorted by ' + heads[state.col].textContent.trim() + (state.dir > 0 ? ', low to high.' : ', high to low.') : '.');
+    }
+    heads.forEach(function (h, j) {
+      if (!h.hasAttribute('data-sort')) return;
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'vz-sortbtn';
+      while (h.firstChild) b.appendChild(h.firstChild);
+      h.appendChild(b);
+      b.addEventListener('click', function () {
+        if (state.col === j) state.dir = -state.dir;
+        else { state.col = j; state.dir = h.getAttribute('data-sort') === 'num' ? -1 : 1; }
+        render();
+      });
+    });
+    each('button[data-tag]', function (b) {
+      b.addEventListener('click', function () {
+        state.tag = b.getAttribute('data-tag');
+        each('button[data-tag]', function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }, box);
+        render();
+      });
+    }, box);
+    render();
+  });
+
+  // Question explorer: buttons pick a question type; rows of other types hide and
+  // the line below counts top-5 hits per column for the rows left.
+  each('[data-vz-qx]', function (box) {
+    var table = box.querySelector('table'), body = table && table.tBodies[0];
+    if (!body) return;
+    var rows = [].slice.call(body.rows), out = box.querySelector('.vz-out');
+    var names = [].slice.call(table.tHead.rows[0].cells).map(function (c) { return c.textContent.trim(); });
+    function pick(type) {
+      var hits = {}, n = 0;
+      rows.forEach(function (r) {
+        var on = type === 'all' || r.getAttribute('data-type') === type;
+        r.hidden = !on;
+        if (!on) return;
+        n++;
+        [].forEach.call(r.cells, function (c, i) {
+          if (c.getAttribute('data-hit') === '1') hits[i] = (hits[i] || 0) + 1;
+        });
+      });
+      each('button[data-type]', function (x) { x.setAttribute('aria-pressed', x.getAttribute('data-type') === type ? 'true' : 'false'); }, box);
+      if (!out) return;
+      var parts = [];
+      names.forEach(function (name, i) { if (i >= 2) parts.push(name + ' ' + (hits[i] || 0)); });
+      out.textContent = n + ' questions. Right answer in the top 5: ' + parts.join(', ') + '.';
+    }
+    each('button[data-type]', function (b) {
+      b.addEventListener('click', function () { pick(b.getAttribute('data-type')); });
+    }, box);
+    var start = box.querySelector('button[data-type][aria-pressed="true"]');
+    pick(start ? start.getAttribute('data-type') : 'all');
+  });
+
+  // All words vs any word: the same lines searched two ways. "All" keeps a line
+  // only if it holds every word of the query; "any" ranks lines by BM25.
+  each('[data-vz-and]', function (box) {
+    var docs = [].map.call(box.querySelectorAll('.vz-docs li'), function (li) { return li.textContent.trim(); });
+    var input = box.querySelector('input[type="text"]'), out = box.querySelector('.vz-out');
+    if (!input) return;
+    function run() {
+      var q = toks(input.value).filter(function (t, i, a) { return a.indexOf(t) === i; });
+      var all = q.length ? docs.map(function (d, i) { return { i: i, s: 1, t: toks(d) }; }).filter(function (h) {
+        return q.every(function (t) { return h.t.indexOf(t) >= 0; });
+      }) : [];
+      var any = bm25(docs, input.value);
+      fill(box.querySelector('[data-out="all"]'), all.map(function (h) { return { i: h.i, s: 1 }; }), docs, -1, 'No hit. No line holds every word of the query.');
+      fill(box.querySelector('[data-out="any"]'), any, docs, 2, 'No hit. No line shares a word with the query.');
+      if (out) {
+        var miss = q.filter(function (t) { return !docs.some(function (d) { return toks(d).indexOf(t) >= 0; }); });
+        out.textContent = all.length ? 'Every word matched, so both styles find it.' :
+          (miss.length ? 'Words in no line: ' + miss.join(', ') + '. One missing word is enough to empty the all-words result.' : 'Each word is in some line, but no single line holds them all.');
+      }
+    }
+    each('button[data-q]', function (btn) {
+      btn.addEventListener('click', function () { input.value = btn.getAttribute('data-q'); run(); });
+    }, box);
+    input.addEventListener('input', run);
     run();
   });
 })();

@@ -1,0 +1,1033 @@
+{
+ "name": "xerj-agent-memory-bench",
+ "version": 1,
+ "memories": [
+  {
+   "id": "f01",
+   "session": 1,
+   "text": "Dana prefers pnpm over npm for JavaScript projects."
+  },
+  {
+   "id": "f02",
+   "session": 1,
+   "text": "The Lark API listens on port 8443 in production."
+  },
+  {
+   "id": "f03",
+   "session": 1,
+   "text": "Dana's team deploys to production on Thursdays after the 2pm review."
+  },
+  {
+   "id": "f04",
+   "session": 1,
+   "text": "The main database for Lark is PostgreSQL 16."
+  },
+  {
+   "id": "f05",
+   "session": 1,
+   "text": "Dana is allergic to peanuts."
+  },
+  {
+   "id": "f06",
+   "session": 1,
+   "text": "Dana's manager is Priya Raman."
+  },
+  {
+   "id": "f07",
+   "session": 1,
+   "text": "The staging cluster runs in the eu-west-3 region."
+  },
+  {
+   "id": "f08",
+   "session": 1,
+   "text": "Lark's frontend is written in Svelte."
+  },
+  {
+   "id": "f09",
+   "session": 1,
+   "text": "Dana uses Neovim as her code editor."
+  },
+  {
+   "id": "f10",
+   "session": 1,
+   "text": "The on-call rotation hands over every Monday at 9am."
+  },
+  {
+   "id": "f11",
+   "session": 1,
+   "text": "Error tracking for Lark goes to Sentry."
+  },
+  {
+   "id": "f12",
+   "session": 1,
+   "text": "Dana's cat is named Biscuit."
+  },
+  {
+   "id": "f13",
+   "session": 1,
+   "text": "The Lark CI pipeline runs on Buildkite."
+  },
+  {
+   "id": "f14",
+   "session": 1,
+   "text": "The test suite must finish in under 12 minutes."
+  },
+  {
+   "id": "f15",
+   "session": 1,
+   "text": "Dana drinks oat milk flat whites."
+  },
+  {
+   "id": "f16",
+   "session": 2,
+   "text": "The billing service uses Stripe for card payments."
+  },
+  {
+   "id": "f17",
+   "session": 2,
+   "text": "Lark's search feature is backed by OpenSearch."
+  },
+  {
+   "id": "f18",
+   "session": 2,
+   "text": "Dana's work laptop is a ThinkPad X1 Carbon."
+  },
+  {
+   "id": "f19",
+   "session": 2,
+   "text": "The Lark mobile app is built with Flutter."
+  },
+  {
+   "id": "f20",
+   "session": 2,
+   "text": "Feature flags are managed in LaunchDarkly."
+  },
+  {
+   "id": "f21",
+   "session": 2,
+   "text": "The Lark design system is called Pebble."
+  },
+  {
+   "id": "f22",
+   "session": 2,
+   "text": "Application logs are retained for 30 days."
+  },
+  {
+   "id": "f23",
+   "session": 2,
+   "text": "Dana works on Lisbon time."
+  },
+  {
+   "id": "f24",
+   "session": 2,
+   "text": "Lark's public docs are hosted on Mintlify."
+  },
+  {
+   "id": "f25",
+   "session": 2,
+   "text": "The analytics warehouse is ClickHouse."
+  },
+  {
+   "id": "f26",
+   "session": 2,
+   "text": "Dana wants commit messages written in the imperative mood."
+  },
+  {
+   "id": "f27",
+   "session": 2,
+   "text": "The support inbox address is help@lark.example."
+  },
+  {
+   "id": "f28",
+   "session": 2,
+   "text": "Dana's favorite programming language is Rust."
+  },
+  {
+   "id": "f29",
+   "session": 2,
+   "text": "Product images are served from Cloudflare Images."
+  },
+  {
+   "id": "f30",
+   "session": 2,
+   "text": "Customer data must stay inside the EU because of GDPR."
+  },
+  {
+   "id": "f31",
+   "session": 3,
+   "text": "The auth service issues JWTs that expire after 15 minutes."
+  },
+  {
+   "id": "f32",
+   "session": 3,
+   "text": "Dana's daughter Mia has swim practice on Wednesdays."
+  },
+  {
+   "id": "f33",
+   "session": 3,
+   "text": "Lark's Python services use Poetry for dependency management."
+  },
+  {
+   "id": "f34",
+   "session": 3,
+   "text": "The load balancer in front of Lark is HAProxy."
+  },
+  {
+   "id": "f35",
+   "session": 3,
+   "text": "Dana prefers meetings that last 25 minutes."
+  },
+  {
+   "id": "f36",
+   "session": 3,
+   "text": "Background jobs run on Sidekiq."
+  },
+  {
+   "id": "f37",
+   "session": 3,
+   "text": "The Lark 2.0 launch is planned for March 12."
+  },
+  {
+   "id": "f38",
+   "session": 3,
+   "text": "Dana's GitHub handle is dana-codes."
+  },
+  {
+   "id": "f39",
+   "session": 3,
+   "text": "The Redis cache TTL is 300 seconds."
+  },
+  {
+   "id": "f40",
+   "session": 3,
+   "text": "Dana is vegetarian."
+  },
+  {
+   "id": "f41",
+   "session": 3,
+   "text": "The Slack channel for incidents is #lark-fire."
+  },
+  {
+   "id": "f42",
+   "session": 3,
+   "text": "Lark is translated into English, Portuguese and Japanese."
+  },
+  {
+   "id": "f43",
+   "session": 3,
+   "text": "Secrets are stored in HashiCorp Vault."
+  },
+  {
+   "id": "f44",
+   "session": 3,
+   "text": "Dana's desk is on the 7th floor."
+  },
+  {
+   "id": "f45",
+   "session": 3,
+   "text": "The Lark API rate limit is 600 requests per minute per key."
+  },
+  {
+   "id": "f46",
+   "session": 4,
+   "text": "Transactional email is sent through Postmark."
+  },
+  {
+   "id": "f47",
+   "session": 4,
+   "text": "Dana runs a 10k every Saturday morning."
+  },
+  {
+   "id": "f48",
+   "session": 4,
+   "text": "The Node services use Prisma as their ORM."
+  },
+  {
+   "id": "f49",
+   "session": 4,
+   "text": "The monorepo is built with Turborepo."
+  },
+  {
+   "id": "f50",
+   "session": 4,
+   "text": "Dana expects code reviews to be done the same day."
+  },
+  {
+   "id": "f51",
+   "session": 4,
+   "text": "Database backups run nightly at 02:00 UTC."
+  },
+  {
+   "id": "f52",
+   "session": 4,
+   "text": "Production runs Kubernetes 1.31."
+  },
+  {
+   "id": "f53",
+   "session": 4,
+   "text": "Dana dislikes long standup meetings."
+  },
+  {
+   "id": "f54",
+   "session": 4,
+   "text": "The status page lives at status.lark.example."
+  },
+  {
+   "id": "f55",
+   "session": 4,
+   "text": "Lark's mascot is a blue heron named Hugo."
+  },
+  {
+   "id": "f56",
+   "session": 4,
+   "text": "Dana's sister lives in Porto."
+  },
+  {
+   "id": "f57",
+   "session": 4,
+   "text": "Team video calls happen on Whereby."
+  },
+  {
+   "id": "f58",
+   "session": 4,
+   "text": "The p95 latency target for search is 200 ms."
+  },
+  {
+   "id": "f59",
+   "session": 4,
+   "text": "Dana's terminal app is WezTerm."
+  },
+  {
+   "id": "f60",
+   "session": 4,
+   "text": "Lark's source code is released under MPL-2.0."
+  },
+  {
+   "id": "d01",
+   "session": 5,
+   "text": "The staging database for Lark is MySQL 8."
+  },
+  {
+   "id": "d02",
+   "session": 5,
+   "text": "Dana's brother prefers yarn for his JavaScript projects."
+  },
+  {
+   "id": "d03",
+   "session": 5,
+   "text": "The internal admin API listens on port 7001."
+  },
+  {
+   "id": "d04",
+   "session": 5,
+   "text": "The marketing website deploys on Fridays."
+  },
+  {
+   "id": "d05",
+   "session": 5,
+   "text": "Priya's cat is named Pixel."
+  },
+  {
+   "id": "d06",
+   "session": 5,
+   "text": "Search query logs are retained for 7 days."
+  },
+  {
+   "id": "d07",
+   "session": 5,
+   "text": "The mobile app has a rate limit of 100 requests per minute."
+  },
+  {
+   "id": "d08",
+   "session": 5,
+   "text": "The data team uses DuckDB for local analysis."
+  },
+  {
+   "id": "d09",
+   "session": 5,
+   "text": "Dana's old personal laptop was a MacBook Air."
+  },
+  {
+   "id": "d10",
+   "session": 5,
+   "text": "Mia's school is on Rua das Flores."
+  },
+  {
+   "id": "u02",
+   "session": 6,
+   "text": "Change: the Lark API now listens on port 9443 in production."
+  },
+  {
+   "id": "u03",
+   "session": 6,
+   "text": "Dana's team moved production deploys to Tuesdays."
+  },
+  {
+   "id": "u06",
+   "session": 6,
+   "text": "Dana now reports to Tomas Lindqvist."
+  },
+  {
+   "id": "u09",
+   "session": 6,
+   "text": "Dana switched her code editor to Zed."
+  },
+  {
+   "id": "u13",
+   "session": 6,
+   "text": "The Lark CI pipeline moved to GitHub Actions."
+  },
+  {
+   "id": "u17",
+   "session": 6,
+   "text": "Lark's search feature now runs on Typesense."
+  },
+  {
+   "id": "u20",
+   "session": 6,
+   "text": "Feature flags moved to Unleash."
+  },
+  {
+   "id": "u22",
+   "session": 6,
+   "text": "Application log retention was extended to 90 days."
+  },
+  {
+   "id": "u23",
+   "session": 6,
+   "text": "Dana relocated and now works on Berlin time."
+  },
+  {
+   "id": "u31",
+   "session": 6,
+   "text": "Auth JWTs now expire after 60 minutes."
+  },
+  {
+   "id": "u33",
+   "session": 6,
+   "text": "Lark's Python services switched to uv for dependency management."
+  },
+  {
+   "id": "u37",
+   "session": 6,
+   "text": "The Lark 2.0 launch moved to April 2."
+  },
+  {
+   "id": "u44",
+   "session": 6,
+   "text": "Dana's desk moved to the 3rd floor."
+  },
+  {
+   "id": "u45",
+   "session": 6,
+   "text": "The Lark API rate limit was raised to 1200 requests per minute per key."
+  },
+  {
+   "id": "u52",
+   "session": 6,
+   "text": "Production Kubernetes was upgraded to 1.33."
+  }
+ ],
+ "questions": [
+  {
+   "id": "e01",
+   "type": "exact",
+   "question": "Does Dana prefer pnpm or npm?",
+   "answer": "pnpm",
+   "gold": "f01",
+   "stale": null
+  },
+  {
+   "id": "e02",
+   "type": "exact",
+   "question": "What is the main database for Lark?",
+   "answer": "PostgreSQL",
+   "gold": "f04",
+   "stale": null
+  },
+  {
+   "id": "e03",
+   "type": "exact",
+   "question": "What is Dana allergic to?",
+   "answer": "peanuts",
+   "gold": "f05",
+   "stale": null
+  },
+  {
+   "id": "e04",
+   "type": "exact",
+   "question": "Which region does the staging cluster run in?",
+   "answer": "eu-west-3",
+   "gold": "f07",
+   "stale": null
+  },
+  {
+   "id": "e05",
+   "type": "exact",
+   "question": "What is Lark's frontend written in?",
+   "answer": "Svelte",
+   "gold": "f08",
+   "stale": null
+  },
+  {
+   "id": "e06",
+   "type": "exact",
+   "question": "Where does error tracking for Lark go?",
+   "answer": "Sentry",
+   "gold": "f11",
+   "stale": null
+  },
+  {
+   "id": "e07",
+   "type": "exact",
+   "question": "What is Dana's cat named?",
+   "answer": "Biscuit",
+   "gold": "f12",
+   "stale": null
+  },
+  {
+   "id": "e08",
+   "type": "exact",
+   "question": "How fast must the test suite finish?",
+   "answer": "12 minutes",
+   "gold": "f14",
+   "stale": null
+  },
+  {
+   "id": "e09",
+   "type": "exact",
+   "question": "What does the billing service use for card payments?",
+   "answer": "Stripe",
+   "gold": "f16",
+   "stale": null
+  },
+  {
+   "id": "e10",
+   "type": "exact",
+   "question": "What is the Lark mobile app built with?",
+   "answer": "Flutter",
+   "gold": "f19",
+   "stale": null
+  },
+  {
+   "id": "e11",
+   "type": "exact",
+   "question": "What is the Lark design system called?",
+   "answer": "Pebble",
+   "gold": "f21",
+   "stale": null
+  },
+  {
+   "id": "e12",
+   "type": "exact",
+   "question": "Where are Lark's public docs hosted?",
+   "answer": "Mintlify",
+   "gold": "f24",
+   "stale": null
+  },
+  {
+   "id": "e13",
+   "type": "exact",
+   "question": "What is the analytics warehouse?",
+   "answer": "ClickHouse",
+   "gold": "f25",
+   "stale": null
+  },
+  {
+   "id": "e14",
+   "type": "exact",
+   "question": "What is the support inbox address?",
+   "answer": "help@lark.example",
+   "gold": "f27",
+   "stale": null
+  },
+  {
+   "id": "e15",
+   "type": "exact",
+   "question": "Which day does Dana's daughter Mia have swim practice?",
+   "answer": "Wednesdays",
+   "gold": "f32",
+   "stale": null
+  },
+  {
+   "id": "e16",
+   "type": "exact",
+   "question": "What is the load balancer in front of Lark?",
+   "answer": "HAProxy",
+   "gold": "f34",
+   "stale": null
+  },
+  {
+   "id": "e17",
+   "type": "exact",
+   "question": "What do background jobs run on?",
+   "answer": "Sidekiq",
+   "gold": "f36",
+   "stale": null
+  },
+  {
+   "id": "e18",
+   "type": "exact",
+   "question": "What is Dana's GitHub handle?",
+   "answer": "dana-codes",
+   "gold": "f38",
+   "stale": null
+  },
+  {
+   "id": "e19",
+   "type": "exact",
+   "question": "What is the Redis cache TTL?",
+   "answer": "300 seconds",
+   "gold": "f39",
+   "stale": null
+  },
+  {
+   "id": "e20",
+   "type": "exact",
+   "question": "What is the Slack channel for incidents?",
+   "answer": "lark-fire",
+   "gold": "f41",
+   "stale": null
+  },
+  {
+   "id": "e21",
+   "type": "exact",
+   "question": "Where are secrets stored?",
+   "answer": "Vault",
+   "gold": "f43",
+   "stale": null
+  },
+  {
+   "id": "e22",
+   "type": "exact",
+   "question": "What is transactional email sent through?",
+   "answer": "Postmark",
+   "gold": "f46",
+   "stale": null
+  },
+  {
+   "id": "e23",
+   "type": "exact",
+   "question": "What is the monorepo built with?",
+   "answer": "Turborepo",
+   "gold": "f49",
+   "stale": null
+  },
+  {
+   "id": "e24",
+   "type": "exact",
+   "question": "When do database backups run?",
+   "answer": "02:00",
+   "gold": "f51",
+   "stale": null
+  },
+  {
+   "id": "e25",
+   "type": "exact",
+   "question": "What is Lark's mascot?",
+   "answer": "Hugo",
+   "gold": "f55",
+   "stale": null
+  },
+  {
+   "id": "p01",
+   "type": "paraphrase",
+   "question": "Which package manager should I use for JS work?",
+   "answer": "pnpm",
+   "gold": "f01",
+   "stale": null
+  },
+  {
+   "id": "p02",
+   "type": "paraphrase",
+   "question": "Does she have any food intolerance I should know about before ordering lunch?",
+   "answer": "peanuts",
+   "gold": "f05",
+   "stale": null
+  },
+  {
+   "id": "p03",
+   "type": "paraphrase",
+   "question": "Who is the boss Dana answers to?",
+   "answer": "Tomas",
+   "gold": "u06",
+   "stale": null
+  },
+  {
+   "id": "p04",
+   "type": "paraphrase",
+   "question": "Which UI framework powers the web client?",
+   "answer": "Svelte",
+   "gold": "f08",
+   "stale": null
+  },
+  {
+   "id": "p05",
+   "type": "paraphrase",
+   "question": "Where do crash reports and exceptions end up?",
+   "answer": "Sentry",
+   "gold": "f11",
+   "stale": null
+  },
+  {
+   "id": "p06",
+   "type": "paraphrase",
+   "question": "What is the name of her pet?",
+   "answer": "Biscuit",
+   "gold": "f12",
+   "stale": null
+  },
+  {
+   "id": "p07",
+   "type": "paraphrase",
+   "question": "How does Dana take her coffee?",
+   "answer": "oat milk",
+   "gold": "f15",
+   "stale": null
+  },
+  {
+   "id": "p08",
+   "type": "paraphrase",
+   "question": "Which company handles credit card charges?",
+   "answer": "Stripe",
+   "gold": "f16",
+   "stale": null
+  },
+  {
+   "id": "p09",
+   "type": "paraphrase",
+   "question": "What computer does she use at the office?",
+   "answer": "ThinkPad",
+   "gold": "f18",
+   "stale": null
+  },
+  {
+   "id": "p10",
+   "type": "paraphrase",
+   "question": "Which toolkit was used for the iOS and Android client?",
+   "answer": "Flutter",
+   "gold": "f19",
+   "stale": null
+  },
+  {
+   "id": "p11",
+   "type": "paraphrase",
+   "question": "What style should git log entries follow?",
+   "answer": "imperative",
+   "gold": "f26",
+   "stale": null
+  },
+  {
+   "id": "p12",
+   "type": "paraphrase",
+   "question": "Which language does Dana like coding in most?",
+   "answer": "Rust",
+   "gold": "f28",
+   "stale": null
+  },
+  {
+   "id": "p13",
+   "type": "paraphrase",
+   "question": "Is there a legal rule about where user records may be kept?",
+   "answer": "inside the EU",
+   "gold": "f30",
+   "stale": null
+  },
+  {
+   "id": "p14",
+   "type": "paraphrase",
+   "question": "What sport does Dana's kid do midweek?",
+   "answer": "swim",
+   "gold": "f32",
+   "stale": null
+  },
+  {
+   "id": "p15",
+   "type": "paraphrase",
+   "question": "How long should a call with Dana be?",
+   "answer": "25 minutes",
+   "gold": "f35",
+   "stale": null
+  },
+  {
+   "id": "p16",
+   "type": "paraphrase",
+   "question": "Does Dana eat meat?",
+   "answer": "vegetarian",
+   "gold": "f40",
+   "stale": null
+  },
+  {
+   "id": "p17",
+   "type": "paraphrase",
+   "question": "Which human languages does the product UI support?",
+   "answer": "Portuguese",
+   "gold": "f42",
+   "stale": null
+  },
+  {
+   "id": "p18",
+   "type": "paraphrase",
+   "question": "Where do we keep passwords and API tokens?",
+   "answer": "Vault",
+   "gold": "f43",
+   "stale": null
+  },
+  {
+   "id": "p19",
+   "type": "paraphrase",
+   "question": "What exercise does she do at the weekend?",
+   "answer": "10k",
+   "gold": "f47",
+   "stale": null
+  },
+  {
+   "id": "p20",
+   "type": "paraphrase",
+   "question": "Which tool maps the JavaScript backends to SQL tables?",
+   "answer": "Prisma",
+   "gold": "f48",
+   "stale": null
+  },
+  {
+   "id": "p21",
+   "type": "paraphrase",
+   "question": "How quickly should a pull request get feedback?",
+   "answer": "same day",
+   "gold": "f50",
+   "stale": null
+  },
+  {
+   "id": "p22",
+   "type": "paraphrase",
+   "question": "What bird represents the brand?",
+   "answer": "heron",
+   "gold": "f55",
+   "stale": null
+  },
+  {
+   "id": "p23",
+   "type": "paraphrase",
+   "question": "Which city is home to Dana's sibling?",
+   "answer": "Porto",
+   "gold": "f56",
+   "stale": null
+  },
+  {
+   "id": "p24",
+   "type": "paraphrase",
+   "question": "How slow may search get for the slowest one in twenty requests?",
+   "answer": "200 ms",
+   "gold": "f58",
+   "stale": null
+  },
+  {
+   "id": "p25",
+   "type": "paraphrase",
+   "question": "Under which open source terms is the code published?",
+   "answer": "MPL-2.0",
+   "gold": "f60",
+   "stale": null
+  },
+  {
+   "id": "t02",
+   "type": "update",
+   "question": "What port does the Lark API listen on in production?",
+   "answer": "9443",
+   "gold": "u02",
+   "stale": "8443"
+  },
+  {
+   "id": "t03",
+   "type": "update",
+   "question": "Which day does Dana's team deploy to production?",
+   "answer": "Tuesdays",
+   "gold": "u03",
+   "stale": "Thursdays"
+  },
+  {
+   "id": "t06",
+   "type": "update",
+   "question": "Who is Dana's manager?",
+   "answer": "Tomas",
+   "gold": "u06",
+   "stale": "Priya"
+  },
+  {
+   "id": "t09",
+   "type": "update",
+   "question": "What code editor does Dana use?",
+   "answer": "Zed",
+   "gold": "u09",
+   "stale": "Neovim"
+  },
+  {
+   "id": "t13",
+   "type": "update",
+   "question": "Where does the Lark CI pipeline run?",
+   "answer": "GitHub Actions",
+   "gold": "u13",
+   "stale": "Buildkite"
+  },
+  {
+   "id": "t17",
+   "type": "update",
+   "question": "What is Lark's search feature backed by?",
+   "answer": "Typesense",
+   "gold": "u17",
+   "stale": "OpenSearch"
+  },
+  {
+   "id": "t20",
+   "type": "update",
+   "question": "Where are feature flags managed?",
+   "answer": "Unleash",
+   "gold": "u20",
+   "stale": "LaunchDarkly"
+  },
+  {
+   "id": "t22",
+   "type": "update",
+   "question": "How long are application logs retained?",
+   "answer": "90 days",
+   "gold": "u22",
+   "stale": "30 days"
+  },
+  {
+   "id": "t23",
+   "type": "update",
+   "question": "What timezone does Dana work on?",
+   "answer": "Berlin",
+   "gold": "u23",
+   "stale": "Lisbon"
+  },
+  {
+   "id": "t31",
+   "type": "update",
+   "question": "When do auth JWTs expire?",
+   "answer": "60 minutes",
+   "gold": "u31",
+   "stale": "15 minutes"
+  },
+  {
+   "id": "t33",
+   "type": "update",
+   "question": "What do Lark's Python services use for dependency management?",
+   "answer": "uv",
+   "gold": "u33",
+   "stale": "Poetry"
+  },
+  {
+   "id": "t37",
+   "type": "update",
+   "question": "When is the Lark 2.0 launch?",
+   "answer": "April 2",
+   "gold": "u37",
+   "stale": "March 12"
+  },
+  {
+   "id": "t44",
+   "type": "update",
+   "question": "Which floor is Dana's desk on?",
+   "answer": "3rd floor",
+   "gold": "u44",
+   "stale": "7th floor"
+  },
+  {
+   "id": "t45",
+   "type": "update",
+   "question": "What is the Lark API rate limit per key?",
+   "answer": "1200",
+   "gold": "u45",
+   "stale": "600"
+  },
+  {
+   "id": "t52",
+   "type": "update",
+   "question": "Which Kubernetes version runs in production?",
+   "answer": "1.33",
+   "gold": "u52",
+   "stale": "1.31"
+  },
+  {
+   "id": "x01",
+   "type": "distractor",
+   "question": "What is the staging database for Lark?",
+   "answer": "MySQL",
+   "gold": "d01",
+   "stale": "PostgreSQL"
+  },
+  {
+   "id": "x02",
+   "type": "distractor",
+   "question": "Which package manager does Dana's brother prefer?",
+   "answer": "yarn",
+   "gold": "d02",
+   "stale": "pnpm"
+  },
+  {
+   "id": "x03",
+   "type": "distractor",
+   "question": "What port does the internal admin API listen on?",
+   "answer": "7001",
+   "gold": "d03",
+   "stale": "9443"
+  },
+  {
+   "id": "x04",
+   "type": "distractor",
+   "question": "Which day does the marketing website deploy?",
+   "answer": "Fridays",
+   "gold": "d04",
+   "stale": "Tuesdays"
+  },
+  {
+   "id": "x05",
+   "type": "distractor",
+   "question": "What is Priya's cat named?",
+   "answer": "Pixel",
+   "gold": "d05",
+   "stale": "Biscuit"
+  },
+  {
+   "id": "x06",
+   "type": "distractor",
+   "question": "How long are search query logs retained?",
+   "answer": "7 days",
+   "gold": "d06",
+   "stale": "90 days"
+  },
+  {
+   "id": "x07",
+   "type": "distractor",
+   "question": "What is the mobile app's rate limit?",
+   "answer": "100 requests",
+   "gold": "d07",
+   "stale": "1200"
+  },
+  {
+   "id": "x08",
+   "type": "distractor",
+   "question": "What does the data team use for local analysis?",
+   "answer": "DuckDB",
+   "gold": "d08",
+   "stale": "ClickHouse"
+  },
+  {
+   "id": "x09",
+   "type": "distractor",
+   "question": "What was Dana's old personal laptop?",
+   "answer": "MacBook",
+   "gold": "d09",
+   "stale": "ThinkPad"
+  },
+  {
+   "id": "x10",
+   "type": "distractor",
+   "question": "Which street is Mia's school on?",
+   "answer": "Rua das Flores",
+   "gold": "d10",
+   "stale": "swim"
+  }
+ ]
+}

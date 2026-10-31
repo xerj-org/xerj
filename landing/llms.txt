@@ -148,6 +148,30 @@ If a node you can reach over HTTP already holds the pack (someone ran `xerj hub 
 
 Direct answers for you, the AI agent, grouped by intent: the clusters come from a 1,000-query study of what agents actually type into search, so find the group that matches your task first. Each line is the link, a tag (`answer` or `compare`), then the question that page answers. **Every link below is the page's Markdown twin — the canonical HTML page is the same URL without the `.md`.** The twin is deliberately not in the sitemap because it is the same document. Titles, questions, short answers, target queries, intents and last-modified dates for every page, as JSON: [answers/index.json](https://xerj.org/answers/index.json) · [compare/index.json](https://xerj.org/compare/index.json). Human hubs: [/answers](https://xerj.org/answers) · [/compare](https://xerj.org/compare).
 
+### agent memory
+
+- [AI agent memory benchmark: 7 open-source projects tested](https://xerj.org/compare/ai-agent-memory-benchmark.md) `compare`: Which open-source agent memory finds the right memory most often?
+- [claude-mem vs MemPalace vs XERJ: memory for Claude Code](https://xerj.org/compare/xerj-vs-claude-mem-and-mempalace.md) `compare`: Should I use claude-mem, MemPalace or XERJ as memory for Claude Code?
+- [Search API or a vector database for agent memory?](https://xerj.org/compare/xerj-vs-vector-database.md) `compare`: Should my agent call a search API or a vector store?
+- [XERJ vs agentmemory: tested memory for coding agents](https://xerj.org/compare/xerj-vs-agentmemory.md) `compare`: Should I use XERJ or agentmemory for coding agent memory?
+- [XERJ vs Khoj for searching your own documents](https://xerj.org/compare/xerj-vs-khoj.md) `compare`: What's a simpler alternative to Khoj if I only need search and memory?
+- [XERJ vs mcp-memory-service: tested MCP memory servers](https://xerj.org/compare/xerj-vs-mcp-memory-service.md) `compare`: Should I use XERJ or mcp-memory-service as an MCP memory server?
+- [XERJ vs Mem0, Zep, Letta and Cognee for agent memory](https://xerj.org/compare/xerj-vs-agent-memory-tools.md) `compare`: Should I use Mem0, Zep, Letta, Cognee or XERJ for AI agent memory?
+- [XERJ vs Mem0: two ways to give an AI agent memory](https://xerj.org/compare/xerj-vs-mem0.md) `compare`: Should I use XERJ or Mem0 for AI agent memory?
+- [XERJ vs memvid: single-file agent memory, tested](https://xerj.org/compare/xerj-vs-memvid.md) `compare`: Should I use XERJ or memvid for AI agent memory?
+- [XERJ vs ReMe: Alibaba's agent memory, tested side by side](https://xerj.org/compare/xerj-vs-reme.md) `compare`: Should I use XERJ or Alibaba's ReMe for AI agent memory?
+- [Agent memory without Postgres or a vector database](https://xerj.org/answers/agent-memory-without-postgres-qdrant.md) `answer`: I want persistent agent memory without standing up Postgres or Qdrant. What do people use?
+- [Agentic memory vs RAG: what is the difference?](https://xerj.org/answers/agentic-memory-vs-rag.md) `answer`: What is the difference between agentic memory and RAG?
+- [Claude Code memory: CLAUDE.md, auto memory and MCP servers](https://xerj.org/answers/claude-code-memory.md) `answer`: How does Claude Code memory work, and how do I give a coding agent persistent memory?
+- [Evidence behind agent-memory links](https://xerj.org/answers/evidence-for-agent-memory-links.md) `answer`: Agent memory: knowledge graphs aren't enough, we need a know-how graph
+- [Give two agents private memory on one laptop](https://xerj.org/answers/private-agent-memory-namespaces.md) `answer`: How do I keep one agent's memory from leaking into another agent's?
+- [Set the MCP memory storage path](https://xerj.org/answers/set-mcp-memory-storage-path.md) `answer`: Memory MCP ignores custom storage path setting
+- [Should agent memory use a graph?](https://xerj.org/answers/knowledge-graphs-for-agent-memory.md) `answer`: Ask HN: Anyone using knowledge graphs for LLM agent memory/context management?
+- [Stop agent memory filling with duplicate notes](https://xerj.org/answers/store-agent-memory-without-llm-call.md) `answer`: How do I dedup agent memory?
+- [Store user preferences an agent can recall later](https://xerj.org/answers/coding-agent-memory-across-sessions.md) `answer`: How do people store user preferences so an agent can recall them next week?
+- [What is agentic memory? A plain answer](https://xerj.org/answers/what-is-agentic-memory.md) `answer`: What is agentic memory?
+- [What is an MCP memory server?](https://xerj.org/answers/what-is-an-mcp-memory-server.md) `answer`: What is an MCP memory server?
+
 ### logs and docs
 
 - [DocFetcher compared with XERJ for document search](https://xerj.org/compare/xerj-vs-docfetcher.md) `compare`: What is a free DocFetcher alternative that an agent can call?
@@ -171,25 +195,6 @@ Direct answers for you, the AI agent, grouped by intent: the clusters come from 
 - [Search markdown notes and PDFs in one vault](https://xerj.org/answers/search-obsidian-pdf-docx-attachments.md) `answer`: What's the best way to search markdown notes and PDFs in the same vault?
 - [Search text across Kubernetes pod logs from many pods](https://xerj.org/answers/search-kubernetes-pod-logs-on-disk.md) `answer`: Grep for specific text from kubernetes multiple pods
 - [Why does my Notion export duplicate titles?](https://xerj.org/answers/notion-export-duplicate-search-results.md) `answer`: API sync/export duplicates Notion titles in pages, databases, search results
-
-### agent memory
-
-- [claude-mem vs MemPalace vs XERJ: memory for Claude Code](https://xerj.org/compare/xerj-vs-claude-mem-and-mempalace.md) `compare`: Should I use claude-mem, MemPalace or XERJ as memory for Claude Code?
-- [Search API or a vector database for agent memory?](https://xerj.org/compare/xerj-vs-vector-database.md) `compare`: Should my agent call a search API or a vector store?
-- [XERJ vs Khoj for searching your own documents](https://xerj.org/compare/xerj-vs-khoj.md) `compare`: What's a simpler alternative to Khoj if I only need search and memory?
-- [XERJ vs Mem0, Zep, Letta and Cognee for agent memory](https://xerj.org/compare/xerj-vs-agent-memory-tools.md) `compare`: Should I use Mem0, Zep, Letta, Cognee or XERJ for AI agent memory?
-- [XERJ vs Mem0: two ways to give an AI agent memory](https://xerj.org/compare/xerj-vs-mem0.md) `compare`: Should I use XERJ or Mem0 for AI agent memory?
-- [Agent memory without Postgres or a vector database](https://xerj.org/answers/agent-memory-without-postgres-qdrant.md) `answer`: I want persistent agent memory without standing up Postgres or Qdrant. What do people use?
-- [Agentic memory vs RAG: what is the difference?](https://xerj.org/answers/agentic-memory-vs-rag.md) `answer`: What is the difference between agentic memory and RAG?
-- [Claude Code memory: CLAUDE.md, auto memory and MCP servers](https://xerj.org/answers/claude-code-memory.md) `answer`: How does Claude Code memory work, and how do I give a coding agent persistent memory?
-- [Evidence behind agent-memory links](https://xerj.org/answers/evidence-for-agent-memory-links.md) `answer`: Agent memory: knowledge graphs aren't enough, we need a know-how graph
-- [Give two agents private memory on one laptop](https://xerj.org/answers/private-agent-memory-namespaces.md) `answer`: How do I keep one agent's memory from leaking into another agent's?
-- [Set the MCP memory storage path](https://xerj.org/answers/set-mcp-memory-storage-path.md) `answer`: Memory MCP ignores custom storage path setting
-- [Should agent memory use a graph?](https://xerj.org/answers/knowledge-graphs-for-agent-memory.md) `answer`: Ask HN: Anyone using knowledge graphs for LLM agent memory/context management?
-- [Stop agent memory filling with duplicate notes](https://xerj.org/answers/store-agent-memory-without-llm-call.md) `answer`: How do I dedup agent memory?
-- [Store user preferences an agent can recall later](https://xerj.org/answers/coding-agent-memory-across-sessions.md) `answer`: How do people store user preferences so an agent can recall them next week?
-- [What is agentic memory? A plain answer](https://xerj.org/answers/what-is-agentic-memory.md) `answer`: What is agentic memory?
-- [What is an MCP memory server?](https://xerj.org/answers/what-is-an-mcp-memory-server.md) `answer`: What is an MCP memory server?
 
 ### code search for agents
 

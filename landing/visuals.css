@@ -295,3 +295,27 @@
 @media (max-width: 720px) {
   .vz-cols-3, .vz-sliders { grid-template-columns: 1fr; }
 }
+
+/* sortable results table and question explorer */
+.vz-sortbtn {
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+}
+.vz-sortbtn::after { content: " \2195"; color: var(--z-line); }
+th[aria-sort="ascending"] .vz-sortbtn::after { content: " \2191"; color: var(--z-accent); }
+th[aria-sort="descending"] .vz-sortbtn::after { content: " \2193"; color: var(--z-accent); }
+.vz-sortbtn:focus-visible { outline: 2px solid var(--z-focus); outline-offset: 2px; }
+.vz-btn[aria-pressed="true"] { border-color: var(--z-brand-deep); background: var(--z-highlight); }
+.vz-table td.is-num, .vz-table th.is-num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+.vz-table tr.is-us th, .vz-table tr.is-us td { background: var(--z-faint); }
+.vz-table td.is-na { color: var(--z-mute); }
+.vz-tall { max-height: 460px; overflow: auto; }
+.vz-tall thead th { position: sticky; top: 0; background: var(--z-bg); }
+.vz-chip.is-mid { border-color: var(--z-line); background: transparent; }

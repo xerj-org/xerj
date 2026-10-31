@@ -1,0 +1,17 @@
+<figure class="vz" id="fig-mms-gate" aria-labelledby="fig-mms-gate-cap">
+  <span class="vz-label">Diagram</span>
+  <p class="vz-title">What happens to an updated fact</p>
+  <p class="vz-panel-h">mcp-memory-service, default settings</p>
+  <ol class="vz-flow">
+    <li><span class="vz-k">Day 1</span><span class="vz-t">"The Lark API listens on port 8443"</span><span class="vz-d">Stored.</span></li>
+    <li><span class="vz-k">Later</span><span class="vz-t">Same fact, new port</span><span class="vz-d">Cosine similarity with the old note is above 0.85.</span></li>
+    <li class="is-off"><span class="vz-k">Result</span><span class="vz-t">Rejected as a duplicate</span><span class="vz-d">Only the old value can come back.</span></li>
+  </ol>
+  <p class="vz-panel-h" style="margin-top:24px">XERJ, default settings</p>
+  <ol class="vz-flow">
+    <li><span class="vz-k">Day 1</span><span class="vz-t">Old value stored</span><span class="vz-d">As sent.</span></li>
+    <li><span class="vz-k">Later</span><span class="vz-t">New value stored</span><span class="vz-d">Dedup is off unless the write asks for it.</span></li>
+    <li class="is-hi"><span class="vz-k">Recall</span><span class="vz-t">Both can come back</span><span class="vz-d">A recency weight puts the new one first.</span></li>
+  </ol>
+  <figcaption id="fig-mms-gate-cap">mcp-memory-service turns semantic dedup on by default, with a 0.85 similarity threshold and a 24 hour window (storage/mixins/base.py). In our run it rejected 4 of the 15 updated facts this way. XERJ skips near duplicates only when a write sets dedup to true, at 0.95.</figcaption>
+</figure>

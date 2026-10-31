@@ -2,13 +2,13 @@
 ---
 title: "claude-mem vs MemPalace vs XERJ: memory for Claude Code"
 canonical: "https://xerj.org/compare/xerj-vs-claude-mem-and-mempalace"
-updated: "2026-10-30"
+updated: "2026-10-31"
 source: "content/compare/xerj-vs-claude-mem-and-mempalace.md"
 ---
 
 # claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?
 
-**Short answer** (updated 2026-10-30): Should I use claude-mem, MemPalace or XERJ for Claude Code memory? Use claude-mem for automatic, model-written session summaries. Use MemPalace to keep every conversation word for word, saved by hooks. Use XERJ when you want the agent to choose what to save and one local engine for memory, logs, docs and code.
+**Short answer** (updated 2026-10-31): Should I use claude-mem, MemPalace or XERJ for Claude Code memory? Use claude-mem for automatic, model-written session summaries. Use MemPalace to keep every conversation word for word, saved by hooks. Use XERJ when you want the agent to choose what to save and one local engine for memory, logs, docs and code.
 
 **TL;DR** All three give Claude Code memory that lasts across sessions. claude-mem saves on its own and has a model write short summaries. MemPalace saves every word on its own and searches it by meaning. XERJ saves only what the agent chooses, through MCP tools, in a local engine that also searches your other data.
 
@@ -22,14 +22,14 @@ Act as a coding agent. Read https://xerj.org/llms.txt, install XERJ, start a loc
 
 ## Side by side
 
-Read from each project's README and the XERJ source on 2026-10-30. We did not run a head-to-head benchmark.
+Read from each project's README and the XERJ source on 2026-10-30. Our [agent memory benchmark](/compare/ai-agent-memory-benchmark) has MemPalace results. It has none for claude-mem, which has no standalone store to call.
 
 | | claude-mem | MemPalace | XERJ |
 | --- | --- | --- | --- |
 | How it saves | Lifecycle hooks, automatic | Hooks, periodically and before compaction | The agent calls `xerj_memory_store` |
 | What it keeps | Model-written observations and summaries | Original text, word for word | The text the agent sends |
 | Model on write | Yes: hosted observer, your key, or your Anthropic plan | No, in raw mode | No |
-| Search | SQLite FTS5 plus Chroma | ChromaDB by default; other backends | BM25, semantic or hybrid in one index |
+| Search | SQLite FTS5 plus Chroma | ChromaDB by default; other backends | BM25 by default; semantic or hybrid in neural mode |
 | How it recalls | Context at session start, plus MCP search | MCP tools and a recall skill | MCP `xerj_memory_recall` or HTTP |
 | Runtime | Bun worker service | Python package | One binary |
 | Other agents | Codex, OpenCode and others | Codex CLI and Cursor hooks | Any MCP client or HTTP caller |
@@ -48,6 +48,8 @@ Pick it when you want memory that works without the agent thinking about it.
 ## MemPalace in short
 
 MemPalace keeps the conversation as written, with no summarizing. It organizes text into wings, rooms and drawers so searches can be scoped. ChromaDB is the default backend and others can be plugged in. Its README reports 96.6% R@5 on LongMemEval in raw mode with no API calls; that is the project's own number.
+
+Our benchmark gave every system the same 85 memories and 75 questions. MemPalace 3.11.0 at its defaults found the right memory in the top 5 for 84.0% of questions and 56% of reworded ones. XERJ semantic recall, with the same MiniLM model, found 94.7% and 84%. MemPalace's median query took 22.7 ms and XERJ's 6.3 ms.
 
 Pick it when you never want a model to decide what to forget.
 
@@ -88,7 +90,7 @@ Its installer offers a hosted observer with a 30 day free trial. You can instead
 
 ### Is MemPalace's 96.6% score independent?
 
-No. MemPalace reports 96.6% R@5 on LongMemEval in raw mode in its own README. We did not rerun it.
+No. MemPalace reports 96.6% R@5 on LongMemEval in raw mode in its own README. We did not rerun LongMemEval. On our own 75 question test at default settings, MemPalace 3.11.0 found the right memory in the top 5 for 84.0% of questions.
 
 ### How is XERJ different from both?
 
@@ -102,13 +104,19 @@ Yes. They are separate MCP servers or plugins. Running two memory systems means 
 
 It depends on what you want saved and who decides. Use the picker on this page, then try your choice for a week.
 
+## Evidence
+
+- MemPalace 3.11.0 at defaults: top 5 84.0%, reworded questions 56%. XERJ semantic: 94.7%, reworded 84%. — `benchmarks/agent-memory/out/summary.csv`
+- The MemPalace README reports 96.6% R@5 raw on LongMemEval with zero API calls. — [https://github.com/MemPalace/mempalace](https://github.com/MemPalace/mempalace)
+
 ## Related
 
+- [AI agent memory compared: real tests on 7 open-source projects](/compare/ai-agent-memory-benchmark)
 - [What is an MCP memory server?](/answers/what-is-an-mcp-memory-server)
 - [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory)
 - [Search Claude Code past sessions on disk](/answers/search-claude-code-past-sessions)
 - [XERJ vs Mem0: which memory fits your AI agent?](/compare/xerj-vs-mem0)
 - [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions)
+- [XERJ vs mcp-memory-service: two MCP memory servers, tested](/compare/xerj-vs-mcp-memory-service) (same intent: agent memory)
 - [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant) (same intent: agent memory)
 - [XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee](/compare/xerj-vs-agent-memory-tools) (same intent: agent memory)
-- [Should agent memory use a knowledge graph?](/answers/knowledge-graphs-for-agent-memory) (same intent: agent memory)
