@@ -91,12 +91,12 @@ xerj def "euler_to_rotationmatrix"               # go-to-definition: file:line +
 xerj gain                                        # what it did for you — counted, not estimated</code></pre>
 
 <p dir="rtl" align="right">
-برای اجرای هم‌زمان چند شناسه یا پرسش، از دستور <bdi><code>xerj batch-search --input queries.json</code></bdi> یا <bdi><code>MCP</code></bdi> و متد <bdi><code>xerj_batch_search</code></bdi> استفاده کنید:
-<a href="docs/recipes/batch-search.md"><bdi>نتایج مرتب‌شده، ارجاعات و خطاهای هر مورد</bdi></a>.
+برای اجرای هم‌زمان چند شناسه یا پرسش، از دستور <bdi><code>xerj batch-search --input queries.json</code></bdi> یا متد <bdi><code>xerj_batch_search</code></bdi> در <bdi><code>MCP</code></bdi> استفاده کنید:
+<a href="docs/recipes/batch-search.md">نتایج مرتب‌شده، ارجاعات و خطاهای هر مورد</a>.
 </p>
 
 <p dir="rtl" align="right">
-پوشه داده را خارج از هر پوشه‌ای قرار دهید که قصد دارید با <bdi><code>autoindex</code></bdi> ایندکس کنید. مسیر <bdi><code>data/</code></bdi> در فهرست مسیرهای نادیده‌گرفته‌شده پیش‌فرض قرار ندارد؛ بنابراین اگر پوشه داده را با استفاده از <bdi><code>--data-dir ./data</code></bdi> داخل درخت پوشه‌ای قرار دهید که بعداً آن را ایندکس می‌کنید، نود اطلاعات ذخیره‌سازی خودش را نیز ایندکس خواهد کرد.
+پوشه داده را خارج از هر پوشه‌ای قرار دهید که قصد دارید با <bdi><code>autoindex</code></bdi> ایندکس کنید. مسیر <bdi><code>data/</code></bdi> در فهرست مسیرهای نادیده‌گرفته‌شده پیش‌فرض قرار ندارد؛ بنابراین اگر پوشه داده را با استفاده از پارامتر <bdi><code>--data-dir ./data</code></bdi> داخل پوشه‌ای قرار دهید که بعداً آن را ایندکس می‌کنید، نود اطلاعات ذخیره‌سازی خودش را نیز ایندکس خواهد کرد.
 </p>
 
 <p dir="rtl" align="right">
@@ -108,7 +108,7 @@ xerj gain                                        # what it did for you — count
 </p>
 
 <p dir="rtl" align="right">
-راهنمای نصب در ویندوز و نصب دستیِ تأییدشده در بخش <a href="#install-by-hand"><bdi><code>Install by hand</code></bdi></a> قرار دارد.
+راهنمای نصب در ویندوز و نصب دستیِ تأییدشده را در بخش <a href="#install-by-hand"><bdi><code>Install by hand</code></bdi></a> ببینید.
 </p>
 
 <p dir="rtl" align="right">
