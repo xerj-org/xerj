@@ -375,3 +375,56 @@ done in 158.1s, 593 datasets, 83103 records live, 790 junk records</code></pre>
 <p dir="rtl" align="right">
 موتور تعبیه‌سازی واژگانی (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Lexical Embedder</span>) به‌صورت پیش‌فرض بدون نیاز به اینترنت کار می‌کند؛ اما برای استفاده از حالت عصبی (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Neural Mode</span>)، باید سه فایل مدل موردنیاز را پیش از اولین عملیات معنایی، به‌صورت محلی آماده کرده باشید.
 </p>
+
+<h2 dir="rtl" align="right">ایندکس کردن یک پوشه</h2>
+
+<p dir="rtl" align="right">
+ابتدا سرور را راه‌اندازی کنید، سپس مسیر پوشه موردنظر را به دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>autoindex</code></span> بدهید:
+</p>
+
+<pre dir="ltr"><code>xerj --insecure --data-dir ~/xerj-data &amp;     # local dev: no TLS, no auth
+xerj autoindex ~/my-project</code></pre>
+
+<p dir="rtl" align="right">
+این همان محدوده اعتماد مخصوص دستگاه توسعه است که در ابتدای این فایل توضیح داده شد: بدون <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">TLS</span>، بدون احراز هویت و با دسترسی کامل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Superuser</span> برای تمام کلاینت‌ها. این تنظیم برای استفاده روی لپ‌تاپ مناسب است، زیرا یک نود تازه به‌صورت پیش‌فرض فقط به آدرس <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>127.0.0.1</code></span> متصل می‌شود و از هیچ آدرس دیگری قابل دسترسی نیست. اما برای یک میزبان اشتراکی، بهتر است از روش راه‌اندازی همراه با احراز هویت که در ادامه آمده است استفاده کنید.
+</p>
+
+<p dir="rtl" align="right">
+اگر احراز هویت سرور فعال باشد، که برای تمام روش‌های راه‌اندازی بدون پارامتر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>--insecure</code></span> حالت پیش‌فرض است (از جمله راه‌اندازی از طریق فایل پیکربندی)، باید همان کلید دسترسی را در اختیار دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>autoindex</code></span> قرار دهید.
+</p>
+
+<p dir="rtl" align="right">
+این دستور کلید دسترسی را از فایل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj.toml</code></span> دریافت نمی‌کند. بنابراین باید از پارامتر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>--api-key</code></span> استفاده کنید یا متغیر محیطی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>XERJ_API_KEY</code></span> را تنظیم کنید؛ در غیر این صورت، تمام درخواست‌ها با خطای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>401 Unauthorized</code></span> پاسخ داده می‌شوند:
+</p>
+
+<pre dir="ltr"><code>xerj --data-dir ~/xerj-data &amp;                          # auth on: key minted on first boot
+export XERJ_API_KEY="$(cat ~/xerj-data/admin.key)" # &lt;data_dir&gt;/admin.key
+xerj autoindex ~/my-project</code></pre>
+
+<p dir="rtl" align="right">
+همین تمام مراحل راه‌اندازی است. نیازی به تعریف <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Schema</span> یا پیکربندی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Pipeline</span> ندارید. <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> هر فایل را بررسی می‌کند، نوع آن را تشخیص می‌دهد و برای هر مجموعه‌داده‌ای که پیدا کند، یک ایندکس جداگانه ایجاد می‌کند:
+</p>
+
+<pre dir="ltr"><code>phase A: 593 datasets inferred, 1955 junk/skipped files
+phase B: indexing 25329 files with 8 workers
+done in 158.1s, 593 datasets, 83103 records live, 790 junk records</code></pre>
+
+<p dir="rtl" align="right">
+فایل‌های منبع از طریق <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">tree-sitter</span> پردازش می‌شوند؛ بنابراین کدها به‌جای تبدیل شدن به متن ساده و بدون ساختار، همراه با نمادها و شماره خطوط مربوط به خود وارد ایندکس می‌شوند.
+</p>
+
+<p dir="rtl" align="right">
+فرمت‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">CSV</span>، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">JSON</span>، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">JSONL</span>، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XML</span>، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">YAML</span>، پایگاه داده <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">SQLite</span>، فایل‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">PDF</span>، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">DOCX</span>، پاورپوینت (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>.pptx</code></span>؛ یک رکورد برای هر اسلاید)، اکسل (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>.xlsx</code></span>؛ یک مجموعه‌داده برای هر برگه)، کتاب‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">EPUB</span> (یک رکورد برای هر فصل)، نوت‌بوک‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Jupyter</span> (یک رکورد برای هر بخش عنوان‌دار و با پشتیبانی از هر نوع <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Kernel</span>)، صفحات راهنمای سیستم (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Man Pages</span> با قالب <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">roff</span>؛ یک رکورد برای هر بخش)، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">HTML</span>، ایمیل‌ها (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>.eml</code></span> و صندوق‌های پستی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">mbox</span>، از جمله خروجی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Google Takeout</span>) و فرمت‌های رایج گزارش سیستم نیز پشتیبانی می‌شوند.
+</p>
+
+<p dir="rtl" align="right">
+پروژه‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Unity</span> نیز به‌صورت ویژه و با پشتیبانی کامل پردازش می‌شوند: صحنه‌ها، پیش‌ساخته‌ها (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Prefabs</span>) و دارایی‌هایی که به‌صورت متنی ذخیره شده‌اند، برای هر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">GameObject</span> یا <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Component</span> به یک رکورد تبدیل می‌شوند. فایل‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>.meta</code></span> نیز به یک جدول ارتباطی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">GUID</span> به مسیر فایل تبدیل می‌شوند.
+</p>
+
+<p dir="rtl" align="right">
+رکوردهای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">MonoBehaviour</span> نیز دارای فیلدهای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>script_class</code></span> و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>script_path</code></span> هستند؛ بنابراین برای پاسخ به پرسشی مانند «کدام صحنه‌ها از این اسکریپت استفاده می‌کنند؟» تنها به یک پرس‌وجو نیاز دارید.
+</p>
+
+<p dir="rtl" align="right">
+برای خواندن دارایی‌هایی که به‌صورت باینری ذخیره شده‌اند، باید گزینه <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>Force Text</code></span> را فعال کنید. همچنین پوشه‌های تولیدشده مانند <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>Library/</code></span> به‌صورت خودکار نادیده گرفته می‌شوند و اطلاعات آن‌ها در گزارش ثبت می‌شود.
+</p>
