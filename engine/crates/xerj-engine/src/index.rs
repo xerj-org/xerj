@@ -2431,6 +2431,108 @@ mod flush_publication_recovery_tests {
         drop(engine);
     }
 
+    /// #2427: a cold query over a many-segment index must not start one
+    /// whole-section stored decode per segment at once. Before the fix every
+    /// cold segment the query hydrated from its winning rows spawned its own
+    /// background warm, all concurrently (54 on the 1 GB gate's pg-docs:
+    /// anon RSS ~1.0 -> ~4.7 GB after the query returned, cap 3 GiB). Now one
+    /// warm per index runs at a time and the rest are skipped, so one query
+    /// warms at most one segment; the answer is unchanged.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cold_query_runs_at_most_one_stored_warm_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine
+            .create_index("warm-bound", topk_projection_schema())
+            .unwrap();
+        let idx = engine.get_index("warm-bound").unwrap();
+        idx.abort_background_tasks();
+        let blob = "0.125 33.9 -118.4 ".repeat(50);
+        for batch in 0..6u64 {
+            for i in 0..400u64 {
+                let n = batch * 400 + i;
+                // Later segments score higher, so every segment holds
+                // candidates for the page and is hydrated from its rows.
+                let body = if n % 7 == 0 {
+                    format!("{}report {n}", "needle ".repeat(batch as usize + 1))
+                } else {
+                    format!("hay stack {n}")
+                };
+                idx.index_document(
+                    Some(format!("doc-{n}")),
+                    json!({"title": format!("title {n}"), "body": body, "blob": blob}),
+                )
+                .await
+                .unwrap();
+            }
+            idx.flush().await.unwrap();
+        }
+        drop(idx);
+        drop(engine);
+
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        let idx = engine.get_index("warm-bound").unwrap();
+        idx.abort_background_tasks();
+        let segs: Vec<String> = {
+            let snapshot = idx.store.snapshot();
+            snapshot.segments.iter().map(|s| s.id.to_string()).collect()
+        };
+        assert!(
+            segs.len() >= 4,
+            "precondition: many segments, got {}",
+            segs.len()
+        );
+        let warmed = |idx: &Index| {
+            segs.iter()
+                .filter(|id| {
+                    idx.stored_slices_cache.contains_key(id.as_str())
+                        || idx.decoded_stored_cache.contains_key(id.as_str())
+                })
+                .count()
+        };
+        assert_eq!(warmed(&idx), 0, "precondition: stored caches cold");
+
+        let request = xerj_query::parse_request(&json!({
+            "query": {"match": {"body": "needle"}},
+            "size": 5,
+            "_source": ["title"]
+        }))
+        .unwrap();
+        let cold = idx.search(&request).await.unwrap();
+        assert_eq!(cold.hits.len(), 5);
+        let hydrated = idx.cold_row_hydrations.load(Ordering::Relaxed);
+        assert!(
+            hydrated >= 3,
+            "precondition: the query hydrates several cold segments, got {hydrated}"
+        );
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+        while !idx.cold_stored_warms.is_empty() {
+            assert!(std::time::Instant::now() < deadline, "warm never settled");
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        // Let any (pre-fix) straggler publish before counting.
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        // The bound is on warms running at once. A warm that finishes while
+        // the query is still hydrating lets the next cold segment start
+        // one, so the total warmed can exceed one on a fast runner (CI saw
+        // 2 of 6); the number in flight never does.
+        let peak = idx.cold_stored_warm_peak.load(Ordering::Acquire);
+        assert!(
+            peak <= 1,
+            "one cold query ran {peak} stored warms at once over {} segments",
+            segs.len()
+        );
+
+        // The warm answer equals the cold answer.
+        let warm = idx.search(&request).await.unwrap();
+        let ids = |r: &xerj_query::executor::SearchResult| {
+            r.hits.iter().map(|h| h.id.clone()).collect::<Vec<_>>()
+        };
+        assert_eq!(ids(&cold), ids(&warm));
+        drop(idx);
+        drop(engine);
+    }
+
     /// #2422/#2423: on a cold segment (after a restart, or evicted under the
     /// cache budget) a top-k query that names its `_source` fields must read
     /// only the winning rows and only the needed columns. Before the fix the
@@ -10858,8 +10960,17 @@ pub struct Index {
     self_ref: std::sync::OnceLock<std::sync::Weak<Index>>,
     /// Segments with a background stored-slices warm queued or running.
     cold_stored_warms: dashmap::DashMap<String, ()>,
-    /// Background warms skipped because the hydration budget had no room
-    /// for the slices they would build (#2427/#1122).
+    /// #2427: set while a background stored-slices warm runs. At most one
+    /// warm per index decodes at a time (see `schedule_cold_stored_warm`).
+    cold_stored_warm_running: std::sync::atomic::AtomicBool,
+    /// Test-only: the most cold stored warms that ever ran at once (#2427).
+    #[cfg(test)]
+    cold_stored_warm_peak: std::sync::atomic::AtomicUsize,
+    #[cfg(test)]
+    cold_stored_warm_live: std::sync::atomic::AtomicUsize,
+    /// Background warms not started because one was already running for
+    /// this index, or because the hydration budget had no room for the
+    /// slices they would build (#2427/#1122).
     cold_stored_warms_skipped: AtomicU64,
     /// Cold segments answered by row-selective hydration (observability and
     /// tests).
@@ -11567,6 +11678,11 @@ impl Index {
             schema_persist_failures: AtomicU64::new(0),
             self_ref: std::sync::OnceLock::new(),
             cold_stored_warms: dashmap::DashMap::new(),
+            cold_stored_warm_running: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(test)]
+            cold_stored_warm_peak: std::sync::atomic::AtomicUsize::new(0),
+            #[cfg(test)]
+            cold_stored_warm_live: std::sync::atomic::AtomicUsize::new(0),
             cold_stored_warms_skipped: AtomicU64::new(0),
             cold_row_hydrations: AtomicU64::new(0),
         });
@@ -12036,6 +12152,11 @@ impl Index {
             schema_persist_failures: AtomicU64::new(0),
             self_ref: std::sync::OnceLock::new(),
             cold_stored_warms: dashmap::DashMap::new(),
+            cold_stored_warm_running: std::sync::atomic::AtomicBool::new(false),
+            #[cfg(test)]
+            cold_stored_warm_peak: std::sync::atomic::AtomicUsize::new(0),
+            #[cfg(test)]
+            cold_stored_warm_live: std::sync::atomic::AtomicUsize::new(0),
             cold_stored_warms_skipped: AtomicU64::new(0),
             cold_row_hydrations: AtomicU64::new(0),
         });
@@ -18506,9 +18627,18 @@ impl Index {
     /// answered it from its winning rows (#2422/#2423). Later queries with
     /// other winners then read the warm cache instead of each paying a
     /// projected decode, and the query that found the segment cold no longer
-    /// waits for the whole-section decompress. One warm per segment at a
-    /// time; `stored_slices_for` keeps its single-flight, budget and
-    /// retirement rules.
+    /// waits for the whole-section decompress. `stored_slices_for` keeps its
+    /// single-flight, budget and retirement rules.
+    ///
+    /// #2427: at most ONE warm per index runs at a time, and a warm whose
+    /// decoded section cannot fit the hydration budget is not started. Each
+    /// warm is a full stored-section decompress plus brace walk; a cold query
+    /// over a many-segment index used to spawn one per segment at once (54 on
+    /// the 1 GB gate's pg-docs), which drove the node from ~1 GB to ~4.7 GB
+    /// anon RSS *after* the query returned, against a 3 GiB cap, and most of
+    /// the decoded sections were then refused by the budget at publish and
+    /// thrown away. A skipped warm costs nothing: the query that triggered it
+    /// already has its rows, and a later cold visit schedules it again.
     fn schedule_cold_stored_warm(&self, segment_id: &str, doc_count: u64) {
         let Some(index) = self.self_ref.get().and_then(std::sync::Weak::upgrade) else {
             return;
@@ -18526,8 +18656,25 @@ impl Index {
         {
             return;
         }
+        if self
+            .cold_stored_warm_running
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            self.cold_stored_warms.remove(segment_id);
+            self.cold_stored_warms_skipped
+                .fetch_add(1, Ordering::Relaxed);
+            return;
+        }
         let segment_id = segment_id.to_string();
         runtime.spawn_blocking(move || {
+            #[cfg(test)]
+            {
+                let live = index.cold_stored_warm_live.fetch_add(1, Ordering::AcqRel) + 1;
+                index
+                    .cold_stored_warm_peak
+                    .fetch_max(live, Ordering::AcqRel);
+            }
             // #2427/#1122: a warm exists to leave the slices cached. When the
             // hydration budget has no room for them the cache would refuse
             // the result, so the warm would only decompress a whole stored
@@ -18544,6 +18691,11 @@ impl Index {
                 let _ = index.stored_slices_for(&segment_id, doc_count);
             }
             index.cold_stored_warms.remove(segment_id.as_str());
+            #[cfg(test)]
+            index.cold_stored_warm_live.fetch_sub(1, Ordering::AcqRel);
+            index
+                .cold_stored_warm_running
+                .store(false, Ordering::Release);
         });
     }
 
