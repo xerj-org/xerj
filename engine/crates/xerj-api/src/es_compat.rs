@@ -8088,6 +8088,29 @@ fn find_invalid_agg_params(aggs: Option<&Value>) -> Option<String> {
             _ => None,
         }
     }
+    /// `hdr` options shared by `percentiles` and `percentile_ranks`. ES
+    /// accepts 0..=5 significant digits; anything else is a 400. The engine
+    /// sizes its histogram as `2 * 10^digits` rounded up to a power of two,
+    /// so an unchecked value such as 20 overflowed that `u64` and spun the
+    /// rounding loop forever on the search thread.
+    fn check_hdr(name: &str, params: &Value) -> Option<String> {
+        let digits = params
+            .get("hdr")?
+            .get("number_of_significant_value_digits")?;
+        if digits.as_u64().is_some_and(|d| d <= 5) {
+            return None;
+        }
+        if digits.is_null() {
+            return Some(
+                "[hdr] number_of_significant_value_digits doesn't support values of type: \
+                 VALUE_NULL"
+                    .to_string(),
+            );
+        }
+        Some(format!(
+            "[numberOfSignificantValueDigits] must be between 0 and 5: [{name}]"
+        ))
+    }
     /// Every descendant definition below `def`, as `(type, name)`.
     fn descendants<'a>(def: &'a Value, out: &mut Vec<(&'a str, &'a str)>) {
         for (name, child) in sub_aggs(def).into_iter().flatten() {
@@ -8178,9 +8201,31 @@ fn find_invalid_agg_params(aggs: Option<&Value>) -> Option<String> {
                     }
                 }
             }
-            "percentiles" => return check_tdigest(params),
+            "percentiles" => {
+                if let Some(e) = check_tdigest(params) {
+                    return Some(e);
+                }
+                if let Some(e) = check_hdr(name, params) {
+                    return Some(e);
+                }
+                match params.get("percents") {
+                    Some(Value::Null) => {
+                        return Some(format!("[percents] must not be null: [{name}]"))
+                    }
+                    Some(Value::Array(a)) if a.is_empty() => {
+                        return Some(format!("[percents] must not be empty: [{name}]"))
+                    }
+                    Some(Value::Array(a)) if !a.iter().all(Value::is_number) => {
+                        return Some(format!("[percents] must be numbers: [{name}]"))
+                    }
+                    _ => {}
+                }
+            }
             "percentile_ranks" => {
                 if let Some(e) = check_tdigest(params) {
+                    return Some(e);
+                }
+                if let Some(e) = check_hdr(name, params) {
                     return Some(e);
                 }
                 match params.get("values") {
@@ -8327,6 +8372,47 @@ mod agg_param_validation_tests {
             json!({"c": {"composite": {"sources": [{"k": {"terms": {"field": "k"}}}]}},
                    "r": {"rare_terms": {"field": "k"}}}),
         ] {
+            assert_eq!(check(aggs.clone()), None, "{aggs}");
+        }
+    }
+
+    /// FAIL-BEFORE: none of these were refused. `hdr` digits of 20 (or any
+    /// value whose `2 * 10^digits` wraps `u64` past 2^63) also hung the search
+    /// thread in the engine's histogram sizing loop instead of erroring.
+    #[test]
+    fn percentiles_hdr_and_percents_are_validated() {
+        for digits in [
+            json!(-1),
+            json!(6),
+            json!(10),
+            json!(20),
+            json!(4294967316u64),
+        ] {
+            for kind in ["percentiles", "percentile_ranks"] {
+                let aggs = json!({"p": {kind: {"field": "f", "values": [1],
+                    "hdr": {"number_of_significant_value_digits": digits}}}});
+                assert_eq!(
+                    check(aggs.clone()).as_deref(),
+                    Some("[numberOfSignificantValueDigits] must be between 0 and 5: [p]"),
+                    "{aggs}"
+                );
+            }
+        }
+        let null_digits = json!({"p": {"percentiles": {"field": "f",
+            "hdr": {"number_of_significant_value_digits": null}}}});
+        assert!(check(null_digits).is_some_and(|e| e.contains("VALUE_NULL")));
+        for (percents, reason) in [
+            (json!([]), "[percents] must not be empty: [p]"),
+            (json!(null), "[percents] must not be null: [p]"),
+            (json!(["foo"]), "[percents] must be numbers: [p]"),
+        ] {
+            let aggs = json!({"p": {"percentiles": {"field": "f", "hdr": {},
+                                                    "percents": percents}}});
+            assert_eq!(check(aggs.clone()).as_deref(), Some(reason), "{aggs}");
+        }
+        for digits in 0..=5 {
+            let aggs = json!({"p": {"percentiles": {"field": "f", "percents": [50],
+                "hdr": {"number_of_significant_value_digits": digits}}}});
             assert_eq!(check(aggs.clone()), None, "{aggs}");
         }
     }
@@ -9236,7 +9322,10 @@ fn hdr_percentiles_values(vals: &[f64], spec: &Value) -> Value {
         .get("hdr")
         .and_then(|h| h.get("number_of_significant_value_digits"))
         .and_then(Value::as_u64)
-        .unwrap_or(3) as u32;
+        .unwrap_or(3)
+        // ES bounds this to 0..=5; past 18 `10^digits` overflows `u64` and the
+        // power-of-two loop below never terminates.
+        .min(5) as u32;
     let sub_bucket_count: u64 = {
         let target = 2u64 * 10u64.pow(digits);
         let mut p = 1u64;

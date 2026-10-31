@@ -63,12 +63,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The version map takes about 23% less memory per document (#2427). A
+  32-character lowercase hex id (what `xerj autoindex` writes) or a lowercase
+  UUID is now packed into 16 bytes inside its bucket instead of paying a
+  separate 48 B heap allocation, other ids up to 24 bytes are stored inline,
+  and the tombstone flag shares the version word. On the 2.46 M-entry perf-gate
+  corpus the map drops from about 347 MB to 268 MB.
 - A `_delete_by_query` whose matches fit in one scroll page no longer flushes
   the whole memtable before deleting. `autoindex --fresh` sends one such
   delete-before-replace per file, and each one used to cut a new tiny segment
   out of every other worker's pending bulks (about 1,050 segments on the
   #2640 corpus). Larger deletes keep the flush-then-page path (#2640).
-
 - A search no longer hangs forever when a cold segment's stored fields are
   being warmed in the background. A search-pool thread that waited for the
   warm's decode could block the decode it waited for, so every later search
@@ -132,6 +137,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   200-580 MB of warmed stored slices between 40 breaker engages. Queries
   still hydrate a segment on first read. (Refs #2427)
 
+- A cold full-text query no longer starts one background whole-section
+  stored decode per cold segment at once (refs #2427). On the 1 GB gate's
+  `pg-docs` (54 cold segments) one 5-hit query drove anon RSS from ~1.0 to
+  ~4.7 GB after it had returned, with most decodes refused by the hydration
+  budget at publish and thrown away. One background warm per index now runs
+  at a time and the others are skipped. Query answers are unchanged.
+
 - `simple_query_string` with `"fields": ["*"]` is answered from the inverted
   index instead of a stored-document scan of every segment (refs #2427). The
   bare `*` pattern lowered to a literal `"*"` field that has no index
@@ -152,6 +164,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   restart, while it was serving reads under the memory breaker. This
   supersedes the 120 s open quiet period in #2492, which only delayed the
   same merges (Refs #2427).
+
+- Vector ingest no longer runs on one core per index: the HNSW construction
+  search (greedy descent, `ef_construction` beam and neighbour selection) now
+  runs under a shared lock, and only the link writes take the graph's write
+  lock. A bulk batch plans its inserts in parallel on the ingest pool, and
+  concurrent batches into one index no longer queue behind each other's
+  inserts (#2427).
 
 - `_bulk` requests of ordinary text and code are no longer refused with a
   429 while the node has memory to spare. Each raw bulk reserved 28 bytes
