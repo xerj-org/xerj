@@ -451,6 +451,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mark every file in the same bulk done, so the rerun the abort message asks
   for resumed past the file, reported success and never sent the refused
   record (#2807).
+- A file whose record the server refuses as over its 8 MiB per-document
+  limit is now set aside as junk, with its file name and the server's reason,
+  and the run completes with exit 3. Its other records are removed and it is
+  retried on the next run. It used to abort the whole run, every rerun, until
+  `--fresh`. On a `semantic_text` field the vectors the server adds count
+  toward that limit: a 2 MB generated `.d.ts` file grew to 16.6 MB this way.
+  `--no-semantic` indexes such a file (#2807).
 
 ## [1.0.0-rc.100] - 2026-10-26
 

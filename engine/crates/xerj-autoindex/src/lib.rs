@@ -3476,6 +3476,10 @@ struct PipeState {
     /// The token that submitted each `_id` in `buf`, so a refused item is
     /// charged to its own file rather than to every file in the bulk (#2807).
     owners: HashMap<String, u64>,
+    /// Tokens whose every refused record was over the server's per-document
+    /// byte limit, with the server's reason. A retry cannot clear that, so the
+    /// file is set aside instead of failing the run (#2807).
+    too_large: HashMap<u64, String>,
     /// Terminal result per token, observed (and removed) by the token's
     /// owner in [`BulkPipe::settle`].
     done: std::collections::HashMap<u64, Result<(), String>>,
@@ -3646,6 +3650,12 @@ where
     /// loop breaks on it, mirroring the per-file `send_err` break it
     /// replaced: no point reading and shipping the rest of a file whose
     /// earlier records were already refused.
+    /// The server's reason when this token failed only on records over the
+    /// per-document byte limit. Taken once, by the file's own worker.
+    fn take_too_large(&self, token: u64) -> Option<String> {
+        self.lock().too_large.remove(&token)
+    }
+
     fn failed(&self, token: u64) -> bool {
         self.lock().failed.contains(&token)
     }
@@ -3775,18 +3785,34 @@ where
                     // were all accepted settle Ok. A refusal without a known
                     // `_id` fails every file in the bulk. Settling all of them
                     // Ok journaled a file past a record never stored (#2807).
-                    self.rejected_records
-                        .fetch_add(outcome.item_errors, Ordering::Relaxed);
                     let mut refused: HashMap<u64, Vec<String>> = HashMap::new();
+                    let mut too_large: HashMap<u64, (bool, String)> = HashMap::new();
                     let mut unowned = outcome.refused.len() as u64 != outcome.item_errors;
                     for item in &outcome.refused {
                         match item.id.as_ref().and_then(|id| owners.get(id)) {
                             Some(token) => {
-                                refused.entry(*token).or_default().push(item.error.clone())
+                                refused.entry(*token).or_default().push(item.error.clone());
+                                let entry = too_large
+                                    .entry(*token)
+                                    .or_insert_with(|| (true, item.error.clone()));
+                                entry.0 &= item.too_large;
                             }
                             None => unowned = true,
                         }
                     }
+                    // A file set aside for size is junk, not a backend
+                    // rejection, so it is not counted as one.
+                    let mut set_aside = 0u64;
+                    if !unowned {
+                        for (t, (all_too_large, reason)) in too_large {
+                            if all_too_large {
+                                set_aside += refused.get(&t).map_or(0, |e| e.len() as u64);
+                                st.too_large.insert(t, reason);
+                            }
+                        }
+                    }
+                    self.rejected_records
+                        .fetch_add(outcome.item_errors - set_aside, Ordering::Relaxed);
                     for t in &tokens {
                         let errors = refused.get(t);
                         if unowned || errors.is_some() {
@@ -11844,7 +11870,53 @@ fn run_index_report_inner(
             // nor the journal commit may run.
             if send_err.is_none() {
                 if let Err(e) = pipe.settle(file_token) {
-                    send_err = Some(format!("{}: {e}", f.rel));
+                    match pipe.take_too_large(file_token) {
+                        // The server refused a record as too large, which the
+                        // same record will hit on every rerun: set the file
+                        // aside and keep going, as for any junk file (#2807).
+                        // Its accepted records are removed first, so a junk
+                        // file is never half searchable.
+                        Some(reason) => {
+                            let query = replacement_purge_query(key, &f.rel, None);
+                            let indices: BTreeSet<String> = fa
+                                .assignments
+                                .iter()
+                                .filter_map(|(_, slug)| ds_rt.get(slug).map(|rt| rt.index.clone()))
+                                .collect();
+                            for index in &indices {
+                                if let Err(error) = es.delete_by_query(index, &query) {
+                                    send_err = Some(format!(
+                                        "{}: remove its records after the server refused one as \
+                                         too large: {error:#}",
+                                        f.rel
+                                    ));
+                                    break;
+                                }
+                            }
+                            if send_err.is_none() {
+                                extra_junk.lock().unwrap().push(JunkFile {
+                                    file_key: key.clone(),
+                                    rel: f.rel.clone(),
+                                    format: format_str(Some(&sn)),
+                                    status: "junk".into(),
+                                    reason: format!(
+                                        "set aside at index time: the server refused a record \
+                                         from this file: {reason}. On a semantic field the \
+                                         vectors the server adds count toward that limit; \
+                                         `--no-semantic` indexes the file without them"
+                                    ),
+                                    bytes: f.size,
+                                });
+                                pr.note(&format!(
+                                    "{}: set aside, the server refused a record from it as \
+                                     over its per-document size limit",
+                                    f.rel
+                                ));
+                                continue;
+                            }
+                        }
+                        None => send_err = Some(format!("{}: {e}", f.rel)),
+                    }
                 }
             }
             // Second-brain edges for this file (§6.7): only after the
