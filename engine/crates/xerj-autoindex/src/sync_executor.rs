@@ -13,7 +13,7 @@ use crate::sync::{
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
-use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
@@ -2828,7 +2828,8 @@ fn checked_bulk(es: &crate::esclient::Es, body: Vec<u8>) -> Result<()> {
     if body.is_empty() {
         return Ok(());
     }
-    check_bulk_outcome(es, es.bulk(body)?)
+    let outcome = es.bulk(body.clone())?;
+    check_bulk_outcome(es, outcome, &body)
 }
 
 /// [`checked_bulk`] for a body nobody windowed — the catalog projection, which
@@ -2838,12 +2839,48 @@ fn checked_bulk_windowed(es: &crate::esclient::Es, body: Vec<u8>, bulk_bytes: us
     if body.is_empty() {
         return Ok(());
     }
-    check_bulk_outcome(es, es.bulk_windowed(body, bulk_bytes)?)
+    let outcome = es.bulk_windowed(body.clone(), bulk_bytes)?;
+    check_bulk_outcome(es, outcome, &body)
+}
+
+/// The `ax_path` of each refused record, read back from the body that was
+/// sent: a refusal reports only the record's `_id`, which is a hash.
+fn refused_paths(body: &[u8], outcome: &crate::esclient::BulkOutcome) -> Vec<String> {
+    let ids: HashSet<&str> = outcome
+        .refused
+        .iter()
+        .filter_map(|item| item.id.as_deref())
+        .collect();
+    let mut paths = Vec::new();
+    let mut lines = body.split(|byte| *byte == b'\n');
+    while let (Some(action), Some(doc)) = (lines.next(), lines.next()) {
+        let Ok(action) = serde_json::from_slice::<Value>(action) else {
+            continue;
+        };
+        let id = action
+            .as_object()
+            .and_then(|op| op.values().next())
+            .and_then(|op| op.get("_id"))
+            .and_then(Value::as_str);
+        if !id.is_some_and(|id| ids.contains(id)) {
+            continue;
+        }
+        if let Some(path) = serde_json::from_slice::<Value>(doc)
+            .ok()
+            .and_then(|doc| doc.get("ax_path")?.as_str().map(str::to_owned))
+        {
+            if !paths.contains(&path) {
+                paths.push(path);
+            }
+        }
+    }
+    paths
 }
 
 fn check_bulk_outcome(
     es: &crate::esclient::Es,
     outcome: crate::esclient::BulkOutcome,
+    body: &[u8],
 ) -> Result<()> {
     // `Es::bulk` has already re-sent per-item 429s, and only those, for the
     // whole of its patience (`THROTTLE_PATIENCE`, #944/#949, shortened to
@@ -2877,15 +2914,34 @@ fn check_bulk_outcome(
             outcome.server_errors,
         );
     }
-    anyhow::ensure!(
-        outcome.item_errors == 0,
-        "prepared bulk contained {} rejected items: {}",
+    if outcome.item_errors == 0 {
+        return Ok(());
+    }
+    // This route seals the generation before it sends, so a file can no
+    // longer leave the plan here, and a rerun replays the same refusal. Name
+    // the file and the ways out instead (#2807).
+    let paths = refused_paths(body, &outcome);
+    let source = if paths.is_empty() {
+        String::new()
+    } else {
+        format!(" from {}", paths.join(", "))
+    };
+    let too_large = outcome.refused.iter().any(|item| item.too_large);
+    let remedy = if too_large {
+        " The server adds vectors to a `semantic_text` field, and they count toward its \
+         per-document limit. A sealed generation cannot set a file aside, so rerunning \
+         repeats this refusal: index the folder under a new --prefix and --state-dir with \
+         the file left out (`--exclude`), or with `--no-semantic`"
+    } else {
+        ""
+    };
+    anyhow::bail!(
+        "the server refused {} record(s){source}: {}.{remedy}",
         outcome.item_errors,
         outcome
             .first_error
             .unwrap_or_else(|| "unknown error".into())
-    );
-    Ok(())
+    )
 }
 
 fn append_index_action(index: &str, id: &str, doc: &Value, body: &mut Vec<u8>) -> Result<()> {
