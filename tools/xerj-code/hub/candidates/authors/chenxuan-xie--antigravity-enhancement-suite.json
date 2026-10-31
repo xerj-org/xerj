@@ -1,0 +1,23 @@
+{
+ "corpus": "chenxuan-xie--antigravity-enhancement-suite",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Chenxuan-Xie/antigravity-enhancement-suite implements it: Antigravity \u5168\u80fd\u589e\u5f3a\u5957\u4ef6\uff1aClaude \u7f8a\u76ae\u7eb8\u4e66\u5377\u98ce\u6362\u80a4 + \u7b80\u4f53\u4e2d\u6587\u5168\u91cf\u6c49\u5316 + Google \u591a\u8d26\u53f7\u79d2\u7ea7\u70ed\u5207\u6362 + \u7b2c\u4e09\u65b9 API / \u4e2d\u8f6c\u7ad9\u540c\u4f1a\u8bdd\u65e0\u7f1d\u6865\u63a5 (selected work: antigravity-model-switcher, antigravity-account-switcher)",
+ "repos": [
+  {
+   "repo": "antigravity-enhancement-suite",
+   "url": "https://github.com/Chenxuan-Xie/antigravity-enhancement-suite",
+   "sha": "37cf5a02a8df60d5e8ae33b8b6362f983696f6af",
+   "licence": "MIT (LICENSE file at pin 37cf5a02a8df, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T05:03Z",
+    "consent_receipt": "7021e02722fd",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T05:03Z (receipt 7021e02722fd); selected commit 37cf5a02a8df: \"fix: restore native / and @ tools and scoped account switching\". LICENSE file at pin 37cf5a02a8df detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

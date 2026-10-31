@@ -1,0 +1,23 @@
+{
+ "corpus": "stormlyd--podtide",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Kotlin queries this for how Stormlyd/PodTide implements it: An open-source Android companion for AirPods (selected work: app/src, the project root)",
+ "repos": [
+  {
+   "repo": "PodTide",
+   "url": "https://github.com/Stormlyd/PodTide",
+   "sha": "c5eae2aab712dec63fbce02cbeec8b8e590b7d4a",
+   "licence": "GPL-3.0 (LICENSE file at pin c5eae2aab712, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T04:42Z",
+    "consent_receipt": "68867bd22b8e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T04:42Z (receipt 68867bd22b8e); selected commit c5eae2aab712: \"Publish PodTide 0.1.0-dev12\". LICENSE file at pin c5eae2aab712 detected as GPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

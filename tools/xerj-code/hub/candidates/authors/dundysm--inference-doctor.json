@@ -8,15 +8,15 @@
   {
    "repo": "inference-doctor",
    "url": "https://github.com/dundysm/inference-doctor",
-   "sha": "827566f370dff0ee5c5af8657514867b5ccc5285",
-   "licence": "Apache-2.0 (LICENSE file at pin 827566f370df, GitHub licence API 2026-10-30)",
+   "sha": "6d27207f2b27a2deb2e547e611075b7f0a6c536e",
+   "licence": "Apache-2.0 (LICENSE file at pin 6d27207f2b27, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T14:55Z",
     "consent_receipt": "8306a0bb6cd1",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T14:55Z (receipt 8306a0bb6cd1); pinned to the default-branch head. LICENSE file at pin 827566f370df detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T14:55Z (receipt 8306a0bb6cd1); pinned to the default-branch head. LICENSE file at pin 6d27207f2b27 detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
    }
   }
  ]
