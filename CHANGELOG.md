@@ -105,6 +105,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   estimated heap is reported as the new `vector_graph` category in the
   ingest memory trace. (#2427)
 
+- A node near its memory cap no longer warms flushed and merged segments into
+  the segment-hydration cache. Publish-time warming used to stop only while
+  the memory breaker was engaged. It now stops once RSS reaches the breaker's
+  release level (85% of the watermark by default), so warming no longer
+  spends the headroom the breaker has just won back. On the 1 GiB release
+  gate (cap 3072 MB) the ingest node only received `_bulk`, yet it held
+  200-580 MB of warmed stored slices between 40 breaker engages. Queries
+  still hydrate a segment on first read. (Refs #2427)
+
 - `_bulk` requests of ordinary text and code are no longer refused with a
   429 while the node has memory to spare. Each raw bulk reserved 28 bytes
   per input byte for analysis, a rate sized for the densest text, so a bulk

@@ -54699,7 +54699,10 @@ fn warm_segment_at_publish(
     // the worst moment (the breaker only rejects; it cannot reclaim what
     // warming keeps re-adding). Skip when engaged — the next read
     // re-hydrates on demand, and warming resumes once memory frees up.
-    if crate::governor::global().is_some_and(|g| g.memory_breaker_engaged()) {
+    // #2427: also skip above the breaker's release level, so warming does
+    // not push a still-ingesting node back over the watermark
+    // (`ResourceGovernor::publish_warm_allowed`).
+    if crate::governor::global().is_some_and(|g| !g.publish_warm_allowed()) {
         return;
     }
     // 1. Stored slices.
