@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "xerj": {
+      "command": "xerj",
+      "args": ["mcp"],
+      "env": {
+        "XERJ_URL": "${XERJ_URL:-http://localhost:9200}"
+      }
+    }
+  }
+}
