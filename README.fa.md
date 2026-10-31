@@ -276,3 +276,46 @@ done in 158.1s, 593 datasets, 83103 records live, 790 junk records</code></pre>
 مسیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>/_memory/{namespace}</code></span> اطلاعاتی را که یک عامل یاد می‌گیرد ذخیره می‌کند تا در نشست بعدی بتواند آن‌ها را بر اساس معنا بازیابی کند.
 </li>
 </ul>
+
+<h2 dir="rtl" align="right">پرامپت چگونه کار می‌کند؟</h2>
+
+<p dir="rtl" align="right">
+فایل <a href="https://xerj.org/llms.txt"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">llms.txt</span></a> مراحل را به‌ترتیب در اختیار عامل هوش مصنوعی قرار می‌دهد: نصب، راه‌اندازی سرور، اجرای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj autoindex .</code></span>، ارسال پرس‌وجو با هر کلاینت سازگار با <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Elasticsearch</span> و اجرای فرایند برنامه‌نویسی مبتنی بر ارجاع؛ یعنی کلون کردن پروژه‌های متن‌باز مشابه، ایندکس کردن آن‌ها، بازیابی سازوکار موردنظر پیش از نوشتن کد، ارجاع دادن به منابع استفاده‌شده و رعایت مجوزهای انتشار.
+</p>
+
+<p dir="rtl" align="right">
+دلیل اثربخشی این روش چیست؟ عاملی که صرفاً به حافظه خود متکی است، هنگام مواجهه با هر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">API</span>ای که قبلاً یاد نگرفته باشد، وارد چرخه تلاش و خطای مکرر می‌شود. از طرف دیگر، دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">grep</span> فقط محل احتمالی اطلاعات را نشان می‌دهد و عامل همچنان باید کد منبع را بخواند و وارد فضای زمینه خود (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Context</span>) کند؛ فرایندی که طبق اندازه‌گیری‌های ما، در یکی از مجموعه‌داده‌ها به مصرف ۱٫۰۶ میلیون توکن ورودی رسیده است. اما عاملی که از <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> پرس‌وجو می‌کند، مستقیماً بخش دقیق و مرتبط را دریافت می‌کند.
+</p>
+
+<p dir="rtl" align="right">
+نتایج اندازه‌گیری‌شده نشان می‌دهند که <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> در مقایسه با <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">grep</span>، با حفظ نرخ حل مسئله ۱۶ از ۱۶، به ۲٫۷ برابر توکن خروجی کمتر نیاز دارد. این مقدار در مقایسه با اتکای صرف به حافظه به ۲۶ برابر می‌رسد و هزینه را نیز ۲٫۱ برابر کاهش می‌دهد. جزئیات این نتایج در بخش <a href="#the-measured-reason-reference-coding">دلیل اثبات‌شده: برنامه‌نویسی مبتنی بر ارجاع</a> در بالا آمده است. همچنین در یک آزمایش مکمل روی یک کتابخانه <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Rust</span> که مدل قبلاً با آن آشنایی نداشت، روش مبتنی بر بازیابی اطلاعات به امتیاز ۹ از ۹ رسید؛ در حالی که روش متکی بر حافظه امتیاز صفر از ۹ کسب کرد.
+</p>
+
+<p dir="rtl" align="right">
+چند نمونه پرامپت دیگر که می‌توانید پس از نصب اولیه استفاده کنید:
+</p>
+
+<ul dir="rtl" align="right">
+<li>
+<em>«محتوای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">https://xerj.org/llms.txt</span> را بخوان، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> را به‌عنوان موتور جست‌وجوی خود راه‌اندازی کن، پوشه <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>./docs</code></span> را ایندکس کن و برای هر ایندکسی که ایجاد کردی، یک نمونه پرس‌وجو به من نشان بده.»</em>
+</li>
+<li>
+<em>«دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj autoindex map</code></span> را اجرا کن و توضیح بده چه اطلاعاتی در این مجموعه‌داده وجود دارد (نوع داده‌ها، تعداد رکوردها و نکات مهمی که شناسایی کرده است). سپس به‌جای خواندن مستقیم فایل‌ها، با استفاده از جست‌وجو به پرسش‌های من پاسخ بده.»</em>
+</li>
+<li>
+<em>«از <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">API</span> مربوط به <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>/_memory/notes</code></span> در <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> به‌عنوان حافظه بلندمدت این پروژه استفاده کن؛ هنگام کار، آموخته‌هایت را ذخیره کن و در نشست بعدی آن‌ها را بر اساس معنا بازیابی کن.»</em>
+</li>
+</ul>
+
+<p dir="rtl" align="right">
+نمونه‌های عملی و اعتبارسنجی‌شده برای هر قابلیت را می‌توانید در این صفحه مشاهده کنید:
+<a href="https://xerj.org/docs/recipes/">دستورالعمل‌های عملی XERJ</a>.
+</p>
+
+<video src="https://xerj.org/xerj-biz-demo.mp4" poster="docs/media/demo-poster.png" controls muted playsinline width="840">
+  <a href="https://xerj.org/aise-demo.html"><img src="docs/media/demo-poster.png" width="840" alt="مشاهده دموی XERJ: راه‌اندازی، ورود داده‌ها، جست‌وجو، بردارها و داشبوردها"></a>
+</video>
+
+<sub>راه‌اندازی، ورود انبوه داده‌ها، جست‌وجو، جست‌وجوی نزدیک‌ترین همسایه برداری (Vector kNN) و داشبوردهای زنده؛ بدون هیچ‌گونه برش یا تدوین در ویدئو.
+<a href="https://xerj.org/aise-demo.html">مشاهده ویدئو در xerj.org</a> یا
+<a href="https://xerj.org/playground/">امتحان محیط آزمایشی آنلاین</a>.</sub>
