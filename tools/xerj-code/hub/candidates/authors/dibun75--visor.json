@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-coding, code-intelligence, context-engine queries this for how dibun75/visor implements it: \ud83d\udd2d V.I.S.O.R. \u2014 Visual Intelligence System for Orchestrated Reasoning. A local-first MCP server that indexes your codebase via AST parsing, r (selected work: src/visor, tests)",
+ "domain": "an agent working on ai-coding, code-intelligence, context-engine queries this for how dibun75/visor implements it: Terminal-first, local-first context engine for Codex and Claude Code. AST indexing, dependency graphs, MCP tools, Agent Skill, and an option (selected work: src/visor, tests)",
  "repos": [
   {
    "repo": "visor",

@@ -1,0 +1,23 @@
+{
+ "corpus": "osmait--hyprhand",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, automation, cli queries this for how Osmait/hyprhand implements it: Native desktop automation for AI agents on Linux and Hyprland, built in Zig (selected work: src/preview, src/input, src/runtime)",
+ "repos": [
+  {
+   "repo": "hyprhand",
+   "url": "https://github.com/Osmait/hyprhand",
+   "sha": "7e295b606f917020eacbeae7dc6b8c487e3f09ad",
+   "licence": "MIT (LICENSE file at pin 7e295b606f91, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T22:09Z",
+    "consent_receipt": "11638450701d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T22:09Z (receipt 11638450701d); selected commit 7e295b606f91: \"Add human takeover to the PiP viewer\". LICENSE file at pin 7e295b606f91 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head 7e295b606f91 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

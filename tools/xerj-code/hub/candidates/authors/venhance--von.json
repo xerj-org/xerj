@@ -1,0 +1,30 @@
+{
+ "corpus": "venhance--von",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Python queries this for how vEnhance/von implements it: Olympiad problem database (selected work: von, tests)",
+ "repos": [
+  {
+   "repo": "von",
+   "url": "https://github.com/vEnhance/von",
+   "sha": "8b3b8581de4f1db698210804e496d36995c44a36",
+   "licence": "MPL-2.0 (LICENSE file at pin 8b3b8581de4f, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T21:50Z",
+    "consent_receipt": "00dab481d152",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T21:50Z (receipt 00dab481d152); selected commit 8b3b8581de4f: \"refactor: divorce logic from printing\". LICENSE file at pin 8b3b8581de4f detected as MPL-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "8b3b8581de4f1db698210804e496d36995c44a36",
+     "at": "2026-10-31T21:50Z",
+     "receipt": "00dab481d152"
+    }
+   }
+  }
+ ]
+}

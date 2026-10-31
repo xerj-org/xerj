@@ -1,0 +1,23 @@
+{
+ "corpus": "dmnlegendary--prototype-finance-agent-graduationproject",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how dmnlegendary/Prototype_Finance_Agent_GraduationProject implements it: A prototype graduation project of a point-of-sale and inventory system for microenterprises (specifically miscellaneous stores in Mexico Cit (selected work: finanzas)",
+ "repos": [
+  {
+   "repo": "Prototype_Finance_Agent_GraduationProject",
+   "url": "https://github.com/dmnlegendary/Prototype_Finance_Agent_GraduationProject",
+   "sha": "c50c6317315adf8ef4e3eec7cc61f540732b669b",
+   "licence": "MIT (LICENSE file at pin c50c6317315a, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T22:06Z",
+    "consent_receipt": "af37fd84bdc6",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T22:06Z (receipt af37fd84bdc6); selected commit c50c6317315a: \"Correccion y reajuste de la periodicidad en el manejo de los gastos f\u2026\". LICENSE file at pin c50c6317315a detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

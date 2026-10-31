@@ -1,0 +1,23 @@
+{
+ "corpus": "furkanural--zshconf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how furkanural/zshconf implements it: Opinionated zsh config \u2014 tuned completions, Zinit turbo loading, Starship prompt. Sourced, never edited: personalize via a local overlay (selected work: tests, completions, modules)",
+ "repos": [
+  {
+   "repo": "zshconf",
+   "url": "https://github.com/furkanural/zshconf",
+   "sha": "6cf802b9db24bedd1b0a5a2c4fb5723244d3ac2a",
+   "licence": "MIT (LICENSE file at pin 6cf802b9db24, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T22:49Z",
+    "consent_receipt": "416fc6982b10",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T22:49Z (receipt 416fc6982b10); selected commit 6cf802b9db24: \"feat: Tab completion for sysup and other repo functions (#25)\". LICENSE file at pin 6cf802b9db24 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how dylbertram/pcbmotorgen implements it: A standalone tool for PCB motor design. Configure the magnets and PCB constraints, set power targets, runs physics simulations, and export t (selected work: app/desktop, crates/pcbmotorgen-simulation, crates/pcbmotorgen-export)",
+ "domain": "an agent working on Rust queries this for how dylbertram/pcbmotorgen implements it: A standalone tool for PCB motor design. Configure the magnets and PCB constraints, set power targets, runs physics simulations, and export t (selected work: app/desktop, crates/pcbmotorgen-simulation, crates/pcbmotorgen-export)",
  "repos": [
   {
    "repo": "pcbmotorgen",

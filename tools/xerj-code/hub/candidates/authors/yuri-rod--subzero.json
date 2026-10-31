@@ -1,0 +1,23 @@
+{
+ "corpus": "yuri-rod--subzero",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on cli, ffmpeg, jellyfin queries this for how yuri-rod/subzero implements it: Subtitle cleanup, timing verification, Apple Vision caption recovery, and local translation with a Jellyfin worker (selected work: tests, src/subzero)",
+ "repos": [
+  {
+   "repo": "subzero",
+   "url": "https://github.com/yuri-rod/subzero",
+   "sha": "de6896de0364227af0640a74ef34a0156041a266",
+   "licence": "MIT (LICENSE file at pin de6896de0364, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T22:13Z",
+    "consent_receipt": "91cf1fb1436c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T22:13Z (receipt 91cf1fb1436c); selected commit de6896de0364: \"Add queued API inference, semantic repair, and resource-aware benchmarks\". LICENSE file at pin de6896de0364 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

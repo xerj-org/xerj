@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how theankitgaurav/api-client-reborn implements it: theankitgaurav/api-client-reborn (TypeScript) (selected work: src-tauri, src/lib, tests)",
+ "domain": "an agent working on api-client, api-testing, developer-tools queries this for how theankitgaurav/api-client-reborn implements it: A lightweight, local-first HTTP and gRPC API client with Git-friendly request files and disk-spooled streaming responses (selected work: src-tauri, src/lib, tests)",
  "repos": [
   {
    "repo": "api-client-reborn",

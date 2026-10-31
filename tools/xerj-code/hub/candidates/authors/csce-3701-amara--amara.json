@@ -1,0 +1,23 @@
+{
+ "corpus": "csce-3701-amara--amara",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how CSCE-3701-Amara/amara implements it: CSCE-3701-Amara/amara (Go) (selected work: internal/platform, cmd/api, cmd/worker)",
+ "repos": [
+  {
+   "repo": "amara",
+   "url": "https://github.com/CSCE-3701-Amara/amara",
+   "sha": "624f9ab4306f39c0c6255a09825a3918e93c9e48",
+   "licence": "MIT (LICENSE file at pin 624f9ab4306f, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T22:56Z",
+    "consent_receipt": "8b09e52f4bde",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T22:56Z (receipt 8b09e52f4bde); selected commit 624f9ab4306f: \"AMARA-1299: Implement postgres services and transactions (#32)\". LICENSE file at pin 624f9ab4306f detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

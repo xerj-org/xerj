@@ -1,0 +1,23 @@
+{
+ "corpus": "fireflyunlegit--firefly-simple-tweaks",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how FireFlyUnlegit/FireFly-Simple-Tweaks implements it: FireFlyUnlegit/FireFly-Simple-Tweaks (Kotlin) (selected work: src/main, the project root)",
+ "repos": [
+  {
+   "repo": "FireFly-Simple-Tweaks",
+   "url": "https://github.com/FireFlyUnlegit/FireFly-Simple-Tweaks",
+   "sha": "84a34e0de0c5e855f8af2ad496f9471db447124a",
+   "licence": "MIT (LICENSE file at pin 84a34e0de0c5, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T22:20Z",
+    "consent_receipt": "5b4dab039b9a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T22:20Z (receipt 5b4dab039b9a); selected commit 84a34e0de0c5: \"fix: v2.2.2 \u2014 \u91cd\u6807\u5b9a\u7b49\u7ea7\u66f2\u7ebf\uff1a\u5f00\u5c40\u4e0d\u518d Lv7~9\uff0c\u540e\u671f\u8ddf\u5f97\u4e0a\u88c5\u5907\". LICENSE file at pin 84a34e0de0c5 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}
