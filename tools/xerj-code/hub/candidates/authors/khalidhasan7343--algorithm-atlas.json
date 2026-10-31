@@ -1,0 +1,23 @@
+{
+ "corpus": "khalidhasan7343--algorithm-atlas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on algorithms, artificial-intelligence, computer-science queries this for how khalidhasan7343/algorithm-atlas implements it: A structured collection of Data Structures, Algorithms, AI & Machine Learning implementations with explanations and practical examples (selected work: artifacts, scripts)",
+ "repos": [
+  {
+   "repo": "algorithm-atlas",
+   "url": "https://github.com/khalidhasan7343/algorithm-atlas",
+   "sha": "f2cc7c295e0f3fcf83dcb67ab3e6cf8d9c2e1f7e",
+   "licence": "MIT (LICENSE file at pin f2cc7c295e0f, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T01:52Z",
+    "consent_receipt": "29109b201912",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T01:52Z (receipt 29109b201912); selected commit f2cc7c295e0f: \"ML Start Updated\". LICENSE file at pin f2cc7c295e0f detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

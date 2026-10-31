@@ -1,0 +1,23 @@
+{
+ "corpus": "jnyananjan--openassistant-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-assistant, claude, codex queries this for how Jnyananjan/OpenAssistant-AI implements it: OpenAssistant AI \u2014 Autonomous personal productivity assistant on Telegram with proactive cascading follow-ups, local web cockpit, multi-mode (selected work: supabase, src/db, src/reminders)",
+ "repos": [
+  {
+   "repo": "OpenAssistant-AI",
+   "url": "https://github.com/Jnyananjan/OpenAssistant-AI",
+   "sha": "0ab51e75c0094fe1872c352323ea662eace1fd96",
+   "licence": "Apache-2.0 (LICENSE file at pin 0ab51e75c009, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T03:02Z",
+    "consent_receipt": "9a946d3aa179",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T03:02Z (receipt 9a946d3aa179); selected commit 0ab51e75c009: \"fix(worker): terminate reminder loop on permanent errors and back off\u2026\". LICENSE file at pin 0ab51e75c009 detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on Shell queries this for how HypeR-Proj/HypeR implements it: HypeR operating system: documentation, quick start and workspace setup helper (selected work: kernel, sdk, app/memstat)",
+ "domain": "an agent working on code queries this for how HypeR-Proj/HypeR implements it: HypeR operating system: documentation, quick start and workspace setup helper (selected work: kernel, sdk, app/memstat)",
  "repos": [
   {
    "repo": "HypeR",

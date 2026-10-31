@@ -8,15 +8,15 @@
   {
    "repo": "Klyph",
    "url": "https://github.com/vthish/Klyph",
-   "sha": "c044fc49221c1eb047d4d9fb1c439f4d07cae587",
-   "licence": "author's permission (LICENSE at pin c044fc49221c: NONE; repository: none)",
+   "sha": "e6e162ab1785c89a95714c043ffb5c243944a5e4",
+   "licence": "author's permission (LICENSE at pin e6e162ab1785: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T10:46Z",
     "consent_receipt": "fe3feea500c4",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T10:46Z (receipt fe3feea500c4); pinned to the default-branch head. LICENSE at pin c044fc49221c: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T10:46Z (receipt fe3feea500c4); pinned to the default-branch head. LICENSE at pin e6e162ab1785: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]
