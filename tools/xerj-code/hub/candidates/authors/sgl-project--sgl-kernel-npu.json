@@ -1,0 +1,23 @@
+{
+ "corpus": "sgl-project--sgl-kernel-npu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how sgl-project/sgl-kernel-npu implements it: SGLang kernel library for NPU (selected work: csrc, python, cmake)",
+ "repos": [
+  {
+   "repo": "sgl-kernel-npu",
+   "url": "https://github.com/sgl-project/sgl-kernel-npu",
+   "sha": "19be32b9cc4f2ab8bb6d543740d85cf68d3a10f7",
+   "licence": "MIT (LICENSE file at pin 19be32b9cc4f, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T00:04Z",
+    "consent_receipt": "2262f59cc0d7",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T00:04Z (receipt 2262f59cc0d7); selected commit 19be32b9cc4f: \"[Refactor] Add standalone CANN/ACLNN build and migrate apply_token_bi\u2026\". LICENSE file at pin 19be32b9cc4f detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

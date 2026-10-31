@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on generative-art, interpreter, mcp queries this for how PSCatLabs/pscat implements it: A PostScript interpreter, written in Rust, for watching PostScript programs draw live (selected work: src, src/subcmd, tests)",
+ "domain": "an agent working on generative-art, interpreter, mcp queries this for how PSCatLabs/pscat implements it: PostScript for precision and imagination. A modern PostScript interpreter in Rust for precise document rendering and expressive generative a (selected work: src, src/subcmd, tests)",
  "repos": [
   {
    "repo": "pscat",

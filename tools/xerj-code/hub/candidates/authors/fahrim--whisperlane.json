@@ -8,15 +8,15 @@
   {
    "repo": "whisperlane",
    "url": "https://github.com/fahrim/whisperlane",
-   "sha": "52aa9b3e53cf7e16fd9aa0383da8f53bea8cb3c5",
-   "licence": "author's permission (LICENSE at pin 52aa9b3e53cf: NOASSERTION; repository: Apache-2.0)",
+   "sha": "cfa46f3cb2bb2f9b84d9126dc8e7cce9eeb3f8f5",
+   "licence": "author's permission (LICENSE at pin cfa46f3cb2bb: NOASSERTION; repository: Apache-2.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T21:55Z",
     "consent_receipt": "727dd0a13f4d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T21:55Z (receipt 727dd0a13f4d); pinned to the default-branch head. LICENSE at pin 52aa9b3e53cf: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T21:55Z (receipt 727dd0a13f4d); pinned to the default-branch head. LICENSE at pin cfa46f3cb2bb: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
    }
   }
  ]
