@@ -454,3 +454,54 @@ curl localhost:9200/ax-orders/_search -H 'content-type: application/json' -d '{
 <p dir="rtl" align="right">
 هر کتابخانه کلاینت <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Elasticsearch</span> نیز با تنظیم نشانی سرور روی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>localhost:9200</code></span> قابل استفاده است.
 </p>
+
+<h2 dir="rtl" align="right">امتیازدهی به نتایج با Jev</h2>
+
+<p dir="rtl" align="right">
+امتیاز جست‌وجو به شما نشان می‌دهد کدام نتیجه نسبت به نتیجه دیگر رتبه بالاتری دارد؛ اما مشخص نمی‌کند که آیا یک نتیجه واقعاً به پرسش شما پاسخ می‌دهد یا خیر.
+<a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Jev</span></a>، سرویسی از شرکت <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">TypeSafe AI</span>، این کار را انجام می‌دهد: یک پرسش و یک سند به آن می‌دهید و عددی بین صفر تا یک دریافت می‌کنید که نشان می‌دهد آن سند تا چه اندازه به پرسش پاسخ می‌دهد. <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> به دو روش با این سرویس کار می‌کند.
+</p>
+
+<p dir="rtl" align="right">
+<strong>۱. مرتب‌سازی مجدد نتایج با Jev (اختیاری).</strong>
+با افزودن <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>"rerank": {}</code></span> به یک درخواست <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>_search</code></span>، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> نتایج برتر را برای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Jev</span> ارسال می‌کند و سپس آن‌ها را بر اساس امتیازهای دریافتی دوباره مرتب می‌کند.
+</p>
+
+<p dir="rtl" align="right">
+در آزمون عمومی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">FiQA</span>، کیفیت نتایج از ۰٫۲۴ به ۰٫۳۶ (معیار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">nDCG@10</span>) افزایش پیدا می‌کند؛ آن هم با هزینه‌ای در حدود ۰٫۶۴ دلار برای مجموع ۶۴۸ جست‌وجو.
+</p>
+
+<p dir="rtl" align="right">
+این اعداد را به‌عنوان معیاری برای مرتب‌سازی نتایج در نظر بگیرید، نه درصدهای دقیق؛ زیرا امتیازها کالیبراسیون مناسبی ندارند.
+</p>
+
+<p dir="rtl" align="right">
+<strong>با فعال کردن این قابلیت، متن نتایج جست‌وجو به سرورهای TypeSafe ارسال می‌شود.</strong>
+این قابلیت تا زمانی که کلید دسترسی را تنظیم نکنید غیرفعال باقی می‌ماند. همچنین تنظیم <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>[rerank] enabled = false</code></span> آن را به‌طور کامل ممنوع می‌کند. پیش از فعال‌سازی، حتماً فایل <a href="./docs/RERANK.md"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>docs/RERANK.md</code></span></a> را مطالعه کنید.
+</p>
+
+<p dir="rtl" align="right">
+<strong>۲. دریافت پاسخ مشابه به‌صورت محلی.</strong>
+مسیرهای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>POST /v1/systemone</code></span> و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>POST /_decide</code></span> همان پرسش‌ها را با همان قالب دریافت می‌کنند؛ اما این بار خود <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> پاسخ را تولید می‌کند. برای این کار، اسنادی را که قبلاً برچسب‌گذاری کرده‌اید، بر اساس بیشترین شباهت بازیابی می‌کند؛ برای مثال، پیام‌هایی که از قبل به‌عنوان هرزنامه یا غیرهرزنامه مشخص شده‌اند.
+</p>
+
+<p dir="rtl" align="right">
+در این روش هیچ داده‌ای از دستگاه شما خارج نمی‌شود و نیازی به کلید دسترسی هم ندارید. البته این قابلیت تنها زمانی کار می‌کند که نمونه‌های برچسب‌گذاری‌شده در اختیار داشته باشید. برای مثال، در مجموعه‌داده <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">AG News</span> با ۱۲۰ هزار نمونه برچسب‌گذاری‌شده، برچسب صحیح را در ۹۲ درصد موارد انتخاب می‌کند.
+</p>
+
+<p dir="rtl" align="right">
+کلاینت رسمی پایتون <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>jev-reranker</code></span> نیز بدون نیاز به هیچ تغییری با یک نود <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> کار می‌کند (<a href="./benchmarks/systemone-gate">آزمون سازگاری</a>).
+</p>
+
+<p dir="rtl" align="right">
+<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> پاسخ‌های این قابلیت را با نام اختصاصی خود، یعنی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj-history-vote-1</code></span>، ارائه می‌دهد؛ این قابلیت <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Jev</span> نیست.
+</p>
+
+<p dir="rtl" align="right">
+اندازه‌گیری‌ها و روش بازتولید نتایج را می‌توانید در منابع زیر مشاهده کنید:
+</p>
+
+<ul dir="rtl" align="right">
+<li><a href="./benchmarks/beir-hybrid/results/2026-09-20-rerank-full-fiqa"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>benchmarks/beir-hybrid</code></span></a></li>
+<li><a href="./benchmarks/decisions-as-retrieval"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>benchmarks/decisions-as-retrieval</code></span></a></li>
+</ul>
