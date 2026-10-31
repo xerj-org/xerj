@@ -50,3 +50,79 @@ XERJ با ابزارهایی مانند <bdi>Claude Code</bdi>، <bdi>Cursor</bd
 [![Neural](https://img.shields.io/badge/neural%20embedder-opt--in%2C%20downloads%20\~90%20MB-9c6ade?style=flat-square)](https://xerj.org/docs/vectors.html)
 
 </div>
+
+<p dir="rtl" align="right">
+<bdi>XERJ</bdi> یک موتور جست‌وجوی محلی مبتنی بر هوش مصنوعی است که اعتماد جامعه را جلب کرده و به‌صورت خودکار هر پوشه‌ای را ایندکس می‌کند. به این ترتیب، عامل برنامه‌نویسی شما دیگر برای خواندن فایل‌ها به‌صورت تک‌به‌تک، توکن‌های زیادی مصرف نمی‌کند و به‌جای آن، کد دقیق موردنیازش را مستقیماً پیدا می‌کند.
+</p>
+
+<p dir="rtl" align="right">
+مهم‌ترین کاربرد <bdi>XERJ</bdi> و برجسته‌ترین مزیت آن، <bdi>Reference Coding</bdi> است: کافی است یک وظیفه را به عامل هوش مصنوعی بسپارید تا مخازن متن‌باز مرتبط با آن را دانلود و ایندکس کند و پیش از نوشتن کد خودش، از راهکارهایی که قبلاً برای حل همان مسئله استفاده شده‌اند بهره ببرد.
+</p>
+
+<p dir="rtl" align="right">
+در یک مطالعه کنترل‌شده، این روش توانست تعداد توکن‌های خروجی عامل برنامه‌نویسی را ۲٫۷ برابر کاهش دهد، در حالی که نرخ حل مسئله همچنان در سطح ۱۶ از ۱۶ باقی ماند
+(<a href="https://xerj.org/case-studies/reference-coding.html"><bdi>مطالعه موردی</bdi></a>).
+همچنین کاربران در استفاده روزمره، از کاهش تقریبی ۵ برابری گزارش داده‌اند
+(<a href="./user-feedback/11-reference-coding-field-reports/2026-08-11-token-savings-reports.md"><bdi>گزارش‌های کاربران</bdi></a>).
+</p>
+
+<p dir="rtl" align="right">
+این قابلیت به‌اندازه‌ای مؤثر است که یک مدل کوچک‌تر و ارزان‌تر، با دسترسی به این روش، می‌تواند عملکرد برنامه‌نویسی بهتری از یک مدل گران‌تر داشته باشد که صرفاً به حافظه خودش متکی است؛ در نتیجه، زمان کمتری را صرف چرخه‌های اصلاح و رفع خطا خواهید کرد.
+</p>
+
+<p dir="rtl" align="right">
+همین حالا با نصب یک‌مرحله‌ای و تنها با یک دستور متنی آن را امتحان کنید:
+</p>
+
+<pre dir="ltr"><code>Install XERJ (docs: https://xerj.org/llms.txt), index this project's sources, and set up
+reference coding: clone and index the open-source repos closest to what we're building,
+and search how they solved a problem before writing code.</code></pre>
+
+<p dir="rtl" align="right">
+یا خودتان آن را اجرا کنید:
+</p>
+
+<pre dir="ltr"><code>curl -fsSL https://xerj.org/get | sh
+xerj --insecure --data-dir ~/xerj-data &
+xerj init                                        # wire XERJ into Claude Code/Cursor (MCP + skill), one command
+xerj autoindex ~/my-project
+xerj search "how do we rotate the WAL segment"   # ranked passages, file:line
+xerj def "euler_to_rotationmatrix"                # go-to-definition: file:line + signature
+xerj gain                                        # what it did for you — counted, not estimated</code></pre>
+
+<p dir="rtl" align="right">
+برای اجرای هم‌زمان چند شناسه یا پرسش، از دستور <bdi>xerj batch-search --input queries.json</bdi> یا متد <bdi>xerj_batch_search</bdi> در <bdi>MCP</bdi> استفاده کنید:
+<a href="docs/recipes/batch-search.md"><bdi>نتایج مرتب‌شده، ارجاعات و خطاهای هر مورد</bdi></a>.
+</p>
+
+<p dir="rtl" align="right">
+مسیر پوشه داده را خارج از هر پوشه‌ای قرار دهید که قصد دارید آن را با <bdi>autoindex</bdi> ایندکس کنید. مسیر <bdi>data/</bdi> در فهرست نادیده‌گرفتن پیش‌فرض وجود ندارد؛ بنابراین اگر <bdi>--data-dir ./data</bdi> را داخل درختی تنظیم کنید که بعداً آن را ایندکس می‌کنید، نود اطلاعات ذخیره‌سازی خودش را نیز ایندکس خواهد کرد.
+</p>
+
+<p dir="rtl" align="right">
+هنگام راه‌اندازی، مقدار <bdi>Data dir</bdi> مسیر مطلق نهایی را نمایش می‌دهد، <bdi>Data source</bdi> مشخص می‌کند این مسیر از کجا انتخاب شده است (پارامتر خط فرمان، فایل پیکربندی انتخاب‌شده یا مقدار پیش‌فرض) و <bdi>Data status</bdi> نشان می‌دهد که آیا این اجرا پوشه را ایجاد کرده است یا خیر.
+</p>
+
+<p dir="rtl" align="right">
+استفاده از یک پوشه جدید ممکن است باعث شود ایندکس‌ها یا حساب مالک موجود در یک نود قدیمی، دیگر در دسترس به نظر نرسند. برای دسترسی مجدد، برنامه را با مسیر قبلی <bdi>--data-dir</bdi> یا فایل پیکربندی قبلی از طریق <bdi>--config</bdi> راه‌اندازی کنید. <bdi>XERJ</bdi> پوشه‌های داده دیگر را به‌صورت خودکار شناسایی یا مهاجرت نمی‌دهد.
+</p>
+
+<p dir="rtl" align="right">
+راهنمای نصب در ویندوز و نصب دستیِ تأییدشده را در بخش
+<a href="#install-by-hand"><bdi>نصب دستی</bdi></a>
+ببینید.
+</p>
+
+<p dir="rtl" align="right">
+پارامتر <bdi>--insecure</bdi> یک مرز امنیتی مهم را تغییر می‌دهد و صرفاً یک گزینه ساده نیست. این پارامتر <bdi>TLS</bdi> و احراز هویت مبتنی بر <bdi>API Key</bdi> را غیرفعال می‌کند؛ بنابراین هر کلاینتی که بتواند به پورت دسترسی پیدا کند، دسترسی <bdi>Superuser</bdi> خواهد داشت و می‌تواند تمام ایندکس‌ها، از جمله تمام فضاهای نام <bdi>/_memory</bdi> را بخواند یا حذف کند.
+</p>
+
+<p dir="rtl" align="right">
+این حالت برای استفاده یک کاربر روی یک دستگاه توسعه در نظر گرفته شده است: یک نود تازه به‌طور پیش‌فرض فقط به آدرس <bdi>127.0.0.1</bdi> متصل می‌شود و اگر بخواهید آن را بدون رمزنگاری روی رابط شبکه دیگری در دسترس قرار دهید، برنامه تا زمانی که صراحتاً اجازه این کار را صادر نکنید، راه‌اندازی نخواهد شد.
+</p>
+
+<p dir="rtl" align="right">
+مدل امنیتی کامل را در
+<a href="./docs/SECURITY_MODEL.md"><bdi>docs/SECURITY_MODEL.md</bdi></a>
+مطالعه کنید.
+</p>
