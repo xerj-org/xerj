@@ -7,7 +7,7 @@ cluster: "Comparison: agent retrieval"
 question: "How do I let an agent search a folder on my laptop instead of crawling the web?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-08-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -26,7 +26,7 @@ commands:
   - cmd: "xerj autoindex ./private-folder --prefix priv --state-dir ./state-priv"
     note: "Read files that are already on this disk. There is no URL input."
   - cmd: "xerj mcp --url http://127.0.0.1:9200"
-    note: "Give the agent 22 tools over that folder. Every tool reads the local node, and none of them takes a URL."
+    note: "Expose indexed-folder retrieval through MCP. Other tools handle memory, Corpus Hub access and feedback; those have their own data and network behavior."
 links_out:
   - "give-chatgpt-claude-local-file-access"
   - "how-xerj-autoindexes-a-folder"
@@ -97,7 +97,7 @@ XERJ reads a folder that is already on disk and makes it queryable with one comm
 xerj autoindex ./private-folder --prefix priv --state-dir ./state-priv
 ```
 
-Formats are read from a content signature rather than trusted by extension. The families covered are JSON and JSONL, CSV, structured logs, SQL exports, SQLite, PDF, DOCX, HTML, XML, YAML, plain text, code and gzip variants. An agent then reads the result through `xerj mcp`, a stdio MCP server in the same binary that serves 22 tools.
+Formats are read from a content signature rather than trusted by extension. The families covered are JSON and JSONL, CSV, structured logs, SQL exports, SQLite, PDF, DOCX, HTML, XML, YAML, plain text, code and gzip variants. An agent then reads the result through `xerj mcp`, a stdio MCP server in the same binary that serves 23 tools.
 
 The default embedder is lexical feature hashing, not neural, so a match on a differently worded question needs `--embed-mode neural`, which is opt-in and CPU-only.
 

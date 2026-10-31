@@ -2,13 +2,13 @@
 ---
 title: "Store user preferences an agent can recall later"
 canonical: "https://xerj.org/answers/coding-agent-memory-across-sessions"
-updated: "2026-10-19"
+updated: "2026-10-28"
 source: "content/answers/coding-agent-memory-across-sessions.md"
 ---
 
 # How do people store user preferences so an agent can recall them next week?
 
-**Short answer** (updated 2026-10-19): How do people store user preferences so an agent can recall them next week? XERJ stores each memory as a document in a reserved index, .xerj-memory-{namespace}, inside the node's data directory. Our capture stored two memories, restarted the node on the same directory, recalled both by id, and one forget call removed exactly one.
+**Short answer** (updated 2026-10-28): How do people store user preferences so an agent can recall them next week? XERJ stores each memory as a document in a reserved index, .xerj-memory-{namespace}, inside the node's data directory. Our capture stored two memories, restarted the node on the same directory, recalled both by id, and one forget call removed exactly one.
 
 **Key number:** A memory store call deduplicates at a default cosine similarity of 0.95 when `dedup` is on. (as of 2026-10-19; source: [engine/crates/xerj-api/src/memory_api.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-api/src/memory_api.rs))
 
@@ -145,6 +145,8 @@ Only if you ask. Plain `query` runs BM25, `semantic: true` embeds server-side, a
 - [How do I set the MCP memory storage path?](/answers/set-mcp-memory-storage-path)
 - [How do I give two agents private memory on one laptop?](/answers/private-agent-memory-namespaces)
 - [Agent memory](/docs/recipes/agentic-memory)
+- [What is agentic memory?](/answers/what-is-agentic-memory)
+- [What is an MCP memory server?](/answers/what-is-an-mcp-memory-server)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database) (same intent: agent memory)
+- [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag) (same intent: agent memory)
 - [How can agent-memory links retain evidence?](/answers/evidence-for-agent-memory-links) (same intent: agent memory)
-- [Should agent memory use a knowledge graph?](/answers/knowledge-graphs-for-agent-memory) (same intent: agent memory)

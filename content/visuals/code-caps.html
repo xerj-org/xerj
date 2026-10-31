@@ -1,0 +1,11 @@
+<figure class="vz" id="fig-code-caps" aria-labelledby="fig-code-caps-cap">
+  <span class="vz-label">Limits of the code extractor</span>
+  <p class="vz-title">What tree-sitter extraction covers</p>
+  <div class="vz-cols vz-cols-4">
+    <div class="vz-card"><span class="vz-k">languages</span><span class="vz-t">36</span><span class="vz-d">Pinned by a unit test.</span></div>
+    <div class="vz-card"><span class="vz-k">file size</span><span class="vz-t">2 MiB</span><span class="vz-d">Per source file. A larger file is refused, and the refusal names the cap.</span></div>
+    <div class="vz-card"><span class="vz-k">symbols</span><span class="vz-t">5,000</span><span class="vz-d">Per file. The array stops at 5,000.</span></div>
+    <div class="vz-card"><span class="vz-k">name length</span><span class="vz-t">200 bytes</span><span class="vz-d">A longer symbol name is skipped.</span></div>
+  </div>
+  <figcaption id="fig-code-caps-cap">Caps from <a href="https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/extract/code.rs">extract/code.rs</a>. A file that a grammar fails to parse is indexed as plain text, not dropped.</figcaption>
+</figure>

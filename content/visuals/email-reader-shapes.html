@@ -1,0 +1,41 @@
+<figure class="vz" id="fig-email-shapes" aria-labelledby="fig-email-shapes-cap">
+  <span class="vz-label">What the Reader shows</span>
+  <p class="vz-title">One layout per record shape</p>
+  <div class="vz-tabs" data-vz-tabs>
+    <div class="vz-tablist" role="tablist" aria-label="Record shapes in the Reader">
+      <button type="button" class="vz-tab" role="tab" id="rs-tab-email" aria-controls="rs-panel-email" aria-selected="true">Email</button>
+      <button type="button" class="vz-tab" role="tab" id="rs-tab-att" aria-controls="rs-panel-att" aria-selected="false">Attachment</button>
+      <button type="button" class="vz-tab" role="tab" id="rs-tab-pdf" aria-controls="rs-panel-pdf" aria-selected="false">PDF page</button>
+      <button type="button" class="vz-tab" role="tab" id="rs-tab-file" aria-controls="rs-panel-file" aria-selected="false">File</button>
+    </div>
+    <div class="vz-panel" role="tabpanel" id="rs-panel-email" aria-labelledby="rs-tab-email" tabindex="0">
+      <p class="vz-panel-h">Email</p>
+      <div class="vz-cols">
+        <div class="vz-card is-hi"><span class="vz-k">headers</span><span class="vz-t">From, To, Cc, Date, Message-ID</span><span class="vz-d">Shown as text nodes, never as markup.</span></div>
+        <div class="vz-card"><span class="vz-k">below the headers</span><span class="vz-t">Body text and the attachment list</span><span class="vz-d">An HTML body is displayed as its source.</span></div>
+      </div>
+    </div>
+    <div class="vz-panel" role="tabpanel" id="rs-panel-att" aria-labelledby="rs-tab-att" tabindex="0">
+      <p class="vz-panel-h">Attachment</p>
+      <div class="vz-cols">
+        <div class="vz-card is-hi"><span class="vz-k">header</span><span class="vz-t">Name, type and size</span><span class="vz-d">Plus a link back to the email it came from.</span></div>
+        <div class="vz-card"><span class="vz-k">body</span><span class="vz-t">Extracted text of that page</span><span class="vz-d"><code>ax_locator</code> <code>att0-p3-s0</code> is page 3 of the first attachment.</span></div>
+      </div>
+    </div>
+    <div class="vz-panel" role="tabpanel" id="rs-panel-pdf" aria-labelledby="rs-tab-pdf" tabindex="0">
+      <p class="vz-panel-h">PDF page</p>
+      <div class="vz-cols">
+        <div class="vz-card is-hi"><span class="vz-k">header</span><span class="vz-t">Title and page number</span><span class="vz-d">A long PDF becomes many records, one per page section.</span></div>
+        <div class="vz-card"><span class="vz-k">body</span><span class="vz-t">That page's text</span><span class="vz-d">The Reader renders no PDF page, only its text.</span></div>
+      </div>
+    </div>
+    <div class="vz-panel" role="tabpanel" id="rs-panel-file" aria-labelledby="rs-tab-file" tabindex="0">
+      <p class="vz-panel-h">File</p>
+      <div class="vz-cols">
+        <div class="vz-card is-hi"><span class="vz-k">header</span><span class="vz-t">Path and format</span><span class="vz-d">The same-folder and link detectors connect file records.</span></div>
+        <div class="vz-card"><span class="vz-k">body</span><span class="vz-t">Every record from that file</span><span class="vz-d">They share one <code>ax_file</code> value.</span></div>
+      </div>
+    </div>
+  </div>
+  <figcaption id="fig-email-shapes-cap">The four record shapes the Reader renders, from the console reader use case in the repository. Every record that came out of one <code>.eml</code> file carries the same <code>ax_file</code>, and the Reader joins on it.</figcaption>
+</figure>

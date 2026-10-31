@@ -546,6 +546,91 @@ def m_budget(w: float, h: float, rng: random.Random) -> str:
     return "".join(out)
 
 
+def m_fieldgate(w: float, h: float, rng: random.Random) -> str:
+    """autoindex-search-performance-improvements.
+
+    Left, the field: 28 filled ink cells, one per community member thanked in
+    the post, and 217 empty rings, one per agent field report the post thanks
+    (169 through the xerj.org API, 48 on GitHub), scattered at half pitch over
+    a 14 x 42 patch (rng decides only which slots).
+    Hairlines run from each of them into the centre block: 454 empty cells,
+    the indices rc.99 built for one 5 GB folder, beside 32 yellow cells at the
+    same pitch, the dataset cap, so the 85% cut reads to scale. Right, the
+    gate: two ink posts and a lintel around two grey-blue columns, ingest
+    measured on the gate's 1 GB corpus, Elasticsearch 9.05 MiB/s and Lucene
+    25.4 MiB/s (stored fields on), scaled to the taller one; an ochre hairline
+    marks the floor at 0.5x Elasticsearch. XERJ's own column is one empty
+    yellow ring at the base: its gate number is still pending in the post.
+    """
+    U_W, U_H = 53, 21
+    lab_h = 26.0 if LABELS else 0.0
+    p = min(w / U_W, (h - lab_h - 6) / U_H)
+    r = p * 0.45  # dot() draws a square 1.78r wide: 0.8 of the pitch
+    x0 = (w - U_W * p) / 2
+    y0 = 4.0
+    out: list[str] = []
+    # centre block geometry first, so the field's hairlines can aim at it
+    bx = x0 + 8 * p
+    by = y0
+    bcols = 22
+    left_mid = (bx - p * 0.2, by + U_H * p / 2)
+    # the field: 245 of 588 half-pitch slots, 28 people + 217 agent reports
+    q = p / 2
+    fcols, frows = 14, 42
+    slots = [(i, j) for j in range(frows) for i in range(fcols)]
+    rng.shuffle(slots)
+    picks = slots[:28 + 217]
+    marks = []
+    for n, (i, j) in enumerate(picks):
+        cx = x0 + i * q + q / 2 + rng.uniform(-0.06, 0.06) * q
+        cy = y0 + j * q + q / 2 + rng.uniform(-0.06, 0.06) * q
+        marks.append((cx, cy, n < 28))
+    for cx, cy, person in marks:
+        if person:
+            out.append(hair(cx, cy, left_mid[0], left_mid[1], "f", 0.8))
+    for cx, cy, person in marks:
+        out.append(dot(cx, cy, q * 0.45, "w") if person else ring(cx, cy, q * 0.36, "w", 0.9))
+    # 454 empty cells: 20 full rows of 22, then 14
+    for k in range(454):
+        j, i = divmod(k, bcols)
+        out.append(ring(bx + i * p + p / 2, by + j * p + p / 2, r * 0.82, "f", 1.0))
+    # 32 yellow cells, same pitch, 8 x 4, vertically centred on the block
+    sx = bx + bcols * p + 2 * p
+    sy = by + (U_H - 4) * p / 2
+    for k in range(32):
+        j, i = divmod(k, 8)
+        out.append(dot(sx + i * p + p / 2, sy + j * p + p / 2, r, "y"))
+    bxr = bx + bcols * p
+    out.append(hair(bxr + p * 0.2, by, sx - p * 0.1, sy, "y", 1.2))
+    out.append(hair(bxr + p * 0.2, by + 21 * p, sx - p * 0.1, sy + 4 * p, "y", 1.2))
+    # the gate
+    gx = sx + 8 * p + 3 * p
+    gw = 10 * p
+    top = by + 1.4 * p
+    gh = U_H * p - 1.4 * p
+    out.append(halftone(gx, top, 2 * p, gh, p, lambda u, v: 1.0, "w"))
+    out.append(halftone(gx + gw - 2 * p, top, 2 * p, gh, p, lambda u, v: 1.0, "w"))
+    out.append(halftone(gx, by, gw, p, p, lambda u, v: 1.0, "w"))
+    inner = gh - p
+    base = top + gh
+    full = int(inner // p)
+    es_n = max(1, round(full * 9.05 / 25.4))
+    for k in range(es_n):
+        out.append(dot(gx + 3 * p + p / 2, base - k * p - p / 2, r, "b"))
+    for k in range(full):
+        out.append(dot(gx + 5 * p + p / 2, base - k * p - p / 2, r, "b"))
+    out.append(ring(gx + 7 * p + p / 2, base - p / 2, r, "y", 1.6))
+    floor_y = base - full * p * (0.5 * 9.05 / 25.4)
+    out.append(hair(gx + 2 * p, floor_y, gx + gw - 2 * p, floor_y, "y", 1.4))
+    ly = by + U_H * p + 18
+    out.append(label(x0, ly, "28 + 217", "num w"))
+    out.append(label(bx, ly, "454 INDICES", "num m"))
+    out.append(label(sx, ly, "32", "num y"))
+    out.append(label(gx, ly, "ES 9.05", "num b"))
+    out.append(label(gx, ly + 16, "LUCENE 25.4", "num b"))
+    return "".join(out)
+
+
 MOTIFS: dict[str, Callable[[float, float, random.Random], str]] = {
     "index28": m_index28,
     "jevbars": m_jevbars,
@@ -557,4 +642,5 @@ MOTIFS: dict[str, Callable[[float, float, random.Random], str]] = {
     "scars": m_scars,
     "route": m_route,
     "budget": m_budget,
+    "fieldgate": m_fieldgate,
 }

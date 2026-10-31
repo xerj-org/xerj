@@ -315,7 +315,12 @@ fn trim_sql_noise(s: &str) -> &str {
 
 fn starts_with_kw(s: &str, kw: &str) -> bool {
     let s = trim_sql_noise(s);
-    if s.len() < kw.len() || !s[..kw.len()].eq_ignore_ascii_case(kw) {
+    // `get` also rejects a prefix that ends inside a character, so a head
+    // opening with CJK text is simply not the ASCII keyword (#2547).
+    let Some(head) = s.get(..kw.len()) else {
+        return false;
+    };
+    if !head.eq_ignore_ascii_case(kw) {
         return false;
     }
     s.as_bytes()
@@ -348,8 +353,11 @@ impl<'a> Words<'a> {
     fn eat(&mut self, kw: &str) -> bool {
         self.skip_ws();
         let rest = &self.s[self.i..];
-        if rest.len() >= kw.len()
-            && rest[..kw.len()].eq_ignore_ascii_case(kw)
+        // Boundary-checked for the same reason as `starts_with_kw` (#2547).
+        let Some(head) = rest.get(..kw.len()) else {
+            return false;
+        };
+        if head.eq_ignore_ascii_case(kw)
             && rest
                 .as_bytes()
                 .get(kw.len())
@@ -747,5 +755,71 @@ mod tests {
             "{defs} family {:?}",
             sn.family
         );
+    }
+
+    #[test]
+    fn a_multibyte_head_is_not_sliced_at_a_keyword_width() {
+        // The dump probes compare a fixed byte prefix of the statement head
+        // against an ASCII keyword. `insert` is six bytes and `copy` is four,
+        // so a head starting with a CJK character used to be sliced through
+        // the middle of that character (#2547).
+        for head in ["### 请先删除旧表", "### 删", "中文注释", "请先删除"] {
+            assert!(!starts_with_kw(head, "insert"), "{head}");
+            assert!(!starts_with_kw(head, "copy"), "{head}");
+            // `Words::eat` slices at the same widths for `create` / `table`.
+            assert!(match_create(head).is_none(), "{head}");
+        }
+    }
+
+    #[test]
+    fn a_cjk_headed_migration_is_indexed_instead_of_aborting_the_run() {
+        // #2547: the first line is a comment the SQL noise stripper does not
+        // recognise (`###`), so it is its own statement whose head is CJK and
+        // every keyword probe sliced into the middle of the character. The
+        // statements after it still have to be indexed.
+        let sql = "### 请先删除旧表;\n\
+                   -- 中文字段整改：演示复现\n\
+                   CREATE TABLE t (id int);\n";
+        let dir = tempfile::tempdir().unwrap();
+        let path = write(dir.path(), "V1__cjk_head.sql", sql);
+        let (stats, recs) = indexed(&path);
+        assert!(stats.refusal.is_none(), "{stats:?}");
+        let defs = recs
+            .iter()
+            .find_map(|r| r.fields.get("defs").and_then(|v| v.as_str()))
+            .unwrap_or("");
+        assert!(defs.contains("table t"), "{defs}");
+    }
+
+    #[test]
+    fn cjk_comment_head_does_not_panic_or_hang() {
+        // Keep the recognized-comment compatibility control from #2586, and
+        // also require SQL symbol extraction for the formerly panicking heads.
+        // An ALTER-only file can take the prose route and miss both probes.
+        for (sql, expect_table) in [
+            (
+                "-- 中文字段整改：演示复现\nALTER TABLE t ADD COLUMN c VARCHAR(64);\n",
+                false,
+            ),
+            ("### 请先删除旧表;\nCREATE TABLE t (id int);\n", true),
+            ("中文注释;\nCREATE TABLE t (id int);\n", true),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let path = write(dir.path(), "cjk.sql", sql);
+            let (stats, recs) = indexed(&path);
+            assert!(stats.records > 0, "CJK comment file must be indexed safely");
+            assert!(!recs.is_empty(), "records must not be empty");
+            assert!(stats.refusal.is_none(), "{stats:?}");
+            if expect_table {
+                assert!(
+                    recs.iter().any(|r| r
+                        .fields
+                        .get("defs")
+                        .and_then(|v| v.as_str())
+                        .is_some_and(|defs| defs.contains("table t"))),
+                    "the regression must exercise SQL extraction, not prose fallback"
+                );
+            }
+        }
     }
 }

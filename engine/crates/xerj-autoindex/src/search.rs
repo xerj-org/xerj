@@ -93,6 +93,23 @@ pub(crate) fn search_mode_refusal(asked: &str) -> String {
     )
 }
 
+/// #2458: an unknown flag got "unexpected argument" followed by the whole
+/// USAGE, and an agent read the help dump as the answer and gave up. Name the
+/// flag on one line, and point the names agents guess first at the real one.
+pub(crate) fn unknown_flag_refusal(flag: &str) -> String {
+    let name = flag.split_once('=').map_or(flag, |(name, _)| name);
+    let hint = match name {
+        "--index" | "--indices" | "-i" => {
+            " Use --prefix <P> to choose the indices: it searches <P>-* (default \"ax\")."
+        }
+        "--max-hits" | "--size" | "--limit" | "--top" | "--top-k" | "-n" => {
+            " Use -k <N> for the number of passages (default 5)."
+        }
+        _ => "",
+    };
+    format!("xerj search: unknown flag '{name}'.{hint} Run `xerj search --help` for every option.")
+}
+
 /// One line for the human printer when the node says this lexical query
 /// scored a `semantic_text` field and did not consult the embedding.
 ///
@@ -388,6 +405,13 @@ pub(crate) struct CorpusSnapshot {
     pub all_indices: Option<Vec<String>>,
     /// `prefix` values on catalog run documents.
     pub catalog_prefixes: Option<Vec<String>>,
+    /// Whether a catalog run document names this prefix: written at the end
+    /// of a run, so `Some(false)` means no run under it has finished yet.
+    pub finished_run: Option<bool>,
+    /// Whether every index under the prefix maps autoindex's provenance
+    /// fields, which it creates them with. Read only when `finished_run` is
+    /// `Some(false)`; `None` otherwise or when the read failed.
+    pub autoindex_mapped: Option<bool>,
 }
 
 /// Lines to print, and the process exit code, when `xerj search` or
@@ -435,7 +459,27 @@ pub(crate) fn empty_lookup_report(
         None => no_indices,
     };
     let catalog_empty = no_indices && no_prefixes;
-    if catalog_empty {
+    // #2670: a first run creates its indices before they hold anything
+    // searchable. The prefix is right, so none of the hints below apply. A
+    // longer catalog prefix (`rp-2` under `rp-*`) or indices autoindex did
+    // not create keep those hints: there the prefix may well be wrong.
+    let sibling = format!("{prefix}-");
+    let longer_prefix = snap
+        .catalog_prefixes
+        .iter()
+        .flatten()
+        .any(|p| p.starts_with(&sibling));
+    let unfinished = !prefix_absent
+        && snap.finished_run == Some(false)
+        && snap.autoindex_mapped == Some(true)
+        && !longer_prefix;
+    if unfinished {
+        lines.push(format!(
+            "(no xerj autoindex run under --prefix {prefix} has finished on this node yet: \
+             if one is running, search again once it finishes; if it stopped, rerun the \
+             same command to resume)"
+        ));
+    } else if catalog_empty {
         lines.push("(index a relevant repo first: xerj autoindex <folder>)".to_string());
     } else if let Some(prefixes) = snap.catalog_prefixes.as_ref().filter(|p| !p.is_empty()) {
         // The missing-prefix headline already lists these. A real miss (the
@@ -504,11 +548,76 @@ pub(crate) fn corpus_snapshot(es: &Es, prefix: &str) -> CorpusSnapshot {
         names.sort();
         names
     });
+    let has_indices = under_prefix.as_ref().is_some_and(|n| !n.is_empty());
+    let finished_run = if has_indices {
+        catalog_has_run_for(es, prefix)
+    } else {
+        None
+    };
+    let autoindex_mapped = if finished_run == Some(false) {
+        all_autoindex_mapped(es, prefix)
+    } else {
+        None
+    };
     CorpusSnapshot {
         under_prefix,
         all_indices,
         catalog_prefixes: catalog_run_prefixes(es),
+        finished_run,
+        autoindex_mapped,
     }
+}
+
+/// Whether every index matching `{prefix}-*` maps `ax_run`, a provenance
+/// field autoindex puts in each mapping it creates (`build_mapping`).
+fn all_autoindex_mapped(es: &Es, prefix: &str) -> Option<bool> {
+    let v = es.get_json(&format!("/{prefix}-*/_mapping")).ok()?;
+    let indices = v.as_object().filter(|o| !o.is_empty())?;
+    Some(
+        indices
+            .values()
+            .all(|m| m.pointer("/mappings/properties/ax_run").is_some()),
+    )
+}
+
+/// Whether a catalog run document names `prefix` exactly.
+///
+/// A missing catalog is `Some(false)`. `None` when the answer is not known:
+/// the read failed or timed out, more runs exist than were read, or a run
+/// predates the `prefix` field (rc.68) and names no corpus.
+fn catalog_has_run_for(es: &Es, prefix: &str) -> Option<bool> {
+    let body = json!({
+        "size": 200,
+        "query": { "term": { "doc_kind": "run" } },
+        "_source": ["prefix", crate::catalog::CORPUS_SCOPE_FIELD]
+    });
+    let Some(v) = es
+        .search_present(xerj_common::AUTOINDEX_CATALOG_INDEX, &body)
+        .ok()?
+    else {
+        return Some(false);
+    };
+    if v.get("timed_out").and_then(Value::as_bool) == Some(true) {
+        return None;
+    }
+    let hits = v.pointer("/hits/hits").and_then(Value::as_array)?;
+    let mut found = false;
+    for hit in hits {
+        let named = hit
+            .pointer("/_source/prefix")
+            .or_else(|| hit.pointer(&format!("/_source/{}", crate::catalog::CORPUS_SCOPE_FIELD)))
+            .and_then(Value::as_str);
+        match named {
+            Some(name) if name == prefix => found = true,
+            Some(_) => {}
+            None => return None,
+        }
+    }
+    if found {
+        return Some(true);
+    }
+    let total = v.pointer("/hits/total/value").and_then(Value::as_u64)?;
+    (total <= hits.len() as u64).then_some(false)
 }
 
 /// Distinct `prefix` values on catalog run and dataset documents, sorted.
@@ -787,6 +896,10 @@ fn parse_search_cli(
                 return Ok(SearchCli::Refuse);
             }
             other if !other.starts_with('-') && query.is_none() => query = Some(other.to_string()),
+            other if other.starts_with('-') => {
+                eprintln!("{}", unknown_flag_refusal(other));
+                return Ok(SearchCli::Refuse);
+            }
             other => return Err(format!("unexpected argument '{other}'")),
         }
     }
@@ -875,12 +988,18 @@ pub fn run_search_cli() -> i32 {
         url = "http://localhost:9200".to_string();
     }
     if api_key.is_none() && xerj_common::localauth::url_is_loopback(&url) {
-        if let Some((key, path)) = xerj_common::localauth::discover_local_admin_key_for_url(&url) {
+        if let Some(found) =
+            xerj_common::localauth::discover_local_admin_key_for_url_with_origin(&url)
+        {
             eprintln!(
-                "xerj search: no --api-key/XERJ_API_KEY given; using the admin key at {}",
-                path.display()
+                "xerj search: no --api-key/XERJ_API_KEY given; using the admin key at {} ({})",
+                found.path.display(),
+                found.provenance()
             );
-            api_key = Some(key);
+            if let Some(warning) = found.foreign_warning("--api-key or XERJ_API_KEY") {
+                eprintln!("xerj search: warning: {warning}");
+            }
+            api_key = Some(found.key);
         }
     }
 
@@ -1234,6 +1353,36 @@ mod tests {
                 SearchCli::Refuse => panic!("refusal from {args:?}"),
             }
         }
+    }
+
+    /// #2458: a guessed flag is refused by name, with the real flag when the
+    /// guess is a common one, not answered with the USAGE dump.
+    #[test]
+    fn an_unknown_flag_is_named_not_answered_with_usage() {
+        for args in [
+            vec!["--index", "docs", "needle"],
+            vec!["needle", "--max-hits", "5"],
+            vec!["--max-hits=5", "needle"],
+            vec!["--bogus", "needle"],
+        ] {
+            let parsed = parse_search_cli(words(&args).into_iter(), String::new(), None)
+                .unwrap_or_else(|e| panic!("{args:?} took the USAGE path: {e}"));
+            assert!(matches!(parsed, SearchCli::Refuse), "{args:?}: {parsed:?}");
+        }
+        let index = unknown_flag_refusal("--index");
+        assert!(index.contains("unknown flag '--index'"), "{index}");
+        assert!(index.contains("--prefix <P>"), "{index}");
+        let hits = unknown_flag_refusal("--max-hits=5");
+        assert!(hits.contains("unknown flag '--max-hits'"), "{hits}");
+        assert!(hits.contains("-k <N>"), "{hits}");
+        let other = unknown_flag_refusal("--bogus");
+        assert!(other.contains("unknown flag '--bogus'"), "{other}");
+        assert!(other.contains("xerj search --help"), "{other}");
+        assert!(!other.contains("USAGE"), "{other}");
+        // A second positional is still a usage error, not a flag refusal.
+        let err = parse_search_cli(words(&["one", "two"]).into_iter(), String::new(), None)
+            .expect_err("two queries");
+        assert!(err.contains("unexpected argument 'two'"), "{err}");
     }
 
     #[test]
@@ -1902,6 +2051,8 @@ mod tests {
             under_prefix: owned(under),
             all_indices: owned(all),
             catalog_prefixes: owned(prefixes),
+            finished_run: None,
+            autoindex_mapped: None,
         }
     }
 
@@ -2258,5 +2409,177 @@ mod tests {
             paths,
             vec!["src/model.py", "tests/test_model.py", "src/model.pyi"]
         );
+    }
+
+    /// Serve `xerj search`'s no-hit reads from fixed bodies until `stop` is
+    /// set: `rp-docs` exists with the `ax_run` provenance field when
+    /// `autoindex` is set, and the catalog search answers `catalog` (`None`
+    /// is a missing catalog).
+    fn no_hit_node(
+        catalog: Option<&'static str>,
+        autoindex: bool,
+    ) -> (
+        String,
+        std::sync::Arc<std::sync::atomic::AtomicBool>,
+        std::thread::JoinHandle<()>,
+    ) {
+        use std::io::{Read, Write};
+        use std::sync::atomic::Ordering;
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}", listener.local_addr().unwrap());
+        listener.set_nonblocking(true).unwrap();
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let stopped = stop.clone();
+        let server = std::thread::spawn(move || {
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+            while !stopped.load(Ordering::SeqCst) && std::time::Instant::now() < deadline {
+                let Ok((mut sock, _)) = listener.accept() else {
+                    std::thread::sleep(std::time::Duration::from_millis(5));
+                    continue;
+                };
+                sock.set_nonblocking(false).unwrap();
+                let mut req = Vec::new();
+                let mut buf = [0u8; 4096];
+                let header_end = loop {
+                    let n = sock.read(&mut buf).unwrap_or(0);
+                    if n == 0 {
+                        break None;
+                    }
+                    req.extend_from_slice(&buf[..n]);
+                    if let Some(i) = req.windows(4).position(|w| w == b"\r\n\r\n") {
+                        break Some(i + 4);
+                    }
+                };
+                let Some(header_end) = header_end else {
+                    continue;
+                };
+                let head = String::from_utf8_lossy(&req[..header_end]).to_ascii_lowercase();
+                let body_len = head
+                    .lines()
+                    .find_map(|l| l.strip_prefix("content-length:"))
+                    .and_then(|v| v.trim().parse::<usize>().ok())
+                    .unwrap_or(0);
+                while req.len() < header_end + body_len {
+                    let n = sock.read(&mut buf).unwrap_or(0);
+                    if n == 0 {
+                        break;
+                    }
+                    req.extend_from_slice(&buf[..n]);
+                }
+                let line = head.lines().next().unwrap_or("").to_string();
+                let (status, body) = if line.contains("/_mapping") {
+                    let props = if autoindex {
+                        r#"{"ax_run":{"type":"keyword"},"body":{"type":"text"}}"#
+                    } else {
+                        r#"{"body":{"type":"text"}}"#
+                    };
+                    (
+                        "200 OK",
+                        format!(r#"{{"rp-docs":{{"mappings":{{"properties":{props}}}}}}}"#),
+                    )
+                } else if line.contains("/_cat/indices/") {
+                    ("200 OK", r#"[{"index":"rp-docs"}]"#.to_string())
+                } else if line.contains("/_cat/indices") {
+                    (
+                        "200 OK",
+                        "green open rp-docs u1 1 0 0 0 1kb 1kb\n".to_string(),
+                    )
+                } else if line.contains("/autoindex-catalog/_search") {
+                    match catalog {
+                        Some(body) => ("200 OK", body.to_string()),
+                        None => (
+                            "404 Not Found",
+                            r#"{"error":{"type":"index_not_found_exception","reason":"no such index [autoindex-catalog]"},"status":404}"#
+                                .to_string(),
+                        ),
+                    }
+                } else {
+                    ("404 Not Found", r#"{"error":"unexpected"}"#.to_string())
+                };
+                let _ = write!(
+                    sock,
+                    "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+            }
+        });
+        (url, stop, server)
+    }
+
+    fn no_hit_report(
+        command: &str,
+        catalog: Option<&'static str>,
+        autoindex: bool,
+    ) -> (String, i32) {
+        let (url, stop, server) = no_hit_node(catalog, autoindex);
+        let es = Es::new(&url, None).unwrap();
+        let snap = corpus_snapshot(&es, "rp");
+        let (lines, exit) = empty_lookup_report(command, "rp", "refresh_once", false, &snap);
+        stop.store(true, std::sync::atomic::Ordering::SeqCst);
+        server.join().unwrap();
+        (lines.join("\n"), exit)
+    }
+
+    /// #2670: during a first `xerj autoindex` run the prefix's indices exist
+    /// before they hold anything searchable. A miss then must say no run has
+    /// finished under the prefix, not hint that `--prefix` is wrong. A prefix
+    /// whose run did finish, a longer finished prefix (`rp-2` also matches
+    /// `rp-*`) and indices autoindex did not create keep the old hints.
+    #[test]
+    fn a_miss_before_any_run_finished_says_so_instead_of_blaming_the_prefix() {
+        let runs = |prefix: &str| -> &'static str {
+            match prefix {
+                "" => r#"{"hits":{"total":{"value":0,"relation":"eq"},"hits":[]}}"#,
+                "other" => {
+                    r#"{"hits":{"total":{"value":1,"relation":"eq"},"hits":[{"_source":{"doc_kind":"run","prefix":"other"}}]}}"#
+                }
+                "rp-2" => {
+                    r#"{"hits":{"total":{"value":1,"relation":"eq"},"hits":[{"_source":{"doc_kind":"run","prefix":"rp-2"}}]}}"#
+                }
+                _ => {
+                    r#"{"hits":{"total":{"value":1,"relation":"eq"},"hits":[{"_source":{"doc_kind":"run","prefix":"rp"}}]}}"#
+                }
+            }
+        };
+        let pending = "no xerj autoindex run under --prefix rp has finished on this node yet";
+        for (label, catalog) in [
+            ("empty catalog", Some(runs(""))),
+            ("missing catalog", None),
+            ("another prefix finished", Some(runs("other"))),
+        ] {
+            let (text, exit) = no_hit_report("search", catalog, true);
+            assert_eq!(exit, 0, "{label}: {text}");
+            assert!(
+                text.contains("no match in rp-* for: refresh_once"),
+                "{label}: {text}"
+            );
+            assert!(text.contains(pending), "{label}: {text}");
+            assert!(
+                !text.contains("--prefix is the index name") && !text.contains("try: xerj"),
+                "{label}: the prefix is right, its run has not finished: {text}"
+            );
+        }
+
+        let (text, _) = no_hit_report("def", Some(runs("")), true);
+        assert!(
+            text.contains("no definition in rp-* for: refresh_once"),
+            "{text}"
+        );
+        assert!(text.contains(pending), "{text}");
+
+        let (text, _) = no_hit_report("search", Some(runs("rp")), true);
+        assert!(
+            text.contains("no match in rp-* for: refresh_once"),
+            "{text}"
+        );
+        assert!(!text.contains("has finished on this node"), "{text}");
+
+        let (text, _) = no_hit_report("search", Some(runs("rp-2")), true);
+        assert!(!text.contains("has finished on this node"), "{text}");
+        assert!(text.contains("try: xerj search --prefix rp-2"), "{text}");
+
+        let (text, _) = no_hit_report("search", Some(runs("")), false);
+        assert!(!text.contains("has finished on this node"), "{text}");
+        assert!(text.contains("--prefix is the index name"), "{text}");
     }
 }

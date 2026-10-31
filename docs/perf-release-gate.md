@@ -143,16 +143,18 @@ python3 scripts/perf/es_baseline.py --es http://127.0.0.1:9200 --corpus /tmp/c1g
 
 ## CI
 
-The workflow (`.github/workflows/perf-gate.yml`) is maintained by hand. See the
-tracking issue for the ready-to-paste YAML. It runs:
+The harness is implemented, but `.github/workflows/perf-gate.yml` is not
+present and the publication job in `release.yml` depends only on `build`.
+A successful release build therefore does **not** establish that these
+performance budgets passed. Workflow wiring remains open in
+[#2433](https://github.com/xerj-org/xerj/issues/2433), alongside the remaining
+memory failures. The YAML in that issue describes the intended PR, nightly
+and release jobs; it is not a workflow currently running in this repository.
 
-* on PRs touching autoindex, engine or server paths: the 1 GB tier;
-* nightly: the 1 GB tier with `--baseline` set to the latest release binary, plus the ES floor;
-* on `v*` tags, as a job `release.yml` depends on (`needs: [build, perf-gate]`): the 5 GB tier.
-
-Results are uploaded as the `perf-gate-*` artifact (`results.json` holds every
-raw measurement, budget and verdict) and summarized in the job summary and as
-a PR comment.
+Use the local commands above for measurements until that integration lands.
+Keep the raw `candidate.json`, any baseline JSON, `results.json`, and node and
+client logs with the verdict. Do not loosen budgets or report an incomplete
+run as a passing release gate.
 
 ## Changing a budget
 

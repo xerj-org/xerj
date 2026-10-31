@@ -2,17 +2,17 @@
 ---
 title: "A local search tool for Codex and Cursor"
 canonical: "https://xerj.org/answers/local-search-mcp-for-codex-and-cursor"
-updated: "2026-10-20"
+updated: "2026-10-28"
 source: "content/answers/local-search-mcp-for-codex-and-cursor.md"
 ---
 
 # Search tool for a Codex agent, on the files you have
 
-**Short answer** (updated 2026-10-20): A search tool for a Codex agent starts with `xerj init`. The command writes the MCP entry for Claude Code, and it writes Cursor and Codex only when those folders already exist. Codex reads the entry in trusted projects only. On 2026-10-20 `xerj mcp` returned 17 tools from a running node.
+**Short answer** (updated 2026-10-28): A search tool for a Codex agent starts with `xerj init`. The command writes the MCP entry for Claude Code, and it writes Cursor and Codex only when those folders already exist. Codex reads the entry in trusted projects only. On main `xerj mcp` serves 23 tools from a running node.
 
-**Key number:** xerj mcp tools/list returned 17 tools from the running node. (as of 2026-10-20; source: [benchmarks/agent-queries-2026-10-20/05-tool-names.txt](https://github.com/xerj-org/xerj/blob/main/benchmarks/agent-queries-2026-10-20/05-tool-names.txt))
+**Key number:** On main xerj mcp serves 23 tools, or 20 in a build with no hub key. (as of 2026-10-28; source: [landing/docs/agents/schemas/mcp-tools.json](https://github.com/xerj-org/xerj/blob/main/landing/docs/agents/schemas/mcp-tools.json))
 
-**TL;DR** — A search tool for a Codex agent starts with `xerj init`. The command writes the MCP entry for Claude Code, and it writes Cursor and Codex only when those folders already exist. Codex reads the entry in trusted projects only. On 2026-10-20 `xerj mcp` returned 17 tools from a running node.
+**TL;DR**: A search tool for a Codex agent starts with `xerj init`. The command writes the MCP entry for Claude Code, and it writes Cursor and Codex only when those folders already exist. Codex reads the entry in trusted projects only. On main `xerj mcp` serves 23 tools from a running node.
 
 ## Agent prompt
 
@@ -40,7 +40,7 @@ xerj init --url http://127.0.0.1:9217 --disable-feedback
 
 ### Command 3
 
-Note: stdio MCP. tools/list on this binary returned 17 tools.
+Note: stdio MCP. On main it serves 23 tools, or 20 with no hub key.
 
 ```sh
 xerj mcp --url http://127.0.0.1:9217 --disable-feedback
@@ -76,7 +76,7 @@ xerj mcp --url http://127.0.0.1:9217 --disable-feedback
 
 `xerj mcp` talks to the node. It does not start one. Agents that read `https://xerj.org/llms.txt` before the first call get the field names and the caveats in that file.
 
-The capture sent MCP `initialize` and `tools/list` to `xerj mcp`. The server named itself `xerj-mcp` version `1.0.0-rc.97` and returned 17 tools. The first is `xerj_search`. Codex itself was not installed on the capture machine, so this is the tool list Codex would be handed, not a Codex session.
+The capture sent MCP `initialize` and `tools/list` to `xerj mcp`. The server named itself `xerj-mcp` version `1.0.0-rc.97` and returned 17 tools. The first is `xerj_search`. On main the server serves 23. Codex itself was not installed on the capture machine, so this is the tool list Codex would be handed, not a Codex session.
 
 ## Measured on 2026-10-20
 
@@ -84,7 +84,7 @@ The capture sent MCP `initialize` and `tools/list` to `xerj mcp`. The server nam
 |---|---|
 | `xerj init` with `.cursor/` and `.codex/` | Wrote both MCP configs and appended Codex |
 | Windsurf, Claude Desktop, Cline | Printed only. No config file written |
-| `tools/list` | 17 tools, version 1.0.0-rc.97 |
+| `tools/list` | 17 tools, version 1.0.0-rc.97 (23 on main) |
 | Codex process | Not run. No Codex install on the machine |
 
 ## When not to use XERJ
@@ -107,7 +107,7 @@ It prints the entry and tells you to copy it. It does not write their config fil
 
 ### How many tools does xerj mcp serve?
 
-17 on this binary, from a live `tools/list`. The count includes the hub tools. Do not copy an old list of 13.
+23 on main, or 20 in a build with no hub key. The count includes the 3 hub tools. The rc.97 capture on this page returned 17, so read `tools/list` from your own binary.
 
 ### Does xerj mcp start the node?
 
@@ -117,6 +117,7 @@ No. Start the node, then run `xerj mcp`. The handshake can succeed and every too
 
 - xerj init wrote .mcp.json and .cursor/mcp.json and appended .codex/config.toml. — `benchmarks/agent-queries-2026-10-20/05-init-stdout.txt`
 - tools/list returned 17 tools from xerj mcp v1.0.0-rc.97. — `benchmarks/agent-queries-2026-10-20/05-tool-names.txt`
+- On main xerj mcp serves 23 tools, or 20 in a build with no hub key. — `landing/docs/agents/schemas/mcp-tools.json`
 - Codex config is read for trusted projects only. — `engine/crates/xerj-autoindex/src/init.rs:221`
 
 ## Related

@@ -8,10 +8,10 @@
       "canonical_url": "https://xerj.org/answers/local-search-mcp-for-codex-and-cursor",
       "markdown_url": "https://xerj.org/answers/local-search-mcp-for-codex-and-cursor.md",
       "cluster": "Agent access and memory",
-      "updated": "2026-10-20",
-      "summary": "xerj init writes the MCP entry for Claude Code, Cursor and Codex when those folders exist. A 2026-10-20 tools/list from xerj mcp returned 17 tools.",
+      "updated": "2026-10-28",
+      "summary": "xerj init writes the MCP entry for Claude Code, Cursor and Codex when those folders exist. On main, xerj mcp serves 23 tools, or 20 with no hub key.",
       "intent_group": "Agent access and memory",
-      "answer": "A search tool for a Codex agent starts with `xerj init`. The command writes the MCP entry for Claude Code, and it writes Cursor and Codex only when those folders already exist. Codex reads the entry in trusted projects only. On 2026-10-20 `xerj mcp` returned 17 tools from a running node.",
+      "answer": "A search tool for a Codex agent starts with `xerj init`. The command writes the MCP entry for Claude Code, and it writes Cursor and Codex only when those folders already exist. Codex reads the entry in trusted projects only. On main `xerj mcp` serves 23 tools from a running node.",
       "queries": [
         "search tool for codex agent",
         "plug search into cursor",
@@ -26,7 +26,7 @@
       "canonical_url": "https://xerj.org/answers/mcp-api-search-or-vector-search",
       "markdown_url": "https://xerj.org/answers/mcp-api-search-or-vector-search.md",
       "cluster": "Agent access and memory",
-      "updated": "2026-10-20",
+      "updated": "2026-10-28",
       "summary": "One question through 4 XERJ MCP tools returned 3 different result sets. Hybrid RRF returned 6 documents and merged both lists on the default lexical embedder.",
       "intent_group": "retrieval research and eval",
       "answer": "Which should an agent call, MCP or API search, or vector search? Start with xerj_search, because XERJ's default embedder is lexical feature hashing. In our MCP capture the same question through 4 XERJ tools returned 3 different result sets, and the fused xerj_hybrid_search call returned 6 documents against 4, 3 and 3 for the single-signal tools.",
@@ -41,7 +41,7 @@
       "canonical_url": "https://xerj.org/answers/code-search-mcp-for-claude-code",
       "markdown_url": "https://xerj.org/answers/code-search-mcp-for-claude-code.md",
       "cluster": "Agent access and memory",
-      "updated": "2026-10-20",
+      "updated": "2026-10-28",
       "summary": "Local code search MCP for Claude Code with file:line citations: index with xerj autoindex, call xerj_search. One captured call cited 2 symbols without opening files.",
       "intent_group": "code search for agents",
       "answer": "How do I make my agent find a passage and cite the file, not dump the whole tree? Index the repository with xerj autoindex, register xerj mcp in the agent host, and query the defs field. One captured xerj_search call returned 2 documents whose symbols arrays gave file and line, including merge_segments at src/lib.rs line 17.",
@@ -58,14 +58,66 @@
       "canonical_url": "https://xerj.org/answers/give-chatgpt-claude-local-file-access",
       "markdown_url": "https://xerj.org/answers/give-chatgpt-claude-local-file-access.md",
       "cluster": "Agent access and memory",
-      "updated": "2026-10-23",
-      "summary": "xerj mcp is a stdio MCP server that proxies 22 tools to a running XERJ node, so ChatGPT, Claude or Cursor search an indexed local folder instead of opening files.",
+      "updated": "2026-10-28",
+      "summary": "xerj mcp is a stdio MCP server that proxies 23 tools to a running XERJ node, so ChatGPT, Claude or Cursor search an indexed local folder instead of opening files.",
       "intent_group": "Find the right tool",
       "answer": "Can ChatGPT or Claude search a folder on my laptop, or do I need something else? You need a local MCP server. Install XERJ, start a node, index the folder with xerj autoindex, and point the agent host at xerj mcp with an absolute path. One xerj_search call then reads the indexed local files.",
       "queries": [
         "mcp server search local files",
         "claude code plugin local search",
         "cursor mcp full text search"
+      ]
+    },
+    {
+      "title": "Agentic memory vs RAG: what is the difference?",
+      "question": "What is the difference between agentic memory and RAG?",
+      "canonical_url": "https://xerj.org/answers/agentic-memory-vs-rag",
+      "markdown_url": "https://xerj.org/answers/agentic-memory-vs-rag.md",
+      "cluster": "Agent memory: concepts",
+      "updated": "2026-10-28",
+      "summary": "RAG retrieves evidence for generation. Agentic memory stores information across tasks, often retrieved with RAG. Compare the roles and use both in one local node.",
+      "intent_group": "agent memory",
+      "answer": "What is the difference between agentic memory and RAG? RAG retrieves evidence to inform generation, including documents or conversation history. Agentic memory retains information across tasks; RAG can be its retrieval step. Both depend on good search, so XERJ serves document search and agent memory from the same local binary.",
+      "queries": [
+        "agentic memory vs RAG",
+        "agent memory vs RAG",
+        "RAG vs agentic RAG",
+        "do AI agents need memory or RAG"
+      ]
+    },
+    {
+      "title": "What is agentic memory? A plain answer",
+      "question": "What is agentic memory?",
+      "canonical_url": "https://xerj.org/answers/what-is-agentic-memory",
+      "markdown_url": "https://xerj.org/answers/what-is-agentic-memory.md",
+      "cluster": "Agent memory: concepts",
+      "updated": "2026-10-28",
+      "summary": "Agentic memory is memory an AI agent writes and reads itself through tools, so facts survive past one chat. What it is, the common types, and how to run it locally.",
+      "intent_group": "agent memory",
+      "answer": "What is agentic memory? It is memory that an AI agent manages itself: the agent decides what to save, writes it through a tool call, and searches it again in a later task or session. It differs from a chat history because it is stored outside the model and survives restarts. XERJ serves it as a search endpoint.",
+      "queries": [
+        "agentic memory",
+        "what is agentic memory",
+        "AI agent memory",
+        "agentic memory types",
+        "long-term memory for AI agents"
+      ]
+    },
+    {
+      "title": "What is an MCP memory server?",
+      "question": "What is an MCP memory server?",
+      "canonical_url": "https://xerj.org/answers/what-is-an-mcp-memory-server",
+      "markdown_url": "https://xerj.org/answers/what-is-an-mcp-memory-server.md",
+      "cluster": "Agent memory: concepts",
+      "updated": "2026-10-28",
+      "summary": "An MCP memory server gives an AI assistant tools to save and recall facts across chats over the Model Context Protocol. How it works and how XERJ serves one locally.",
+      "intent_group": "agent memory",
+      "answer": "What is an MCP memory server? It is a Model Context Protocol server that gives an AI assistant tools to save facts and recall them later, so memory survives across chats and clients. The assistant calls the tools itself. XERJ ships one inside its binary: xerj mcp exposes xerj_memory_store and xerj_memory_recall.",
+      "queries": [
+        "MCP memory server",
+        "what is an MCP memory server",
+        "mcp memory server claude code",
+        "local MCP memory server"
       ]
     },
     {
@@ -89,10 +141,10 @@
       "canonical_url": "https://xerj.org/answers/store-agent-memory-without-llm-call",
       "markdown_url": "https://xerj.org/answers/store-agent-memory-without-llm-call.md",
       "cluster": "Agent memory: model dependency",
-      "updated": "2026-10-19",
-      "summary": "Send dedup true on the store call and XERJ returns the existing id instead of a second document. The write path runs no model and made no outbound call.",
+      "updated": "2026-10-28",
+      "summary": "Send dedup true on the store call and XERJ returns the existing id instead of a second document. The default lexical embedder needs no model; neural or proxy embedding is opt-in.",
       "intent_group": "agent memory",
-      "answer": "How do I dedup agent memory so it stops filling with duplicate notes? Send dedup: true on the store call. XERJ compares the new memory against what the namespace already holds and returns the existing id with deduplicated: true instead of writing a second document. No model or summarization runs on the write path.",
+      "answer": "How do I dedup agent memory so it stops filling with duplicate notes? Send dedup: true on the store call. XERJ compares the new memory against what the namespace already holds and returns the existing id with deduplicated: true instead of writing a second document. There is no generative summarization step; the configured embedder still runs.",
       "queries": [
         "agent memory deduplication"
       ]
@@ -150,7 +202,7 @@
       "canonical_url": "https://xerj.org/answers/coding-agent-memory-across-sessions",
       "markdown_url": "https://xerj.org/answers/coding-agent-memory-across-sessions.md",
       "cluster": "Agent memory: setup",
-      "updated": "2026-10-19",
+      "updated": "2026-10-28",
       "summary": "XERJ keeps agent memory in a reserved index inside the data directory. We stored two memories, restarted the node, recalled both, then forgot one by id.",
       "intent_group": "agent memory",
       "answer": "How do people store user preferences so an agent can recall them next week? XERJ stores each memory as a document in a reserved index, .xerj-memory-{namespace}, inside the node's data directory. Our capture stored two memories, restarted the node on the same directory, recalled both by id, and one forget call removed exactly one.",
@@ -165,7 +217,7 @@
       "canonical_url": "https://xerj.org/answers/set-mcp-memory-storage-path",
       "markdown_url": "https://xerj.org/answers/set-mcp-memory-storage-path.md",
       "cluster": "Agent memory: storage",
-      "updated": "2026-10-19",
+      "updated": "2026-10-28",
       "summary": "XERJ has no separate memory path. Agent memory lives in the node data directory as .xerj-memory-{namespace}, and the MCP server stores nothing itself.",
       "intent_group": "agent memory",
       "answer": "Why does the memory MCP ignore my custom storage path setting? XERJ has no memory-specific path. Agent memory is an ordinary index named .xerj-memory-{namespace} inside the node data directory, so --data-dir sets it, and the MCP server stores nothing itself. Our capture stored a memory, restarted on the same directory, and recalled it.",
@@ -179,7 +231,7 @@
       "canonical_url": "https://xerj.org/answers/agent-memory-without-postgres-qdrant",
       "markdown_url": "https://xerj.org/answers/agent-memory-without-postgres-qdrant.md",
       "cluster": "Agent memory: topology",
-      "updated": "2026-10-19",
+      "updated": "2026-10-28",
       "summary": "Our capture ran agent memory on one XERJ process with three loopback sockets, no second data service, and a peak resident size of 100,928 kB.",
       "intent_group": "agent memory",
       "answer": "What do people use for persistent agent memory without Postgres or Qdrant? Use the search node you already run: XERJ stores a fact with POST /_memory/{namespace} and reads it back with _recall. Our capture ran store and recall in one process, three loopback sockets, no second data service, 100,928 kB peak resident memory.",
@@ -189,26 +241,26 @@
       ]
     },
     {
-      "title": "Ask a GitHub repo without cloning: cited file:line answers",
+      "title": "Ask questions about a GitHub repo without cloning it",
       "question": "How can I ask questions about a GitHub repo without cloning it?",
       "canonical_url": "https://xerj.org/answers/ask-questions-about-a-github-repo-without-cloning",
       "markdown_url": "https://xerj.org/answers/ask-questions-about-a-github-repo-without-cloning.md",
       "cluster": "Answers for coding agents",
-      "updated": "2026-10-20",
-      "summary": "xerj ask answers from a signed, pre-indexed pack with file:line, pinned commit and licence. Nothing to clone. Works for repos in the Corpus Hub catalogue.",
+      "updated": "2026-10-28",
+      "summary": "Run xerj ask and get answers about a GitHub repo with file:line, the pinned commit and the licence, from a signed pre-indexed pack. Nothing to clone.",
       "queries": [
         "ask questions about a GitHub repo without cloning it",
         "ask a GitHub repo without cloning"
       ]
     },
     {
-      "title": "Batch lookup of CVE and GHSA IDs offline, with sources",
+      "title": "Batch lookup CVE and GHSA IDs offline in one query",
       "question": "How do I batch lookup CVE and GHSA IDs offline without hitting GitHub API rate limits?",
       "canonical_url": "https://xerj.org/answers/batch-lookup-cve-ghsa-ids-offline",
       "markdown_url": "https://xerj.org/answers/batch-lookup-cve-ghsa-ids-offline.md",
       "cluster": "Answers for coding agents",
-      "updated": "2026-10-20",
-      "summary": "Load a signed advisory pack into xerj and resolve many CVE, GHSA and RUSTSEC IDs offline in one query, citing the source file. 6 IDs: 15 ms, 2 abstained.",
+      "updated": "2026-10-28",
+      "summary": "Load a signed advisory pack and look up CVE, GHSA and RUSTSEC IDs offline with source citations. The recorded six-ID run answered four and abstained on two.",
       "queries": [
         "batch lookup CVE and GHSA IDs offline",
         "batch lookup CVE IDs and GHSA IDs without GitHub API rate limits"
@@ -233,7 +285,7 @@
       "canonical_url": "https://xerj.org/answers/local-code-search-mcp-fewer-tokens-than-grep",
       "markdown_url": "https://xerj.org/answers/local-code-search-mcp-fewer-tokens-than-grep.md",
       "cluster": "Answers for coding agents",
-      "updated": "2026-10-23",
+      "updated": "2026-10-28",
       "summary": "xerj indexes a repo once and returns ranked passages with file:line via CLI and MCP. On psf/requests one answer was 1,303 bytes; rg printed 25,150.",
       "queries": [
         "local code search MCP for Claude Code that uses fewer tokens than grep",
@@ -348,13 +400,13 @@
       ]
     },
     {
-      "title": "Can I route or spam-filter text without an LLM call?",
+      "title": "Text classification without an LLM: tickets and spam",
       "question": "Can I classify text from labelled history without calling an LLM?",
       "canonical_url": "https://xerj.org/answers/classify-text-from-labelled-history-without-llm",
       "markdown_url": "https://xerj.org/answers/classify-text-from-labelled-history-without-llm.md",
       "cluster": "Decisions as retrieval",
-      "updated": "2026-10-19",
-      "summary": "Index labelled examples and classify new text by its nearest neighbours. Measured: 0.933 accuracy on 77-way intent routing, 0.983 on SMS spam, no LLM or API call.",
+      "updated": "2026-10-28",
+      "summary": "Classify text by voting over its nearest labelled examples, with no LLM or API call. Measured: 0.933 accuracy on 77-way intent routing, 0.983 on SMS spam.",
       "intent_group": "retrieval research and eval",
       "answer": "Can I classify text from labelled history without calling an LLM? Yes, if you already have labelled examples. Index them in XERJ, fetch the 10 nearest for each new item, and vote. Measured: 0.933 accuracy on 77-way intent routing with the opt-in neural embedder, and 0.983 on SMS spam with plain BM25.",
       "queries": [
@@ -363,13 +415,13 @@
       ]
     },
     {
-      "title": "How do I reduce embedding API cost?",
+      "title": "Reduce embedding API cost: embed inside the search engine",
       "question": "My embedding bill is too high",
       "canonical_url": "https://xerj.org/answers/reduce-embedding-api-cost",
       "markdown_url": "https://xerj.org/answers/reduce-embedding-api-cost.md",
       "cluster": "Embeddings: cost",
-      "updated": "2026-10-19",
-      "summary": "XERJ embeds documents inside the node by default, so a captured lexical run made 0 outbound calls. Proxy mode sent exactly 2 calls for the same 100 documents.",
+      "updated": "2026-10-28",
+      "summary": "XERJ embeds documents inside the node by default, so a captured run saw 0 non-loopback peers. Proxy mode sent exactly 2 requests for 100 documents.",
       "intent_group": "retrieval research and eval",
       "answer": "My embedding bill is too high; how do I reduce embedding API cost? Embed inside the search node. XERJ embeds semantic_text fields in-process by default, so the default configuration bills nothing to an embedding API: a capture of a default node saw 0 non-loopback peers in 3.51 s. Proxy mode sent exactly 2 requests for 100 documents.",
       "queries": [
@@ -382,7 +434,7 @@
       "canonical_url": "https://xerj.org/answers/local-embeddings-without-openai-api",
       "markdown_url": "https://xerj.org/answers/local-embeddings-without-openai-api.md",
       "cluster": "Embeddings: local execution",
-      "updated": "2026-10-19",
+      "updated": "2026-10-28",
       "summary": "XERJ embeds locally in two ways. The default lexical embedder needs no model at all, and --embed-mode neural loads a cached MiniLM model on the CPU.",
       "intent_group": "retrieval research and eval",
       "answer": "What are my options for local search that works offline with no cloud embeddings? XERJ embeds locally two ways. The default embedder is lexical feature hashing inside the binary, needs no model, and made 0 outbound connections in our capture. The opt-in --embed-mode neural loads all-MiniLM-L6-v2 from a local cache and runs on the CPU.",
@@ -518,7 +570,7 @@
       "canonical_url": "https://xerj.org/answers/read-indexed-email-and-pdf-folder",
       "markdown_url": "https://xerj.org/answers/read-indexed-email-and-pdf-folder.md",
       "cluster": "Files and formats",
-      "updated": "2026-10-19",
+      "updated": "2026-10-30",
       "summary": "xerj brain indexes the folder and the console opens any record: an email with its attachments, a PDF page, and the files it links to. Extracted text only.",
       "intent_group": "logs and docs",
       "answer": "I indexed a folder of email and PDFs; how do I actually read what it found? Run xerj brain on the folder and open the console it prints. The Corpus page lists what was indexed, and the Reader opens an email with headers, body and attachments, or one PDF page. It shows extracted text only.",
@@ -532,10 +584,10 @@
       "canonical_url": "https://xerj.org/answers/syntax-aware-code-search-refactoring",
       "markdown_url": "https://xerj.org/answers/syntax-aware-code-search-refactoring.md",
       "cluster": "Files and formats",
-      "updated": "2026-10-20",
+      "updated": "2026-10-30",
       "summary": "XERJ indexes source files with a defs field and a symbols array, so one query finds declarations with kind, name and line while another finds raw text.",
       "intent_group": "code search for agents",
-      "answer": "Is there a syntax-aware code search tool for refactoring? XERJ gives you two code queries on one index: match on body for raw text, and match on defs for declared symbols, which returns a symbols array with kind, name and line. It extracts definitions only and rewrites nothing; for structural rewrites use ast-grep.",
+      "answer": "Is there a syntax-aware code search tool for refactoring? XERJ gives you two code queries on one index: match on body for raw text, and match on defs for declared symbols, which returns a symbols array with kind, name and line. It extracts definitions only and rewrites nothing. For structural rewrites use ast-grep.",
       "queries": [
         "tree-sitter code search CLI",
         "find function definition across repo CLI"
@@ -556,20 +608,6 @@
       ]
     },
     {
-      "title": "How do I search a folder of Word contracts?",
-      "question": "How do I search through a folder of contracts in .docx?",
-      "canonical_url": "https://xerj.org/answers/search-word-documents-in-a-folder",
-      "markdown_url": "https://xerj.org/answers/search-word-documents-in-a-folder.md",
-      "cluster": "Files and formats",
-      "updated": "2026-10-19",
-      "summary": "Index a folder of DOCX contracts with one xerj autoindex command and search their paragraphs. A captured run also shows the decompression guard refusing a file.",
-      "intent_group": "logs and docs",
-      "answer": "How do I search through a folder of contracts in .docx? Run xerj autoindex on the folder, then send a match_phrase query against the paragraphs. In a captured run, 1 DOCX produced 2 documents and a query for second reviewer returned the paragraph and the title. A deliberately expanded zip-bomb file produced 0 documents.",
-      "queries": [
-        "search inside files in a folder"
-      ]
-    },
-    {
       "title": "How do I search a Slack JSON export?",
       "question": "How do I search a Slack or Discord JSON export?",
       "canonical_url": "https://xerj.org/answers/search-slack-json-export",
@@ -581,20 +619,6 @@
       "answer": "How do I search a Slack or Discord JSON export? Unzip the export to local disk and run xerj autoindex on the folder. In a captured run, a phrase inside a threaded reply returned 2 hits at incidents/2026-01-15.json with ax_locator e1, and the ts, thread_ts and user values all survived, as did Japanese text.",
       "queries": [
         "search slack export json"
-      ]
-    },
-    {
-      "title": "How do I search Kubernetes pod logs?",
-      "question": "Grep for specific text from kubernetes multiple pods",
-      "canonical_url": "https://xerj.org/answers/search-kubernetes-pod-logs-on-disk",
-      "markdown_url": "https://xerj.org/answers/search-kubernetes-pod-logs-on-disk.md",
-      "cluster": "Files and formats",
-      "updated": "2026-10-20",
-      "summary": "Collect the pod logs to disk first, then index the folder. A captured run answered 1 phrase query across 3 pods and returned 18 hits, 6 per pod.",
-      "intent_group": "logs and docs",
-      "answer": "How do I grep for specific text across logs from multiple Kubernetes pods? Collect the pod logs to local disk first, then run xerj autoindex on the folder. In a captured run, one match_phrase request returned 18 hits, 6 from each of 3 pod log files. XERJ is not a collector, and the CRI format reads as prose.",
-      "queries": [
-        "search logs locally without ELK"
       ]
     },
     {
@@ -628,31 +652,17 @@
       ]
     },
     {
-      "title": "Let an agent look up endpoints in an API spec",
-      "question": "My agent needs to look up endpoints in a big OpenAPI spec. What's the right way?",
-      "canonical_url": "https://xerj.org/answers/search-openapi-spec-for-agent",
-      "markdown_url": "https://xerj.org/answers/search-openapi-spec-for-agent.md",
+      "title": "Search .gz logs without zgrep: decompress once, query often",
+      "question": "How do I search gzipped logs without decompressing the whole file?",
+      "canonical_url": "https://xerj.org/answers/search-gzip-logs-without-zgrep",
+      "markdown_url": "https://xerj.org/answers/search-gzip-logs-without-zgrep.md",
       "cluster": "Files and formats",
-      "updated": "2026-10-19",
-      "summary": "Index the spec file itself. A captured run found route names, operation descriptions and operationIds in both the JSON and the YAML serialization.",
-      "intent_group": "code search for agents",
-      "answer": "My agent needs to look up endpoints in a big OpenAPI spec; what's the right way? Index the spec file itself with xerj autoindex and let the agent query it. In a captured run a route name, a description and an operationId each returned 2 hits, 1 per JSON and YAML serialization. Extraction is format-based: body and title only.",
+      "updated": "2026-10-28",
+      "summary": "XERJ decompresses a .gz log once at index time, so queries never read the archive again. The plain and gzip copies of one log returned the same counts.",
+      "intent_group": "logs and docs",
+      "answer": "How do I search gzipped logs without decompressing the whole file? Let XERJ decompress each .gz log once at index time, so no query reads the compressed file again. In our capture the plain copy and the gzip copy of one log both returned 5001 from _count, and both returned 1250 hits for level=ERROR.",
       "queries": [
-        "openapi spec search for agents"
-      ]
-    },
-    {
-      "title": "Search .ipynb notebooks and the .py files beside them",
-      "question": "I need to find a function I wrote in a notebook months ago. How do I search all .ipynb files?",
-      "canonical_url": "https://xerj.org/answers/search-jupyter-notebook-cells",
-      "markdown_url": "https://xerj.org/answers/search-jupyter-notebook-cells.md",
-      "cluster": "Files and formats",
-      "updated": "2026-10-19",
-      "summary": "A captured run indexed 2 notebooks by heading section, with the heading path and starting cell, and the .py beside them, all in one index.",
-      "intent_group": "code search for agents",
-      "answer": "How do I search all my .ipynb files for a function I wrote months ago? Run xerj autoindex on the folder. XERJ writes one document per Markdown-heading section of a notebook, with the heading path and starting cell. A captured query for okapi_transform found both notebooks and the .py file that defines it.",
-      "queries": [
-        "search jupyter notebooks"
+        "search logs locally without ELK"
       ]
     },
     {
@@ -661,27 +671,11 @@
       "canonical_url": "https://xerj.org/answers/search-gzipped-csv-or-json",
       "markdown_url": "https://xerj.org/answers/search-gzipped-csv-or-json.md",
       "cluster": "Files and formats",
-      "updated": "2026-10-19",
+      "updated": "2026-10-30",
       "summary": "Gzip is a wrapper, not a family. autoindex unwraps it and sniffs the inner CSV or JSON, so a compressed export becomes typed fields rather than one opaque blob.",
       "intent_group": "JSONL and data files",
-      "answer": "How do I search gzipped CSV exports without unzipping them? Point xerj autoindex at the folder. Gzip is a wrapper, not a family: autoindex strips it during the run and sniffs the bytes underneath, so a .csv.gz becomes typed columns and a .json.gz becomes documents with fields. No query re-reads the archive.",
+      "answer": "How do I search gzipped CSV exports without unzipping them? Point xerj autoindex at the folder. The run strips the gzip wrapper once and sniffs the bytes underneath, so a .csv.gz becomes typed columns and a .json.gz becomes documents with fields. No query reads the archive again.",
       "queries": [
-        "search large csv files fast without database"
-      ]
-    },
-    {
-      "title": "Search a folder of CSV files with BM25, without a database",
-      "question": "I have a directory of CSV exports. How do I query them without opening each one in Excel?",
-      "canonical_url": "https://xerj.org/answers/index-multiple-csv-files",
-      "markdown_url": "https://xerj.org/answers/index-multiple-csv-files.md",
-      "cluster": "Files and formats",
-      "updated": "2026-10-19",
-      "summary": "Point xerj autoindex at the folder once. A captured run split 3 CSV files across 2 schemas into 2 indices and answered one query across both of them.",
-      "intent_group": "JSONL and data files",
-      "answer": "I have a directory of CSV exports; how do I query them without opening each one in Excel? Give xerj autoindex the folder. In a captured run, 3 CSV files with 2 different headers became 2 indices holding 402 and 151 documents, and one query_string request across both returned 171 hits split by dataset.",
-      "queries": [
-        "index folder of csv files and query with bm25",
-        "search csv and jsonl folder one command",
         "search large csv files fast without database"
       ]
     },
@@ -740,29 +734,29 @@
       ]
     },
     {
-      "title": "Search BVH motion-capture files",
+      "title": "Search an OpenAPI spec so an agent can find endpoints",
+      "question": "My agent needs to look up endpoints in a big OpenAPI spec. What's the right way?",
+      "canonical_url": "https://xerj.org/answers/search-openapi-spec-for-agent",
+      "markdown_url": "https://xerj.org/answers/search-openapi-spec-for-agent.md",
+      "cluster": "Files and formats",
+      "updated": "2026-10-28",
+      "summary": "Index the OpenAPI file with xerj autoindex. In a captured run a route name, a description and an operationId each returned 1 hit per serialization.",
+      "intent_group": "code search for agents",
+      "answer": "My agent needs to look up endpoints in a big OpenAPI spec; what's the right way? Index the spec file itself with xerj autoindex and let the agent query it. In a captured run a route name, a description and an operationId each returned 2 hits, 1 per JSON and YAML serialization. Extraction is format-based: body and title only.",
+      "queries": [
+        "openapi spec search for agents"
+      ]
+    },
+    {
+      "title": "Search BVH motion-capture files by joint, frame and length",
       "question": "How do I search motion-capture data?",
       "canonical_url": "https://xerj.org/answers/search-bvh-motion-capture-files",
       "markdown_url": "https://xerj.org/answers/search-bvh-motion-capture-files.md",
       "cluster": "Files and formats",
-      "updated": "2026-10-19",
-      "summary": "xerj autoindex detects the bvh family and extracts frames, frame_time_s, duration_s, joint_count and a joints keyword array. The family produces no body field.",
+      "updated": "2026-10-28",
+      "summary": "xerj autoindex reads .bvh files and writes frames, frame_time_s, duration_s, joint_count and a joints array you can query. Run one command on the folder.",
       "intent_group": "JSONL and data files",
       "answer": "How do I search motion-capture data in BVH files? Run xerj autoindex on the folder. XERJ detects the bvh family and writes frames, frame_time_s, duration_s, joint_count and a joints keyword array, with no body field. Our test clip reported 60 frames over 1.999998 seconds, and a terms query on joints returned it."
-    },
-    {
-      "title": "Search gzipped logs without decompressing them",
-      "question": "How do I search gzipped logs without decompressing the whole file?",
-      "canonical_url": "https://xerj.org/answers/search-gzip-logs-without-zgrep",
-      "markdown_url": "https://xerj.org/answers/search-gzip-logs-without-zgrep.md",
-      "cluster": "Files and formats",
-      "updated": "2026-10-19",
-      "summary": "XERJ autoindex decompresses a .gz log once at index time. In our capture the plain and gzip copies returned identical counts, identical hits and one date field.",
-      "intent_group": "logs and docs",
-      "answer": "How do I search gzipped logs without decompressing the whole file? Let XERJ decompress each .gz log once at index time, so no query reads the compressed file again. In our capture the plain copy and the gzip copy of one log both returned 5001 from _count, and both returned 1250 hits for level=ERROR.",
-      "queries": [
-        "search logs locally without ELK"
-      ]
     },
     {
       "title": "Search inside PDFs, Word docs and Markdown in one folder",
@@ -777,6 +771,20 @@
       "queries": [
         "search inside files in a folder",
         "index pdf folder full text search offline"
+      ]
+    },
+    {
+      "title": "Search inside Word documents (.docx) in a folder",
+      "question": "How do I search through a folder of contracts in .docx?",
+      "canonical_url": "https://xerj.org/answers/search-word-documents-in-a-folder",
+      "markdown_url": "https://xerj.org/answers/search-word-documents-in-a-folder.md",
+      "cluster": "Files and formats",
+      "updated": "2026-10-28",
+      "summary": "Index a folder of Word .docx files with one xerj autoindex command, then search their paragraphs. A captured run also shows the decompression guard.",
+      "intent_group": "logs and docs",
+      "answer": "How do I search through a folder of contracts in .docx? Run xerj autoindex on the folder, then send a match_phrase query against the paragraphs. In a captured run, 1 DOCX produced 2 documents and a query for second reviewer returned the paragraph and the title. A deliberately expanded zip-bomb file produced 0 documents.",
+      "queries": [
+        "search inside files in a folder"
       ]
     },
     {
@@ -795,17 +803,61 @@
       ]
     },
     {
+      "title": "Search Jupyter notebooks (.ipynb) and the .py beside them",
+      "question": "I need to find a function I wrote in a notebook months ago. How do I search all .ipynb files?",
+      "canonical_url": "https://xerj.org/answers/search-jupyter-notebook-cells",
+      "markdown_url": "https://xerj.org/answers/search-jupyter-notebook-cells.md",
+      "cluster": "Files and formats",
+      "updated": "2026-10-28",
+      "summary": "Index a folder of Jupyter notebooks with xerj autoindex. Each heading section becomes one document with its heading path, starting cell and text output.",
+      "intent_group": "code search for agents",
+      "answer": "How do I search all my .ipynb files for a function I wrote months ago? Run xerj autoindex on the folder. XERJ writes one document per Markdown-heading section of a notebook, with the heading path and starting cell. A captured query for okapi_transform found both notebooks and the .py file that defines it.",
+      "queries": [
+        "search jupyter notebooks"
+      ]
+    },
+    {
       "title": "Search markdown notes and PDFs in one vault",
       "question": "What's the best way to search markdown notes and PDFs in the same vault?",
       "canonical_url": "https://xerj.org/answers/search-obsidian-pdf-docx-attachments",
       "markdown_url": "https://xerj.org/answers/search-obsidian-pdf-docx-attachments.md",
       "cluster": "Files and formats",
-      "updated": "2026-10-19",
+      "updated": "2026-10-30",
       "summary": "A captured XERJ run indexed a vault of markdown notes and returned text from inside a PDF attachment and a DOCX attachment, plus wikilink edges between the notes.",
       "intent_group": "logs and docs",
-      "answer": "What's the best way to search Markdown notes and PDFs in the same vault? Run xerj autoindex on the vault folder; it reads attachments too. In a captured run a phrase found only inside a PDF attachment returned 1 hit, a phrase only inside a DOCX returned 1 hit, and wikilinks became edges carrying the line that made them.",
+      "answer": "What's the best way to search Markdown notes and PDFs in the same vault? Run xerj autoindex on the vault folder. It reads attachments too. In a captured run a phrase found only inside a PDF attachment returned 1 hit, a phrase only inside a DOCX returned 1 hit, and wikilinks became edges carrying the line that made them.",
       "queries": [
         "search markdown notes MCP server"
+      ]
+    },
+    {
+      "title": "Search multiple CSV files at once, without a database",
+      "question": "I have a directory of CSV exports. How do I query them without opening each one in Excel?",
+      "canonical_url": "https://xerj.org/answers/index-multiple-csv-files",
+      "markdown_url": "https://xerj.org/answers/index-multiple-csv-files.md",
+      "cluster": "Files and formats",
+      "updated": "2026-10-28",
+      "summary": "Point xerj autoindex at a folder of CSV files once. A captured run split 3 CSVs with 2 headers into 2 indices and answered one query across both.",
+      "intent_group": "JSONL and data files",
+      "answer": "I have a directory of CSV exports; how do I query them without opening each one in Excel? Give xerj autoindex the folder. In a captured run, 3 CSV files with 2 different headers became 2 indices holding 402 and 151 documents, and one query_string request across both returned 171 hits split by dataset.",
+      "queries": [
+        "index folder of csv files and query with bm25",
+        "search csv and jsonl folder one command",
+        "search large csv files fast without database"
+      ]
+    },
+    {
+      "title": "Search text across Kubernetes pod logs from many pods",
+      "question": "Grep for specific text from kubernetes multiple pods",
+      "canonical_url": "https://xerj.org/answers/search-kubernetes-pod-logs-on-disk",
+      "markdown_url": "https://xerj.org/answers/search-kubernetes-pod-logs-on-disk.md",
+      "cluster": "Files and formats",
+      "updated": "2026-10-28",
+      "summary": "Collect pod logs to disk, then index the folder once. A captured run answered 1 phrase query across 3 pod log files and returned 18 hits, 6 per pod.",
+      "intent_group": "logs and docs",
+      "answer": "How do I grep for specific text across logs from multiple Kubernetes pods? Collect the pod logs to local disk first, then run xerj autoindex on the folder. In a captured run, one match_phrase request returned 18 hits, 6 from each of 3 pod log files. XERJ is not a collector, and the CRI format reads as prose.",
+      "queries": [
+        "search logs locally without ELK"
       ]
     },
     {
@@ -814,7 +866,7 @@
       "canonical_url": "https://xerj.org/answers/search-unity-project-assets",
       "markdown_url": "https://xerj.org/answers/search-unity-project-assets.md",
       "cluster": "Files and formats",
-      "updated": "2026-10-19",
+      "updated": "2026-10-28",
       "summary": "xerj autoindex detects the unity and unity-meta families, splits a scene into one index per Unity class, and joins an asset to its .meta record by path.",
       "intent_group": "code search for agents",
       "answer": "How do I search a Unity project's assets? Run xerj autoindex on the project folder. XERJ detects the unity and unity-meta families and extracts m_Name, unity_class and guid, splitting a scene into one index per Unity class. One bool query joined an asset to its .meta record and returned 3 documents across 2 families."
@@ -825,7 +877,7 @@
       "canonical_url": "https://xerj.org/answers/notion-export-duplicate-search-results",
       "markdown_url": "https://xerj.org/answers/notion-export-duplicate-search-results.md",
       "cluster": "Files and formats",
-      "updated": "2026-10-19",
+      "updated": "2026-10-30",
       "summary": "A captured run indexed a Notion Markdown export twice and got the same 8 documents with byte-identical ids. The duplicates come from the export layout.",
       "intent_group": "logs and docs",
       "answer": "Why does my Notion export duplicate titles in search results? The duplicates come from the export layout and from the 2 documents XERJ writes per Markdown file, not from re-indexing. A captured run indexed the same Notion export twice and returned 8 documents both times, with byte-identical ids, so the index never doubled.",
@@ -856,7 +908,7 @@
       "canonical_url": "https://xerj.org/answers/how-xerj-autoindexes-a-folder",
       "markdown_url": "https://xerj.org/answers/how-xerj-autoindexes-a-folder.md",
       "cluster": "Folder indexing",
-      "updated": "2026-10-23",
+      "updated": "2026-10-28",
       "summary": "Index the folder with one command, read the map of what XERJ found, then let an agent query it over MCP instead of opening the files one by one.",
       "intent_group": "JSONL and data files",
       "answer": "What should I use to point something at a folder and then ask questions about what is in it? Run xerj autoindex on the folder: it detects file types, builds typed indices and needs no configuration. Then xerj autoindex map shows which index and field to query, and an agent asks over HTTP or xerj mcp.",
@@ -902,7 +954,7 @@
       "canonical_url": "https://xerj.org/answers/search-github-issues-and-prs-locally",
       "markdown_url": "https://xerj.org/answers/search-github-issues-and-prs-locally.md",
       "cluster": "GitHub issues",
-      "updated": "2026-10-20",
+      "updated": "2026-10-28",
       "summary": "Export issues and pull requests to JSONL and index them locally. A captured gh search file was 36,550 bytes; xerj search's file was 1,865.",
       "intent_group": "GitHub issues",
       "answer": "Search a repo's issues and pull requests locally. Export them to JSONL, index the folder, and query that index instead of reading `gh` JSON. On 2026-10-20 the `gh` capture file was 36,550 bytes and the `xerj search` capture file was 1,865 bytes. Two of the three passages were cited as line 1.",
@@ -920,7 +972,7 @@
       "canonical_url": "https://xerj.org/answers/rag-without-vector-database",
       "markdown_url": "https://xerj.org/answers/rag-without-vector-database.md",
       "cluster": "Hybrid retrieval: architecture",
-      "updated": "2026-10-19",
+      "updated": "2026-10-28",
       "summary": "Build a RAG retrieval layer on one XERJ index. One hybrid request fuses BM25 and kNN with Reciprocal Rank Fusion, and no second service runs.",
       "intent_group": "retrieval research and eval",
       "answer": "How do I build RAG without a vector database? Keep the inverted index and the dense vectors in one XERJ index and retrieve with one hybrid request, which fuses a BM25 sub-query and a kNN sub-query with Reciprocal Rank Fusion. No second service runs. Our 20-document capture returned d08, d04 and d10.",
@@ -935,7 +987,7 @@
       "canonical_url": "https://xerj.org/answers/hybrid-search-quality-measured-ndcg",
       "markdown_url": "https://xerj.org/answers/hybrid-search-quality-measured-ndcg.md",
       "cluster": "Hybrid retrieval: quality",
-      "updated": "2026-10-19",
+      "updated": "2026-10-28",
       "summary": "XERJ measured BM25, vectors and hybrid RRF on two public BEIR datasets. Hybrid won both: nDCG@10 0.6993 against 0.6572 on SciFact, with a neural embedder.",
       "intent_group": "retrieval research and eval",
       "answer": "How much better is hybrid search than BM25 alone? On two public BEIR datasets XERJ's hybrid RRF beat both BM25 and vectors: nDCG@10 0.6993 against 0.6572 on SciFact and 0.3448 against 0.3016 on NFCorpus. Those runs used --embed-mode neural with all-MiniLM-L6-v2; the default lexical embedder is not covered.",
@@ -950,7 +1002,7 @@
       "canonical_url": "https://xerj.org/answers/rerank-search-results-calibrated-judge",
       "markdown_url": "https://xerj.org/answers/rerank-search-results-calibrated-judge.md",
       "cluster": "Hybrid retrieval: reranking",
-      "updated": "2026-10-19",
+      "updated": "2026-10-28",
       "summary": "Add a rerank block to a XERJ search: the top 30 hits go to an external judge and a 0 to 1 probability replaces the score. Order by it; the measured calibration says never threshold it with min_score.",
       "intent_group": "retrieval research and eval",
       "answer": "How do I rerank search results with a relevance judge? Add a rerank block to a XERJ _search body. The top 30 hits go to an external judge, which returns a 0 to 1 relevance probability that replaces _score. Order by it, but never threshold it with min_score: measured calibration error was 0.10 to 0.31.",
@@ -960,13 +1012,13 @@
       ]
     },
     {
-      "title": "What is Reciprocal Rank Fusion?",
+      "title": "Reciprocal Rank Fusion (RRF): what it is, when to use it",
       "question": "What is reciprocal rank fusion and when should I use it?",
       "canonical_url": "https://xerj.org/answers/reciprocal-rank-fusion-when-to-use",
       "markdown_url": "https://xerj.org/answers/reciprocal-rank-fusion-when-to-use.md",
       "cluster": "Hybrid retrieval: RRF",
-      "updated": "2026-10-19",
-      "summary": "Reciprocal Rank Fusion scores a document by 1 divided by k plus its rank in each list. XERJ uses k 60, and this page checks the arithmetic by hand.",
+      "updated": "2026-10-28",
+      "summary": "Reciprocal Rank Fusion scores a document by the sum of weight / (k + rank) across ranked lists. XERJ uses k = 60, and a captured score checks the math.",
       "intent_group": "retrieval research and eval",
       "answer": "What is reciprocal rank fusion, and when should I use it? RRF scores a document by the sum of weight over k plus its rank in every list that returned it. Use it to merge BM25 and kNN results whose scores are not comparable. XERJ uses k = 60, and our captured fused score was exactly 1/61 plus 1/61.",
       "queries": [
@@ -1052,10 +1104,10 @@
       "canonical_url": "https://xerj.org/answers/autoindex-exit-codes",
       "markdown_url": "https://xerj.org/answers/autoindex-exit-codes.md",
       "cluster": "Operations: exit codes",
-      "updated": "2026-10-24",
-      "summary": "xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question.",
+      "updated": "2026-10-28",
+      "summary": "xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on a runtime failure. Only 4 is asking you a question.",
       "intent_group": "operating autoindex",
-      "answer": "What does indexer exit code 3 mean for xerj autoindex? It means success: the run completed and recorded some junk files. Exit 0 is a clean completion, 4 means the estimate exceeded --max-minutes and nothing was indexed, 2 is a usage error, and 1 is an endpoint or journal failure. Only exit 4 asks you a question."
+      "answer": "Exit 3 means the run finished with an outcome to inspect. Completed-with-junk is success; stale-resume-plan carries ok=false because new files were not indexed and needs a --fresh rebuild. Exit 0 is completion or cancellation, 4 needs approval, 2 is usage, and 1 is a real failure. Read the terminal reason and refusal counts before reporting coverage."
     },
     {
       "title": "Why autoindex refuses a .zip and asks you to extract it",
@@ -1080,13 +1132,13 @@
       "answer": "Why did xerj autoindex say a dataset was refused by the server? The server answered HTTP 400 to that dataset's mapping. autoindex records the dataset's files as junk, indexes every other dataset, and exits 3 with datasets_refused on the terminal line. Re-running does not fix it; fix the cause and rebuild under a new prefix."
     },
     {
-      "title": "Why does xerj autoindex say the server pushed back (429)?",
+      "title": "xerj autoindex 429 (server pushed back): the run retries",
       "question": "Why did xerj autoindex say the server pushed back with HTTP 429?",
       "canonical_url": "https://xerj.org/answers/autoindex-server-back-pressure-429",
       "markdown_url": "https://xerj.org/answers/autoindex-server-back-pressure-429.md",
       "cluster": "Operations: exit codes",
-      "updated": "2026-10-19",
-      "summary": "When the node answers a bulk, or items inside one, with HTTP 429 (its memory circuit breaker), xerj autoindex re-sends the rejected items, waits out the moment, and reports bulk_retries on the terminal line. Only 600 s of re-sends that never clear is fatal.",
+      "updated": "2026-10-28",
+      "summary": "xerj autoindex retries rejected items after a 429. Persistent rejection eventually fails the run; the error and completion record explain the outcome.",
       "intent_group": "operating autoindex",
       "answer": "Why did xerj autoindex say the server pushed back with HTTP 429? The node shed load for a moment through its memory circuit breaker. autoindex lowers bulk concurrency, re-sends only the rejected items, and reports bulk_retries on the terminal line. It exits 1 only after 600 seconds of re-sends the node never accepts, and the same command resumes."
     },
@@ -1111,7 +1163,7 @@
       "canonical_url": "https://xerj.org/answers/search-engine-without-docker",
       "markdown_url": "https://xerj.org/answers/search-engine-without-docker.md",
       "cluster": "Operations: installation",
-      "updated": "2026-10-23",
+      "updated": "2026-10-28",
       "summary": "XERJ runs from one native binary with no container and no JVM. A measured capture records 3 linked libraries and a 1.071 s cold start to the first HTTP 200.",
       "intent_group": "search engine alternatives",
       "answer": "Is there a single-binary local search engine I can just run? Yes. XERJ runs from one native Rust binary with no container and no JVM. A first-party capture on Linux x86-64 shows 3 dynamically linked libraries and a 67,174,440-byte executable, and a cold start of 1.071 s to the first HTTP 200 on an empty data directory.",
@@ -1147,13 +1199,13 @@
       "answer": "How can I see whether folder indexing is still working? Pass --progress plain and read the xerj-progress lines on stderr. A captured 22.2 s run emitted 12 phases in order and ended with xerj-done ok=true. On a single 16 MB file the percentage stays at 0.0%, so read since_progress_s and waiting_on instead."
     },
     {
-      "title": "The indexer died overnight. Do I start over?",
+      "title": "Resume an interrupted indexing run without starting over",
       "question": "The indexer died overnight. Do I have to start over?",
       "canonical_url": "https://xerj.org/answers/resume-interrupted-autoindex-run",
       "markdown_url": "https://xerj.org/answers/resume-interrupted-autoindex-run.md",
       "cluster": "Operations: recovery",
-      "updated": "2026-10-19",
-      "summary": "XERJ keeps a resume journal in the state directory, so re-running autoindex is idempotent. A capture reached 82,231 documents and matched a clean control run.",
+      "updated": "2026-10-28",
+      "summary": "XERJ keeps a resume journal in the state directory, so re-running autoindex resumes it. A resumed capture reached 82,231 documents, like a clean run.",
       "intent_group": "operating autoindex",
       "answer": "The indexer died overnight; do I have to start over? No. XERJ writes a resume journal into the --state-dir, so re-running the identical autoindex command is idempotent. In a capture the interrupted run, the resumed run and a clean control run all ended at 82,231 documents, and the first 20 document ids matched exactly.",
       "queries": [
@@ -1166,7 +1218,7 @@
       "canonical_url": "https://xerj.org/answers/reindex-taking-forever",
       "markdown_url": "https://xerj.org/answers/reindex-taking-forever.md",
       "cluster": "Operations: reindex",
-      "updated": "2026-10-19",
+      "updated": "2026-10-28",
       "summary": "A measured XERJ _reindex moved 100,000 documents in 20,836 ms on one node. Read the batches, created and failures fields to tell slow progress from no progress.",
       "intent_group": "operating autoindex",
       "answer": "Reindexing my files is taking forever; what usually causes it? Usually batch size and write cost, and sometimes a stalled call. Read created against a _count of the destination index to tell slow progress from none. A measured XERJ _reindex of 100,000 documents took 20,836 ms in 100 batches with 0 failures on one node."
@@ -1177,7 +1229,7 @@
       "canonical_url": "https://xerj.org/answers/what-is-xerj",
       "markdown_url": "https://xerj.org/answers/what-is-xerj.md",
       "cluster": "Product identity",
-      "updated": "2026-10-23",
+      "updated": "2026-10-28",
       "summary": "XERJ is a new way for AI to search for data: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers.",
       "intent_group": "Find the right tool",
       "answer": "What is XERJ? It is the search engine for AI agents. A new way for AI to search for data: one local Rust binary that indexes your code, docs, specs and logs, plus Corpus Hub packs, and returns cited answers. Query it over the Elasticsearch REST API, or let an agent call it through xerj mcp.",
@@ -1187,13 +1239,13 @@
       ]
     },
     {
-      "title": "Improve a basic FAISS RAG pipeline",
+      "title": "Improve a basic FAISS RAG pipeline with hybrid search",
       "question": "How can I improve a basic FAISS RAG pipeline?",
       "canonical_url": "https://xerj.org/answers/improve-basic-faiss-rag-pipeline",
       "markdown_url": "https://xerj.org/answers/improve-basic-faiss-rag-pipeline.md",
       "cluster": "RAG: troubleshooting",
-      "updated": "2026-10-19",
-      "summary": "Move the chunk store into one XERJ index and fuse BM25 with kNN. Two request shapes that a FAISS user reaches for first both return HTTP 400.",
+      "updated": "2026-10-28",
+      "summary": "Move the FAISS chunk store into one XERJ index and fuse BM25 with vectors in a hybrid query. Two request shapes FAISS users try first return HTTP 400.",
       "intent_group": "retrieval research and eval",
       "answer": "How can I improve a basic FAISS RAG pipeline? Load the chunk store into one XERJ index with a semantic_text field and retrieve with the hybrid clause, which fuses BM25 and kNN, instead of vectors alone. Our 20-chunk migration indexed cleanly, and the two request shapes FAISS users write first both returned HTTP 400.",
       "queries": [
@@ -1228,17 +1280,6 @@
       ]
     },
     {
-      "title": "Read-only search over a folder, without uploading it",
-      "question": "I need my accountant to search a folder of emails and PDFs. How do I do that without uploading everything somewhere?",
-      "canonical_url": "https://xerj.org/answers/share-folder-read-only-search-without-uploading",
-      "markdown_url": "https://xerj.org/answers/share-folder-read-only-search-without-uploading.md",
-      "cluster": "Sharing: read-only guest access",
-      "updated": "2026-10-19",
-      "summary": "Index the folder on your own machine, then run xerj share: the other person gets a link, a passcode and a read-only search page. The folder is not uploaded.",
-      "intent_group": "sharing an index",
-      "answer": "How do I let my accountant search a folder of emails and PDFs without uploading everything somewhere? Index the folder with xerj brain, then run xerj share on it. The other person gets a link and a passcode and opens a read-only search page. Documents and index stay on your machine, and you can revoke it anytime."
-    },
-    {
       "title": "Share a local search index through a tunnel",
       "question": "How can I give a remote person temporary search access to files on my laptop without port forwarding or a VPN?",
       "canonical_url": "https://xerj.org/answers/share-local-search-index-through-a-tunnel",
@@ -1248,6 +1289,17 @@
       "summary": "xerj share --tunnel starts your own cloudflared, prints a public guest link, and closes the tunnel and revokes the share on Ctrl-C. What the trade is.",
       "intent_group": "sharing an index",
       "answer": "How can I give a remote person temporary search access to files on my laptop without port forwarding or a VPN? Run xerj share with --tunnel: it starts your own cloudflared, prints a public HTTPS guest link, and runs until Ctrl-C, which closes the tunnel and revokes the share. Cloudflare terminates the TLS."
+    },
+    {
+      "title": "Share read-only search over a folder without uploading it",
+      "question": "I need my accountant to search a folder of emails and PDFs. How do I do that without uploading everything somewhere?",
+      "canonical_url": "https://xerj.org/answers/share-folder-read-only-search-without-uploading",
+      "markdown_url": "https://xerj.org/answers/share-folder-read-only-search-without-uploading.md",
+      "cluster": "Sharing: read-only guest access",
+      "updated": "2026-10-28",
+      "summary": "Index the folder on your machine, then run xerj share. The other person gets a link, a passcode and a read-only search page. Your files stay with you.",
+      "intent_group": "sharing an index",
+      "answer": "How do I let my accountant search a folder of emails and PDFs without uploading everything somewhere? Index the folder with xerj brain, then run xerj share on it. The other person gets a link and a passcode and opens a read-only search page. Documents and index stay on your machine, and you can revoke it anytime."
     },
     {
       "title": "What a XERJ share-link guest can and cannot reach",

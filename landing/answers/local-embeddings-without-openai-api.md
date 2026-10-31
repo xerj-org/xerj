@@ -2,13 +2,13 @@
 ---
 title: "Offline local search with no cloud embeddings or OpenAI API"
 canonical: "https://xerj.org/answers/local-embeddings-without-openai-api"
-updated: "2026-10-19"
+updated: "2026-10-28"
 source: "content/answers/local-embeddings-without-openai-api.md"
 ---
 
 # I want local search that works offline, no cloud embeddings. What are my options?
 
-**Short answer** (updated 2026-10-19): What are my options for local search that works offline with no cloud embeddings? XERJ embeds locally two ways. The default embedder is lexical feature hashing inside the binary, needs no model, and made 0 outbound connections in our capture. The opt-in --embed-mode neural loads all-MiniLM-L6-v2 from a local cache and runs on the CPU.
+**Short answer** (updated 2026-10-28): What are my options for local search that works offline with no cloud embeddings? XERJ embeds locally two ways. The default embedder is lexical feature hashing inside the binary, needs no model, and made 0 outbound connections in our capture. The opt-in --embed-mode neural loads all-MiniLM-L6-v2 from a local cache and runs on the CPU.
 
 **Key number:** The opt-in neural embedder downloads about 90 MB of model files once; the default lexical embedder downloads nothing. (as of 2026-10-19; source: [README.md](https://github.com/xerj-org/xerj/blob/main/README.md))
 
@@ -139,6 +139,8 @@ No. XERJ refuses a backend swap on a populated semantic index rather than mixing
 - [How do I stop an agent memory store from filling with near-duplicate notes?](/answers/store-agent-memory-without-llm-call)
 - [How do I build RAG without a vector database?](/answers/rag-without-vector-database)
 - [What's a simpler alternative to Khoj if I only need search and memory?](/compare/xerj-vs-khoj)
-- [How do I reduce embedding API cost?](/answers/reduce-embedding-api-cost) (same intent: retrieval research and eval)
+- [Can I route tickets or filter spam from labelled history, without an LLM call?](/answers/classify-text-from-labelled-history-without-llm)
+- [How do I reduce embedding API cost?](/answers/reduce-embedding-api-cost)
 - [Should an agent use API search or vector search?](/answers/mcp-api-search-or-vector-search) (same intent: retrieval research and eval)
-- [Can I route tickets or filter spam from labelled history, without an LLM call?](/answers/classify-text-from-labelled-history-without-llm) (same intent: retrieval research and eval)
+- [What is Reciprocal Rank Fusion?](/answers/reciprocal-rank-fusion-when-to-use) (same intent: retrieval research and eval)
+- [How does XERJ combine BM25 and kNN?](/answers/how-xerj-combines-search) (same intent: retrieval research and eval)

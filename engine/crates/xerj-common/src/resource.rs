@@ -402,9 +402,21 @@ pub fn available_memory_bytes() -> Option<u64> {
     probe_available_memory()
 }
 
-/// Resident set size of this process (on macOS its physical footprint, see
-/// the macOS `probe_rss`), or `None` where this platform has no probe.
-/// `None` must disable an RSS-driven decision, never read as zero.
+/// Memory this process holds that the kernel cannot drop on its own, or
+/// `None` where this platform has no probe. On Linux that is the anonymous
+/// and shared-memory resident pages (`RssAnon + RssShmem`), not `VmRSS`; on
+/// macOS the physical footprint (see the macOS `probe_rss`); on Windows the
+/// working set. `None` must disable an RSS-driven decision, never read as
+/// zero.
+///
+/// Why not `VmRSS` on Linux (#2574): it also counts clean file-backed pages
+/// of every mmapped segment, term dictionary and postings file a search has
+/// touched. The kernel reclaims those whenever another process needs RAM,
+/// so they cannot exhaust memory, but no drain inside the process can
+/// release them while the mapping is open. On a node whose indices are
+/// larger than its memory cap, searches faulted those pages in until RSS sat
+/// above the cap, and from then on every search was rejected with
+/// `circuit_breaking_exception` until the node restarted.
 pub fn current_rss_bytes() -> Option<u64> {
     probe_rss()
 }
@@ -554,14 +566,45 @@ fn meminfo_field(meminfo: &str, key: &str) -> Option<u64> {
     None
 }
 
+/// Linux: anonymous plus shared-memory resident bytes from
+/// `/proc/self/status` (#2574). Clean file-backed pages (mmapped segments)
+/// are left out because the kernel drops them under pressure; see
+/// [`current_rss_bytes`]. Kernels older than 4.5 have no `RssAnon` line, so
+/// fall back to `/proc/self/statm` resident minus its shared (file-backed and
+/// shmem) pages, which is the same anonymous figure without the shmem part.
 #[cfg(target_os = "linux")]
 fn probe_rss() -> Option<u64> {
+    if let Some(bytes) = std::fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|status| unreclaimable_resident_bytes(&status))
+    {
+        return Some(bytes);
+    }
     let statm = std::fs::read_to_string("/proc/self/statm").ok()?;
-    let pages: u64 = statm.split_whitespace().nth(1)?.parse().ok()?;
     // SAFETY: `sysconf` reads a system constant.
     let page = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
     let page = if page > 0 { page as u64 } else { 4096 };
-    Some(pages.saturating_mul(page))
+    statm_anonymous_bytes(&statm, page)
+}
+
+/// `RssAnon + RssShmem` out of a `/proc/<pid>/status` body, in bytes. `None`
+/// when the kernel has no `RssAnon` line (pre-4.5). A missing `RssShmem`
+/// counts as zero.
+#[cfg(any(target_os = "linux", test))]
+fn unreclaimable_resident_bytes(status: &str) -> Option<u64> {
+    let anon = meminfo_field(status, "RssAnon:")?;
+    let shmem = meminfo_field(status, "RssShmem:").unwrap_or(0);
+    Some(anon.saturating_add(shmem))
+}
+
+/// Resident minus shared pages out of a `/proc/<pid>/statm` body, in bytes:
+/// the anonymous resident set on a kernel without `RssAnon`.
+#[cfg(any(target_os = "linux", test))]
+fn statm_anonymous_bytes(statm: &str, page: u64) -> Option<u64> {
+    let mut fields = statm.split_whitespace().skip(1);
+    let resident: u64 = fields.next()?.parse().ok()?;
+    let shared: u64 = fields.next()?.parse().ok()?;
+    Some(resident.saturating_sub(shared).saturating_mul(page))
 }
 
 /// macOS: the process's physical footprint (`ri_phys_footprint`), not its
@@ -982,6 +1025,79 @@ mod tests {
         for total in [GIB, 4 * GIB, 16 * GIB, 128 * GIB] {
             assert!(safe_zone(total, None) <= total / 2 || total < 2 * GIB);
         }
+    }
+
+    #[test]
+    fn process_memory_leaves_out_clean_file_backed_pages() {
+        // #2574: a node at rest on a 400 MiB cap, after a burst of searches
+        // over 670 MB of mmapped segments. VmRSS (427 MB) was over the cap,
+        // so every search was rejected; the heap was 178 MB.
+        let status = "Name:\txerj\nVmRSS:\t  427640 kB\nRssAnon:\t  181880 kB\n\
+                      RssFile:\t  245760 kB\nRssShmem:\t       0 kB\nThreads:\t40\n";
+        assert_eq!(unreclaimable_resident_bytes(status), Some(181_880 * 1024));
+        let with_shmem = "RssAnon:\t 100 kB\nRssFile:\t 900 kB\nRssShmem:\t 20 kB\n";
+        assert_eq!(unreclaimable_resident_bytes(with_shmem), Some(120 * 1024));
+        // Pre-4.5 kernels have no RssAnon: let the statm fallback answer.
+        assert_eq!(unreclaimable_resident_bytes("VmRSS:\t 427640 kB\n"), None);
+        assert_eq!(
+            unreclaimable_resident_bytes("RssAnon:\t 7 kB\n"),
+            Some(7 * 1024)
+        );
+        // statm: size resident shared text lib data dt (pages).
+        assert_eq!(
+            statm_anonymous_bytes("500000 106910 61440 900 0 90000 0\n", 4096),
+            Some((106_910 - 61_440) * 4096)
+        );
+        assert_eq!(statm_anonymous_bytes("1 2\n", 4096), None);
+        assert_eq!(statm_anonymous_bytes("1 5 9 0 0 0 0", 4096), Some(0));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn process_memory_does_not_grow_with_a_touched_file_mapping() {
+        // Map and touch 64 MiB of a file: VmRSS grows by about that much,
+        // the probe the breaker reads must not (#2574).
+        use std::io::Write;
+        let dir = std::env::temp_dir().join(format!("xerj-rss-probe-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("segment.bin");
+        let len = 64 * MIB as usize;
+        {
+            let mut f = std::fs::File::create(&path).unwrap();
+            let chunk = vec![7u8; MIB as usize];
+            for _ in 0..64 {
+                f.write_all(&chunk).unwrap();
+            }
+            f.sync_all().unwrap();
+        }
+        let file = std::fs::File::open(&path).unwrap();
+        // SAFETY: a private read-only mapping of a file this test owns.
+        let addr = unsafe {
+            libc::mmap(
+                std::ptr::null_mut(),
+                len,
+                libc::PROT_READ,
+                libc::MAP_PRIVATE,
+                std::os::unix::io::AsRawFd::as_raw_fd(&file),
+                0,
+            )
+        };
+        assert_ne!(addr, libc::MAP_FAILED);
+        let before = current_rss_bytes().unwrap();
+        let mut sum = 0u64;
+        for off in (0..len).step_by(4096) {
+            // SAFETY: `off < len` inside the mapping above.
+            sum += unsafe { std::ptr::read_volatile((addr as *const u8).add(off)) } as u64;
+        }
+        assert_eq!(sum, (len / 4096) as u64 * 7);
+        let after = current_rss_bytes().unwrap();
+        // SAFETY: unmapping exactly the mapping created above.
+        unsafe { libc::munmap(addr, len) };
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(
+            after < before + 16 * MIB,
+            "touching a 64 MiB file mapping moved the process-memory probe from {before} to {after}"
+        );
     }
 
     #[test]

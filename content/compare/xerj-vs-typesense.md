@@ -7,7 +7,7 @@ cluster: "Comparison: search engines"
 question: "Do I need Typesense for an agent to search my docs?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-10-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -116,7 +116,7 @@ The Typesense server is GPL-3.0. XERJ is Apache-2.0. If you plan to embed either
 
 Typesense Cloud sells a dedicated cluster at a fixed hourly cost rather than charging per document or per search. XERJ ships self-hosted only, with no managed product at all, so a managed plan is a reason to pick Typesense.
 
-Typesense documents conversational search and natural-language search as first-party features. Its documentation index lists no MCP server page, so treat any MCP server for Typesense as a community project until the vendor documents one. XERJ ships `xerj mcp` in the same binary, serving 22 tools.
+Typesense documents conversational search and natural-language search as first-party features. Its documentation index lists no MCP server page, so treat any MCP server for Typesense as a community project until the vendor documents one. XERJ ships `xerj mcp` in the same binary, serving 23 tools.
 
 ## The limits you inherit with XERJ
 

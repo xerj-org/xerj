@@ -178,6 +178,89 @@ impl HnswParams {
 // Flat slab storage
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Upper bound on one vector-storage chunk (#2427).
+///
+/// The slab used to keep every vector in one contiguous `Vec<f32>`, which
+/// grows by doubling. With 384-dim embeddings a 1 GB autoindex corpus
+/// reaches ~393K vectors: the next grow is a single 384 MiB -> 768 MiB
+/// `realloc`, so old and new buffers are both live during the copy
+/// (~1.15 GB for one index) and the freed half stays dirty in the
+/// allocator afterwards. The heap profile of the 1 GB gate attributed the
+/// largest untracked allocation on the ingest node to exactly that grow.
+/// Fixed-size chunks never move existing vectors, never copy, and leave at
+/// most one partly filled chunk of slack.
+const VECTOR_CHUNK_BYTES: usize = 4 << 20;
+
+/// Append-only vector storage in fixed-size chunks. `vector(slot)` stays a
+/// shift + mask + slice, and a vector never straddles two chunks.
+struct ChunkedVectors {
+    dim: usize,
+    /// log2(vectors per chunk).
+    chunk_shift: u32,
+    chunks: Vec<Vec<f32>>,
+    len: usize,
+}
+
+impl ChunkedVectors {
+    fn new(dim: usize) -> Self {
+        let per_vector = dim.max(1) * std::mem::size_of::<f32>();
+        let per_chunk = (VECTOR_CHUNK_BYTES / per_vector).max(1);
+        // Largest power of two <= per_chunk, so slot -> chunk is a shift.
+        let chunk_shift = usize::BITS - 1 - per_chunk.leading_zeros();
+        Self {
+            dim,
+            chunk_shift,
+            chunks: Vec::new(),
+            len: 0,
+        }
+    }
+
+    #[inline(always)]
+    fn per_chunk(&self) -> usize {
+        1usize << self.chunk_shift
+    }
+
+    fn push(&mut self, vector: &[f32]) {
+        debug_assert_eq!(vector.len(), self.dim);
+        if self.len & (self.per_chunk() - 1) == 0 {
+            // Exact capacity: the chunk is filled by `extend_from_slice`
+            // and never reallocates.
+            self.chunks
+                .push(Vec::with_capacity(self.per_chunk() * self.dim));
+        }
+        let chunk = self.chunks.last_mut().expect("chunk allocated above");
+        chunk.extend_from_slice(vector);
+        self.len += 1;
+    }
+
+    #[inline(always)]
+    fn get(&self, slot: u32) -> &[f32] {
+        let slot = slot as usize;
+        let chunk = &self.chunks[slot >> self.chunk_shift];
+        let start = (slot & (self.per_chunk() - 1)) * self.dim;
+        &chunk[start..start + self.dim]
+    }
+
+    /// Bytes reserved for vector data (capacity, not length).
+    fn reserved_bytes(&self) -> usize {
+        self.chunks
+            .iter()
+            .map(|c| c.capacity() * std::mem::size_of::<f32>())
+            .sum::<usize>()
+            + self.chunks.capacity() * std::mem::size_of::<Vec<f32>>()
+    }
+
+    /// Largest single allocation backing the vectors.
+    #[cfg(test)]
+    fn largest_allocation_bytes(&self) -> usize {
+        self.chunks
+            .iter()
+            .map(|c| c.capacity() * std::mem::size_of::<f32>())
+            .max()
+            .unwrap_or(0)
+    }
+}
+
 /// Slot-indexed node storage. A `slot` is a dense `u32` handle assigned in
 /// insertion order; all hot-path state is `slot`-addressed so beam search
 /// runs on contiguous arrays with no per-node locks or hashing.
@@ -188,8 +271,8 @@ struct SlabGraphStorage {
     ids: Vec<u64>,
     /// external node id → slot.
     slot_of: HashMap<u64, u32>,
-    /// Contiguous vector data, `slot * dim ..= slot * dim + dim`.
-    vectors: Vec<f32>,
+    /// Vector data by slot, in fixed-size chunks (#2427).
+    vectors: ChunkedVectors,
     /// slot → 1/‖v‖ (cosine metric only; 1.0 placeholder otherwise,
     /// 0.0 for zero-norm vectors so their cosine similarity is 0 — the
     /// same value the previous `cosine()` helper produced).
@@ -203,6 +286,9 @@ struct SlabGraphStorage {
     tomb_ids: HashSet<u64>,
     entry_slot: Option<u32>,
     entry_layer: usize,
+    /// Sum of `node_level` over all slots (layers above 0), for the O(1)
+    /// heap estimate in [`SlabGraphStorage::heap_bytes`].
+    upper_layer_slots: usize,
 }
 
 /// Read-only, slot-stable graph storage consumed by HNSW traversal and
@@ -274,8 +360,7 @@ impl GraphStorageRead for SlabGraphRead<'_> {
 
     #[inline(always)]
     fn vector(&self, slot: u32) -> &[f32] {
-        let start = slot as usize * self.slab.dim;
-        &self.slab.vectors[start..start + self.slab.dim]
+        self.slab.vectors.get(slot)
     }
 
     #[inline(always)]
@@ -300,11 +385,7 @@ impl GraphStorageRead for SlabGraphRead<'_> {
             use core::arch::x86_64::{_mm_prefetch, _MM_HINT_T0};
             // Preserve the slab hot path exactly: neighbor lists contain
             // allocated slots, so this direct address calculation is valid.
-            let base = self
-                .slab
-                .vectors
-                .as_ptr()
-                .add(slot as usize * self.slab.dim) as *const i8;
+            let base = self.slab.vectors.get(slot).as_ptr() as *const i8;
             _mm_prefetch(base, _MM_HINT_T0);
             if self.slab.dim > 16 {
                 _mm_prefetch(base.add(64), _MM_HINT_T0);
@@ -354,14 +435,35 @@ impl SlabGraphStorage {
             metric,
             ids: Vec::new(),
             slot_of: HashMap::new(),
-            vectors: Vec::new(),
+            vectors: ChunkedVectors::new(dim),
             inv_norms: Vec::new(),
             neighbors: Vec::new(),
             tomb: Vec::new(),
             tomb_ids: HashSet::new(),
             entry_slot: None,
             entry_layer: 0,
+            upper_layer_slots: 0,
         }
+    }
+
+    /// O(1) estimate of the heap this graph holds (#2427). Vector storage is
+    /// exact (reserved capacity); neighbour lists are bounded by the layer
+    /// degree caps (`2m` on layer 0, `m` above), which is what pruning keeps
+    /// them at; hash tables count one control byte per entry slot.
+    fn heap_bytes(&self, m: usize) -> usize {
+        use std::mem::size_of;
+        let nodes = self.ids.len();
+        let layer_slots = nodes + self.upper_layer_slots;
+        let neighbor_ids = nodes * 2 * m + self.upper_layer_slots * m;
+        self.vectors.reserved_bytes()
+            + self.ids.capacity() * size_of::<u64>()
+            + self.inv_norms.capacity() * size_of::<f32>()
+            + self.tomb.capacity()
+            + self.neighbors.capacity() * size_of::<Vec<Vec<u32>>>()
+            + layer_slots * size_of::<Vec<u32>>()
+            + neighbor_ids * size_of::<u32>()
+            + self.slot_of.capacity() * (size_of::<(u64, u32)>() + 1)
+            + self.tomb_ids.capacity() * (size_of::<u64>() + 1)
     }
 
     #[inline(always)]
@@ -384,7 +486,7 @@ impl SlabGraphStorage {
         };
         self.ids.push(id);
         self.slot_of.insert(id, slot);
-        self.vectors.extend_from_slice(&vector);
+        self.vectors.push(&vector);
         self.inv_norms.push(inv);
         self.neighbors.push(
             (0..=node_level)
@@ -392,7 +494,67 @@ impl SlabGraphStorage {
                 .collect(),
         );
         self.tomb.push(self.tomb_ids.contains(&id));
+        self.upper_layer_slots += node_level;
         slot
+    }
+}
+
+/// A plan reused at commit time may have been searched on a graph up to
+/// `1 / PLAN_STALENESS_DIVISOR` smaller than the one it is linked into.
+const PLAN_STALENESS_DIVISOR: usize = 8;
+/// Upper bound on the inserts planned concurrently in one wave.
+const MAX_PLAN_WAVE: usize = 256;
+
+/// The read-only half of one insert (#2427): the neighbours chosen for a
+/// vector, searched under the shared lock, waiting to be linked.
+struct PlannedInsert {
+    id: u64,
+    vector: Vec<f32>,
+    level: usize,
+    /// Node count of the graph the plan was searched on.
+    nodes: usize,
+    /// Entry point `(slot, layer)` of that graph.
+    entry: Option<(u32, usize)>,
+    /// Selected neighbours per layer (index = layer) for layers
+    /// `0..=min(level, entry layer)`; `None` when the graph was empty.
+    links: Option<Vec<Vec<(f32, u32)>>>,
+}
+
+impl SlabGraphStorage {
+    /// Greedy descent plus the `ef`-beam and diverse selection on every
+    /// layer the new node links into. Reads the graph only. `None` when the
+    /// graph has no entry point yet.
+    fn plan_links(
+        &self,
+        query: &[f32],
+        level: usize,
+        m: usize,
+        ef: usize,
+    ) -> Option<Vec<Vec<(f32, u32)>>> {
+        let graph = self.read_view();
+        let ep_slot = self.entry_slot?;
+        let ep_layer = self.entry_layer;
+        let q_inv = query_inverse(&graph, query);
+
+        // Greedy descent from the top layer down to level+1.
+        let mut curr_ep = ep_slot;
+        for layer in (level + 1..=ep_layer).rev() {
+            curr_ep = greedy_layer(&graph, query, q_inv, curr_ep, layer).0;
+        }
+
+        // Search from min(level, ep_layer) down to 0, selecting up to M
+        // diverse nearest per layer (Algorithm 4 heuristic).
+        let top = level.min(ep_layer);
+        let mut links = vec![Vec::new(); top + 1];
+        for layer in (0..=top).rev() {
+            let m_layer = if layer == 0 { 2 * m } else { m };
+            let candidates = beam(&graph, query, q_inv, curr_ep, ef, layer, &|_| true);
+            links[layer] = select_diverse(&graph, &candidates, m_layer);
+            if let Some(&(_, nearest)) = candidates.first() {
+                curr_ep = nearest;
+            }
+        }
+        Some(links)
     }
 }
 
@@ -831,15 +993,34 @@ fn encode_graph_bytes(
 pub struct HnswIndex {
     params: HnswParams,
     inner: RwLock<SlabGraphStorage>,
+    /// Test probe: how many construction searches ran at once (#2427).
+    #[cfg(test)]
+    plan_probe: PlanProbe,
+}
+
+#[cfg(test)]
+#[derive(Default)]
+struct PlanProbe {
+    in_flight: std::sync::atomic::AtomicUsize,
+    max_in_flight: std::sync::atomic::AtomicUsize,
 }
 
 impl HnswIndex {
+    /// Estimated heap bytes held by this graph (vectors, neighbour lists,
+    /// id maps, tombstones). O(1); takes the read lock briefly. Reported as
+    /// the `vector_graph` ingest-memory category (#2427).
+    pub fn heap_bytes(&self) -> usize {
+        self.inner.read().unwrap().heap_bytes(self.params.m)
+    }
+
     /// Create a new empty index.
     pub fn new(params: HnswParams) -> Self {
         let inner = SlabGraphStorage::new(params.dim, params.metric);
         Self {
             params,
             inner: RwLock::new(inner),
+            #[cfg(test)]
+            plan_probe: PlanProbe::default(),
         }
     }
 
@@ -926,6 +1107,13 @@ impl HnswIndex {
     }
 
     fn insert_at_level(&self, id: u64, vector: Vec<f32>, node_level: usize) -> Result<()> {
+        self.check_dim(&vector)?;
+        let plan = self.plan_insert(id, vector, node_level);
+        self.commit_planned(plan);
+        Ok(())
+    }
+
+    fn check_dim(&self, vector: &[f32]) -> Result<()> {
         if vector.len() != self.params.dim {
             return Err(XerjError::invalid_mapping(format!(
                 "HNSW insert: vector dim {} != index dim {}",
@@ -933,59 +1121,97 @@ impl HnswIndex {
                 self.params.dim
             )));
         }
+        Ok(())
+    }
 
+    /// Phase 1 of an insert (#2427): the construction search — greedy
+    /// descent, the `ef_construction` beam on every linked layer and the
+    /// diverse-neighbour selection — runs under the SHARED read lock and
+    /// touches nothing. This is where nearly all insert CPU goes, so plans
+    /// for different vectors can be computed concurrently.
+    fn plan_insert(&self, id: u64, vector: Vec<f32>, level: usize) -> PlannedInsert {
+        #[cfg(test)]
+        {
+            use std::sync::atomic::Ordering;
+            let now = self.plan_probe.in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+            self.plan_probe
+                .max_in_flight
+                .fetch_max(now, Ordering::SeqCst);
+        }
+        let g = self.inner.read().unwrap();
+        let links = g.plan_links(&vector, level, self.params.m, self.params.ef_construction);
+        #[cfg(test)]
+        self.plan_probe
+            .in_flight
+            .fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+        PlannedInsert {
+            id,
+            vector,
+            level,
+            nodes: g.ids.len(),
+            entry: g.entry_slot.map(|slot| (slot, g.entry_layer)),
+            links,
+        }
+    }
+
+    /// Phase 2 of an insert: allocate the slot and wire the planned links
+    /// and back-links under the exclusive write lock. All graph mutation
+    /// stays serial, so neighbour lists never race. A plan searched on a
+    /// graph that has since grown by more than `nodes / PLAN_STALENESS_DIVISOR`
+    /// (or whose entry point moved above the plan's top layer) is searched
+    /// again here, so a stale snapshot can never cost link quality beyond
+    /// what a bounded number of concurrent in-flight inserts would.
+    fn commit_planned(&self, plan: PlannedInsert) {
         let m = self.params.m;
         let ef = self.params.ef_construction;
+        let PlannedInsert {
+            id,
+            vector,
+            level,
+            nodes,
+            entry,
+            links,
+        } = plan;
 
         let mut g = self.inner.write().unwrap();
+        let current_entry = g.entry_slot.map(|slot| (slot, g.entry_layer));
+        let grown = g.ids.len().saturating_sub(nodes);
+        let entry_rose =
+            current_entry != entry && entry.is_none_or(|(_, planned_layer)| level > planned_layer);
+        let links = if links.is_none() || entry_rose || grown > nodes / PLAN_STALENESS_DIVISOR {
+            g.plan_links(&vector, level, m, ef)
+        } else {
+            links
+        };
+
         let reuses_entry_identity = g
             .entry_slot
             .is_some_and(|entry| g.ids[entry as usize] == id);
 
-        // Query view of the new vector for the construction beams (the
-        // slab owns the canonical copy after alloc).
-        let q = vector.clone();
-        let q_inv = query_inverse(&g.read_view(), &q);
-
-        // The new slot has no in-edges yet, so allocating it before the
-        // beams run cannot perturb them — and it means the back-link
-        // re-selection below can score the new node like any other
-        // neighbor (the pre-slab code dropped the fresh back-link on the
-        // floor here, disconnecting the graph: layer-0 BFS from the entry
-        // reached 34 of 50k nodes and recall@10 was 0.000).
-        let slot = g.alloc_slot(id, vector, node_level, m);
+        // The new slot has no in-edges yet, and the plan was searched without
+        // it, so allocating it now cannot perturb the planned links — and it
+        // means the back-link re-selection below can score the new node like
+        // any other neighbor (the pre-slab code dropped the fresh back-link
+        // on the floor here, disconnecting the graph: layer-0 BFS from the
+        // entry reached 34 of 50k nodes and recall@10 was 0.000).
+        let slot = g.alloc_slot(id, vector, level, m);
 
         // Handle first insertion.
-        let (ep_slot, ep_layer) = match g.entry_slot {
-            None => {
-                g.entry_slot = Some(slot);
-                g.entry_layer = node_level;
-                debug!("HNSW: first node id={id} level={node_level}");
-                return Ok(());
-            }
-            Some(ep) => (ep, g.entry_layer),
+        let Some(links) = links else {
+            g.entry_slot = Some(slot);
+            g.entry_layer = level;
+            debug!("HNSW: first node id={id} level={level}");
+            return;
         };
 
-        // Greedy descent from the top layer down to node_level+1.
-        let mut curr_ep = ep_slot;
-        for layer in (node_level + 1..=ep_layer).rev() {
-            curr_ep = greedy_layer(&g.read_view(), &q, q_inv, curr_ep, layer).0;
-        }
-
-        // Search and connect from min(node_level, ep_layer) down to 0.
-        for layer in (0..=node_level.min(ep_layer)).rev() {
+        for (layer, selected) in links.iter().enumerate().rev() {
             let m_layer = if layer == 0 { 2 * m } else { m };
-            let candidates = beam(&g.read_view(), &q, q_inv, curr_ep, ef, layer, &|_| true);
-
-            // Select up to M diverse nearest (Algorithm 4 heuristic).
-            let selected = select_diverse(&g.read_view(), &candidates, m_layer);
-
             // Connect new node → selected.
             g.neighbors[slot as usize][layer] = selected.iter().map(|&(_, s)| s).collect();
 
             // Back-links: add new node to each selected neighbor, and
             // re-select when a neighbor exceeds its link budget.
-            for &(_, sel) in &selected {
+            for &(_, sel) in selected {
                 g.neighbors[sel as usize][layer].push(slot);
                 if g.neighbors[sel as usize][layer].len() > m_layer {
                     let dists = backlink_distances(&g.read_view(), sel, layer);
@@ -993,24 +1219,19 @@ impl HnswIndex {
                     g.neighbors[sel as usize][layer] = pruned.iter().map(|&(_, s)| s).collect();
                 }
             }
-
-            if !candidates.is_empty() {
-                curr_ep = candidates[0].1;
-            }
         }
 
         // Update entry point if the new node reached a higher layer.
         if reuses_entry_identity {
-            let (entry, layer) = highest_live_entry(&g.read_view()).unwrap_or((slot, node_level));
+            let (entry, layer) = highest_live_entry(&g.read_view()).unwrap_or((slot, level));
             g.entry_slot = Some(entry);
             g.entry_layer = layer;
-        } else if node_level > g.entry_layer {
+        } else if level > g.entry_layer {
             g.entry_slot = Some(slot);
-            g.entry_layer = node_level;
+            g.entry_layer = level;
         }
 
-        trace!("HNSW: inserted id={id} level={node_level}");
-        Ok(())
+        trace!("HNSW: inserted id={id} level={level}");
     }
 
     /// K-nearest neighbor search.
@@ -1072,25 +1293,57 @@ impl HnswIndex {
             .collect())
     }
 
-    /// Insert a batch of `(id, vector)` items **serially**, one after another.
+    /// Insert a batch of `(id, vector)` items.
     ///
-    /// This is a thin convenience wrapper over [`insert`](Self::insert): it
-    /// forwards each item in order and returns on the first error. It offers
-    /// no parallel speedup over calling `insert` in a loop yourself — despite
-    /// this crate depending on `rayon`, no parallelism happens here.
+    /// The batch goes in waves (#2427). Each wave's construction searches
+    /// ([`plan_insert`](Self::plan_insert), read-only) run in parallel on
+    /// the caller's rayon pool against the same graph snapshot; the plans
+    /// are then committed one by one under the write lock, so every
+    /// neighbour-list mutation stays serial and the graph stays consistent.
+    /// A wave is at most `len / PLAN_STALENESS_DIVISOR` items (capped at
+    /// `MAX_PLAN_WAVE`, at least one), so an item never misses more than
+    /// that fraction of the graph as candidate neighbours — on a small
+    /// graph the waves are single items and insertion is exactly serial.
     ///
-    /// Insertion is kept serial on purpose: concurrent HNSW graph mutation
-    /// races on neighbour-list updates and can corrupt connectivity/recall,
-    /// so the batch API trades throughput for a provably consistent graph.
-    ///
-    /// Each item is validated by `insert` (dimension check); a mismatch
-    /// returns `Err` and leaves already-inserted items in the graph (this
-    /// API is not transactional).
+    /// Items are validated in order (dimension check); on a mismatch the
+    /// items before it are inserted and `Err` is returned (this API is not
+    /// transactional).
     pub fn insert_batch(&self, items: Vec<(u64, Vec<f32>)>) -> Result<()> {
-        for (id, vector) in items {
-            self.insert(id, vector)?;
+        use rayon::prelude::*;
+
+        let mut items = items;
+        let invalid = items
+            .iter()
+            .position(|(_, vector)| vector.len() != self.params.dim);
+        let error = invalid.map(|at| self.check_dim(&items[at].1).unwrap_err());
+        if let Some(at) = invalid {
+            items.truncate(at);
         }
-        Ok(())
+
+        let mut pending = items
+            .into_iter()
+            .map(|(id, vector)| (id, vector, self.random_level()))
+            .peekable();
+        while pending.peek().is_some() {
+            let wave_len = (self.len() / PLAN_STALENESS_DIVISOR).clamp(1, MAX_PLAN_WAVE);
+            let wave: Vec<(u64, Vec<f32>, usize)> = pending.by_ref().take(wave_len).collect();
+            let plans: Vec<PlannedInsert> = if wave.len() == 1 {
+                wave.into_iter()
+                    .map(|(id, vector, level)| self.plan_insert(id, vector, level))
+                    .collect()
+            } else {
+                wave.into_par_iter()
+                    .map(|(id, vector, level)| self.plan_insert(id, vector, level))
+                    .collect()
+            };
+            for plan in plans {
+                self.commit_planned(plan);
+            }
+        }
+        match error {
+            Some(error) => Err(error),
+            None => Ok(()),
+        }
     }
 
     // ── Persistence ──────────────────────────────────────────────────────
@@ -1268,6 +1521,8 @@ impl HnswIndex {
         Ok(Self {
             params,
             inner: RwLock::new(g),
+            #[cfg(test)]
+            plan_probe: PlanProbe::default(),
         })
     }
 
@@ -1392,6 +1647,62 @@ mod ordered_float {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #2427: the slab's vector storage must grow in bounded chunks. One
+    /// contiguous `Vec<f32>` doubled on every grow; at the 1 GB gate's ~393K
+    /// 384-dim vectors that is a single 384 MiB -> 768 MiB realloc with both
+    /// buffers live, the largest untracked allocation in the ingest heap
+    /// profile. Chunks keep every allocation <= VECTOR_CHUNK_BYTES and the
+    /// unused tail <= one chunk, and vectors read back intact across chunk
+    /// boundaries.
+    #[test]
+    fn slab_vector_storage_grows_in_bounded_chunks_2427() {
+        let dim = 384;
+        let per_vector = dim * std::mem::size_of::<f32>();
+        let n = 3 * (VECTOR_CHUNK_BYTES / per_vector) + 7;
+        let mut slab = SlabGraphStorage::new(dim, DistanceMetric::Cosine);
+        for i in 0..n {
+            let v: Vec<f32> = (0..dim).map(|d| (i * dim + d) as f32).collect();
+            slab.alloc_slot(i as u64, v, 0, 16);
+        }
+        let view = slab.read_view();
+        for i in (0..n).step_by(97).chain([n - 1]) {
+            let v = view.vector(i as u32);
+            assert_eq!(v.len(), dim);
+            assert_eq!(v[0], (i * dim) as f32, "slot {i}");
+            assert_eq!(v[dim - 1], (i * dim + dim - 1) as f32, "slot {i}");
+        }
+        let largest = slab.vectors.largest_allocation_bytes();
+        assert!(
+            largest <= VECTOR_CHUNK_BYTES,
+            "largest vector allocation {largest} B exceeds the {VECTOR_CHUNK_BYTES} B chunk bound"
+        );
+        let used = n * per_vector;
+        let slack = slab.vectors.reserved_bytes() - used;
+        assert!(
+            slack <= VECTOR_CHUNK_BYTES + 4096,
+            "vector storage reserves {slack} B beyond the {used} B in use"
+        );
+        assert!(slab.heap_bytes(16) >= used);
+    }
+
+    /// #2427: `HnswIndex::heap_bytes` is what the `vector_graph` trace
+    /// category reports; it must cover the vectors and grow with inserts.
+    #[test]
+    fn hnsw_heap_bytes_tracks_inserted_vectors_2427() {
+        let dim = 16;
+        let index = HnswIndex::new(HnswParams::new(dim, DistanceMetric::Cosine));
+        let empty = index.heap_bytes();
+        for i in 0..200u64 {
+            let v: Vec<f32> = (0..dim)
+                .map(|d| ((i as usize * 31 + d) % 17) as f32 + 1.0)
+                .collect();
+            index.insert(i, v).unwrap();
+        }
+        let full = index.heap_bytes();
+        assert!(full > empty);
+        assert!(full >= 200 * dim * std::mem::size_of::<f32>());
+    }
 
     struct FragmentedTestGraph {
         ids: Vec<u64>,
@@ -1539,8 +1850,7 @@ mod tests {
             buffer
                 .write_u32::<LittleEndian>(layers.len().saturating_sub(1) as u32)
                 .unwrap();
-            let start = slot as usize * graph.dim;
-            for &value in &graph.vectors[start..start + graph.dim] {
+            for &value in graph.vectors.get(slot) {
                 buffer.write_f32::<LittleEndian>(value).unwrap();
             }
             for neighbors in layers {
@@ -1586,8 +1896,7 @@ mod tests {
             1.0
         };
         let distance = |slot: u32| {
-            let start = slot as usize * graph.dim;
-            let vector = &graph.vectors[start..start + graph.dim];
+            let vector = graph.vectors.get(slot);
             match graph.metric {
                 DistanceMetric::Cosine => {
                     1.0 - dot_scalar(query, vector)
@@ -1727,6 +2036,124 @@ mod tests {
             .unwrap_err();
         assert!(matches!(err, XerjError::InvalidMapping { .. }));
         assert_eq!(idx.len(), 1, "only the pre-error item was inserted");
+    }
+
+    /// #2427: a batch's construction searches run concurrently on the
+    /// caller's rayon pool (only the link writes are serial), and the
+    /// resulting graph keeps the recall of a serial build.
+    #[test]
+    fn insert_batch_plans_in_parallel_and_keeps_recall_2427() {
+        let dim = 16;
+        let n = 4000usize;
+        let vector_for = |i: usize| -> Vec<f32> {
+            (0..dim as u64)
+                .map(|d| {
+                    let h = (i as u64 * dim as u64 + d + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                    ((h >> 40) % 2001) as f32 / 1000.0 - 1.0
+                })
+                .collect()
+        };
+        let idx = make_index(dim);
+        let items: Vec<(u64, Vec<f32>)> = (0..n).map(|i| (i as u64, vector_for(i))).collect();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(4)
+            .build()
+            .unwrap();
+        pool.install(|| idx.insert_batch(items)).unwrap();
+        assert_eq!(idx.len(), n);
+        let max_in_flight = idx
+            .plan_probe
+            .max_in_flight
+            .load(std::sync::atomic::Ordering::SeqCst);
+        assert!(
+            max_in_flight > 1,
+            "construction searches never overlapped (max in flight {max_in_flight})"
+        );
+
+        let cosine = |a: &[f32], b: &[f32]| compute_distance(DistanceMetric::Cosine, a, b);
+        let mut hits = 0usize;
+        let queries = 50usize;
+        for q in 0..queries {
+            let query = vector_for(n + q);
+            let mut exact: Vec<(f32, u64)> = (0..n)
+                .map(|i| (cosine(&query, &vector_for(i)), i as u64))
+                .collect();
+            exact.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            let truth: HashSet<u64> = exact.iter().take(10).map(|&(_, id)| id).collect();
+            let found = idx.search(&query, 10, 100).unwrap();
+            hits += found.iter().filter(|(id, _)| truth.contains(id)).count();
+        }
+        let recall = hits as f64 / (queries * 10) as f64;
+        assert!(recall >= 0.95, "recall@10 {recall:.3} < 0.95");
+    }
+
+    /// #2427: inserts from many threads at once (plans racing other
+    /// threads' commits, including stale-plan re-searches) leave a
+    /// consistent graph: every node is present, neighbour lists are in
+    /// bounds and within their degree caps, and recall holds.
+    #[test]
+    fn concurrent_inserts_keep_the_graph_consistent_2427() {
+        let dim = 16;
+        let threads = 8usize;
+        let per_thread = 400usize;
+        let n = threads * per_thread;
+        let vector_for = |i: usize| -> Vec<f32> {
+            (0..dim as u64)
+                .map(|d| {
+                    let h = (i as u64 * dim as u64 + d + 7).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                    ((h >> 40) % 2001) as f32 / 1000.0 - 1.0
+                })
+                .collect()
+        };
+        let idx = std::sync::Arc::new(make_index(dim));
+        std::thread::scope(|scope| {
+            for t in 0..threads {
+                let idx = std::sync::Arc::clone(&idx);
+                scope.spawn(move || {
+                    for i in (t * per_thread)..((t + 1) * per_thread) {
+                        idx.insert(i as u64, vector_for(i)).unwrap();
+                    }
+                });
+            }
+        });
+        assert_eq!(idx.len(), n);
+        {
+            let g = idx.inner.read().unwrap();
+            let m = idx.params.m;
+            for (slot, layers) in g.neighbors.iter().enumerate() {
+                for (layer, list) in layers.iter().enumerate() {
+                    let cap = if layer == 0 { 2 * m } else { m };
+                    assert!(list.len() <= cap, "slot {slot} layer {layer} over cap");
+                    for &neighbor in list {
+                        assert!((neighbor as usize) < n);
+                        assert_ne!(neighbor as usize, slot, "self link");
+                        assert!(g.neighbors[neighbor as usize].len() > layer);
+                    }
+                }
+            }
+        }
+        let cosine = |a: &[f32], b: &[f32]| compute_distance(DistanceMetric::Cosine, a, b);
+        let mut hits = 0usize;
+        let queries = 50usize;
+        for q in 0..queries {
+            let query = vector_for(n + q);
+            let mut exact: Vec<(f32, u64)> = (0..n)
+                .map(|i| (cosine(&query, &vector_for(i)), i as u64))
+                .collect();
+            exact.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+            let truth: HashSet<u64> = exact.iter().take(10).map(|&(_, id)| id).collect();
+            let found = idx.search(&query, 10, 100).unwrap();
+            hits += found.iter().filter(|(id, _)| truth.contains(id)).count();
+        }
+        let recall = hits as f64 / (queries * 10) as f64;
+        assert!(recall >= 0.95, "recall@10 {recall:.3} < 0.95");
+        for i in (0..n).step_by(97) {
+            let found = idx.search(&vector_for(i), 1, 64).unwrap();
+            assert_eq!(
+                found[0].0, i as u64,
+                "node {i} not found as its own nearest"
+            );
+        }
     }
 
     #[test]
@@ -1927,8 +2354,7 @@ mod tests {
                     view.current_slot(view.external_id(slot)),
                     slab.slot_of.get(&slab.ids[slot as usize]).copied()
                 );
-                let start = slot as usize * slab.dim;
-                assert_eq!(view.vector(slot), &slab.vectors[start..start + slab.dim]);
+                assert_eq!(view.vector(slot), slab.vectors.get(slot));
                 assert_eq!(view.inverse_norm(slot), slab.inv_norms[slot as usize]);
                 assert_eq!(view.layer_count(slot), slab.neighbors[slot as usize].len());
                 assert_eq!(view.tombstoned(slot), slab.tomb[slot as usize]);

@@ -167,15 +167,26 @@ pub fn merge_reservation_bytes(planned_input_bytes: u64, on_disk_bytes: u64) -> 
 ///
 /// * `watermark == 0` (breaker off) or `observed_rss == 0` (no probe):
 ///   start.
-/// * No merge in flight anywhere in the process: start one, so merging can
-///   always make progress, unless the breaker is engaged and the merge is a
-///   background one. A `forced` merge (`_forcemerge`) is still allowed as
-///   the single in-flight merge while engaged; it is a deliberate operator
-///   request and it waits on its own.
+/// * No merge in flight anywhere in the process:
+///   * a `forced` merge (`_forcemerge`) starts, engaged or not; it is a
+///     deliberate operator request and it waits on its own;
+///   * a background merge does not start while the breaker is engaged;
+///   * otherwise a background merge starts only if its reservation fits:
+///     `observed_rss + request` stays under the watermark. This is the
+///     headroom check the lone merge used to skip (#2427, 1 GB gate on
+///     `0eaa8af9`: the ingest node launched lone batches whose reservation
+///     was larger than the room left and peaked at 3.5 GB against a
+///     3,072 MB cap). Progress is still guaranteed:
+///     `headroom_wait_expired` admits the batch once the governor has held
+///     lone merges back for [`MERGE_HEADROOM_MAX_WAIT`], and in the
+///     meantime the governor shrinks the next batches to the headroom
+///     ([`pressure_cap_for_headroom`]) so a smaller batch usually fits
+///     long before that.
 /// * Breaker engaged: defer. Background merges are the one memory consumer
 ///   the node can postpone, so they wait for the drain.
 /// * Otherwise start only if `observed_rss + reserved + request` stays under
 ///   the watermark.
+#[allow(clippy::too_many_arguments)]
 pub fn decide_merge_admission(
     watermark: u64,
     observed_rss: u64,
@@ -184,12 +195,19 @@ pub fn decide_merge_admission(
     breaker_engaged: bool,
     request: u64,
     forced: bool,
+    headroom_wait_expired: bool,
 ) -> bool {
     if watermark == 0 || observed_rss == 0 {
         return true;
     }
     if in_flight == 0 {
-        return !breaker_engaged || forced;
+        if forced {
+            return true;
+        }
+        if breaker_engaged {
+            return false;
+        }
+        return headroom_wait_expired || observed_rss.saturating_add(request) < watermark;
     }
     if breaker_engaged {
         return false;
@@ -198,6 +216,35 @@ pub fn decide_merge_admission(
         .saturating_add(reserved)
         .saturating_add(request)
         < watermark
+}
+
+/// The adaptive batch input cap after a lone background batch was held
+/// back because its reservation did not fit the headroom (#2427).
+///
+/// `input_bytes` is the batch's planned input and `request` the bytes it
+/// asked to reserve ([`merge_reservation_bytes`]); `headroom` is what is
+/// left under the merge-pool ceiling. The next batches are planned at the
+/// same input-to-reservation ratio scaled down to the headroom, so the
+/// planner splits the work into batches that fit instead of retrying the
+/// one that did not. `current == 0` means no adaptive cap yet. Never below
+/// 1; the planner still builds a minimum-count batch under any cap, and
+/// [`decide_merge_admission`]'s bounded wait lets that one through.
+pub fn pressure_cap_for_headroom(
+    current: u64,
+    input_bytes: u64,
+    request: u64,
+    headroom: u64,
+) -> u64 {
+    let scaled = (u128::from(input_bytes) * u128::from(headroom) / u128::from(request.max(1)))
+        .min(u128::from(u64::MAX)) as u64;
+    // Leave a little room: a batch planned exactly at the headroom would
+    // still be refused by the strict `<` check.
+    let target = (scaled - scaled / 8).max(1);
+    if current == 0 {
+        target
+    } else {
+        current.min(target)
+    }
 }
 
 /// Whether an in-flight background merge batch must stop (#2427).
@@ -243,9 +290,12 @@ pub const MERGE_HEADROOM_MAX_WAIT: std::time::Duration = std::time::Duration::fr
 /// grew RSS by 400-900 MB, and every one of the run's over-cap samples
 /// (3,100-3,502 MB against 3,072 MB) is one of those batches.
 ///
-/// A lone background batch now waits while `observed_rss` is at or above
-/// `ceiling` (the merge-pool ceiling), so it starts after the drain, with
-/// the batch's growth room under the cap. The wait is bounded by `max_wait`
+/// A lone background batch now waits while `observed_rss + request` is at
+/// or above `ceiling` (the merge-pool ceiling), so it starts after the
+/// drain, with the batch's growth room under the cap. `request` is the
+/// batch's reservation; `0` checks RSS alone. Including it closes the gap
+/// where RSS sat just under the ceiling and a batch whose reservation was
+/// larger than the room left still started alone. The wait is bounded by `max_wait`
 /// (`waited` is how long lone merges have been held back), so a node whose
 /// live set sits above the ceiling still compacts. `_forcemerge`, a merge
 /// beside others (already checked against the ledger), and an unknown RSS
@@ -253,6 +303,7 @@ pub const MERGE_HEADROOM_MAX_WAIT: std::time::Duration = std::time::Duration::fr
 pub fn lone_merge_waits_for_headroom(
     observed_rss: u64,
     ceiling: u64,
+    request: u64,
     in_flight: u64,
     forced: bool,
     waited: std::time::Duration,
@@ -262,7 +313,7 @@ pub fn lone_merge_waits_for_headroom(
         && in_flight == 0
         && ceiling > 0
         && observed_rss > 0
-        && observed_rss >= ceiling
+        && observed_rss.saturating_add(request) >= ceiling
         && waited < max_wait
 }
 
@@ -349,6 +400,63 @@ pub fn effective_batch_cap_bytes(static_cap: u64, pressure_cap: u64) -> u64 {
     }
 }
 
+/// The memory line a background merge's output-write step is checked
+/// against (#2427, #2468).
+///
+/// Normally that is the merge-pool `ceiling` (the process limit less the
+/// search-read reserve). After [`MERGE_YIELD_STREAK_LIMIT`] yields in a row
+/// with nothing merged, a batch of at most
+/// [`MERGE_YIELD_STREAK_MAX_INPUT_BYTES`] is checked against the hard
+/// line `limit` instead. The governor passes [`merge_write_hard_line`], the
+/// process limit capped at the memory watermark.
+///
+/// Without this a search node whose resting RSS sits between the ceiling
+/// and the watermark never merges. In the #2427 1 GB gate the search
+/// node's floor was 2.3-2.5 GB against a 2,458 MB ceiling, so every write
+/// step was refused (70 yields of 1-10 MB batches, retried every 5 s, none
+/// completed). The #2468 streak exemption did not apply, because it only
+/// covers batches the in-flight yield rule stops, and that rule needs RSS
+/// at the watermark. Each retry decoded its inputs again, which kept RSS
+/// near the watermark. The hard limit still bounds the write, and searches
+/// are refused only at that limit.
+pub fn merge_write_limit_after(
+    ceiling: u64,
+    limit: u64,
+    forced: bool,
+    input_bytes: u64,
+    yield_streak: u64,
+) -> u64 {
+    if !forced
+        && limit > ceiling
+        && yield_streak >= MERGE_YIELD_STREAK_LIMIT
+        && input_bytes > 0
+        && input_bytes <= MERGE_YIELD_STREAK_MAX_INPUT_BYTES
+    {
+        limit
+    } else {
+        ceiling
+    }
+}
+
+/// The hard line [`merge_write_limit_after`] may relax a small batch's write
+/// to after a yield streak: the process `limit`, but never above the memory
+/// `watermark` (#2427).
+///
+/// Admitting against the limit let a write take RSS from below the watermark
+/// to just under the limit. The parent breaker trips at the watermark, so the
+/// write itself could turn ingest into HTTP 429s until the next drain: the
+/// gate-f case (2,517 MB resting plus a 408 MB write) fits under 3,072 MB
+/// but ends 7 MB above the 2,918 MB watermark. The watermark still sits above the merge-pool
+/// ceiling, so the starvation relief #2468 added keeps working. `0` for
+/// either input keeps the other (no limit or no watermark configured).
+pub fn merge_write_hard_line(limit: u64, watermark: u64) -> u64 {
+    if limit == 0 || watermark == 0 {
+        limit
+    } else {
+        limit.min(watermark)
+    }
+}
+
 /// Multiplier on the merged stored JSON for the merge output-write step
 /// (#2427).
 ///
@@ -392,8 +500,9 @@ pub fn merge_write_phase_bytes(json_bytes: u64, fts_bytes: u64) -> u64 {
 /// cannot stop without throwing the batch away, so the check runs before
 /// it starts. `extra` is [`merge_write_phase_bytes`], and `observed_rss`
 /// already includes what the batch holds. The step is refused when
-/// `observed_rss + extra` would reach the process `limit` (the hard limit,
-/// not the watermark). A refused batch yields like any other: no output,
+/// `observed_rss + extra` would reach `limit`: the merge-pool ceiling, or
+/// after a yield streak [`merge_write_hard_line`] (the process limit capped
+/// at the watermark). A refused batch yields like any other: no output,
 /// inputs kept, and later batches narrowed.
 ///
 /// These always run:
@@ -419,6 +528,96 @@ pub fn decide_merge_write(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #2427: after a yield streak a small write is admitted up to the
+    /// watermark, not up to the process limit, so it cannot by itself push
+    /// the node into the parent breaker band.
+    #[test]
+    fn a_streak_write_is_capped_at_the_watermark() {
+        const MIB: u64 = 1024 * 1024;
+        let ceiling = 2458 * MIB;
+        let limit = 3072 * MIB;
+        let watermark = 2918 * MIB;
+        let small = 6 * MIB;
+        let at = MERGE_YIELD_STREAK_LIMIT;
+        let hard = merge_write_hard_line(limit, watermark);
+        assert_eq!(hard, watermark);
+        let line = merge_write_limit_after(ceiling, hard, false, small, at);
+        assert_eq!(line, watermark);
+        // Gate f: 2,517 MB + 408 MB ends above the watermark — refused.
+        assert!(!decide_merge_write(
+            2517 * MIB,
+            line,
+            408 * MIB,
+            false,
+            false
+        ));
+        // A write that ends under the watermark still runs, above the
+        // ceiling: the #2468 starvation relief is kept.
+        assert!(decide_merge_write(
+            2517 * MIB,
+            line,
+            300 * MIB,
+            false,
+            false
+        ));
+        assert!(!decide_merge_write(
+            2517 * MIB,
+            ceiling,
+            300 * MIB,
+            false,
+            false
+        ));
+        // Unconfigured inputs keep the other side.
+        assert_eq!(merge_write_hard_line(limit, 0), limit);
+        assert_eq!(merge_write_hard_line(0, watermark), 0);
+        assert_eq!(merge_write_hard_line(limit, limit + MIB), limit);
+    }
+
+    #[test]
+    fn a_small_batch_write_uses_the_hard_limit_after_a_yield_streak() {
+        const MIB: u64 = 1024 * 1024;
+        let ceiling = 2458 * MIB;
+        let limit = 3072 * MIB;
+        let small = 6 * MIB;
+        // Before the streak: the merge-pool ceiling.
+        for streak in 0..MERGE_YIELD_STREAK_LIMIT {
+            assert_eq!(
+                merge_write_limit_after(ceiling, limit, false, small, streak),
+                ceiling
+            );
+        }
+        // At the streak: the hard limit, for a small background batch only.
+        let at = MERGE_YIELD_STREAK_LIMIT;
+        assert_eq!(
+            merge_write_limit_after(ceiling, limit, false, small, at),
+            limit
+        );
+        let large = MERGE_YIELD_STREAK_MAX_INPUT_BYTES + 1;
+        assert_eq!(
+            merge_write_limit_after(ceiling, limit, false, large, at),
+            ceiling
+        );
+        assert_eq!(
+            merge_write_limit_after(ceiling, limit, false, 0, at),
+            ceiling
+        );
+        assert_eq!(
+            merge_write_limit_after(ceiling, limit, true, small, at),
+            ceiling
+        );
+        // Never below the ceiling.
+        assert_eq!(
+            merge_write_limit_after(ceiling, 0, false, small, at),
+            ceiling
+        );
+        // The gate-f case: rss 2,517 MB plus a 408 MB write fits under the
+        // hard limit but not under the ceiling.
+        let (rss, extra) = (2517 * MIB, 408 * MIB);
+        assert!(!decide_merge_write(rss, ceiling, extra, false, false));
+        let line = merge_write_limit_after(ceiling, limit, false, small, at);
+        assert!(decide_merge_write(rss, line, extra, false, false));
+    }
 
     #[test]
     fn a_background_merge_yields_only_when_engaged_at_the_limit() {
@@ -617,6 +816,7 @@ mod tests {
             5,
             true,
             4_000 * MIB,
+            false,
             false
         ));
         assert!(decide_merge_admission(
@@ -626,6 +826,7 @@ mod tests {
             5,
             true,
             4_000 * MIB,
+            false,
             false
         ));
     }
@@ -641,6 +842,7 @@ mod tests {
             2_700 * MIB,
             ceiling,
             0,
+            0,
             false,
             Duration::ZERO,
             max
@@ -648,6 +850,7 @@ mod tests {
         assert!(lone_merge_waits_for_headroom(
             ceiling,
             ceiling,
+            0,
             0,
             false,
             max - Duration::from_millis(1),
@@ -657,6 +860,7 @@ mod tests {
         assert!(!lone_merge_waits_for_headroom(
             ceiling - 1,
             ceiling,
+            0,
             0,
             false,
             Duration::ZERO,
@@ -668,6 +872,7 @@ mod tests {
             2_700 * MIB,
             ceiling,
             0,
+            0,
             false,
             max,
             max
@@ -678,6 +883,7 @@ mod tests {
             2_700 * MIB,
             ceiling,
             0,
+            0,
             true,
             Duration::ZERO,
             max
@@ -685,6 +891,7 @@ mod tests {
         assert!(!lone_merge_waits_for_headroom(
             2_700 * MIB,
             ceiling,
+            0,
             1,
             false,
             Duration::ZERO,
@@ -694,12 +901,14 @@ mod tests {
             0,
             ceiling,
             0,
+            0,
             false,
             Duration::ZERO,
             max
         ));
         assert!(!lone_merge_waits_for_headroom(
             2_700 * MIB,
+            0,
             0,
             0,
             false,
@@ -709,17 +918,125 @@ mod tests {
     }
 
     #[test]
-    fn merge_admission_always_lets_one_merge_run_when_not_engaged() {
-        // Even an estimate that alone exceeds the watermark starts when no
-        // other merge is in flight: merging must make progress.
-        assert!(decide_merge_admission(
-            2_850 * MIB,
+    fn a_lone_merge_needs_headroom_but_always_makes_progress() {
+        let wm = 2_850 * MIB;
+        // #2427 1 GB gate: a lone 400 MiB reservation at 2,700 MiB RSS
+        // would cross the watermark. It used to start because nothing
+        // else was merging; now it is held back while the wait runs.
+        assert!(!decide_merge_admission(
+            wm,
             2_700 * MIB,
             0,
             0,
             false,
             400 * MIB,
+            false,
             false
+        ));
+        // A batch that fits the headroom starts alone as before.
+        assert!(decide_merge_admission(
+            wm,
+            2_700 * MIB,
+            0,
+            0,
+            false,
+            100 * MIB,
+            false,
+            false
+        ));
+        // Progress: once the bounded wait has expired the lone batch
+        // starts even though it does not fit.
+        assert!(decide_merge_admission(
+            wm,
+            2_700 * MIB,
+            0,
+            0,
+            false,
+            400 * MIB,
+            false,
+            true
+        ));
+        // `_forcemerge` is never held back by the headroom check.
+        assert!(decide_merge_admission(
+            wm,
+            2_700 * MIB,
+            0,
+            0,
+            false,
+            400 * MIB,
+            true,
+            false
+        ));
+        // The expired wait does not override an engaged breaker.
+        assert!(!decide_merge_admission(
+            wm,
+            2_900 * MIB,
+            0,
+            0,
+            true,
+            8 * MIB,
+            false,
+            true
+        ));
+    }
+
+    #[test]
+    fn a_held_back_lone_merge_shrinks_the_next_batches_to_the_headroom() {
+        // 50 MiB of planned input asked for 400 MiB; 150 MiB is left.
+        let cap = pressure_cap_for_headroom(0, 50 * MIB, 400 * MIB, 150 * MIB);
+        // Scaled to the headroom (18.75 MiB) less an eighth for the strict
+        // check: the next batch's reservation fits.
+        assert!(cap < 50 * MIB * 150 / 400);
+        assert!(cap * 400 / 50 < 150 * MIB);
+        assert!(cap > 0);
+        // An existing tighter cap is kept; a looser one is narrowed.
+        assert_eq!(
+            pressure_cap_for_headroom(MIB, 50 * MIB, 400 * MIB, 150 * MIB),
+            MIB
+        );
+        assert_eq!(
+            pressure_cap_for_headroom(512 * MIB, 50 * MIB, 400 * MIB, 150 * MIB),
+            cap
+        );
+        // No headroom or an unknown request never yields a zero cap.
+        assert_eq!(pressure_cap_for_headroom(0, 50 * MIB, 400 * MIB, 0), 1);
+        assert!(pressure_cap_for_headroom(0, 50 * MIB, 0, 150 * MIB) > 0);
+    }
+
+    #[test]
+    fn a_lone_merge_waits_when_its_reservation_does_not_fit_under_the_ceiling() {
+        use std::time::Duration;
+        let ceiling = 2_458 * MIB;
+        let max = MERGE_HEADROOM_MAX_WAIT;
+        // RSS just under the ceiling, but the batch would take it over.
+        assert!(lone_merge_waits_for_headroom(
+            2_400 * MIB,
+            ceiling,
+            400 * MIB,
+            0,
+            false,
+            Duration::ZERO,
+            max
+        ));
+        // The same batch with room for it starts.
+        assert!(!lone_merge_waits_for_headroom(
+            1_900 * MIB,
+            ceiling,
+            400 * MIB,
+            0,
+            false,
+            Duration::ZERO,
+            max
+        ));
+        // Bounded.
+        assert!(!lone_merge_waits_for_headroom(
+            2_400 * MIB,
+            ceiling,
+            400 * MIB,
+            0,
+            false,
+            max,
+            max
         ));
     }
 
@@ -735,6 +1052,7 @@ mod tests {
             1,
             false,
             reserved,
+            false,
             false
         ));
         // At 2,200 MiB RSS a second one would cross the watermark.
@@ -745,6 +1063,7 @@ mod tests {
             1,
             false,
             reserved,
+            false,
             false
         ));
         // And a third does not fit at all once two are reserved.
@@ -755,6 +1074,7 @@ mod tests {
             2,
             false,
             reserved,
+            false,
             false
         ));
     }
@@ -770,6 +1090,7 @@ mod tests {
             0,
             true,
             8 * MIB,
+            false,
             false
         ));
         assert!(!decide_merge_admission(
@@ -779,6 +1100,7 @@ mod tests {
             1,
             true,
             8 * MIB,
+            false,
             false
         ));
         // A forced merge may run alone while engaged, but not beside another.
@@ -789,7 +1111,8 @@ mod tests {
             0,
             true,
             8 * MIB,
-            true
+            true,
+            false
         ));
         assert!(!decide_merge_admission(
             wm,
@@ -798,7 +1121,8 @@ mod tests {
             1,
             true,
             8 * MIB,
-            true
+            true,
+            false
         ));
     }
 

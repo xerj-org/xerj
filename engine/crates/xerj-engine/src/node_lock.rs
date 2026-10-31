@@ -817,7 +817,13 @@ mod tests {
 
     #[cfg(all(unix, not(miri)))]
     fn child_errno() -> libc::c_int {
-        unsafe { *libc::__errno_location() }
+        // #2473 follow-up: `__errno_location` is glibc-only. Naming it made the
+        // whole lib-test target fail to compile on macOS and the BSDs
+        // (`cannot find function __errno_location in crate libc`), which is
+        // every test in this crate, not just the fork ones. `last_os_error`
+        // reads the same thread-local errno through the standard library's
+        // per-platform accessor and allocates nothing.
+        std::io::Error::last_os_error().raw_os_error().unwrap_or(0)
     }
 
     #[cfg(all(unix, not(miri)))]

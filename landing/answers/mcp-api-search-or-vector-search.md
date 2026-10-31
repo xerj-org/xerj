@@ -2,15 +2,15 @@
 ---
 title: "API search or vector search for an agent"
 canonical: "https://xerj.org/answers/mcp-api-search-or-vector-search"
-updated: "2026-10-20"
+updated: "2026-10-28"
 source: "content/answers/mcp-api-search-or-vector-search.md"
 ---
 
 # Should an agent use API search or vector search?
 
-**Short answer** (updated 2026-10-20): Which should an agent call, MCP or API search, or vector search? Start with xerj_search, because XERJ's default embedder is lexical feature hashing. In our MCP capture the same question through 4 XERJ tools returned 3 different result sets, and the fused xerj_hybrid_search call returned 6 documents against 4, 3 and 3 for the single-signal tools.
+**Short answer** (updated 2026-10-28): Which should an agent call, MCP or API search, or vector search? Start with xerj_search, because XERJ's default embedder is lexical feature hashing. In our MCP capture the same question through 4 XERJ tools returned 3 different result sets, and the fused xerj_hybrid_search call returned 6 documents against 4, 3 and 3 for the single-signal tools.
 
-**Key number:** Four of the 17 XERJ MCP tools retrieve: `xerj_search`, `xerj_semantic_search`, `xerj_vector_search` and `xerj_hybrid_search`. (as of 2026-10-19; source: [landing/docs/agents/schemas/mcp-tools.json](https://github.com/xerj-org/xerj/blob/main/landing/docs/agents/schemas/mcp-tools.json))
+**Key number:** Four of the 23 XERJ MCP tools on main run the four retrieval modes: `xerj_search`, `xerj_semantic_search`, `xerj_vector_search` and `xerj_hybrid_search`. (as of 2026-10-28; source: [landing/docs/agents/schemas/mcp-tools.json](https://github.com/xerj-org/xerj/blob/main/landing/docs/agents/schemas/mcp-tools.json))
 
 **TL;DR** — Start with `xerj_search`, because XERJ's default embedder is lexical feature hashing. In our MCP capture the same question through 4 XERJ tools returned 3 different result sets. The fused `xerj_hybrid_search` call returned 6 documents against 4, 3 and 3 for the single-signal tools.
 
@@ -176,6 +176,8 @@ No. It is 20 documents and 1 question through 4 tools. Read the ids as a shape, 
 - [What's the actual difference between a vector database and full-text search when I have a folder?](/answers/vector-database-vs-full-text-search)
 - [When should I turn on neural embeddings, and when is the lexical default enough?](/answers/do-search-embeddings-help)
 - [Can ChatGPT search a folder on my laptop, or do I need something else?](/answers/give-chatgpt-claude-local-file-access)
+- [How do I reduce embedding API cost?](/answers/reduce-embedding-api-cost)
+- [What is Reciprocal Rank Fusion?](/answers/reciprocal-rank-fusion-when-to-use)
 - [How do I build RAG without a vector database?](/answers/rag-without-vector-database) (same intent: retrieval research and eval)
-- [What is Reciprocal Rank Fusion?](/answers/reciprocal-rank-fusion-when-to-use) (same intent: retrieval research and eval)
 - [How does XERJ combine BM25 and kNN?](/answers/how-xerj-combines-search) (same intent: retrieval research and eval)
+- [I want local search that works offline, no cloud embeddings. What are my options?](/answers/local-embeddings-without-openai-api) (same intent: retrieval research and eval)

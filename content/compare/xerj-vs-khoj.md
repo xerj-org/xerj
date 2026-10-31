@@ -7,7 +7,7 @@ cluster: "Comparison: personal search"
 question: "What's a simpler alternative to Khoj if I only need search and memory?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-10-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -32,6 +32,7 @@ links_out:
   - "give-chatgpt-claude-local-file-access"
   - "search-file-contents-in-a-folder"
   - "agent-memory-without-postgres-qdrant"
+  - "xerj-vs-agent-memory-tools"
 evidence:
   - claim: "Khoj is an open-source personal application whose documented surface includes chat with local or online models, custom agents, scheduled research delivered by email, voice chat, image generation and clients for browser, Obsidian, Emacs, desktop, phone and WhatsApp."
     source: "https://docs.khoj.dev/features/all-features"
@@ -49,7 +50,7 @@ faq:
   - q: "What is Khoj?"
     a: "A self-hostable personal application with chat, custom agents, scheduled research, voice and image generation, plus clients for browser, Obsidian, Emacs, desktop, phone and WhatsApp."
   - q: "Khoj vs a local search engine for an agent?"
-    a: "Khoj is the finished application. A local search engine is the layer underneath: XERJ has no chat window, no model of its own and no user interface."
+    a: "Khoj is the finished application. A local search engine is the layer underneath: XERJ focuses on retrieval, with a browser Console and an optional neural embedder; it does not provide a conversational personal assistant."
   - q: "Self-hosted second brain vs a folder index?"
     a: "Pick the second brain if you want the finished application. Pick the folder index if you already run an agent and need it to search local files."
   - q: "What does Khoj need to run?"
@@ -72,7 +73,7 @@ Khoj is not a search library with a demo page attached. Its own documentation de
 
 It also ships clients: browser, desktop, phone, Obsidian, Emacs and a WhatsApp path. That is a product, and building it is a different amount of work from building an index.
 
-XERJ has none of that. There is no chat window, no user interface, no model of its own and no phone client. If you want the finished application, Khoj is the honest answer and this page will not argue.
+XERJ provides a browser Console for search and administration and an optional neural embedder. It does not provide a conversational personal assistant or a phone client. If you want the finished application, Khoj is the honest answer and this page will not argue.
 
 ## What each one actually is
 
@@ -115,7 +116,7 @@ Read that plainly: on the shipped default, Khoj's retrieval understands a paraph
 
 Khoj can connect to a Model Context Protocol server built by somebody else, which makes it a client of that ecosystem. Its documentation does not describe Khoj exposing an MCP server of its own, and it does expose an HTTP API with key or bearer authentication for third-party applications.
 
-XERJ sits on the other side of that line. `xerj mcp` is a stdio MCP server in the same binary, serving 22 tools, and `/_memory/{ns}` gives an agent namespaced memory in the engine.
+XERJ sits on the other side of that line. `xerj mcp` is a stdio MCP server in the same binary, serving 23 tools on main, and `/_memory/{ns}` gives an agent namespaced memory in the engine.
 
 ## The limits you inherit with XERJ
 

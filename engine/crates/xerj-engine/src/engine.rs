@@ -222,6 +222,83 @@ pub fn set_allocator_purge_hook(hook: AllocatorPurgeHook) {
     *slot = Some(hook);
 }
 
+/// Spaces breaker-driven cache releases (#2427/#1122). The first engaged
+/// tick releases; later ticks within `interval` only flush and purge.
+/// `XERJ_BREAKER_CACHE_RELEASE_SECS` sets the interval (default 30 s; `0`
+/// releases on every tick, the pre-fix behaviour).
+#[derive(Debug, Clone)]
+pub struct PressureCacheReleaseGate {
+    interval: std::time::Duration,
+    last: Option<std::time::Instant>,
+}
+
+impl PressureCacheReleaseGate {
+    pub const DEFAULT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+
+    pub fn new(interval: std::time::Duration) -> Self {
+        Self {
+            interval,
+            last: None,
+        }
+    }
+
+    pub fn from_env() -> Self {
+        let interval = std::env::var("XERJ_BREAKER_CACHE_RELEASE_SECS")
+            .ok()
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .map(std::time::Duration::from_secs)
+            .unwrap_or(Self::DEFAULT_INTERVAL);
+        Self::new(interval)
+    }
+
+    pub fn interval(&self) -> std::time::Duration {
+        self.interval
+    }
+
+    /// Whether a drain at `now` should release caches; records it if so.
+    pub fn should_release(&mut self, now: std::time::Instant) -> bool {
+        let due = self
+            .last
+            .is_none_or(|last| now.saturating_duration_since(last) >= self.interval);
+        if due {
+            self.last = Some(now);
+        }
+        due
+    }
+}
+
+#[cfg(test)]
+mod pressure_cache_release_gate_tests {
+    use super::PressureCacheReleaseGate;
+    use std::time::{Duration, Instant};
+
+    /// #2427/#1122: the breaker requests a drain every sampler tick while
+    /// engaged. Only the first tick in each interval may release caches.
+    #[test]
+    fn engaged_ticks_release_caches_at_most_once_per_interval() {
+        let mut gate = PressureCacheReleaseGate::new(Duration::from_secs(30));
+        let t0 = Instant::now();
+        assert!(gate.should_release(t0), "the first engaged tick releases");
+        for tick in 1..15u64 {
+            assert!(
+                !gate.should_release(t0 + Duration::from_secs(2 * tick)),
+                "tick at {}s must only flush and purge",
+                2 * tick
+            );
+        }
+        assert!(gate.should_release(t0 + Duration::from_secs(30)));
+        assert!(!gate.should_release(t0 + Duration::from_secs(31)));
+    }
+
+    #[test]
+    fn a_zero_interval_releases_on_every_tick() {
+        let mut gate = PressureCacheReleaseGate::new(Duration::ZERO);
+        let t0 = Instant::now();
+        assert!(gate.should_release(t0));
+        assert!(gate.should_release(t0));
+    }
+}
+
 /// Run the installed allocator purge, if any. Never panics: a broken hook
 /// must not take the drain (or the process) down — purging is an
 /// optimisation for RSS return, not a correctness step.
@@ -1495,6 +1572,11 @@ impl Engine {
     pub(crate) fn apply_index_template(&self, name: &str, schema: Schema) -> Schema {
         let mut effective_schema = schema;
         let mut new_semantic_targets = Vec::new();
+        // #2407: a template's bare `semantic_text` is sized at the width this
+        // server's embedding backend actually produces, not always 384.
+        // Resolved once per create and only when a bare field appears, so a
+        // template without one never pays for the proxy width probe (#2306).
+        let mut confirmed_dimensions: Option<usize> = None;
         if let Some(tmpl) = self.best_matching_template(name) {
             if let Some(props) = tmpl.mappings.get("properties").and_then(Value::as_object) {
                 for (field_name, field_def) in props {
@@ -1505,7 +1587,18 @@ impl Engine {
                     {
                         continue;
                     }
-                    let fc = field_from_template_property(field_name, field_def);
+                    let bare_semantic = field_def.get("type").and_then(Value::as_str)
+                        == Some("semantic_text")
+                        && field_def.get("dimensions").is_none()
+                        && field_def.get("dims").is_none();
+                    let semantic_dimensions = if bare_semantic {
+                        *confirmed_dimensions
+                            .get_or_insert_with(|| self.confirmed_semantic_dimensions())
+                    } else {
+                        xerj_ai::local::DEFAULT_DIMS
+                    };
+                    let fc =
+                        field_from_template_property(field_name, field_def, semantic_dimensions);
                     if let Some(embedding) = fc.embedding.as_ref() {
                         new_semantic_targets.push(
                             embedding
@@ -3319,7 +3412,7 @@ impl Engine {
     }
 
     /// The concrete index a write to `name` must target when `name` is an
-    /// alias: a single backing index, or exactly one marked
+    /// alias: a single backing index unless explicitly disabled, or exactly one marked
     /// `is_write_index: true`. `Ok(None)` means `name` is not an alias (a
     /// concrete index or a name the caller may auto-create). More than one
     /// candidate is ambiguous and refused with ES's message.
@@ -3333,7 +3426,17 @@ impl Engine {
         let Some(backings) = self.aliases.get(name) else {
             return Ok(None);
         };
-        if backings.len() == 1 {
+        let single_write_disabled = backings.len() == 1
+            && self
+                .index_alias_metadata
+                .get(backings[0].as_str())
+                .is_some_and(|meta| {
+                    meta.get(name)
+                        .and_then(|alias_meta| alias_meta.get("is_write_index"))
+                        .and_then(serde_json::Value::as_bool)
+                        == Some(false)
+                });
+        if backings.len() == 1 && !single_write_disabled {
             return Ok(Some(backings[0].clone()));
         }
         let mut writes = backings.iter().filter(|backing| {
@@ -4016,11 +4119,11 @@ impl Engine {
     /// blanket refusal.
     pub async fn list_indices(&self) -> Vec<IndexInfo> {
         let mut list = Vec::new();
-        for entry in self.indices.iter() {
-            if !crate::index_guard::visible(entry.key()) {
+        for (name, idx) in self.open_index_handles() {
+            if !crate::index_guard::visible(&name) {
                 continue;
             }
-            let stats = entry.value().stats().await;
+            let stats = idx.stats().await;
             list.push(IndexInfo {
                 name: stats.name,
                 doc_count: stats.doc_count,
@@ -4029,6 +4132,17 @@ impl Engine {
             });
         }
         list
+    }
+
+    /// Snapshot handles for read-only statistics, releasing every DashMap
+    /// iterator guard before awaiting an index. A stalled schema lock must
+    /// not hold the map shard against an index deletion or insertion (#2405).
+    /// This preserves the existing observational (non-atomic) stats contract.
+    fn open_index_handles(&self) -> Vec<(String, Arc<Index>)> {
+        self.indices
+            .iter()
+            .map(|entry| (entry.key().clone(), Arc::clone(entry.value())))
+            .collect()
     }
 
     /// Get the stats for a single index.
@@ -4117,8 +4231,8 @@ impl Engine {
         let mut total_docs = 0u64;
         let mut has_memtable_only = false;
 
-        for entry in self.indices.iter() {
-            let stats = entry.value().stats().await;
+        for (_, idx) in self.open_index_handles() {
+            let stats = idx.stats().await;
             total_docs += stats.doc_count;
             // Yellow condition: any index has in-memory data that hasn't been
             // flushed to a segment yet.
@@ -4359,6 +4473,26 @@ impl Engine {
 
     /// Return the effective embedding identity without exposing configuration
     /// secrets or local asset paths.
+    /// The width a bare `semantic_text` is sized at (#2407): the backend's
+    /// confirmed width when one exists, else the built-in default, with a
+    /// warning, since that fallback only matches a 384-wide backend.
+    pub fn confirmed_semantic_dimensions(&self) -> usize {
+        let unconfirmed = match self.embedding_execution_identity() {
+            Ok(identity) => match identity.dimensions {
+                Some(dimensions) => return dimensions,
+                None => format!("the {} backend has not confirmed a width", identity.backend),
+            },
+            Err(error) => error.to_string(),
+        };
+        warn!(
+            reason = %unconfirmed,
+            fallback = xerj_ai::local::DEFAULT_DIMS,
+            "bare semantic_text sized at the built-in default width; declare `dimensions` \
+             if the embedding backend returns another width"
+        );
+        xerj_ai::local::DEFAULT_DIMS
+    }
+
     pub fn embedding_execution_identity(&self) -> Result<EmbeddingExecutionIdentity> {
         // #2306: a proxy resume needs a confirmed vector width. The probe runs
         // here, on the identity request autoindex makes before it writes, and
@@ -4375,6 +4509,24 @@ impl Engine {
         self.indices
             .iter()
             .map(|e| e.value().memtable_bytes() as u64)
+            .sum()
+    }
+
+    /// Sum of every open index's in-memory HNSW graph estimate (#2427),
+    /// reported as the `vector_graph` ingest-memory category.
+    pub fn total_vector_graph_bytes(&self) -> u64 {
+        self.indices
+            .iter()
+            .map(|e| e.value().vector_graph_bytes() as u64)
+            .sum()
+    }
+
+    /// Sum of every open index's version-map estimate (#2427), reported as
+    /// the `version_map` ingest-memory category.
+    pub fn total_version_map_bytes(&self) -> u64 {
+        self.indices
+            .iter()
+            .map(|e| e.value().version_map_bytes() as u64)
             .sum()
     }
 
@@ -4398,6 +4550,32 @@ impl Engine {
     pub async fn drain_rebuildable_memory(&self) -> usize {
         let loaded = self.open_indices_largest_memtable_first();
         self.release_rebuildable_memory(&loaded).await
+    }
+
+    /// The breaker-driven drain (#2427/#1122): always flush memtables and
+    /// purge the allocator, but release the rebuildable caches only when
+    /// `release_caches` is set. The sampler requests a drain on every tick
+    /// while the breaker is engaged; releasing every cache each time made a
+    /// read-heavy node re-hydrate cold on every query, which refilled RSS and
+    /// re-engaged the breaker — a ~2 s thrash loop that drained nothing
+    /// durable. The worker spaces cache releases with
+    /// [`PressureCacheReleaseGate`]; `_cache/clear` and the direct
+    /// [`Self::drain_rebuildable_memory`] still release every time.
+    pub async fn pressure_drain(&self, release_caches: bool) -> usize {
+        let loaded = self.open_indices_largest_memtable_first();
+        if release_caches {
+            return self.release_rebuildable_memory(&loaded).await;
+        }
+        // One shard at a time (#2427): the flush working set is uncharged,
+        // and building every shard at once is what pushed RSS past the cap
+        // in the middle of the drain meant to bring it down.
+        for idx in &loaded {
+            if idx.memtable_bytes() > 0 && idx.flush_one_shard_at_a_time().await.is_err() {
+                tracing::warn!("memory pressure drain: flush failed");
+            }
+        }
+        purge_allocator_pages();
+        loaded.len()
     }
 
     /// Open indices, largest live memtable first (#2321).
@@ -4466,7 +4644,9 @@ impl Engine {
     /// released.
     pub async fn release_rebuildable_memory(&self, indices: &[Arc<Index>]) -> usize {
         for idx in indices {
-            if idx.memtable_bytes() > 0 && idx.flush().await.is_err() {
+            // Serial for the same reason as `pressure_drain` (#2427): a
+            // release must not spike RSS on its way down.
+            if idx.memtable_bytes() > 0 && idx.flush_one_shard_at_a_time().await.is_err() {
                 tracing::warn!("memory release: flush failed, releasing caches anyway");
             }
             idx.release_memory();
@@ -4518,15 +4698,25 @@ impl Engine {
                 // automatic wiring is inert.
                 return;
             };
+            let mut release_gate = PressureCacheReleaseGate::from_env();
             while let Ok(()) = drain_rx.recv() {
                 let Some(engine) = weak_c.upgrade() else {
                     return; // engine dropped
                 };
-                let drained = handle.block_on(engine.drain_rebuildable_memory());
-                tracing::info!(
+                let release_caches = release_gate.should_release(std::time::Instant::now());
+                let drained = handle.block_on(engine.pressure_drain(release_caches));
+                if release_caches {
+                    tracing::info!(
                         indexes = drained,
                         "memory breaker engaged — drained rebuildable state (flush + cache release + purge)"
                     );
+                } else {
+                    tracing::debug!(
+                        indexes = drained,
+                        "memory breaker engaged — flushed and purged; caches kept (released within the last {:?})",
+                        release_gate.interval()
+                    );
+                }
             }
         });
         // Publish the request channel only once a worker is draining it: with
@@ -5615,7 +5805,11 @@ fn merge_template_settings(template: &Value, request: Value) -> Value {
 /// One template property, in the same native shape `es_properties_to_fields`
 /// builds for an explicit mapping. `semantic_text` is text plus an embedding
 /// contract — not `object` (#2281).
-fn field_from_template_property(name: &str, field_def: &Value) -> xerj_common::types::FieldConfig {
+fn field_from_template_property(
+    name: &str,
+    field_def: &Value,
+    semantic_dimensions: usize,
+) -> xerj_common::types::FieldConfig {
     use xerj_common::types::{EmbeddingConfig, FieldConfig, FieldType};
     let es_type = field_def
         .get("type")
@@ -5640,7 +5834,7 @@ fn field_from_template_property(name: &str, field_def: &Value) -> xerj_common::t
             .or_else(|| field_def.get("dims"))
             .and_then(Value::as_u64)
             .map(|d| d as usize)
-            .unwrap_or(xerj_ai::local::DEFAULT_DIMS);
+            .unwrap_or(semantic_dimensions);
         fc.options.dimensions = Some(dims);
         fc.options.similarity = Some(
             field_def
@@ -6267,6 +6461,7 @@ mod index_template_merge_tests {
         let semantic = field_from_template_property(
             "diagnostic_semantic",
             &json!({ "type": "semantic_text" }),
+            768, // #2407: a bare semantic_text takes the caller's backend width
         );
         assert_eq!(semantic.field_type, FieldType::Text);
         assert!(!semantic.options.doc_values);
@@ -6275,11 +6470,12 @@ mod index_template_merge_tests {
             embedding.target_field.as_deref(),
             Some("diagnostic_semantic_vector")
         );
-        assert_eq!(semantic.options.dimensions, Some(384));
+        assert_eq!(semantic.options.dimensions, Some(768));
 
         let keyword = field_from_template_property(
             "diagnostic_template_marker",
             &json!({ "type": "keyword" }),
+            xerj_ai::local::DEFAULT_DIMS,
         );
         assert_eq!(keyword.field_type, FieldType::Keyword);
         assert!(keyword.embedding.is_none());
@@ -6423,5 +6619,77 @@ mod pressure_drain_tests {
             mem_fires, steps,
             "memtable pressure keeps the fixed window while RSS does not fall"
         );
+    }
+}
+
+#[cfg(test)]
+mod serial_pressure_flush_tests {
+    use super::Engine;
+    use crate::index::FlushShardProbe;
+    use serde_json::json;
+    use tempfile::TempDir;
+    use xerj_common::config::Config;
+    use xerj_common::types::{FieldConfig, FieldType, Schema};
+
+    async fn seed(engine: &Engine, name: &str, n: usize) {
+        let mut schema = Schema::empty();
+        schema
+            .fields
+            .push(FieldConfig::new("body", FieldType::Text));
+        engine.create_index(name, schema).expect("create");
+        let idx = engine.get_index(name).expect("get");
+        for i in 0..n {
+            idx.index_document(
+                Some(format!("d{i}")),
+                json!({ "body": format!("document number {i}") }),
+            )
+            .await
+            .expect("index");
+        }
+    }
+
+    async fn count_all(engine: &Engine, name: &str) -> u64 {
+        let idx = engine.get_index(name).expect("get index");
+        let req = xerj_query::parse_request(
+            &json!({ "query": { "match_all": {} }, "size": 0, "from": 0 }),
+        )
+        .expect("parse_request");
+        idx.search(&req).await.expect("search").total.value
+    }
+
+    /// #2427: a breaker drain builds one shard segment at a time. The flush
+    /// working set (parsed docs, columns, postings, stored blocks) is not
+    /// charged to the memtable budget, and a drain that built every shard at
+    /// once took RSS from 1,460 MB to 2,323 MB on a 1,536 MB-capped node.
+    /// The control index shows the ordinary flush still fans out, so the
+    /// probe does see concurrency when there is some. FAIL-BEFORE:
+    /// `pressure_drain` called `Index::flush`, which runs every non-empty
+    /// shard at once (peak > 1 here).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn a_pressure_drain_flushes_one_shard_at_a_time() {
+        let dir = TempDir::new().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_str().unwrap().to_string();
+        let engine = Engine::new(config).expect("engine::new");
+
+        seed(&engine, "serial-drain-control", 400).await;
+        let control = engine.get_index("serial-drain-control").unwrap();
+        control.flush().await.expect("flush");
+        assert!(
+            FlushShardProbe::peak("serial-drain-control") > 1,
+            "the ordinary flush runs shards concurrently"
+        );
+
+        seed(&engine, "serial-drain", 400).await;
+        let idx = engine.get_index("serial-drain").unwrap();
+        assert!(idx.memtable_bytes() > 0);
+        engine.pressure_drain(false).await;
+        assert_eq!(idx.memtable_bytes(), 0, "the drain published the memtable");
+        assert_eq!(
+            FlushShardProbe::peak("serial-drain"),
+            1,
+            "a pressure drain must build one shard at a time"
+        );
+        assert_eq!(count_all(&engine, "serial-drain").await, 400);
     }
 }

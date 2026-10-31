@@ -1,11 +1,11 @@
-# Import one Claude Code transcript for decision retrieval
+# Import an archived agent transcript for decision retrieval
 
 `xerj sessions import` is the explicit preparation step for a single Claude Code
-JSONL transcript. It runs locally, calls no model or node, and exports text
+transcript or Codex rollout JSONL file. It runs locally, calls no model or node, and exports text
 turns through XERJ's existing native PII plugin. Review the export, then give its
-folder to ordinary `xerj autoindex`. This is the first scoped part of
+folder to ordinary `xerj autoindex`. This covers two explicit formats for
 [#1793](https://github.com/xerj-org/xerj/issues/1793), not automatic transcript
-discovery, a multi-client adapter, a live conversation view or incremental sync.
+discovery, a live conversation view or incremental sync.
 
 ## Try the synthetic example
 
@@ -66,7 +66,7 @@ raw JSONL; pointing it at the original transcript folder does **not** activate
 this preparation or redaction. Use a prefix you own; follow the normal
 autoindex estimate/approval contract for large exports.
 
-## Record and source contract
+## Claude Code record and source contract
 
 One output line is one text-bearing `user` or `assistant` event. `message.content`
 may be a string or an array of `text`/recognized non-text blocks. Text blocks
@@ -131,7 +131,8 @@ file; it is not a complete export. Use a new destination after interruption.
 Claude Code documents its on-disk JSONL as an internal format that can change:
 [session storage](https://code.claude.com/docs/en/sessions#where-transcripts-are-stored).
 This adapter supports the explicit shapes above, not every client version,
-`stream-json`, rendered `/export` text, Codex or Cursor logs.
+`stream-json`, rendered `/export` text or Cursor logs. Codex uses the separate
+explicit adapter below.
 
 Reference retrieved before implementation: Anthropic's MIT-licensed SDK at
 `0e89b298e771259378a6cd3734e00d323dff5703`,
@@ -146,3 +147,87 @@ All checked-in fixtures are synthetic. No real personal transcript or real
 Claude client release is claimed validated by those fixtures. Unit and CLI
 tests cover redaction, provenance, filtering, size limits, malformed tails,
 unsupported shapes, no-clobber publication and recovery.
+
+## Codex rollout adapter
+
+Select an archived, uncompressed rollout JSONL file explicitly. The command
+does not scan `~/.codex`, read the history database, resolve other rollouts or
+run Codex. Use the same private-output and review-before-indexing steps above:
+
+```sh
+set -eu
+SESSION_EXPORT=$(mktemp -d)
+xerj sessions import --format codex \
+  --input /path/to/archived-rollout.jsonl \
+  --output "$SESSION_EXPORT/records.jsonl"
+```
+
+The file must start (ignoring blank lines) with one `session_meta` containing a
+UUID `payload.id`. Only `response_item` / `payload.type=message` with role `user`
+or `assistant` exports text. Ordered `input_text` and `output_text` blocks are
+joined with newlines; `input_image` and `input_audio` increment skipped blocks.
+Unknown message roles, phases, block types, response item types or top-level
+record types refuse the whole snapshot. Channel-bearing messages also refuse;
+reasoning is not admitted as message text. All envelopes need an RFC 3339
+timestamp and object payload. This is a deliberately bounded subset of an
+internal format, not a claim of support for every Codex version.
+
+`event_msg` records are skipped, including the duplicate user/assistant text
+they can contain. System/developer messages, reasoning, tool calls and results,
+agent-to-agent messages, compaction payloads, world-state and usage/security
+records are not exported. The summary uses the same definitions above: skipped
+blocks count non-text attachments in admitted user/assistant messages; skipped
+records count every nonblank record not exported. No raw metadata, encrypted
+content, provider message ID, annotations, tool argument, image or audio URL is
+included. A user-role text block can itself contain injected context or private
+facts; this adapter does not distinguish that text from a human prompt. Review
+the export; the native five-pattern PII redactor is not a general secret filter.
+
+Codex output keeps schema 1 and the shared text/source fields, with these
+format-specific meanings:
+
+| Field | Codex meaning |
+|---|---|
+| `session_format`, `session_id` | `codex`, canonical thread UUID from `session_meta.payload.id` (not a root-session or provider message ID) |
+| `message_id` | `line-<physical-line>-<SHA256 of original line bytes, including newline if present>`; an archive event locator, not a Codex message ID |
+| `id` | `codex/<session_id>/<message_id>`; identical archived input repeats identically, repeated equal messages at different lines remain distinct |
+| `parent_id`, `is_sidechain` | null: no parent chain or branch status inferred |
+| `files` | Empty array; shell commands, patches and prose are not parsed into file/commit associations |
+| `cwd`, `git_branch` | Redacted session `cwd` and `git.branch`; each `turn_context` replaces the cwd (missing/null becomes unknown). Branch is a session-creation snapshot, not a per-turn observation |
+| `message_phase` | Explicit `commentary`, `partial_answer`, `final_answer`, or null when absent; this additional field is Codex-only |
+| `is_summary` | false; compaction summaries and replacement histories are omitted |
+| `timestamp`, `source_*` | Envelope timestamp and original basename/physical line/byte offset |
+
+The exporter preserves physical message order, including text before a rollback
+or compaction; it does not reconstruct the current model context or active
+conversation. A non-null `history_base` refuses because a single file cannot
+resolve an external inherited prefix. Fork/subagent metadata is not followed,
+and no complete-conversation claim is made for an individual file. Newer
+`retained_context`, inter-agent and realtime record envelopes are unsupported.
+The `codex exec --json` event stream, `history.jsonl` prompt history, compressed
+rollouts and app-server JSON-RPC are separate formats and are unsupported.
+
+All original size limits, source-change detection, sanitized staging, no-clobber
+publication, exit codes and new-folder/prefix recovery rules apply. The 100,000
+message limit counts user/assistant response messages (including attachment-only
+messages); there is no invented UUID requirement or deduplication by provider ID.
+Existing Claude Code exports retain their previous field meanings and key set;
+no existing index or export is upgraded or rewritten.
+
+Reference retrieved before implementation: OpenAI Codex, Apache-2.0, pinned at
+`970111f6cb62cc02fe36a82ea7d71b37a2889c97`:
+
+- [`recorder.rs:2127–2160`](https://github.com/openai/codex/blob/970111f6cb62cc02fe36a82ea7d71b37a2889c97/codex-rs/rollout/src/recorder.rs#L2127-L2160): timestamped flattened rollout envelope.
+- [`rollout_payload.rs:30–73`](https://github.com/openai/codex/blob/970111f6cb62cc02fe36a82ea7d71b37a2889c97/codex-rs/history/src/rollout_payload.rs#L30-L73): tagged payloads distinguish responses, events, context and compaction.
+- [`protocol.rs:3279–3356`](https://github.com/openai/codex/blob/970111f6cb62cc02fe36a82ea7d71b37a2889c97/codex-rs/protocol/src/protocol.rs#L3279-L3356): thread identity, cwd, forks and inherited history.
+- [`models.rs:883–915`](https://github.com/openai/codex/blob/970111f6cb62cc02fe36a82ea7d71b37a2889c97/codex-rs/protocol/src/models.rs#L883-L915) and [`1052–1083`](https://github.com/openai/codex/blob/970111f6cb62cc02fe36a82ea7d71b37a2889c97/codex-rs/protocol/src/models.rs#L1052-L1083): text/attachment blocks and optional response IDs/phases.
+
+These are format evidence, not copied implementation. The official
+[non-interactive guide](https://developers.openai.com/codex/noninteractive)
+documents `exec --json` events; that stream is not the disk rollout adapter.
+Fixtures are synthetic, not personal transcripts or a live-client run.
+Run the Codex fixture through the same private-node lifecycle check:
+
+```sh
+python3 tools/session-import/smoke.py --binary engine/target/release/xerj --format codex
+```

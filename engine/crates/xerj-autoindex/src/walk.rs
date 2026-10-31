@@ -652,9 +652,9 @@ fn plural_s(n: u64) -> &'static str {
 ///
 /// `root_display` is the path the run prints (the canonical folder, or an
 /// object-source identity). `files` are the admitted entries — callers that
-/// drop `exclude_rels` pass the filtered list, the same list hashing would
-/// have seen. `report` is that walk's ignore report, including its per-folder
-/// `by_top` breakdown.
+/// drop `exclude_rels` or `--exclude` globs pass the filtered list, the same
+/// list hashing would have seen. `report` is that walk's ignore report,
+/// including its per-folder `by_top` breakdown.
 pub fn summarise_walk_only(
     root_display: &str,
     files: &[FileEntry],

@@ -7,7 +7,7 @@ cluster: "Comparison: desktop search"
 question: "HoudahSpot vs a local search engine I can script?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-10-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -52,7 +52,7 @@ faq:
   - q: "HoudahSpot vs a local search engine I can script?"
     a: "HoudahSpot is a GUI over the Mac's metadata store, scriptable through AppleScript. XERJ is a node that answers HTTP and MCP directly, so a program calls it without a wrapper."
   - q: "What's better than HoudahSpot if I want an API for an agent?"
-    a: "An engine with an API. XERJ answers the Elasticsearch REST API and serves 22 MCP tools from the same binary, so the agent sends a query rather than driving an interface."
+    a: "An engine with an API. XERJ answers the Elasticsearch REST API and serves 23 MCP tools from the same binary, so the agent sends a query rather than driving an interface."
   - q: "Advanced Mac file search that a coding agent can call?"
     a: "Index the folder with `xerj autoindex` and attach it with `xerj mcp`. The agent then gets cited passages with a file path on every hit."
   - q: "Did you compare XERJ and HoudahSpot head to head?"
@@ -99,7 +99,7 @@ XERJ is a single Rust binary that runs one search node. `xerj autoindex <folder>
 
 The streaming extractors cover JSON and JSONL, CSV with dialect sniffing, structured logs, `sqldump` files, SQLite, PDF, DOCX, HTML, XML, YAML, plain text and gzip variants of those. XERJ builds its own index. It does not read the operating system's.
 
-The node answers the Elasticsearch REST API, and `xerj autoindex map` prints a data map of what the folder became. The `xerj mcp` subcommand is a stdio MCP server in the same binary, and it serves 22 tools against a running node.
+The node answers the Elasticsearch REST API, and `xerj autoindex map` prints a data map of what the folder became. The `xerj mcp` subcommand is a stdio MCP server in the same binary, and it serves 23 tools against a running node.
 
 XERJ is single-node, with no replication and no failover. The default embedder is lexical feature hashing rather than a neural model; neural retrieval is opt-in through `--embed-mode neural`. There is no OCR.
 
@@ -118,7 +118,7 @@ Every row is a documented capability of each tool. **No row is a measured result
 | multiple search folders, excluded folders | yes | one folder per run, plus ignore rules |
 | scripting surface | AppleScript, launcher integrations | Elasticsearch REST API and MCP |
 | HTTP query API | not advertised | yes |
-| MCP server for an agent | none | yes, `xerj mcp`, 22 tools |
+| MCP server for an agent | none | yes, `xerj mcp`, 23 tools |
 | typed columns from a CSV, a `sqldump` file or SQLite | not advertised | yes, a dataset per file shape |
 | per-file refusal reason | not advertised | `autoindex-catalog`, one reason per file |
 | agent memory in the engine | none | yes, `/_memory/{namespace}` |

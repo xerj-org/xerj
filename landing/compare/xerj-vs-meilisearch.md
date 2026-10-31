@@ -2,13 +2,13 @@
 ---
 title: "XERJ vs Meilisearch for local and agent search"
 canonical: "https://xerj.org/compare/xerj-vs-meilisearch"
-updated: "2026-10-23"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-meilisearch.md"
 ---
 
 # What's a local alternative to Meilisearch that indexes a folder by itself?
 
-**Short answer** (updated 2026-10-23): What's a local alternative to Meilisearch that indexes a folder by itself? XERJ reads a folder of mixed files with one command, where Meilisearch expects you to build and POST the documents. Meilisearch wins typo-tolerant instant search, and its own defaults document that win. No head-to-head was run.
+**Short answer** (updated 2026-10-28): What's a local alternative to Meilisearch that indexes a folder by itself? XERJ reads a folder of mixed files with one command, where Meilisearch expects you to build and POST the documents. Meilisearch wins typo-tolerant instant search, and its own defaults document that win. No head-to-head was run.
 
 **Key number:** Meilisearch has 59,612 GitHub stars and released v1.55.0 on 2026-10-12. (as of 2026-10-19; source: [github.com/meilisearch/meilisearch](https://github.com/meilisearch/meilisearch))
 
@@ -116,7 +116,7 @@ Choose Meilisearch when you want a managed plan. XERJ has none.
 
 Choose XERJ when the corpus is a folder on a disk and nobody has built a pipeline for it. One command turns mixed formats into typed indices.
 
-Choose XERJ when the caller is an agent rather than a person. The same binary also holds namespaced agent memory and an MCP server that serves 22 tools.
+Choose XERJ when the caller is an agent rather than a person. The same binary also holds namespaced agent memory and an MCP server that serves 23 tools.
 
 Choose XERJ when the files hold shapes Meilisearch never accepts. A SQLite database, a hostile CSV with a decimal comma and a folder of DOCX contracts all qualify.
 

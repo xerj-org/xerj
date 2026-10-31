@@ -2,13 +2,13 @@
 ---
 title: "Code search MCP for Claude Code: cite file:line, not grep"
 canonical: "https://xerj.org/answers/code-search-mcp-for-claude-code"
-updated: "2026-10-20"
+updated: "2026-10-28"
 source: "content/answers/code-search-mcp-for-claude-code.md"
 ---
 
 # I need my agent to find a passage and cite the file, not dump the whole tree. How?
 
-**Short answer** (updated 2026-10-20): How do I make my agent find a passage and cite the file, not dump the whole tree? Index the repository with xerj autoindex, register xerj mcp in the agent host, and query the defs field. One captured xerj_search call returned 2 documents whose symbols arrays gave file and line, including merge_segments at src/lib.rs line 17.
+**Short answer** (updated 2026-10-28): How do I make my agent find a passage and cite the file, not dump the whole tree? Index the repository with xerj autoindex, register xerj mcp in the agent host, and query the defs field. One captured xerj_search call returned 2 documents whose symbols arrays gave file and line, including merge_segments at src/lib.rs line 17.
 
 **Key number:** XERJ's tree-sitter registry covers 36 languages, a count pinned by a unit test so the docs cannot drift. (as of 2026-10-19; source: [engine/crates/xerj-autoindex/src/extract/code.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/extract/code.rs))
 
@@ -138,7 +138,7 @@ Two caps bound the extractor: a 2 MB file cap and 5,000 symbols per file. A pars
 
 Install the latest XERJ before you write any host configuration, so that the `xerj mcp` subcommand is present.
 
-The published `openai-tools.json` and `anthropic-tools.json` still list 6 tools while the binary serves 17 (v1.0.0-rc.97, checked 2026-10-19). The 11 missing names include the 4 `xerj_brain_*` tools, `xerj_code_search` and the 3 `xerj_hub_*` tools. Read `tools/list` from a live server, or the generated `mcp-tools.json`, instead of copying either file.
+The published `openai-tools.json` and `anthropic-tools.json` still list 6 tools, while on main the binary serves 23 (checked 2026-10-28). The 17 missing names include the 4 `xerj_brain_*` tools, `xerj_code_search` and the 3 `xerj_hub_*` tools. Read `tools/list` from a live server, or the generated `mcp-tools.json`, instead of copying either file.
 
 ## What the capture was
 
@@ -174,7 +174,7 @@ No. Extraction is definitions only, with no call graph, no import graph and no c
 
 ### Are the OpenAI and Anthropic tool schema files up to date?
 
-No. Both list 6 tools while the binary serves 17 (checked 2026-10-19). Read `tools/list` from a live server, or the generated `mcp-tools.json`, rather than copying either file.
+No. Both list 6 tools, while on main the binary serves 23 (checked 2026-10-28). Read `tools/list` from a live server, or the generated `mcp-tools.json`, rather than copying either file.
 
 ## Related
 

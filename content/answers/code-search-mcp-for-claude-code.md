@@ -7,7 +7,7 @@ cluster: "Agent access and memory"
 question: "I need my agent to find a passage and cite the file, not dump the whole tree. How?"
 intent: "how-to"
 published: "2026-08-21"
-updated: "2026-10-20"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -51,7 +51,7 @@ faq:
   - q: "Can XERJ tell the agent who calls a function?"
     a: "No. Extraction is definitions only, with no call graph, no import graph and no cross-file reference resolution. A `defs` hit names the declaration site."
   - q: "Are the OpenAI and Anthropic tool schema files up to date?"
-    a: "No. Both list 6 tools while the binary serves 17 (checked 2026-10-19). Read `tools/list` from a live server, or the generated `mcp-tools.json`, rather than copying either file."
+    a: "No. Both list 6 tools, while on main the binary serves 23 (checked 2026-10-28). Read `tools/list` from a live server, or the generated `mcp-tools.json`, rather than copying either file."
 ---
 
 **TL;DR** — Index the repository with `xerj autoindex`, then register `xerj mcp` as an MCP server in the agent host. One captured `xerj_search` call on the `defs` field returned 2 documents. Each carried a `symbols` array with file and line, including `merge_segments` at `src/lib.rs` line 17.
@@ -148,7 +148,7 @@ Two caps bound the extractor: a 2 MB file cap and 5,000 symbols per file. A pars
 
 Install the latest XERJ before you write any host configuration, so that the `xerj mcp` subcommand is present.
 
-The published `openai-tools.json` and `anthropic-tools.json` still list 6 tools while the binary serves 17 (v1.0.0-rc.97, checked 2026-10-19). The 11 missing names include the 4 `xerj_brain_*` tools, `xerj_code_search` and the 3 `xerj_hub_*` tools. Read `tools/list` from a live server, or the generated `mcp-tools.json`, instead of copying either file.
+The published `openai-tools.json` and `anthropic-tools.json` still list 6 tools, while on main the binary serves 23 (checked 2026-10-28). The 17 missing names include the 4 `xerj_brain_*` tools, `xerj_code_search` and the 3 `xerj_hub_*` tools. Read `tools/list` from a live server, or the generated `mcp-tools.json`, instead of copying either file.
 
 ## What the capture was
 

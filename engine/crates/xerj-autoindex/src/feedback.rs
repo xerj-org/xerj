@@ -439,7 +439,8 @@ pub fn pr_commands(d: &Draft) -> String {
          # Run these in a clone of xerj-org/xerj, not in the project you are working in.\n\
          git clone https://github.com/xerj-org/xerj.git\n\
          cd xerj\n\
-         gh repo fork xerj-org/xerj --remote --remote-name xerj-fork\n\
+         gh repo fork xerj-org/xerj --clone=false\n\
+         git remote add xerj-fork https://github.com/YOUR_LOGIN/xerj.git\n\
          xerj feedback{agent_line} \\\n\
          \x20 --used-for {used_for:?} --pointed-at {pointed_at:?} \\\n\
          \x20 --verdict {verdict:?} --numbers {numbers:?} \\\n\
@@ -912,43 +913,55 @@ fn has_push_rights() -> Result<bool, String> {
     }
 }
 
-/// `gh repo fork` adds the `xerj-fork` remote. A remote that is already there
-/// is enough — forking twice would fail on the second run.
+/// Make sure the `xerj-fork` remote points at the caller's fork. A remote that
+/// is already there is enough. Recent `gh` releases reject `--remote` when a
+/// repository argument is given (#2596), so fork without it (a no-op when the
+/// fork exists) and add the remote ourselves.
 fn ensure_fork(dir: Option<&Path>) -> Result<(), String> {
     if git_config_remote_exists(dir) {
         return Ok(());
     }
-    if run_cmd(
+    if !run_cmd(
         dir,
         "gh",
         &[
             "repo".into(),
             "fork".into(),
             "xerj-org/xerj".into(),
-            "--remote".into(),
-            "--remote-name".into(),
-            "xerj-fork".into(),
+            "--clone=false".into(),
         ],
     ) {
-        // A fork that lags main would refuse a push from a shallow clone.
-        // Best effort: a failure here shows up as a failed push.
-        if let Ok(login) = gh_login() {
-            let _ = run_cmd(
-                dir,
-                "gh",
-                &[
-                    "repo".into(),
-                    "sync".into(),
-                    format!("{login}/xerj"),
-                    "--branch".into(),
-                    "main".into(),
-                ],
-            );
-        }
-        Ok(())
-    } else {
-        Err("`gh repo fork xerj-org/xerj --remote --remote-name xerj-fork` failed".into())
+        return Err("`gh repo fork xerj-org/xerj --clone=false` failed".into());
     }
+    let login = gh_login()?;
+    if !run_cmd(
+        dir,
+        "git",
+        &[
+            "remote".into(),
+            "add".into(),
+            "xerj-fork".into(),
+            format!("https://github.com/{login}/xerj.git"),
+        ],
+    ) {
+        return Err(format!(
+            "`git remote add xerj-fork https://github.com/{login}/xerj.git` failed"
+        ));
+    }
+    // A fork that lags main would refuse a push from a shallow clone.
+    // Best effort: a failure here shows up as a failed push.
+    let _ = run_cmd(
+        dir,
+        "gh",
+        &[
+            "repo".into(),
+            "sync".into(),
+            format!("{login}/xerj"),
+            "--branch".into(),
+            "main".into(),
+        ],
+    );
+    Ok(())
 }
 
 fn git_config_remote_exists(dir: Option<&Path>) -> bool {
@@ -1980,7 +1993,8 @@ mod tests {
         let commands = pr_commands(&filled);
         for needle in [
             "git clone https://github.com/xerj-org/xerj.git",
-            "gh repo fork xerj-org/xerj --remote --remote-name xerj-fork",
+            "gh repo fork xerj-org/xerj --clone=false",
+            "git remote add xerj-fork https://github.com/YOUR_LOGIN/xerj.git",
             "--agent \"Claude Code\"",
             "git push -u xerj-fork field-report/",
             "--head YOUR_LOGIN:field-report/",
@@ -2036,6 +2050,14 @@ mod tests {
         xerj_origin(root);
         let stub_dir = tempfile::tempdir().unwrap();
         let log = stub_dir.path().join("gh.log");
+        let committed = stub_dir.path().join("report-committed");
+        write_executable(
+            &root.join(".git/hooks/post-commit"),
+            &format!(
+                "#!/bin/sh\ntouch {}\n",
+                shell_single(&committed.display().to_string())
+            ),
+        );
         write_executable(
             &stub_dir.path().join("gh"),
             &format!(
@@ -2044,7 +2066,12 @@ mod tests {
                  \"auth status\") exit 0 ;;\n\
                  \"api user\") echo testlogin; exit 0 ;;\n\
                  \"api repos/xerj-org/xerj\") echo false; exit 0 ;;\n\
-                 \"repo fork\") git remote add xerj-fork /nonexistent/fork-target; exit 0 ;;\n\
+                 \"repo fork\")\n\
+                   test \"$*\" = \"repo fork xerj-org/xerj --clone=false\" || exit 2\n\
+                   exit 0 ;;\n\
+                 \"repo sync\")\n\
+                   git remote set-url --push xerj-fork /nonexistent/fork-target\n\
+                   exit $? ;;\n\
                  *) exit 1 ;;\n\
                  esac\n",
                 shell_single(&log.display().to_string())
@@ -2058,8 +2085,17 @@ mod tests {
         assert_eq!(code, 1);
         let log_text = std::fs::read_to_string(&log).unwrap_or_default();
         assert!(
-            log_text.contains("repo fork xerj-org/xerj"),
-            "a no-push account must fork:\n{log_text}"
+            log_text.contains("repo fork xerj-org/xerj --clone=false"),
+            "a no-push account must fork with the supported noninteractive arguments:\n{log_text}"
+        );
+        assert!(log_text.contains("repo sync testlogin/xerj --branch main"));
+        assert!(
+            committed.exists(),
+            "the report must reach commit and the failed push; an earlier fork failure is not a rollback test"
+        );
+        assert_eq!(
+            git_stdout(root, &["remote", "get-url", "xerj-fork"]).trim(),
+            "https://github.com/testlogin/xerj.git"
         );
         assert!(
             git_stdout(root, &["branch", "--list", "field-report/*"])

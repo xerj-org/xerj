@@ -89,7 +89,12 @@ impl IntoResponse for OptionalJsonRejection {
             ),
             OptionalJsonRejection::UnsupportedMediaType(ct) => (
                 StatusCode::UNSUPPORTED_MEDIA_TYPE,
-                format!("unsupported Content-Type: {ct}"),
+                // Name the fix (#2575): `curl -d` sends form encoding by
+                // default, and the bare media type does not say what to change.
+                format!(
+                    "unsupported Content-Type: {ct}. Send the body as JSON with the header \
+                     `Content-Type: application/json` (curl: -H 'Content-Type: application/json')"
+                ),
             ),
         };
         let body = serde_json::json!({
@@ -172,5 +177,34 @@ impl<T> std::ops::DerefMut for OptionalJson<T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// #2575: the 415 names the header to send, not just the media type.
+    #[tokio::test]
+    async fn unsupported_media_type_names_the_json_header_fix() {
+        let response =
+            OptionalJsonRejection::UnsupportedMediaType("application/x-www-form-urlencoded".into())
+                .into_response();
+        assert_eq!(response.status(), StatusCode::UNSUPPORTED_MEDIA_TYPE);
+        let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        let reason = body["error"]["reason"].as_str().unwrap();
+        assert!(
+            reason.starts_with("unsupported Content-Type: application/x-www-form-urlencoded"),
+            "{reason}"
+        );
+        assert!(
+            reason.contains("Content-Type: application/json"),
+            "{reason}"
+        );
+        assert_eq!(body["error"]["type"], "parse_exception");
+        assert_eq!(body["status"], 415);
     }
 }

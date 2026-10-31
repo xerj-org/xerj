@@ -2,13 +2,13 @@
 ---
 title: "How much better is hybrid search than BM25? Measured."
 canonical: "https://xerj.org/answers/hybrid-search-quality-measured-ndcg"
-updated: "2026-10-19"
+updated: "2026-10-28"
 source: "content/answers/hybrid-search-quality-measured-ndcg.md"
 ---
 
 # How much better is hybrid search than BM25? Measured nDCG numbers
 
-**Short answer** (updated 2026-10-19): How much better is hybrid search than BM25 alone? On two public BEIR datasets XERJ's hybrid RRF beat both BM25 and vectors: nDCG@10 0.6993 against 0.6572 on SciFact and 0.3448 against 0.3016 on NFCorpus. Those runs used --embed-mode neural with all-MiniLM-L6-v2; the default lexical embedder is not covered.
+**Short answer** (updated 2026-10-28): How much better is hybrid search than BM25 alone? On two public BEIR datasets XERJ's hybrid RRF beat both BM25 and vectors: nDCG@10 0.6993 against 0.6572 on SciFact and 0.3448 against 0.3016 on NFCorpus. Those runs used --embed-mode neural with all-MiniLM-L6-v2; the default lexical embedder is not covered.
 
 **Key number:** On BEIR NFCorpus (323 test queries, 3,633 documents), hybrid RRF scored nDCG@10 0.3448 against 0.3016 for BM25. (as of 2026-09-18; source: [benchmarks/beir-hybrid/results/nfcorpus.txt](https://github.com/xerj-org/xerj/blob/main/benchmarks/beir-hybrid/results/nfcorpus.txt))
 
@@ -156,6 +156,7 @@ About 3 to 7 documents per second on CPU in this run. SciFact's 5,183 short abst
 - [How do I rerank search results with a relevance judge?](/answers/rerank-search-results-calibrated-judge)
 - [I want local search that works offline, no cloud embeddings. What are my options?](/answers/local-embeddings-without-openai-api)
 - [Retrieval that says not found, and cites file and line when it does answer](/answers/retrieval-that-says-not-found-with-file-line-citations)
+- [How do I improve a basic FAISS RAG pipeline?](/answers/improve-basic-faiss-rag-pipeline)
 - [How do I build RAG without a vector database?](/answers/rag-without-vector-database) (same intent: retrieval research and eval)
 - [How does XERJ combine BM25 and kNN?](/answers/how-xerj-combines-search) (same intent: retrieval research and eval)
 - [Should an agent use API search or vector search?](/answers/mcp-api-search-or-vector-search) (same intent: retrieval research and eval)

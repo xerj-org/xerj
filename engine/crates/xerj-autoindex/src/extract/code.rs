@@ -32,6 +32,22 @@ use tree_sitter::{Language, Node, Parser, Query, QueryCursor};
 /// couple MB a single "file" is not human code and only bloats the index.
 const CODE_CAP: u64 = 2 << 20;
 
+/// The reason a source file over [`CODE_CAP`] is skipped (#2483). It names
+/// the cap and the file's size, says the run is otherwise unaffected, and
+/// points at `.xerjignore` so the next plan leaves the file out by name.
+fn code_cap_refusal(path: &Path) -> String {
+    let mib = |b: u64| b as f64 / (1u64 << 20) as f64;
+    let size = std::fs::metadata(path)
+        .map(|m| format!("{:.1} MiB", mib(m.len())))
+        .unwrap_or_else(|_| "size unknown".into());
+    format!(
+        "source file over the {:.0} MiB code cap ({size}): too large to be hand-written \
+         code (generated stubs, minified bundles), so it is not parsed. The rest of the \
+         run is unaffected. To leave it out of the plan, add its path to .xerjignore",
+        mib(CODE_CAP)
+    )
+}
+
 struct LangDef {
     name: &'static str,
     exts: &'static [&'static str],
@@ -367,6 +383,9 @@ pub fn extract(path: &Path, sn: &crate::sniff::Sniffed, sink: Sink) -> Result<Ex
     }
     let Some(bytes) = super::read_whole(path, false, CODE_CAP)? else {
         stats.junk += 1;
+        // #2483: say why. The generic "no records extracted (code candidate
+        // family, 1 junk lines)" read like a parse failure, not a size cap.
+        stats.refusal = Some(code_cap_refusal(path));
         return Ok(stats);
     };
     let (text, _) = crate::sniff::decode_text(&bytes);
@@ -1246,10 +1265,69 @@ pub fn definitions(file_rel: &str, lang: &str, text: &str) -> Vec<xerj_common::h
         .collect()
 }
 
+/// Local names exported separately from their declaration (#2579). Do not
+/// mistake `export { x } from 'other'` or a TS type-only export for exporting
+/// this module's value. Names/aliases come from the grammar fields, not text
+/// matching. Reference: tree-sitter-typescript 0.23.2 (MIT),
+/// typescript/src/node-types.json:1924 (`name` vs `alias`) and :1958 (`source`,
+/// `value`); JS 0.23.1 uses the same export fields.
+fn js_separate_value_exports<'a>(
+    root: Node<'_>,
+    text: &'a str,
+) -> std::collections::HashSet<&'a str> {
+    fn has_token(node: Node<'_>, kind: &str) -> bool {
+        let mut cursor = node.walk();
+        let found = node.children(&mut cursor).any(|child| child.kind() == kind);
+        found
+    }
+
+    let mut names = std::collections::HashSet::new();
+    let mut cursor = root.walk();
+    for export in root.named_children(&mut cursor) {
+        if export.kind() != "export_statement"
+            || export.child_by_field_name("source").is_some()
+            || has_token(export, "type")
+        {
+            continue;
+        }
+        if has_token(export, "default") {
+            if let Some(value) = export.child_by_field_name("value") {
+                if value.kind() == "identifier" {
+                    if let Some(name) = text.get(value.byte_range()) {
+                        names.insert(name);
+                    }
+                }
+            }
+        }
+        let mut clause_cursor = export.walk();
+        for clause in export.named_children(&mut clause_cursor) {
+            if clause.kind() != "export_clause" {
+                continue;
+            }
+            let mut spec_cursor = clause.walk();
+            for spec in clause.named_children(&mut spec_cursor) {
+                if has_token(spec, "type") {
+                    continue;
+                }
+                if let Some(name) = spec.child_by_field_name("name") {
+                    if name.kind() == "identifier" {
+                        if let Some(name) = text.get(name.byte_range()) {
+                            names.insert(name);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    names
+}
+
 fn parse_symbols(def: &LangDef, text: &str) -> Option<Vec<Symbol>> {
     let mut parser = Parser::new();
     parser.set_language(&def.language).ok()?;
     let tree = parser.parse(text.as_bytes(), None)?;
+    let js_exports = matches!(def.name, "javascript" | "typescript" | "tsx")
+        .then(|| js_separate_value_exports(tree.root_node(), text));
     let names = def.query.capture_names();
     // Row → source line, built once (not `lines().nth(row)` per symbol, which
     // would be O(symbols · file)).
@@ -1267,6 +1345,21 @@ fn parse_symbols(def: &LangDef, text: &str) -> Option<Vec<Symbol>> {
                 continue; // predicate-only capture (`@_kw`), not a symbol
             }
             let node = cap.node;
+            // The additional JS/TS @const pattern admits only top-level
+            // factory calls. Keep its candidates only when this module exports
+            // the binding separately; private values stay out (#285).
+            if let Some(exports) = &js_exports {
+                if kind == "const"
+                    && node
+                        .parent()
+                        .and_then(|n| n.parent())
+                        .and_then(|n| n.parent())
+                        .is_some_and(|n| n.kind() == "program")
+                    && !exports.contains(text.get(node.byte_range()).unwrap_or(""))
+                {
+                    continue;
+                }
+            }
             // #852: every C++ pattern targets file/namespace/class-scope API
             // symbols — none intends to capture a function-local definition. A
             // type/class/struct/enum or its enumerators DEFINED INSIDE a
@@ -1648,12 +1741,14 @@ const PYTHON_Q: &str = r#"
 // `@function` and `@const`, where the TS equivalent only does so for arrows.
 // `defs` dedups on (kind, name), so each spelling still answers its own search.
 //
-// The `.bind`-valued declarator (last pattern) is the JS twin of the one in
+// The `.bind`-valued declarator is the JS twin of the one in
 // TS_Q — see the rationale there. `const add = game.root.add.bind(game.root)` is
 // how a framework exposes its global API surface, and that binding is the name
 // consumers call. NOT the #170 90%-locals trap (that is `const x = 0`); a
 // `.bind()`-valued const is always a deliberately named bound callable, and it
 // is captured `@function` because that is what it is.
+// The final top-level call candidate is filtered by js_separate_value_exports:
+// `const store = create(...); export { store };` is also a public definition.
 const JS_Q: &str = r#"
 (function_declaration name: (identifier) @function)
 (generator_function_declaration name: (identifier) @function)
@@ -1663,9 +1758,10 @@ const JS_Q: &str = r#"
 (export_statement declaration: (lexical_declaration (variable_declarator name: (identifier) @function value: (arrow_function))))
 (program (export_statement declaration: (lexical_declaration "const" (variable_declarator name: (identifier) @const))))
 (variable_declarator name: (identifier) @function value: (call_expression function: (member_expression property: (property_identifier) @_bind)) (#eq? @_bind "bind"))
+(program (lexical_declaration "const" (variable_declarator name: (identifier) @const value: (call_expression))))
 "#;
 
-// The last pattern is #170's failure mode in the language where it is most
+// The exported-const pattern addresses #170's failure mode where it is most
 // common. Modern TypeScript declares most of a module's public surface as
 // `export const x = someBuilder(...)` — schema/table definitions, routers,
 // config objects. That is not an `arrow_function`, so the arrow-valued pattern
@@ -1702,7 +1798,7 @@ const JS_Q: &str = r#"
 // what a caller searching for either would expect; suppressing one would mean
 // choosing which of the two true statements to hide.
 //
-// The last pattern (`.bind`-valued declarator) captures the re-binding idiom
+// The `.bind`-valued declarator captures the re-binding idiom
 // `const tween = game.root.tween.bind(game.root)`. Whole libraries expose their
 // public API this way — a framework builds a context object of methods bound to
 // a root, and the ~40 lines `const add = ….add.bind(…)`, `const get = …`, `const
@@ -1721,6 +1817,11 @@ const JS_Q: &str = r#"
 // ON PURPOSE — these bindings live INSIDE the context-builder function body,
 // where `program`-anchoring (used for the plain-const pattern above) would
 // exclude them.
+//
+// #2579: a factory const exported by a later export clause/default identifier
+// is public too. The final pattern admits only top-level call initializers;
+// parse_symbols checks their names against js_separate_value_exports so
+// private constants, locals and mutable bindings keep their existing scope.
 const TS_Q: &str = r#"
 (function_declaration name: (identifier) @function)
 (class_declaration name: (type_identifier) @class)
@@ -1731,6 +1832,7 @@ const TS_Q: &str = r#"
 (variable_declarator name: (identifier) @function value: (arrow_function))
 (program (export_statement declaration: (lexical_declaration "const" (variable_declarator name: (identifier) @const))))
 (variable_declarator name: (identifier) @function value: (call_expression function: (member_expression property: (property_identifier) @_bind)) (#eq? @_bind "bind"))
+(program (lexical_declaration "const" (variable_declarator name: (identifier) @const value: (call_expression))))
 "#;
 
 // `const_item` / `static_item` are captured because a file whose whole content
@@ -2382,9 +2484,190 @@ mod tests {
         }
     }
 
+    /// #2483: a generated source file over the code cap is skipped with a
+    /// reason that names the cap and the fix, not "no records extracted".
+    #[test]
+    fn an_oversized_source_file_is_refused_with_the_cap_and_the_fix() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("Service.java");
+        let mut src = String::from("public final class Service {\n");
+        let mut i = 0;
+        while (src.len() as u64) <= CODE_CAP {
+            src.push_str(&format!("  public int getField{i}() {{ return {i}; }}\n"));
+            i += 1;
+        }
+        src.push_str("}\n");
+        std::fs::write(&f, &src).unwrap();
+        let sn = crate::sniff::sniff_with_name(&f, Path::new("Service.java")).unwrap();
+        let mut records = 0;
+        let stats = extract(&f, &sn, &mut |_| {
+            records += 1;
+            true
+        })
+        .unwrap();
+        assert_eq!(records, 0);
+        let reason = stats.refusal.expect("an oversized file names its refusal");
+        assert!(reason.contains("2 MiB code cap"), "{reason}");
+        assert!(reason.contains(".xerjignore"), "{reason}");
+
+        // Under the cap, the same shape is parsed and refuses nothing.
+        let small = dir.path().join("Small.java");
+        std::fs::write(&small, "public class Small {\n  int f() { return 1; }\n}\n").unwrap();
+        let sn = crate::sniff::sniff_with_name(&small, Path::new("Small.java")).unwrap();
+        let stats = extract(&small, &sn, &mut |_| true).unwrap();
+        assert!(stats.refusal.is_none());
+        assert!(stats.records > 0);
+    }
+
     fn syms(lang: &str, src: &str) -> Vec<Symbol> {
         let def = registry().iter().find(|d| d.name == lang).unwrap();
         parse_symbols(def, src).unwrap()
+    }
+
+    /// #2579's inline-export examples already match the existing const rule.
+    /// Exercise sniffing and emitted records too: an AST capture alone does
+    /// not prove that `def` has a per-symbol document to retrieve.
+    #[test]
+    fn issue_2579_exported_factory_constants() {
+        for (lang, ext) in [("typescript", "ts"), ("tsx", "tsx"), ("javascript", "js")] {
+            let generic = if lang == "javascript" {
+                ""
+            } else {
+                "<UserState>"
+            };
+            let src = format!(
+                "export const useUserStore = create{generic}()((set) => ({{ user: null }}));\n\
+                 export const userSlice = createSlice({{ name: 'user' }});\n\
+                 export const usePiniaStore = defineStore('user', {{}});\n\
+                 export const StyledButton = styled.button`color: red;`;\n"
+            );
+            let symbols = syms(lang, &src);
+            for (i, name) in ["useUserStore", "userSlice", "usePiniaStore", "StyledButton"]
+                .iter()
+                .enumerate()
+            {
+                let found: Vec<_> = symbols
+                    .iter()
+                    .filter(|s| s.name == *name && s.kind == "const")
+                    .collect();
+                assert_eq!(found.len(), 1, "{lang}: {name}: {symbols:?}");
+                assert_eq!(found[0].line, i + 1);
+                assert!(found[0].code.contains(name), "{lang}: {found:?}");
+            }
+            let dir = tempfile::tempdir().unwrap();
+            let file = dir.path().join(format!("store.{ext}"));
+            std::fs::write(&file, &src).unwrap();
+            let sniffed = crate::sniff::sniff_with_name(&file, &file).unwrap();
+            assert_eq!(sniffed.family, crate::sniff::Family::Code);
+            let mut records = Vec::new();
+            let stats = extract(&file, &sniffed, &mut |record| {
+                records.push(record);
+                true
+            })
+            .unwrap();
+            assert_eq!((stats.records, stats.junk), (5, 0), "{lang}");
+            assert_eq!(records.len(), 5, "{lang}");
+            for (i, name) in ["useUserStore", "userSlice", "usePiniaStore", "StyledButton"]
+                .iter()
+                .enumerate()
+            {
+                assert!(
+                    records[0].fields["defs"]
+                        .as_str()
+                        .unwrap()
+                        .lines()
+                        .any(|line| line == format!("const {name}")),
+                    "{lang}: {name}"
+                );
+                let found: Vec<_> = records
+                    .iter()
+                    .filter(|r| r.fields.get("name").and_then(Value::as_str) == Some(*name))
+                    .collect();
+                assert_eq!(found.len(), 1, "{lang}: {name}");
+                assert_eq!(found[0].fields["kind"], "const");
+                assert_eq!(found[0].fields["language"], lang);
+                assert_eq!(found[0].fields["line"], i + 1);
+                assert_eq!(found[0].locator, format!("code:{}:{name}", i + 1));
+            }
+        }
+    }
+
+    #[test]
+    fn issue_2579_factory_export_scope_controls() {
+        for lang in ["typescript", "tsx", "javascript"] {
+            let source = "\
+const privateStore = createStore({});
+const namedStore = createStore({});
+export { namedStore };
+const defaultStore = createStore({});
+export default defaultStore;
+const renamedStore = createStore({});
+export { renamedStore as publicStore };
+const remoteStore = createStore({});
+export { remoteStore } from './remote';
+export let mutableStore = createStore({});
+function outer() { const localStore = createStore({}); }
+";
+            let symbols = syms(lang, source);
+            for name in ["namedStore", "defaultStore", "renamedStore"] {
+                assert!(
+                    has(&symbols, name, "const"),
+                    "{lang}: missing {name}: {symbols:?}"
+                );
+            }
+            for name in [
+                "privateStore",
+                "remoteStore",
+                "publicStore",
+                "mutableStore",
+                "localStore",
+            ] {
+                assert!(!has(&symbols, name, "const"), "{lang}: {name}: {symbols:?}");
+            }
+            let mut stats = ExtractStats::default();
+            let mut records = Vec::new();
+            assert!(emit_code_doc(
+                Path::new("store.ts"),
+                lang,
+                source,
+                &symbols,
+                &mut stats,
+                &mut |record| {
+                    records.push(record);
+                    true
+                }
+            ));
+            for (name, line) in [("namedStore", 2), ("defaultStore", 4), ("renamedStore", 6)] {
+                let found: Vec<_> = records
+                    .iter()
+                    .filter(|r| r.fields.get("name").and_then(Value::as_str) == Some(name))
+                    .collect();
+                assert_eq!(found.len(), 1, "{lang}: {name}");
+                assert_eq!(found[0].locator, format!("code:{line}:{name}"));
+                assert_eq!(found[0].fields["line"], line);
+            }
+        }
+    }
+
+    #[test]
+    fn issue_2579_type_only_exports_do_not_publish_factory_values() {
+        for lang in ["typescript", "tsx"] {
+            let symbols = syms(
+                lang,
+                "\
+const typeOnly = createStore({});
+export type { typeOnly };
+const specTypeOnly = createStore({});
+export { type specTypeOnly };
+const valueStore = createStore({});
+export { type specTypeOnly as Alias, valueStore };
+",
+            );
+            assert!(has(&symbols, "valueStore", "const"), "{lang}: {symbols:?}");
+            for name in ["typeOnly", "specTypeOnly", "Alias"] {
+                assert!(!has(&symbols, name, "const"), "{lang}: {symbols:?}");
+            }
+        }
     }
     fn has(s: &[Symbol], name: &str, kind: &str) -> bool {
         s.iter().any(|s| s.name == name && s.kind == kind)

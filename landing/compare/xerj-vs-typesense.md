@@ -2,13 +2,13 @@
 ---
 title: "XERJ vs Typesense when the corpus is a folder"
 canonical: "https://xerj.org/compare/xerj-vs-typesense"
-updated: "2026-10-23"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-typesense.md"
 ---
 
 # Do I need Typesense for an agent to search my docs?
 
-**Short answer** (updated 2026-10-23): Do I need Typesense for an agent to search my docs? Not for a folder of mixed files: XERJ reads it with one command, where Typesense expects extracted JSON. Typesense wins faceted product browsing, and its own documentation names that a headline use case. No faceting head-to-head was measured.
+**Short answer** (updated 2026-10-28): Do I need Typesense for an agent to search my docs? Not for a folder of mixed files: XERJ reads it with one command, where Typesense expects extracted JSON. Typesense wins faceted product browsing, and its own documentation names that a headline use case. No faceting head-to-head was measured.
 
 **Key number:** Typesense has 27,008 GitHub stars, is GPL-3.0, and released v30.2 on 2026-04-19. (as of 2026-10-19; source: [github.com/typesense/typesense](https://github.com/typesense/typesense))
 
@@ -96,7 +96,7 @@ The Typesense server is GPL-3.0. XERJ is Apache-2.0. If you plan to embed either
 
 Typesense Cloud sells a dedicated cluster at a fixed hourly cost rather than charging per document or per search. XERJ ships self-hosted only, with no managed product at all, so a managed plan is a reason to pick Typesense.
 
-Typesense documents conversational search and natural-language search as first-party features. Its documentation index lists no MCP server page, so treat any MCP server for Typesense as a community project until the vendor documents one. XERJ ships `xerj mcp` in the same binary, serving 22 tools.
+Typesense documents conversational search and natural-language search as first-party features. Its documentation index lists no MCP server page, so treat any MCP server for Typesense as a community project until the vendor documents one. XERJ ships `xerj mcp` in the same binary, serving 23 tools.
 
 ## The limits you inherit with XERJ
 

@@ -10,6 +10,9 @@ use serde_json::{json, Value};
 
 pub const CATALOG_INDEX: &str = xerj_common::AUTOINDEX_CATALOG_INDEX;
 
+/// Scope guidance, not an existence probe or a dataset record.
+pub const MAP_NAMESPACE_HINT: &str = "This map lists autoindex datasets, not the managed corpus registry. A managed corpus slug is not an autoindex dataset/index pattern. Use `xerj corpus list` for this client's configured corpora, then `xerj code <corpus> <query>` (MCP `xerj_code_search`); the node's `_cat/indices` lists indices. An empty map does not establish that managed corpus data is absent; no managed corpus existence was checked.";
+
 /// The corpus-scope field the #737/#693 exclusion sweeps term-query (#755).
 ///
 /// It exists because `prefix` cannot be relied on to be a `keyword` on an

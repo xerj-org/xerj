@@ -38,6 +38,7 @@ REPO = HERE.parent.parent.parent
 LANDING = REPO / "landing"
 sys.path.insert(0, str(HERE))
 import motifs  # noqa: E402
+import poster  # noqa: E402
 from motifs import MOTIFS  # noqa: E402
 
 # ── brand tokens: the brand book's print palette on the site's day paper ────
@@ -115,6 +116,20 @@ POSTS: list[dict[str, str]] = [
          subtitle="Smart, resource-aware autoindex and more harness tools.",
          alt="Cover art: eight large squares for the 8 GiB tier, the first two yellow for the 2 GiB memtable budget, beside eight small squares for the 8 MiB document ceiling and one outlined square for JSON streamed past 64 MiB",
          og_alt="Cover: “rc.99” in display type beside the post’s square-matrix art, labelled 8 GiB and 2 GiB. The art: eight large squares for the 8 GiB tier, the first two yellow for the 2 GiB memtable budget, beside eight small squares for the 8 MiB document ceiling and one outlined square for JSON streamed past 64 MiB"),
+    dict(slug="autoindex-search-performance-improvements", date="2026-10-26", motif="fieldgate",
+         title="Faster autoindex",
+         subtitle="Leaner indexes and lighter memory, guided by your field reports.",
+         alt="Cover art: 28 filled squares and 217 small empty rings scattered on grid paper, the filled ones joined by hairlines to a wide block of 454 empty cells, beside 32 yellow cells at the same pitch, then a gate of ink posts around two grey-blue columns and one empty yellow cell at its base",
+         og_alt="Cover: “Faster autoindex” in display type beside the post’s square-matrix art, labelled 28 people + 217 agent reports, 454 indices, 32, and ES 9.05 · Lucene 25.4 MiB/s. The art: 28 filled squares and 217 small empty rings scattered on grid paper, the filled ones joined by hairlines to a wide block of 454 empty cells, beside 32 yellow cells at the same pitch, then a gate of ink posts around two grey-blue columns and one empty yellow cell at its base"),
+    # poster: stars is GitHub stargazers_count, re-read right before rendering
+    # (2026-10-29); the curve and best_12_days are data/xerj-stargazers.json;
+    # the mosaic is contributors.py. See poster.py.
+    dict(slug="100-contributors", date="2026-10-29", motif="", poster="milestone",
+         stars="17486",
+         title="100 contributors behind 12,000 stars in 12 days",
+         subtitle="",
+         alt="Cover art: 100 in huge display type above the word contributors, then 12,000 stars in 12 days on a yellow highlight and 17,486 GitHub stars today; beside it a yellow area chart of the running star count from July to October 2026 that climbs steeply from 5,000 stars on Oct 15 to 17,000 stars on Oct 27; on the right a 10 by 10 grid of the 100 contributors' GitHub avatars",
+         og_alt="Cover: 100 in huge display type above the word contributors, then 12,000 stars in 12 days on a yellow highlight and 17,486 GitHub stars today; beside it a yellow area chart of the running star count from July to October 2026 that climbs steeply from 5,000 stars on Oct 15 to 17,000 stars on Oct 27; on the right a 10 by 10 grid of the 100 contributors' GitHub avatars"),
 ]
 
 # og: title + motif with its labels, for social feeds that show the card alone.
@@ -228,6 +243,12 @@ def background(W: int, H: int, seed: int) -> str:
 
 
 def page(post: dict, kind: str, number: int, total: int) -> str:
+    if post.get("poster"):
+        # a milestone poster (poster.py): headline numbers over a real curve
+        W, H = SIZES[kind]
+        return poster.page(post, kind, W, H, {
+            "display": font_url("BigShouldersDisplay-wght.ttf"),
+            "mono": font_url("JetBrainsMono-wght.ttf")})
     L = layout(kind)
     seed = sum(post["slug"].encode()) % 997
     rng = random.Random(post["slug"] + ":" + kind)
@@ -318,7 +339,8 @@ def render(posts: list[dict], series_total: int, numbers: dict[str, int],
                 pg.goto(tmp.as_uri())
                 pg.evaluate("document.fonts.ready")
                 pg.wait_for_timeout(150)
-                pg.evaluate(FIT_ART_JS if kind in ART_ONLY else FIT_JS)
+                if not post.get("poster"):
+                    pg.evaluate(FIT_ART_JS if kind in ART_ONLY else FIT_JS)
                 png = pg.locator(".card").screenshot(type="png")
                 tmp.unlink()
                 pg.close()

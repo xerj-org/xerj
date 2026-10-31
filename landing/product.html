@@ -253,7 +253,7 @@ LZ4_FORCE_INLINE int LZ4_compress_generic_validated(
       <tr><td><code class="inline">xerj "&lt;question&gt;"</code> · <code class="inline">xerj ask</code></td><td>Answers from a hub corpus. <code class="inline">--def SYMBOL</code>, <code class="inline">--how</code>, <code class="inline">--files</code>, <code class="inline">--offline</code>, <code class="inline">--json</code>, <code class="inline">--hosted on|off|auto</code>. Exit 1 when nothing matches.</td></tr>
       <tr><td><code class="inline">xerj code</code> · <code class="inline">xerj corpus</code></td><td><code class="inline">corpus add|index|list</code> pins and builds corpora you choose. <code class="inline">code &lt;corpus&gt; "&lt;query&gt;"</code> retrieves a definition and warns on the licence.</td></tr>
       <tr><td><code class="inline">xerj hub</code></td><td><code class="inline">sync</code>, <code class="inline">pull</code>, <code class="inline">feedback</code>, <code class="inline">status</code>, <code class="inline">stop</code>, and <code class="inline">config hosted on|off|auto</code>. Packs are verified, then restored. They are not cloned or indexed on your machine.</td></tr>
-      <tr><td><code class="inline">xerj mcp</code></td><td><code class="inline">xerj mcp --help</code> on this binary says it proxies 20 tools, and <code class="inline">tools/list</code> returned those 20. Main adds <code class="inline">xerj_def</code> and <code class="inline">xerj_batch_search</code>, for 22 (<a href="/docs/agents/schemas/mcp-tools.json">mcp-tools.json</a>). The hub three are <code class="inline">xerj_hub_find</code>, <code class="inline">xerj_hub_def</code>, <code class="inline">xerj_hub_ask</code>. It does not start a node.</td></tr>
+      <tr><td><code class="inline">xerj mcp</code></td><td>On main it serves 23 tools, or 20 in a build with no hub key (<a href="/docs/agents/schemas/mcp-tools.json">mcp-tools.json</a>). The hub three are <code class="inline">xerj_hub_find</code>, <code class="inline">xerj_hub_def</code>, <code class="inline">xerj_hub_ask</code>. It does not start a node.</td></tr>
       <tr><td><code class="inline">xerj init</code></td><td>Writes <code class="inline">.mcp.json</code>, and, when the directory exists, <code class="inline">.cursor/mcp.json</code>, <code class="inline">.codex/config.toml</code>, the skill and rule files, and an <code class="inline">AGENTS.md</code> section.</td></tr>
       <tr><td><code class="inline">xerj brain</code> · <code class="inline">xerj share</code> · <code class="inline">xerj gain</code> · <code class="inline">xerj feedback</code></td><td>A browsable second brain, a read-only link with a passcode and an expiry, usage counted from the audit log, and the field report in section 07.</td></tr>
     </tbody>
@@ -431,7 +431,7 @@ xerj search: these hits are lexical; this command does not consult the embedding
 </nav>
 <!-- seo:footer-end -->
 <footer class="footer">
-  <span>XERJ.AI · PRODUCT · V1.0.0-RC.99</span>
+  <span>XERJ.AI · PRODUCT · V1.0.0-RC.100</span>
   <span>CHECKED 2026-10-23</span>
   <span><a href="/">HOME</a> · <a href="/docs/">DOCS</a> · <a href="/benchmarks/">BENCHMARKS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
 </footer>

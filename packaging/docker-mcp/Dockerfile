@@ -15,7 +15,7 @@
 # The server image for the engine itself is engine/Dockerfile.
 
 FROM alpine:3.20 AS fetch
-ARG XERJ_VERSION=1.0.0-rc.99
+ARG XERJ_VERSION=1.0.0-rc.100
 ARG TARGETARCH
 RUN apk add --no-cache curl ca-certificates
 RUN set -eu; \

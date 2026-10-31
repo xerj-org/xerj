@@ -139,6 +139,7 @@ fn index_cfg(
         label: None,
         debounce: Duration::from_millis(0),
         exclude_rels: Vec::new(),
+        exclude: Vec::new(),
         skip_corpus_data: false,
     }
 }

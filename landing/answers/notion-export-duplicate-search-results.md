@@ -2,17 +2,17 @@
 ---
 title: "Why does my Notion export duplicate titles?"
 canonical: "https://xerj.org/answers/notion-export-duplicate-search-results"
-updated: "2026-10-19"
+updated: "2026-10-30"
 source: "content/answers/notion-export-duplicate-search-results.md"
 ---
 
 # Why does my Notion export duplicate titles?
 
-**Short answer** (updated 2026-10-19): Why does my Notion export duplicate titles in search results? The duplicates come from the export layout and from the 2 documents XERJ writes per Markdown file, not from re-indexing. A captured run indexed the same Notion export twice and returned 8 documents both times, with byte-identical ids, so the index never doubled.
+**Short answer** (updated 2026-10-30): Why does my Notion export duplicate titles in search results? The duplicates come from the export layout and from the 2 documents XERJ writes per Markdown file, not from re-indexing. A captured run indexed the same Notion export twice and returned 8 documents both times, with byte-identical ids, so the index never doubled.
 
-**Key number:** Re-indexing the same 4-file Notion export a second time returned the same 8 documents, with byte-identical ids. (as of 2026-08-21; source: the captured run documented on this page)
+**Key number:** Re-indexing the same Notion export a second time returned the same 8 documents, with byte-identical ids. (as of 2026-08-21; source: the captured run documented on this page)
 
-**TL;DR** — The duplicate titles come from the export layout and from the 2 documents XERJ writes per Markdown file. Re-indexing is not the cause. A captured run indexed the same export twice and returned 8 documents both times, with byte-identical ids.
+**TL;DR** The duplicates come from the export layout and from the 2 documents XERJ writes per Markdown file. Re-indexing is not the cause: the same export indexed twice returned 8 documents both times, with byte-identical ids.
 
 ## Agent prompt
 
@@ -54,68 +54,45 @@ Note: List every exported file with its family, status and refusal reason.
 curl -s -XPOST http://127.0.0.1:9200/autoindex-catalog/_search -H 'content-type: application/json' -d '{"query":{"term":{"doc_kind":"file"}},"size":500,"_source":["path","format","status","records","reason"],"sort":[{"path":"asc"}]}'
 ```
 
+*Figure: Bars are drawn to scale against 4. Counts from RUN-B, captured on 2026-08-21 on an export folder written to Notion's file naming by the fixture generator.*
+
 ## The export layout repeats the title
 
-Notion writes a page as `<Title> <32-hex>.md` and puts its children into a sibling directory named `<Title> <32-hex>/`. The same title text therefore appears in a file name and in a directory name for one page.
+Notion writes a page as `<Title> <32-hex>.md` and its children into a sibling folder named `<Title> <32-hex>/`. One title then shows up in a file name and in a folder name.
 
-A phrase that Notion copied into both the parent page and a child page returned 2 hits, at `Engineering Handbook a1b2c3d4e5f60718293a4b5c6d7e8f90.md` and at `Engineering Handbook .../Runbooks a1b2c3d4e5f60718293a4b5c6d7e8f90.md`. Both hits are correct. The text is genuinely in 2 exported files.
+In the run, a phrase that Notion copied into a parent page and a child page returned 2 hits, one in each file. Both hits are correct, because the text is in 2 exported files. The third command above is a search of that kind.
 
-## Each Markdown file produces 2 documents
+## Each Markdown page is 2 documents
 
-XERJ writes 1 whole-file document plus 1 document per passage. For a short Notion page that is a pair, and both documents carry the same `ax_path` and the same title text.
+XERJ writes 1 whole-file document plus 1 document per passage, so a short page is a pair with the same `ax_path`. Group on `ax_path` in your client for 1 result per page:
 
-| `ax_path` | `ax_locator` | `ax_format` |
-| --- | --- | --- |
-| `Engineering Handbook a1b2c3d4e5f60718293a4b5c6d7e8f90.md` | `file` | `txt-prose` |
-| `Engineering Handbook a1b2c3d4e5f60718293a4b5c6d7e8f90.md` | `s0` | `txt-prose` |
-| `Engineering Handbook .../Runbooks a1b2c3d4e5f60718293a4b5c6d7e8f90.md` | `file` | `txt-prose` |
-| `Engineering Handbook .../Runbooks a1b2c3d4e5f60718293a4b5c6d7e8f90.md` | `s0` | `txt-prose` |
+*Figure: The 4 Markdown documents from the match_all listing in the recorded run. Grouping happens in your client, not in the index.*
 
-Group the hits on `ax_path` in your client if you want 1 result per page. Sort on `ax_path` and then `ax_locator` to make the pairs visible.
-
-```sh
-curl -s -XPOST 'http://127.0.0.1:9200/nt-*/_search' \
-  -H 'content-type: application/json' \
-  -d '{"query":{"match_all":{}},"size":100,"_source":["ax_path","ax_format","ax_locator"],"sort":[{"ax_path":"asc"},{"ax_locator":"asc"}],"track_total_hits":true}'
-```
+The second command above is the listing query, sorted on `ax_path` and then `ax_locator`.
 
 ## Re-indexing is idempotent
 
-The captured run indexed one Notion Markdown and CSV export, then indexed the same folder again with the same command. Both runs returned 8 documents. Every `_id` matched byte for byte, and the second run added nothing.
+The run indexed the export, then indexed the same folder again with the same command. Both runs returned 8 documents, every `_id` matched byte for byte, and the second run added nothing. Its terminal line read `files=0 records=8`: every file was unchanged, so no new source documents went in.
 
-The second run reported `files=0 records=8` at the terminal. XERJ recognized every file as unchanged and submitted no new source documents.
+## Database row pages can be refused as YAML
 
-```sh
-xerj autoindex ./notion-export --url http://127.0.0.1:9200 --prefix nt --progress plain
-```
+A Notion database row page is a title over `Status:`, `Owner:` and `Decided:` lines. When most non-blank lines of a file read as YAML, the sniffer gives it the `yaml` family. The YAML extractor got nothing from these pages, so each was dropped with 0 documents and no fallback to prose. Front matter alone does not do this, because a file that opens with `---` is classified by the body under it.
 
-## Watch for database pages refused as YAML
+All 3 row pages were refused with the reason `no records extracted (yaml candidate family, 1 junk lines)`, and the terminal only showed `junk_files=3`. A 3-file reproduction outside Notion did the same: `prose-no-colons.txt` was indexed as `txt-prose`, and `speaker-colons.txt` and `markdown-bullets.md` were dropped as `yaml`.
 
-If most of an exported page's non-blank lines read as YAML — a `key: value` line, or a line opening with `- ` — the family sniffer classifies the page as `yaml`. Notion writes a database row page as a title over `Status:`, `Owner:` and `Decided:` lines, which is exactly that shape. YAML parsing then fails and XERJ drops the file with 0 documents. There is no fallback to prose, and the only terminal signal is a junk file count. A `---` front-matter block at the top of a Markdown file does not trigger this on its own: a file that opens with front matter is classified by the body under it.
+This run predates a sniffer fix closed on 2026-10-04 ([issue #1142](https://github.com/xerj-org/xerj/issues/1142)). A file now also has to parse as a YAML stream before it gets the `yaml` family, so labeled prose that does not parse is indexed as prose. Re-run and read `autoindex-catalog` to see how your own row pages land.
 
-All 3 database row pages under `Decisions 0f1e2d3c4b5a69788796a5b4c3d2e1f0/` were refused this way, with the reason `no records extracted (yaml candidate family, 1 junk lines)`. The run reported `junk_files=3`.
+## The database CSV keeps the rows
 
-A minimal 3-file reproduction shows the same behavior outside Notion. XERJ indexed `prose-no-colons.txt` as `txt-prose`. It gave `speaker-colons.txt` and `markdown-bullets.md` the `yaml` family and dropped both.
-
-## The database CSV still works
-
-Notion also writes each database to `<Name> <id>_all.csv`. XERJ gave that file the `csv` family and produced 4 documents: 1 whole-file document and 3 row documents with locators `r0`, `r1` and `r2`.
-
-The CSV therefore carries the rows that the refused Markdown pages lost. Read `autoindex-catalog` after every run and compare the file count with the document count before you report either.
-
-```sh
-curl -s -XPOST 'http://127.0.0.1:9200/autoindex-catalog/_search' \
-  -H 'content-type: application/json' \
-  -d '{"query":{"term":{"doc_kind":"file"}},"size":500,"_source":["path","format","status","records","reason"],"sort":[{"path":"asc"}]}'
-```
+Notion also writes each database to `<Name> <id>_all.csv`. XERJ indexed it as `csv` with 4 documents: 1 whole-file document and 3 rows at `r0`, `r1` and `r2`. Read `autoindex-catalog` after every run with the last command above, and compare the file count with the document count before you report either.
 
 ## What this capture does not show
 
-The export folder in this run came from the fixture generator, written to Notion's own file naming. Notion never ran on the host, and no workspace was connected. XERJ has no Notion connector and fetches nothing over the network.
+The export folder came from the fixture generator, written to Notion's own file naming. Notion never ran on the host and no workspace was connected. XERJ has no Notion connector and fetches nothing over the network.
 
-XERJ runs single-node here, with no replication and no failover. The default embedder in XERJ is lexical feature hashing, so a query and a paraphrase that share no words do not match. Neural embeddings are opt-in through `--embed-mode neural`.
+XERJ ran single-node, with no replication and no failover. The default embedder is lexical feature hashing, so a paraphrase that shares no words with the query does not match. Neural embeddings are opt-in through `--embed-mode neural`.
 
-Every number above comes from RUN-B, captured on 2026-08-21. The binary was a `ci-test` profile build, so no wall-clock figure from this run is published as a performance number.
+Every number here comes from RUN-B, captured on 2026-08-21 on a 16-core AMD EPYC 9645 host with a `ci-test` profile build, so no wall-clock figure is published as a performance number.
 
 ## FAQ
 

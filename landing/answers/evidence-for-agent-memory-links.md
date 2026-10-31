@@ -145,6 +145,6 @@ In the index named `.xerj-memory-{brain}-edges`. Filter on `{"exists":{"field":"
 - [Should agent memory use a knowledge graph?](/answers/knowledge-graphs-for-agent-memory)
 - [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions)
 - [Second brain](/use-cases/second-brain)
+- [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag) (same intent: agent memory)
 - [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant) (same intent: agent memory)
 - [How do I give two agents private memory on one laptop?](/answers/private-agent-memory-namespaces) (same intent: agent memory)
-- [How do I stop an agent memory store from filling with near-duplicate notes?](/answers/store-agent-memory-without-llm-call) (same intent: agent memory)

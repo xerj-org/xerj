@@ -470,6 +470,10 @@ pub(crate) fn render_response(resp: &Value, args: &MapArgs) -> String {
     }
     if docs.is_empty() {
         out.insert(
+            "namespace_hint".into(),
+            json!(xerj_autoindex::catalog::MAP_NAMESPACE_HINT),
+        );
+        out.insert(
             "hint".into(),
             json!(format!(
                 "no datasets in {CATALOG_INDEX} match — the catalog is written by `xerj \
@@ -855,8 +859,8 @@ pub(crate) async fn run(ctx: &Ctx, args: &Value) -> Value {
                 tool_text(
                     format!(
                         "xerj_map: no autoindex catalog on this node (index \
-                         `{CATALOG_INDEX}` not found, HTTP 404) — run `xerj autoindex \
-                         <folder>` first. Engine said: {text}"
+                         `{CATALOG_INDEX}` not found, HTTP 404). {} Engine said: {text}",
+                        xerj_autoindex::catalog::MAP_NAMESPACE_HINT
                     ),
                     true,
                 )
@@ -930,6 +934,80 @@ mod tests {
         assert!(!glob_match("ax-logs", "ax-logs2"));
         assert!(glob_match("ax-*-2026", "ax-logs-2026"));
         assert!(!glob_match("ax-*-2026", "ax-2026"));
+    }
+
+    #[test]
+    fn empty_maps_explain_namespace_scope_without_inventing_corpus_existence() {
+        let rendered: Value = serde_json::from_str(&render_response(
+            &catalog_response(vec![]),
+            &args(Some("managed-*")),
+        ))
+        .unwrap();
+        assert_eq!(rendered["matched"], 0);
+        assert_eq!(rendered["indexes"], json!([]));
+        let hint = rendered["namespace_hint"].as_str().unwrap();
+        assert!(hint.contains("managed corpus slug"));
+        assert!(hint.contains("xerj corpus list"));
+        assert!(hint.contains("no managed corpus existence was checked"));
+        let positive: Value = serde_json::from_str(&render_response(
+            &catalog_response(vec![dataset_doc("ax-code", 2, "[]")]),
+            &args(None),
+        ))
+        .unwrap();
+        assert_eq!(positive["matched"], 1);
+        assert!(positive.get("namespace_hint").is_none());
+    }
+
+    #[tokio::test]
+    async fn namespace_guidance_is_added_to_404_but_not_authorization_refusals() {
+        use std::io::{Read, Write};
+        for (status, expected_hint) in [(404, true), (403, false)] {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let url = format!("http://{}", listener.local_addr().unwrap());
+            let server = std::thread::spawn(move || {
+                let (mut stream, _) = listener.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(std::time::Duration::from_secs(10)))
+                    .unwrap();
+                let mut request = Vec::new();
+                let mut chunk = [0u8; 2048];
+                loop {
+                    let n = stream.read(&mut chunk).unwrap();
+                    assert!(n > 0);
+                    request.extend_from_slice(&chunk[..n]);
+                    if let Some(end) = request.windows(4).position(|w| w == b"\r\n\r\n") {
+                        let headers = String::from_utf8_lossy(&request[..end]);
+                        let length: usize = headers
+                            .lines()
+                            .find_map(|line| {
+                                line.to_ascii_lowercase()
+                                    .strip_prefix("content-length:")
+                                    .map(|v| v.trim().parse().unwrap())
+                            })
+                            .unwrap_or(0);
+                        if request.len() >= end + 4 + length {
+                            break;
+                        }
+                    }
+                }
+                assert!(request.starts_with(b"POST /autoindex-catalog/_search "));
+                let body = "{\"error\":{\"reason\":\"fixture refusal\"}}";
+                write!(stream, "HTTP/1.1 {status} Refused\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+            });
+            let ctx = crate::Ctx {
+                client: reqwest::Client::new(),
+                base_url: url,
+                auth: None,
+            };
+            let result =
+                crate::call_tool(&ctx, &json!({"params":{"name":"xerj_map","arguments":{}}})).await;
+            server.join().unwrap();
+            assert_eq!(result["isError"], true);
+            let text = result["content"][0]["text"].as_str().unwrap();
+            assert!(text.contains(&status.to_string()), "{text}");
+            assert_eq!(text.contains("managed corpus"), expected_hint, "{text}");
+            assert!(text.contains("fixture refusal"), "{text}");
+        }
     }
 
     #[test]

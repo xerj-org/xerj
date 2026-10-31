@@ -2,13 +2,13 @@
 ---
 title: "Why is reindexing my files taking forever?"
 canonical: "https://xerj.org/answers/reindex-taking-forever"
-updated: "2026-10-19"
+updated: "2026-10-28"
 source: "content/answers/reindex-taking-forever.md"
 ---
 
 # Reindexing my files is taking forever. What usually causes that?
 
-**Short answer** (updated 2026-10-19): Reindexing my files is taking forever; what usually causes it? Usually batch size and write cost, and sometimes a stalled call. Read created against a _count of the destination index to tell slow progress from none. A measured XERJ _reindex of 100,000 documents took 20,836 ms in 100 batches with 0 failures on one node.
+**Short answer** (updated 2026-10-28): Reindexing my files is taking forever; what usually causes it? Usually batch size and write cost, and sometimes a stalled call. Read created against a _count of the destination index to tell slow progress from none. A measured XERJ _reindex of 100,000 documents took 20,836 ms in 100 batches with 0 failures on one node.
 
 **Key number:** A single-node `_reindex` of 100,000 documents reported took 20,836 ms, 100 batches and 0 failures. (as of 2026-08-23; source: the captured run documented on this page)
 
@@ -152,6 +152,8 @@ Yes. XERJ has an open defect that retains heap per indexed document, so a large 
 - [Migrate from Elasticsearch](/docs/migration-from-es)
 - [What can I use for low-volume log search?](/answers/cheap-low-volume-log-search)
 - [The indexer died overnight. Do I have to start over?](/answers/resume-interrupted-autoindex-run)
+- [How do I estimate folder-indexing time?](/answers/estimate-autoindex-time-before-running)
+- [The indexer exited 3 (or 4). Did it fail?](/answers/autoindex-exit-codes)
 - [Why would a folder search miss files that I can see on disk?](/answers/why-autoindex-skipped-files) (same intent: operating autoindex)
 - [How do I search files that live in an S3 bucket?](/answers/search-files-in-an-s3-bucket) (same intent: operating autoindex)
 - [One dataset was REFUSED by the server. Did I lose the whole index?](/answers/autoindex-dataset-refused-by-server) (same intent: operating autoindex)

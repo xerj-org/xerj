@@ -2,13 +2,13 @@
 ---
 title: "XERJ vs Omnisearch for an Obsidian vault"
 canonical: "https://xerj.org/compare/xerj-vs-obsidian-omnisearch"
-updated: "2026-10-23"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-obsidian-omnisearch.md"
 ---
 
 # How do I search an Obsidian vault from outside Obsidian?
 
-**Short answer** (updated 2026-10-23): How do I search an Obsidian vault from outside Obsidian? Index the vault folder with XERJ; it reads it with Obsidian closed and answers an agent. Inside Obsidian, Omnisearch wins: an instant search interface, BM25 ranking, and PDFs and images through the Text Extractor plugin. No head-to-head was run.
+**Short answer** (updated 2026-10-28): How do I search an Obsidian vault from outside Obsidian? Index the vault folder with XERJ; it reads it with Obsidian closed and answers an agent. Inside Obsidian, Omnisearch wins: an instant search interface, BM25 ranking, and PDFs and images through the Text Extractor plugin. No head-to-head was run.
 
 **Key number:** Omnisearch has 2,169 GitHub stars, is GPL-3.0, and released 1.31.0 on 2026-09-05. (as of 2026-10-19; source: [github.com/scambier/obsidian-omnisearch](https://github.com/scambier/obsidian-omnisearch))
 
@@ -80,7 +80,7 @@ The Omnisearch README points at a third-party MCP server that detects Omnisearch
 
 The difference is what it depends on. That route needs Obsidian running and the local HTTP server enabled.
 
-`xerj mcp` is a stdio MCP server in the same binary as the engine. It serves 22 tools, and it needs no editor at all.
+`xerj mcp` is a stdio MCP server in the same binary as the engine. It serves 23 tools, and it needs no editor at all.
 
 ## What XERJ reads in a vault, and how
 

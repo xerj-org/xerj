@@ -7,6 +7,8 @@ logs, JSONL/CSV and PDFs for BM25 full-text, vector and hybrid search, code sear
 memory, behind an Elasticsearch-compatible API. Works with Claude Code, Cursor and any MCP client.
 
 <a href="https://trendshift.io/repositories/116361?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-116361" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/116361" alt="xerj-org%2Fxerj | Trendshift" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/116361#achievements" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/116361/daily?language=Rust" alt="XERJ | #1 Rust Repository Of The Day | Trendshift" width="250" height="55"/></a>
+<a href="https://trendshift.io/repositories/116361#achievements" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/116361/weekly?language=Rust" alt="XERJ | #1 Rust Repository Of The Week | Trendshift" width="250" height="55"/></a>
 
 [English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja-JP.md) | [العربية](./README.ar.md) | [Español](./README.es.md) | [한국어](./README.ko.md)
 
@@ -148,6 +150,12 @@ phase B: indexing 25329 files with 8 workers
 done in 158.1s, 593 datasets, 83103 records live, 790 junk records
 ```
 
+Share an offline data map with `xerj autoindex map --prefix myproject --html
+xerj-map.html --redact-paths`, or use `--md xerj-map.md` for Markdown. Reports
+include dataset counts, symbol names, graph hubs when available, skipped-file
+information and suggested searches. Review metadata names before sharing.
+[Examples, privacy scope and reproduction](tools/map-report/README.md).
+
 ## What people point it at
 
 - Reference coding: index the OSS projects nearest your problem and retrieve how they solved
@@ -205,6 +213,12 @@ Windows PowerShell:
 
 ```powershell
 irm https://xerj.org/get.ps1 | iex
+```
+
+Nix (builds from source; `nix develop` opens a shell with the Rust toolchain):
+
+```sh
+nix run github:xerj-org/xerj -- --version
 ```
 
 One static binary, no JVM, no dependencies. Prebuilt for Linux, macOS and Windows on x86-64
@@ -353,7 +367,7 @@ Twenty-six clients can register `xerj mcp` as a local stdio server. The entry is
 two fields - the absolute path to the binary, and `mcp` as its only argument - but where that entry
 lives and which key wraps it differ per client. `tested` means the server was registered in that
 client and `xerj_search` appeared in its tool list; `untested` means the path and shape are
-transcribed from the client's own documentation and nobody has run it yet. Two rows have been run.
+transcribed from the client's own documentation and nobody has run it yet. Five rows have been run.
 OpenCode v2.1.2 on Windows against `xerj` v1.0.0-rc.97 answered `initialize` and `tools/list`
 with its full tool list. Cline CLI 3.0.73 on Linux against `xerj` v1.0.0-rc.98 loaded this
 section's `mcpServers` block at `~/.cline/data/settings/cline_mcp_settings.json`. `xerj_search`
@@ -364,13 +378,23 @@ IDE's MCP Servers > Configure button was not part of that run. Kimi Code CLI 2.3
 desktop app on Linux against `xerj` v1.0.0-rc.99 (built from source) loaded this section's
 `mcpServers` block at `~/.kimi-code/mcp.json`: the client spawned `xerj mcp` as a child process
 with the `env` block intact (verified through `/proc/<pid>/environ`), and `xerj_search` appeared
-in the tool list. Correcting an `untested` row is a
-welcome first PR.
+in the tool list. Claude Code 2.1.311 on Kali Linux against `xerj` v1.0.0-rc.100 registered
+`xerj mcp` with `claude mcp add` in the local, project and user scopes; `xerj_search` appeared in
+`/mcp` among that binary's 22 tools, and Claude Code executed one `xerj_search` and one `xerj_def`
+call against an autoindexed repository. DeepSeek Harness 44.7.0 on Windows against
+`xerj` v1.0.0-rc.99 loaded this row's `- insert:` block from a profile patch at
+`$DSH_HOME/profiles/desktop/cordis.patch.yml`: in the contributor's run, the harness
+spawned `xerj mcp` without an application restart, exposed `mcp__xerj__xerj_search`,
+and executed a search. The tested entry was the profile patch; the `dsh/` bundle
+was not exercised. The run set `XERJ_DISABLE_FEEDBACK=true` and observed no automatic
+field report. [Contributor's verification and limits](https://github.com/xerj-org/xerj/pull/2446).
+
+Correcting an `untested` row is a welcome first PR.
 
 | Client | Config file | Key | Note | Tested |
 |---|---|---|---|---|
 | OpenCode | `opencode.json` in the project, or `~/.config/opencode/opencode.json` | `mcp.servers` | one command array, `environment` not `env`, needs a project root | tested |
-| Claude Code | `.mcp.json` (project) or `~/.claude.json` (user); `claude mcp add` writes either | `mcpServers` | `--` before the command is required | untested |
+| Claude Code | `.mcp.json` (project scope) or `~/.claude.json` (local scope, the default, or user scope); `claude mcp add` writes any of them | `mcpServers` | `--` before the command is recommended; `xerj mcp` also registers without it | tested |
 | Cursor | `.cursor/mcp.json` in the project, or `~/.cursor/mcp.json` | `mcpServers` | no `type` for stdio | untested |
 | Codex | `~/.codex/config.toml`, or `.codex/config.toml` in trusted projects | `[mcp_servers.xerj]` | TOML, not JSON | untested |
 | Gemini CLI | `.gemini/settings.json` or `~/.gemini/settings.json` | `mcpServers` | `gemini trust` the folder or stdio shows Disconnected | untested |
@@ -389,7 +413,7 @@ welcome first PR.
 | Kiro | `.kiro/settings/mcp.json` in the workspace, `~/.kiro/settings/mcp.json` user | `mcpServers` | `${VAR}` expansion needs approval | untested |
 | Antigravity | `~/.gemini/config/mcp_config.json`, or `.agents/mcp_config.json` in the workspace | `mcpServers` | remote servers use `serverUrl` | untested |
 | OpenClaw | `~/.openclaw/openclaw.json` (JSON5) | `mcp.servers` | `transport: "stdio"` | untested |
-| [DeepSeek Harness (dsh)](dsh/) | `$DSH_HOME/cordis.patch.yml`, or a profile patch | `- insert:` with `@deepseek-ai/dsh-mcp-client` | one plugin instance per server | untested |
+| [DeepSeek Harness (dsh)](dsh/) | `$DSH_HOME/cordis.patch.yml`, or a profile patch | `- insert:` with `@deepseek-ai/dsh-mcp-client` | one plugin instance per server | tested |
 | Warp | Settings > Agents > MCP servers, or `~/.warp/.mcp.json` and `.warp/.mcp.json` in the project | `mcpServers` | `working_directory`, not `cwd` | untested |
 | Augment Code | `~/.augment/settings.json` for the Auggie CLI; the IDE uses its own panel | `mcpServers` | that file does not drive the IDE | untested |
 | Qwen Code | `~/.qwen/settings.json`, or `.qwen/settings.json` in the project | `mcpServers` | `mcp.allowed` can silently hide it | untested |
@@ -479,11 +503,11 @@ the other direction: it hosts an MCP endpoint other agents connect to, and its s
 their servers from the harness underneath. Grok Bot has no documented local stdio registration; the
 Grok CLI does, which is the `grok` row above.
 
-Twenty-one tools are exposed. Eleven are thin proxies over an endpoint XERJ already serves:
+Twenty-three tools are exposed when Hub tools are enabled. Eleven are thin proxies over an endpoint XERJ already serves:
 
 | Tool | What it does |
 |---|---|
-| `xerj_search` | ES query-DSL search over an index |
+| `xerj_search` | keyword search over an index, from plain words (`query`) or an ES query-DSL clause (`query_dsl`) |
 | `xerj_semantic_search` | recall by meaning over a `semantic_text` field, the query embedded server-side (default embedder is lexical feature-hashing, not neural, unless the node runs `--embed-mode neural`) |
 | `xerj_vector_search` | kNN over a `dense_vector` field |
 | `xerj_hybrid_search` | RRF or linear fusion of sub-queries |
@@ -498,6 +522,19 @@ the same function as the CLI: the prefix `xerj autoindex --prefix` stores, so
 pattern instead; non-empty `index` and `prefix` cannot be combined. An empty
 prefix, a prefix with no `[a-z0-9]` character, or a prefix that cannot name an
 index is an error. With neither argument, the tool searches `ax-*`.
+
+For new callers, `query` is a plain string and structured ES query-DSL goes in
+`query_dsl` — `{"index":"docs","query_dsl":{"match_all":{}}}`. Do not combine
+both fields. The published schema separates the types to simplify tool calls
+(#2549); it cannot guarantee a model emits valid JSON. Existing callers may
+still pass an object in `query`, and omitting both fields retains `match_all`
+browsing. Prefer an explicit `query_dsl` clause when browsing is intended.
+
+Search tools and `xerj batch-search` default to an 8,000 UAX #29 word budget
+when `max_tokens` is omitted or null. A larger integer requests more evidence;
+accounting explains any trimming. This is not a byte cap or a model/BPE token
+limit. Errors and mandatory `xerj_search` staleness hints are outside this
+budget and remain visible.
 
 `xerj_def` finds local definitions with the same query, ranking and location deduplication
 as `xerj def --json`. For example, `{"symbol":"Cache","prefix":"project","kind":"struct","lang":"rust","k":5}`
@@ -516,6 +553,10 @@ reference-coding pipeline ([`tools/xerj-code/`](tools/xerj-code/)) and returns i
 `xerj_index_budget` counts a folder and estimates its index against the node's disk budget
 before `xerj autoindex` hashes anything (it does not index). `xerj_autoindex_remove` drops
 one autoindexed folder after listing it, and deletes nothing unless `confirm` is true.
+`xerj_status` probes the node banner, cluster health and visible indices with
+up to three bounded reads. A missing autoindex catalog does not mean the node
+has no data; refused or malformed probes remain errors or unknown status.
+`xerj_batch_search` retrieves ordered batches with per-item outcomes and citations.
 `xerj_corpus_feedback` rates a hub corpus.
 `xerj_field_report` files a field report, and `xerj_hub_find`, `xerj_hub_def` and `xerj_hub_ask`
 answer from Corpus Hub packs already on the machine (the `xerj ask` flow).

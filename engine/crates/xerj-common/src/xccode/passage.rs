@@ -587,14 +587,17 @@ fn push_term_text(out: &mut String, text: &str) {
 /// does not contain a term, or whose passage start line is not known, is
 /// left untouched — a missing field, not a guessed line.
 pub fn annotate_search_match_lines(resp: &mut Value, query: &str) -> bool {
+    // #2402: every search surface (CLI, `xerj_search`, batch) runs this pass,
+    // so it is also where a deduplicated hit stops citing its backup copy.
+    let renamed = super::render::prefer_live_alias_paths(resp);
     let terms = match_query_terms(query);
     if terms.is_empty() {
-        return false;
+        return renamed;
     }
     let Some(hits) = resp.pointer_mut("/hits/hits").and_then(Value::as_array_mut) else {
-        return false;
+        return renamed;
     };
-    let mut changed = false;
+    let mut changed = renamed;
     for hit in hits {
         if stamp_match_line(hit, &terms) {
             changed = true;

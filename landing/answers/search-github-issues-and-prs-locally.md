@@ -2,13 +2,13 @@
 ---
 title: "Search GitHub issues and PRs locally"
 canonical: "https://xerj.org/answers/search-github-issues-and-prs-locally"
-updated: "2026-10-20"
+updated: "2026-10-28"
 source: "content/answers/search-github-issues-and-prs-locally.md"
 ---
 
 # Search a repo's issues and pull requests on your machine
 
-**Short answer** (updated 2026-10-20): Search a repo's issues and pull requests locally. Export them to JSONL, index the folder, and query that index instead of reading `gh` JSON. On 2026-10-20 the `gh` capture file was 36,550 bytes and the `xerj search` capture file was 1,865 bytes. Two of the three passages were cited as line 1.
+**Short answer** (updated 2026-10-28): Search a repo's issues and pull requests locally. Export them to JSONL, index the folder, and query that index instead of reading `gh` JSON. On 2026-10-20 the `gh` capture file was 36,550 bytes and the `xerj search` capture file was 1,865 bytes. Two of the three passages were cited as line 1.
 
 **Key number:** The captured gh search file was 36,550 bytes and the xerj search file was 1,865 bytes. (as of 2026-10-20; source: [benchmarks/agent-queries-2026-10-20/01-byte-compare.txt](https://github.com/xerj-org/xerj/blob/main/benchmarks/agent-queries-2026-10-20/01-byte-compare.txt))
 
@@ -74,7 +74,7 @@ curl -s -XPOST http://127.0.0.1:9217/gh-*/_search -H 'content-type: application/
 
 `took` was 7. Issue 960 was first. `_savings.bytes` was 19,444, `measured` `sampled`. The same question through `gh issue list --json number,title,body,state,url` produced a capture file of 36,550 bytes, because each hit included `body`.
 
-`xerj mcp` against this node returned 17 tools, including `xerj_search`. The server does not start a node.
+`xerj mcp` against this node returned 17 tools on rc.97, including `xerj_search`. On main it serves 23, or 20 in a build with no hub key. The server does not start a node.
 
 ## Measured on 2026-10-20
 

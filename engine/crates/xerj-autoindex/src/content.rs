@@ -310,6 +310,30 @@ fn resolve_with_digests(
             (files[left].is_symlink, files[left].rel_id.as_str())
                 .cmp(&(files[right].is_symlink, files[right].rel_id.as_str()))
         });
+        // #2449: a 0-byte file has no content to share, so a zero-byte group is
+        // not a duplicate group. Every empty file in a tree (`.gitkeep`,
+        // `__init__.py`, placeholder `.ts` files) hashes to the same digest, so
+        // without this every one of them but the first was reported as a
+        // "content duplicate" of an unrelated path — pure noise in the plan, and
+        // on a resume it also diverged from the fresh plan, which drops aliases
+        // whose canonical is junk (an empty file is junk: `binary content
+        // (empty)`). Each empty file keeps its own identity instead, so it is
+        // reported once, by path, for what it is.
+        //
+        // The first file keeps the historical content key; the rest get a
+        // path-derived one, because equal bytes would otherwise give them equal
+        // ids. `-empty-` rather than `-collision-` on purpose: these are not
+        // unequal files that collided, they are files with nothing to dedupe.
+        if files[indices[0]].size == 0 {
+            for &index in &indices[1..] {
+                resolved_keys[index] = format!(
+                    "{}-empty-{:032x}",
+                    digests[index],
+                    xxhash_rust::xxh3::xxh3_128(files[index].rel_id.as_bytes())
+                );
+            }
+            continue;
+        }
         // A digest match is still only a candidate: verify exact bytes.
         let mut representatives: Vec<usize> = Vec::new();
         for index in indices {
@@ -578,6 +602,48 @@ mod tests {
         assert_eq!(inv.duplicates.len(), 1);
         assert_eq!(inv.duplicates[0].duplicate_of, "a.txt");
         assert_eq!(inv.keys[0], inv.duplicates[0].file_key);
+    }
+
+    /// #2449: every 0-byte file hashes to the same digest, so all of them but
+    /// the first were reported as "byte-identical content duplicates" of an
+    /// unrelated path. A placeholder file duplicates nothing — it has no
+    /// content — so a zero-byte group must not group at all.
+    #[test]
+    fn zero_byte_files_are_not_content_duplicates_of_each_other() {
+        let dir = tempfile::tempdir().unwrap();
+        for name in ["pkg/__init__.py", "src/placeholder.ts", "empty.json"] {
+            let path = dir.path().join(name);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            fs::write(&path, b"").unwrap();
+        }
+        let inv = resolve(crate::walk::walk(dir.path(), false).unwrap()).unwrap();
+        assert_eq!(inv.files.len(), 3, "every empty file stays its own entry");
+        assert!(
+            inv.duplicates.is_empty(),
+            "an empty file duplicates nothing: {:?}",
+            inv.duplicates.iter().map(|d| &d.rel).collect::<Vec<_>>()
+        );
+        let unique: std::collections::HashSet<&String> = inv.keys.iter().collect();
+        assert_eq!(
+            unique.len(),
+            inv.keys.len(),
+            "empty files must still get distinct ids: {:?}",
+            inv.keys
+        );
+    }
+
+    /// The carve-out is only for 0 bytes: equal non-empty files still group.
+    #[test]
+    fn a_zero_byte_file_does_not_stop_equal_non_empty_files_from_grouping() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("empty.txt"), b"").unwrap();
+        fs::write(dir.path().join("a.txt"), b"same records\n").unwrap();
+        fs::write(dir.path().join("b.txt"), b"same records\n").unwrap();
+        let inv = resolve(crate::walk::walk(dir.path(), false).unwrap()).unwrap();
+        assert_eq!(inv.files.len(), 2);
+        assert_eq!(inv.duplicates.len(), 1);
+        assert_eq!(inv.duplicates[0].rel, "b.txt");
+        assert_eq!(inv.duplicates[0].duplicate_of, "a.txt");
     }
 
     #[test]

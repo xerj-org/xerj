@@ -1,13 +1,13 @@
 ---
-title: "Search .ipynb notebooks and the .py files beside them"
+title: "Search Jupyter notebooks (.ipynb) and the .py beside them"
 h1: "I need to find a function I wrote in a notebook months ago. How do I search all .ipynb files and the .py next to them?"
-description: "A captured run indexed 2 notebooks by heading section, with the heading path and starting cell, and the .py beside them, all in one index."
+description: "Index a folder of Jupyter notebooks with xerj autoindex. Each heading section becomes one document with its heading path, starting cell and text output."
 slug: "search-jupyter-notebook-cells"
 cluster: "Files and formats"
 question: "I need to find a function I wrote in a notebook months ago. How do I search all .ipynb files?"
 intent: "how-to"
 published: "2026-08-21"
-updated: "2026-10-19"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -33,6 +33,7 @@ links_out:
   - "search-json-and-jsonl-logs"
   - "local-embeddings-without-openai-api"
   - "give-chatgpt-claude-local-file-access"
+  - "compare/xerj-vs-localsynapse"
 faq:
   - q: "I need to find a function I wrote in a notebook months ago. How do I search all .ipynb files?"
     a: "Index the folder and query `body` for the function name. XERJ writes 1 document per Markdown-heading section, so a hit returns the `heading`, the `heading_path` and the `cell` where the section starts."
@@ -48,9 +49,20 @@ faq:
     a: "`heading` and `language` are `keyword`, `cell` is `long`, and `heading_path` and `title` are `text`. `body` holds the Markdown, the code and the text outputs."
   - q: "Do markdown cells and code cells end up in the same document?"
     a: "Yes. A section holds every cell from its heading to the next heading, Markdown and code together, with the code fenced in the kernel language and each text output after its cell."
+  - q: "Why not grep the .ipynb files directly?"
+    a: "A .ipynb file is JSON, so a grep hit is a line of escaped JSON with no section name and no cell number. XERJ returns the heading path and the starting cell of the section that matched."
 ---
 
 **TL;DR** — XERJ writes 1 document per Markdown-heading section of a notebook. In a captured run, the printed accuracy `okapi accuracy 0.9137` came back from the section `Okapi retrieval sweep > Run the sweep`, starting at cell 3, and a query for `okapi_transform` found both notebooks and the `.py` that defines it.
+
+## Which query to run
+
+| You want | Query | You get back |
+| --- | --- | --- |
+| A function, across notebooks and `.py` files | `match` on `body` | each matching section and the `.py`, with `heading_path` and `cell` |
+| A number a cell printed | `match_phrase` on `body` | the section and starting cell whose stored output holds it |
+| An error from a failed run | `match_phrase` on `body` with the error text | the section that holds the failing cell |
+| Only one kernel language or heading | `term` on `language` or `heading` | sections with that exact value |
 
 ## Index the notebook folder
 

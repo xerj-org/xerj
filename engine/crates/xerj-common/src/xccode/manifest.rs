@@ -34,7 +34,7 @@ pub struct ManifestRepo {
     /// match — a human's licence review must survive a re-index.
     #[serde(default)]
     pub review: Option<Value>,
-    /// Directories this checkout harvested (`data/osv`). Empty means the
+    /// Directories or files this checkout harvested (`data/osv`). Empty means the
     /// whole pin. Author declaration, like [`CorpusManifest::query`]: it is
     /// written back so a shared `corpus.json` rebuilds the same limited
     /// tree. Absent on every historical manifest.
@@ -290,8 +290,8 @@ pub struct HubRow {
     /// repo at `sha`). `xerj corpus add` records it in the cloned corpus.json
     /// when the checkout lands at that same sha (#1893).
     pub review: Option<Value>,
-    /// Repo-relative directories to harvest. Empty harvests the whole pin
-    /// (#1842). Already validated by [`read_hub_manifest`].
+    /// Repo-relative directories or files to harvest. Empty harvests the
+    /// whole pin (#1842, #2486). Already validated by [`read_hub_manifest`].
     pub paths: Vec<String>,
 }
 
@@ -308,7 +308,7 @@ pub struct HubManifest {
 }
 
 /// `paths` on one repo entry. Absent harvests the whole pin. Present must be
-/// a non-empty array of relative directories — a string or an empty array is
+/// a non-empty array of relative directories or files; a string or an empty array is
 /// a mistake, not a request for the whole repo, and is refused so a typo
 /// cannot silently clone everything (#1842).
 fn read_sparse_paths(repo: &str, row: &Value) -> Result<Vec<String>, String> {
@@ -318,18 +318,18 @@ fn read_sparse_paths(repo: &str, row: &Value) -> Result<Vec<String>, String> {
     let Some(arr) = raw.as_array() else {
         return Err(format!(
             "repo '{repo}': 'paths' must be a non-empty array of relative directories \
-             such as [\"data/osv\"]; omit the field to harvest the whole pin"
+             or files such as [\"data/osv\"]; omit the field to harvest the whole pin"
         ));
     };
     if arr.is_empty() {
         return Err(format!(
             "repo '{repo}': 'paths' is empty; omit the field to harvest the whole pin, \
-             or name at least one directory"
+             or name at least one directory or file"
         ));
     }
     if arr.len() > pathgate::MAX_SPARSE_PATHS {
         return Err(format!(
-            "repo '{repo}': 'paths' has {} entries; at most {} directories can be \
+            "repo '{repo}': 'paths' has {} entries; at most {} paths can be \
              sparse-checked out. Name a parent directory instead.",
             arr.len(),
             pathgate::MAX_SPARSE_PATHS

@@ -7,7 +7,7 @@ cluster: "Comparison: desktop search"
 question: "How do I grep PDFs and Word docs from the command line?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-10-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -110,7 +110,7 @@ The command takes no configuration file and no mapping. It also needs no helper 
 
 The node answers the Elasticsearch REST API. `xerj autoindex map` prints a data map of what the folder became. An agent reads that map, then names a real index and a real field.
 
-`xerj mcp` is a stdio MCP server in the same binary. It serves 22 tools against a node you already started. Agent memory lives in the engine under `/_memory/{namespace}`.
+`xerj mcp` is a stdio MCP server in the same binary. It serves 23 tools against a node you already started. Agent memory lives in the engine under `/_memory/{namespace}`.
 
 XERJ is single-node. There is no replication and no failover. The default embedder is lexical feature hashing, not a neural model, and neural retrieval is opt-in through `--embed-mode neural`.
 
@@ -132,7 +132,7 @@ Every row is a documented capability of each tool. No row is a measured result.
 | ranking of results | none, matches in file order | BM25 over the extracted text |
 | filter by file family or path | shell globs and ripgrep flags | keyword fields, `ax_format` and `ax_path` |
 | HTTP query API | none | yes, Elasticsearch REST API |
-| MCP server for an agent | none | yes, `xerj mcp`, 22 tools |
+| MCP server for an agent | none | yes, `xerj mcp`, 23 tools |
 | catalog of refused files | messages on standard error | `autoindex-catalog`, one reason per file |
 | agent memory in the engine | none | yes, `/_memory/{namespace}` |
 
@@ -166,7 +166,7 @@ Choose Elasticsearch instead when the documents must live on more than one host.
 
 Choose XERJ when the same folder answers many questions. The parse happens once, and every later query reads the index rather than the PDFs.
 
-Choose XERJ when the caller is a program. An agent that speaks HTTP or MCP needs no wrapper and no output parser. `xerj mcp` serves 22 tools.
+Choose XERJ when the caller is a program. An agent that speaks HTTP or MCP needs no wrapper and no output parser. `xerj mcp` serves 23 tools.
 
 Choose XERJ when the order of the answers matters. rga returns every match in file order. BM25 puts the best documents first.
 

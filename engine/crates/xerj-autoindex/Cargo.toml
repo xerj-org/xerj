@@ -50,6 +50,8 @@ memchr.workspace = true
 rayon.workspace = true
 libc = "0.2"
 tempfile.workspace = true
+# Phase-B per-file stages are zstd-compressed (#2427, `stage.rs`).
+zstd.workspace = true
 fs2 = "0.4"
 # ES-compat HTTP client. Blocking mode: all of autoindex is synchronous
 # (std threads), invoked from the server binary via spawn_blocking.

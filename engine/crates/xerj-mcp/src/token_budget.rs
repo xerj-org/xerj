@@ -1,12 +1,12 @@
 //! Token budgets for MCP search-tool responses (#1058).
 //!
-//! The five search tools (`xerj_search`, `xerj_hybrid_search`,
-//! `xerj_semantic_search`, `xerj_vector_search`, `xerj_code_search`) are thin
-//! proxies: until now they returned whatever the engine sent, so an agent
-//! that asked for 50 hits got all 50 verbatim, context cost unknown and
-//! unbounded. `max_tokens` generalises the char-level cap `xerj_code_search`
-//! already had (its `full` argument — max chars *per passage*) to a token
-//! budget over the **whole response**.
+//! Six individual search tools share this output budget: `xerj_def`,
+//! `xerj_search`, `xerj_hybrid_search`, `xerj_semantic_search`,
+//! `xerj_vector_search` and `xerj_code_search`. `max_tokens` covers their
+//! successful search payload, including keys and syntax. Errors and the
+//! mandatory `xerj_search` staleness hint remain outside that budget.
+//! The batch adapter shares the tokenizer and default but preserves every
+//! item outcome using its own whole-response budgeting algorithm.
 //!
 //! ## The one tokenizer
 //!
@@ -47,7 +47,7 @@ use serde_json::{json, Value};
 use unicode_segmentation::UnicodeSegmentation;
 
 /// How the budget counts tokens, named in tool descriptions so an agent knows
-/// what a "token" is before spending one. Kept as a constant so the five
+/// what a "token" is before spending one. Kept as a constant so the shared
 /// descriptions cannot drift.
 pub const TOKENIZER_NAME: &str = "XERJ's StandardTokenizer (UAX #29 word boundaries)";
 
@@ -59,6 +59,15 @@ pub const TOKENIZER_ID: &str = "standard-uax29-words";
 /// (header + accounting note) fits, so the tool refuses rather than return a
 /// budget it cannot honor.
 pub const MIN_MAX_TOKENS: usize = 32;
+
+/// Budget applied when the caller passes no `max_tokens` (#2491).
+///
+/// Six individual search tools, the batch tool and `xerj batch-search` apply
+/// this UAX #29 word budget to successful output. Long identifiers and
+/// punctuation can occupy many bytes while counting as few words: this is
+/// neither a byte cap nor a model-context/BPE limit. Callers may request any
+/// value at or above [`MIN_MAX_TOKENS`]; errors remain untruncated.
+pub const DEFAULT_MAX_TOKENS: usize = 8_000;
 
 /// Tokens reserved for the `_token_budget` accounting block before any hit is
 /// admitted. The block's fixed fields (keys + counts) measure ~14 word tokens;
@@ -81,9 +90,12 @@ const TRUNCATION_MARKER: &str = "\n[truncated at the max_tokens budget]";
 /// floor is an error, never a silent drop — the `opt_typed` policy: an agent
 /// that asked for a budget and silently got none would trust a response whose
 /// size it cannot predict.
+///
+/// Absent or null means [`DEFAULT_MAX_TOKENS`] (#2491). The `Option` shape is
+/// retained for internal response paths that bypass budgeting explicitly.
 pub fn opt_max_tokens(args: &Value) -> Result<Option<usize>, String> {
     match args.get("max_tokens") {
-        None | Some(Value::Null) => Ok(None),
+        None | Some(Value::Null) => Ok(Some(DEFAULT_MAX_TOKENS)),
         Some(v) => match v.as_u64() {
             Some(n) if n as usize >= MIN_MAX_TOKENS => Ok(Some(n as usize)),
             _ => Err(format!(
@@ -623,8 +635,15 @@ mod tests {
 
     #[test]
     fn opt_max_tokens_validates() {
-        assert_eq!(opt_max_tokens(&json!({})), Ok(None));
-        assert_eq!(opt_max_tokens(&json!({ "max_tokens": null })), Ok(None));
+        assert_eq!(
+            opt_max_tokens(&json!({})),
+            Ok(Some(DEFAULT_MAX_TOKENS)),
+            "an omitted budget must fall back to the default, not to unbounded"
+        );
+        assert_eq!(
+            opt_max_tokens(&json!({ "max_tokens": null })),
+            Ok(Some(DEFAULT_MAX_TOKENS))
+        );
         assert_eq!(opt_max_tokens(&json!({ "max_tokens": 500 })), Ok(Some(500)));
         for bad in [
             json!({ "max_tokens": 0 }),
@@ -637,6 +656,57 @@ mod tests {
             let msg = opt_max_tokens(&bad).unwrap_err();
             assert!(msg.contains(">= 32"), "the floor must be named: {msg}");
         }
+    }
+
+    /// #2491: a search that passes no `max_tokens` used to return whatever the
+    /// engine produced, and a response past the host's tool-output limit was
+    /// spilled to a temp file instead of shown to the agent. Absent now means
+    /// `DEFAULT_MAX_TOKENS`, so the same call stays within this word budget.
+    #[test]
+    fn an_unbudgeted_search_response_is_bounded_by_default() {
+        // A response larger than the default word budget: 400 hits
+        // carrying 400 lines of body each.
+        let resp = search_response(
+            (1..=400)
+                .map(|i| code_hit(&format!("repo/src/module_{i}.rs"), 10 * i, 400))
+                .collect(),
+        );
+        let unbounded = count_tokens(&resp);
+        assert!(
+            unbounded > DEFAULT_MAX_TOKENS,
+            "the fixture must be big enough to need the default cap: {unbounded}"
+        );
+
+        let budget = opt_max_tokens(&json!({}))
+            .expect("absent max_tokens is not an error")
+            .expect("absent max_tokens must apply the default budget");
+        assert_eq!(budget, DEFAULT_MAX_TOKENS);
+
+        let out = budget_json_response(&resp, budget);
+        let used = count_tokens(&out);
+        assert!(
+            used <= DEFAULT_MAX_TOKENS,
+            "default budget {DEFAULT_MAX_TOKENS} exceeded: {used}\n---\n{out}\n---"
+        );
+        // Bounded by dropping content, not by dropping the answer: the
+        // accounting block has to say what went, or the agent cannot tell a
+        // short corpus from a truncated one.
+        assert!(
+            out.contains("_token_budget"),
+            "the response must account for what the budget cut:\n{out}"
+        );
+    }
+
+    #[test]
+    fn word_budget_does_not_claim_a_byte_limit() {
+        let resp = search_response(vec![json!({
+            "_index": "docs", "_id": "long", "_source": {
+                "body": "x".repeat(100_000)
+            }
+        })]);
+        assert!(resp.len() > 100_000);
+        assert!(count_tokens(&resp) < DEFAULT_MAX_TOKENS);
+        assert_eq!(budget_json_response(&resp, DEFAULT_MAX_TOKENS), resp);
     }
 
     // ── JSON surface: per-tool budget enforcement ──────────────────────────

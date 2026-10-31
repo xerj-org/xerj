@@ -62,6 +62,48 @@ fn sessions_cli_bad_format_is_usage_error_without_output() {
 }
 
 #[test]
+fn sessions_cli_codex_rollout_exports_decision_without_duplicate_events_or_private_payloads() {
+    let work = tempfile::tempdir().unwrap();
+    let input = work.path().join("rollout.jsonl");
+    let output = work.path().join("records.jsonl");
+    std::fs::write(
+        &input,
+        include_str!("../../xerj-autoindex/tests/fixtures/codex-session.jsonl"),
+    )
+    .unwrap();
+    let result = Command::new(env!("CARGO_BIN_EXE_xerj"))
+        .args(["sessions", "import", "--format", "codex", "--input"])
+        .arg(&input)
+        .arg("--output")
+        .arg(&output)
+        .output()
+        .unwrap();
+    assert!(
+        result.status.success(),
+        "{}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let report: Value = serde_json::from_slice(&result.stdout).unwrap();
+    assert_eq!(report["records"], 2);
+    assert_eq!(report["source_lines"], 10);
+    assert_eq!(report["skipped_records"], 8);
+    assert_eq!(report["skipped_blocks"], 1);
+    let text = std::fs::read_to_string(output).unwrap();
+    assert!(!text.contains("DO_NOT_EXPORT"));
+    assert!(!text.contains("owner@example.com"));
+    assert!(text.contains("[REDACTED_EMAIL]"));
+    let rows: Vec<Value> = text
+        .lines()
+        .map(|s| serde_json::from_str(s).unwrap())
+        .collect();
+    assert_eq!(rows[1]["session_format"], "codex");
+    assert_eq!(rows[1]["source_line"], 9);
+    assert_eq!(rows[1]["message_phase"], "final_answer");
+    assert_eq!(rows[1]["parent_id"], Value::Null);
+    assert_eq!(rows[1]["files"], serde_json::json!([]));
+}
+
+#[test]
 fn sessions_cli_malformed_tail_keeps_input_and_publishes_no_partial_export() {
     let work = tempfile::tempdir().unwrap();
     let input = work.path().join("session.jsonl");

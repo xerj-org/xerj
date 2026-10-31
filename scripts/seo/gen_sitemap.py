@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """Regenerate landing/sitemap.xml from the filesystem.
 
+`landing/sitemap.xml` is a **deploy artifact, not a committed file**: the
+`Deploy site (Cloudflare Pages)` workflow runs `--write` on a full checkout just
+before it uploads `landing/`, so the served sitemap is always derived from the
+tree it ships with. Keeping it in git meant every landing edit that forgot to
+re-run this script turned `main` red from `seo.yml`, and every such PR carried
+a two-line `<lastmod>` conflict. `--check` survives as the gate that the
+derivation still validates; there is no committed copy to compare against.
+
 The previous sitemap was hand-maintained: 24 entries for an 80-page site, 18
 of which were URLs that 308-redirect rather than pages, four of which were
 non-HTML assets (`llms.txt` and three tool-schema JSON files), all 24 carrying
@@ -32,8 +40,8 @@ This script replaces that with a derivation:
 One flat sitemap, no index file: at 78 URLs we are three orders of magnitude
 under the 50,000-URL / 50 MB limit and an index would only add failure modes.
 
-    python3 scripts/seo/gen_sitemap.py --write
-    python3 scripts/seo/gen_sitemap.py --check   # exit 1 if committed != generated
+    python3 scripts/seo/gen_sitemap.py --write   # deploy: writes landing/sitemap.xml
+    python3 scripts/seo/gen_sitemap.py --check   # gate: the derivation still validates
 """
 
 from __future__ import annotations
@@ -82,6 +90,16 @@ def build(root: pathlib.Path, dates: urlmap.DateSource) -> str:
     return "\n".join(out) + "\n"
 
 
+def sitemap_for(root: pathlib.Path) -> str:
+    """The sitemap `--write` would produce for `root`, dates from git.
+
+    `landing/sitemap.xml` is not committed, so the tools that inspect it
+    (`seo_lint.py`, `audit.py`, `verify_live.py`) call this when the file is
+    absent: they check the bytes the deploy would ship, not a copy in git.
+    """
+    return build(root, urlmap.DateSource(urlmap.repo_root()))
+
+
 def validate(xml: str) -> list[str]:
     problems = []
     data = xml.encode("utf-8")
@@ -103,9 +121,10 @@ def validate(xml: str) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--write", action="store_true", help="write landing/sitemap.xml")
+    ap.add_argument("--write", action="store_true",
+                    help="write landing/sitemap.xml (the deploy step)")
     ap.add_argument("--check", action="store_true",
-                    help="exit 1 if the committed sitemap differs (CI gate)")
+                    help="build and validate the sitemap without writing it (CI gate)")
     ap.add_argument("--root", default=None)
     args = ap.parse_args(argv)
     if not (args.write or args.check):
@@ -144,18 +163,11 @@ def main(argv: list[str] | None = None) -> int:
 
     out = root / "sitemap.xml"
     if args.check:
-        current = out.read_text(encoding="utf-8") if out.exists() else ""
-        if current != xml:
-            print("FAIL landing/sitemap.xml is out of date — run "
-                  "`python3 scripts/seo/gen_sitemap.py --write`", file=sys.stderr)
-            cur_locs = set(_locs(current))
-            new_locs = set(_locs(xml))
-            for loc in sorted(new_locs - cur_locs)[:10]:
-                print(f"  + {loc}", file=sys.stderr)
-            for loc in sorted(cur_locs - new_locs)[:10]:
-                print(f"  - {loc}", file=sys.stderr)
-            return 1
-        print(f"ok   sitemap.xml matches ({xml.count('<loc>')} URLs)")
+        # sitemap.xml is a deploy artifact: `.github/workflows/deploy-pages.yml`
+        # writes it into landing/ just before the upload, and no copy is
+        # committed. There is therefore nothing to diff against — this mode is
+        # the gate that the derivation still produces a valid sitemap.
+        print(f"ok   sitemap.xml generates ({xml.count('<loc>')} URLs)")
         return 0
 
     out.write_text(xml, encoding="utf-8")

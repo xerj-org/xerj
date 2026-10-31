@@ -100,12 +100,18 @@ pub fn run_memory_from(args: &[String]) -> i32 {
         url = "http://localhost:9200".to_string();
     }
     if api_key.is_none() && xerj_common::localauth::url_is_loopback(&url) {
-        if let Some((key, path)) = xerj_common::localauth::discover_local_admin_key_for_url(&url) {
+        if let Some(found) =
+            xerj_common::localauth::discover_local_admin_key_for_url_with_origin(&url)
+        {
             eprintln!(
-                "xerj memory: no --api-key/XERJ_API_KEY given; using the admin key at {}",
-                path.display()
+                "xerj memory: no --api-key/XERJ_API_KEY given; using the admin key at {} ({})",
+                found.path.display(),
+                found.provenance()
             );
-            api_key = Some(key);
+            if let Some(warning) = found.foreign_warning("--api-key or XERJ_API_KEY") {
+                eprintln!("xerj memory: warning: {warning}");
+            }
+            api_key = Some(found.key);
         }
     }
 

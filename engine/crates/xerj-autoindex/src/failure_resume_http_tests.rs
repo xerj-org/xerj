@@ -137,6 +137,12 @@ struct MockState {
     /// `timed_out`. Models a node that accepted the writes and then could
     /// not finish a count (merge, deadline). Must not look like zero docs.
     fail_counts: bool,
+    /// Opt-in (#2407): `_count` on these indices answers 0. The fixture keeps
+    /// one document map for every index, so this is how a test models one
+    /// dataset index holding nothing while its siblings are live.
+    empty_count_indices: Vec<String>,
+    /// Independent failed counts, including their size:0 search fallback.
+    unknown_count_indices: Vec<String>,
     /// Answer the catalog's duplicate-alias sweep — and ONLY that request —
     /// with a 500 whose body names the condition. Scoped to the one call so
     /// the fixture proves the sweep is what wedged the run (#345), not that a
@@ -466,17 +472,36 @@ fn handle(mut stream: TcpStream, state: &Arc<Mutex<MockState>>) {
         }
         (200, json!({"deleted": removed, "failures": []}))
     } else if method == "GET" && path.ends_with("/_count") {
-        if state.lock().unwrap().fail_counts {
+        let locked = state.lock().unwrap();
+        if locked.fail_counts
+            || locked
+                .unknown_count_indices
+                .iter()
+                .any(|index| path == format!("/{index}/_count"))
+        {
             (200, json!({"error": "count unavailable"}))
+        } else if locked
+            .empty_count_indices
+            .iter()
+            .any(|index| path == format!("/{index}/_count"))
+        {
+            (200, json!({"count": 0}))
         } else {
-            (200, json!({"count": state.lock().unwrap().docs.len()}))
+            (200, json!({"count": locked.docs.len()}))
         }
     } else if method == "POST"
         && path.ends_with("/_search")
         && serde_json::from_slice::<Value>(&body)
             .ok()
             .is_some_and(|query| query.get("size").and_then(Value::as_u64) == Some(0))
-        && state.lock().unwrap().fail_counts
+        && {
+            let locked = state.lock().unwrap();
+            locked.fail_counts
+                || locked
+                    .unknown_count_indices
+                    .iter()
+                    .any(|index| path == format!("/{index}/_search"))
+        }
     {
         (
             200,
@@ -987,6 +1012,7 @@ fn cfg(root: &Path, state_dir: &Path, url: &str) -> IndexCfg {
         label: None,
         debounce: std::time::Duration::from_millis(0),
         exclude_rels: Vec::new(),
+        exclude: Vec::new(),
         skip_corpus_data: false,
     }
 }
@@ -1618,6 +1644,7 @@ fn a_resume_whose_plan_predates_new_files_reports_a_stale_plan_not_junk() {
         "{done}"
     );
     assert!(!done.contains("reason=completed-with-junk"), "{done}");
+    assert!(done.contains("ok=false"), "{done}");
     {
         let locked = endpoint.state.lock().unwrap();
         let live: Vec<&str> = locked
@@ -1659,7 +1686,9 @@ fn a_resume_whose_plan_predates_new_files_reports_a_stale_plan_not_junk() {
         .unwrap_or_else(|| panic!("no JSON done event:\n{stream}"));
     assert_eq!(done["exit"], 3, "{done}");
     assert_eq!(done["reason"], "stale-resume-plan", "{done}");
-    assert_eq!(done["ok"], true, "{done}");
+    // #2411: a completed run over a stale plan does not include these files.
+    // Other partial outcomes have their own fields; ok is not a coverage proof.
+    assert_eq!(done["ok"], false, "{done}");
     assert_eq!(done["skipped_appeared"], 2, "{done}");
     assert_eq!(
         done["skipped_appeared_files"],
@@ -3268,6 +3297,91 @@ fn existing_completion_is_invalidated_and_partial_visibility_is_deleted_on_resum
 }
 
 #[test]
+fn stage_finish_failure_preserves_previous_records_and_resume_replaces_them() {
+    let _guard = FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _io_guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let path = corpus.path().join("records.csv");
+    fs::write(&path, "id,value\n0,old\n1,old\n").unwrap();
+    let endpoint = MockEndpoint::start(usize::MAX);
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let (old_docs, old_deletes, old_bulks) = {
+        let state = endpoint.state.lock().unwrap();
+        (
+            state.docs.clone(),
+            state.delete_calls,
+            state.data_bulk_number,
+        )
+    };
+    assert!(!old_docs.is_empty());
+    fs::write(&path, "id,value\n0,new\n1,new\n").unwrap();
+
+    // Compression can buffer a successful write until into_reader finishes
+    // the frame. This local failure must precede the remote replacement.
+    arm_replacement_failpoint(5, state_dir.path());
+    let error = run_index(config.clone()).unwrap_err();
+    assert!(
+        format!("{error:#}").contains("injected replacement crash boundary 5"),
+        "{error:#}"
+    );
+    {
+        let state = endpoint.state.lock().unwrap();
+        assert_eq!(
+            state.delete_calls, old_deletes,
+            "deleted before stage finished"
+        );
+        assert_eq!(state.data_bulk_number, old_bulks);
+        assert_eq!(
+            state.docs, old_docs,
+            "previous records must remain readable"
+        );
+    }
+    assert_eq!(file_done_count(state_dir.path()), 1);
+    let replay = state::Journal::open(
+        state_dir.path(),
+        &config.root.to_string_lossy(),
+        &config.url,
+        &config.prefix,
+        config.bulk_timeout_secs,
+        false,
+    )
+    .unwrap();
+    assert!(
+        replay.done.is_empty(),
+        "failed replacement cannot be committed"
+    );
+    assert_eq!(replay.pending_replacements.len(), 1);
+    drop(replay);
+
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    assert_eq!(file_done_count(state_dir.path()), 2);
+    let (new_docs, new_bulks) = {
+        let state = endpoint.state.lock().unwrap();
+        assert_eq!(state.delete_calls, old_deletes + 1);
+        let rows: Vec<_> = state
+            .docs
+            .values()
+            .filter(|doc| doc.get("value").is_some())
+            .collect();
+        assert_eq!(rows.len(), 2);
+        assert!(rows.iter().all(|doc| doc["value"].as_str() == Some("new")));
+        (state.docs.clone(), state.data_bulk_number)
+    };
+    // A zero-work rerun must retain the completed replacement unchanged.
+    assert_eq!(run_index(config).unwrap(), 0);
+    let state = endpoint.state.lock().unwrap();
+    assert_eq!(state.docs, new_docs);
+    assert_eq!(state.data_bulk_number, new_bulks);
+    assert_eq!(state.delete_calls, old_deletes + 1);
+}
+
+#[test]
 fn resume_repairs_kills_after_plan_delete_and_final_bulk_before_file_done() {
     let _guard = FAILPOINT_TEST_LOCK
         .lock()
@@ -3908,6 +4022,119 @@ fn zero_live_documents_after_journaled_records_fails_the_run() {
         error.contains("may belong to another data dir"),
         "a reused journal must say it may belong to another data dir: {error}"
     );
+}
+
+/// #2407: the zero-live gate summed live documents over every dataset, so a
+/// populated sibling hid an index that held nothing. The reporter's re-run
+/// printed `ok: indexed and searchable` over a 0-document `-docs` index
+/// beside a live `-json` one. The empty dataset must fail the run by name,
+/// and it must not be the all-empty error `xerj brain` reads as a wiped
+/// destination.
+#[test]
+fn an_empty_dataset_beside_a_live_one_fails_the_run() {
+    let _guard = FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let _io_guard = state::FILE_DONE_IO_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let write_corpus = |root: &Path| {
+        fs::write(root.join("rows.csv"), "id,value\n1,first\n2,second\n").unwrap();
+        fs::write(
+            root.join("notes.md"),
+            "# Notes\n\nTiered merge policy picks segments of similar size.\n",
+        )
+        .unwrap();
+    };
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    write_corpus(corpus.path());
+    let endpoint = MockEndpoint::start(usize::MAX);
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    let prefix = config.prefix.clone();
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    // Learn the prose dataset's index rather than hard-coding the slug scheme.
+    let prose = {
+        let locked = endpoint.state.lock().unwrap();
+        let slug = data_rows(&locked)
+            .into_iter()
+            .find(|doc| doc["ax_path"] == "notes.md")
+            .and_then(|doc| doc["ax_dataset"].as_str())
+            .expect("notes.md is indexed")
+            .to_owned();
+        format!("{prefix}-{slug}")
+    };
+
+    let completed = || -> Vec<Value> {
+        fs::read_to_string(state_dir.path().join("journal.ndjson"))
+            .unwrap()
+            .lines()
+            .map(|line| serde_json::from_str::<Value>(line).unwrap())
+            .filter(|row| row["kind"] == "file_done")
+            .collect()
+    };
+    let before_journal = completed();
+    let before_docs = endpoint.state.lock().unwrap().docs.clone();
+    let sibling = {
+        let locked = endpoint.state.lock().unwrap();
+        let slug = data_rows(&locked)
+            .into_iter()
+            .find(|doc| doc["ax_path"] == "rows.csv")
+            .and_then(|doc| doc["ax_dataset"].as_str())
+            .unwrap()
+            .to_owned();
+        format!("{prefix}-{slug}")
+    };
+    endpoint.state.lock().unwrap().empty_count_indices = vec![prose.clone()];
+    // A known live sibling and an unknown sibling must both leave the
+    // independently confirmed missing dataset visible as a verification error.
+    for unknown in [false, true] {
+        endpoint.state.lock().unwrap().unknown_count_indices = if unknown {
+            vec![sibling.clone()]
+        } else {
+            vec![]
+        };
+        let error = run_index(config.clone()).unwrap_err();
+        assert!(
+            !error.is::<crate::ZeroLiveVerificationError>(),
+            "partial evidence must not claim a wiped destination: {error:#}"
+        );
+        let error = format!("{error:#}");
+        assert!(error.contains("verification failed"), "{error}");
+        assert!(
+            error.contains(&format!("{prose} (")) && error.contains("record(s) from 1 file(s))"),
+            "the empty index is named with attributable journal counts: {error}"
+        );
+        assert!(error.contains("1 of the 2 dataset index(es)"), "{error}");
+        assert!(error.contains("--fresh"), "{error}");
+        assert_eq!(
+            completed(),
+            before_journal,
+            "completed file authority survives verification failure"
+        );
+        assert_eq!(
+            endpoint.state.lock().unwrap().docs,
+            before_docs,
+            "verification failure must retain existing records"
+        );
+    }
+    // Exercise the recovery the diagnostic recommends, then an ordinary resume.
+    {
+        let mut locked = endpoint.state.lock().unwrap();
+        locked.empty_count_indices.clear();
+        locked.unknown_count_indices.clear();
+    }
+    let mut rebuild = config.clone();
+    rebuild.fresh = true;
+    assert_eq!(run_index(rebuild).unwrap(), 0);
+    assert_eq!(run_index(config).unwrap(), 0);
+    let locked = endpoint.state.lock().unwrap();
+    assert!(data_rows(&locked)
+        .iter()
+        .any(|doc| doc["ax_path"] == "notes.md"));
+    assert!(data_rows(&locked)
+        .iter()
+        .any(|doc| doc["ax_path"] == "rows.csv"));
 }
 
 /// A node that accepted the bulks and then could not count (the size:0

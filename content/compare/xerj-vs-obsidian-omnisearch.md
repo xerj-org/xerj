@@ -7,7 +7,7 @@ cluster: "Comparison: notes and vaults"
 question: "How do I search an Obsidian vault from outside Obsidian?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-10-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -98,7 +98,7 @@ The Omnisearch README points at a third-party MCP server that detects Omnisearch
 
 The difference is what it depends on. That route needs Obsidian running and the local HTTP server enabled.
 
-`xerj mcp` is a stdio MCP server in the same binary as the engine. It serves 22 tools, and it needs no editor at all.
+`xerj mcp` is a stdio MCP server in the same binary as the engine. It serves 23 tools, and it needs no editor at all.
 
 ## What XERJ reads in a vault, and how
 

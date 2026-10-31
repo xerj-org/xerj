@@ -396,6 +396,32 @@ transport encryption; your platform provides the rest.
 | Secrets written `0600` (admin key, auto-generated TLS key) | ✅ |
 | Client identity from the TCP peer, not `X-Forwarded-For` | ✅ (`server.trusted_proxies`, empty by default) |
 
+### Memory limits and what "process memory" means
+
+The memory breaker compares the node's own memory against one cap. These
+`[limits]` keys set it (all MiB, `0` = automatic):
+
+| Key | Env override | Default | What it does |
+|---|---|---|---|
+| `max_process_memory_mb` | `XERJ_MAX_PROCESS_MEMORY_MB` | `0` (tier from total RAM or the cgroup limit) | The cap. Writes get `429` above the watermark below; searches get `429` only after waiting for a drain that did not bring memory under the cap. |
+| `memory_watermark_percent` | – | `95` | Percent of the cap where writes start to get `429`. |
+| `max_total_memtable_mb` | – | `0` (25% of the limit, floor 2 GiB, at most 50%) | Unflushed write buffers across all indices. |
+| `max_segment_hydration_cache_mb` | `XERJ_SEGMENT_HYDRATION_CACHE_MB` | `0` (20% of the limit) | See the next section. |
+
+"Process memory" (`rss_mb` in breaker log lines) is memory the node itself
+allocated and that only it can give back. On Linux that is `RssAnon +
+RssShmem` from `/proc/self/status`, not the `RSS` column `top` shows: segment
+files are memory-mapped, and the pages of those files a search reads stay in
+the process's RSS as page cache until the kernel needs the RAM back. The node
+cannot release those pages itself, so counting them made a node whose
+mapped segments were larger than its cap answer every search with `429`
+until it was restarted (#2574). Expect `top` to show more than `rss_mb`.
+
+The automatic cap is sized from total RAM, not from what is free. If other
+processes already hold most of the RAM, the startup log adds a
+`memory: only … is available right now` warning. In that case set
+`max_process_memory_mb` to fit what is left.
+
 ### Bound retained segment hydration
 
 Every index shares one process-wide admission authority for the seven
@@ -547,7 +573,7 @@ Elasticsearch**, use the scroll + bulk pattern below.
 **fails loud** instead of silently doing the wrong thing (verified):
 
 ```bash
-curl -k -H "Authorization: ApiKey $KEY" -X POST https://xerj:9200/_reindex -d '{
+curl -k -H "Authorization: ApiKey $KEY" -H "Content-Type: application/json" -X POST https://xerj:9200/_reindex -d '{
   "source": { "remote": { "host": "http://old-es:9200" }, "index": "src" },
   "dest":   { "index": "dst" } }'
 # HTTP 400

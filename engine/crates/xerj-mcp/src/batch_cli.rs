@@ -15,13 +15,15 @@ Read one JSON object (at most 1 MiB) using the xerj_batch_search schema:
   ]}
 
 queries: 1..50 objects, each query (text or ES query clause) OR identifier+field.
+A plain string item is shorthand for {\"query\": <string>}.
 Exact identifiers require a flat indexed keyword field. index/prefix, size
 (1..50, default 3) and optional max_tokens are shared by all items.
 Output is one JSON object with ordered results; position is zero-based and
 authoritative even for duplicate keys. status is hits, abstain (complete empty
 search only), or error. Hits contain citations and raw evidence, not generated
 answers or calibrated confidence. A miss does not discard its siblings.
-max_tokens counts the entire JSON as UAX #29 words, not model/BPE tokens.
+max_tokens defaults to 8000 when omitted or null; pass a larger integer for more.
+It counts the entire JSON as UAX #29 words, not bytes or model/BPE tokens.
 It removes raw bodies and then extra hits, retaining every item outcome and
 one citation per matched item; an insufficient budget is an error, not truncation.
 
@@ -117,12 +119,16 @@ pub async fn run_batch_cli(args: &[String]) -> i32 {
         .unwrap_or_else(|| DEFAULT_XERJ_URL.into())
         .trim_end_matches('/')
         .to_string();
-    let (auth, path) = resolve_auth(opts.auth, std::env::var("XERJ_AUTH").ok(), &base_url);
-    if let Some(path) = path {
+    let (auth, found) = resolve_auth(opts.auth, std::env::var("XERJ_AUTH").ok(), &base_url);
+    if let Some(found) = found {
         eprintln!(
-            "xerj batch-search: using local admin key at {}",
-            path.display()
+            "xerj batch-search: using local admin key at {} ({})",
+            found.path.display(),
+            found.provenance()
         );
+        if let Some(warning) = found.foreign_warning("--auth or XERJ_AUTH") {
+            eprintln!("xerj batch-search: warning: {warning}");
+        }
     }
     let client = match node_http_builder(&base_url)
         .timeout(Duration::from_secs(30))

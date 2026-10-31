@@ -1624,6 +1624,59 @@ fn bind_listener(addr: SocketAddr, name: &str) -> Result<std::net::TcpListener> 
 }
 
 #[cfg(test)]
+mod starting_responder_tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    async fn get(addr: SocketAddr, path: &str) -> String {
+        let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+        stream
+            .write_all(
+                format!("GET {path} HTTP/1.1\r\nHost: x\r\nConnection: close\r\n\r\n").as_bytes(),
+            )
+            .await
+            .unwrap();
+        let mut out = String::new();
+        stream.read_to_string(&mut out).await.unwrap();
+        out
+    }
+
+    /// #2575: while the engine opens, the bound port answers "starting"
+    /// instead of refusing; afterwards the real router owns the listener.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn the_port_answers_starting_then_hands_over_to_the_real_router() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let starting = StartingResponder::start(&[(&listener, "ES-compat")]);
+        let search = get(addr, "/idx/_search").await;
+        assert!(search.starts_with("HTTP/1.1 503"), "{search}");
+        assert!(
+            search.to_ascii_lowercase().contains("retry-after: 1"),
+            "{search}"
+        );
+        assert!(search.contains("node_starting_exception"), "{search}");
+        let ready = get(addr, "/health/ready").await;
+        assert!(ready.starts_with("HTTP/1.1 503"), "{ready}");
+        let live = get(addr, "/health/live").await;
+        assert!(live.starts_with("HTTP/1.1 200"), "{live}");
+        starting.stop().await;
+
+        let real = Router::new().route("/", axum::routing::get(|| async { "real" }));
+        let server = tokio::spawn(async move {
+            axum::serve(TcpListener::from_std(listener).unwrap(), real)
+                .await
+                .unwrap();
+        });
+        let after = get(addr, "/").await;
+        assert!(after.starts_with("HTTP/1.1 200"), "{after}");
+        assert!(after.ends_with("real"), "{after}");
+        server.abort();
+    }
+}
+
+#[cfg(test)]
 mod bind_listener_tests {
     use super::{bind_error_message, bind_listener};
     use std::io::{Error, ErrorKind};
@@ -1802,6 +1855,96 @@ fn bind_listener_candidate(
 
 /// How far past the requested port `--auto-port` scans.
 const AUTO_PORT_SCAN: u16 = 1000;
+
+/// Answers on the bound ES-compat and REST listeners while `Engine::new`
+/// opens the data dir (#2575). Every path returns 503 with an ES-shaped
+/// `node_starting_exception` and `Retry-After: 1`, except `/health/live`,
+/// which returns 200 because the process is alive. `/health/ready` gets the
+/// 503 like everything else.
+struct StartingResponder {
+    stop: tokio::sync::watch::Sender<bool>,
+    tasks: Vec<tokio::task::JoinHandle<()>>,
+}
+
+const STARTING_REASON: &str = "XERJ is starting: the node is opening the indices in its data \
+     directory and will serve requests when that finishes. Retry shortly; GET /health/ready \
+     returns 200 once the node is ready.";
+
+fn starting_router() -> Router {
+    use axum::http::{header, StatusCode};
+    use axum::routing::get;
+    Router::new()
+        .route(
+            "/health/live",
+            get(|| async {
+                (
+                    StatusCode::OK,
+                    axum::Json(serde_json::json!({"status": "starting"})),
+                )
+            }),
+        )
+        .fallback(|| async {
+            (
+                StatusCode::SERVICE_UNAVAILABLE,
+                [(header::RETRY_AFTER, "1")],
+                axum::Json(serde_json::json!({
+                    "error": {"type": "node_starting_exception", "reason": STARTING_REASON},
+                    "status": 503,
+                })),
+            )
+        })
+}
+
+impl StartingResponder {
+    /// Serve [`starting_router`] on a duplicate of each listener's socket.
+    /// A listener that cannot be duplicated is skipped: its clients wait in
+    /// the backlog, which is still better than a refusal.
+    fn start(listeners: &[(&std::net::TcpListener, &'static str)]) -> Self {
+        let (stop, rx) = tokio::sync::watch::channel(false);
+        let mut tasks = Vec::new();
+        for (listener, name) in listeners {
+            let clone = match listener.try_clone() {
+                Ok(clone) => clone,
+                Err(error) => {
+                    warn!("{name}: no starting responder ({error}); clients wait until the engine is ready");
+                    continue;
+                }
+            };
+            let mut rx = rx.clone();
+            let name = *name;
+            tasks.push(tokio::spawn(async move {
+                let listener = match TcpListener::from_std(clone) {
+                    Ok(listener) => listener,
+                    Err(error) => {
+                        warn!("{name}: no starting responder ({error})");
+                        return;
+                    }
+                };
+                let serve =
+                    axum::serve(listener, starting_router()).with_graceful_shutdown(async move {
+                        let _ = rx.wait_for(|stopped| *stopped).await;
+                    });
+                let _ = serve.await;
+            }));
+        }
+        StartingResponder { stop, tasks }
+    }
+
+    /// Stop answering and release the duplicate sockets before the real
+    /// routers take the listeners. In-flight "starting" answers get 2 s.
+    async fn stop(self) {
+        let _ = self.stop.send(true);
+        for task in self.tasks {
+            let abort = task.abort_handle();
+            if tokio::time::timeout(std::time::Duration::from_secs(2), task)
+                .await
+                .is_err()
+            {
+                abort.abort();
+            }
+        }
+    }
+}
 
 async fn serve_on(
     router: Router,
@@ -3679,13 +3822,13 @@ mod decide_flag_tests {
     #[test]
     fn help_counts_the_mcp_tools_actually_served() {
         // The count is `tool_specs()`, the same list `tools/list` returns:
-        // nineteen without a hub key, twenty-two with the three hub tools.
+        // twenty without a hub key, twenty-three with the three hub tools.
         let served = super::mcp_tool_count();
         if xerj_common::hub::hub_key_configured() {
-            assert_eq!(served, 22, "tool_specs() with a hub key: {served}");
+            assert_eq!(served, 23, "tool_specs() with a hub key: {served}");
         } else {
             assert_eq!(
-                served, 19,
+                served, 20,
                 "a no-key process must not count the hub tools it does not serve"
             );
         }
@@ -4386,6 +4529,18 @@ async fn async_main() -> Result<()> {
         warn!("{}", startup_data_dir::NEW_DIRECTORY_HINT);
     }
     open_crash_log(Path::new(&cfg.server.data_dir));
+    // Record which data dir serves this port, with or without auth, so a
+    // client that later finds the port dead can read this dir's node.lock
+    // and say whether the node exited or is still starting (#2455).
+    if let Err(error) = xerj_common::nodedir::publish_data_dir_for_port(
+        cfg.server.es_compat_port,
+        Path::new(&cfg.server.data_dir),
+    ) {
+        warn!(
+            "could not publish the data-dir path for port {}: {error}",
+            cfg.server.es_compat_port
+        );
+    }
 
     // 5. Admin key (first-run)
     ensure_admin_key(&mut cfg)?;
@@ -4435,8 +4590,109 @@ async fn async_main() -> Result<()> {
     // 7. Metrics
     let metrics = Metrics::new().context("initialise metrics")?;
 
-    // 8. Engine (opens existing indices from disk)
-    let engine = Engine::new(cfg.clone()).context("initialise engine")?;
+    // 8c. Bind all three listeners NOW — before the engine opens its indices,
+    //     before the console setup link, before the banner, before anything
+    //     reports readiness, and fatally.
+    //
+    //     Binding ahead of `Engine::new` (#2575): opening every index can take
+    //     minutes on a large data dir, and a probe in that window used to get
+    //     "connection refused", indistinguishable from a node that is not
+    //     running. With the ports held, the starting responder below answers
+    //     503 `node_starting_exception` until the engine is ready.
+    //
+    //     This used to happen at step 10/10a below, well after the console
+    //     bootstrap at (old) step 9 had already built and printed its
+    //     first-launch setup link from `cfg.server.es_compat_port` — the
+    //     *requested* port, not the one the kernel handed back. With an
+    //     ephemeral port (`es_compat_port = 0`) that produced
+    //     `http://127.0.0.1:0/_xerj-console/setup#token=…`, a link the single
+    //     action a first-run operator is told to take, and unreachable. It
+    //     also ran ahead of the bind, so it printed to stderr whether or not
+    //     the bind that follows ever succeeds (issue #469; #466 fixed the
+    //     same class for the startup banner, printed from `local_addr()`
+    //     right below).
+    //
+    //     Moving the bind here — ahead of the console bootstrap rather than
+    //     just ahead of the banner — means both the setup link and the banner
+    //     can only ever be built from a port this process actually holds; see
+    //     `bind_listener` for why binding eagerly and fatally is itself
+    //     load-bearing (issue #465).
+    //
+    //     Addresses are composed from the parsed IP, never by formatting
+    //     `"{bind}:{port}"` — that string is unparseable for every IPv6
+    //     literal (`"::1:9200"`), which made `bind_address = "::1"` a node
+    //     that could not start at all. `socket_addr` cannot be `None` here:
+    //     step 3a rejected an unparseable `bind_address` before the data
+    //     directory existed, which is where that failure belongs. The
+    //     context is kept as a backstop so that if a future edit reorders or
+    //     drops 3a, this still names the setting rather than surfacing a bare
+    //     `Option` unwrap.
+    let ip = cfg.bind_ip().with_context(|| bad_bind_address(&cfg))?;
+
+    let mut avoid: Vec<u16> = Vec::new();
+    if cfg.cluster.enabled {
+        avoid.push(cfg.cluster.port);
+    }
+
+    let (es_listener, bound_es_port) = bind_listener_candidate(
+        ip,
+        cfg.server.es_compat_port,
+        "ES-compat",
+        cfg.server.auto_port,
+        &avoid,
+    )?;
+    avoid.push(bound_es_port);
+
+    let (rest_listener, bound_rest_port) = bind_listener_candidate(
+        ip,
+        cfg.server.rest_port,
+        "native REST",
+        cfg.server.auto_port,
+        &avoid,
+    )?;
+    avoid.push(bound_rest_port);
+
+    let (grpc_listener, bound_grpc_port) = bind_listener_candidate(
+        ip,
+        cfg.server.grpc_port,
+        "gRPC",
+        cfg.server.auto_port,
+        &avoid,
+    )?;
+
+    cfg.server.es_compat_port = bound_es_port;
+    cfg.server.rest_port = bound_rest_port;
+    cfg.server.grpc_port = bound_grpc_port;
+
+    let bound = BoundAddrs {
+        rest: rest_listener
+            .local_addr()
+            .context("native REST: read the bound address")?,
+        es: es_listener
+            .local_addr()
+            .context("ES-compat: read the bound address")?,
+        grpc: grpc_listener
+            .local_addr()
+            .context("gRPC: read the bound address")?,
+    };
+
+    // 8. Engine (opens existing indices from disk). While it opens, the
+    //    ES-compat and REST ports answer "starting" (#2575). Not on TLS
+    //    ports: a cleartext answer there would be a downgrade, so those
+    //    connections wait in the accept backlog instead of being refused.
+    let starting = if tls_config.is_none() {
+        Some(StartingResponder::start(&[
+            (&es_listener, "ES-compat"),
+            (&rest_listener, "native REST"),
+        ]))
+    } else {
+        None
+    };
+    let engine = Engine::new(cfg.clone()).context("initialise engine");
+    if let Some(starting) = starting {
+        starting.stop().await;
+    }
+    let engine = engine?;
     let storage_available = engine.cluster_state_boot_status().is_writable();
 
     // This node's own cluster address, composed from the parsed bind IP.
@@ -4589,85 +4845,6 @@ async fn async_main() -> Result<()> {
     } else {
         info!("Cluster mode disabled — running in single-node mode");
         None
-    };
-
-    // 8c. Bind all three listeners NOW — before the console setup link, before
-    //     the banner, before anything reports readiness, and fatally.
-    //
-    //     This used to happen at step 10/10a below, well after the console
-    //     bootstrap at (old) step 9 had already built and printed its
-    //     first-launch setup link from `cfg.server.es_compat_port` — the
-    //     *requested* port, not the one the kernel handed back. With an
-    //     ephemeral port (`es_compat_port = 0`) that produced
-    //     `http://127.0.0.1:0/_xerj-console/setup#token=…`, a link the single
-    //     action a first-run operator is told to take, and unreachable. It
-    //     also ran ahead of the bind, so it printed to stderr whether or not
-    //     the bind that follows ever succeeds (issue #469; #466 fixed the
-    //     same class for the startup banner, printed from `local_addr()`
-    //     right below).
-    //
-    //     Moving the bind here — ahead of the console bootstrap rather than
-    //     just ahead of the banner — means both the setup link and the banner
-    //     can only ever be built from a port this process actually holds; see
-    //     `bind_listener` for why binding eagerly and fatally is itself
-    //     load-bearing (issue #465).
-    //
-    //     Addresses are composed from the parsed IP, never by formatting
-    //     `"{bind}:{port}"` — that string is unparseable for every IPv6
-    //     literal (`"::1:9200"`), which made `bind_address = "::1"` a node
-    //     that could not start at all. `socket_addr` cannot be `None` here:
-    //     step 3a rejected an unparseable `bind_address` before the data
-    //     directory existed, which is where that failure belongs. The
-    //     context is kept as a backstop so that if a future edit reorders or
-    //     drops 3a, this still names the setting rather than surfacing a bare
-    //     `Option` unwrap.
-    let ip = cfg.bind_ip().with_context(|| bad_bind_address(&cfg))?;
-
-    let mut avoid: Vec<u16> = Vec::new();
-    if cfg.cluster.enabled {
-        avoid.push(cfg.cluster.port);
-    }
-
-    let (es_listener, bound_es_port) = bind_listener_candidate(
-        ip,
-        cfg.server.es_compat_port,
-        "ES-compat",
-        cfg.server.auto_port,
-        &avoid,
-    )?;
-    avoid.push(bound_es_port);
-
-    let (rest_listener, bound_rest_port) = bind_listener_candidate(
-        ip,
-        cfg.server.rest_port,
-        "native REST",
-        cfg.server.auto_port,
-        &avoid,
-    )?;
-    avoid.push(bound_rest_port);
-
-    let (grpc_listener, bound_grpc_port) = bind_listener_candidate(
-        ip,
-        cfg.server.grpc_port,
-        "gRPC",
-        cfg.server.auto_port,
-        &avoid,
-    )?;
-
-    cfg.server.es_compat_port = bound_es_port;
-    cfg.server.rest_port = bound_rest_port;
-    cfg.server.grpc_port = bound_grpc_port;
-
-    let bound = BoundAddrs {
-        rest: rest_listener
-            .local_addr()
-            .context("native REST: read the bound address")?,
-        es: es_listener
-            .local_addr()
-            .context("ES-compat: read the bound address")?,
-        grpc: grpc_listener
-            .local_addr()
-            .context("gRPC: read the bound address")?,
     };
 
     // 9. Xerj Console bootstrap.  Creates `.xerj_*` system indices on first

@@ -533,6 +533,11 @@ character class. The class reading stays: `*.[ch]` still matches `.c` and
 `.h`. The ignore summary names a route-like class, a pruned `[…]` directory,
 and each skipped code file with its rule.
 
+With `reason=stale-resume-plan`, exit 3 carries `ok=false`: files added after
+the resume plan was frozen were not indexed. `skipped_appeared` counts them;
+re-run with `--fresh` to rebuild the plan in place. Existing indexed files stay
+searchable. This is separate from the completed-with-junk outcome below.
+
 Exit codes: 0 complete (also: the gate was answered `--approve cancel`) ·
 3 completed-with-junk (junk recorded, never fatal — this is SUCCESS, do not report
 it as a failure; it INCLUDES a whole dataset whose mapping the server refused with an
@@ -1373,11 +1378,11 @@ already indexed, and does not walk or index):
   OpenAI .................. https://xerj.org/docs/agents/schemas/openai-tools.json
   Anthropic ............... https://xerj.org/docs/agents/schemas/anthropic-tools.json
 The OpenAI and Anthropic files carry the six HTTP operations above; the MCP file
-carries twenty-two (those six plus xerj_def, xerj_batch_search, xerj_brain_ego / _link / _unlink / _overview,
+carries twenty-three (those six plus xerj_status, xerj_def, xerj_batch_search, xerj_brain_ego / _link / _unlink / _overview,
 xerj_map, xerj_code_search, xerj_plan, xerj_index_budget, xerj_autoindex_remove, xerj_field_report,
 xerj_corpus_feedback and the hub tools xerj_hub_find / _def / _ask) and is generated from a real
 tools/list of the server that serves them. A binary with no hub key omits the
-three hub tools and serves nineteen of the twenty-two. (v1.0.0-rc.97 predates xerj_corpus_feedback
+three hub tools and serves twenty of the twenty-three. (v1.0.0-rc.97 predates xerj_corpus_feedback
 and xerj_index_budget and serves seventeen.)
 Local definition lookup over MCP: xerj_def shares the query, lexical ranking
 and location deduplication of `xerj def --json`. Example arguments:
@@ -1392,7 +1397,7 @@ are ignored when no target index maps the field or any maps it as numeric,
 matching the CLI. This queries the configured node; xerj_hub_def instead
 searches a named Hub pack.
 The three schema files are therefore NOT interchangeable, and they are not even the same shape: the MCP file
-is an object, so count `.tools` in it (`jq '.tools | length'` → 22) and the bare
+is an object, so count `.tools` in it (`jq '.tools | length'` → 23) and the bare
 array in the other two (`jq 'length'` → 6). `jq 'length'` on the MCP file returns
 1, the object's key count — not a tool count.
 If you can run a process, `xerj mcp` is that stdio server, inside the same binary
@@ -1810,7 +1815,7 @@ ANSWERS FOR CODING AGENTS (measured 2026-10-19 on v1.0.0-rc.97; each page has a
 - Local code search MCP that uses fewer tokens than grep:
   https://xerj.org/answers/local-code-search-mcp-fewer-tokens-than-grep
   xerj autoindex <repo> --prefix req; xerj search --prefix req -k 3 --full 400 "<words in the code>";
-  xerj def --prefix req <symbol>; xerj init registers `xerj mcp` (22 tools on main).
+  xerj def --prefix req <symbol>; xerj init registers `xerj mcp` (23 tools on main).
   psf/requests: 1,303 bytes for the answer vs 25,150 bytes of `rg -n -i redirect`.
   rg is faster per call (6-7 ms vs 19-23 ms). No regex search in xerj.
 - Full-text search over JSONL and CSV from the CLI or MCP:

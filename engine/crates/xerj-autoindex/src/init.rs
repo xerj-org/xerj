@@ -754,10 +754,11 @@ pub(crate) fn run_init_with(
     // we only tell the user which of the two worlds they are in — the key
     // itself is never printed or written.
     if xerj_common::localauth::url_is_loopback(url) {
-        match xerj_common::localauth::discover_local_admin_key_for_url(url) {
-            Some((_, path)) => out.push(format!(
-                "  auth     MCP authenticates with the admin key at {} (local node)",
-                path.display()
+        match xerj_common::localauth::discover_local_admin_key_for_url_with_origin(url) {
+            Some(found) => out.push(format!(
+                "  auth     MCP authenticates with the admin key at {} (local node, {})",
+                found.path.display(),
+                found.provenance()
             )),
             None => out.push(format!(
                 "  auth     no --auth given and no local admin key found; if the node at \
@@ -1599,9 +1600,8 @@ mod tests {
         sandbox.write("data/admin.key", "local-admin-key\n");
         let lines = run_init_in(sandbox.dir.path(), "http://localhost:9200", false).unwrap();
         assert!(
-            lines
-                .iter()
-                .any(|l| l.contains("admin key at") && l.ends_with("data/admin.key (local node)")),
+            lines.iter().any(|l| l.contains("admin key at")
+                && l.ends_with("data/admin.key (local node, found under the working directory)")),
             "the note must name the file the MCP server will use: {lines:?}"
         );
         let mcp = fs::read_to_string(sandbox.dir.path().join(".mcp.json")).unwrap();

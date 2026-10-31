@@ -2,13 +2,13 @@
 ---
 title: "Local folder search vs a web agent search API"
 canonical: "https://xerj.org/compare/xerj-vs-web-agent-search"
-updated: "2026-08-23"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-web-agent-search.md"
 ---
 
 # How do I let an agent search a folder on my laptop instead of crawling the web?
 
-**Short answer** (updated 2026-08-23): How do I let an agent search a folder on my laptop instead of crawling the web? Use a local index such as XERJ, which answers about files already on your disk and opens no connection to a website. Exa, Tavily and Firecrawl answer about the public web from a query or a URL. It is a category boundary.
+**Short answer** (updated 2026-10-28): How do I let an agent search a folder on my laptop instead of crawling the web? Use a local index such as XERJ, which answers about files already on your disk and opens no connection to a website. Exa, Tavily and Firecrawl answer about the public web from a query or a URL. It is a category boundary.
 
 **Key number:** Firecrawl has 193,121 GitHub stars, is AGPL-3.0, and released v2.11.0 on 2026-06-19. (as of 2026-10-19; source: [github.com/firecrawl/firecrawl](https://github.com/firecrawl/firecrawl))
 
@@ -40,7 +40,7 @@ xerj autoindex ./private-folder --prefix priv --state-dir ./state-priv
 
 ### Command 3
 
-Note: Give the agent 22 tools over that folder. Every tool reads the local node, and none of them takes a URL.
+Note: Expose indexed-folder retrieval through MCP. Other tools handle memory, Corpus Hub access and feedback; those have their own data and network behavior.
 
 ```sh
 xerj mcp --url http://127.0.0.1:9200
@@ -77,7 +77,7 @@ XERJ reads a folder that is already on disk and makes it queryable with one comm
 xerj autoindex ./private-folder --prefix priv --state-dir ./state-priv
 ```
 
-Formats are read from a content signature rather than trusted by extension. The families covered are JSON and JSONL, CSV, structured logs, SQL exports, SQLite, PDF, DOCX, HTML, XML, YAML, plain text, code and gzip variants. An agent then reads the result through `xerj mcp`, a stdio MCP server in the same binary that serves 22 tools.
+Formats are read from a content signature rather than trusted by extension. The families covered are JSON and JSONL, CSV, structured logs, SQL exports, SQLite, PDF, DOCX, HTML, XML, YAML, plain text, code and gzip variants. An agent then reads the result through `xerj mcp`, a stdio MCP server in the same binary that serves 23 tools.
 
 The default embedder is lexical feature hashing, not neural, so a match on a differently worded question needs `--embed-mode neural`, which is opt-in and CPU-only.
 

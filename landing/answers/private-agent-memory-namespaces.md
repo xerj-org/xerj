@@ -144,5 +144,5 @@ TLS and API-key authentication. Any client that reaches the port can then read a
 - [Auth & TLS](/docs/security)
 - [How do I set the MCP memory storage path?](/answers/set-mcp-memory-storage-path)
 - [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant) (same intent: agent memory)
-- [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database) (same intent: agent memory)
-- [How can agent-memory links retain evidence?](/answers/evidence-for-agent-memory-links) (same intent: agent memory)
+- [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag) (same intent: agent memory)
+- [What is agentic memory?](/answers/what-is-agentic-memory) (same intent: agent memory)

@@ -53,7 +53,9 @@ An unreadable mapping fails exact-ID items; plain text retains the established
 search-query fallback. Exact ID fields must be flat and keyword-mapped wherever
 present, with indexing enabled. Nested fields are outside this first version.
 
-`max_tokens` optionally caps the entire successful response JSON, using the
+`max_tokens` defaults to 8,000 when omitted or null, for both MCP and
+`xerj batch-search`. Pass a larger integer to request more. It caps the entire
+successful response JSON, using the
 same UAX #29 word counter as the other MCP search tools. This is **not BPE**.
 If binding, the adapter removes raw `hit` bodies starting at later items,
 then extra hits; it retains every item outcome and at least one citation per
@@ -61,7 +63,8 @@ matched item. `hits_omitted` counts omitted hits, and `_token_budget` names the
 counter and limit. A nonbinding budget leaves the response byte-identical.
 If the remaining statuses, errors and citations cannot fit, the whole call
 returns an explicit error naming the minimum required budget. Split the batch
-or increase the budget. Errors are outside the budget and are never truncated.
+or increase the budget. Errors are outside the budget and are never truncated. This is a word budget,
+not a byte cap or a guarantee that output fits a host's display limit.
 
 CLI exit codes: `0` all items completed (including abstentions); `3` one or more
 per-item errors (the JSON still contains all outcomes); `2` invalid CLI/input
@@ -72,8 +75,15 @@ The batch path uses `_msearch` rather than repeated `_search` calls. Plain-text
 items reuse the mapping-aware search query and code-path demotion; the engine's
 `_msearch` renderer returns stored evidence, not `_search`'s extracted `_passage`
 field. Rerank/judge and per-item scopes/options are not exposed here. No latency,
-model-token savings, rust-vulns accuracy or confidence claim is made.
+model-token savings or confidence claim is made by this recipe.
+
+For a pinned rust-vulns retrieval evaluation comparing 50-item batches with
+one-item calls over both CLI and persistent MCP, see
+[the batch retrieval harness](../../tools/benchmarks/batch-retrieval/README.md).
+It measures labelled ID lookup, known-item text hit@3, retrieval abstentions,
+warm task latency and payload BPE tokens; these are not generated-answer or
+complete agent-task cost measurements.
 
 This is the batch retrieval part of [#1801](https://github.com/xerj-org/xerj/issues/1801).
-Full answer/abstain calibration, alias-aware ID discovery and the requested
-rust-vulns evaluation remain separate work; this does not close that issue.
+Full answer/abstain calibration and alias-aware ID discovery remain separate
+work; the adapter and retrieval evaluation do not close that issue.

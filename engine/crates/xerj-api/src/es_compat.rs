@@ -1512,12 +1512,22 @@ pub async fn create_index(
     // (#2281). A schema-only pass cannot: the stored mapping was the request
     // body, so a template `semantic_text` was rendered back as `object`, and
     // the template's settings were never copied.
-    let (mappings_val, merged_settings) = state.engine.merge_index_template(
+    let (mut mappings_val, merged_settings) = state.engine.merge_index_template(
         &index,
         body.get("mappings").cloned().unwrap_or(Value::Null),
         body.get("settings").cloned().unwrap_or(Value::Null),
     );
     let settings_ref = (!merged_settings.is_null()).then_some(&merged_settings);
+
+    // #2407: size a bare `semantic_text` at the width the server's embedding
+    // backend actually produces, before validation, schema build and the
+    // mapping's persistence all read this merged value.
+    if let Some(props) = mappings_val.get_mut("properties") {
+        if properties_have_bare_semantic_text(props) {
+            let dimensions = confirmed_semantic_dimensions(&state);
+            materialize_semantic_dimensions(props, dimensions);
+        }
+    }
 
     // Validate mapping field types before creating — ES returns
     // mapper_parsing_exception for unsupported types.
@@ -2605,8 +2615,10 @@ pub async fn delete_index(
         .map(|v| v == "true")
         .unwrap_or(true);
 
-    let all = state.engine.list_indices().await;
-    let mut all_names: Vec<String> = all.iter().map(|i| i.name.clone()).collect();
+    // Selector resolution needs names, not statistics. Waiting for every
+    // sibling's schema/memtable locks can stall an otherwise independent
+    // DELETE before it even reaches the requested index (#2405).
+    let mut all_names = state.engine.index_name_list();
     // A failed index is deletable. Its name has to take part in selector
     // resolution or a literal `DELETE /broken` 404s and a wildcard silently
     // skips it — which is exactly the stuck state issue #206 describes.
@@ -3128,7 +3140,7 @@ pub struct EsPutMappingBody {
 pub async fn put_mapping(
     State(state): State<AppState>,
     Path(index): Path<String>,
-    Json(body): Json<Value>,
+    Json(mut body): Json<Value>,
 ) -> impl IntoResponse {
     // Wildcard-expand index list.
     let targets = resolve_index_selector(&state, &index).await;
@@ -3179,6 +3191,16 @@ pub async fn put_mapping(
                 )
                     .into_response();
             }
+        }
+    }
+
+    // #2407: size a bare `semantic_text` at the width the server's embedding
+    // backend actually produces, before validation, the field parse and the
+    // merge into each target's stored mapping all read the request body.
+    if let Some(props) = body.get_mut("properties") {
+        if properties_have_bare_semantic_text(props) {
+            let dimensions = confirmed_semantic_dimensions(&state);
+            materialize_semantic_dimensions(props, dimensions);
         }
     }
 
@@ -3432,6 +3454,60 @@ fn embedder_warnings(state: &AppState, body: &Value) -> Vec<String> {
         proxy_endpoint: embedding.default_endpoint.clone(),
     };
     crate::embed_warning::semantic_embedder_warnings(body, &resolved)
+}
+
+/// True when `properties` (recursively) declares a `semantic_text` field
+/// without an explicit `dimensions`/`dims` — the shape #2407 is about.
+fn properties_have_bare_semantic_text(properties: &Value) -> bool {
+    let Some(obj) = properties.as_object() else {
+        return false;
+    };
+    obj.values().any(|spec| {
+        (spec.get("type").and_then(Value::as_str) == Some("semantic_text")
+            && spec.get("dimensions").is_none()
+            && spec.get("dims").is_none())
+            || spec
+                .get("properties")
+                .is_some_and(properties_have_bare_semantic_text)
+    })
+}
+
+/// Write `dimensions` into every bare `semantic_text` property, recursively.
+///
+/// #2407: a bare `semantic_text` was always sized at 384 (the built-in
+/// embedder's width) even when the server's own backend returns another
+/// width, so every document failed ingest with "embedding backend returned
+/// width N, mapping requires 384" and the just-created index sat green with
+/// 0 documents. Materializing the width into the mapping at creation time
+/// keeps the embedding contract explicit and immutable as designed, makes
+/// `GET _mapping` echo the real width, and leaves an explicit declaration
+/// untouched.
+fn materialize_semantic_dimensions(properties: &mut Value, dimensions: usize) {
+    let Some(obj) = properties.as_object_mut() else {
+        return;
+    };
+    for spec in obj.values_mut() {
+        if spec.get("type").and_then(Value::as_str) == Some("semantic_text")
+            && spec.get("dimensions").is_none()
+            && spec.get("dims").is_none()
+        {
+            if let Some(map) = spec.as_object_mut() {
+                map.insert("dimensions".into(), json!(dimensions));
+            }
+        }
+        if let Some(sub) = spec.get_mut("properties") {
+            materialize_semantic_dimensions(sub, dimensions);
+        }
+    }
+}
+
+/// The width this server's embedding backend actually produces: the confirmed
+/// identity width (for `proxy` this runs the #2306 probe, cached after the
+/// first confirmation), else 384 with a warning — the built-in default a bare
+/// mapping was always sized at. Resolved only when a mapping actually carries
+/// a bare `semantic_text`, so mappings without one never pay for a probe.
+fn confirmed_semantic_dimensions(state: &AppState) -> usize {
+    state.engine.confirmed_semantic_dimensions()
 }
 
 fn semantic_mapping_contract(
@@ -7408,6 +7484,47 @@ where
         }
     }
     deserializer.deserialize_any(FromVisitor)
+}
+
+/// ES's `SliceBuilder` rules for a `slice` object: `id` and `max` are Java
+/// ints, `id >= 0`, `max > 1` and `id < max`, checked in that order with its
+/// messages. A string spelling of the integer is accepted, as ES's parser does.
+fn slice_spec_error(slice: &Value) -> Option<String> {
+    fn int_field(slice: &Value, key: &str) -> Result<Option<i32>, String> {
+        let Some(v) = slice.get(key) else {
+            return Ok(None);
+        };
+        let n = match v {
+            Value::Number(n) => n.as_i64(),
+            Value::String(s) => s.trim().parse::<i64>().ok(),
+            _ => None,
+        };
+        match n.map(i32::try_from) {
+            Some(Ok(n)) => Ok(Some(n)),
+            Some(Err(_)) => Err(format!(
+                "[slice] failed to parse field [{key}]: Numeric value ({v}) out of range of int"
+            )),
+            None => Err(format!("[slice] failed to parse field [{key}]")),
+        }
+    }
+    let id = match int_field(slice, "id") {
+        Ok(id) => id.unwrap_or(-1),
+        Err(e) => return Some(e),
+    };
+    let max = match int_field(slice, "max") {
+        Ok(max) => max.unwrap_or(-1),
+        Err(e) => return Some(e),
+    };
+    if id < 0 {
+        return Some("id must be greater than or equal to 0".to_string());
+    }
+    if max <= 1 {
+        return Some("max must be greater than 1".to_string());
+    }
+    if id >= max {
+        return Some("max must be greater than id".to_string());
+    }
+    None
 }
 
 fn negative_from_reason(n: i64) -> String {
@@ -13596,6 +13713,12 @@ async fn search_impl(
             },
         }
     }
+    // `slice` is validated before anything runs: its `max` and `id` feed
+    // unchecked `u32` arithmetic in the post-search slice filter, where a
+    // `max` of 2^32 truncated to 0 and the `% max` aborted the process.
+    if let Some(reason) = body.slice.as_ref().and_then(slice_spec_error) {
+        return ApiError::new(xerj_common::XerjError::invalid_query(reason)).into_response();
+    }
     // URL-level `seq_no_primary_term=true` / `version=true` promote the
     // corresponding body flag when the caller didn't already set one.
     if body.seq_no_primary_term.is_none() {
@@ -14175,9 +14298,19 @@ async fn search_impl(
         } else {
             knn_query_json
         };
+        // A pure knn search is raised to `k` here and trimmed back by
+        // `knn_total_cap`. A hybrid search keeps the request's `size`
+        // (#2561): the engine pins the full top-k into the union itself
+        // (`pin_knn_clause`), so `k` widens the candidate set, and `size`
+        // is how many hits come back, as in ES.
+        let size = if body.query.is_some() {
+            body.size
+        } else {
+            body.size.max(k_total)
+        };
         EsSearchBody {
             query: Some(merged_query),
-            size: body.size.max(k_total),
+            size,
             knn: None,
             ..body.clone()
         }
@@ -16148,8 +16281,12 @@ async fn search_impl(
                                 n.as_i64()
                                     .or_else(|| n.as_str().and_then(|s| s.parse::<i64>().ok()))
                             })
-                            .map(|n| n as u32)
+                            .and_then(|n| u32::try_from(n).ok())
                     })
+                    // `number_of_shards` is not range-checked at index
+                    // creation; a stored 0 would make the shard routing and
+                    // `max / shards` below divide by zero.
+                    .filter(|n| *n >= 1)
                     .unwrap_or(1);
                 let slice_by_id = slice_field == "_id";
                 let mut kept: Vec<(String, xerj_query::executor::Hit)> =
@@ -26498,7 +26635,8 @@ fn index_int_setting(state: &AppState, ix: &str, key: &str) -> Option<u64> {
 ///   result window);
 /// * more `docvalue_fields` than `index.max_docvalue_fields_search` (100);
 /// * a `regexp`, `prefix` or `/regex/` `query_string` longer than
-///   `index.max_regex_length` (1000 characters).
+///   `index.max_regex_length` (1000 characters);
+/// * for a scroll, a `slice.max` over `index.max_slices_per_scroll` (1024).
 fn find_index_request_limit_violation(
     state: &AppState,
     ix: &str,
@@ -26524,6 +26662,24 @@ fn find_index_request_limit_violation(
                  [index.max_result_window] index level setting."
             )
         });
+    }
+
+    if is_scroll {
+        let max_slices = index_int_setting(state, ix, "max_slices_per_scroll").unwrap_or(1024);
+        if let Some(slices) = body
+            .slice
+            .as_ref()
+            .and_then(|s| s.get("max"))
+            .and_then(|m| m.as_u64().or_else(|| m.as_str()?.trim().parse().ok()))
+        {
+            if slices > max_slices {
+                return Some(format!(
+                    "The number of slices [{slices}] is too large. It must be less than \
+                     [{max_slices}]. This limit can be set by changing the \
+                     [index.max_slices_per_scroll] index level setting."
+                ));
+            }
+        }
     }
 
     let max_rescore = index_int_setting(state, ix, "max_rescore_window")
@@ -28169,6 +28325,28 @@ pub async fn clear_scroll_path(
 pub struct ReindexBody {
     pub source: ReindexSource,
     pub dest: ReindexDest,
+    /// `conflicts`: `abort` (default) stops on the first version conflict;
+    /// `proceed` skips it, counts it, and keeps copying.
+    #[serde(default)]
+    pub conflicts: Option<String>,
+    /// `max_docs`: cap on documents successfully written. `-1` or absent
+    /// means no cap. The handler validates the positive/-1 range before any
+    /// source or destination work.
+    #[serde(default)]
+    pub max_docs: Option<i64>,
+    /// `script`: a Painless/expression transformation run on each source
+    /// document before it is written. This build has no reindex script
+    /// context; the field is captured so the handler can refuse it instead
+    /// of silently copying the untransformed (possibly unredacted) source.
+    #[serde(default)]
+    pub script: Option<Value>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct ReindexParams {
+    /// `_reindex?max_docs=N` — the query-parameter form ES also accepts.
+    #[serde(default)]
+    pub max_docs: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -28176,6 +28354,11 @@ pub struct ReindexSource {
     pub index: String,
     #[serde(default)]
     pub query: Option<Value>,
+    /// `source._source`: field filtering for the documents copied into the
+    /// destination. Serde used to drop this, so a caller excluding a secret
+    /// or large field still copied it verbatim (a data-minimization leak).
+    #[serde(default)]
+    pub _source: Option<Value>,
     #[serde(default = "reindex_default_size")]
     pub size: usize,
     /// ES reindex-from-remote spec (`{"host": "http://...", ...}`).
@@ -28201,10 +28384,65 @@ pub struct ReindexDest {
     /// `{"created": N}` having copied every document VERBATIM.
     #[serde(default)]
     pub pipeline: Option<String>,
+    /// `dest.op_type`: `index` (default) overwrites an existing id; `create`
+    /// only creates missing documents and reports a version conflict for an
+    /// existing id. Serde used to drop this field, so `create` silently
+    /// overwrote the destination and answered 200.
+    #[serde(default)]
+    pub op_type: Option<String>,
+}
+
+/// The filter attached to `alias` on one backing index, if any. Alias
+/// metadata is stored per (backing index, alias), so a multi-index alias can
+/// carry a different filter on each member; a concrete source has no entry.
+fn alias_filter_for(state: &AppState, backing: &str, alias: &str) -> Option<Value> {
+    state
+        .engine
+        .index_alias_metadata
+        .get(backing)
+        .and_then(|v| {
+            v.get(alias)
+                .and_then(|meta| meta.get("filter"))
+                .filter(|filter| !filter.is_null())
+                .cloned()
+        })
+}
+
+/// The ES `_reindex` summary shared by the success and version-conflict-abort
+/// responses. `total` counts documents successfully processed, not the number
+/// of source hits returned: a conflict is counted separately in
+/// `version_conflicts`, and an abort carries it in `failures` as a 409 bulk
+/// item while the HTTP status is also 409.
+#[allow(clippy::too_many_arguments)]
+fn reindex_summary(
+    started: Instant,
+    total: usize,
+    updated: usize,
+    created: usize,
+    noops: usize,
+    batches: usize,
+    version_conflicts: usize,
+    failures: &[Value],
+) -> Value {
+    json!({
+        "took": started.elapsed().as_millis() as u64,
+        "timed_out": false,
+        "total": total,
+        "updated": updated,
+        "created": created,
+        "deleted": 0,
+        "batches": batches,
+        "failures": failures,
+        "throttled_millis": 0,
+        "noops": noops,
+        "version_conflicts": version_conflicts,
+        "retries": { "bulk": 0, "search": 0 },
+    })
 }
 
 pub async fn reindex(
     State(state): State<AppState>,
+    Query(params): Query<ReindexParams>,
     Json(body): Json<ReindexBody>,
 ) -> impl IntoResponse {
     let started = Instant::now();
@@ -28245,8 +28483,92 @@ pub async fn reindex(
             .into_response();
     }
 
+    // A reindex script would change the document source/metadata before the
+    // write. This build has no script context for that operation, and serde
+    // used to drop `script` entirely, so a redaction/rename script answered
+    // 200 having copied the untransformed document. Refuse it instead of
+    // silently copying bytes the caller asked to change (#204).
+    if body.script.as_ref().is_some_and(|script| !script.is_null()) {
+        return es_bad_request(
+            "illegal_argument_exception",
+            "reindex scripts are not supported by this XERJ version; refusing the request \
+             rather than copying documents without the requested transformation",
+            None,
+        );
+    }
+    // `_source: false` asks to copy no fields, which `_reindex` cannot honor:
+    // the source search must return a document to copy. ES rejects it too.
+    let source_filter = match body.source._source.clone() {
+        Some(value) if value.is_null() => json!(true),
+        Some(value) => value,
+        None => json!(true),
+    };
+    if source_filter == Value::Bool(false) {
+        return es_bad_request(
+            "illegal_argument_exception",
+            "_source:false is not supported in this context",
+            None,
+        );
+    }
+
+    // Validate request controls before any source is flushed or the
+    // destination is created. Serde used to drop all three, so a caller
+    // asking for create-only or a capped copy silently got an overwriting
+    // full copy (and a 200).
+    let op_type = body.dest.op_type.as_deref().unwrap_or("index");
+    if !matches!(op_type, "index" | "create") {
+        return es_bad_request(
+            "illegal_argument_exception",
+            &format!("op_type [{op_type}] is not valid; must be one of [index, create]"),
+            None,
+        );
+    }
+    let conflicts = body.conflicts.as_deref().unwrap_or("abort");
+    if !matches!(conflicts, "abort" | "proceed") {
+        return es_bad_request(
+            "illegal_argument_exception",
+            &format!("conflicts [{conflicts}] is not valid; must be one of [abort, proceed]"),
+            None,
+        );
+    }
+    let max_docs = match body.max_docs.or(params.max_docs) {
+        None | Some(-1) => None,
+        Some(n) if n > 0 => match usize::try_from(n) {
+            Ok(n) => Some(n),
+            Err(_) => {
+                return es_bad_request(
+                    "illegal_argument_exception",
+                    &format!(
+                        "maxDocs should be greater than 0 if the request is limited to some \
+                         number of documents or -1 if it isn't but it was [{n}]"
+                    ),
+                    None,
+                )
+            }
+        },
+        Some(n) => {
+            return es_bad_request(
+                "illegal_argument_exception",
+                &format!(
+                    "maxDocs should be greater than 0 if the request is limited to some \
+                     number of documents or -1 if it isn't but it was [{n}]"
+                ),
+                None,
+            )
+        }
+    };
+
     let source_name = &body.source.index;
-    let dest_name = &body.dest.index;
+    // The destination may be an alias. ES routes a write through an alias to
+    // its single write index and rejects an ambiguous alias;
+    // `get_or_create_index` resolves an alias to its FIRST member, so the old
+    // path copied the whole corpus into whichever member happened to be listed
+    // first. Resolve before the pipeline check so a refused destination writes
+    // nothing (not even a new index).
+    let dest_name = match write_target_or_refusal(&state, &body.dest.index) {
+        Ok(name) => name,
+        Err(resp) => return resp,
+    };
 
     // `dest.pipeline` is checked BEFORE a single document is copied. A name
     // that does not resolve, or one this build cannot run, fails the whole
@@ -28283,36 +28605,25 @@ pub async fn reindex(
         }
     };
 
-    // Get or create destination index.
-    let dest_idx = match state.engine.get_or_create_index(dest_name) {
-        Ok(i) => i,
-        Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
-    };
+    // `source.index` may be an index or alias. For an alias ES
+    // searches EVERY backing index and applies each member's alias filter;
+    // `get_index` resolves an alias to its first member only, so the old path
+    // silently copied a fraction of the alias and ignored its filters.
+    let source_members = state.engine.resolve_alias(source_name);
 
-    // Fetch all docs from source via paginated search_after to handle large indices.
-    let source_idx = match state.engine.get_index(source_name) {
-        Ok(i) => i,
-        Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
-    };
-
-    // Flush the source memtable to segments before paging. `_id`-sorted
-    // `search_after` keyset pagination is correct over on-disk segments, but
-    // the in-memory memtable's field-sort path does NOT order by `_id`
-    // reliably, so un-flushed recent writes would be skipped or duplicated
-    // across pages. Reindex is a snapshot-style bulk op, so a single flush up
-    // front is an acceptable cost and makes the whole source keyset-pageable.
-    //
-    // Propagated, not swallowed, for the same reason as `clone_index_to`: the
-    // flush is a precondition of the paging being complete, so a failed flush
-    // must not be followed by a reindex that reports `"total": N` over a source
-    // it could not read consistently (issue #204).
-    if let Err(e) = source_idx.flush().await {
-        return ApiError::new(xerj_common::XerjError::internal(format!(
-            "reindex from [{source_name}] into [{dest_name}] was not attempted: flushing \
-             the source failed ({e}); the copy needs a flushed source to page over it \
-             without skipping or duplicating documents"
-        )))
-        .into_response();
+    // Compare concrete identities: aliases must not hide a self-copy, which
+    // can rewrite source documents or copy earlier members into later ones.
+    if source_members.contains(&dest_name) {
+        let reason = format!("reindex cannot read and write the same index [{dest_name}]");
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "error": {"type": "illegal_argument_exception", "reason": reason,
+                    "root_cause": [{"type": "illegal_argument_exception", "reason": reason}]},
+                "status": 400
+            })),
+        )
+            .into_response();
     }
 
     let query_val = body
@@ -28327,163 +28638,276 @@ pub async fn reindex(
                                                   // on a pathologically large source, well above any realistic reindex.
     let max_total = 10_000_000usize;
 
-    let mut total_fetched = 0usize;
-    let mut created = 0usize;
-    let mut updated = 0usize;
-    let mut noops = 0usize;
-    let mut failures: Vec<Value> = Vec::new();
-    let mut batches = 0usize;
-    // Keyset cursor: `[last_id]` of the previous page (the sole sort key is
-    // `_id: asc`). `None` on the first page. This replaces `from`-offset
-    // paging, which silently truncated at `max_result_window` (~10k) once
-    // `from` exceeded the deep-paging limit.
-    let mut search_after: Option<Value> = None;
+    let mut prepared_sources = Vec::with_capacity(source_members.len());
+    for source_member in &source_members {
+        let source_idx = match state.engine.get_index(source_member) {
+            Ok(i) => i,
+            Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
+        };
 
-    loop {
-        let mut search_body_val = json!({
-            "query": query_val,
+        // An alias filter is part of the source view. It is stored per
+        // (backing index, alias), so a multi-index alias can filter each
+        // member differently; a concrete source has no entry. AND the filter
+        // with the caller's query (`must` + `filter`) so neither is ignored.
+        let effective_query = match alias_filter_for(&state, source_member, source_name) {
+            Some(filter) => json!({
+                "bool": {
+                    "must": [query_val.clone()],
+                    "filter": [filter],
+                }
+            }),
+            None => query_val.clone(),
+        };
+
+        // Parse every member's effective query before any source flush or
+        // destination creation. Keep that exact plan for its paging loop.
+        let search_req = match xerj_query::parse_request(&json!({
+            "query": effective_query,
             "size": page_size,
             "sort": [{ "_id": "asc" }],
-            // Reindex copies documents verbatim, so it must always read the
-            // COMPLETE `_source` — including engine-generated embedding
-            // companions. Omitting `_source` would inherit the search default,
-            // which deliberately hides those companions from ordinary API
-            // responses; inheriting it here would silently drop embeddings from
-            // every reindexed document.
-            "_source": true,
-        });
-        if let Some(ref sa) = search_after {
-            search_body_val["search_after"] = sa.clone();
-        }
-
-        let search_req = match xerj_query::parse_request(&search_body_val)
-            .map_err(|e| xerj_common::XerjError::invalid_query(e.to_string()))
+            // Apply the caller's `source._source` filter. With no filter,
+            // `true` retains engine-generated vector companions too.
+            "_source": source_filter.clone(),
+        }))
+        .map_err(|e| xerj_common::XerjError::invalid_query(e.to_string()))
         {
             Ok(r) => r,
             Err(e) => return ApiError::new(e).into_response(),
         };
+        prepared_sources.push((source_member, source_idx, search_req));
+    }
 
-        let results = match source_idx.search(&search_req).await {
-            Ok(r) => r,
-            Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
-        };
-        // A script resource limit in `source.query` makes matching fail-closed,
-        // so this batch is a subset of the documents the caller asked to copy.
-        // Reporting a completed reindex over a silently truncated source is the
-        // same class of defect as a silently wrong score.
-        if let Some(reason) = &results.script_failure {
-            return script_limit_response(reason);
+    // Every member must be pageable before the first destination write. A
+    // later member's flush failure must not leave an undisclosed partial copy.
+    // A flush changes storage layout, not source documents; retry is safe.
+    for (source_member, source_idx, _) in &prepared_sources {
+        if let Err(e) = source_idx.flush().await {
+            return ApiError::new(xerj_common::XerjError::internal(format!(
+                "reindex from [{source_name}] into [{dest_name}] was not attempted: flushing \
+                 source member [{source_member}] failed ({e}); destination documents were \
+                 not changed; fix the source storage error and retry"
+            )))
+            .into_response();
         }
+    }
 
-        let batch_size = results.hits.len();
-        if batch_size == 0 {
-            break;
-        }
+    // Get or create destination index.
+    let dest_idx = match state.engine.get_or_create_index(&dest_name) {
+        Ok(i) => i,
+        Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
+    };
 
-        batches += 1;
-        total_fetched += batch_size;
+    let mut total_fetched = 0usize;
+    let mut created = 0usize;
+    let mut updated = 0usize;
+    let mut noops = 0usize;
+    let mut version_conflicts = 0usize;
+    let mut failures: Vec<Value> = Vec::new();
+    let mut batches = 0usize;
+    // Set when `max_docs` has been reached mid-page, so both the hit loop and
+    // the member/page loops stop without counting the rest of that page.
+    let mut stop = false;
 
-        // Capture the keyset cursor before the `for` loop consumes `results.hits`.
-        let last_id = results.hits.last().map(|h| h.id.clone());
+    for (_, source_idx, mut search_req) in prepared_sources {
+        // IDs are ordered only within one source member. Each parsed plan
+        // starts with no cursor and advances after its own completed page.
+        loop {
+            if let Some(limit) = max_docs {
+                if created + updated >= limit {
+                    stop = true;
+                    break;
+                }
+            }
+            // `max_docs` caps SUCCESSFUL writes. With `conflicts=proceed` a
+            // page may contain conflicts, so request only the writes still
+            // allowed and keep paging when conflicts consume the page.
+            search_req.size = match max_docs {
+                Some(limit) => limit.saturating_sub(created + updated).min(page_size),
+                None => page_size,
+            };
+            let requested = search_req.size;
+            let results = match source_idx.search(&search_req).await {
+                Ok(r) => r,
+                Err(e) => return ApiError::new(xerj_common::XerjError::from(e)).into_response(),
+            };
+            // A script resource limit in `source.query` makes matching fail-closed,
+            // so this batch is a subset of the documents the caller asked to copy.
+            // Reporting a completed reindex over a silently truncated source is the
+            // same class of defect as a silently wrong score.
+            if let Some(reason) = &results.script_failure {
+                return script_limit_response(reason);
+            }
 
-        for hit in results.hits {
-            if !hit.source.is_null() {
-                // `dest.pipeline`, if the request named one. Already known to
-                // exist and to be runnable (checked before any copy started),
-                // so anything that goes wrong here is a per-document failure
-                // and is reported as one — never a pass-through of the
-                // untransformed source.
-                let doc_source = match dest_pipeline.as_deref() {
-                    None => hit.source,
-                    Some(p) => match state.engine.process_through_pipeline(p, vec![hit.source]) {
-                        Ok(mut results) if !results.is_empty() => {
-                            let (action, transformed) = results.remove(0);
-                            if matches!(action, xerj_wasm::pipeline::ProcessAction::Drop) {
-                                // ES: a pipeline that drops the document does
-                                // not write it, and the run reports a noop.
-                                noops += 1;
+            let batch_size = results.hits.len();
+            if batch_size == 0 {
+                break;
+            }
+
+            batches += 1;
+
+            // Capture the keyset cursor before the `for` loop consumes `results.hits`.
+            let last_id = results.hits.last().map(|h| h.id.clone());
+
+            for hit in results.hits {
+                total_fetched += 1;
+                if !hit.source.is_null() {
+                    // `dest.pipeline`, if the request named one. Already known to
+                    // exist and to be runnable (checked before any copy started),
+                    // so anything that goes wrong here is a per-document failure
+                    // and is reported as one — never a pass-through of the
+                    // untransformed source.
+                    let doc_source = match dest_pipeline.as_deref() {
+                        None => hit.source,
+                        Some(p) => match state.engine.process_through_pipeline(p, vec![hit.source])
+                        {
+                            Ok(mut results) if !results.is_empty() => {
+                                let (action, transformed) = results.remove(0);
+                                if matches!(action, xerj_wasm::pipeline::ProcessAction::Drop) {
+                                    // ES: a pipeline that drops the document does
+                                    // not write it, and the run reports a noop.
+                                    noops += 1;
+                                    continue;
+                                }
+                                transformed
+                            }
+                            Ok(_) => {
+                                failures.push(json!({
+                                    "id": hit.id,
+                                    "cause": {
+                                        "type": "reindex_error",
+                                        "reason": format!(
+                                            "pipeline [{p}] returned no document for [{}]",
+                                            hit.id
+                                        ),
+                                    },
+                                }));
                                 continue;
                             }
-                            transformed
-                        }
-                        Ok(_) => {
-                            failures.push(json!({
+                            Err(e) => {
+                                failures.push(json!({
+                                    "id": hit.id,
+                                    "cause": {
+                                        "type": "reindex_error",
+                                        "reason": format!("pipeline [{p}] failed: {e}"),
+                                    },
+                                }));
+                                continue;
+                            }
+                        },
+                    };
+                    if op_type == "create" {
+                        // `create_document` is the engine's atomic
+                        // op_type=create: the existence check runs under the
+                        // write lock, so a concurrent writer cannot slip a
+                        // document between a get_document() and the write.
+                        match dest_idx.create_document(hit.id.clone(), doc_source).await {
+                            Ok(_) => created += 1,
+                            Err(xerj_engine::EngineError::Common(
+                                xerj_common::XerjError::VersionConflict { id, actual, .. },
+                            )) => {
+                                version_conflicts += 1;
+                                if conflicts == "proceed" {
+                                    continue;
+                                }
+                                // ES aborts the run on the first conflict and
+                                // answers 409 with one bulk failure entry; the
+                                // document already in the destination is not
+                                // overwritten.
+                                failures.push(json!({
+                                    "index": dest_name.as_str(),
+                                    "id": hit.id,
+                                    "status": 409,
+                                    "cause": {
+                                        "type": "version_conflict_engine_exception",
+                                        "reason": format!(
+                                            "[{id}]: version conflict, document already exists \
+                                             (current version [{actual}])"
+                                        ),
+                                        "index": dest_name.as_str(),
+                                        "shard": "0",
+                                    },
+                                }));
+                                return (
+                                    StatusCode::CONFLICT,
+                                    Json(reindex_summary(
+                                        started,
+                                        created + updated + noops,
+                                        updated,
+                                        created,
+                                        noops,
+                                        batches,
+                                        version_conflicts,
+                                        &failures,
+                                    )),
+                                )
+                                    .into_response();
+                            }
+                            Err(e) => failures.push(json!({
                                 "id": hit.id,
-                                "cause": {
-                                    "type": "reindex_error",
-                                    "reason": format!(
-                                        "pipeline [{p}] returned no document for [{}]",
-                                        hit.id
-                                    ),
-                                },
-                            }));
-                            continue;
+                                "cause": { "type": "reindex_error", "reason": e.to_string() },
+                            })),
                         }
-                        Err(e) => {
-                            failures.push(json!({
-                                "id": hit.id,
-                                "cause": {
-                                    "type": "reindex_error",
-                                    "reason": format!("pipeline [{p}] failed: {e}"),
-                                },
-                            }));
-                            continue;
-                        }
-                    },
-                };
-                // Check if doc already exists in dest to track created vs updated.
-                let exists = dest_idx
-                    .get_document(&hit.id)
-                    .await
-                    .ok()
-                    .flatten()
-                    .is_some();
-                match dest_idx
-                    .index_document(Some(hit.id.clone()), doc_source)
-                    .await
-                {
-                    Ok(_) => {
-                        if exists {
-                            updated += 1;
-                        } else {
-                            created += 1;
+                    } else {
+                        // Check if doc already exists in dest to track created vs updated.
+                        let exists = dest_idx
+                            .get_document(&hit.id)
+                            .await
+                            .ok()
+                            .flatten()
+                            .is_some();
+                        match dest_idx
+                            .index_document(Some(hit.id.clone()), doc_source)
+                            .await
+                        {
+                            Ok(_) => {
+                                if exists {
+                                    updated += 1;
+                                } else {
+                                    created += 1;
+                                }
+                            }
+                            Err(e) => {
+                                failures.push(json!({
+                                    "id": hit.id,
+                                    "cause": { "type": "reindex_error", "reason": e.to_string() },
+                                }));
+                            }
                         }
                     }
-                    Err(e) => {
-                        failures.push(json!({
-                            "id": hit.id,
-                            "cause": { "type": "reindex_error", "reason": e.to_string() },
-                        }));
+                    if max_docs.is_some_and(|limit| created + updated >= limit) {
+                        stop = true;
+                        break;
                     }
                 }
             }
+
+            // Advance the keyset cursor to the last `_id` of this page.
+            search_req.search_after = last_id.map(|id| vec![json!(id)]);
+
+            // Stop if the write cap was reached, the safety backstop fired, or
+            // this page was short (the member is exhausted). `requested` is
+            // the size actually sent, which may be below `page_size` because
+            // of `max_docs`.
+            if stop || batch_size < requested || total_fetched >= max_total {
+                break;
+            }
         }
 
-        // Advance the keyset cursor to the last `_id` of this page.
-        search_after = last_id.map(|id| json!([id]));
-
-        // Stop if we've reached the safety backstop or fetched fewer docs than
-        // requested (meaning we hit the end of the source).
-        if batch_size < page_size || total_fetched >= max_total {
+        if stop || total_fetched >= max_total {
             break;
         }
     }
 
-    let took = started.elapsed().as_millis() as u64;
-    Json(json!({
-        "took": took,
-        "timed_out": false,
-        "total": total_fetched,
-        "updated": updated,
-        "created": created,
-        "deleted": 0,
-        "batches": batches,
-        "failures": failures,
-        "throttled_millis": 0,
-        "noops": noops,
-        "version_conflicts": 0,
-        "retries": { "bulk": 0, "search": 0 },
-    }))
+    Json(reindex_summary(
+        started,
+        created + updated + noops,
+        updated,
+        created,
+        noops,
+        batches,
+        version_conflicts,
+        &failures,
+    ))
     .into_response()
 }
 
@@ -31293,6 +31717,17 @@ pub async fn nodes_stats(State(state): State<AppState>) -> impl IntoResponse {
         .unwrap_or_default()
         .as_millis() as u64;
 
+    let read_transient_budget = {
+        let b = xerj_engine::read_budget::global().snapshot();
+        json!({
+            "limit_in_bytes": b.limit,
+            "current_in_bytes": b.current,
+            "peak_in_bytes": b.peak,
+            "admitted": b.admitted,
+            "waited": b.waited,
+            "overruns": b.overruns,
+        })
+    };
     Json(json!({
         "_nodes": { "total": 1, "successful": 1, "failed": 0 },
         "cluster_name": "xerj",
@@ -31357,6 +31792,9 @@ pub async fn nodes_stats(State(state): State<AppState>) -> impl IntoResponse {
                     // bbq_hnsw/flat).
                     "dense_vector": dense_vector_off_heap_stats(&state),
                     "segment_hydration_cache": segment_hydration,
+                    // #2427/#1122: transient read-path builds the hydration
+                    // cache refused, bounded by their own budget.
+                    "read_transient_budget": read_transient_budget,
                 },
                 "transport": {
                     "server_open": 1,
@@ -49638,17 +50076,26 @@ mod reindex_keyset_tests {
             source: ReindexSource {
                 index: "src".into(),
                 query: None,
+                _source: None,
                 size: 1000,
                 remote: None,
             },
             dest: ReindexDest {
                 index: "dst".into(),
                 pipeline: None,
+                op_type: None,
             },
+            conflicts: None,
+            max_docs: None,
+            script: None,
         };
-        let resp = reindex(State(state.clone()), Json(body))
-            .await
-            .into_response();
+        let resp = reindex(
+            State(state.clone()),
+            Query(ReindexParams::default()),
+            Json(body),
+        )
+        .await
+        .into_response();
         assert!(
             resp.status().is_success(),
             "reindex returned {}",

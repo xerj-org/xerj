@@ -1168,6 +1168,7 @@ fn cfg(root: &Path, state_dir: &Path, url: &str, semantic: bool) -> IndexCfg {
         label: None,
         debounce: std::time::Duration::from_millis(0),
         exclude_rels: Vec::new(),
+        exclude: Vec::new(),
         skip_corpus_data: false,
     }
 }
@@ -7238,6 +7239,22 @@ mod delete_gate {
             after.iter().all(|path| !path.ends_with("rows.csv")),
             "the confirmed plan removes the csv: {after:?}"
         );
+
+        // A repeated confirmed exclusion, then excluding everything, must not
+        // be mistaken for a lost destination merely because the journal keeps
+        // the old per-file completion records.
+        let mut repeat = graph_cfg();
+        repeat.budget_plan = Some("code-and-docs".into());
+        repeat.drop_indexed = true;
+        assert_eq!(run_index(repeat).unwrap(), 0);
+        assert_eq!(paths(&endpoint.data_docs()), after);
+        fs::write(corpus.path().join(".xerjignore"), "*\n").unwrap();
+        assert_eq!(run_index(graph_cfg()).unwrap(), 0);
+        assert!(
+            paths(&endpoint.data_docs()).is_empty(),
+            "all source-file records were deliberately excluded: {:?}",
+            paths(&endpoint.data_docs())
+        );
     }
 
     fn base() -> CommittedManifest {
@@ -7374,4 +7391,288 @@ fn a_file_that_changes_size_during_snapshot_seal_is_skipped() {
             .any(|doc| doc.get("value").and_then(Value::as_str) == Some("after")),
         "the rerun indexes the bytes the file settled on"
     );
+}
+
+/// #2577: a `--no-graph` run whose options differ from the committed
+/// generation is refused before anything is copied, and the refusal names the
+/// option. It used to seal the whole corpus and then report the durable state
+/// as "not internally consistent", which it was not: the original options
+/// still continue the corpus.
+#[test]
+fn changed_option_is_refused_before_sealing_and_named() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+
+    let mut sample = config.clone();
+    sample.sample += 1;
+    let mut symlinks = config.clone();
+    symlinks.follow_symlinks = true;
+    let cases = [
+        (sample, "build fingerprints them differently (--sample"),
+        (symlinks, "--follow-symlinks was off and is now on"),
+    ];
+    for (round, (changed, named)) in cases.into_iter().enumerate() {
+        // Both reconcile arms: an unchanged folder and an edited one.
+        for edit in [false, true] {
+            if edit {
+                fs::write(
+                    corpus.path().join("a.csv"),
+                    format!("id,value\n1,alpha\n2,edit{round}\n"),
+                )
+                .unwrap();
+            }
+            let snapshots = snapshot_names(state_dir.path());
+            let bulks = endpoint.data_bulk_requests();
+            let begins = journal_events(state_dir.path(), "sync_begin");
+            let error = format!("{:#}", run_index(changed.clone()).unwrap_err());
+            let context = format!("edit={edit}: {error}");
+            assert!(
+                error.contains("execution configuration changed since the committed generation"),
+                "{context}"
+            );
+            assert!(error.contains(named), "{context}");
+            assert!(error.contains("Nothing was copied"), "{context}");
+            assert!(!error.contains("not internally consistent"), "{context}");
+            assert_eq!(snapshot_names(state_dir.path()), snapshots, "{context}");
+            assert_eq!(endpoint.data_bulk_requests(), bulks, "{context}");
+            assert_eq!(
+                journal_events(state_dir.path(), "sync_begin"),
+                begins,
+                "{context}"
+            );
+        }
+        // The committed state was never damaged: the original options
+        // continue it and publish the edit.
+        let commits = journal_events(state_dir.path(), "sync_commit");
+        assert_eq!(run_index(config.clone()).unwrap(), 0);
+        assert_eq!(journal_events(state_dir.path(), "sync_commit"), commits + 1);
+    }
+    assert_eq!(endpoint.data_docs().len(), 2);
+}
+
+/// #2684: the `--dry-run` preview of a `--no-graph` rerun must refuse a
+/// changed option the way the real run does. It used to print the plan (or
+/// "already describes this folder") and exit 0 for a run that the real
+/// command then refused, although this route's `--max-minutes` note points
+/// callers at `--dry-run` to check a plan first.
+#[test]
+fn dry_run_refuses_a_changed_option_like_the_real_run() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    let bulks = endpoint.data_bulk_requests();
+    let snapshots = snapshot_names(state_dir.path());
+    let journal_before = fs::read(state_dir.path().join("journal.ndjson")).unwrap();
+
+    let mut sample = config.clone();
+    sample.sample += 1;
+    sample.dry_run = true;
+    let mut symlinks = config.clone();
+    symlinks.follow_symlinks = true;
+    symlinks.dry_run = true;
+    let cases = [
+        (sample, "build fingerprints them differently (--sample"),
+        (symlinks, "--follow-symlinks was off and is now on"),
+    ];
+    for (changed, named) in cases {
+        // Both preview arms: an unchanged folder and an edited one.
+        for edit in [false, true] {
+            let rows = if edit {
+                "1,alpha\n2,edit\n"
+            } else {
+                "1,alpha\n"
+            };
+            fs::write(corpus.path().join("a.csv"), format!("id,value\n{rows}")).unwrap();
+            let error = format!("{:#}", run_index(changed.clone()).unwrap_err());
+            let context = format!("edit={edit}: {error}");
+            assert!(
+                error.contains("execution configuration changed since the committed generation"),
+                "{context}"
+            );
+            assert!(error.contains(named), "{context}");
+            assert_eq!(endpoint.data_bulk_requests(), bulks, "{context}");
+            assert_eq!(snapshot_names(state_dir.path()), snapshots, "{context}");
+            assert_eq!(
+                fs::read(state_dir.path().join("journal.ndjson")).unwrap(),
+                journal_before,
+                "{context}"
+            );
+        }
+    }
+
+    // The preview with the committed options still works on both arms.
+    let mut dry = config.clone();
+    dry.dry_run = true;
+    assert_eq!(run_index(dry.clone()).unwrap(), 0);
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    assert_eq!(run_index(dry).unwrap(), 0);
+    assert_eq!(endpoint.data_bulk_requests(), bulks);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+}
+
+/// #2720: a workbook rerun whose edit gives it a part the frozen datasets do
+/// not have cannot join them. That file is set aside with the rebuild command
+/// and every other file is still indexed; it used to abort the whole run with
+/// "frozen assignment has 0 matches for group", as if the journal were corrupt.
+fn sheet_edit_is_set_aside(edited: &[(&str, Vec<Vec<String>>)], part: &str) {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+    let book = corpus.path().join("book.xlsx");
+    let write = |sheets: &[(&str, Vec<Vec<String>>)]| {
+        let rows: Vec<Vec<Vec<&str>>> = sheets
+            .iter()
+            .map(|(_, rows)| {
+                rows.iter()
+                    .map(|row| row.iter().map(String::as_str).collect())
+                    .collect()
+            })
+            .collect();
+        let slices: Vec<Vec<&[&str]>> = rows
+            .iter()
+            .map(|rows| rows.iter().map(Vec::as_slice).collect())
+            .collect();
+        let named: Vec<(&str, &[&[&str]])> = sheets
+            .iter()
+            .zip(&slices)
+            .map(|((name, _), rows)| (*name, rows.as_slice()))
+            .collect();
+        crate::phase_a_grouping_tests::write_xlsx(&book, &named);
+    };
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    write(&[("Sales", sales_rows(false))]);
+    assert_eq!(run_index(config.clone()).unwrap(), 0);
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 1);
+
+    write(edited);
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n2,beta\n").unwrap();
+    let code = run_index(config.clone()).unwrap_or_else(|error| panic!("{error:#}"));
+    assert_eq!(code, 3, "a set-aside file is completed-with-junk");
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 2);
+
+    let catalog = endpoint.catalog_docs();
+    let junk: Vec<&Value> = catalog
+        .iter()
+        .filter(|doc| doc["doc_kind"] == "file" && doc["status"] == "junk")
+        .collect();
+    assert_eq!(junk.len(), 1, "{junk:#?}");
+    assert_eq!(
+        junk[0]["path"].as_str().or(junk[0]["rel"].as_str()),
+        Some("book.xlsx")
+    );
+    let reason = junk[0]["reason"].as_str().unwrap();
+    for needle in [
+        format!("part {part:?} of this file is new or changed shape"),
+        "This file was not indexed; every other file in this pass still is".to_string(),
+        "rebuild".to_string(),
+    ] {
+        assert!(
+            reason.contains(&needle),
+            "{needle:?} missing from: {reason}"
+        );
+    }
+    let docs = serde_json::to_string(&endpoint.data_docs()).unwrap();
+    assert!(docs.contains("beta"), "the edited CSV is still indexed");
+    assert!(
+        !docs.contains("region 59"),
+        "the set-aside workbook's old document is dropped with this generation"
+    );
+}
+
+/// 60 rows of text and numbers with no header: a document, not a table.
+fn sales_rows(header: bool) -> Vec<Vec<String>> {
+    let mut rows = Vec::new();
+    if header {
+        rows.push(vec!["region".to_string(), "amount".to_string()]);
+    }
+    rows.extend((0..60).map(|i| vec![format!("region {i}"), (i * 10).to_string()]));
+    rows
+}
+
+/// A header row turns the sheet from a document into a table.
+#[test]
+fn a_sheet_that_changes_shape_is_set_aside_not_fatal() {
+    sheet_edit_is_set_aside(&[("Sales", sales_rows(true))], "Sales");
+}
+
+/// A new table sheet has no frozen dataset either.
+#[test]
+fn a_new_sheet_in_an_indexed_workbook_is_set_aside_not_fatal() {
+    let q4 = vec![
+        vec!["region".to_string(), "amount".to_string()],
+        vec!["north".to_string(), "5".to_string()],
+    ];
+    sheet_edit_is_set_aside(&[("Sales", sales_rows(false)), ("Q4", q4)], "Q4");
+}
+
+/// #2740: a views folder holds dozens of similar templates. Sixteen or more
+/// form an XML dataset of their own (`dataset::MIN_DATASET_RECORDS`), where
+/// the strict XML reader junked every one at its first `<%` or unclosed tag
+/// and dropped the text after it. Twenty ERB views and twenty HTML partials
+/// must index cleanly, end of file included.
+#[test]
+fn a_folder_of_templates_and_html_fragments_is_indexed_not_junked() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::create_dir_all(corpus.path().join("views")).unwrap();
+    fs::create_dir_all(corpus.path().join("partials")).unwrap();
+    for i in 1..=20 {
+        fs::write(
+            corpus.path().join(format!("views/view{i}.erb")),
+            format!(
+                "<div class=\"profile\">\n  <% if @user && @user.admin? %>\n    \
+                 <%= link_to \"Admin\", admin_path %>\n  <% end %>\n</div>\n\
+                 <p>lateerb{i}</p>\n"
+            ),
+        )
+        .unwrap();
+        fs::write(
+            corpus.path().join(format!("partials/card{i}.html")),
+            format!(
+                "<div class=\"card\" *ngIf=\"items.length > 0 && !loading\">\n  \
+                 <input [(ngModel)]=\"query\">\n  <span>{{{{ label }}}}</span>\n</div>\n\
+                 <p>latehtml{i}</p>\n"
+            ),
+        )
+        .unwrap();
+    }
+    let endpoint = HttpEndpoint::start();
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, false);
+
+    let (code, summary) = run_index_report(config).unwrap();
+    let summary = summary.expect("the run commits a generation");
+    assert_eq!(summary["junk_records_total"], 0, "{summary}");
+    assert_eq!(summary["files_junk"], 0, "{summary}");
+    assert_eq!(code, 0, "{summary}");
+    let docs: Vec<String> = endpoint.data_docs().iter().map(Value::to_string).collect();
+    for needle in ["lateerb7", "latehtml7"] {
+        assert!(
+            docs.iter().any(|d| d.contains(needle)),
+            "{needle} is not in any indexed record"
+        );
+    }
 }

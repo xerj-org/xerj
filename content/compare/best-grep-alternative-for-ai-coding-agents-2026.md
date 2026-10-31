@@ -7,7 +7,7 @@ cluster: "Comparison: code retrieval"
 question: "What is the best grep or ripgrep alternative for an AI coding agent in 2026?"
 intent: "comparison"
 published: "2026-10-19"
-updated: "2026-10-19"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -62,6 +62,8 @@ links_out:
   - /compare/xerj-vs-ast-grep
   - /answers/local-code-search-mcp-fewer-tokens-than-grep
   - /compare/best-mcp-server-local-code-search-2026
+  - "/compare/xerj-vs-localsynapse"
+  - "/answers/search-jupyter-notebook-cells"
 evidence:
   - claim: "ripgrep installs with brew install ripgrep, apt-get install ripgrep or cargo install ripgrep."
     source: "https://github.com/BurntSushi/ripgrep"
@@ -147,6 +149,8 @@ ag was the fast grep before ripgrep. Its last push was on 2024-06-16 and it has 
 ## XERJ: ranked passages behind MCP
 
 XERJ indexes a repository plus the docs, logs, JSONL and CSV files around it, and `xerj mcp` returns ranked passages with file:line. In one psf/requests capture an answer was 1,303 bytes where `rg` printed 25,150 ([the capture](/answers/local-code-search-mcp-fewer-tokens-than-grep)).
+
+It also reads [Jupyter notebooks one heading section at a time](/answers/search-jupyter-notebook-cells). For local files beyond code, see [XERJ vs LocalSynapse](/compare/xerj-vs-localsynapse).
 
 What it gives up: an index to build and keep fresh, no syntax rewriting, single-node only, and the 5 tasks ripgrep won above.
 

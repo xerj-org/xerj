@@ -184,6 +184,10 @@ const KNOWN: &[(&str, Role)] = &[
     // client (xerj-mcp/src/lib.rs, already classified); only its unit tests
     // construct one, to point at an unroutable address.
     ("xerj-mcp/src/map.rs", Role::TestOnly),
+    // #2594/#2613's xerj_status tool reuses the proxy's shared client
+    // (xerj-mcp/src/lib.rs, already classified); only its unit tests build
+    // one, against their own 127.0.0.1 listener.
+    ("xerj-mcp/src/status.rs", Role::TestOnly),
     // Corpus Hub v2 (discussion #1374): `xerj hub …` and `xerj code --def` are
     // command-line clients in the same binary; both run and exit before the
     // server starts (xerj-server/src/main.rs), so a default node opens none of

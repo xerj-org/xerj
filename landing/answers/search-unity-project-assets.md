@@ -2,13 +2,13 @@
 ---
 title: "Search Unity scenes and the C# beside them"
 canonical: "https://xerj.org/answers/search-unity-project-assets"
-updated: "2026-10-19"
+updated: "2026-10-28"
 source: "content/answers/search-unity-project-assets.md"
 ---
 
 # How do I search Unity YAML scenes and the C# that references them as one project?
 
-**Short answer** (updated 2026-10-19): How do I search a Unity project's assets? Run xerj autoindex on the project folder. XERJ detects the unity and unity-meta families and extracts m_Name, unity_class and guid, splitting a scene into one index per Unity class. One bool query joined an asset to its .meta record and returned 3 documents across 2 families.
+**Short answer** (updated 2026-10-28): How do I search a Unity project's assets? Run xerj autoindex on the project folder. XERJ detects the unity and unity-meta families and extracts m_Name, unity_class and guid, splitting a scene into one index per Unity class. One bool query joined an asset to its .meta record and returned 3 documents across 2 families.
 
 **Key number:** One `bool` query joined an asset to its `.meta` record by path and returned 3 documents across 2 families. (as of 2026-08-21; source: the captured run documented on this page)
 
@@ -172,6 +172,7 @@ No. The scene indices carry typed Unity fields such as `m_Name` and `unity_class
 - [How do I find every place a config key is set across YAML and XML in a repo?](/answers/search-yaml-xml-config-repository)
 - [How do I stop my agent from reading the whole repo into context?](/answers/index-monorepo-for-agent)
 - [How should an agent figure out what's in a messy data folder before searching?](/answers/catalog-files-with-autoindex-map)
+- [How do I search BVH motion-capture files?](/answers/search-bvh-motion-capture-files)
 - [I need to find a function I wrote in a notebook months ago. How do I search all .ipynb files and the .py next to them?](/answers/search-jupyter-notebook-cells) (same intent: code search for agents)
 - [How do I audit a PHP codebase with an index instead of grepping 1,400 files?](/answers/audit-php-codebase-with-an-index) (same intent: code search for agents)
 - [My codebase indexer says indexed but I don't see my code. How do I check it actually finished?](/answers/check-codebase-index-is-complete) (same intent: code search for agents)

@@ -14,8 +14,8 @@
 <!-- ga4:end -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Corpus Hub v2: ask a question, get the one pack that answers</title>
-<meta name="description" content="Hub v2 routes a plain question to one signed corpus, pulls only that pack (lz4: 4.4 MB) and answers locally: 1.7 to 2.3 s cold, under 60 ms warm.">
+<title>XERJ Corpus Hub v2: ask a question, get a local answer</title>
+<meta name="description" content="Corpus Hub v2 routes a plain question to one signed corpus, pulls only that pack (lz4: 4.4 MB) and answers locally: 1.7 to 2.3 s cold, under 60 ms warm.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -26,8 +26,8 @@
 <link rel="canonical" href="https://xerj.org/blog/corpus-hub-v2">
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Corpus Hub v2: ask a question, get the one pack that answers">
-<meta property="og:description" content="Hub v2 routes a plain question to one signed corpus, pulls only that pack (lz4: 4.4 MB) and answers locally: 1.7 to 2.3 s cold, under 60 ms warm.">
+<meta property="og:title" content="XERJ Corpus Hub v2: ask a question, get a local answer">
+<meta property="og:description" content="Corpus Hub v2 routes a plain question to one signed corpus, pulls only that pack (lz4: 4.4 MB) and answers locally: 1.7 to 2.3 s cold, under 60 ms warm.">
 <meta property="og:url" content="https://xerj.org/blog/corpus-hub-v2">
 <meta property="og:image" content="https://xerj.org/og/blog-corpus-hub-v2.png">
 <meta property="og:image:width" content="1200">
@@ -35,8 +35,8 @@
 <meta property="og:image:alt" content="Cover: “Corpus Hub v2” in display type beside the post’s square-matrix art, labelled with its figures. The art: a faint wall of 251 small tiles above 14 larger square-matrix tiles; a yellow route runs from the top into one yellow tile and down to a framed node">
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Corpus Hub v2: ask a question, get the one pack that answers">
-<meta name="twitter:description" content="Hub v2 routes a plain question to one signed corpus, pulls only that pack (lz4: 4.4 MB) and answers locally: 1.7 to 2.3 s cold, under 60 ms warm.">
+<meta name="twitter:title" content="XERJ Corpus Hub v2: ask a question, get a local answer">
+<meta name="twitter:description" content="Corpus Hub v2 routes a plain question to one signed corpus, pulls only that pack (lz4: 4.4 MB) and answers locally: 1.7 to 2.3 s cold, under 60 ms warm.">
 <meta name="twitter:image" content="https://xerj.org/og/blog-corpus-hub-v2.png">
 <script type="application/ld+json">
 {
@@ -71,13 +71,13 @@
 {
   "@context": "https://schema.org",
   "@type": "Article",
-  "headline": "Corpus Hub v2: ask a question, get the one pack that answers",
-  "description": "Hub v2 routes a plain question to one signed corpus, pulls only that pack (lz4: 4.4 MB) and answers locally: 1.7 to 2.3 s cold, under 60 ms warm.",
+  "headline": "XERJ Corpus Hub v2: ask a question, get a local answer",
+  "description": "Corpus Hub v2 routes a plain question to one signed corpus, pulls only that pack (lz4: 4.4 MB) and answers locally: 1.7 to 2.3 s cold, under 60 ms warm.",
   "url": "https://xerj.org/blog/corpus-hub-v2",
   "image": "https://xerj.org/og/blog-corpus-hub-v2.png",
   "inLanguage": "en",
   "datePublished": "2026-10-19",
-  "dateModified": "2026-10-20",
+  "dateModified": "2026-10-28",
   "author": {
     "@id": "https://xerj.org/#organization"
   },
@@ -150,6 +150,9 @@
   <div class="uc-eyebrow">CORPUS HUB V2 · 3,663 CONTRIBUTORS · ROUTED · SIGNED · AS OF 2026-10-19</div>
   <h1>CORPUS HUB V2: ASK THE QUESTION,<br><span class="accent">GET THE ONE PACK THAT ANSWERS IT</span></h1>
   <p class="blog-byline">XERJ ENGINEERING · PUBLISHED 2026-10-19</p>
+
+  <p class="lede">Corpus Hub v2 answers a plain question on your own machine. The CLI picks the one
+  signed corpus that fits, pulls only that pre-indexed pack and answers locally.</p>
 
   <p class="lede">As of 2026-10-19, <strong>3,663 developers</strong> have said yes. Each of them
   agreed to let AI agents learn from a piece of their own work: a CUDA kernel fix in llama.cpp, a
@@ -617,6 +620,7 @@ Not installable yet ... It becomes installable when this card says live in the h
     branch on <a href="https://github.com/xerj-org/xerj" rel="external">GitHub</a>.</li>
     <li>Tell us where routing picked wrong on <a href="https://discord.com/invite/yetXFusXfs" rel="external">Discord</a>,
     or follow releases on <a href="https://x.com/xerj_org" rel="external">X</a>.</li>
+    <li>See how far the Hub has come since: <a href="/blog/100-contributors">100 contributors, 12,000 stars in 12 days</a>.</li>
   </ul>
 </section>
 </main>
@@ -670,7 +674,7 @@ Not installable yet ... It becomes installable when this card says live in the h
 </nav>
 <!-- seo:footer-end -->
 <footer class="footer">
-  <span>XERJ.AI · V1.0.0-RC.99 · 2026</span>
+  <span>XERJ.AI · V1.0.0-RC.100 · 2026</span>
   <span>SEARCH FOR THE AGENT ERA</span>
   <span><a href="/product">PRODUCT</a> · <a href="/docs/">DOCS</a> · <a href="/answers/">ANSWERS</a> · <a href="/playground">DASHBOARDS</a> &middot; <a href="/llms.txt">LLMS.TXT</a></span>
 </footer>

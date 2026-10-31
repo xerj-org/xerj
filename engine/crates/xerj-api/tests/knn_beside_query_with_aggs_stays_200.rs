@@ -429,3 +429,87 @@ async fn knn_beside_bool_query_keeps_the_vector_contribution() {
         "#825: the better vector match must lead the page: hits={hits:?} {body}"
     );
 }
+
+/// #2561: in the hybrid shape `size` is how many hits come back and `k` is
+/// how many nearest neighbours join the candidate set. The page used to be
+/// widened to `k`, so `size: 5, k: 20` returned 20 hits. The page must be
+/// the first `size` hits of the union (paged with `from`), and the vector
+/// side must still contribute: `vec` matches no term, and its vector is the
+/// query vector, so it leads the union.
+#[tokio::test]
+async fn knn_beside_query_returns_size_hits_not_k() {
+    let (app, _dir) = app().await;
+
+    let (st, b) = json_req(
+        &app,
+        "PUT",
+        "/sz",
+        json!({ "mappings": { "properties": {
+            "text": { "type": "text" },
+            "v": { "type": "dense_vector", "dims": 3, "similarity": "cosine" }
+        } } }),
+    )
+    .await;
+    assert!(st.is_success(), "create index: {st} {b}");
+    let mut docs: Vec<(String, Value)> = (1..=30)
+        .map(|i| {
+            (
+                i.to_string(),
+                json!({ "text": format!("apple doc {i}"), "v": [1.0, i as f32, 0.5] }),
+            )
+        })
+        .collect();
+    docs.push(("vec".into(), json!({ "text": "zzz", "v": [0.0, 0.0, 1.0] })));
+    for (id, doc) in docs {
+        let (st, b) = json_req(&app, "POST", &format!("/sz/_doc/{id}"), doc).await;
+        assert!(st.is_success(), "index {id}: {st} {b}");
+    }
+    let (status, body) = json_req(&app, "POST", "/sz/_refresh", json!({})).await;
+    assert!(status.is_success(), "refresh: {status} {body}");
+
+    let search = |from: usize, size: usize| {
+        let app = app.clone();
+        async move {
+            let (status, body) = json_req(
+                &app,
+                "POST",
+                "/sz/_search",
+                json!({
+                    "from": from,
+                    "size": size,
+                    "_source": false,
+                    "query": { "match": { "text": "apple" } },
+                    "knn": { "field": "v", "query_vector": [0.0, 0.0, 1.0], "k": 20, "num_candidates": 31 }
+                }),
+            )
+            .await;
+            assert_eq!(status, StatusCode::OK, "_search status: {status} {body}");
+            body.pointer("/hits/hits")
+                .and_then(Value::as_array)
+                .map(|hits| {
+                    hits.iter()
+                        .filter_map(|h| h.get("_id").and_then(Value::as_str).map(String::from))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        }
+    };
+
+    let all = search(0, 31).await;
+    assert_eq!(all.len(), 31, "both legs contribute to the complete union");
+    assert!(search(0, 0).await.is_empty(), "size zero returns no hits");
+    let page = search(0, 5).await;
+    assert_eq!(
+        page.len(),
+        5,
+        "#2561: size 5 beside knn k 20 must return 5 hits, not k: {page:?}"
+    );
+    assert_eq!(page, all[..5], "the page is the head of the union: {all:?}");
+    assert!(
+        page.iter().any(|id| id == "vec"),
+        "the vector-only document must still reach the page: {page:?}"
+    );
+    let next = search(5, 5).await;
+    assert_eq!(next, all[5..10], "from pages through the union: {all:?}");
+    assert_eq!(search(30, 5).await, all[30..], "last page is bounded");
+}

@@ -1,10 +1,12 @@
 name: Deploy site (Cloudflare Pages)
 
 # Deploys the static site under landing/ to the "xerj" Cloudflare Pages project
-# on every push to main. Cloudflare serves landing/ verbatim (no build step);
-# wrangler uploads it directly. Auth is a scoped API token stored as the
-# CLOUDFLARE_API_TOKEN repo secret (needs the "Cloudflare Pages:Edit" permission)
-# plus CLOUDFLARE_ACCOUNT_ID. Both are configured in repo Settings → Secrets.
+# on every push to main. Cloudflare serves landing/ verbatim; the only build
+# step is `gen_sitemap.py --write`, which writes sitemap.xml into landing/ just
+# before the upload because that file is not kept in git. Auth is a scoped API
+# token stored as the CLOUDFLARE_API_TOKEN repo secret (needs the "Cloudflare
+# Pages:Edit" permission) plus CLOUDFLARE_ACCOUNT_ID. Both are configured in
+# repo Settings → Secrets.
 #
 # This replaces reliance on Cloudflare's git integration with an explicit,
 # auditable deploy that only fires after CI/SEO gates on main have the chance to
@@ -16,6 +18,10 @@ on:
     paths:
       - 'landing/**'
       - 'wrangler.toml'
+      # sitemap.xml is generated here, and its <lastmod> comes from
+      # urlmap.article_data/pagedata dates, so any change under scripts/seo/
+      # can change the shipped artifact with no landing/ edit.
+      - 'scripts/seo/**'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch: {}          # allow manual redeploy from the Actions tab
 
@@ -42,6 +48,13 @@ jobs:
     steps:
       - name: Check out the site
         uses: actions/checkout@v4
+        with:
+          # sitemap.xml is generated below from `urlmap.DateSource`, which
+          # dates a page from its content (front matter, JSON-LD, a
+          # chrome-stripped git commit). A shallow clone has none of that
+          # history, so undated URLs would ship the filesystem mtime — the one
+          # value Google only honours when it is verifiably accurate.
+          fetch-depth: 0
 
       - name: Guard — secrets must be present
         run: |
@@ -50,6 +63,16 @@ jobs:
             exit 1
           fi
           [ -d landing ] || { echo "::error::landing/ not found — nothing to deploy."; exit 1; }
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # sitemap.xml is a deploy artifact, not a committed file, so there is
+      # nothing here to forget to regenerate: it is written into landing/ just
+      # before the upload and ships with the rest of the site.
+      - name: Generate the sitemap
+        run: python3 scripts/seo/gen_sitemap.py --write
 
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3

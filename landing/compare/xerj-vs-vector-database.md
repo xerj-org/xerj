@@ -2,13 +2,13 @@
 ---
 title: "Search API or a vector database for agent memory?"
 canonical: "https://xerj.org/compare/xerj-vs-vector-database"
-updated: "2026-10-19"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-vector-database.md"
 ---
 
 # Should my agent call a search API or stand up Qdrant for persistent memory?
 
-**Short answer** (updated 2026-10-19): Should my agent call a search API or a vector store like Qdrant for memory? Call the search API you already run. XERJ serves agent memory at _memory/{namespace} from the process that serves _search. On 8 judged queries hybrid linear fusion scored precision@3 0.4583. Choose Qdrant for filtered vector search at scale.
+**Short answer** (updated 2026-10-28): Should my agent call a search API or a vector store like Qdrant for memory? Call the search API you already run. XERJ serves agent memory at _memory/{namespace} from the process that serves _search. On 8 judged queries hybrid linear fusion scored precision@3 0.4583. Choose Qdrant for filtered vector search at scale.
 
 **Key number:** Qdrant has 35,143 GitHub stars, is Apache-2.0, and released v1.19.2 on 2026-10-05. (as of 2026-10-19; source: [github.com/qdrant/qdrant](https://github.com/qdrant/qdrant))
 
@@ -208,6 +208,8 @@ No. XERJ is single-node with no data-plane replication, and filtered kNN falls b
 - [How do I give two agents private memory on one laptop?](/answers/private-agent-memory-namespaces)
 - [How do I stop an agent memory store from filling with near-duplicate notes?](/answers/store-agent-memory-without-llm-call)
 - [Retrieval that says not found, and cites file and line when it does answer](/answers/retrieval-that-says-not-found-with-file-line-citations)
+- [XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee](/compare/xerj-vs-agent-memory-tools)
+- [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag)
 - [What's a simpler alternative to Khoj if I only need search and memory?](/compare/xerj-vs-khoj) (same intent: agent memory)
 - [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions) (same intent: agent memory)
 - [Should agent memory use a knowledge graph?](/answers/knowledge-graphs-for-agent-memory) (same intent: agent memory)

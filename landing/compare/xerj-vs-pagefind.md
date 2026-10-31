@@ -2,13 +2,13 @@
 ---
 title: "XERJ vs Pagefind for a folder of saved HTML"
 canonical: "https://xerj.org/compare/xerj-vs-pagefind"
-updated: "2026-10-23"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-pagefind.md"
 ---
 
 # Pagefind vs indexing a local HTML dump for an agent?
 
-**Short answer** (updated 2026-10-23): Pagefind or a local index for a folder of saved HTML? Pagefind wins search on a built static website: no server, a chunked index and a small download for the visitor. XERJ wins when an agent must query a saved HTML export on disk beside the PDFs next to it. No head-to-head was run.
+**Short answer** (updated 2026-10-28): Pagefind or a local index for a folder of saved HTML? Pagefind wins search on a built static website: no server, a chunked index and a small download for the visitor. XERJ wins when an agent must query a saved HTML export on disk beside the PDFs next to it. No head-to-head was run.
 
 **Key number:** Pagefind has 5,519 GitHub stars, is MIT-licensed, and released v1.5.2 on 2026-04-12. (as of 2026-10-19; source: [github.com/Pagefind/pagefind](https://github.com/Pagefind/pagefind))
 
@@ -74,7 +74,7 @@ The command reads a content signature rather than the file extension. It infers 
 
 Thirteen families are covered. The list holds HTML, plain text, PDF, DOCX and CSV. It also holds JSON and JSONL, structured logs, SQL exports, SQLite, XML, YAML, code and gzip variants.
 
-The result is queryable over the Elasticsearch REST API, and `xerj mcp` serves 22 tools to an agent over stdio. A `match_phrase` query returns the file path and the matching passage rather than the whole page.
+The result is queryable over the Elasticsearch REST API, and `xerj mcp` serves 23 tools to an agent over stdio. A `match_phrase` query returns the file path and the matching passage rather than the whole page.
 
 ## What XERJ is not
 

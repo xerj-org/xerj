@@ -2,17 +2,17 @@
 ---
 title: "MCP server to search local files from ChatGPT or Claude"
 canonical: "https://xerj.org/answers/give-chatgpt-claude-local-file-access"
-updated: "2026-10-23"
+updated: "2026-10-28"
 source: "content/answers/give-chatgpt-claude-local-file-access.md"
 ---
 
 # Can ChatGPT search a folder on my laptop, or do I need something else?
 
-**Short answer** (updated 2026-10-23): Can ChatGPT or Claude search a folder on my laptop, or do I need something else? You need a local MCP server. Install XERJ, start a node, index the folder with xerj autoindex, and point the agent host at xerj mcp with an absolute path. One xerj_search call then reads the indexed local files.
+**Short answer** (updated 2026-10-28): Can ChatGPT or Claude search a folder on my laptop, or do I need something else? You need a local MCP server. Install XERJ, start a node, index the folder with xerj autoindex, and point the agent host at xerj mcp with an absolute path. One xerj_search call then reads the indexed local files.
 
-**Key number:** A live `tools/list` from xerj v1.0.0-rc.97 returned 17 tools, each with an inputSchema. (as of 2026-10-19; source: [landing/docs/agents/schemas/mcp-tools.json](https://github.com/xerj-org/xerj/blob/main/landing/docs/agents/schemas/mcp-tools.json))
+**Key number:** On main xerj mcp serves 23 tools, each with an inputSchema in the published mcp-tools.json. (as of 2026-10-28; source: [landing/docs/agents/schemas/mcp-tools.json](https://github.com/xerj-org/xerj/blob/main/landing/docs/agents/schemas/mcp-tools.json))
 
-**TL;DR** — XERJ ships an MCP server as `xerj mcp`. Install the latest XERJ, start a node, index a folder with `xerj autoindex`, then point the agent host at the binary with an absolute path. A live `tools/list` from v1.0.0-rc.97 returned 17 tools on 2026-10-19, and one `xerj_search` call read an indexed local file.
+**TL;DR**: XERJ ships an MCP server as `xerj mcp`. Install the latest XERJ, start a node, index a folder with `xerj autoindex`, then point the agent host at the binary with an absolute path. On main it serves 23 tools, and in a v1.0.0-rc.97 capture one `xerj_search` call read an indexed local file.
 
 ## Agent prompt
 
@@ -54,7 +54,7 @@ The command does not start a node. Start one first, otherwise every tool call fa
 
 ```text
 Speaks MCP over stdio (newline-delimited JSON-RPC 2.0 on stdin/stdout) and
-proxies 22 tools — xerj_def, xerj_batch_search, ... xerj_hub_ask — to a
+proxies 23 tools — xerj_def, xerj_batch_search, ... xerj_hub_ask — to a
 XERJ node that
 is ALREADY RUNNING. This command does not start a node; start one first with
 `xerj --insecure --data-dir ~/xerj-data`.
@@ -110,7 +110,7 @@ The server also returns an `instructions` string that tells the agent which tool
 
 ## The tools, with their required arguments
 
-A live `tools/list` from v1.0.0-rc.97 (2026-10-19) returned 17 tools, and all 17 carried an `inputSchema`. The first capture for this page, in August 2026, returned 10. On main the list has 22, and `mcp-tools.json` carries every schema.
+A live `tools/list` from v1.0.0-rc.97 (2026-10-19) returned 17 tools, and all 17 carried an `inputSchema`. The first capture for this page, in August 2026, returned 10. On main the list has 23 (20 in a build with no hub key), and `mcp-tools.json` carries every schema.
 
 | tool | required arguments |
 | --- | --- |
@@ -171,7 +171,7 @@ A call against a missing index passes the node's own 404 `index_not_found_except
 
 ## The published tool schemas are stale
 
-On main the binary serves 22 tools. The published `openai-tools.json` and `anthropic-tools.json` still list 6 (checked 2026-10-23), so 16 are missing: `xerj_def`, `xerj_batch_search`, the 4 `xerj_brain_*` tools, `xerj_map`, `xerj_index_budget`, `xerj_autoindex_remove`, `xerj_code_search`, `xerj_plan`, `xerj_field_report`, `xerj_corpus_feedback` and the 3 `xerj_hub_*` tools. The MCP schema at `/docs/agents/schemas/mcp-tools.json` lists all 22, and a test keeps it in step with the server source.
+On main the binary serves 23 tools. The published `openai-tools.json` and `anthropic-tools.json` still list 6 (checked 2026-10-28), so 17 are missing: `xerj_status`, `xerj_def`, `xerj_batch_search`, the 4 `xerj_brain_*` tools, `xerj_map`, `xerj_index_budget`, `xerj_autoindex_remove`, `xerj_code_search`, `xerj_plan`, `xerj_field_report`, `xerj_corpus_feedback` and the 3 `xerj_hub_*` tools. The MCP schema at `/docs/agents/schemas/mcp-tools.json` lists all 23, and a test keeps it in step with the server source.
 
 That is a documentation defect, confirmed against the source that generates the tool list. If you wire either vendor schema into an agent by hand, add the missing tools yourself or read `tools/list` from a live server instead.
 
@@ -205,7 +205,7 @@ No. `xerj mcp` proxies to a node that is already running. Start the node first w
 
 ### How many tools does the XERJ MCP server expose?
 
-17 on v1.0.0-rc.97 (live `tools/list`, 2026-10-19), and every one carries an `inputSchema`: `xerj_search`, 3 more retrieval tools, 2 memory tools, 4 brain tools, `xerj_map`, `xerj_code_search`, `xerj_plan`, `xerj_field_report` and 3 Corpus Hub tools. The first capture for this page, in August 2026, returned 10.
+23 on main, or 20 in a build with no hub key, and every one carries an `inputSchema`: `xerj_search`, 3 more retrieval tools, `xerj_def`, `xerj_batch_search`, 2 memory tools, 4 brain tools, `xerj_status`, `xerj_map`, `xerj_index_budget`, `xerj_autoindex_remove`, `xerj_code_search`, `xerj_plan`, `xerj_field_report`, `xerj_corpus_feedback` and 3 Corpus Hub tools. A live `tools/list` from v1.0.0-rc.97 on 2026-10-19 returned 17, and the first capture, in August 2026, returned 10.
 
 ### Why does my MCP host fail to launch xerj?
 

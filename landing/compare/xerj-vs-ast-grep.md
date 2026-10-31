@@ -2,13 +2,13 @@
 ---
 title: "XERJ vs ast-grep — syntax search and an index"
 canonical: "https://xerj.org/compare/xerj-vs-ast-grep"
-updated: "2026-10-23"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-ast-grep.md"
 ---
 
 # ast-grep vs a code index for an agent?
 
-**Short answer** (updated 2026-10-23): Should an agent use ast-grep or a code index? Use both. ast-grep matches and rewrites code by syntax pattern, and XERJ rewrites nothing. XERJ answers where a symbol is defined and what its contract says across a tree it already indexed. No head-to-head was run, and none is needed to split these jobs.
+**Short answer** (updated 2026-10-28): Should an agent use ast-grep or a code index? Use both. ast-grep matches and rewrites code by syntax pattern, and XERJ rewrites nothing. XERJ answers where a symbol is defined and what its contract says across a tree it already indexed. No head-to-head was run, and none is needed to split these jobs.
 
 **Key number:** ast-grep has 16,288 GitHub stars and released 0.51.0 on 2026-10-15. (as of 2026-10-19; source: [github.com/ast-grep/ast-grep](https://github.com/ast-grep/ast-grep))
 
@@ -40,7 +40,7 @@ curl -s -XPOST 'http://127.0.0.1:9200/code-*/_search' -H 'content-type: applicat
 
 ### Command 3
 
-Note: Serve the 22 tools an agent calls before it decides what to change. Start the node first; this command does not start one.
+Note: Serve the 23 tools an agent calls before it decides what to change. Start the node first; this command does not start one.
 
 ```sh
 xerj mcp --url http://127.0.0.1:9200

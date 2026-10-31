@@ -7,7 +7,7 @@ cluster: "Comparison: search engines"
 question: "What's a local alternative to Meilisearch that indexes a folder by itself?"
 intent: "comparison"
 published: "2026-08-22"
-updated: "2026-10-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -136,7 +136,7 @@ Choose Meilisearch when you want a managed plan. XERJ has none.
 
 Choose XERJ when the corpus is a folder on a disk and nobody has built a pipeline for it. One command turns mixed formats into typed indices.
 
-Choose XERJ when the caller is an agent rather than a person. The same binary also holds namespaced agent memory and an MCP server that serves 22 tools.
+Choose XERJ when the caller is an agent rather than a person. The same binary also holds namespaced agent memory and an MCP server that serves 23 tools.
 
 Choose XERJ when the files hold shapes Meilisearch never accepts. A SQLite database, a hostile CSV with a decimal comma and a folder of DOCX contracts all qualify.
 

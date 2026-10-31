@@ -1,0 +1,39 @@
+<figure class="vz" id="fig-nt-group" aria-labelledby="fig-nt-group-cap">
+  <span class="vz-label">Collapse the pairs in your client</span>
+  <p class="vz-title">4 documents, 2 pages</p>
+  <div class="vz-tabs" data-vz-tabs>
+    <div class="vz-tablist" role="tablist" aria-label="Raw hits or grouped hits">
+      <button type="button" class="vz-tab" role="tab" id="nt-tab-raw" aria-controls="nt-panel-raw" aria-selected="true">As returned</button>
+      <button type="button" class="vz-tab" role="tab" id="nt-tab-grp" aria-controls="nt-panel-grp" aria-selected="false">Grouped on ax_path</button>
+    </div>
+    <div class="vz-panel" role="tabpanel" id="nt-panel-raw" aria-labelledby="nt-tab-raw" tabindex="0">
+      <p class="vz-panel-h">As returned</p>
+      <div class="vz-scroll">
+        <table class="vz-table">
+          <thead><tr><th scope="col">ax_path</th><th scope="col">ax_locator</th></tr></thead>
+          <tbody>
+            <tr><th scope="row"><code>Engineering Handbook a1b2c3d4e5f60718293a4b5c6d7e8f90.md</code></th><td><code>file</code></td></tr>
+            <tr><th scope="row"><code>Engineering Handbook a1b2c3d4e5f60718293a4b5c6d7e8f90.md</code></th><td><code>s0</code></td></tr>
+            <tr><th scope="row"><code>Engineering Handbook .../Runbooks a1b2c3d4e5f60718293a4b5c6d7e8f90.md</code></th><td><code>file</code></td></tr>
+            <tr><th scope="row"><code>Engineering Handbook .../Runbooks a1b2c3d4e5f60718293a4b5c6d7e8f90.md</code></th><td><code>s0</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="vz-d">Sorted on <code>ax_path</code>, then <code>ax_locator</code>, so each pair sits together.</p>
+    </div>
+    <div class="vz-panel" role="tabpanel" id="nt-panel-grp" aria-labelledby="nt-tab-grp" tabindex="0">
+      <p class="vz-panel-h">Grouped on ax_path</p>
+      <div class="vz-scroll">
+        <table class="vz-table">
+          <thead><tr><th scope="col">page</th><th scope="col">documents</th></tr></thead>
+          <tbody>
+            <tr><th scope="row"><code>Engineering Handbook a1b2c3d4e5f60718293a4b5c6d7e8f90.md</code></th><td>2</td></tr>
+            <tr><th scope="row"><code>Engineering Handbook .../Runbooks a1b2c3d4e5f60718293a4b5c6d7e8f90.md</code></th><td>2</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="vz-d">One result per page. Both pages are real: Notion wrote the same title into a parent and a child.</p>
+    </div>
+  </div>
+  <figcaption id="fig-nt-group-cap">The 4 Markdown documents from the <code>match_all</code> listing in the recorded run. Grouping happens in your client, not in the index.</figcaption>
+</figure>

@@ -283,3 +283,17 @@
     section.scene-section > ol > li { font-size: 18px; }
     section.scene-section > pre.code { font-size: 13px; padding: 16px; }
   }
+
+/* ---- pending chip: a visible placeholder ([GATE: …], [VERIFY: …]) a draft
+   post carries until the number or fact is confirmed. Both themes. ---- */
+  .pending { display: inline; font-family: var(--font-data); font-size: .82em; font-weight: 700;
+    letter-spacing: .02em; color: var(--z-ink); background: var(--z-highlight);
+    border: 1px dashed var(--z-accent); border-radius: 3px; padding: 1px 6px;
+    box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+
+/* ---- wire.plain: explainer cards whose body is the main text, not an aside:
+   full ink and a reading size. ---- */
+  .wire.plain .wp p { color: var(--z-ink); font-size: 17px; }
+  .wire.plain + p { margin-top: var(--sp-8); }
+/* h1.fit: a long first word ("SLOWDOWNS") must fit a 390px phone at the 80px hero size. */
+  @media (max-width: 560px) { .uc-hero h1.fit { font-size: 12vw; } }

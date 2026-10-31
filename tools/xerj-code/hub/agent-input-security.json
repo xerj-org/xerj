@@ -1,0 +1,4 @@
+{"corpus":"agent-input-security","cloned_at":"2026-10-27T10:52:32Z","repos":[
+  {"repo":"mithril","url":"https://github.com/GiacomoSaccaggi/mithril","licence":"MIT","sha":"cac572143ca7567fff4a5ec94aca806fa2b53851","files":109,"bytes":3465319,
+   "review":{"spdx":"MIT","use":"adapt-with-attribution","by":"GiacomoSaccaggi","at":"2026-10-27","note":"Repo owner; licence verified from LICENSE file."}}
+]}

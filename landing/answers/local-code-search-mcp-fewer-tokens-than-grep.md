@@ -2,7 +2,7 @@
 ---
 title: "Local code search MCP that uses fewer tokens than grep"
 canonical: "https://xerj.org/answers/local-code-search-mcp-fewer-tokens-than-grep"
-updated: "2026-10-23"
+updated: "2026-10-28"
 source: "content/answers/local-code-search-mcp-fewer-tokens-than-grep.md"
 ---
 
@@ -149,7 +149,7 @@ The ratio is 19 times fewer bytes for the search, measured once on one repositor
 
 | Tool | Runs locally | Ranked results | file:line | MCP server | Setup |
 | --- | --- | --- | --- | --- | --- |
-| xerj | yes | yes, BM25 | yes | yes, 22 tools | install, start node, index once |
+| xerj | yes | yes, BM25 | yes | yes, 23 tools | install, start node, index once |
 | ripgrep | yes | no, every match | yes | no | none |
 | Zoekt | yes | yes | yes | no | index server |
 | GitHub code search | no | yes | yes | no | repo on GitHub, API limits |
@@ -170,7 +170,7 @@ Yes. xerj runs on your machine, indexes the repository once and serves the index
 
 ### MCP server grep alternative with fewer tokens: which tools does xerj expose?
 
-The rc.97 server lists 17 tools in `tools/list`, including `xerj_search`, `xerj_code_search`, `xerj_map` and the three hub tools. Run `xerj init` in the project to register it.
+On main `xerj mcp` serves 23 tools, or 20 in a build with no hub key, including `xerj_search`, `xerj_code_search`, `xerj_map` and the three hub tools. Run `xerj init` in the project to register it.
 
 ### Is xerj faster than ripgrep?
 
@@ -195,7 +195,7 @@ The published coding-agent benchmark measured 2.7 times fewer output tokens than
 - xerj def answer: 949 bytes, sessions.py:154 — `benchmarks/agent-intents-2026-10-19/01-xerj-def.txt`
 - rg -n -i redirect: 282 lines, 25,150 bytes — `benchmarks/agent-intents-2026-10-19/01-rg-redirect.txt`
 - Wall times 8 to 23 ms for xerj search, 5 to 7 ms for rg — `benchmarks/agent-intents-2026-10-19/README.md`
-- MCP tools/list returns 17 tools — `benchmarks/agent-intents-2026-10-19/00-mcp-tools-list.json`
+- On main xerj mcp serves 23 tools, or 20 in a build with no hub key — `landing/docs/agents/schemas/mcp-tools.json`
 - 2.7 times fewer output tokens, 9,982 vs 26,477; idle 8% CPU and 8.3 GB vs Zoekt 0.03% and 119 MB — `landing/benchmarks/index.html`
 - --embed-mode neural downloads all-MiniLM-L6-v2, about 90 MB; lexical by default — [https://github.com/xerj-org/xerj/blob/main/README.md](https://github.com/xerj-org/xerj/blob/main/README.md)
 
@@ -207,3 +207,5 @@ The published coding-agent benchmark measured 2.7 times fewer output tokens than
 - [Is ripgrep enough for a coding agent, or do I need a code index?](/compare/xerj-vs-ripgrep-for-code-agents)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database)
 - [Benchmarks](/benchmarks/)
+- [I need to find a function I wrote in a notebook months ago. How do I search all .ipynb files and the .py next to them?](/answers/search-jupyter-notebook-cells)
+- [What's a local MCP search engine for Claude?](/compare/xerj-vs-localsynapse)

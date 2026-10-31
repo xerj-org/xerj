@@ -2,13 +2,13 @@
 ---
 title: "Best grep alternative for AI coding agents (2026)"
 canonical: "https://xerj.org/compare/best-grep-alternative-for-ai-coding-agents-2026"
-updated: "2026-10-19"
+updated: "2026-10-28"
 source: "content/compare/best-grep-alternative-for-ai-coding-agents-2026.md"
 ---
 
 # The best grep and ripgrep alternatives for AI coding agents in 2026
 
-**Short answer** (updated 2026-10-19): What is the best grep or ripgrep alternative for an AI coding agent in 2026? For one-off literal searches, none: ripgrep is still the default. ugrep adds Boolean and fuzzy queries, ast-grep and Semgrep match syntax, zoekt ranks over a trigram index, and XERJ returns ranked passages through MCP.
+**Short answer** (updated 2026-10-28): What is the best grep or ripgrep alternative for an AI coding agent in 2026? For one-off literal searches, none: ripgrep is still the default. ugrep adds Boolean and fuzzy queries, ast-grep and Semgrep match syntax, zoekt ranks over a trigram index, and XERJ returns ranked passages through MCP.
 
 **Key number:** ripgrep has 69,257 GitHub stars and its latest release is 15.2.0 (2026-07-15), the most-starred tool on this list. (as of 2026-10-19; source: [github.com/BurntSushi/ripgrep](https://github.com/BurntSushi/ripgrep))
 
@@ -76,6 +76,8 @@ ag was the fast grep before ripgrep. Its last push was on 2024-06-16 and it has 
 
 XERJ indexes a repository plus the docs, logs, JSONL and CSV files around it, and `xerj mcp` returns ranked passages with file:line. In one psf/requests capture an answer was 1,303 bytes where `rg` printed 25,150 ([the capture](/answers/local-code-search-mcp-fewer-tokens-than-grep)).
 
+It also reads [Jupyter notebooks one heading section at a time](/answers/search-jupyter-notebook-cells). For local files beyond code, see [XERJ vs LocalSynapse](/compare/xerj-vs-localsynapse).
+
 What it gives up: an index to build and keep fresh, no syntax rewriting, single-node only, and the 5 tasks ripgrep won above.
 
 ## How this page was checked
@@ -124,6 +126,8 @@ No head-to-head benchmark was run for this page. The ripgrep numbers come from t
 - [ast-grep vs a code index for an agent?](/compare/xerj-vs-ast-grep)
 - [Local code search MCP for Claude Code that uses fewer tokens than grep](/answers/local-code-search-mcp-fewer-tokens-than-grep)
 - [The best MCP servers for searching a local codebase in 2026](/compare/best-mcp-server-local-code-search-2026)
+- [What's a local MCP search engine for Claude?](/compare/xerj-vs-localsynapse)
+- [I need to find a function I wrote in a notebook months ago. How do I search all .ipynb files and the .py next to them?](/answers/search-jupyter-notebook-cells)
 - [I need my agent to find a passage and cite the file, not dump the whole tree. How?](/answers/code-search-mcp-for-claude-code) (same intent: code search for agents)
 - [How do I audit a PHP codebase with an index instead of grepping 1,400 files?](/answers/audit-php-codebase-with-an-index) (same intent: code search for agents)
 - [How do I set up reference coding so the agent retrieves a mechanism before writing code?](/answers/index-reference-library-for-coding-agent) (same intent: code search for agents)

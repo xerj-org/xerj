@@ -81,8 +81,8 @@ PAGES: dict[str, dict[str, str]] = {
         # 4.6, 1 click). Every clause is on the page body: autoindex of a
         # folder, keyword/semantic/vector/hybrid search, the /_memory store,
         # "No SDK, no signup" in the lead.
-        title="XERJ for AI agents: one local binary for search and memory",
-        description="A new way for AI to search for data: one local binary that indexes any folder, searches by keyword or meaning and keeps agent memory. No signup, no SDK.",
+        title="XERJ for AI agents: search any folder, keep agent memory",
+        description="XERJ gives AI agents local folder search and memory in one binary. Keyword search is the default; neural embeddings are optional. No signup or SDK needed.",
     ),
     "playground.html": dict(
         label="Playground", kind="software",
@@ -99,8 +99,8 @@ PAGES: dict[str, dict[str, str]] = {
     ),
     "benchmarks/elasticsearch.html": dict(
         label="ES scorecard", kind="software",
-        title="XERJ vs Elasticsearch — reproducible benchmarks",
-        description="XERJ v1.0.0-rc.6 against Elasticsearch 8.13.4 across 88 measured cells — 55 win, 26 tie, 4 lose, 3 n/a — plus the four commands that reproduce every one.",
+        title="XERJ vs Elasticsearch benchmarks: 88 cells, reproducible",
+        description="XERJ v1.0.0-rc.6 against Elasticsearch 8.13.4 in 88 measured cells: 55 win, 26 tie, 4 lose, 3 n/a. Four commands reproduce every one of them.",
     ),
     # ── blog ────────────────────────────────────────────────────────────────
     # Every post's og_image is its cover from the field-log series
@@ -164,9 +164,9 @@ PAGES: dict[str, dict[str, str]] = {
     # as rc.79 + rc.80 + v1.1.0 and measured as one suite; the post says so.
     "blog/the-rc80-gates.html": dict(
         label="The rc.80 gates", kind="article",
-        title="The rc.80 gates: three passed outright, three failed, one split",
-        description="Ten features, eight measured gates: /_ask macro-F1 0.9975, xerj_map 20/30 to 0/30, calibration ECE 0.0088 pass; the judge, the flywheel and the decide head fail their bars, numbers published.",
-        published="2026-09-30", updated="2026-09-30",
+        title="The rc.80 gates: three passed, three failed, one split",
+        description="Eight measured gates for rc.80. /_ask macro-F1 0.9975, xerj_map 20/30 to 0/30 and ECE 0.0088 pass. The judge, flywheel and decide head fail, numbers shown.",
+        published="2026-09-30", updated="2026-10-28",
         og_image="og/blog-the-rc80-gates.png",
         og_image_alt="Cover: “The rc.80 gates” in display type beside the post’s square-matrix art, labelled with its figures. The art: ten gates built from squares in two rows: three yellow with check marks, three ink with crosses, one half yellow and three faint",
     ),
@@ -177,11 +177,11 @@ PAGES: dict[str, dict[str, str]] = {
     # registry itself on the corpus-hub branch (4 manifests + 1 recipe).
     "blog/the-corpus-hub.html": dict(
         label="The Corpus Hub", kind="article",
-        title="The Corpus Hub: pinned, licenced, signed, contributed by PR",
-        description="A public registry of corpora for AI agents: reference code pinned to SHAs, record packs ed25519-signed, every source licence-reviewed by a human. The measured use case (2.7× fewer output tokens), the tie we published anyway, and how to contribute yours by PR.",
+        title="XERJ Corpus Hub: signed, pinned corpora for AI agents",
+        description="The XERJ Corpus Hub is a public registry of corpora for AI agents: sources pinned to commit SHAs, licences recorded, record packs ed25519-signed.",
         published="2026-10-01",
         # 2026-10-20: one in-body link to asking a pinned repo without cloning.
-        updated="2026-10-20",
+        updated="2026-10-28",
         og_image="og/blog-the-corpus-hub.png",
         og_image_alt="Cover: “The Corpus Hub” in display type beside the post’s square-matrix art, labelled with its figures. The art: a 10 by 10 wall of square-matrix pack tiles in shades of ink, the first four solid yellow and the fifth framed",
     ),
@@ -233,6 +233,39 @@ PAGES: dict[str, dict[str, str]] = {
     # Tag census: 97 v1.0.0-rc.* tags through rc.98 (rc.79 never tagged),
     # so rc.99 is the 98th tagged release. The post says "just over 100
     # days since rc.1" and does not print a day count taken from the tag date.
+    # Milestone post, 2026-10-29. Every figure fact-checked live on 2026-10-29:
+    # 17,486 stars (gh api repos/xerj-org/xerj, 08:56 CDT); 12,434 stars on Oct 15-26
+    # CDT and 12,582 in the best 12 x 24 h window; 5,000th star 2026-10-15, 17,000th
+    # 2026-10-27 (stargazers API, scripts/seo/blog_covers/data/xerj-stargazers.json).
+    # Owner asked to lead with the contributors on PR #2649. Title says
+    # "contributors", not "developers": the list includes xerj-team, cursoragent
+    # and one agent email. Outside PRs: 342 merged from 96 authors with
+    # authorAssociation CONTRIBUTOR or NONE (GraphQL, 08:53 CDT), 75 of them CLA
+    # sign-ons; field reports 44 from 39 authors. 100 contributors = GitHub
+    # contributors?anon=1 (103 entries) minus xerj-org, noreply@xerj.org and
+    # dependabot; #1 Rust repo of the day and week = Trendshift badges for repo
+    # 116361 (GitHub Trending Rust #1 first on 2026-10-15); 7,226 = hub.xerj.org
+    # /contributors/. Owner's "almost 10k" hub figure was not used (live: 7,226).
+    "blog/100-contributors.html": dict(
+        label="Milestone", kind="article",
+        title="100 contributors behind 12,000 stars in 12 days",
+        description="Meet the 100 contributors behind XERJ, which gained over 12,000 GitHub stars in 12 days. What they built, what you get now, and what comes next.",
+        published="2026-10-29", updated="2026-10-29",
+        og_image="og/blog-100-contributors.png",
+        og_image_alt="Cover: 100 in huge display type above the word contributors, then 12,000 stars in 12 days on a yellow highlight and 17,486 GitHub stars today; beside it a yellow area chart of the running star count from July to October 2026 that climbs steeply from 5,000 stars on Oct 15 to 17,000 stars on Oct 27; on the right a 10 by 10 grid of the 100 contributors' GitHub avatars",
+    ),
+    # Performance post, 2026-10-26: a standalone post (not a release post).
+    # Owner asked for positive, improvement-first framing. Numbers are measured
+    # (gate Run 6 vs rc.99 on the 1 GB corpus, and each fix's PR); the post
+    # describes the gate and does not claim a release passed it.
+    "blog/autoindex-search-performance-improvements.html": dict(
+        label="Performance", kind="article",
+        title="How your field reports made XERJ autoindex faster",
+        description="Index size per indexed byte fell from 3.50x to 1.80x of source: what we improved in autoindex and search, how the performance gate works, and who helped.",
+        published="2026-10-26", updated="2026-10-26",
+        og_image="og/blog-autoindex-search-performance-improvements.png",
+        og_image_alt="Cover: “Faster autoindex” in display type beside the post’s square-matrix art, labelled 28 people + 217 agent reports, 454 indices, 32, and ES 9.05 · Lucene 25.4 MiB/s. The art: 28 filled squares and 217 small empty rings scattered on grid paper, the filled ones joined by hairlines to a wide block of 454 empty cells, beside 32 yellow cells at the same pitch, then a gate of ink posts around two grey-blue columns and one empty yellow cell at its base",
+    ),
     "blog/rc99-smart-autoindex-harness-tools.html": dict(
         label="rc.99", kind="article",
         title="rc.99: smart, resource-aware autoindex and more harness tools",
@@ -243,17 +276,17 @@ PAGES: dict[str, dict[str, str]] = {
     ),
     "blog/corpus-hub-v2.html": dict(
         label="Corpus Hub v2", kind="article",
-        title="Corpus Hub v2: ask a question, get the one pack that answers",
-        description="Hub v2 routes a plain question to one signed corpus, pulls only that pack (lz4: 4.4 MB) and answers locally: 1.7 to 2.3 s cold, under 60 ms warm.",
-        published="2026-10-19", updated="2026-10-20",
+        title="XERJ Corpus Hub v2: ask a question, get a local answer",
+        description="Corpus Hub v2 routes a plain question to one signed corpus, pulls only that pack (lz4: 4.4 MB) and answers locally: 1.7 to 2.3 s cold, under 60 ms warm.",
+        published="2026-10-19", updated="2026-10-28",
         og_image="og/blog-corpus-hub-v2.png",
         og_image_alt="Cover: “Corpus Hub v2” in display type beside the post’s square-matrix art, labelled with its figures. The art: a faint wall of 251 small tiles above 14 larger square-matrix tiles; a yellow route runs from the top into one yellow tile and down to a framed node",
     ),
     "blog/index.html": dict(
         label="Blog", kind="collection",
         title="XERJ.ai — Blog: the engineering log",
-        description="The rc.99 launch post: smart, resource-aware autoindex and more harness tools. Also Corpus Hub v2, the exploit hub, and the rc.80 gates.",
-        updated="2026-10-24",
+        description="100 contributors behind 12,000 stars in 12 days: the XERJ milestone post. Also faster autoindex, the rc.99 launch, Corpus Hub v2 and the exploit hub.",
+        updated="2026-10-29",
     ),
     "demo/index.html": dict(
         label="Real-data demo", kind="software",
@@ -304,7 +337,8 @@ PAGES: dict[str, dict[str, str]] = {
     # All six shared one title and one description before this pass.
     "use-cases.html": dict(
         label="Use cases", kind="collection",
-        description="Seven enterprise retrieval workloads on one binary — no Logstash, no Beats, no separate vector database — each with a reproducible ES 8.13 benchmark.",
+        title="XERJ use cases: AI security audits and search, measured",
+        description="Published XERJ use cases cover source-code audits, log analytics and AI search. Read the measured results, limitations and reproduction steps.",
     ),
     "use-cases/ai-search-retrieval.html": dict(
         label="AI search & retrieval", kind="webpage", updated="2026-10-24",
@@ -373,7 +407,8 @@ PAGES: dict[str, dict[str, str]] = {
     ),
     "case-studies/wordpress-security-audit.html": dict(
         label="WordPress security audit", kind="article",
-        description="An AI agent audited WordPress core — 1,492 files, roughly 619k lines — for about 26,000 tokens instead of 5,200,000, with per-phase costs measured.",
+        title="WordPress security audit with selective source retrieval",
+        description="A documented WordPress audit used XERJ to select source files for review. The report publishes token accounting, missed cases and its negative result.",
     ),
     "case-studies/xerj-self-audit.html": dict(
         label="XERJ audits its own Rust", kind="article",
@@ -582,8 +617,8 @@ PAGES: dict[str, dict[str, str]] = {
     # ── generated article hubs ─────────────────────────────────────────────
     "answers/index.html": dict(
         label="Answers", kind="collection",
-        title="XERJ answers — direct technical guidance",
-        description="Direct answers about XERJ search, indexing and agent workflows, with evidence links and practical guidance for AI builders.",
+        title="XERJ answers: how AI agents search files, code and logs",
+        description="Short, direct answers on how AI agents search local files, code, logs and PDFs with XERJ. Each one has the commands to run and links to its evidence.",
     ),
     "compare/index.html": dict(
         label="Comparisons", kind="collection",

@@ -1908,7 +1908,9 @@ impl Es {
     /// 429/5xx retries the WHOLE request (`retry_loop`). A 200 whose items
     /// carry `status: 429` re-offers ONLY those items, after a backoff, for up
     /// to `throttle_patience` — the memory breaker's shape, see
-    /// [`THROTTLE_PATIENCE`]. A parent memory breaker that has not accepted a
+    /// [`THROTTLE_PATIENCE`]. The patience clock restarts whenever a round
+    /// settles at least one item, so it bounds time without progress, not the
+    /// total time a draining window takes. A parent memory breaker that has not accepted a
     /// single item of this bulk stops at [`ZERO_PROGRESS_PATIENCE`] instead
     /// (#2238). Records the server took are never sent twice, and a record it
     /// refused for a reason waiting cannot fix (a per-item 400, 5xx, or a
@@ -1923,7 +1925,7 @@ impl Es {
         // applies, even if later rounds are all 429: a drain in progress
         // (#944 held 57 s) must be allowed to finish.
         let mut accepted_any = false;
-        let episode = Instant::now();
+        let mut episode = Instant::now();
         let mut delay = self.retry_initial_delay;
         let mut last_notice: Option<Instant> = None;
         loop {
@@ -1941,6 +1943,13 @@ impl Es {
             }
             if round.items > round.throttled.len() {
                 accepted_any = true;
+                // Patience is measured since the last progress, not since the
+                // first round: a window that settles at least one record per
+                // round is draining, and each such round restarts the clock
+                // and the backoff. Only rounds that settle nothing accumulate
+                // toward the limit below.
+                episode = Instant::now();
+                delay = self.retry_initial_delay;
             }
             // Only per-item 429s stand between this bulk and a clean
             // outcome. Wait while patience lasts; after that the caller gets
@@ -4422,6 +4431,148 @@ mod tests {
             "{outcome:?}"
         );
         assert!(outcome.throttled_out >= 1, "{outcome:?}");
+    }
+
+    /// A window the server drains one record per round (the rest 429, as an
+    /// embedding deadline slice does) must finish even when the rounds
+    /// together outlast the patience: the clock is time since the last
+    /// progress, not since the first round.
+    #[test]
+    fn patience_restarts_whenever_a_round_settles_an_item() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let server_stop = Arc::clone(&stop);
+        let rounds = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let server_rounds = Arc::clone(&rounds);
+        let accepted = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+        let server_accepted = Arc::clone(&accepted);
+        let server = std::thread::spawn(move || loop {
+            match listener.accept() {
+                Ok((mut stream, _)) => {
+                    stream.set_nonblocking(false).unwrap();
+                    let request = read_request(&mut stream);
+                    let actions = request_body(&request)
+                        .split(|b| *b == b'\n')
+                        .filter(|line| !line.is_empty())
+                        .count()
+                        / 2;
+                    let offered: Vec<String> = request_body(&request)
+                        .split(|b| *b == b'\n')
+                        .filter(|line| !line.is_empty())
+                        .step_by(2)
+                        .map(|line| {
+                            let action: serde_json::Value = serde_json::from_slice(line).unwrap();
+                            action["index"]["_id"].as_str().unwrap().to_owned()
+                        })
+                        .collect();
+                    {
+                        let mut accepted = server_accepted.lock().unwrap();
+                        assert!(
+                            offered.iter().all(|id| !accepted.contains(id)),
+                            "accepted records were re-offered"
+                        );
+                        accepted.push(offered[0].clone());
+                    }
+                    server_rounds.fetch_add(1, Ordering::SeqCst);
+                    std::thread::sleep(Duration::from_millis(60));
+                    let mut statuses = vec![429u16; actions];
+                    statuses[0] = 201;
+                    items_answered(&mut stream, &statuses);
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    if server_stop.load(Ordering::SeqCst) {
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+                Err(error) => panic!("accept: {error}"),
+            }
+        });
+        let es = client(address, 4).with_throttle_patience(Duration::from_millis(200));
+        let ids = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"];
+        let body: Vec<u8> = ids.iter().flat_map(|id| pair(id)).collect();
+        let started = Instant::now();
+        let outcome = es.bulk(body).unwrap();
+        let elapsed = started.elapsed();
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+        assert_eq!(*accepted.lock().unwrap(), ids);
+        assert_eq!(outcome.server_errors, 0, "{outcome:?}");
+        assert_eq!(outcome.throttled_out, 0, "{outcome:?}");
+        assert!(outcome.exhausted_after.is_none(), "{outcome:?}");
+        assert_eq!(
+            rounds.load(Ordering::SeqCst),
+            10,
+            "one record settled per round"
+        );
+        assert!(
+            elapsed > Duration::from_millis(200),
+            "the test is only meaningful if the whole window outlasts the patience: {elapsed:?}"
+        );
+    }
+
+    /// The other half: progress restarts the clock, silence does not. After
+    /// three rounds that each settle a record, a server answering 429 for
+    /// everything still ends the window at the patience, measured from the
+    /// last round that settled anything.
+    #[test]
+    fn patience_still_ends_a_window_that_stops_making_progress() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let address = listener.local_addr().unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let server_stop = Arc::clone(&stop);
+        let server = std::thread::spawn(move || {
+            let mut round = 0usize;
+            loop {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        stream.set_nonblocking(false).unwrap();
+                        let request = read_request(&mut stream);
+                        let actions = request_body(&request)
+                            .split(|b| *b == b'\n')
+                            .filter(|line| !line.is_empty())
+                            .count()
+                            / 2;
+                        round += 1;
+                        let mut statuses = vec![429u16; actions];
+                        if round <= 3 {
+                            statuses[0] = 201;
+                        }
+                        items_answered(&mut stream, &statuses);
+                    }
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        if server_stop.load(Ordering::SeqCst) {
+                            return;
+                        }
+                        std::thread::sleep(Duration::from_millis(2));
+                    }
+                    Err(error) => panic!("accept: {error}"),
+                }
+            }
+        });
+        let es = client(address, 4).with_throttle_patience(Duration::from_millis(300));
+        let body: Vec<u8> = ["a", "b", "c", "d", "e"]
+            .iter()
+            .flat_map(|id| pair(id))
+            .collect();
+        let started = Instant::now();
+        let outcome = es.bulk(body).unwrap();
+        let elapsed = started.elapsed();
+        stop.store(true, Ordering::SeqCst);
+        server.join().unwrap();
+        assert_eq!(
+            outcome.exhausted_after,
+            Some(Duration::from_millis(300)),
+            "{outcome:?}"
+        );
+        assert_eq!(outcome.throttled_out, 2, "{outcome:?}");
+        assert!(
+            elapsed >= Duration::from_millis(300),
+            "stopped at the patience after the last progress, took {elapsed:?}"
+        );
     }
 
     #[test]

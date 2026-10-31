@@ -85,6 +85,8 @@ stackprobe = []
 # off. `xerj-api`'s dev-dependency enables it so an HTTP test can hold one
 # index's refresh and prove a sibling index is not waiting behind it.
 refresh-test-hook = []
+# Schema-lock hold for HTTP deletion/listing liveness tests. Dev-only.
+lock-test-hook = []
 
 [dev-dependencies]
 xerj-storage = { path = "../xerj-storage", features = ["test-hooks"] }

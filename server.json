@@ -3,7 +3,7 @@
   "name": "io.github.xerj-org/xerj",
   "title": "XERJ",
   "description": "The search engine for AI agents: cited answers from your local code, docs, specs and logs.",
-  "version": "1.0.0-rc.99",
+  "version": "1.0.0-rc.100",
   "websiteUrl": "https://xerj.org",
   "repository": {
     "url": "https://github.com/xerj-org/xerj",
@@ -12,8 +12,8 @@
   "packages": [
     {
       "registryType": "mcpb",
-      "identifier": "https://github.com/xerj-org/xerj/releases/download/mcpb-v1.0.0-rc.99/xerj-mcp-1.0.0-rc.99.mcpb",
-      "fileSha256": "ff3d69245a874ab19bcaead79132e349dc83deced6c2f3a2a4bda45cf445e6fa",
+      "identifier": "https://github.com/xerj-org/xerj/releases/download/mcpb-v1.0.0-rc.100/xerj-mcp-1.0.0-rc.100.mcpb",
+      "fileSha256": "753024ab77027fd807667e442555c88749d20d5a9ae49ff9ca9da623f20a7156",
       "transport": {
         "type": "stdio"
       },
@@ -31,7 +31,7 @@
           "isSecret": true
         }
       ],
-      "version": "1.0.0-rc.99"
+      "version": "1.0.0-rc.100"
     }
   ]
 }

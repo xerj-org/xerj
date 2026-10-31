@@ -158,5 +158,5 @@ No. XERJ parses each PDF in an isolated worker process, so one failure is record
 - [How do I build RAG without a vector database?](/answers/rag-without-vector-database)
 - [What's the best local desktop search for a folder of PDFs and docs?](/compare/xerj-vs-recoll)
 - [I indexed a folder of email and PDFs. How do I actually read what it found?](/answers/read-indexed-email-and-pdf-folder) (same intent: logs and docs)
-- [How do I search gzipped logs without decompressing the whole file — including when JSONL sits next to them?](/answers/search-gzip-logs-without-zgrep) (same intent: logs and docs)
 - [How do I search Kubernetes pod logs?](/answers/search-kubernetes-pod-logs-on-disk) (same intent: logs and docs)
+- [XERJ vs macOS Spotlight for folder content an agent can query](/compare/xerj-vs-spotlight) (same intent: logs and docs)

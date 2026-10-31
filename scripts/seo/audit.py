@@ -41,12 +41,14 @@ markup is the source of truth):
 
 Design notes
 ------------
-* Stdlib only (html.parser, urllib.parse, xml.etree, json, subprocess). No
+* Stdlib only (html.parser, urllib.parse, xml.etree, json). No
   network access: every check is answerable from the working tree.
 * `<lastmod>` is compared to `urlmap.DateSource.page_lastmod` (article
   `updated`, JSON-LD `dateModified`, a pinned `pagedata` date, then a
-  chrome-stripped git date). A shallow checkout keeps the committed sitemap
-  value instead of the filesystem mtime. `meta.date_source` is `content-date`.
+  chrome-stripped git date, then the filesystem mtime). The committed
+  `sitemap.xml` is a deploy artifact, so on a shallow checkout the undated
+  URLs fall back to mtime instead of a prior file. `meta.date_source` is
+  `content-date`.
 * Nothing is written to the site. This tool measures; it never fixes.
 """
 
@@ -61,7 +63,6 @@ import json
 import os
 import pathlib
 import re
-import subprocess
 import sys
 import urllib.parse
 import xml.etree.ElementTree as ET
@@ -487,11 +488,23 @@ class Audit:
 
     def _load_sitemap(self):
         f = self.root / "sitemap.xml"
-        if not f.exists():
-            self.notes.append("no sitemap.xml found at site root")
-            return
+        if f.exists():
+            text = f.read_text(encoding="utf-8", errors="replace")
+        else:
+            # Not committed: `Deploy site (Cloudflare Pages)` writes it into
+            # landing/ just before the upload. Audit the file that deploy ships.
+            try:
+                import gen_sitemap
+
+                text = gen_sitemap.sitemap_for(self.root)
+            except Exception as exc:  # noqa: BLE001 - an audit must not crash
+                self.notes.append(
+                    f"no sitemap.xml and it could not be generated: {exc}"
+                )
+                return
+            self.notes.append("sitemap.xml generated in memory (it is not committed)")
         try:
-            tree = ET.fromstring(f.read_text(encoding="utf-8", errors="replace"))
+            tree = ET.fromstring(text)
         except ET.ParseError as exc:
             self.notes.append(f"sitemap.xml does not parse: {exc}")
             return
@@ -556,8 +569,7 @@ class Audit:
         # Same content date gen_sitemap writes, so a sitewide head commit
         # does not look like every page changed today.
         if getattr(self, "_content_dates", None) is None:
-            import urlmap
-            self._content_dates = urlmap.DateSource(urlmap.repo_root())
+            self._content_dates = _urlmap.DateSource(_urlmap.repo_root())
             self._content_prior = self._content_dates.committed_lastmods(
                 self.root / "sitemap.xml")
             self.date_source = "content-date"
@@ -731,6 +743,10 @@ class Audit:
                     continue
                 resolved = self.resolve_url_path(target_path)
                 if resolved is None:
+                    if target_path == "/sitemap.xml":
+                        # Written by deploy-pages.yml just before the upload;
+                        # it is never a file in the tree, but it ships.
+                        continue
                     key = (target_path, line)
                     if key not in seen_broken:
                         seen_broken.add(key)

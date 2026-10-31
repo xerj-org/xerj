@@ -45,6 +45,7 @@ import xml.etree.ElementTree as ET
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import audit as audit_mod  # noqa: E402  (reuse the auditor's HTML parser)
+import gen_sitemap  # noqa: E402  (the sitemap is a deploy artifact, not a file)
 import pagedata  # noqa: E402
 import urlmap  # noqa: E402
 
@@ -252,11 +253,13 @@ class Lint:
     def check_sitemap(self) -> None:
         sm = self.root / "sitemap.xml"
         p = "sitemap.xml"
-        if not sm.exists():
-            self.gate("sitemap.missing", p, "landing/sitemap.xml does not exist")
-            return
-
-        data = sm.read_bytes()
+        if sm.exists():
+            data = sm.read_bytes()
+        else:
+            # sitemap.xml is a deploy artifact (deploy-pages.yml writes it into
+            # landing/ before the upload); it is not committed. Lint the bytes
+            # that deploy would ship instead of gating on the file's absence.
+            data = gen_sitemap.sitemap_for(self.root).encode("utf-8")
         if data.startswith(b"\xef\xbb\xbf"):
             self.gate("sitemap.bom", p, "file starts with a UTF-8 BOM (rule 13)")
         try:
@@ -332,7 +335,6 @@ class Lint:
                       f"{missing} is an indexable page but is not listed (rule 1)")
 
         # rule 4 — the file must be generated, not hand-edited
-        import gen_sitemap
         dates = urlmap.DateSource(self.repo)
         if text != gen_sitemap.build(self.root, dates):
             self.gate("sitemap.stale", p,
@@ -342,8 +344,11 @@ class Lint:
         # rule 12 — XSD validation, when xmllint is available
         xsd = self.repo / "schemas" / "sitemap.xsd"
         if shutil.which("xmllint") and xsd.exists():
-            r = subprocess.run(["xmllint", "--noout", "--schema", str(xsd), str(sm)],
-                               capture_output=True, text=True)
+            # Validate the bytes under test, not the path: when the sitemap is
+            # generated in memory (it is a deploy artifact, not a committed
+            # file) there is no file for xmllint to open.
+            r = subprocess.run(["xmllint", "--noout", "--schema", str(xsd), "-"],
+                               input=text, capture_output=True, text=True)
             if r.returncode != 0:
                 self.gate("sitemap.xsd", p, f"xmllint: {r.stderr.strip()} (rule 12)")
 
@@ -908,6 +913,10 @@ class Lint:
                               f"served URL instead (rule 21)")
                 target = self._resolve(path, src_dir)
                 if target is None:
+                    if path == "/sitemap.xml":
+                        # Written by deploy-pages.yml just before the upload, so
+                        # it is never a file in the tree; the artifact has it.
+                        continue
                     if path in KNOWN_BROKEN:
                         self.warn("link.known_broken", rel,
                                   f"line {line}: {path} — {KNOWN_BROKEN[path]}")

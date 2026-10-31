@@ -2,17 +2,17 @@
 ---
 title: "Stop agent memory filling with duplicate notes"
 canonical: "https://xerj.org/answers/store-agent-memory-without-llm-call"
-updated: "2026-10-19"
+updated: "2026-10-28"
 source: "content/answers/store-agent-memory-without-llm-call.md"
 ---
 
 # How do I stop an agent memory store from filling with near-duplicate notes?
 
-**Short answer** (updated 2026-10-19): How do I dedup agent memory so it stops filling with duplicate notes? Send dedup: true on the store call. XERJ compares the new memory against what the namespace already holds and returns the existing id with deduplicated: true instead of writing a second document. No model or summarization runs on the write path.
+**Short answer** (updated 2026-10-28): How do I dedup agent memory so it stops filling with duplicate notes? Send dedup: true on the store call. XERJ compares the new memory against what the namespace already holds and returns the existing id with deduplicated: true instead of writing a second document. There is no generative summarization step; the configured embedder still runs.
 
 **Key number:** The default dedup threshold is a cosine similarity of 0.95. (as of 2026-10-19; source: [engine/crates/xerj-api/src/memory_api.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-api/src/memory_api.rs))
 
-**TL;DR** — Send `dedup: true` on the store call and XERJ returns the existing id with `"deduplicated": true` instead of writing a second document. The check compares against the memories the namespace already holds, at a default cosine threshold of 0.95. No model and no summarization runs on the write path.
+**TL;DR** — Send `dedup: true` on the store call and XERJ returns the existing id with `"deduplicated": true` instead of writing a second document. The check compares against the memories the namespace already holds, at a default cosine threshold of 0.95. No generative summarization runs; the configured embedder creates a companion vector.
 
 ## Agent prompt
 
@@ -32,7 +32,7 @@ curl -s -XPOST 'http://127.0.0.1:9430/_memory/agentmem' -H 'content-type: applic
 
 ### Command 2
 
-Note: Store one memory with the check off, which is the default. No model runs on this path and no summarization step exists.
+Note: Store one memory with the check off, which is the default. The configured embedder runs; no generative summarization step exists.
 
 ```sh
 curl -s -XPOST 'http://127.0.0.1:9430/_memory/agentmem' -H 'content-type: application/json' -d '{"text":"The user prefers p50 and p95 latency, never the mean.","metadata":{"topic":"preferences"}}'
@@ -66,9 +66,9 @@ The comparison uses the embedder the node runs. On the default that is lexical f
 
 `_recall` accepts `recency_weight`, clamped between 0 and 1, which blends the stored time into the ranking. Leave it out and the ranking is relevance only. Nothing ages out on its own, so the write-time check is what keeps the store small.
 
-## The write path has no model in it
+## The write path preserves the text and embeds it
 
-One request to `POST /_memory/{namespace}` with a `text` field stores a memory. XERJ writes the text verbatim into a document and returns an identifier. No model reads it, rewrites it or summarizes it.
+One request to `POST /_memory/{namespace}` with a `text` field stores a memory. XERJ writes the text verbatim into a document and returns an identifier. The configured embedder reads the text to create its search vector, but does not rewrite or summarize the stored text.
 
 ```json
 {"created":true,"id":"2b00ed19-8741-49ca-8318-54e9ba8c7a58","namespace":"agentmem"}
@@ -78,7 +78,7 @@ The stored document carries what you sent. A later `GET /_memory/{namespace}` re
 
 ## What the network watch saw
 
-Our capture polled `/proc/net/tcp` and `/proc/net/tcp6` against the node process tree during store and recall. The watch ran 31 samples at a 50 ms interval, covering 2.27 s and up to 7 processes. That watch counted 0 distinct non-loopback peers.
+With the default lexical backend, our capture polled `/proc/net/tcp` and `/proc/net/tcp6` against the node process tree during store and recall. The watch ran 31 samples at a 50 ms interval, covering 2.27 s and up to 7 processes. That watch counted 0 distinct non-loopback peers.
 
 ```json
 {"count_distinct_non_loopback_peers":0,"samples_taken":31,
@@ -147,7 +147,7 @@ Deduplicate at write time and choose the threshold deliberately. The comparison 
 
 ### Can I store agent memory without an LLM call?
 
-Yes. A store call is one HTTP POST that writes a document. XERJ runs no model, no summarization and no extraction step on that path.
+Yes. A store call is one HTTP POST that writes a document. There is no generative summarization or fact-extraction step. The text is still embedded using the configured lexical, neural or proxy backend.
 
 ### Does recall call a model?
 
@@ -159,7 +159,7 @@ Lexical feature hashing by default, which is a hash function with no model and n
 
 ### Does XERJ rewrite or summarize what I store?
 
-No. The stored `text` is the text you sent. There is no model in the write path to change it.
+No. The stored `text` is the text you sent. Embedding creates a companion vector without rewriting the supplied text.
 
 ## Evidence
 
@@ -170,6 +170,7 @@ No. The stored `text` is the text you sent. There is no model in the write path 
 - [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant)
 - [When should I turn on neural embeddings, and when is the lexical default enough?](/answers/do-search-embeddings-help)
 - [I want local search that works offline, no cloud embeddings. What are my options?](/answers/local-embeddings-without-openai-api)
+- [XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee](/compare/xerj-vs-agent-memory-tools)
+- [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag) (same intent: agent memory)
 - [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions) (same intent: agent memory)
 - [How can agent-memory links retain evidence?](/answers/evidence-for-agent-memory-links) (same intent: agent memory)
-- [Should agent memory use a knowledge graph?](/answers/knowledge-graphs-for-agent-memory) (same intent: agent memory)

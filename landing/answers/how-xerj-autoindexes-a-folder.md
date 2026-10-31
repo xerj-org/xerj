@@ -2,13 +2,13 @@
 ---
 title: "Point a tool at a folder and ask questions about the files"
 canonical: "https://xerj.org/answers/how-xerj-autoindexes-a-folder"
-updated: "2026-10-23"
+updated: "2026-10-28"
 source: "content/answers/how-xerj-autoindexes-a-folder.md"
 ---
 
 # I want to point something at a folder and then ask questions about what's in it. What should I use?
 
-**Short answer** (updated 2026-10-23): What should I use to point something at a folder and then ask questions about what is in it? Run xerj autoindex on the folder: it detects file types, builds typed indices and needs no configuration. Then xerj autoindex map shows which index and field to query, and an agent asks over HTTP or xerj mcp.
+**Short answer** (updated 2026-10-28): What should I use to point something at a folder and then ask questions about what is in it? Run xerj autoindex on the folder: it detects file types, builds typed indices and needs no configuration. Then xerj autoindex map shows which index and field to query, and an agent asks over HTTP or xerj mcp.
 
 **Key number:** The README's sample run indexed 25,329 files into 593 datasets and 83,103 records in 158.1 s with 8 workers. (as of 2026-10-19; source: [README.md](https://github.com/xerj-org/xerj/blob/main/README.md))
 
@@ -93,7 +93,7 @@ An agent answers from the returned passage and cites `ax_path`, rather than read
 
 ## Hand the indexed folder to an agent
 
-`xerj mcp` exposes the indexed folder to an agent host as a stdio tool server, serving 22 tools against a node that is already running. The agent sends a query and reads hits with file paths, instead of opening files one by one.
+`xerj mcp` exposes the indexed folder to an agent host as a stdio tool server, serving 23 tools against a node that is already running. The agent sends a query and reads hits with file paths, instead of opening files one by one.
 
 The node and the MCP server both run on your machine. No file content is uploaded, because the agent host calls a local process rather than a hosted API.
 
@@ -148,6 +148,10 @@ Every run prints what it dropped and by which ignore rule, and files it opened b
 - [Can ChatGPT search a folder on my laptop, or do I need something else?](/answers/give-chatgpt-claude-local-file-access)
 - [How should an agent figure out what's in a messy data folder before searching?](/answers/catalog-files-with-autoindex-map)
 - [How do I let an agent search a folder on my laptop instead of crawling the web?](/compare/xerj-vs-web-agent-search)
+- [The indexer exited 3 (or 4). Did it fail?](/answers/autoindex-exit-codes)
+- [One dataset was REFUSED by the server. Did I lose the whole index?](/answers/autoindex-dataset-refused-by-server)
+- [xerj autoindex recorded my Takeout .zip as junk and said to extract it first. Why?](/answers/autoindex-says-extract-the-archive-first)
+- [The server pushed back with HTTP 429. Did xerj autoindex lose the run?](/answers/autoindex-server-back-pressure-429)
 - [I have a directory of CSV exports. How do I query them without opening each one in Excel?](/answers/index-multiple-csv-files) (same intent: JSONL and data files)
 - [What's the easiest way to search JSON logs plus some old gzip text logs in the same folder?](/answers/search-json-and-jsonl-logs) (same intent: JSONL and data files)
 - [The best local full-text search for JSONL and CSV files in 2026, with a published benchmark](/compare/best-local-full-text-search-jsonl-csv-2026) (same intent: JSONL and data files)

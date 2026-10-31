@@ -71,6 +71,19 @@ across two machines. A `review` block in the input manifest (see
 [`hub/README.md`](hub/README.md)) is preserved for every repo that lands at its
 recorded SHA.
 
+New clones are prepared in a private temporary directory and published only
+when checkout succeeds (#2453). An ordinary failure cleans that attempt's
+stage; a hard kill can leave a hidden `.xerj-clone-*` directory, but a retry
+uses a new stage instead of treating it as a completed checkout. One
+`corpus add` per corpus runs at a time; a second is refused.
+
+An existing checkout with an unreadable commit, a missing index, or an
+`index.lock` is preserved and refused. These states do not prove it is safe
+to delete the directory or overwrite local edits. Wait for active Git
+operations; for an incomplete checkout, move the directory to an unused
+backup location and rerun the original command. The backup retains local
+files for review. Completed linked worktrees remain reusable.
+
 A local path (`/path/to/checkout` or `file:///path/to/checkout`) is cloned the
 same way. Git checks out committed files only, so a root `.xerjignore` that is
 untracked or has uncommitted edits would never reach the clone, and the index
@@ -84,6 +97,27 @@ the clone.
 
 Pre-built *indexes* are a different question (on-disk format version, embedder
 identity, redistribution of the indexed source) and are not offered here.
+
+## Following upstream
+
+A corpus does not track its git remotes: nothing fetches or polls them. A
+`xerj corpus index` run reads the checkouts as they are, so an upstream commit
+is not searchable until you pull it. To refresh a corpus added from git URLs:
+
+```sh
+git -C ~/.xerj-code/corpora/<name>/<repo> pull --ff-only   # each checkout
+xerj corpus add <name> <git-url>...   # same URLs; records the new commit SHAs
+xerj corpus index <name>              # updates the build in place
+```
+
+`corpus add` keeps a checkout it finds (`[skip] … already cloned`) and records
+its current commit. `corpus index` alone would index the pulled files too, but
+`corpus.json` would keep naming the old commit, and a `--from` rebuild of it
+would come back without them. A corpus built `--from` a manifest stays at the
+manifest's pins; change the SHAs there to move it.
+
+For a folder indexed with `xerj autoindex <dir>`, pull and re-run the same
+command; `--watch` reindexes the files a pull changes, but never fetches.
 
 ## Licences are recorded, and reviewed
 

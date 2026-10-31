@@ -151,6 +151,6 @@ In an index named `.xerj-memory-{brain}-edges`. `autoindex` creates one per inde
 - [How can agent-memory links retain evidence?](/answers/evidence-for-agent-memory-links)
 - [How do I give two agents private memory on one laptop?](/answers/private-agent-memory-namespaces)
 - [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions)
+- [XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee](/compare/xerj-vs-agent-memory-tools) (same intent: agent memory)
 - [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant) (same intent: agent memory)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database) (same intent: agent memory)
-- [How do I stop an agent memory store from filling with near-duplicate notes?](/answers/store-agent-memory-without-llm-call) (same intent: agent memory)

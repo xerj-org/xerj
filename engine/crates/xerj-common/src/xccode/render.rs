@@ -280,6 +280,97 @@ pub fn source_looks_archived(src: &Value) -> bool {
     path_is_archived(path)
 }
 
+/// True when `path` names a backup or archived copy rather than the live file:
+/// an archive directory ([`path_is_archived`]), a backup directory
+/// (`backup/`, `backups/`, `bak/`, `old/`, `备份/`, `root-bak-20261001/`), or a
+/// backup file name (`notes.md.bak`, `notes.md.orig`, `notes.md~`,
+/// `notes.md.old`).
+///
+/// Only used to choose WHICH name of a byte-identical group is cited, so a
+/// false positive costs nothing but the name shown (#2402).
+pub fn path_looks_like_copy(path: &str) -> bool {
+    if path_is_archived(path) {
+        return true;
+    }
+    let segments: Vec<&str> = path.split(['/', '\\']).filter(|s| !s.is_empty()).collect();
+    let Some((file, dirs)) = segments.split_last() else {
+        return false;
+    };
+    let dir_is_copy = dirs.iter().any(|seg| {
+        let s = seg.to_lowercase();
+        matches!(
+            s.as_str(),
+            "backup" | "backups" | "bak" | "_backup" | "_backups" | "old" | "_old" | "备份"
+        ) || s.starts_with("bak-")
+            || s.starts_with("bak_")
+            || s.starts_with("backup-")
+            || s.starts_with("backup_")
+            || s.ends_with("-bak")
+            || s.ends_with("_bak")
+            || s.ends_with(".bak")
+            || s.contains("-bak-")
+            || s.contains("_bak_")
+    });
+    let f = file.to_lowercase();
+    dir_is_copy
+        || f.ends_with('~')
+        || [".bak", ".orig", ".old", ".backup"]
+            .iter()
+            .any(|ext| f.ends_with(ext))
+}
+
+/// Cite the live name of a deduplicated file, not its backup copy (#2402).
+///
+/// Byte-identical files are indexed once; the record keeps every name in
+/// `ax_paths` and the canonical `ax_path` is the lowest native path, which is
+/// stable for the sync manifest but is often `archive/...` or
+/// `backups/...` — so a search answered with the backup's path even though
+/// `docs/...` holds the same bytes. When the cited path looks like a copy
+/// ([`path_looks_like_copy`]) and another name in `ax_paths` does not, the hit
+/// cites that name instead (`ax_path`, and `path` when it mirrored it). The
+/// bytes are identical, so lines and passages are unchanged; `ax_paths` and
+/// `ax_file` are untouched. Returns whether any hit changed.
+pub fn prefer_live_alias_paths(resp: &mut Value) -> bool {
+    let Some(hits) = resp.pointer_mut("/hits/hits").and_then(Value::as_array_mut) else {
+        return false;
+    };
+    let mut changed = false;
+    for hit in hits {
+        let Some(src) = hit.get_mut("_source").and_then(Value::as_object_mut) else {
+            continue;
+        };
+        let Some(cited) = src
+            .get("ax_path")
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+        else {
+            continue;
+        };
+        if !path_looks_like_copy(&cited) {
+            continue;
+        }
+        let live = src
+            .get("ax_paths")
+            .and_then(Value::as_array)
+            .and_then(|paths| {
+                paths
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .find(|p| *p != cited && !path_looks_like_copy(p))
+                    .map(str::to_owned)
+            });
+        let Some(live) = live else {
+            continue;
+        };
+        if src.get("path").and_then(Value::as_str) == Some(cited.as_str()) {
+            src.insert("path".into(), Value::String(live.clone()));
+        }
+        src.insert("ax_path".into(), Value::String(live));
+        changed = true;
+    }
+    changed
+}
+
 /// Move a one-term symbol definition behind hits that cover more of a
 /// multi-term question (#2327).
 ///
@@ -775,6 +866,78 @@ fn render_hit(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn identical_copies_cite_the_live_name_not_the_backup() {
+        // #2402: the four names of one byte-identical file. The canonical
+        // (lowest path) is the archived backup; the hit must cite docs/.
+        let mut resp = json!({"hits":{"hits":[{"_source":{
+            "ax_path":"archive/backup-cn/root-bak-20261001/models.md",
+            "path":"archive/backup-cn/root-bak-20261001/models.md",
+            "ax_paths":[
+                "archive/backup-cn/root-bak-20261001/models.md",
+                "docs/models.md",
+                "docs/models.md.orig",
+                "evidence/backups/models.md.bak"
+            ],
+            "ax_file":"axf2-x"
+        }}]}});
+        assert!(prefer_live_alias_paths(&mut resp));
+        let src = &resp["hits"]["hits"][0]["_source"];
+        assert_eq!(src["ax_path"], "docs/models.md");
+        assert_eq!(src["path"], "docs/models.md");
+        assert_eq!(src["ax_paths"].as_array().unwrap().len(), 4);
+        assert_eq!(src["ax_file"], "axf2-x");
+        assert!(!source_looks_archived(src));
+    }
+
+    #[test]
+    fn live_canonical_or_all_copies_are_left_alone() {
+        let mut live = json!({"hits":{"hits":[{"_source":{
+            "ax_path":"docs/a.md","ax_paths":["docs/a.md","backups/a.md"]}}]}});
+        assert!(!prefer_live_alias_paths(&mut live));
+        assert_eq!(live["hits"]["hits"][0]["_source"]["ax_path"], "docs/a.md");
+        let mut copies = json!({"hits":{"hits":[{"_source":{
+            "ax_path":"backups/a.md","ax_paths":["backups/a.md","old/a.md.bak"]}}]}});
+        assert!(!prefer_live_alias_paths(&mut copies));
+        let mut single = json!({"hits":{"hits":[{"_source":{"ax_path":"backups/a.md"}}]}});
+        assert!(!prefer_live_alias_paths(&mut single));
+    }
+
+    #[test]
+    fn search_bodies_fetch_every_alias_name() {
+        // Without `ax_paths` in `_source` the hit never sees the live name
+        // and keeps citing the backup copy (#2402).
+        for body in [
+            crate::code_query::search_query_body("GGUF quantized weights", 5),
+            crate::code_query::search_query_body_for_mapping("GGUF", 5, None, None),
+        ] {
+            let source = body["_source"].as_array().expect("_source list");
+            assert!(source.iter().any(|f| f == "ax_paths"), "{body}");
+            assert!(source.iter().any(|f| f == "ax_path"), "{body}");
+        }
+    }
+
+    #[test]
+    fn copy_names_are_recognised_without_catching_ordinary_code() {
+        for p in [
+            "evidence/backups/x.md.bak",
+            "a/备份/root-bak-20261001/x.md",
+            "notes.md~",
+            "src/lib.rs.orig",
+            "archive/x.md",
+        ] {
+            assert!(path_looks_like_copy(p), "{p}");
+        }
+        for p in [
+            "src/backup.rs",
+            "docs/models.md",
+            "crates/bakery/src/lib.rs",
+            "src/old_api.rs",
+        ] {
+            assert!(!path_looks_like_copy(p), "{p}");
+        }
+    }
 
     fn hit(loc_fields: Value, body: &str, symbols: Value, score: f64) -> Value {
         let mut src = loc_fields;

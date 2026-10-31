@@ -433,6 +433,7 @@ fn cfg(root: &Path, state_dir: &Path, url: &str, label: &Path) -> IndexCfg {
         debounce: std::time::Duration::from_millis(0),
         label: Some(label.to_owned()),
         exclude_rels: Vec::new(),
+        exclude: Vec::new(),
         skip_corpus_data: false,
     }
 }

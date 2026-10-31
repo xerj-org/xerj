@@ -2,13 +2,13 @@
 ---
 title: "Agent memory without Postgres or a vector database"
 canonical: "https://xerj.org/answers/agent-memory-without-postgres-qdrant"
-updated: "2026-10-19"
+updated: "2026-10-28"
 source: "content/answers/agent-memory-without-postgres-qdrant.md"
 ---
 
 # What's a simple way to give an agent long-term memory on my laptop without Qdrant?
 
-**Short answer** (updated 2026-10-19): What do people use for persistent agent memory without Postgres or Qdrant? Use the search node you already run: XERJ stores a fact with POST /_memory/{namespace} and reads it back with _recall. Our capture ran store and recall in one process, three loopback sockets, no second data service, 100,928 kB peak resident memory.
+**Short answer** (updated 2026-10-28): What do people use for persistent agent memory without Postgres or Qdrant? Use the search node you already run: XERJ stores a fact with POST /_memory/{namespace} and reads it back with _recall. Our capture ran store and recall in one process, three loopback sockets, no second data service, 100,928 kB peak resident memory.
 
 **Key number:** xerj mcp exposes 2 memory tools, `xerj_memory_store` and `xerj_memory_recall`, among the 17 tools a live `tools/list` returned. (as of 2026-10-19; source: [landing/docs/agents/schemas/mcp-tools.json](https://github.com/xerj-org/xerj/blob/main/landing/docs/agents/schemas/mcp-tools.json))
 
@@ -129,6 +129,8 @@ No. The default embedder is lexical feature hashing inside the binary, and our c
 - [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions)
 - [How do I stop an agent memory store from filling with near-duplicate notes?](/answers/store-agent-memory-without-llm-call)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database)
+- [What is agentic memory?](/answers/what-is-agentic-memory)
+- [XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee](/compare/xerj-vs-agent-memory-tools)
 - [How do I set the MCP memory storage path?](/answers/set-mcp-memory-storage-path) (same intent: agent memory)
 - [What's a simpler alternative to Khoj if I only need search and memory?](/compare/xerj-vs-khoj) (same intent: agent memory)
 - [How do I give two agents private memory on one laptop?](/answers/private-agent-memory-namespaces) (same intent: agent memory)

@@ -2341,13 +2341,18 @@ impl SyncOperationBackend for EsSyncBackend<'_> {
         // makes it fail loud either way.
         for group in changed_groups {
             let mut records = 0u64;
-            for index in group_indices(group, &desired.plan)? {
-                records += record_counts[&index][&group.content_id];
+            let indices = group_indices(group, &desired.plan)?;
+            for index in &indices {
+                records += record_counts[index][&group.content_id];
             }
             anyhow::ensure!(
                 records == group.expected_records,
-                "live record count disagrees with desired group {}",
-                group.group_id
+                "live record count disagrees with desired group {}: live_records={records} \
+                 expected_records={} indices=[{}]; a resume checks the same live indices, \
+                 so it stops here again until they are rebuilt",
+                group.group_id,
+                group.expected_records,
+                indices.join(", ")
             );
             let mut semantic = 0u64;
             for slug in &group.dataset_slugs {

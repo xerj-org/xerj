@@ -2,13 +2,13 @@
 ---
 title: "Single-binary local search engine, no Docker or JVM"
 canonical: "https://xerj.org/answers/search-engine-without-docker"
-updated: "2026-10-23"
+updated: "2026-10-28"
 source: "content/answers/search-engine-without-docker.md"
 ---
 
 # Is there a single-binary local search engine I can just run?
 
-**Short answer** (updated 2026-10-23): Is there a single-binary local search engine I can just run? Yes. XERJ runs from one native Rust binary with no container and no JVM. A first-party capture on Linux x86-64 shows 3 dynamically linked libraries and a 67,174,440-byte executable, and a cold start of 1.071 s to the first HTTP 200 on an empty data directory.
+**Short answer** (updated 2026-10-28): Is there a single-binary local search engine I can just run? Yes. XERJ runs from one native Rust binary with no container and no JVM. A first-party capture on Linux x86-64 shows 3 dynamically linked libraries and a 67,174,440-byte executable, and a cold start of 1.071 s to the first HTTP 200 on an empty data directory.
 
 **Key number:** XERJ passes 1444 of 1454 Elasticsearch YAML conformance cases from that single binary. (as of 2026-10-23; source: [README.md](https://github.com/xerj-org/xerj/blob/main/README.md))
 
@@ -141,6 +141,8 @@ No. XERJ is single-node: there is no data-plane replication and no failover, so 
 - [I want local search that works offline, no cloud embeddings. What are my options?](/answers/local-embeddings-without-openai-api)
 - [Is there an Elasticsearch-compatible engine that isn't Elasticsearch?](/compare/xerj-vs-elasticsearch-local)
 - [What's a local alternative to Meilisearch that indexes a folder by itself?](/compare/xerj-vs-meilisearch)
+- [ES scorecard](/benchmarks/elasticsearch)
+- [How do I search Kubernetes pod logs?](/answers/search-kubernetes-pod-logs-on-disk)
 - [Does XERJ support S3 storage, alerting or custom plugins yet?](/answers/does-xerj-support-s3-alerting-plugins) (same intent: search engine alternatives)
 - [The best lightweight Elasticsearch-compatible search servers in 2026](/compare/best-lightweight-elasticsearch-compatible-server-2026) (same intent: search engine alternatives)
 - [Do I need Typesense for an agent to search my docs?](/compare/xerj-vs-typesense) (same intent: search engine alternatives)

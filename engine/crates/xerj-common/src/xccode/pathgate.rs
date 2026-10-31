@@ -119,22 +119,24 @@ pub fn valid_repo_name(repo: &str) -> Result<(), String> {
     ))
 }
 
-/// How many directories one repo entry may name. A harvest is a few
-/// subtrees (`data/osv`), not a file list; past this, name a parent.
+/// How many paths one repo entry may name. A harvest is a few subtrees
+/// (`data/osv`) or files, not a file list; past this, name a parent.
 pub const MAX_SPARSE_PATHS: usize = 32;
 
 /// Validate one `paths` entry from an untrusted hub manifest and return the
-/// normalized directory (`data/osv`, no leading or trailing slash).
+/// normalized path (`data/osv`, no leading or trailing slash). It may name a
+/// directory or a file; the checkout decides which at the pin (#2486).
 ///
-/// The entry becomes a non-cone sparse-checkout pattern `/{path}/`. That
-/// pattern is gitignore syntax, so a glob, a negation, or `..` is not a
-/// directory name — it is an instruction. Reject those before git sees them.
+/// The entry becomes a non-cone sparse-checkout pattern, `/{path}/` for a
+/// directory and `/{path}` for a file. That pattern is gitignore syntax, so a
+/// glob, a negation, or `..` is not a path name; it is an instruction.
+/// Reject those before git sees them.
 /// An absolute path is rejected rather than stripped: stripping `/etc` into
 /// `etc` would harvest a different directory than the one the manifest named.
 pub fn valid_sparse_path(raw: &str) -> Result<String, String> {
     let reject = |why: &str| {
         Err(format!(
-            "'paths' entry {raw:?} {why}. Name a relative directory such as \
+            "'paths' entry {raw:?} {why}. Name a relative directory or file such as \
              \"data/osv\"; omit 'paths' to harvest the whole pin"
         ))
     };
@@ -174,8 +176,8 @@ pub fn valid_sparse_path(raw: &str) -> Result<String, String> {
             return reject("must not start a path component with '-'");
         }
         if component.contains(':') {
-            // `git cat-file <sha>:<path>` treats the first colon as the
-            // separator, so a colon in the directory name is not a path.
+            // git reads `<sha>:<path>` and `:(magic)` pathspecs specially,
+            // so a colon in the path name is not a path.
             return reject("contains ':'");
         }
         if component

@@ -2,13 +2,13 @@
 ---
 title: "How do I rerank search results with a relevance judge?"
 canonical: "https://xerj.org/answers/rerank-search-results-calibrated-judge"
-updated: "2026-10-19"
+updated: "2026-10-28"
 source: "content/answers/rerank-search-results-calibrated-judge.md"
 ---
 
 # How do I rerank search results with a relevance judge?
 
-**Short answer** (updated 2026-10-19): How do I rerank search results with a relevance judge? Add a rerank block to a XERJ _search body. The top 30 hits go to an external judge, which returns a 0 to 1 relevance probability that replaces _score. Order by it, but never threshold it with min_score: measured calibration error was 0.10 to 0.31.
+**Short answer** (updated 2026-10-28): How do I rerank search results with a relevance judge? Add a rerank block to a XERJ _search body. The top 30 hits go to an external judge, which returns a 0 to 1 relevance probability that replaces _score. Order by it, but never threshold it with min_score: measured calibration error was 0.10 to 0.31.
 
 **Key number:** The rerank stage defaults to a 30-hit window and allows at most 300. (as of 2026-10-19; source: [engine/crates/xerj-rerank/src/lib.rs](https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-rerank/src/lib.rs))
 
@@ -189,6 +189,7 @@ Yes. The `xerj_search` and `xerj_hybrid_search` tools take an optional `rerank` 
 - [How much better is hybrid search than BM25? Measured nDCG numbers](/answers/hybrid-search-quality-measured-ndcg)
 - [How does XERJ combine BM25 and kNN?](/answers/how-xerj-combines-search)
 - [Config TOML](/docs/config)
+- [The rc.80 gates](/blog/the-rc80-gates)
+- [How do I improve a basic FAISS RAG pipeline?](/answers/improve-basic-faiss-rag-pipeline) (same intent: retrieval research and eval)
 - [Can I route tickets or filter spam from labelled history, without an LLM call?](/answers/classify-text-from-labelled-history-without-llm) (same intent: retrieval research and eval)
 - [When should I turn on neural embeddings, and when is the lexical default enough?](/answers/do-search-embeddings-help) (same intent: retrieval research and eval)
-- [How do I improve a basic FAISS RAG pipeline?](/answers/improve-basic-faiss-rag-pipeline) (same intent: retrieval research and eval)

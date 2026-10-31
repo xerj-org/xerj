@@ -16,12 +16,13 @@ const MAX_RECORDS: usize = 100_000;
 
 pub const HELP: &str = "xerj sessions import — offline session preparation for autoindex
 
-USAGE: xerj sessions import --format claude-code --input FILE --output NEW.jsonl
+USAGE: xerj sessions import --format <claude-code|codex> --input FILE --output NEW.jsonl
 
-Read one explicit Claude Code JSONL transcript; write user/assistant text
+Read one explicit Claude Code transcript or Codex rollout JSONL; write user/assistant text
 records through the existing native PII redactor before any output is stored.
-Preserve session/message UUIDs, parent UUIDs, source filename/line/byte offset,
-branch metadata and file paths explicitly named by Read/Write/Edit/MultiEdit.
+Keep format-specific identity and source filename/line/byte offset metadata.
+Claude Code preserves session/message/parent UUIDs and file paths explicitly
+named by Read/Write/Edit/MultiEdit; Codex uses the archive event IDs below.
 Skip tool results, tool inputs except file paths, thinking and metadata.
 This exports all text-bearing branches in file order, not an active conversation
 chain. Unsupported/malformed turns or repeated message UUIDs refuse the export.
@@ -30,7 +31,10 @@ The output is a new, private JSONL snapshot. Existing output is never replaced;
 parse failures publish nothing. No node is started or contacted. Review the
 export, then run: xerj autoindex <export-folder> --prefix <your-prefix>
 The redactor handles email/IP/card/SSN/phone patterns, not every secret or name.
-Input <=512 MiB; line <=1 MiB; turn text <=256 KiB; <=100000 message UUIDs.
+Codex reads response_item messages after session_meta, skips duplicate event_msg
+text and tools/reasoning; uses line-and-byte-digest event IDs, no inferred parents
+or files. exec --json and external history_base are unsupported.
+Input <=512 MiB; line <=1 MiB; turn text <=256 KiB; <=100000 messages.
 Exit 0: exported, JSON summary on stdout; 2: usage; 1: import/publication error.
 ";
 
@@ -165,7 +169,115 @@ fn publish(file: tempfile::NamedTempFile, output: &Path) -> Result<()> {
     Ok(())
 }
 
+struct ParsedTurn {
+    text_fields: Value,
+    identity_fields: Value,
+}
+
+fn claude_turn(
+    entry: &Value,
+    line: u64,
+    offset: u64,
+    source_file: &str,
+    summary: &mut ImportSummary,
+    session: &mut Option<String>,
+    seen: &mut HashSet<String>,
+) -> Result<Option<ParsedTurn>> {
+    let kind = entry["type"]
+        .as_str()
+        .with_context(|| format!("line {line}: missing session record type"))?;
+    if !matches!(kind, "user" | "assistant") {
+        summary.skipped_records += 1;
+        return Ok(None);
+    }
+    let sid = uuid_field(entry, "sessionId", line)?;
+    if let Some(expected) = session.as_ref() {
+        ensure!(
+            expected == &sid,
+            "line {line}: mixed session IDs are unsupported"
+        );
+    } else {
+        *session = Some(sid.clone());
+    }
+    let mid = uuid_field(entry, "uuid", line)?;
+    ensure!(
+        seen.len() < MAX_RECORDS,
+        "session exceeds 100000 message UUIDs"
+    );
+    ensure!(
+        seen.insert(mid.clone()),
+        "line {line}: repeated message UUID; export a transcript without revisions"
+    );
+    if flag(entry, "isMeta", line)? {
+        summary.skipped_records += 1;
+        return Ok(None);
+    }
+    let message = entry["message"]
+        .as_object()
+        .with_context(|| format!("line {line}: missing message object"))?;
+    ensure!(
+        message.get("role").is_none_or(|r| r.as_str() == Some(kind)),
+        "line {line}: message role disagrees with record type"
+    );
+    let (body, files) = turn_text(
+        message.get("content").unwrap_or(&Value::Null),
+        line,
+        &mut summary.skipped_blocks,
+    )?;
+    if body.trim().is_empty() {
+        summary.skipped_records += 1;
+        return Ok(None);
+    }
+    let parent_id = if entry["parentUuid"].is_null() {
+        Value::Null
+    } else {
+        json!(uuid_field(entry, "parentUuid", line)?)
+    };
+    let timestamp = optional_text(entry, "timestamp", line)?;
+    if let Some(text) = timestamp.as_str() {
+        ensure!(
+            chrono::DateTime::parse_from_rfc3339(text).is_ok(),
+            "line {line}: invalid timestamp"
+        );
+    }
+    let text_fields = json!({"body":body, "files":files, "source_file":source_file,
+            "cwd":optional_text(entry,"cwd",line)?, "git_branch":optional_text(entry,"gitBranch",line)?});
+    let mut record = json!({});
+    record["id"] = json!(format!("{sid}/{mid}"));
+    record["session_schema_version"] = json!(1);
+    record["session_format"] = json!("claude-code");
+    record["session_id"] = json!(sid);
+    record["message_id"] = json!(mid);
+    record["parent_id"] = parent_id;
+    record["role"] = json!(kind);
+    record["timestamp"] = timestamp;
+    record["source_line"] = json!(line);
+    record["source_byte_offset"] = json!(offset);
+    record["is_sidechain"] = json!(flag(entry, "isSidechain", line)?);
+    record["is_summary"] = json!(flag(entry, "isCompactSummary", line)?);
+    Ok(Some(ParsedTurn {
+        text_fields,
+        identity_fields: record,
+    }))
+}
+
+mod codex;
+
+#[derive(Clone, Copy)]
+enum SessionFormat {
+    ClaudeCode,
+    Codex,
+}
+
 pub fn import_claude_code(input: &Path, output: &Path) -> Result<ImportSummary> {
+    import_session(input, output, SessionFormat::ClaudeCode)
+}
+
+pub fn import_codex(input: &Path, output: &Path) -> Result<ImportSummary> {
+    import_session(input, output, SessionFormat::Codex)
+}
+
+fn import_session(input: &Path, output: &Path, format: SessionFormat) -> Result<ImportSummary> {
     match fs::symlink_metadata(output) {
         Ok(_) => bail!("session output already exists; choose a new output path"),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
@@ -217,6 +329,7 @@ pub fn import_claude_code(input: &Path, output: &Path) -> Result<ImportSummary> 
     let mut written = 0u64;
     let mut session: Option<String> = None;
     let mut seen = HashSet::new();
+    let mut codex = codex::CodexState::default();
     loop {
         bytes.clear();
         let count = (&mut reader)
@@ -240,84 +353,38 @@ pub fn import_claude_code(input: &Path, output: &Path) -> Result<ImportSummary> 
         let entry: Value = serde_json::from_slice(&bytes).map_err(|_| {
             anyhow::anyhow!("line {line}: invalid JSON; no session export published")
         })?;
-        let kind = entry["type"]
-            .as_str()
-            .with_context(|| format!("line {line}: missing session record type"))?;
-        if !matches!(kind, "user" | "assistant") {
-            summary.skipped_records += 1;
-            continue;
-        }
-        let sid = uuid_field(&entry, "sessionId", line)?;
-        if let Some(expected) = &session {
-            ensure!(
-                expected == &sid,
-                "line {line}: mixed session IDs are unsupported"
-            );
-        } else {
-            session = Some(sid.clone());
-        }
-        let mid = uuid_field(&entry, "uuid", line)?;
-        ensure!(
-            seen.len() < MAX_RECORDS,
-            "session exceeds 100000 message UUIDs"
-        );
-        ensure!(
-            seen.insert(mid.clone()),
-            "line {line}: repeated message UUID; export a transcript without revisions"
-        );
-        if flag(&entry, "isMeta", line)? {
-            summary.skipped_records += 1;
-            continue;
-        }
-        let message = entry["message"]
-            .as_object()
-            .with_context(|| format!("line {line}: missing message object"))?;
-        ensure!(
-            message.get("role").is_none_or(|r| r.as_str() == Some(kind)),
-            "line {line}: message role disagrees with record type"
-        );
-        let (body, files) = turn_text(
-            message.get("content").unwrap_or(&Value::Null),
-            line,
-            &mut summary.skipped_blocks,
-        )?;
-        if body.trim().is_empty() {
-            summary.skipped_records += 1;
-            continue;
-        }
-        let parent_id = if entry["parentUuid"].is_null() {
-            Value::Null
-        } else {
-            json!(uuid_field(&entry, "parentUuid", line)?)
+        let parsed = match format {
+            SessionFormat::ClaudeCode => claude_turn(
+                &entry,
+                line,
+                offset,
+                source_file,
+                &mut summary,
+                &mut session,
+                &mut seen,
+            )?,
+            SessionFormat::Codex => {
+                codex.turn(&entry, line, offset, source_file, &bytes, &mut summary)?
+            }
         };
-        let timestamp = optional_text(&entry, "timestamp", line)?;
-        if let Some(text) = timestamp.as_str() {
-            ensure!(
-                chrono::DateTime::parse_from_rfc3339(text).is_ok(),
-                "line {line}: invalid timestamp"
-            );
-        }
-        let mut record = json!({"body":body, "files":files, "source_file":source_file,
-            "cwd":optional_text(&entry,"cwd",line)?, "git_branch":optional_text(&entry,"gitBranch",line)?});
+        let Some(ParsedTurn {
+            text_fields: mut record,
+            identity_fields,
+        }) = parsed
+        else {
+            continue;
+        };
         ensure!(
             redactor.process(&mut record) == ProcessAction::Pass,
             "PII redaction refused session record"
         );
-        // Only validated opaque IDs/enums and provenance numbers bypass the
-        // text redactor: a phone regex must not corrupt UUID relationships.
-        record["id"] = json!(format!("{sid}/{mid}"));
-        record["session_schema_version"] = json!(1);
-        record["session_format"] = json!("claude-code");
-        record["session_id"] = json!(sid);
-        record["message_id"] = json!(mid);
-        record["parent_id"] = parent_id;
-        record["role"] = json!(kind);
-        record["timestamp"] = timestamp;
-        record["source_line"] = json!(line);
-        record["source_byte_offset"] = json!(offset);
-        record["is_sidechain"] = json!(flag(&entry, "isSidechain", line)?);
-        record["is_summary"] = json!(flag(&entry, "isCompactSummary", line)?);
-        let title = record["body"]
+        // Only validated enums/IDs and numeric provenance bypass text redaction.
+        record
+            .as_object_mut()
+            .unwrap()
+            .extend(identity_fields.as_object().unwrap().clone());
+        let kind = record["role"].as_str().unwrap();
+        let title: String = record["body"]
             .as_str()
             .unwrap()
             .lines()
@@ -325,7 +392,7 @@ pub fn import_claude_code(input: &Path, output: &Path) -> Result<ImportSummary> 
             .unwrap_or("")
             .chars()
             .take(120)
-            .collect::<String>();
+            .collect();
         record["title"] = json!(format!("{kind}: {title}"));
         let mut encoded = serde_json::to_vec(&record)?;
         encoded.push(b'\n');
@@ -355,7 +422,7 @@ pub fn run_cli(args: &[String]) -> i32 {
         print!("{HELP}");
         return 0;
     }
-    let parsed = (|| -> Result<(PathBuf, PathBuf)> {
+    let parsed = (|| -> Result<(PathBuf, PathBuf, SessionFormat)> {
         ensure!(args[0] == "import", "expected sessions import");
         let mut input = None;
         let mut output = None;
@@ -375,23 +442,25 @@ pub fn run_cli(args: &[String]) -> i32 {
                 .context("session import option requires a value")?;
             *slot = Some(value.clone());
         }
-        ensure!(
-            format.as_deref() == Some("claude-code"),
-            "--format claude-code is required"
-        );
+        let format = match format.as_deref() {
+            Some("claude-code") => SessionFormat::ClaudeCode,
+            Some("codex") => SessionFormat::Codex,
+            _ => bail!("--format claude-code or --format codex is required"),
+        };
         Ok((
             PathBuf::from(input.context("--input is required")?),
             PathBuf::from(output.context("--output is required")?),
+            format,
         ))
     })();
-    let (input, output) = match parsed {
+    let (input, output, format) = match parsed {
         Ok(paths) => paths,
         Err(error) => {
             eprintln!("error: {error}");
             return 2;
         }
     };
-    match import_claude_code(&input, &output) {
+    match import_session(&input, &output, format) {
         Ok(summary) => {
             let mut stdout = std::io::stdout().lock();
             if serde_json::to_writer(&mut stdout, &summary).is_err() || writeln!(stdout).is_err() {
@@ -422,7 +491,7 @@ mod tests {
                "message":{"role":role,"content":content}})
     }
 
-    fn write_input(path: &Path, entries: &[Value]) {
+    pub(super) fn write_input(path: &Path, entries: &[Value]) {
         let mut text = entries
             .iter()
             .map(Value::to_string)

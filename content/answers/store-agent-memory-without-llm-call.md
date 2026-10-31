@@ -1,19 +1,19 @@
 ---
 title: "Stop agent memory filling with duplicate notes"
 h1: "How do I stop an agent memory store from filling with near-duplicate notes?"
-description: "Send dedup true on the store call and XERJ returns the existing id instead of a second document. The write path runs no model and made no outbound call."
+description: "Send dedup true on the store call and XERJ returns the existing id instead of a second document. The default lexical embedder needs no model; neural or proxy embedding is opt-in."
 slug: "store-agent-memory-without-llm-call"
 cluster: "Agent memory: model dependency"
 question: "How do I dedup agent memory?"
 intent: "how-to"
 published: "2026-08-21"
-updated: "2026-10-19"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
 structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, then POST the same fact twice to /_memory/agentmem on a running XERJ node with dedup true and dedup_threshold 0.95, confirm the second response carries created false and deduplicated true and the same id, POST a reworded version of the same fact and report whether it deduplicated, then recall the namespace and report how many documents it holds."
-answer: "How do I dedup agent memory so it stops filling with duplicate notes? Send dedup: true on the store call. XERJ compares the new memory against what the namespace already holds and returns the existing id with deduplicated: true instead of writing a second document. No model or summarization runs on the write path."
+answer: "How do I dedup agent memory so it stops filling with duplicate notes? Send dedup: true on the store call. XERJ compares the new memory against what the namespace already holds and returns the existing id with deduplicated: true instead of writing a second document. There is no generative summarization step; the configured embedder still runs."
 key_fact: "The default dedup threshold is a cosine similarity of 0.95."
 key_fact_source: "engine/crates/xerj-api/src/memory_api.rs"
 key_fact_date: "2026-10-19"
@@ -24,7 +24,7 @@ commands:
   - cmd: "curl -s -XPOST 'http://127.0.0.1:9430/_memory/agentmem' -H 'content-type: application/json' -d '{\"text\":\"The user prefers p50 and p95 latency, never the mean.\",\"dedup\":true,\"dedup_threshold\":0.95}'"
     note: "Store with the near-duplicate check on. Send this twice: the second call returns the first id with deduplicated true and writes nothing."
   - cmd: "curl -s -XPOST 'http://127.0.0.1:9430/_memory/agentmem' -H 'content-type: application/json' -d '{\"text\":\"The user prefers p50 and p95 latency, never the mean.\",\"metadata\":{\"topic\":\"preferences\"}}'"
-    note: "Store one memory with the check off, which is the default. No model runs on this path and no summarization step exists."
+    note: "Store one memory with the check off, which is the default. The configured embedder runs; no generative summarization step exists."
   - cmd: "curl -s -XPOST 'http://127.0.0.1:9430/_memory/agentmem/_recall' -H 'content-type: application/json' -d '{\"query\":\"where is the deploy runbook\",\"k\":5}'"
     note: "Plain recall. This runs BM25 over the memory text and invokes no embedder."
   - cmd: "curl -s -XPOST 'http://127.0.0.1:9430/_memory/agentmem/_recall' -H 'content-type: application/json' -d '{\"query\":\"which file documents restarting the service\",\"semantic\":true,\"k\":5}'"
@@ -36,6 +36,7 @@ links_out:
   - "agent-memory-without-postgres-qdrant"
   - "do-search-embeddings-help"
   - "local-embeddings-without-openai-api"
+  - "/compare/xerj-vs-agent-memory-tools"
 faq:
   - q: "How do I dedup agent memory?"
     a: "Send `dedup: true` on the store call. When the cosine score against an existing memory meets `dedup_threshold`, XERJ returns that id with `\"deduplicated\": true` and writes nothing new."
@@ -44,16 +45,16 @@ faq:
   - q: "How do I keep long-term memory from repeating itself?"
     a: "Deduplicate at write time and choose the threshold deliberately. The comparison uses the configured embedder, which by default is lexical feature hashing, so it matches wording rather than meaning."
   - q: "Can I store agent memory without an LLM call?"
-    a: "Yes. A store call is one HTTP POST that writes a document. XERJ runs no model, no summarization and no extraction step on that path."
+    a: "Yes. A store call is one HTTP POST that writes a document. There is no generative summarization or fact-extraction step. The text is still embedded using the configured lexical, neural or proxy backend."
   - q: "Does recall call a model?"
     a: "Only when you ask. A plain `query` runs BM25, a supplied `vector` runs kNN on your own embedding, and `semantic: true` embeds server-side."
   - q: "What embedder runs for semantic recall?"
     a: "Lexical feature hashing by default, which is a hash function with no model and no network call. `--embed-mode neural` swaps in a downloaded MiniLM-class model."
   - q: "Does XERJ rewrite or summarize what I store?"
-    a: "No. The stored `text` is the text you sent. There is no model in the write path to change it."
+    a: "No. The stored `text` is the text you sent. Embedding creates a companion vector without rewriting the supplied text."
 ---
 
-**TL;DR** — Send `dedup: true` on the store call and XERJ returns the existing id with `"deduplicated": true` instead of writing a second document. The check compares against the memories the namespace already holds, at a default cosine threshold of 0.95. No model and no summarization runs on the write path.
+**TL;DR** — Send `dedup: true` on the store call and XERJ returns the existing id with `"deduplicated": true` instead of writing a second document. The check compares against the memories the namespace already holds, at a default cosine threshold of 0.95. No generative summarization runs; the configured embedder creates a companion vector.
 
 ## Turn on the near-duplicate check at write time
 
@@ -67,9 +68,9 @@ The comparison uses the embedder the node runs. On the default that is lexical f
 
 `_recall` accepts `recency_weight`, clamped between 0 and 1, which blends the stored time into the ranking. Leave it out and the ranking is relevance only. Nothing ages out on its own, so the write-time check is what keeps the store small.
 
-## The write path has no model in it
+## The write path preserves the text and embeds it
 
-One request to `POST /_memory/{namespace}` with a `text` field stores a memory. XERJ writes the text verbatim into a document and returns an identifier. No model reads it, rewrites it or summarizes it.
+One request to `POST /_memory/{namespace}` with a `text` field stores a memory. XERJ writes the text verbatim into a document and returns an identifier. The configured embedder reads the text to create its search vector, but does not rewrite or summarize the stored text.
 
 ```json
 {"created":true,"id":"2b00ed19-8741-49ca-8318-54e9ba8c7a58","namespace":"agentmem"}
@@ -79,7 +80,7 @@ The stored document carries what you sent. A later `GET /_memory/{namespace}` re
 
 ## What the network watch saw
 
-Our capture polled `/proc/net/tcp` and `/proc/net/tcp6` against the node process tree during store and recall. The watch ran 31 samples at a 50 ms interval, covering 2.27 s and up to 7 processes. That watch counted 0 distinct non-loopback peers.
+With the default lexical backend, our capture polled `/proc/net/tcp` and `/proc/net/tcp6` against the node process tree during store and recall. The watch ran 31 samples at a 50 ms interval, covering 2.27 s and up to 7 processes. That watch counted 0 distinct non-loopback peers.
 
 ```json
 {"count_distinct_non_loopback_peers":0,"samples_taken":31,

@@ -16,7 +16,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>What do the xerj autoindex exit codes mean?</title>
-<meta name="description" content="xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question.">
+<meta name="description" content="xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on a runtime failure. Only 4 is asking you a question.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@400;700;800;900&family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -29,7 +29,7 @@
 <meta property="og:site_name" content="XERJ.ai">
 <meta property="og:type" content="article">
 <meta property="og:title" content="What do the xerj autoindex exit codes mean?">
-<meta property="og:description" content="xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question.">
+<meta property="og:description" content="xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on a runtime failure. Only 4 is asking you a question.">
 <meta property="og:url" content="https://xerj.org/answers/autoindex-exit-codes">
 <meta property="og:image" content="https://xerj.org/og/xerj-card.png">
 <meta property="og:image:width" content="1200">
@@ -38,7 +38,7 @@
 <meta property="og:locale" content="en_US">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="What do the xerj autoindex exit codes mean?">
-<meta name="twitter:description" content="xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question.">
+<meta name="twitter:description" content="xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on a runtime failure. Only 4 is asking you a question.">
 <meta name="twitter:image" content="https://xerj.org/og/xerj-card.png">
 <script type="application/ld+json">
 {
@@ -74,12 +74,12 @@
   "@context": "https://schema.org",
   "@type": "TechArticle",
   "headline": "What do the xerj autoindex exit codes mean?",
-  "description": "xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on an endpoint or journal failure. Only 4 is asking you a question.",
+  "description": "xerj autoindex exits 0 complete, 3 completed-with-junk, 4 needs-a-decision, 2 usage and 1 on a runtime failure. Only 4 is asking you a question.",
   "url": "https://xerj.org/answers/autoindex-exit-codes",
   "image": "https://xerj.org/og/xerj-card.png",
   "inLanguage": "en",
   "datePublished": "2026-08-22",
-  "dateModified": "2026-10-24",
+  "dateModified": "2026-10-28",
   "author": {
     "@type": "Organization",
     "name": "XERJ documentation team",
@@ -116,7 +116,7 @@
       "name": "What does indexer exit code 3 mean?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "It means the run completed and recorded junk. xerj autoindex --help states it as 3 completed-with-junk (junk recorded, never fatal) — SUCCESS and says to treat 0 and 3 alike as a finished run. Treat it as a success with a refusal list to read. Do not rerun it as a failure."
+        "text": "It means the run completed and recorded junk. xerj autoindex --help states it as 3 completed-with-junk (junk recorded, never fatal) — SUCCESS and says to treat 0 and 3 alike as a finished run. For completed-with-junk, read the refusal list. For reason=stale-resume-plan, ok=false means new files were not indexed; rebuild with --fresh."
       }
     },
     {
@@ -124,7 +124,7 @@
       "name": "The indexer exited 3 (or 4). Did it fail?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "3 did not fail. 4 did not fail either, and it did not index anything: it is a decision request waiting for --approve. Only 1 and 2 are failures."
+        "text": "3 requires checking its reason: a stale resume plan leaves new files unindexed. 4 did not index anything: it is a decision request waiting for --approve. Only 1 and 2 are failures."
       }
     },
     {
@@ -140,7 +140,7 @@
       "name": "How do I tell a failed index from a completed one with junk files?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Read the exit code, not the log volume. 0 and 3 are both finished runs; 3 additionally refused at least one file, or a whole dataset whose mapping the server answered HTTP 400 to, in which case the xerj-done line carries datasets_refused and files_refused. 1 is an endpoint or journal failure and nothing about it is a junk report."
+        "text": "Read the exit code and terminal reason. A stale-resume-plan outcome is incomplete and needs --fresh; otherwise 0 and 3 are finished runs; 3 additionally refused at least one file, or a whole dataset whose mapping the server answered HTTP 400 to, in which case the xerj-done line carries datasets_refused and files_refused. 1 is a runtime failure and nothing about it is a junk report."
       }
     },
     {
@@ -148,7 +148,7 @@
       "name": "Is exit 1 the code for any error?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "No, and that shorthand is wrong. --help scopes 1 to an endpoint or journal failure, a refused corpus removal, or a refused unsafe state transition. A bad command line is 2. On the --no-graph path, an exit 1 whose terminal line reads reason=server-backpressure means the node rejected every write for the whole 600 s a bulk waits; the line carries ops_applied and ops_remaining."
+        "text": "Exit 1 covers runtime errors, including verification failures, node or journal problems, and refused unsafe operations. A bad command line is 2. On the --no-graph path, an exit 1 whose terminal line reads reason=server-backpressure means the node rejected every write for the whole 600 s a bulk waits; the line carries ops_applied and ops_remaining."
       }
     },
     {
@@ -172,7 +172,7 @@
       "name": "Which codes should an agent retry?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Retry nothing on 0 or 3. Re-run with --approve on 4. Fix the command line on 2. Investigate the endpoint and the journal on 1, because a blind retry repeats the same refusal. The one exit 1 to rerun unchanged is reason=server-backpressure, once the node accepts writes again: it resumes with the operations that remain."
+        "text": "Do not blindly retry 0 or 3. Exit 3 with stale-resume-plan requires a --fresh rebuild to include the new files. Re-run with --approve on 4. Fix the command line on 2. Investigate the endpoint and the journal on 1, because a blind retry repeats the same refusal. The one exit 1 to rerun unchanged is reason=server-backpressure, once the node accepts writes again: it resumes with the operations that remain."
       }
     }
   ]
@@ -232,17 +232,17 @@
   <div class="breadcrumb"><a href="/">HOME</a><span class="sep">·</span><a href="/answers/">ANSWERS</a><span class="sep">·</span>THE INDEXER EXITED 3 (OR 4). DID IT FAIL?</div>
   <div class="kicker"><span>ANSWERS · OPERATIONS: EXIT CODES</span></div>
   <h1>The indexer exited 3 (or 4). Did it fail?</h1>
-  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-22 · UPDATED · 2026-10-24</div>
+  <div class="source-note">AUTHOR · XERJ documentation team · REVIEWED BY · XERJ engineering team · PUBLISHED · 2026-08-22 · UPDATED · 2026-10-28</div>
   <div class="prompt-card answer-first" id="short-answer">
-    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-24</span>
-    <p>What does indexer exit code 3 mean for xerj autoindex? It means success: the run completed and recorded some junk files. Exit 0 is a clean completion, 4 means the estimate exceeded --max-minutes and nothing was indexed, 2 is a usage error, and 1 is an endpoint or journal failure. Only exit 4 asks you a question.</p>
+    <span class="prompt-label">SHORT ANSWER · UPDATED 2026-10-28</span>
+    <p>Exit 3 means the run finished with an outcome to inspect. Completed-with-junk is success; stale-resume-plan carries ok=false because new files were not indexed and needs a --fresh rebuild. Exit 0 is completion or cancellation, 4 needs approval, 2 is usage, and 1 is a real failure. Read the terminal reason and refusal counts before reporting coverage.</p>
     <p class="key-fact"><strong>Key number:</strong> The decision gate that produces exit 4 defaults to 10 minutes of estimated work (<code class="inline">DEFAULT_MAX_MINUTES</code>). <span class="mute">(as of 2026-10-19 · source: <a href="https://github.com/xerj-org/xerj/blob/main/engine/crates/xerj-autoindex/src/gate.rs">engine/crates/xerj-autoindex/src/gate.rs</a>)</span></p>
   </div>
-  <p><strong>TL;DR</strong> — Exit 3 is a success. <code class="inline">xerj autoindex</code> exits 0 when the run completed, and 3 when it completed and recorded junk. Exit 4 means the estimate exceeded <code class="inline">--max-minutes</code> and nothing was indexed. Exit 2 is a usage error, and exit 1 is an endpoint or journal failure. Only 4 is a question.</p>
+  <p><strong>TL;DR</strong> — Read the terminal reason as well as the exit code. Exit 3 with <code class="inline">completed-with-junk</code> is success. With <code class="inline">stale-resume-plan</code>, <code class="inline">ok=false</code> means new files were not indexed.</p>
   <div class="prompt-card">
     <span class="prompt-label">PASTE THIS TO YOUR AI AGENT — IT DOES THE REST</span>
-    <code>Act as a coding agent. Read https://xerj.org/llms.txt, run xerj autoindex on the folder, then branch on the process exit code before you report anything: 0 and 3 are finished runs, 4 is a decision request on stdout that you answer with --approve, 2 is a bad command line, and 1 is a real failure to retry or escalate.</code>
-    <button type="button" class="prompt-copy" data-copy="Act as a coding agent. Read https://xerj.org/llms.txt, run xerj autoindex on the folder, then branch on the process exit code before you report anything: 0 and 3 are finished runs, 4 is a decision request on stdout that you answer with --approve, 2 is a bad command line, and 1 is a real failure to retry or escalate.">COPY THE PROMPT</button>
+    <code>Read https://xerj.org/llms.txt, then inspect the terminal reason as well as the exit code. Exit 3 with stale-resume-plan has ok=false and needs --fresh; completed-with-junk requires reading the refusal list. Answer exit 4 with --approve, correct usage on 2, and investigate the error on 1.</code>
+    <button type="button" class="prompt-copy" data-copy="Read https://xerj.org/llms.txt, then inspect the terminal reason as well as the exit code. Exit 3 with stale-resume-plan has ok=false and needs --fresh; completed-with-junk requires reading the refusal list. Answer exit 4 with --approve, correct usage on 2, and investigate the error on 1.">COPY THE PROMPT</button>
   </div>
   <div class="prompt-card">
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
@@ -254,7 +254,7 @@
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
     <code>xerj autoindex ./corpus --url http://127.0.0.1:9200 --prefix ax --state-dir ./state --progress plain</code>
     <button type="button" class="prompt-copy" data-copy="xerj autoindex ./corpus --url http://127.0.0.1:9200 --prefix ax --state-dir ./state --progress plain">COPY COMMAND</button>
-    <span class="hero-proof">A normal run. Exit 0 means nothing was refused; exit 3 means it finished and refused something.</span>
+    <span class="hero-proof">A normal run. Inspect the terminal reason and refusal counters; exit 3 may also mean a stale resume plan.</span>
   </div>
   <div class="prompt-card">
     <span class="prompt-label">RUN THIS XERJ COMMAND</span>
@@ -274,13 +274,15 @@
     <button type="button" class="prompt-copy" data-copy="xerj autoindex status --url http://127.0.0.1:9200 --state-dir ./state">COPY COMMAND</button>
     <span class="hero-proof">Read the journal when the process is gone and you have no terminal line.</span>
   </div>
+  <p>Rebuild with <code class="inline">--fresh</code> to include new files after <code class="inline">stale-resume-plan</code>. Exit 0 means the run completed; exit 3 means it completed with a reported limitation or junk. Exit 4 means the estimate exceeded <code class="inline">--max-minutes</code> and nothing was indexed.</p>
+  <p>Exit 2 is a usage error, and exit 1 is a runtime failure. Only 4 is a question.</p>
   <h2>The codes, as the binary states them</h2>
-  <p>The list below is quoted from <code class="inline">xerj autoindex --help</code> on the installed binary. Run that command yourself before you write a branch on any of these numbers.</p>
+  <p>The table summarizes <code class="inline">xerj autoindex --help</code>; the terminal reason distinguishes partial outcomes. Run that command yourself before you write a branch on any of these numbers.</p>
   <table>
     <thead><tr><th>Exit</th><th>Name in <code class="inline">--help</code></th><th>What it means for the corpus</th></tr></thead>
     <tbody>
       <tr><td>0</td><td>complete</td><td>The run finished and refused nothing. A gate answered with <code class="inline">--approve cancel</code> also exits 0.</td></tr>
-      <tr><td>3</td><td>completed-with-junk</td><td>SUCCESS. The run finished. At least one file was refused and recorded. Treat it the same as exit 0: the index is searchable. This includes a whole dataset whose mapping the server refused.</td></tr>
+      <tr><td>3</td><td>completed with a reported outcome</td><td>Read <code class="inline">reason</code>: completed-with-junk is success with refusals to inspect; stale-resume-plan means new files were skipped and needs <code class="inline">--fresh</code>. Refused datasets can leave an entire dataset missing.</td></tr>
       <tr><td>4</td><td>NEEDS A DECISION</td><td>The estimate exceeded <code class="inline">--max-minutes</code>. Nothing was indexed. A JSON decision request is on stdout.</td></tr>
       <tr><td>2</td><td>usage</td><td>The command line was wrong. Nothing ran.</td></tr>
       <tr><td>1</td><td>endpoint/journal failure</td><td>The node or the resume journal failed, a corpus removal was refused, or an unsafe state transition was refused.</td></tr>
@@ -288,10 +290,12 @@
   </table>
   <p>Read the table in that order rather than in numeric order. It is the order the help text uses, and it is the order of decreasing goodness.</p>
   <h2>Exit 3 is a finished run</h2>
-  <p><code class="inline">3 completed-with-junk (junk recorded, never fatal) — SUCCESS</code> is the phrase in the help text, and it says to treat 0 and 3 alike as a finished run. Exit 3 is success. Do not rerun it as a failure.</p>
+  <p><code class="inline">3 completed-with-junk (junk recorded, never fatal) — SUCCESS</code> is the phrase in the help text, and it says to treat 0 and 3 alike as a finished run. That describes completed-with-junk. For <code class="inline">reason=stale-resume-plan</code>, the run instead reports <code class="inline">ok=false</code> and leads with <code class="inline">not ok:</code>: new files were left out of its frozen plan.</p>
   <p>A folder of real files almost always contains something XERJ will not parse. An unknown binary, an image, a file above <code class="inline">--max-file-gb</code>. Those files are recorded in the catalog with a reason, and the rest of the folder is indexed and queryable.</p>
   <p>An agent that treats a non-zero exit as a failure will therefore throw away a perfectly good index. Branch on the specific value.</p>
   <p>The companion check is the refusal list, not the exit code: read <code class="inline">autoindex-catalog</code> and match each refused path to its reason. The <a href="/answers/why-autoindex-skipped-files">skipped-files page</a> covers that query.</p>
+  <h2>Exit 3 with a stale resume plan needs a rebuild</h2>
+  <p>With <code class="inline">reason=stale-resume-plan</code>, <code class="inline">skipped_appeared</code> counts files that arrived after the saved plan was frozen. The terminal event carries <code class="inline">ok=false</code>, names the skipped paths, and gives a <code class="inline">--fresh</code> recovery command. Existing indexed files remain searchable. Re-run the same indexing command with <code class="inline">--fresh</code> to rebuild the plan and include the new files; an unchanged resume still uses the old plan. This outcome is not a junk classification.</p>
   <h2>Exit 3 can also mean a whole dataset is missing</h2>
   <p>The server can refuse the mapping of one dataset with an HTTP 400. That used to abort the entire run with exit 1 and index nothing. It now costs that one dataset: its files are recorded as junk with the server's reason, every other dataset is indexed, and the run exits 3.</p>
   <p>The terminal line says so, and only when it happened:</p>
@@ -307,17 +311,17 @@
   <p>You answer it by re-running the same command with <code class="inline">--approve proceed</code>, <code class="inline">--approve fast</code> or <code class="inline">--approve cancel</code>. <code class="inline">fast</code> also applies <code class="inline">--no-semantic --no-graph</code>.</p>
   <p>A person at a terminal is prompted instead, but only when the question can actually be seen: stdin a terminal, stderr a terminal, and the progress surface on. A piped or agent-driven run is never prompted, and <code class="inline">--quiet</code> silences the prompt as well. Every un-prompted run behaves identically — the JSON request goes to stdout, which <code class="inline">--quiet</code> does not silence, and the process exits 4. The payload's <code class="inline">prompt_not_offered_because</code> names which of the three conditions was missing.</p>
   <p><code class="inline">xerj autoindex</code> never waits on stdin for a question it did not print.</p>
-  <h2>Exit 1 and exit 2 are narrower than "any error"</h2>
-  <p>The common shorthand is that 1 means any error. The binary is more specific, and the difference matters to a retry policy.</p>
+  <h2>Read the error before retrying exit 1 or 2</h2>
+  <p>Exit 1 covers runtime failures. Exit 2 identifies a usage error. The diagnostic identifies the required change.</p>
   <p><code class="inline">2 usage</code> is a bad command line. Nothing ran, and a retry of the same command will fail the same way.</p>
-  <p><code class="inline">1</code> is an endpoint or journal failure, a refused corpus removal, or a refused unsafe state transition. The last two are refusals by design, not crashes: removing an indexed file is refused before any remote mutation, because its documents are already live and nothing on that path deletes them.</p>
+  <p><code class="inline">1</code> covers runtime failures, including node or journal errors, refused unsafe operations, unavailable parser workers, and missing-data verification failures. A refusal need not mean a crash. Follow its recovery message; an unchanged retry does not correct missing or incompatible state.</p>
   <p>So a 1 is not always something to retry. Read the error line first.</p>
   <h3>Two exit-1 endings that name themselves</h3>
   <p>On the <code class="inline">--no-graph</code> path, a run whose node answered its writes with HTTP 429 for the whole 600 seconds a bulk waits ends with a reason of its own instead of <code class="inline">aborted</code>:</p>
   <pre class="code"><code class="language-text">autoindex: stopped by server back-pressure while applying &lt;file&gt;: N operation(s) are journaled applied, M are not (this one first) — the same command resumes from here once the node accepts writes again
 xerj-done ok=false exit=1 reason=server-backpressure wall=… ops_applied=N ops_remaining=M
 </code></pre>
-  <p>Forced on a real node with a 64 MiB memory cap, that line read <code class="inline">xerj-done ok=false exit=1 reason=server-backpressure wall=609.1s ops_applied=0 ops_remaining=231</code>. The applied operations are journaled, so the same command resumes with the <code class="inline">M</code> that remain once the node accepts writes again. On that node, restarted on its default cap, it did. It is exit 1 and not 3 on purpose: 3 means a finished run with nothing to retry, and this generation is not finished. The <a href="/answers/autoindex-server-back-pressure-429">back-pressure page</a> covers the node side.</p>
+  <p>Forced on a real node with a 64 MiB memory cap, that line read <code class="inline">xerj-done ok=false exit=1 reason=server-backpressure wall=609.1s ops_applied=0 ops_remaining=231</code>. The applied operations are journaled, so the same command resumes with the <code class="inline">M</code> that remain once the node accepts writes again. On that node, restarted on its default cap, it did. It is exit 1 and not 3 on purpose: the completed-with-junk outcome is finished, while this generation is not finished. The <a href="/answers/autoindex-server-back-pressure-429">back-pressure page</a> covers the node side.</p>
   <p>A request the node calls too large is no longer an exit 1 at all. Until issue #955, both indexing paths sent the catalog as one <code class="inline">_bulk</code> request, one document per file, per dataset and per run. A corpus whose catalog held more than the engine's <code class="inline">limits.max_actions_per_bulk</code> (50,000 by default) applied every operation and then failed at the very end. On a 48,533-file corpus the <code class="inline">--no-graph</code> run ended 10,336 seconds in:</p>
   <pre class="code"><code class="language-text">xerj-done ok=false exit=1 reason=aborted wall=10336.0s
 error: prepared bulk contained 1 rejected items: {"type":"engine_exception","reason":"bulk request contains 102258 lines (~51129 actions); exceeds max_actions_per_bulk of 50000","status":413}
@@ -351,24 +355,24 @@ error: prepared bulk contained 1 rejected items: {"type":"engine_exception","rea
   <p>The other codes were not forced, so there is no capture for them here and no timing. If you want the codes on your own build, <code class="inline">xerj autoindex --help</code> prints them in one screen.</p>
   <h2>FAQ</h2>
   <h3>What does indexer exit code 3 mean?</h3>
-  <p>It means the run completed and recorded junk. <code class="inline">xerj autoindex --help</code> states it as <code class="inline">3 completed-with-junk (junk recorded, never fatal) — SUCCESS</code> and says to treat 0 and 3 alike as a finished run. Treat it as a success with a refusal list to read. Do not rerun it as a failure.</p>
+  <p>It means the run completed and recorded junk. <code class="inline">xerj autoindex --help</code> states it as <code class="inline">3 completed-with-junk (junk recorded, never fatal) — SUCCESS</code> and says to treat 0 and 3 alike as a finished run. For completed-with-junk, read the refusal list. For reason=stale-resume-plan, ok=false means new files were not indexed; rebuild with --fresh.</p>
   <h3>The indexer exited 3 (or 4). Did it fail?</h3>
-  <p>3 did not fail. 4 did not fail either, and it did not index anything: it is a decision request waiting for <code class="inline">--approve</code>. Only 1 and 2 are failures.</p>
+  <p>3 requires checking its reason: a stale resume plan leaves new files unindexed. 4 did not index anything: it is a decision request waiting for <code class="inline">--approve</code>. Only 1 and 2 are failures.</p>
   <h3>Why did folder indexing stop and ask me to approve?</h3>
   <p>The measured phase-A estimate for the indexing phase was longer than <code class="inline">--max-minutes</code> (default 10). With no <code class="inline">--approve</code> or <code class="inline">--yes</code>, nothing is indexed, a JSON decision request goes to stdout and the process exits 4.</p>
   <h3>How do I tell a failed index from a completed one with junk files?</h3>
-  <p>Read the exit code, not the log volume. 0 and 3 are both finished runs; 3 additionally refused at least one file, or a whole dataset whose mapping the server answered HTTP 400 to, in which case the <code class="inline">xerj-done</code> line carries <code class="inline">datasets_refused</code> and <code class="inline">files_refused</code>. 1 is an endpoint or journal failure and nothing about it is a junk report.</p>
+  <p>Read the exit code and terminal reason. A stale-resume-plan outcome is incomplete and needs --fresh; otherwise 0 and 3 are finished runs; 3 additionally refused at least one file, or a whole dataset whose mapping the server answered HTTP 400 to, in which case the <code class="inline">xerj-done</code> line carries <code class="inline">datasets_refused</code> and <code class="inline">files_refused</code>. 1 is a runtime failure and nothing about it is a junk report.</p>
   <h3>Is exit 1 the code for any error?</h3>
-  <p>No, and that shorthand is wrong. <code class="inline">--help</code> scopes 1 to an endpoint or journal failure, a refused corpus removal, or a refused unsafe state transition. A bad command line is 2. On the <code class="inline">--no-graph</code> path, an exit 1 whose terminal line reads <code class="inline">reason=server-backpressure</code> means the node rejected every write for the whole 600 s a bulk waits; the line carries <code class="inline">ops_applied</code> and <code class="inline">ops_remaining</code>.</p>
+  <p>Exit 1 covers runtime errors, including verification failures, node or journal problems, and refused unsafe operations. A bad command line is 2. On the <code class="inline">--no-graph</code> path, an exit 1 whose terminal line reads <code class="inline">reason=server-backpressure</code> means the node rejected every write for the whole 600 s a bulk waits; the line carries <code class="inline">ops_applied</code> and <code class="inline">ops_remaining</code>.</p>
   <h3>Does exit 0 always mean the folder was indexed?</h3>
   <p>No. Answering the decision gate with <code class="inline">--approve cancel</code> also exits 0, and that run indexes nothing on purpose. Read the terminal line or the journal before you report a corpus as searchable.</p>
   <h3>Why did my run print no terminal line at all?</h3>
   <p>Either <code class="inline">--quiet</code> or <code class="inline">--progress none</code> was in force, which prints no terminal line, or the process was killed by a signal. A missing terminal line after the process is gone means it died, not that it finished.</p>
   <h3>Which codes should an agent retry?</h3>
-  <p>Retry nothing on 0 or 3. Re-run with <code class="inline">--approve</code> on 4. Fix the command line on 2. Investigate the endpoint and the journal on 1, because a blind retry repeats the same refusal. The one exit 1 to rerun unchanged is <code class="inline">reason=server-backpressure</code>, once the node accepts writes again: it resumes with the operations that remain.</p>
+  <p>Do not blindly retry 0 or 3. Exit 3 with stale-resume-plan requires a --fresh rebuild to include the new files. Re-run with <code class="inline">--approve</code> on 4. Fix the command line on 2. Investigate the endpoint and the journal on 1, because a blind retry repeats the same refusal. The one exit 1 to rerun unchanged is <code class="inline">reason=server-backpressure</code>, once the node accepts writes again: it resumes with the operations that remain.</p>
   <h2>Evidence</h2>
   <ul>
-    <li>EXIT CODES: 0 complete (also: gate answered with --approve cancel); 3 completed-with-junk (junk recorded, never fatal) — SUCCESS: the index is searchable, and the summary on stdout opens with a line starting <code class="inline">ok:</code> that says so (xerj-done carries ok=true). Treat 0 and 3 alike as a finished run. This includes a dataset whose mapping the server REFUSED: its files are recorded as junk with the server's reason, the xerj-done line carries datasets_refused / files_refused, and every other dataset is indexed; 4 NEEDS A DECISION — the estimate exceeded --max-minutes and nothing was indexed, a JSON decision request is on stdout; 2 usage; 1 endpoint/journal failure, a refused corpus removal, or a refused unsafe state transition. — <code>engine/crates/xerj-autoindex/src/cli.rs:771</code></li>
+    <li>Exit 3 completed-with-junk is success. The separate stale-resume-plan outcome carries ok=false and requires --fresh to include new files. Dataset refusal counters name missing datasets even when ok=true. Exit 1 reports real errors; usage is 2 and a decision request is 4. — <code>engine/crates/xerj-autoindex/src/cli.rs:771</code></li>
     <li>Exit 4 is a code of its own; 1 is the catch-all for real failures, and the decision request is answered by re-running the same command with --approve proceed, fast or cancel. — <code>engine/crates/xerj-autoindex/src/cli.rs:771</code></li>
     <li>A forced mapping refusal ended xerj-done ok=true exit=3 reason=completed-with-junk wall=0.7s files=1 records=1 generation=1 datasets_refused=1 files_refused=2, with the other dataset indexed. — <code>benchmarks/autoindex-resilience/refusal-e2e.run1.stderr.txt</code></li>
     <li>Before issue #955 was fixed, a 48,533-file --no-graph run applied every operation and then ended xerj-done ok=false exit=1 reason=aborted wall=10336.0s, because the catalog went out as one bulk request of 51,129 actions and the engine's max_actions_per_bulk is 50,000. — <code>benchmarks/autoindex-resilience/before-955.stderr.txt</code></li>
@@ -398,115 +402,119 @@ error: prepared bulk contained 1 rejected items: {"type":"engine_exception","rea
     <a href="/answers/code-search-mcp-for-claude-code" class=""><span class="eyebrow">02</span>I need my agent to find a passage and cite the file, not dump the whole tree. How?</a>
     <a href="/answers/local-search-mcp-for-codex-and-cursor" class=""><span class="eyebrow">03</span>Search tool for a Codex agent, on the files you have</a>
     <a href="/answers/mcp-api-search-or-vector-search" class=""><span class="eyebrow">04</span>Should an agent use API search or vector search?</a>
-    <a href="/answers/knowledge-graphs-for-agent-memory" class=""><span class="eyebrow">05</span>Should agent memory use a knowledge graph?</a>
-    <a href="/answers/store-agent-memory-without-llm-call" class=""><span class="eyebrow">06</span>How do I stop an agent memory store from filling with near-duplicate notes?</a>
-    <a href="/answers/evidence-for-agent-memory-links" class=""><span class="eyebrow">07</span>How can agent-memory links retain evidence?</a>
-    <a href="/answers/private-agent-memory-namespaces" class=""><span class="eyebrow">08</span>How do I give two agents private memory on one laptop?</a>
-    <a href="/answers/coding-agent-memory-across-sessions" class=""><span class="eyebrow">09</span>How do people store user preferences so an agent can recall them next week?</a>
-    <a href="/answers/search-claude-code-past-sessions" class=""><span class="eyebrow">10</span>Search Claude Code past sessions on disk</a>
-    <a href="/answers/set-mcp-memory-storage-path" class=""><span class="eyebrow">11</span>How do I set the MCP memory storage path?</a>
-    <a href="/answers/agent-memory-without-postgres-qdrant" class=""><span class="eyebrow">12</span>What's a simple way to give an agent long-term memory on my laptop without Qdrant?</a>
-    <a href="/answers/ask-questions-about-a-github-repo-without-cloning" class=""><span class="eyebrow">13</span>Ask questions about a GitHub repo without cloning it</a>
-    <a href="/answers/batch-lookup-cve-ghsa-ids-offline" class=""><span class="eyebrow">14</span>Batch lookup CVE IDs and GHSA IDs offline, without GitHub API rate limits</a>
-    <a href="/answers/full-text-search-over-jsonl-files-cli" class=""><span class="eyebrow">15</span>Full-text search over JSONL files from the CLI: index a folder and query it with BM25</a>
-    <a href="/answers/local-code-search-mcp-fewer-tokens-than-grep" class=""><span class="eyebrow">16</span>Local code search MCP for Claude Code that uses fewer tokens than grep</a>
-    <a href="/answers/retrieval-that-says-not-found-with-file-line-citations" class=""><span class="eyebrow">17</span>Retrieval that says not found, and cites file and line when it does answer</a>
-    <a href="/answers/batch-lookup-ids-from-csv-against-local-index" class=""><span class="eyebrow">18</span>Look up 1,000 IDs against a local index</a>
-    <a href="/answers/does-xerj-support-s3-alerting-plugins" class=""><span class="eyebrow">19</span>Does XERJ support S3 storage, alerting or custom plugins yet?</a>
-    <a href="/answers/verify-ai-report-claims-against-sources" class=""><span class="eyebrow">20</span>Verify claims in a report against the saved sources</a>
-    <a href="/answers/audit-php-codebase-with-an-index" class=""><span class="eyebrow">21</span>How do I audit a PHP codebase with an index instead of grepping 1,400 files?</a>
-    <a href="/answers/index-reference-library-for-coding-agent" class=""><span class="eyebrow">22</span>How do I set up reference coding so the agent retrieves a mechanism before writing code?</a>
-    <a href="/answers/rebuild-reference-corpus-index" class=""><span class="eyebrow">23</span>xerj corpus index --fresh failed. How do I rebuild a corpus index?</a>
-    <a href="/answers/classify-text-from-labelled-history-without-llm" class=""><span class="eyebrow">24</span>Can I route tickets or filter spam from labelled history, without an LLM call?</a>
-    <a href="/answers/reduce-embedding-api-cost" class=""><span class="eyebrow">25</span>How do I reduce embedding API cost?</a>
-    <a href="/answers/local-embeddings-without-openai-api" class=""><span class="eyebrow">26</span>I want local search that works offline, no cloud embeddings. What are my options?</a>
-    <a href="/answers/do-search-embeddings-help" class=""><span class="eyebrow">27</span>When should I turn on neural embeddings, and when is the lexical default enough?</a>
-    <a href="/answers/count-keyword-mentions-over-time-jsonl" class=""><span class="eyebrow">28</span>Count mentions of a word over time in a posts file</a>
-    <a href="/answers/search-yaml-xml-config-repository" class=""><span class="eyebrow">29</span>How do I find every place a config key is set across YAML and XML in a repo?</a>
-    <a href="/answers/full-text-search-sqlite-database" class=""><span class="eyebrow">30</span>How do I full-text search a SQLite database I just copied onto disk?</a>
-    <a href="/answers/index-csv-with-many-columns" class=""><span class="eyebrow">31</span>How do I index a CSV with many columns?</a>
-    <a href="/answers/index-markdown-into-elasticsearch-api" class=""><span class="eyebrow">32</span>How do I index Markdown into the Elasticsearch API?</a>
-    <a href="/answers/syntax-aware-code-search-refactoring" class=""><span class="eyebrow">33</span>How do I run syntax-aware code search?</a>
-    <a href="/answers/search-gzipped-csv-or-json" class=""><span class="eyebrow">34</span>How do I search a .csv.gz or .json.gz without unzipping it first?</a>
-    <a href="/answers/search-confluence-html-export" class=""><span class="eyebrow">35</span>How do I search a Confluence export?</a>
-    <a href="/answers/search-slack-json-export" class=""><span class="eyebrow">36</span>How do I search a Slack JSON export?</a>
-    <a href="/answers/search-bvh-motion-capture-files" class=""><span class="eyebrow">37</span>How do I search BVH motion-capture files?</a>
-    <a href="/answers/search-gzip-logs-without-zgrep" class=""><span class="eyebrow">38</span>How do I search gzipped logs without decompressing the whole file — including when JSONL sits next to them?</a>
-    <a href="/answers/search-kubernetes-pod-logs-on-disk" class=""><span class="eyebrow">39</span>How do I search Kubernetes pod logs?</a>
-    <a href="/answers/search-word-documents-in-a-folder" class=""><span class="eyebrow">40</span>How do I search through a folder of contracts in .docx?</a>
-    <a href="/answers/search-unity-project-assets" class=""><span class="eyebrow">41</span>How do I search Unity YAML scenes and the C# that references them as one project?</a>
-    <a href="/answers/index-monorepo-for-agent" class=""><span class="eyebrow">42</span>How do I stop my agent from reading the whole repo into context?</a>
-    <a href="/answers/catalog-files-with-autoindex-map" class=""><span class="eyebrow">43</span>How should an agent figure out what's in a messy data folder before searching?</a>
-    <a href="/answers/search-all-pdfs-in-a-folder" class=""><span class="eyebrow">44</span>I downloaded a bunch of papers as PDFs. How do I search across them?</a>
-    <a href="/answers/search-sql-dump-file" class=""><span class="eyebrow">45</span>I have a 2GB SQL dump. How do I find rows mentioning a customer without loading it into Postgres?</a>
-    <a href="/answers/index-multiple-csv-files" class=""><span class="eyebrow">46</span>I have a directory of CSV exports. How do I query them without opening each one in Excel?</a>
-    <a href="/answers/search-file-contents-in-a-folder" class=""><span class="eyebrow">47</span>I have a folder of PDFs, Word docs, and markdown. How do I search all of them at once?</a>
-    <a href="/answers/search-zendesk-ticket-json-export" class=""><span class="eyebrow">48</span>I have a JSON export of Jira issues (or Zendesk tickets). How do I search it like a help-center search?</a>
-    <a href="/answers/read-indexed-email-and-pdf-folder" class=""><span class="eyebrow">49</span>I indexed a folder of email and PDFs. How do I actually read what it found?</a>
-    <a href="/answers/search-jupyter-notebook-cells" class=""><span class="eyebrow">50</span>I need to find a function I wrote in a notebook months ago. How do I search all .ipynb files and the .py next to them?</a>
-    <a href="/answers/search-html-export" class=""><span class="eyebrow">51</span>I saved a help-center as HTML. How do I search it like the real help-center search?</a>
-    <a href="/answers/is-pdf-indexing-efficient" class=""><span class="eyebrow">52</span>Is it efficient to index PDF files?</a>
-    <a href="/answers/full-text-search-browser-history" class=""><span class="eyebrow">53</span>Is there a way to full-text search my browser history file itself?</a>
-    <a href="/answers/search-openapi-spec-for-agent" class=""><span class="eyebrow">54</span>My agent needs to look up endpoints in a big OpenAPI spec and the SDK markdown. What's the right way?</a>
-    <a href="/answers/search-obsidian-pdf-docx-attachments" class=""><span class="eyebrow">55</span>What's the best way to search markdown notes and PDFs in the same vault?</a>
-    <a href="/answers/search-json-and-jsonl-logs" class=""><span class="eyebrow">56</span>What's the easiest way to search JSON logs plus some old gzip text logs in the same folder?</a>
-    <a href="/answers/notion-export-duplicate-search-results" class=""><span class="eyebrow">57</span>Why does my Notion export duplicate titles?</a>
-    <a href="/answers/answer-questions-about-a-docs-folder-with-citations" class=""><span class="eyebrow">58</span>Answer questions about a docs folder, with a file to cite</a>
-    <a href="/answers/search-gmail-takeout-mbox-locally" class=""><span class="eyebrow">59</span>I exported my Gmail with Google Takeout. How do I search that mbox file locally?</a>
-    <a href="/answers/how-xerj-autoindexes-a-folder" class=""><span class="eyebrow">60</span>I want to point something at a folder and then ask questions about what's in it. What should I use?</a>
-    <a href="/answers/find-duplicate-github-issues-before-filing" class=""><span class="eyebrow">61</span>Find duplicate GitHub issues before you file</a>
-    <a href="/answers/search-github-issues-and-prs-locally" class=""><span class="eyebrow">62</span>Search a repo's issues and pull requests on your machine</a>
-    <a href="/answers/rag-without-vector-database" class=""><span class="eyebrow">63</span>How do I build RAG without a vector database?</a>
-    <a href="/answers/hybrid-search-quality-measured-ndcg" class=""><span class="eyebrow">64</span>How much better is hybrid search than BM25? Measured nDCG numbers</a>
-    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">65</span>How do I rerank search results with a relevance judge?</a>
-    <a href="/answers/reciprocal-rank-fusion-when-to-use" class=""><span class="eyebrow">66</span>What is Reciprocal Rank Fusion?</a>
-    <a href="/answers/how-xerj-combines-search" class=""><span class="eyebrow">67</span>How does XERJ combine BM25 and kNN?</a>
-    <a href="/answers/search-files-in-an-s3-bucket" class=""><span class="eyebrow">68</span>How do I search files that live in an S3 bucket?</a>
-    <a href="/answers/keep-s3-bucket-index-current" class=""><span class="eyebrow">69</span>How do I keep an index current when the files live in an object store?</a>
-    <a href="/answers/check-codebase-index-is-complete" class=""><span class="eyebrow">70</span>My codebase indexer says indexed but I don't see my code. How do I check it actually finished?</a>
-    <a href="/answers/estimate-autoindex-time-before-running" class=""><span class="eyebrow">71</span>How do I estimate folder-indexing time?</a>
-    <a href="/answers/why-autoindex-skipped-files" class=""><span class="eyebrow">72</span>Why would a folder search miss files that I can see on disk?</a>
-    <a href="/answers/autoindex-dataset-refused-by-server" class=""><span class="eyebrow">73</span>One dataset was REFUSED by the server. Did I lose the whole index?</a>
-    <a href="/answers/autoindex-exit-codes" class="active"><span class="eyebrow">74</span>The indexer exited 3 (or 4). Did it fail?</a>
-    <a href="/answers/autoindex-server-back-pressure-429" class=""><span class="eyebrow">75</span>The server pushed back with HTTP 429. Did xerj autoindex lose the run?</a>
-    <a href="/answers/autoindex-says-extract-the-archive-first" class=""><span class="eyebrow">76</span>xerj autoindex recorded my Takeout .zip as junk and said to extract it first. Why?</a>
-    <a href="/answers/keep-index-current-as-files-change" class=""><span class="eyebrow">77</span>How do I keep a search index up to date as files change, without re-indexing everything?</a>
-    <a href="/answers/search-engine-without-docker" class=""><span class="eyebrow">78</span>Is there a single-binary local search engine I can just run?</a>
-    <a href="/answers/cheap-low-volume-log-search" class=""><span class="eyebrow">79</span>What can I use for low-volume log search?</a>
-    <a href="/answers/read-autoindex-progress" class=""><span class="eyebrow">80</span>How do I read autoindex progress?</a>
-    <a href="/answers/resume-interrupted-autoindex-run" class=""><span class="eyebrow">81</span>The indexer died overnight. Do I have to start over?</a>
-    <a href="/answers/reindex-taking-forever" class=""><span class="eyebrow">82</span>Reindexing my files is taking forever. What usually causes that?</a>
-    <a href="/answers/what-is-xerj" class=""><span class="eyebrow">83</span>What is XERJ?</a>
-    <a href="/answers/improve-basic-faiss-rag-pipeline" class=""><span class="eyebrow">84</span>How do I improve a basic FAISS RAG pipeline?</a>
-    <a href="/answers/filter-knn-exact-scan-caveat" class=""><span class="eyebrow">85</span>Why did my filtered vector search get slower when I added a filter?</a>
-    <a href="/answers/vector-database-vs-full-text-search" class=""><span class="eyebrow">86</span>What's the actual difference between a vector database and full-text search when I have a folder?</a>
-    <a href="/answers/share-folder-read-only-search-without-uploading" class=""><span class="eyebrow">87</span>How do I give my lawyer or accountant read-only search over a folder of email and PDFs without uploading it?</a>
-    <a href="/answers/share-local-search-index-through-a-tunnel" class=""><span class="eyebrow">88</span>How do I let someone outside my network search an index on my laptop without opening a port?</a>
-    <a href="/answers/what-a-share-link-guest-can-reach" class=""><span class="eyebrow">89</span>If I share one index with a link and a passcode, what can that person actually reach on my node?</a>
+    <a href="/answers/agentic-memory-vs-rag" class=""><span class="eyebrow">05</span>Agentic memory vs RAG: what is the difference?</a>
+    <a href="/answers/what-is-agentic-memory" class=""><span class="eyebrow">06</span>What is agentic memory?</a>
+    <a href="/answers/what-is-an-mcp-memory-server" class=""><span class="eyebrow">07</span>What is an MCP memory server?</a>
+    <a href="/answers/knowledge-graphs-for-agent-memory" class=""><span class="eyebrow">08</span>Should agent memory use a knowledge graph?</a>
+    <a href="/answers/store-agent-memory-without-llm-call" class=""><span class="eyebrow">09</span>How do I stop an agent memory store from filling with near-duplicate notes?</a>
+    <a href="/answers/evidence-for-agent-memory-links" class=""><span class="eyebrow">10</span>How can agent-memory links retain evidence?</a>
+    <a href="/answers/private-agent-memory-namespaces" class=""><span class="eyebrow">11</span>How do I give two agents private memory on one laptop?</a>
+    <a href="/answers/coding-agent-memory-across-sessions" class=""><span class="eyebrow">12</span>How do people store user preferences so an agent can recall them next week?</a>
+    <a href="/answers/search-claude-code-past-sessions" class=""><span class="eyebrow">13</span>Search Claude Code past sessions on disk</a>
+    <a href="/answers/set-mcp-memory-storage-path" class=""><span class="eyebrow">14</span>How do I set the MCP memory storage path?</a>
+    <a href="/answers/agent-memory-without-postgres-qdrant" class=""><span class="eyebrow">15</span>What's a simple way to give an agent long-term memory on my laptop without Qdrant?</a>
+    <a href="/answers/ask-questions-about-a-github-repo-without-cloning" class=""><span class="eyebrow">16</span>Ask questions about a GitHub repo without cloning it</a>
+    <a href="/answers/batch-lookup-cve-ghsa-ids-offline" class=""><span class="eyebrow">17</span>Batch lookup CVE IDs and GHSA IDs offline, without GitHub API rate limits</a>
+    <a href="/answers/full-text-search-over-jsonl-files-cli" class=""><span class="eyebrow">18</span>Full-text search over JSONL files from the CLI: index a folder and query it with BM25</a>
+    <a href="/answers/local-code-search-mcp-fewer-tokens-than-grep" class=""><span class="eyebrow">19</span>Local code search MCP for Claude Code that uses fewer tokens than grep</a>
+    <a href="/answers/retrieval-that-says-not-found-with-file-line-citations" class=""><span class="eyebrow">20</span>Retrieval that says not found, and cites file and line when it does answer</a>
+    <a href="/answers/batch-lookup-ids-from-csv-against-local-index" class=""><span class="eyebrow">21</span>Look up 1,000 IDs against a local index</a>
+    <a href="/answers/does-xerj-support-s3-alerting-plugins" class=""><span class="eyebrow">22</span>Does XERJ support S3 storage, alerting or custom plugins yet?</a>
+    <a href="/answers/verify-ai-report-claims-against-sources" class=""><span class="eyebrow">23</span>Verify claims in a report against the saved sources</a>
+    <a href="/answers/audit-php-codebase-with-an-index" class=""><span class="eyebrow">24</span>How do I audit a PHP codebase with an index instead of grepping 1,400 files?</a>
+    <a href="/answers/index-reference-library-for-coding-agent" class=""><span class="eyebrow">25</span>How do I set up reference coding so the agent retrieves a mechanism before writing code?</a>
+    <a href="/answers/rebuild-reference-corpus-index" class=""><span class="eyebrow">26</span>xerj corpus index --fresh failed. How do I rebuild a corpus index?</a>
+    <a href="/answers/classify-text-from-labelled-history-without-llm" class=""><span class="eyebrow">27</span>Can I route tickets or filter spam from labelled history, without an LLM call?</a>
+    <a href="/answers/reduce-embedding-api-cost" class=""><span class="eyebrow">28</span>How do I reduce embedding API cost?</a>
+    <a href="/answers/local-embeddings-without-openai-api" class=""><span class="eyebrow">29</span>I want local search that works offline, no cloud embeddings. What are my options?</a>
+    <a href="/answers/do-search-embeddings-help" class=""><span class="eyebrow">30</span>When should I turn on neural embeddings, and when is the lexical default enough?</a>
+    <a href="/answers/count-keyword-mentions-over-time-jsonl" class=""><span class="eyebrow">31</span>Count mentions of a word over time in a posts file</a>
+    <a href="/answers/search-yaml-xml-config-repository" class=""><span class="eyebrow">32</span>How do I find every place a config key is set across YAML and XML in a repo?</a>
+    <a href="/answers/full-text-search-sqlite-database" class=""><span class="eyebrow">33</span>How do I full-text search a SQLite database I just copied onto disk?</a>
+    <a href="/answers/index-csv-with-many-columns" class=""><span class="eyebrow">34</span>How do I index a CSV with many columns?</a>
+    <a href="/answers/index-markdown-into-elasticsearch-api" class=""><span class="eyebrow">35</span>How do I index Markdown into the Elasticsearch API?</a>
+    <a href="/answers/syntax-aware-code-search-refactoring" class=""><span class="eyebrow">36</span>How do I run syntax-aware code search?</a>
+    <a href="/answers/search-gzipped-csv-or-json" class=""><span class="eyebrow">37</span>How do I search a .csv.gz or .json.gz without unzipping it first?</a>
+    <a href="/answers/search-confluence-html-export" class=""><span class="eyebrow">38</span>How do I search a Confluence export?</a>
+    <a href="/answers/search-slack-json-export" class=""><span class="eyebrow">39</span>How do I search a Slack JSON export?</a>
+    <a href="/answers/search-bvh-motion-capture-files" class=""><span class="eyebrow">40</span>How do I search BVH motion-capture files?</a>
+    <a href="/answers/search-gzip-logs-without-zgrep" class=""><span class="eyebrow">41</span>How do I search gzipped logs without decompressing the whole file — including when JSONL sits next to them?</a>
+    <a href="/answers/search-kubernetes-pod-logs-on-disk" class=""><span class="eyebrow">42</span>How do I search Kubernetes pod logs?</a>
+    <a href="/answers/search-word-documents-in-a-folder" class=""><span class="eyebrow">43</span>How do I search through a folder of contracts in .docx?</a>
+    <a href="/answers/search-unity-project-assets" class=""><span class="eyebrow">44</span>How do I search Unity YAML scenes and the C# that references them as one project?</a>
+    <a href="/answers/index-monorepo-for-agent" class=""><span class="eyebrow">45</span>How do I stop my agent from reading the whole repo into context?</a>
+    <a href="/answers/catalog-files-with-autoindex-map" class=""><span class="eyebrow">46</span>How should an agent figure out what's in a messy data folder before searching?</a>
+    <a href="/answers/search-all-pdfs-in-a-folder" class=""><span class="eyebrow">47</span>I downloaded a bunch of papers as PDFs. How do I search across them?</a>
+    <a href="/answers/search-sql-dump-file" class=""><span class="eyebrow">48</span>I have a 2GB SQL dump. How do I find rows mentioning a customer without loading it into Postgres?</a>
+    <a href="/answers/index-multiple-csv-files" class=""><span class="eyebrow">49</span>I have a directory of CSV exports. How do I query them without opening each one in Excel?</a>
+    <a href="/answers/search-file-contents-in-a-folder" class=""><span class="eyebrow">50</span>I have a folder of PDFs, Word docs, and markdown. How do I search all of them at once?</a>
+    <a href="/answers/search-zendesk-ticket-json-export" class=""><span class="eyebrow">51</span>I have a JSON export of Jira issues (or Zendesk tickets). How do I search it like a help-center search?</a>
+    <a href="/answers/read-indexed-email-and-pdf-folder" class=""><span class="eyebrow">52</span>I indexed a folder of email and PDFs. How do I actually read what it found?</a>
+    <a href="/answers/search-jupyter-notebook-cells" class=""><span class="eyebrow">53</span>I need to find a function I wrote in a notebook months ago. How do I search all .ipynb files and the .py next to them?</a>
+    <a href="/answers/search-html-export" class=""><span class="eyebrow">54</span>I saved a help-center as HTML. How do I search it like the real help-center search?</a>
+    <a href="/answers/is-pdf-indexing-efficient" class=""><span class="eyebrow">55</span>Is it efficient to index PDF files?</a>
+    <a href="/answers/full-text-search-browser-history" class=""><span class="eyebrow">56</span>Is there a way to full-text search my browser history file itself?</a>
+    <a href="/answers/search-openapi-spec-for-agent" class=""><span class="eyebrow">57</span>My agent needs to look up endpoints in a big OpenAPI spec and the SDK markdown. What's the right way?</a>
+    <a href="/answers/search-obsidian-pdf-docx-attachments" class=""><span class="eyebrow">58</span>What's the best way to search markdown notes and PDFs in the same vault?</a>
+    <a href="/answers/search-json-and-jsonl-logs" class=""><span class="eyebrow">59</span>What's the easiest way to search JSON logs plus some old gzip text logs in the same folder?</a>
+    <a href="/answers/notion-export-duplicate-search-results" class=""><span class="eyebrow">60</span>Why does my Notion export duplicate titles?</a>
+    <a href="/answers/answer-questions-about-a-docs-folder-with-citations" class=""><span class="eyebrow">61</span>Answer questions about a docs folder, with a file to cite</a>
+    <a href="/answers/search-gmail-takeout-mbox-locally" class=""><span class="eyebrow">62</span>I exported my Gmail with Google Takeout. How do I search that mbox file locally?</a>
+    <a href="/answers/how-xerj-autoindexes-a-folder" class=""><span class="eyebrow">63</span>I want to point something at a folder and then ask questions about what's in it. What should I use?</a>
+    <a href="/answers/find-duplicate-github-issues-before-filing" class=""><span class="eyebrow">64</span>Find duplicate GitHub issues before you file</a>
+    <a href="/answers/search-github-issues-and-prs-locally" class=""><span class="eyebrow">65</span>Search a repo's issues and pull requests on your machine</a>
+    <a href="/answers/rag-without-vector-database" class=""><span class="eyebrow">66</span>How do I build RAG without a vector database?</a>
+    <a href="/answers/hybrid-search-quality-measured-ndcg" class=""><span class="eyebrow">67</span>How much better is hybrid search than BM25? Measured nDCG numbers</a>
+    <a href="/answers/rerank-search-results-calibrated-judge" class=""><span class="eyebrow">68</span>How do I rerank search results with a relevance judge?</a>
+    <a href="/answers/reciprocal-rank-fusion-when-to-use" class=""><span class="eyebrow">69</span>What is Reciprocal Rank Fusion?</a>
+    <a href="/answers/how-xerj-combines-search" class=""><span class="eyebrow">70</span>How does XERJ combine BM25 and kNN?</a>
+    <a href="/answers/search-files-in-an-s3-bucket" class=""><span class="eyebrow">71</span>How do I search files that live in an S3 bucket?</a>
+    <a href="/answers/keep-s3-bucket-index-current" class=""><span class="eyebrow">72</span>How do I keep an index current when the files live in an object store?</a>
+    <a href="/answers/check-codebase-index-is-complete" class=""><span class="eyebrow">73</span>My codebase indexer says indexed but I don't see my code. How do I check it actually finished?</a>
+    <a href="/answers/estimate-autoindex-time-before-running" class=""><span class="eyebrow">74</span>How do I estimate folder-indexing time?</a>
+    <a href="/answers/why-autoindex-skipped-files" class=""><span class="eyebrow">75</span>Why would a folder search miss files that I can see on disk?</a>
+    <a href="/answers/autoindex-dataset-refused-by-server" class=""><span class="eyebrow">76</span>One dataset was REFUSED by the server. Did I lose the whole index?</a>
+    <a href="/answers/autoindex-exit-codes" class="active"><span class="eyebrow">77</span>The indexer exited 3 (or 4). Did it fail?</a>
+    <a href="/answers/autoindex-server-back-pressure-429" class=""><span class="eyebrow">78</span>The server pushed back with HTTP 429. Did xerj autoindex lose the run?</a>
+    <a href="/answers/autoindex-says-extract-the-archive-first" class=""><span class="eyebrow">79</span>xerj autoindex recorded my Takeout .zip as junk and said to extract it first. Why?</a>
+    <a href="/answers/keep-index-current-as-files-change" class=""><span class="eyebrow">80</span>How do I keep a search index up to date as files change, without re-indexing everything?</a>
+    <a href="/answers/search-engine-without-docker" class=""><span class="eyebrow">81</span>Is there a single-binary local search engine I can just run?</a>
+    <a href="/answers/cheap-low-volume-log-search" class=""><span class="eyebrow">82</span>What can I use for low-volume log search?</a>
+    <a href="/answers/read-autoindex-progress" class=""><span class="eyebrow">83</span>How do I read autoindex progress?</a>
+    <a href="/answers/resume-interrupted-autoindex-run" class=""><span class="eyebrow">84</span>The indexer died overnight. Do I have to start over?</a>
+    <a href="/answers/reindex-taking-forever" class=""><span class="eyebrow">85</span>Reindexing my files is taking forever. What usually causes that?</a>
+    <a href="/answers/what-is-xerj" class=""><span class="eyebrow">86</span>What is XERJ?</a>
+    <a href="/answers/improve-basic-faiss-rag-pipeline" class=""><span class="eyebrow">87</span>How do I improve a basic FAISS RAG pipeline?</a>
+    <a href="/answers/filter-knn-exact-scan-caveat" class=""><span class="eyebrow">88</span>Why did my filtered vector search get slower when I added a filter?</a>
+    <a href="/answers/vector-database-vs-full-text-search" class=""><span class="eyebrow">89</span>What's the actual difference between a vector database and full-text search when I have a folder?</a>
+    <a href="/answers/share-folder-read-only-search-without-uploading" class=""><span class="eyebrow">90</span>How do I give my lawyer or accountant read-only search over a folder of email and PDFs without uploading it?</a>
+    <a href="/answers/share-local-search-index-through-a-tunnel" class=""><span class="eyebrow">91</span>How do I let someone outside my network search an index on my laptop without opening a port?</a>
+    <a href="/answers/what-a-share-link-guest-can-reach" class=""><span class="eyebrow">92</span>If I share one index with a link and a passcode, what can that person actually reach on my node?</a>
   </div>
   <div class="group">
     <span class="label">COMPARISONS</span>
     <a href="/compare/"><span class="eyebrow">00</span>All Comparisons</a>
-    <a href="/compare/xerj-vs-web-agent-search" class=""><span class="eyebrow">01</span>How do I let an agent search a folder on my laptop instead of crawling the web?</a>
-    <a href="/compare/xerj-vs-ast-grep" class=""><span class="eyebrow">02</span>ast-grep vs a code index for an agent?</a>
-    <a href="/compare/xerj-vs-ripgrep-for-code-agents" class=""><span class="eyebrow">03</span>Is ripgrep enough for a coding agent, or do I need a code index?</a>
-    <a href="/compare/best-grep-alternative-for-ai-coding-agents-2026" class=""><span class="eyebrow">04</span>The best grep and ripgrep alternatives for AI coding agents in 2026</a>
-    <a href="/compare/best-mcp-server-local-code-search-2026" class=""><span class="eyebrow">05</span>The best MCP servers for searching a local codebase in 2026</a>
-    <a href="/compare/best-local-full-text-search-jsonl-csv-2026" class=""><span class="eyebrow">06</span>The best local full-text search for JSONL and CSV files in 2026, with a published benchmark</a>
-    <a href="/compare/xerj-vs-ripgrep-all" class=""><span class="eyebrow">07</span>How do I grep PDFs and Word docs from the command line?</a>
-    <a href="/compare/xerj-vs-docfetcher" class=""><span class="eyebrow">08</span>What's a free DocFetcher alternative that an agent can call?</a>
-    <a href="/compare/xerj-vs-recoll" class=""><span class="eyebrow">09</span>What's the best local desktop search for a folder of PDFs and docs?</a>
-    <a href="/compare/xerj-vs-houdahspot" class=""><span class="eyebrow">10</span>XERJ vs HoudahSpot — Spotlight GUI vs an agent index</a>
-    <a href="/compare/xerj-vs-spotlight" class=""><span class="eyebrow">11</span>XERJ vs macOS Spotlight for folder content an agent can query</a>
-    <a href="/compare/xerj-vs-localsynapse" class=""><span class="eyebrow">12</span>What's a local MCP search engine for Claude?</a>
-    <a href="/compare/xerj-vs-elasticsearch-local" class=""><span class="eyebrow">13</span>Is there an Elasticsearch-compatible engine that isn't Elasticsearch?</a>
-    <a href="/compare/xerj-vs-obsidian-omnisearch" class=""><span class="eyebrow">14</span>How do I search an Obsidian vault from outside Obsidian?</a>
-    <a href="/compare/xerj-vs-khoj" class=""><span class="eyebrow">15</span>What's a simpler alternative to Khoj if I only need search and memory?</a>
-    <a href="/compare/xerj-vs-typesense" class=""><span class="eyebrow">16</span>Do I need Typesense for an agent to search my docs?</a>
-    <a href="/compare/best-lightweight-elasticsearch-compatible-server-2026" class=""><span class="eyebrow">17</span>The best lightweight Elasticsearch-compatible search servers in 2026</a>
-    <a href="/compare/xerj-vs-meilisearch" class=""><span class="eyebrow">18</span>What's a local alternative to Meilisearch that indexes a folder by itself?</a>
-    <a href="/compare/xerj-vs-pagefind" class=""><span class="eyebrow">19</span>Pagefind vs indexing a local HTML dump for an agent?</a>
-    <a href="/compare/xerj-vs-vector-database" class=""><span class="eyebrow">20</span>Should my agent call a search API or stand up Qdrant for persistent memory?</a>
+    <a href="/compare/xerj-vs-agent-memory-tools" class=""><span class="eyebrow">01</span>XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee</a>
+    <a href="/compare/xerj-vs-web-agent-search" class=""><span class="eyebrow">02</span>How do I let an agent search a folder on my laptop instead of crawling the web?</a>
+    <a href="/compare/xerj-vs-ast-grep" class=""><span class="eyebrow">03</span>ast-grep vs a code index for an agent?</a>
+    <a href="/compare/xerj-vs-ripgrep-for-code-agents" class=""><span class="eyebrow">04</span>Is ripgrep enough for a coding agent, or do I need a code index?</a>
+    <a href="/compare/best-grep-alternative-for-ai-coding-agents-2026" class=""><span class="eyebrow">05</span>The best grep and ripgrep alternatives for AI coding agents in 2026</a>
+    <a href="/compare/best-mcp-server-local-code-search-2026" class=""><span class="eyebrow">06</span>The best MCP servers for searching a local codebase in 2026</a>
+    <a href="/compare/best-local-full-text-search-jsonl-csv-2026" class=""><span class="eyebrow">07</span>The best local full-text search for JSONL and CSV files in 2026, with a published benchmark</a>
+    <a href="/compare/xerj-vs-ripgrep-all" class=""><span class="eyebrow">08</span>How do I grep PDFs and Word docs from the command line?</a>
+    <a href="/compare/xerj-vs-docfetcher" class=""><span class="eyebrow">09</span>What's a free DocFetcher alternative that an agent can call?</a>
+    <a href="/compare/xerj-vs-recoll" class=""><span class="eyebrow">10</span>What's the best local desktop search for a folder of PDFs and docs?</a>
+    <a href="/compare/xerj-vs-houdahspot" class=""><span class="eyebrow">11</span>XERJ vs HoudahSpot — Spotlight GUI vs an agent index</a>
+    <a href="/compare/xerj-vs-spotlight" class=""><span class="eyebrow">12</span>XERJ vs macOS Spotlight for folder content an agent can query</a>
+    <a href="/compare/xerj-vs-localsynapse" class=""><span class="eyebrow">13</span>What's a local MCP search engine for Claude?</a>
+    <a href="/compare/xerj-vs-elasticsearch-local" class=""><span class="eyebrow">14</span>Is there an Elasticsearch-compatible engine that isn't Elasticsearch?</a>
+    <a href="/compare/xerj-vs-obsidian-omnisearch" class=""><span class="eyebrow">15</span>How do I search an Obsidian vault from outside Obsidian?</a>
+    <a href="/compare/xerj-vs-khoj" class=""><span class="eyebrow">16</span>What's a simpler alternative to Khoj if I only need search and memory?</a>
+    <a href="/compare/xerj-vs-typesense" class=""><span class="eyebrow">17</span>Do I need Typesense for an agent to search my docs?</a>
+    <a href="/compare/best-lightweight-elasticsearch-compatible-server-2026" class=""><span class="eyebrow">18</span>The best lightweight Elasticsearch-compatible search servers in 2026</a>
+    <a href="/compare/xerj-vs-meilisearch" class=""><span class="eyebrow">19</span>What's a local alternative to Meilisearch that indexes a folder by itself?</a>
+    <a href="/compare/xerj-vs-pagefind" class=""><span class="eyebrow">20</span>Pagefind vs indexing a local HTML dump for an agent?</a>
+    <a href="/compare/xerj-vs-vector-database" class=""><span class="eyebrow">21</span>Should my agent call a search API or stand up Qdrant for persistent memory?</a>
   </div>
 </nav>
 </div>

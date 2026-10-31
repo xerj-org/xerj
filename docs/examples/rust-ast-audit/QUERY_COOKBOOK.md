@@ -16,14 +16,14 @@ that a file-scoped grep cannot.
 
 ```bash
 # Every axum-handler-shaped function (takes Path/Query/Json/State/... + async).
-curl -s "$X/rustfns/_count" -d '{"query":{"bool":{"filter":[
+curl -s -H 'Content-Type: application/json' "$X/rustfns/_count" -d '{"query":{"bool":{"filter":[
   {"term":{"is_handler_shaped":true}},{"term":{"is_test":false}}]}}}'
 # → 298
 ```
 
 ```bash
 # The route table itself: method + path → handler.
-curl -s "$X/rustroutes/_search" -d '{"query":{"wildcard":{"path":"*sql*"}},
+curl -s -H 'Content-Type: application/json' "$X/rustroutes/_search" -d '{"query":{"wildcard":{"path":"*sql*"}},
   "_source":["method","path","handler","file","line"]}'
 # → POST /_sql → sql_query (crates/xerj-api/src/router.rs:637)
 ```
@@ -33,7 +33,7 @@ curl -s "$X/rustroutes/_search" -d '{"query":{"wildcard":{"path":"*sql*"}},
 ```bash
 # Recursion with NO depth bound — the stack-overflow shape. (Direct self-calls;
 # the call-graph CYCLE version is find_recursion_cycles.py, below.)
-curl -s "$X/rustfns/_count" -d '{"query":{"bool":{
+curl -s -H 'Content-Type: application/json' "$X/rustfns/_count" -d '{"query":{"bool":{
   "filter":[{"term":{"calls_self":true}},{"term":{"is_test":false}}],
   "must_not":[{"term":{"has_depth_guard":true}}]}}}'
 # → 377 (broad; the cycle finder is the sharp tool)
@@ -41,7 +41,7 @@ curl -s "$X/rustfns/_count" -d '{"query":{"bool":{
 
 ```bash
 # Narrowing `as` casts on a codebase with a documented truncation-bug history.
-curl -s "$X/rustfns/_count" -d '{"query":{"bool":{"filter":[
+curl -s -H 'Content-Type: application/json' "$X/rustfns/_count" -d '{"query":{"bool":{"filter":[
   {"term":{"has_narrowing_cast":true}},{"term":{"is_test":false}}]}}}'
 # → 375
 ```
@@ -50,7 +50,7 @@ curl -s "$X/rustfns/_count" -d '{"query":{"bool":{"filter":[
 
 ```bash
 # Allocation whose size is derived from a parameter (with_capacity/reserve/vec!/repeat).
-curl -s "$X/rustfns/_count" -d '{"query":{"bool":{"filter":[
+curl -s -H 'Content-Type: application/json' "$X/rustfns/_count" -d '{"query":{"bool":{"filter":[
   {"range":{"alloc_from_param_count":{"gte":1}}},{"term":{"is_test":false}}]}}}'
 # → 137
 ```
@@ -58,7 +58,7 @@ curl -s "$X/rustfns/_count" -d '{"query":{"bool":{"filter":[
 ```bash
 # The cross-product blowup shape: an allocation argument that MULTIPLIES two values
 # (fields.len() * like.len() — the exact shape of PR #69's F6).
-curl -s "$X/rustfns/_count" -d '{"query":{"term":{"alloc_product":true}}}'
+curl -s -H 'Content-Type: application/json' "$X/rustfns/_count" -d '{"query":{"term":{"alloc_product":true}}}'
 ```
 
 ## Path traversal / filesystem escape
@@ -66,7 +66,7 @@ curl -s "$X/rustfns/_count" -d '{"query":{"term":{"alloc_product":true}}}'
 ```bash
 # `.join(param)` — a path built from an attacker-influenced component — with NO
 # lexical/canonical containment check in the same function.
-curl -s "$X/rustfns/_count" -d '{"query":{"bool":{
+curl -s -H 'Content-Type: application/json' "$X/rustfns/_count" -d '{"query":{"bool":{
   "filter":[{"term":{"path_join_from_param":true}},{"term":{"is_test":false}}],
   "must_not":[{"term":{"validators":"containment"}}]}}}'
 # → 17  (down from 56 with the blunt sink filter; the argument-provenance signal
@@ -77,12 +77,12 @@ curl -s "$X/rustfns/_count" -d '{"query":{"bool":{
 
 ```bash
 # Every function containing unsafe (block or unsafe fn), non-test.
-curl -s "$X/rustfns/_count" -d '{"query":{"bool":{"filter":[
+curl -s -H 'Content-Type: application/json' "$X/rustfns/_count" -d '{"query":{"bool":{"filter":[
   {"term":{"unsafe_any":true}},{"term":{"is_test":false}}]}}}'
 # → 19    (+2 test-only = 21 total; matches the extractor's independent count)
 
 # Group by the unsafe operation kind (ffi_call, uninit, from_raw, ptr_arith, …).
-curl -s "$X/rustfns/_search" -d '{"size":0,"query":{"term":{"unsafe_any":true}},
+curl -s -H 'Content-Type: application/json' "$X/rustfns/_search" -d '{"size":0,"query":{"term":{"unsafe_any":true}},
   "aggs":{"ops":{"terms":{"field":"unsafe_ops","size":20}}}}'
 ```
 
@@ -91,7 +91,7 @@ curl -s "$X/rustfns/_search" -d '{"size":0,"query":{"term":{"unsafe_any":true}},
 ```bash
 # A lock guard bound to a name, with an `.await` later in the function body:
 # a lock potentially held across a suspension point.
-curl -s "$X/rustfns/_count" -d '{"query":{"bool":{"filter":[
+curl -s -H 'Content-Type: application/json' "$X/rustfns/_count" -d '{"query":{"bool":{"filter":[
   {"term":{"lock_across_await":true}},{"term":{"is_test":false}}]}}}'
 # → 15
 ```
@@ -99,7 +99,7 @@ curl -s "$X/rustfns/_count" -d '{"query":{"bool":{"filter":[
 ## Deserialization surface
 
 ```bash
-curl -s "$X/rustfns/_count" -d '{"query":{"bool":{"filter":[
+curl -s -H 'Content-Type: application/json' "$X/rustfns/_count" -d '{"query":{"bool":{"filter":[
   {"term":{"sinks":"deserialize"}},{"term":{"is_test":false}}]}}}'
 # → 147
 ```

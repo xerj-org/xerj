@@ -7,7 +7,7 @@ Run it by hand after a production deploy. No workflow calls it.
     # Print what would be sent (the default: nothing leaves the machine):
     python3 scripts/seo/indexnow_ping.py
 
-    # Send every URL in landing/sitemap.xml:
+    # Send every URL in the sitemap (local artifact if present, else the live one):
     python3 scripts/seo/indexnow_ping.py --send
 
     # Send only some URLs:

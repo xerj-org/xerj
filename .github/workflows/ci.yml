@@ -834,6 +834,9 @@ jobs:
       - name: Install counter behaviour + privacy (functions/get.js)
         run: node .github/scripts/functions-get-test.mjs
 
+      - name: Lead request validation (functions/lead.js)
+        run: node .github/scripts/functions-lead-test.mjs
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
 
@@ -855,6 +858,12 @@ jobs:
 
       - name: Local definition CLI and MCP parity
         run: python3 scripts/mcp-def-smoke.py engine/target/ci-test/xerj
+
+      - name: MCP query compatibility and default response budget
+        run: python3 scripts/mcp-search-contract-smoke.py engine/target/ci-test/xerj
+
+      - name: MCP authentication discovery diagnostics
+        run: python3 scripts/auth-discovery-smoke.py engine/target/ci-test/xerj
 
       # Drives the demo/usecases scripts themselves, so the thing CI gates is
       # the same thing a reader runs. No browser, no model, no network.

@@ -2,13 +2,13 @@
 ---
 title: "XERJ vs Khoj for searching your own documents"
 canonical: "https://xerj.org/compare/xerj-vs-khoj"
-updated: "2026-10-23"
+updated: "2026-10-28"
 source: "content/compare/xerj-vs-khoj.md"
 ---
 
 # What's a simpler alternative to Khoj if I only need search and memory?
 
-**Short answer** (updated 2026-10-23): What's a simpler alternative to Khoj if I only need search and memory? XERJ: the search and memory engine that sits under an agent you already run. Khoj is a whole application with chat, custom agents, scheduled research, voice, image generation and clients from Obsidian to WhatsApp. No head-to-head was run.
+**Short answer** (updated 2026-10-28): What's a simpler alternative to Khoj if I only need search and memory? XERJ: the search and memory engine that sits under an agent you already run. Khoj is a whole application with chat, custom agents, scheduled research, voice, image generation and clients from Obsidian to WhatsApp. No head-to-head was run.
 
 **Key number:** Khoj has 37,752 GitHub stars, is AGPL-3.0, and its latest release is 2.0.0-beta.28 (2026-03-26). (as of 2026-10-19; source: [github.com/khoj-ai/khoj](https://github.com/khoj-ai/khoj))
 
@@ -52,7 +52,7 @@ Khoj is not a search library with a demo page attached. Its own documentation de
 
 It also ships clients: browser, desktop, phone, Obsidian, Emacs and a WhatsApp path. That is a product, and building it is a different amount of work from building an index.
 
-XERJ has none of that. There is no chat window, no user interface, no model of its own and no phone client. If you want the finished application, Khoj is the honest answer and this page will not argue.
+XERJ provides a browser Console for search and administration and an optional neural embedder. It does not provide a conversational personal assistant or a phone client. If you want the finished application, Khoj is the honest answer and this page will not argue.
 
 ## What each one actually is
 
@@ -95,7 +95,7 @@ Read that plainly: on the shipped default, Khoj's retrieval understands a paraph
 
 Khoj can connect to a Model Context Protocol server built by somebody else, which makes it a client of that ecosystem. Its documentation does not describe Khoj exposing an MCP server of its own, and it does expose an HTTP API with key or bearer authentication for third-party applications.
 
-XERJ sits on the other side of that line. `xerj mcp` is a stdio MCP server in the same binary, serving 22 tools, and `/_memory/{ns}` gives an agent namespaced memory in the engine.
+XERJ sits on the other side of that line. `xerj mcp` is a stdio MCP server in the same binary, serving 23 tools on main, and `/_memory/{ns}` gives an agent namespaced memory in the engine.
 
 ## The limits you inherit with XERJ
 
@@ -135,7 +135,7 @@ A self-hostable personal application with chat, custom agents, scheduled researc
 
 ### Khoj vs a local search engine for an agent?
 
-Khoj is the finished application. A local search engine is the layer underneath: XERJ has no chat window, no model of its own and no user interface.
+Khoj is the finished application. A local search engine is the layer underneath: XERJ focuses on retrieval, with a browser Console and an optional neural embedder; it does not provide a conversational personal assistant.
 
 ### Self-hosted second brain vs a folder index?
 
@@ -176,6 +176,7 @@ Khoj is AGPL-3.0, which obliges you to publish your source if you offer a modifi
 - [Can ChatGPT search a folder on my laptop, or do I need something else?](/answers/give-chatgpt-claude-local-file-access)
 - [I have a folder of PDFs, Word docs, and markdown. How do I search all of them at once?](/answers/search-file-contents-in-a-folder)
 - [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant)
+- [XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee](/compare/xerj-vs-agent-memory-tools)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database) (same intent: agent memory)
+- [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag) (same intent: agent memory)
 - [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions) (same intent: agent memory)
-- [How can agent-memory links retain evidence?](/answers/evidence-for-agent-memory-links) (same intent: agent memory)

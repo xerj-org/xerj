@@ -127,7 +127,9 @@ usage · `1` any error at all (read the `error:` line before acting) · `4`
 needs a decision (gate above; answer with `--approve`, never a retry). Exit `3`
 also carries `reason=catalog-alias-sweep-failed`: the corpus **is** indexed and
 the journal committed, and only the catalog's duplicate-alias cleanup could not
-run — read `reason`, not the bare code, to tell the two apart. Exit `3` can
+run — read `reason`, not the bare code, to tell the two apart. Exit `3` with `reason=stale-resume-plan` instead carries `ok=false`: files
+added after the plan was frozen were not indexed. Read `skipped_appeared` and
+rerun with `--fresh` to rebuild that plan. Exit `3` can
 also mean a **whole dataset is missing**: if the server answers HTTP 400 to one
 dataset's mapping, that dataset's files are recorded as junk with the server's
 reason, every other dataset is indexed, and `xerj-done` carries
@@ -171,10 +173,10 @@ do not inherit a shell `PATH`. Add `"XERJ_AUTH": "ApiKey <key>"` when the node
 is not running `--insecure` — the key is `<data-dir>/admin.key`. `--url` and
 `--auth` flags override the two environment variables.
 
-Twenty-two tools: `xerj_search`, `xerj_semantic_search`, `xerj_vector_search`,
+Twenty-three tools: `xerj_search`, `xerj_semantic_search`, `xerj_vector_search`,
 `xerj_hybrid_search`, `xerj_memory_store`, `xerj_memory_recall`,
 `xerj_brain_overview`, `xerj_brain_ego`, `xerj_brain_link`, `xerj_brain_unlink`,
-`xerj_plan`, `xerj_map`, `xerj_code_search`, `xerj_index_budget`,
+`xerj_plan`, `xerj_map`, `xerj_status`, `xerj_code_search`, `xerj_index_budget`,
 `xerj_autoindex_remove`, `xerj_field_report`, `xerj_corpus_feedback`,
 `xerj_hub_find`, `xerj_hub_def`, `xerj_hub_ask`, `xerj_def`, `xerj_batch_search`. The first eleven are
 each a *thin proxy*: they build exactly the request the ES-compatible surface already accepts
@@ -253,9 +255,11 @@ ships. Four rules keep a merge gate green:
 
 - **Do not hand-edit generated HTML.** `landing/answers/**`, `landing/compare/**`
   and their `.md` twins are rendered from `content/answers/*.md` and
-  `content/compare/*.md` by `scripts/seo/build_articles.py`; `sitemap.xml` is
-  derived from the filesystem and from `git log`. Every generated file says so on
-  its first line. Edit the source, run the generator, commit the output.
+  `content/compare/*.md` by `scripts/seo/build_articles.py`. Every generated file
+  says so on its first line. Edit the source, run the generator, commit the
+  output. `sitemap.xml` is derived the same way but is **not** committed: it is
+  a deploy artifact (`deploy-pages.yml` writes it before the upload, and it is
+  gitignored), so there is nothing to run or commit for it.
 - **Never write a `.html` internal link.** Pages serves this site
   extensionless — `/product.html` 308s to `/product`. `scripts/seo/urlmap.py` is
   the single source of truth, and canonical, `og:url` and the sitemap `<loc>`

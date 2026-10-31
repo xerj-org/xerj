@@ -488,7 +488,11 @@ fn sniff_bytes(
         .filter(|l| !l.trim().is_empty())
         .collect();
 
-    let mut out = mk(classify_text(&text, &nonblank));
+    let md_named = logical_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(is_markdown_ext);
+    let mut out = mk(classify_text(&text, &nonblank, md_named));
     out.encoding = encoding;
     if out.family == Family::Csv {
         out.csv = sniff_csv_dialect(&nonblank);
@@ -503,7 +507,38 @@ fn sniff_bytes(
     if is_sql_filename(logical_path) && matches!(out.family, Family::TxtLines | Family::TxtProse) {
         out.family = Family::Code;
     }
+    // #2740: an HTML partial or a server/JS template opens with `<` and has
+    // closing tags, so the content check calls it XML, and the XML extractor
+    // junks it at the first `<%`, `&&` or unclosed `<br>`, losing the text
+    // after it. The name settles it, as it does for `.sql` above. Only an XML
+    // verdict is replaced: a full page stays HTML, and a template that reads
+    // as anything else keeps that family.
+    if out.family == Family::Xml {
+        if let Some(family) = markup_template_family(logical_path, &nonblank) {
+            out.family = family;
+        }
+    }
     Ok(out)
+}
+
+/// #2740: the family for a name that is never standalone XML. `.html` and
+/// `.htm` are HTML, read by its tolerant tokenizer. A template is text, so the
+/// code inside `<% %>`, `{{ }}` and `{% %}` stays searchable. `.vue` and
+/// `.svelte` are not here: #2732 tracks them as code. A trailing `.gz` is
+/// looked through, as [`is_sql_filename`] does, since the sniff reads the
+/// decompressed bytes.
+fn markup_template_family(path: &Path, nonblank: &[&str]) -> Option<Family> {
+    let name = path.file_name()?.to_str()?.to_ascii_lowercase();
+    let name = name.strip_suffix(".gz").unwrap_or(&name);
+    let (_, ext) = name.rsplit_once('.')?;
+    match ext {
+        "html" | "htm" => Some(Family::Html),
+        "hbs" | "handlebars" | "mustache" | "ejs" | "erb" | "jsp" | "aspx" | "cshtml" | "razor"
+        | "twig" | "jinja" | "jinja2" | "j2" | "njk" | "liquid" | "astro" | "marko" | "riot" => {
+            Some(txt_kind(nonblank))
+        }
+        _ => None,
+    }
 }
 
 /// `.sql`, or a gzipped `.sql.gz`. Case-insensitive. The dump-vs-source
@@ -1400,7 +1435,20 @@ pub fn decode_text(bytes: &[u8]) -> (String, &'static str) {
     decode(bytes)
 }
 
-fn classify_text(text: &str, nonblank: &[&str]) -> Family {
+/// Markdown extensions that conventionally carry a `---` frontmatter block.
+/// Used to settle the one case the line-shape tier cannot: `- item` bullets and
+/// `Key: value` prose are valid YAML too, so content alone cannot tell a short
+/// markdown body from a YAML document (#2447). Extension is the same signal the
+/// code branch above already trusts for "code vs prose is not reliably
+/// content-sniffable".
+fn is_markdown_ext(ext: &str) -> bool {
+    matches!(
+        ext.to_ascii_lowercase().as_str(),
+        "md" | "markdown" | "mdx" | "mdown" | "mkd" | "mkdn" | "mdwn"
+    )
+}
+
+fn classify_text(text: &str, nonblank: &[&str], md_named: bool) -> Family {
     // Email wins first: an RFC 5322 message opens with a header block whose lines
     // (`From:`/`Date:`/`Message-ID:`/…) would otherwise be misread as prose or a
     // key:value log. Gated on a STRONG header plus >=3 canonical headers so an
@@ -1444,31 +1492,50 @@ fn classify_text(text: &str, nonblank: &[&str]) -> Family {
             // frontmatter file with a single non-blank body line still went to
             // the YAML extractor, which keeps the frontmatter mapping and drops
             // that line. One line is enough to judge on its shape.
-            if !body.is_empty() && yaml_like_count(body) * 2 < body.len() {
+            if !body.is_empty() {
                 let body_text = body.join("\n");
-                // #587 item 1: classify the body by its real structured family
-                // (JSON/CSV/HTML/logs/SQL), not prose-only, so a
-                // frontmatter-over-CSV/JSON body matches its frontmatter-less
-                // twin. `classify_structured` never re-enters this
-                // YAML/frontmatter branch, so a recursive frontmatter parse
-                // cannot occur. It runs before the parse tier below because
-                // JSON *is* valid YAML — measured over 36,936 real
-                // frontmatter-shaped files, putting the parse first pulled 341
-                // JSON bodies and one XML body back into `Yaml` and undid #587
-                // item 1 for them.
-                if let Some(family) = classify_structured(&body_text, body) {
-                    return family;
+                // #2447: a markdown *name* settles the question the line tier
+                // cannot. `- item` bullets and `Key: value` prose are valid YAML
+                // too, so a short markdown body under frontmatter failed
+                // `yaml_like_count(body) * 2 < body.len()` and skipped the parse
+                // tier entirely — falling through to `leads_with_marker` below,
+                // which sent the whole file to the YAML extractor and dropped the
+                // body. Measured on six realistic short-post shapes (bullet list,
+                // link list, `Note:`/`Warning:` prose, heading + list, one-line
+                // body, plain paragraph), four classified `Yaml`; the frontmatter
+                // that every Jekyll/Hugo/Docusaurus/MkDocs/Astro page carries was
+                // enough to make a docs corpus unsearchable. A `.md`/`.mdx` file
+                // that opens with `---` has frontmatter there, not a YAML document
+                // separator, so its body decides. `classify_structured` still runs
+                // first, so a frontmatter-over-CSV/JSON body keeps its structured
+                // family (#587 item 1).
+                let body_decides = md_named || yaml_like_count(body) * 2 < body.len();
+                if body_decides {
+                    // #587 item 1: classify the body by its real structured family
+                    // (JSON/CSV/HTML/logs/SQL), not prose-only, so a
+                    // frontmatter-over-CSV/JSON body matches its frontmatter-less
+                    // twin. `classify_structured` never re-enters this
+                    // YAML/frontmatter branch, so a recursive frontmatter parse
+                    // cannot occur. It runs before the parse tier below because
+                    // JSON *is* valid YAML — measured over 36,936 real
+                    // frontmatter-shaped files, putting the parse first pulled 341
+                    // JSON bodies and one XML body back into `Yaml` and undid #587
+                    // item 1 for them.
+                    if let Some(family) = classify_structured(&body_text, body) {
+                        return family;
+                    }
+                    // #587 item 2: the line-shape test above is not enough on its
+                    // own — a genuine multi-document YAML stream whose later
+                    // document is dominated by block scalars, comments and
+                    // continuation lines fails it and was re-classified as prose,
+                    // losing its per-document key structure. Parse the body: a real
+                    // stream parses, a markdown body does not
+                    // (`parses_as_yaml_stream`).
+                    if md_named || !parses_as_yaml_stream(&body_text) {
+                        return txt_kind(body);
+                    }
+                    // else: a real YAML stream — fall through to `Family::Yaml`.
                 }
-                // #587 item 2: the line-shape test above is not enough on its
-                // own — a genuine multi-document YAML stream whose later
-                // document is dominated by block scalars, comments and
-                // continuation lines fails it and was re-classified as prose,
-                // losing its per-document key structure. Parse the body: a real
-                // stream parses, a markdown body does not (`parses_as_yaml_stream`).
-                if !parses_as_yaml_stream(&body_text) {
-                    return txt_kind(body);
-                }
-                // else: a real YAML stream — fall through to `Family::Yaml`.
             }
         }
     }
@@ -4273,7 +4340,7 @@ mod tests {
 
     fn classify(s: &str) -> Family {
         let lines: Vec<&str> = s.lines().filter(|l| !l.trim().is_empty()).collect();
-        classify_text(s, &lines)
+        classify_text(s, &lines, false)
     }
 
     #[test]
@@ -4868,7 +4935,64 @@ mod text_family_tests {
     /// through the real entry point rather than against `txt_kind` directly.
     fn classify_full(text: &str) -> Family {
         let nonblank: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
-        classify_text(text, &nonblank)
+        classify_text(text, &nonblank, false)
+    }
+
+    /// Same, as a file whose name says markdown (#2447).
+    fn classify_full_named(text: &str, md_named: bool) -> Family {
+        let nonblank: Vec<&str> = text.lines().filter(|l| !l.trim().is_empty()).collect();
+        classify_text(text, &nonblank, md_named)
+    }
+
+    /// #2447: a short markdown file with YAML frontmatter was still sniffed as
+    /// YAML, so the YAML extractor kept the frontmatter mapping and dropped the
+    /// body — a docs corpus that is mostly short pages indexed nothing searchable.
+    ///
+    /// The line tier cannot decide this on its own: `- item` bullets and
+    /// `Key: value` prose are valid YAML. All four shapes below were `Yaml`
+    /// before this change, and a frontmatter-less twin of each was prose. The
+    /// name is what settles it, exactly as the code branch settles "code vs
+    /// prose" by extension.
+    #[test]
+    fn short_markdown_with_frontmatter_is_not_yaml() {
+        let bodies = [
+            "- npm\n- pnpm\n- yarn\n",
+            "- [Install](install.md)\n- [Usage](usage.md)\n",
+            "Note: read this first\nWarning: mind the gap\n",
+            "# Steps\n\n- one\n- two\n",
+        ];
+        for body in bodies {
+            let with_frontmatter = format!("---\ntitle: A page\ntags: [a, b]\n---\n\n{body}");
+            // The content-only decision is the bug, stated here so the test
+            // carries its own before/after: bullets and `Key: value` prose are
+            // valid YAML, so nothing in the text says markdown.
+            assert_eq!(
+                classify_full_named(&with_frontmatter, false),
+                Family::Yaml,
+                "content alone reads this as YAML, body was {body:?}"
+            );
+            assert_eq!(
+                classify_full_named(&with_frontmatter, true),
+                Family::TxtProse,
+                "a .md file with frontmatter must index its body, body was {body:?}"
+            );
+        }
+    }
+
+    /// The markdown name must not swallow a genuinely structured body: the
+    /// frontmatter-over-CSV case from #587 item 1 still resolves by the body.
+    #[test]
+    fn a_markdown_name_does_not_override_a_structured_body() {
+        let csv = "---\ntitle: Team roster\n---\n\nname,role\nalice,eng\nbob,design\n";
+        assert_eq!(classify_full_named(csv, true), Family::Csv);
+    }
+
+    /// A name that does not say markdown keeps the old content-only decision, so
+    /// a real YAML stream under `---` is still YAML.
+    #[test]
+    fn a_yaml_stream_keeps_yaml_when_the_name_does_not_say_markdown() {
+        let stream = "---\napiVersion: v1\nkind: List\n---\napiVersion: v1\nkind: Pod\n";
+        assert_eq!(classify_full_named(stream, false), Family::Yaml);
     }
 
     /// #1504: `journalctl -o short-iso` output and vsftpd `xferlog` transfer
@@ -5766,5 +5890,103 @@ mod ole2_sniff_tests {
         .unwrap()
         .family;
         assert_eq!(fam, Family::Xml);
+    }
+}
+
+#[cfg(test)]
+mod template_sniff_tests {
+    use super::*;
+
+    fn family(body: &str, name: &str) -> Family {
+        sniff_bytes(body.as_bytes(), Path::new(name), Path::new(name), false)
+            .unwrap()
+            .family
+    }
+
+    /// #2740: an Angular-style partial has no `<html>` or `<body>`, so the
+    /// content check calls it XML; a `.html` or `.htm` name makes it HTML.
+    #[test]
+    fn an_html_fragment_is_html_not_xml() {
+        let fragment = "<div class=\"widget\" *ngIf=\"items.length > 0 && !loading\">\n\
+                        \x20 <input [(ngModel)]=\"query\" placeholder=\"search\">\n\
+                        \x20 <span>{{ label }}</span>\n\
+                        </div>\n";
+        assert_eq!(family(fragment, "widget.component.html"), Family::Html);
+        assert_eq!(family(fragment, "WIDGET.HTM"), Family::Html);
+        assert_eq!(family(fragment, "widget.html.gz"), Family::Html);
+        assert_eq!(family(fragment, "widget.xml"), Family::Xml);
+        let page =
+            "<!DOCTYPE html>\n<html><head><title>t</title></head><body><p>x</p></body></html>\n";
+        assert_eq!(family(page, "index.html"), Family::Html);
+    }
+
+    /// #2740: a markup-first template is text under its own name, and the
+    /// same bytes under a `.xml` name are still XML.
+    #[test]
+    fn a_markup_first_template_is_text_not_xml() {
+        let template = "<div class=\"profile\">\n\
+                        \x20 <% if @user && @user.admin? %>\n\
+                        \x20   <%= link_to \"Admin\", admin_path %>\n\
+                        \x20 <% end %>\n\
+                        \x20 {{#if author}}<h1>{{ name }}</h1>{{/if}}\n\
+                        \x20 {% for item in menu %}<a href=\"{{ item.url }}\">x</a><br>{% endfor %}\n\
+                        </div>\n";
+        assert_eq!(family(template, "profile.xml"), Family::Xml);
+        for ext in [
+            "hbs",
+            "handlebars",
+            "mustache",
+            "ejs",
+            "erb",
+            "jsp",
+            "aspx",
+            "cshtml",
+            "razor",
+            "twig",
+            "jinja",
+            "jinja2",
+            "j2",
+            "njk",
+            "liquid",
+            "astro",
+            "marko",
+            "riot",
+            "ERB",
+        ] {
+            let fam = family(template, &format!("profile.{ext}"));
+            assert!(
+                matches!(fam, Family::TxtLines | Family::TxtProse),
+                ".{ext} sniffed as {fam:?}"
+            );
+        }
+        let fam = family(template, "profile.html.erb.GZ");
+        assert!(
+            matches!(fam, Family::TxtLines | Family::TxtProse),
+            ".erb.gz sniffed as {fam:?}"
+        );
+    }
+
+    /// The name only replaces an XML verdict. A template that is a full page
+    /// keeps HTML, and one that opens with a directive keeps what it had.
+    #[test]
+    fn a_template_name_only_overrides_xml() {
+        let page = "<!DOCTYPE html>\n<html><body>{{ title }}</body></html>\n";
+        assert_eq!(family(page, "layout.hbs"), Family::Html);
+        let json = "{\n  \"name\": \"{{ app_name }}\",\n  \"port\": 8080\n}\n";
+        assert_eq!(family(json, "config.json.j2"), family(json, "config.json"));
+    }
+
+    /// Real XML keeps the XML path: data files, XAML, plain SVG. XHTML with
+    /// its `<html>` root is HTML, as before.
+    #[test]
+    fn real_xml_keeps_its_family() {
+        let xml = "<?xml version=\"1.0\"?>\n<settings>\n  <feature name=\"a\">on</feature>\n</settings>\n";
+        assert_eq!(family(xml, "settings.xml"), Family::Xml);
+        let xaml = "<Window x:Class=\"App.Main\"\n  xmlns=\"http://schemas.microsoft.com/winfx/2006/xaml/presentation\">\n  <Grid><Button Content=\"OK\"/></Grid>\n</Window>\n";
+        assert_eq!(family(xaml, "Main.xaml"), Family::Xml);
+        let svg = "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\">\n  <path d=\"M12 2L2 7z\"/>\n  <title>logo</title>\n</svg>\n";
+        assert_eq!(family(svg, "logo.svg"), Family::Xml);
+        let xhtml = "<?xml version=\"1.0\"?>\n<html xmlns=\"http://www.w3.org/1999/xhtml\">\n<body><p>x</p></body>\n</html>\n";
+        assert_eq!(family(xhtml, "page.xhtml"), Family::Html);
     }
 }

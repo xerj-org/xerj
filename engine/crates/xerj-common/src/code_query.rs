@@ -563,7 +563,9 @@ fn build_search_query(
         "query": { "bool": { "should": should }},
         // No `body` here: whole-file bodies are the token flood (measured ~9x
         // the size of the matching passage). `_passage` carries the snippet.
-        "_source": ["ax_path", "ax_locator", "line", "start_line", "language", "kind", "code", "title", "heading", "page", "cell"],
+        // `ax_paths` lists every name a deduplicated file has, so the hit can
+        // cite the live name instead of a backup copy (#2402).
+        "_source": ["ax_path", "ax_paths", "ax_locator", "line", "start_line", "language", "kind", "code", "title", "heading", "page", "cell"],
         "fields": ["_passage"]
     })
 }

@@ -2,13 +2,13 @@
 ---
 title: "RAG without a vector database: one hybrid index"
 canonical: "https://xerj.org/answers/rag-without-vector-database"
-updated: "2026-10-19"
+updated: "2026-10-28"
 source: "content/answers/rag-without-vector-database.md"
 ---
 
 # How do I build RAG without a vector database?
 
-**Short answer** (updated 2026-10-19): How do I build RAG without a vector database? Keep the inverted index and the dense vectors in one XERJ index and retrieve with one hybrid request, which fuses a BM25 sub-query and a kNN sub-query with Reciprocal Rank Fusion. No second service runs. Our 20-document capture returned d08, d04 and d10.
+**Short answer** (updated 2026-10-28): How do I build RAG without a vector database? Keep the inverted index and the dense vectors in one XERJ index and retrieve with one hybrid request, which fuses a BM25 sub-query and a kNN sub-query with Reciprocal Rank Fusion. No second service runs. Our 20-document capture returned d08, d04 and d10.
 
 **Key number:** On BEIR SciFact, hybrid RRF with the opt-in neural embedder scored nDCG@10 0.6993, above both BM25 (0.6572) and vectors alone (0.6764). (as of 2026-09-18; source: [benchmarks/beir-hybrid/results/scifact.txt](https://github.com/xerj-org/xerj/blob/main/benchmarks/beir-hybrid/results/scifact.txt))
 
@@ -161,6 +161,7 @@ One. XERJ is single-node, with no replication, no sharding and no failover, so t
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database)
 - [Hybrid search](/docs/recipes/hybrid-search)
 - [Retrieval that says not found, and cites file and line when it does answer](/answers/retrieval-that-says-not-found-with-file-line-citations)
+- [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag)
 - [Should an agent use API search or vector search?](/answers/mcp-api-search-or-vector-search) (same intent: retrieval research and eval)
 - [How does XERJ combine BM25 and kNN?](/answers/how-xerj-combines-search) (same intent: retrieval research and eval)
 - [How much better is hybrid search than BM25? Measured nDCG numbers](/answers/hybrid-search-quality-measured-ndcg) (same intent: retrieval research and eval)

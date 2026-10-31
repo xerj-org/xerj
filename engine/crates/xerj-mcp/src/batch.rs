@@ -10,23 +10,23 @@ const MAX_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
 pub(crate) fn spec() -> Value {
     json!({
         "name":"xerj_batch_search",
-        "description": "Search 1..50 IDs or questions in one call, in input order. Shares the CLI xerj batch-search adapter. Each result has its zero-based position, optional caller key, and status hits, abstain (only a complete empty search), or error. Hits carry citations: index/id plus file/line or record locator when available. This retrieves evidence, not generated answers or calibrated confidence. Use identifier plus an explicitly keyword-mapped field for exact IDs; query takes plain text or an ES query clause. One bad item never discards its siblings; identical inputs remain separate. Uses one _msearch request, plus at most one mapping read. Optional max_tokens caps the entire successful JSON response using StandardTokenizer UAX #29 words, not BPE. Budgeting removes raw hit bodies, then extra hits, retaining each item's status and at least one citation per matched item. If that minimum cannot fit, returns an actionable tool error, never truncated JSON or a false abstention. Errors are not truncated.",
+        "description": "Search 1..50 IDs or questions in one call, in input order. Shares the CLI xerj batch-search adapter. Each result has its zero-based position, optional caller key, and status hits, abstain (only a complete empty search), or error. Hits carry citations: index/id plus file/line or record locator when available. This retrieves evidence, not generated answers or calibrated confidence. Use identifier plus an explicitly keyword-mapped field for exact IDs; query takes plain text or an ES query clause. One bad item never discards its siblings; identical inputs remain separate. Uses one _msearch request, plus at most one mapping read; a response over 32 MiB is retried in halves, and an item still over it alone fails alone. Omitted or null max_tokens defaults to 8000 UAX #29 words and caps the entire successful JSON response using StandardTokenizer UAX #29 words, not BPE. Budgeting removes raw hit bodies, then extra hits, retaining each item's status and at least one citation per matched item. If that minimum cannot fit, returns an actionable tool error, never truncated JSON or a false abstention. Errors are not truncated.",
         "inputSchema":{
             "type":"object", "additionalProperties":false,
             "properties":{
                 "queries":{"type":"array","minItems":1,"maxItems":50,
-                    "description":"Ordered queries. Duplicate keys are allowed; position is authoritative. Entire input is limited to 1 MiB.",
-                    "items":{"type":"object","additionalProperties":false,"properties":{
+                    "description":"Ordered queries. A plain string item is shorthand for {\"query\": <string>}. Duplicate keys are allowed; position is authoritative. Entire input is limited to 1 MiB.",
+                    "items":{"anyOf":[{"type":"string","minLength":1},{"type":"object","additionalProperties":false,"properties":{
                         "key":{"type":"string","description":"Optional correlation key, at most 256 UTF-8 bytes."},
                         "query":{"oneOf":[{"type":"string","minLength":1},{"type":"object"}],
                             "description":"Plain text or ES query clause. Cannot be combined with identifier/field."},
                         "identifier":{"type":"string","minLength":1,"description":"Exact value, used verbatim in a term query; requires field."},
                         "field":{"type":"string","minLength":1,"description":"Flat keyword field for identifier. Must be mapped as keyword wherever present; unreadable, absent or conflicting mappings fail this item."}
-                    }, "oneOf":[{"required":["query"]},{"required":["identifier","field"]}]}},
+                    }, "oneOf":[{"required":["query"]},{"required":["identifier","field"]}]}]}},
                 "index":{"type":"string","description":"Index or pattern; alternative to prefix. Defaults to ax-*."},
                 "prefix":{"type":"string","description":"Autoindex prefix, e.g. project searches project-*. Cannot combine with index."},
                 "size":{"type":"integer","minimum":1,"maximum":50,"default":3,"description":"Maximum hits per item."},
-                "max_tokens":{"type":"integer","minimum":32,"description":format!("Whole-response budget counted with {} (not BPE); minimum 32. A successful response NEVER exceeds it. Preserves ordered item outcomes and at least one citation per matched item, removing raw bodies first. Refuses if that minimum cannot fit; split the batch or increase the budget. Errors are outside this budget.", token_budget::TOKENIZER_NAME)}
+                "max_tokens":{"type":"integer","minimum":32,"default":token_budget::DEFAULT_MAX_TOKENS,"description":format!("Whole-response budget counted with {} (not BPE or a byte cap); minimum 32. Omitted or null defaults to 8000 words; pass a larger integer for more. A successful response NEVER exceeds it. Preserves ordered item outcomes and at least one citation per matched item, removing raw bodies first. Refuses if that minimum cannot fit; split the batch or increase the budget. Errors are outside this budget.", token_budget::TOKENIZER_NAME)}
             },"required":["queries"]
         }
     })
@@ -281,7 +281,53 @@ fn item_result(
     base
 }
 
-async fn msearch(ctx: &Ctx, ndjson: String) -> Result<Vec<Value>, String> {
+/// Why one `_msearch` round trip failed. Only an oversized body is worth
+/// retrying smaller; every other failure belongs to the whole request.
+enum MsearchError {
+    TooLarge,
+    Failed(String),
+}
+
+/// #2694 — one search per entry (its header and body lines), answered in
+/// entry order. A response past [`MAX_RESPONSE_BYTES`] is retried as two
+/// halves, so large records cost the items that carry them, not the batch;
+/// an entry still too large on its own fails alone. Any other failure fails
+/// the whole call, as a single `_msearch` always did.
+async fn msearch_split(
+    ctx: &Ctx,
+    entries: &[String],
+) -> Result<Vec<Result<Value, String>>, String> {
+    let mut out: Vec<Option<Result<Value, String>>> = vec![None; entries.len()];
+    let mut ranges = vec![(0, entries.len())];
+    while let Some((start, end)) = ranges.pop() {
+        match msearch(ctx, entries[start..end].concat()).await {
+            Ok(responses) if responses.len() == end - start => {
+                for (slot, response) in out[start..end].iter_mut().zip(responses) {
+                    *slot = Some(Ok(response));
+                }
+            }
+            Ok(_) => return Err("batch endpoint returned the wrong number of responses; item correspondence cannot be trusted".into()),
+            Err(MsearchError::TooLarge) if end - start > 1 => {
+                let mid = start + (end - start) / 2;
+                // Popped last-in first: the lower half runs first.
+                ranges.push((mid, end));
+                ranges.push((start, mid));
+            }
+            Err(MsearchError::TooLarge) => {
+                out[start] = Some(Err(
+                    "this item's search response alone exceeds 32 MiB; lower size or narrow the query".into(),
+                ));
+            }
+            Err(MsearchError::Failed(e)) => return Err(e),
+        }
+    }
+    Ok(out
+        .into_iter()
+        .map(|slot| slot.expect("every range is answered or split"))
+        .collect())
+}
+
+async fn msearch(ctx: &Ctx, ndjson: String) -> Result<Vec<Value>, MsearchError> {
     let url = format!("{}/_msearch", ctx.base_url);
     let mut req = ctx
         .client
@@ -291,15 +337,18 @@ async fn msearch(ctx: &Ctx, ndjson: String) -> Result<Vec<Value>, String> {
     if let Some(auth) = &ctx.auth {
         req = req.header("Authorization", auth);
     }
-    let mut resp = req
-        .send()
-        .await
-        .map_err(|e| crate::transport_failure_text(&ctx.base_url, &url, &e))?;
+    let mut resp = req.send().await.map_err(|e| {
+        MsearchError::Failed(crate::transport_failure_text(&ctx.base_url, &url, &e))
+    })?;
     let status = resp.status();
     let mut bytes = Vec::new();
-    while let Some(chunk) = resp.chunk().await.map_err(|e| crate::error_detail(&e))? {
+    while let Some(chunk) = resp
+        .chunk()
+        .await
+        .map_err(|e| MsearchError::Failed(crate::error_detail(&e)))?
+    {
         if bytes.len().saturating_add(chunk.len()) > MAX_RESPONSE_BYTES {
-            return Err("batch response exceeds 32 MiB; reduce size or split the batch".into());
+            return Err(MsearchError::TooLarge);
         }
         bytes.extend_from_slice(&chunk);
     }
@@ -308,17 +357,19 @@ async fn msearch(ctx: &Ctx, ndjson: String) -> Result<Vec<Value>, String> {
         if let Some(proxied) =
             crate::proxy_status_failure(&ctx.base_url, &url, status.as_u16(), &body)
         {
-            return Err(proxied);
+            return Err(MsearchError::Failed(proxied));
         }
-        return Err(format!("batch endpoint returned HTTP {status}: {body}"));
+        return Err(MsearchError::Failed(format!(
+            "batch endpoint returned HTTP {status}: {body}"
+        )));
     }
-    let response: Value =
-        serde_json::from_slice(&bytes).map_err(|_| "batch endpoint returned invalid JSON")?;
+    let response: Value = serde_json::from_slice(&bytes)
+        .map_err(|_| MsearchError::Failed("batch endpoint returned invalid JSON".into()))?;
     response
         .get("responses")
         .and_then(Value::as_array)
         .cloned()
-        .ok_or_else(|| "batch endpoint returned no responses array".into())
+        .ok_or_else(|| MsearchError::Failed("batch endpoint returned no responses array".into()))
 }
 
 /// Never discard an item's outcome to meet a budget. At least one citation
@@ -393,6 +444,14 @@ pub(crate) async fn execute(ctx: &Ctx, args: &Value) -> Result<String, String> {
         limit,
         items,
     } = envelope(args)?;
+    // #2497: a bare string item is shorthand for {"query": <string>}.
+    let items: Vec<Value> = items
+        .iter()
+        .map(|item| match item {
+            Value::String(s) => json!({ "query": s }),
+            other => other.clone(),
+        })
+        .collect();
     // Validate locally before any I/O; invalid items do not sink siblings.
     let validation: Vec<_> = items.iter().map(validate_item).collect();
     let needs_mapping = items.iter().zip(&validation).any(|(item, valid)| {
@@ -410,17 +469,14 @@ pub(crate) async fn execute(ctx: &Ctx, args: &Value) -> Result<String, String> {
         .collect();
     let mut pending = Vec::new();
     let mut batch_error = None;
-    let mut ndjson = String::new();
+    let mut entries = Vec::new();
     for (i, item) in items.iter().enumerate() {
         let built = validation[i]
             .clone()
             .and_then(|()| item_body(item, &index, size, mapping.as_ref()));
         match built {
             Ok(body) => {
-                ndjson.push_str(&json!({"index":index}).to_string());
-                ndjson.push('\n');
-                ndjson.push_str(&body.to_string());
-                ndjson.push('\n');
+                entries.push(format!("{}\n{}\n", json!({"index":index}), body));
                 pending.push(i);
             }
             Err(message) => {
@@ -432,23 +488,25 @@ pub(crate) async fn execute(ctx: &Ctx, args: &Value) -> Result<String, String> {
         }
     }
     if !pending.is_empty() {
-        match msearch(ctx, ndjson).await {
-            Ok(responses) if responses.len() == pending.len() => {
+        match msearch_split(ctx, &entries).await {
+            Ok(responses) => {
                 for (i, response) in pending.into_iter().zip(responses) {
-                    results[i] = item_result(
-                        results[i].clone(),
-                        response,
-                        &items[i],
-                        size,
-                        mapping.as_ref(),
-                    );
+                    results[i] = match response {
+                        Ok(response) => item_result(
+                            results[i].clone(),
+                            response,
+                            &items[i],
+                            size,
+                            mapping.as_ref(),
+                        ),
+                        Err(message) => failed(
+                            results[i].clone(),
+                            json!({"reason":"response_too_large","message":message}),
+                        ),
+                    };
                 }
             }
-            other => {
-                let message = match other {
-                    Ok(_) => "batch endpoint returned the wrong number of responses; item correspondence cannot be trusted".to_string(),
-                    Err(e) => e,
-                };
+            Err(message) => {
                 for i in pending {
                     results[i] = failed(
                         results[i].clone(),

@@ -1,22 +1,22 @@
 ---
 title: "A local search tool for Codex and Cursor"
 h1: "Search tool for a Codex agent, on the files you have"
-description: "xerj init writes the MCP entry for Claude Code, Cursor and Codex when those folders exist. A 2026-10-20 tools/list from xerj mcp returned 17 tools."
+description: "xerj init writes the MCP entry for Claude Code, Cursor and Codex when those folders exist. On main, xerj mcp serves 23 tools, or 20 with no hub key."
 slug: "local-search-mcp-for-codex-and-cursor"
 cluster: "Agent access and memory"
 question: "Search tool for a Codex agent"
 intent: "how-to"
 published: "2026-10-20"
-updated: "2026-10-20"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
 structured_data: [faq]
 agent_prompt: "Read https://xerj.org/llms.txt. Start one local node. In a project that already has .codex and .cursor, run xerj init with the node URL. Restart the agent. Call xerj_search only after tools/list shows it. xerj mcp does not start a node."
-answer: "A search tool for a Codex agent starts with `xerj init`. The command writes the MCP entry for Claude Code, and it writes Cursor and Codex only when those folders already exist. Codex reads the entry in trusted projects only. On 2026-10-20 `xerj mcp` returned 17 tools from a running node."
-key_fact: "xerj mcp tools/list returned 17 tools from the running node."
-key_fact_source: "benchmarks/agent-queries-2026-10-20/05-tool-names.txt"
-key_fact_date: "2026-10-20"
+answer: "A search tool for a Codex agent starts with `xerj init`. The command writes the MCP entry for Claude Code, and it writes Cursor and Codex only when those folders already exist. Codex reads the entry in trusted projects only. On main `xerj mcp` serves 23 tools from a running node."
+key_fact: "On main xerj mcp serves 23 tools, or 20 in a build with no hub key."
+key_fact_source: "landing/docs/agents/schemas/mcp-tools.json"
+key_fact_date: "2026-10-28"
 intent_group: "Agent access and memory"
 queries:
   - "search tool for codex agent"
@@ -30,7 +30,7 @@ commands:
   - cmd: "xerj init --url http://127.0.0.1:9217 --disable-feedback"
     note: "Run inside a project that already has .codex and .cursor. The capture wrote both configs."
   - cmd: "xerj mcp --url http://127.0.0.1:9217 --disable-feedback"
-    note: "stdio MCP. tools/list on this binary returned 17 tools."
+    note: "stdio MCP. On main it serves 23 tools, or 20 with no hub key."
 links_out:
   - "give-chatgpt-claude-local-file-access"
   - "code-search-mcp-for-claude-code"
@@ -40,6 +40,8 @@ evidence:
     source: "benchmarks/agent-queries-2026-10-20/05-init-stdout.txt"
   - claim: "tools/list returned 17 tools from xerj mcp v1.0.0-rc.97."
     source: "benchmarks/agent-queries-2026-10-20/05-tool-names.txt"
+  - claim: "On main xerj mcp serves 23 tools, or 20 in a build with no hub key."
+    source: "landing/docs/agents/schemas/mcp-tools.json"
   - claim: "Codex config is read for trusted projects only."
     source: "engine/crates/xerj-autoindex/src/init.rs:221"
 og_image: "og/answers-local-search-mcp-for-codex-and-cursor.png"
@@ -52,12 +54,12 @@ faq:
   - q: "Does init configure Windsurf and Cline?"
     a: "It prints the entry and tells you to copy it. It does not write their config files."
   - q: "How many tools does xerj mcp serve?"
-    a: "17 on this binary, from a live `tools/list`. The count includes the hub tools. Do not copy an old list of 13."
+    a: "23 on main, or 20 in a build with no hub key. The count includes the 3 hub tools. The rc.97 capture on this page returned 17, so read `tools/list` from your own binary."
   - q: "Does xerj mcp start the node?"
     a: "No. Start the node, then run `xerj mcp`. The handshake can succeed and every tool call can still fail if nothing is listening."
 ---
 
-**TL;DR** — A search tool for a Codex agent starts with `xerj init`. The command writes the MCP entry for Claude Code, and it writes Cursor and Codex only when those folders already exist. Codex reads the entry in trusted projects only. On 2026-10-20 `xerj mcp` returned 17 tools from a running node.
+**TL;DR**: A search tool for a Codex agent starts with `xerj init`. The command writes the MCP entry for Claude Code, and it writes Cursor and Codex only when those folders already exist. Codex reads the entry in trusted projects only. On main `xerj mcp` serves 23 tools from a running node.
 
 XERJ is a new way for AI to search for data.
 
@@ -89,7 +91,7 @@ xerj mcp --url http://127.0.0.1:9217 --disable-feedback
 
 `xerj mcp` talks to the node. It does not start one. Agents that read `https://xerj.org/llms.txt` before the first call get the field names and the caveats in that file.
 
-The capture sent MCP `initialize` and `tools/list` to `xerj mcp`. The server named itself `xerj-mcp` version `1.0.0-rc.97` and returned 17 tools. The first is `xerj_search`. Codex itself was not installed on the capture machine, so this is the tool list Codex would be handed, not a Codex session.
+The capture sent MCP `initialize` and `tools/list` to `xerj mcp`. The server named itself `xerj-mcp` version `1.0.0-rc.97` and returned 17 tools. The first is `xerj_search`. On main the server serves 23. Codex itself was not installed on the capture machine, so this is the tool list Codex would be handed, not a Codex session.
 
 ## Measured on 2026-10-20
 
@@ -97,7 +99,7 @@ The capture sent MCP `initialize` and `tools/list` to `xerj mcp`. The server nam
 |---|---|
 | `xerj init` with `.cursor/` and `.codex/` | Wrote both MCP configs and appended Codex |
 | Windsurf, Claude Desktop, Cline | Printed only. No config file written |
-| `tools/list` | 17 tools, version 1.0.0-rc.97 |
+| `tools/list` | 17 tools, version 1.0.0-rc.97 (23 on main) |
 | Codex process | Not run. No Codex install on the machine |
 
 ## When not to use XERJ

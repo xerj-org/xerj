@@ -7,7 +7,7 @@ cluster: "Answers for coding agents"
 question: "Is there a local code search MCP for Claude Code that uses fewer tokens than grep?"
 intent: "tool-selection"
 published: "2026-10-19"
-updated: "2026-10-23"
+updated: "2026-10-28"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -42,8 +42,8 @@ evidence:
     source: "benchmarks/agent-intents-2026-10-19/01-rg-redirect.txt"
   - claim: "Wall times 8 to 23 ms for xerj search, 5 to 7 ms for rg"
     source: "benchmarks/agent-intents-2026-10-19/README.md"
-  - claim: "MCP tools/list returns 17 tools"
-    source: "benchmarks/agent-intents-2026-10-19/00-mcp-tools-list.json"
+  - claim: "On main xerj mcp serves 23 tools, or 20 in a build with no hub key"
+    source: "landing/docs/agents/schemas/mcp-tools.json"
   - claim: "2.7 times fewer output tokens, 9,982 vs 26,477; idle 8% CPU and 8.3 GB vs Zoekt 0.03% and 119 MB"
     source: "landing/benchmarks/index.html"
   - claim: "--embed-mode neural downloads all-MiniLM-L6-v2, about 90 MB; lexical by default"
@@ -55,11 +55,13 @@ links_out:
   - "/compare/xerj-vs-ripgrep-for-code-agents"
   - "/compare/xerj-vs-vector-database"
   - "/benchmarks/index.html"
+  - "/answers/search-jupyter-notebook-cells"
+  - "/compare/xerj-vs-localsynapse"
 faq:
   - q: "Is there a local code search MCP for Claude Code that uses fewer tokens than grep?"
     a: "Yes. xerj runs on your machine, indexes the repository once and serves the index through `xerj mcp`. On psf/requests a ranked answer was 1,303 bytes where `rg -n -i redirect` printed 25,150 bytes."
   - q: "MCP server grep alternative with fewer tokens: which tools does xerj expose?"
-    a: "The rc.97 server lists 17 tools in `tools/list`, including `xerj_search`, `xerj_code_search`, `xerj_map` and the three hub tools. Run `xerj init` in the project to register it."
+    a: "On main `xerj mcp` serves 23 tools, or 20 in a build with no hub key, including `xerj_search`, `xerj_code_search`, `xerj_map` and the three hub tools. Run `xerj init` in the project to register it."
   - q: "Is xerj faster than ripgrep?"
     a: "Not per call. Two sessions of five runs on psf/requests took 8 to 23 ms for `xerj search` and 5 to 7 ms for `rg`. The saving is in what the agent reads afterwards, not in wall time."
   - q: "Does it understand code or only words?"
@@ -155,7 +157,7 @@ The ratio is 19 times fewer bytes for the search, measured once on one repositor
 
 | Tool | Runs locally | Ranked results | file:line | MCP server | Setup |
 | --- | --- | --- | --- | --- | --- |
-| xerj | yes | yes, BM25 | yes | yes, 22 tools | install, start node, index once |
+| xerj | yes | yes, BM25 | yes | yes, 23 tools | install, start node, index once |
 | ripgrep | yes | no, every match | yes | no | none |
 | Zoekt | yes | yes | yes | no | index server |
 | GitHub code search | no | yes | yes | no | repo on GitHub, API limits |

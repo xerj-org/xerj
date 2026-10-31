@@ -88,6 +88,12 @@ pub struct RemovePlan {
     kept_indices: Vec<Kept>,
     rows: Vec<Row>,
     kept_rows: Vec<Row>,
+    /// Live `{prefix}-*` indices that no catalog row and no resume journal
+    /// names, found only when the plan is otherwise empty (#2405). Listed,
+    /// and deleted only with [`RemoveRequest::uncataloged`].
+    uncataloged: Vec<LiveIndex>,
+    /// This plan deletes `uncataloged` (the caller passed `--uncataloged`).
+    uncataloged_selected: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -133,6 +139,13 @@ pub struct RemoveRequest {
     /// prefix) is always removed after a successful delete; this one is too,
     /// because the default hash cannot find a journal the operator moved.
     pub state_dir: Option<PathBuf>,
+    /// `--uncataloged`: when the prefix has no catalog run and no unfinished
+    /// resume journal, delete the live `{prefix}-*` indices that no catalog
+    /// row names (#2405). A build killed before finalize whose journal is
+    /// gone (another machine, another HOME, a discarded state dir) leaves
+    /// exactly that. Without this flag those indices are only listed: a
+    /// `{prefix}-*` index nothing names is not assumed to be autoindex's.
+    pub uncataloged: bool,
 }
 
 pub struct RemoveReport {
@@ -158,9 +171,23 @@ pub fn execute(req: RemoveRequest) -> Result<RemoveReport> {
         }
     }
     let live = fetch_live(&es, &mentioned)?;
-    let plan = plan_remove(&req.prefix, req.root.as_deref(), &docs, &live, &aborted);
+    let mut plan = plan_remove(&req.prefix, req.root.as_deref(), &docs, &live, &aborted);
+    if plan.empty && req.root.is_none() {
+        // Best effort: a failed listing keeps the old "nothing to remove".
+        let names =
+            uncataloged_index_names(&es, &req.prefix, &docs, &mentioned).unwrap_or_default();
+        if !names.is_empty() {
+            plan.uncataloged = fetch_live(&es, &names)?;
+            if req.uncataloged {
+                select_uncataloged(&mut plan);
+            }
+        }
+    }
     if plan.needs_root || plan.root_not_found || plan.empty {
-        let code = if plan.empty || plan.root_not_found {
+        let code = if plan.empty && !plan.uncataloged.is_empty() {
+            // A decision is required: `--uncataloged` names these indices.
+            EXIT_NEEDS_DECISION
+        } else if plan.empty || plan.root_not_found {
             1
         } else {
             EXIT_NEEDS_DECISION
@@ -620,6 +647,8 @@ pub fn plan_remove(
         kept_indices,
         rows,
         kept_rows,
+        uncataloged: Vec::new(),
+        uncataloged_selected: false,
     }
 }
 
@@ -1053,6 +1082,68 @@ fn index_names_of(docs: &[CatalogDoc], prefix: &str) -> BTreeSet<String> {
     names
 }
 
+/// Live `{prefix}-*` indices that no catalog row read for this command names
+/// (dataset rows of every prefix, run edges, correlation sides), that are not
+/// a longer sibling prefix's, and that `remove` may delete (#2405).
+fn uncataloged_index_names(
+    es: &Es,
+    prefix: &str,
+    docs: &[CatalogDoc],
+    mentioned: &BTreeSet<String>,
+) -> Result<BTreeSet<String>> {
+    let live = es.cat_indices_json(&format!("{prefix}-*"))?;
+    let refs: Vec<&CatalogDoc> = docs.iter().collect();
+    Ok(uncataloged_among(prefix, &live, &refs, mentioned))
+}
+
+fn uncataloged_among(
+    prefix: &str,
+    live: &[String],
+    docs: &[&CatalogDoc],
+    mentioned: &BTreeSet<String>,
+) -> BTreeSet<String> {
+    let siblings = sibling_prefixes_of(docs, prefix);
+    let mut claimed: BTreeSet<String> = mentioned.clone();
+    for doc in docs {
+        for key in ["index_name", "a_index", "b_index"] {
+            if let Some(name) = doc.source.get(key).and_then(Value::as_str) {
+                claimed.insert(name.to_string());
+            }
+        }
+        if let Some(name) = edges_index(&doc.source) {
+            claimed.insert(name);
+        }
+        if let Some(plan) = doc.source.get("plan") {
+            collect_dataset_indices(plan, &mut claimed);
+        }
+    }
+    live.iter()
+        .filter(|name| deletable_index(name))
+        .filter(|name| !name.starts_with('.'))
+        .filter(|name| index_owned_by_prefix(name, prefix, &siblings))
+        .filter(|name| !claimed.contains(*name))
+        .cloned()
+        .collect()
+}
+
+/// Turn an empty plan into one that deletes its uncataloged indices.
+fn select_uncataloged(plan: &mut RemovePlan) {
+    plan.indices = plan
+        .uncataloged
+        .iter()
+        .map(|live| PlannedIndex {
+            name: live.name.clone(),
+            live_docs: Some(live.docs),
+            store_bytes: Some(live.store_bytes),
+            record_count: 0,
+            catalog_bytes: 0,
+            orphan: true,
+        })
+        .collect();
+    plan.uncataloged_selected = true;
+    plan.empty = plan.indices.is_empty();
+}
+
 fn fetch_catalog(es: &Es, prefix: &str) -> Result<Vec<CatalogDoc>> {
     let mut docs = Vec::new();
     docs.extend(search_kind(es, json!({"term": {"doc_kind": "run"}}))?);
@@ -1385,6 +1476,11 @@ fn plan_body(plan: &RemovePlan, exit_code: i32, deleted: bool, error: Option<Str
                 row.doc_kind != "run" || plan.roots.iter().any(|g| g.display == row.root || g.key == root_key(&row.root))
             }).map(row_json).collect::<Vec<_>>(),
         },
+        "uncataloged": plan.uncataloged.iter().map(|idx| json!({
+            "name": idx.name,
+            "docs": idx.docs,
+            "store_bytes": idx.store_bytes,
+        })).collect::<Vec<_>>(),
         "error": error,
     })
 }
@@ -1432,6 +1528,23 @@ fn summary_text(plan: &RemovePlan, exit_code: i32, deleted: bool, error: Option<
         lines.push(
             "error: --root does not match a folder under this prefix. Nothing was deleted.".into(),
         );
+    } else if plan.empty && !plan.uncataloged.is_empty() {
+        lines.push(format!(
+            "no resume journal under this prefix either. These live {}-* indices are named by \
+             no catalog row (a build that never reached finalize, or indices made by hand):",
+            plan.prefix
+        ));
+        for idx in &plan.uncataloged {
+            lines.push(format!(
+                "  index {}  live docs {}  store {}b",
+                idx.name, idx.docs, idx.store_bytes
+            ));
+        }
+        lines.push(format!(
+            "Nothing was deleted. To delete exactly these, rerun:\n  xerj autoindex remove \
+             --prefix {} --uncataloged --yes",
+            shell_quote(&plan.prefix)
+        ));
     } else if plan.empty {
         lines.push("error: nothing under this prefix to remove. Nothing was deleted.".into());
     } else {
@@ -1448,7 +1561,9 @@ fn summary_text(plan: &RemovePlan, exit_code: i32, deleted: bool, error: Option<
                 .store_bytes
                 .map(|n| format!("{n}b"))
                 .unwrap_or_else(|| "unknown".into());
-            let orphan = if idx.orphan {
+            let orphan = if plan.uncataloged_selected {
+                "  no catalog row, no resume journal"
+            } else if idx.orphan {
                 "  aborted build, no catalog run"
             } else {
                 ""
@@ -1795,6 +1910,7 @@ mod tests {
             yes: false,
             prompt: false,
             state_dir: None,
+            uncataloged: false,
         })
         .expect("plan");
         assert_eq!(report.exit_code, EXIT_NEEDS_DECISION, "{}", report.summary);
@@ -1828,6 +1944,7 @@ mod tests {
             yes: true,
             prompt: false,
             state_dir: None,
+            uncataloged: false,
         })
         .expect("plan");
         assert_eq!(report.exit_code, EXIT_NEEDS_DECISION, "{}", report.summary);
@@ -1856,6 +1973,7 @@ mod tests {
             yes: true,
             prompt: false,
             state_dir: None,
+            uncataloged: false,
         })
         .expect("remove");
         assert_eq!(report.exit_code, 0, "{}\n{}", report.summary, report.body);
@@ -1888,9 +2006,101 @@ mod tests {
         );
     }
 
+    /// #2405: a build killed before finalize, with its journal gone, leaves
+    /// live `{prefix}-*` indices and no catalog row. `remove --prefix` used to
+    /// say "nothing under this prefix" and delete nothing.
+    #[test]
+    fn uncataloged_indices_are_listed_and_deleted_only_with_the_opt_in() {
+        let other = vec![
+            run("run:o", "zq-2", "/data/o", "2026-01-01T00:00:00Z"),
+            dataset("ds:zq-2:docs", "zq-2-docs", "docs", "o", 1, 1),
+        ];
+        let live = ["zq-docs", "zq-code", "zq-2-docs"];
+        let request = |url: String, uncataloged: bool| RemoveRequest {
+            url,
+            api_key: None,
+            prefix: "zq".into(),
+            root: None,
+            yes: true,
+            prompt: false,
+            state_dir: None,
+            uncataloged,
+        };
+
+        let (url, log) = spawn_catalog_server_with(&other, &live);
+        let report = execute(request(url, false)).expect("plan");
+        assert_eq!(report.exit_code, EXIT_NEEDS_DECISION, "{}", report.summary);
+        assert_eq!(report.body["deleted"], false);
+        let listed: Vec<&str> = report.body["uncataloged"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v["name"].as_str().unwrap())
+            .collect();
+        assert_eq!(listed, vec!["zq-code", "zq-docs"], "{}", report.summary);
+        assert!(
+            report
+                .summary
+                .contains("xerj autoindex remove --prefix zq --uncataloged --yes"),
+            "{}",
+            report.summary
+        );
+        let calls = log.lock().unwrap().clone();
+        assert!(
+            calls.iter().all(|c| !c.starts_with("DELETE ")),
+            "listing is not deleting: {calls:?}"
+        );
+
+        let (url, log) = spawn_catalog_server_with(&other, &live);
+        let report = execute(request(url, true)).expect("remove");
+        assert_eq!(report.exit_code, 0, "{}", report.summary);
+        assert_eq!(report.body["deleted"], true);
+        let calls = log.lock().unwrap().clone();
+        let deletes: Vec<&String> = calls.iter().filter(|c| c.starts_with("DELETE ")).collect();
+        assert_eq!(
+            deletes,
+            vec!["DELETE /zq-code", "DELETE /zq-docs"],
+            "the sibling prefix's cataloged index stays: {calls:?}"
+        );
+    }
+
+    #[test]
+    fn uncataloged_skips_claimed_sibling_dotted_and_catalog_indices() {
+        let docs = [
+            run("run:o", "zq-2", "/data/o", "2026-01-01T00:00:00Z"),
+            dataset("ds:other:x", "zq-claimed", "x", "o", 1, 1),
+        ];
+        let refs: Vec<&CatalogDoc> = docs.iter().collect();
+        let live: Vec<String> = [
+            "zq-docs",
+            "zq-claimed",
+            "zq-2-docs",
+            CATALOG_INDEX,
+            ".zq-hidden",
+            "zqx-docs",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+        let got = uncataloged_among("zq", &live, &refs, &BTreeSet::new());
+        assert_eq!(
+            got.into_iter().collect::<Vec<_>>(),
+            vec!["zq-docs".to_string()]
+        );
+    }
+
     fn spawn_catalog_server(
         docs: &[CatalogDoc],
     ) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
+        spawn_catalog_server_with(docs, &[])
+    }
+
+    /// Like [`spawn_catalog_server`], and `GET /_cat/indices/...` lists `live`.
+    fn spawn_catalog_server_with(
+        docs: &[CatalogDoc],
+        live: &[&str],
+    ) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
+        let cat = Value::Array(live.iter().map(|n| json!({"index": n})).collect()).to_string();
         use std::io::{Read, Write};
         use std::net::TcpListener;
         use std::sync::{Arc, Mutex};
@@ -1920,7 +2130,7 @@ mod tests {
                         Ok(n) => {
                             buf.extend_from_slice(&tmp[..n]);
                             while let Some((head, body)) = take_http(&mut buf) {
-                                let resp = answer(&head, &body, &catalog, &log_thread);
+                                let resp = answer(&head, &body, &catalog, &cat, &log_thread);
                                 if stream.write_all(resp.as_bytes()).is_err() {
                                     return;
                                 }
@@ -1965,6 +2175,7 @@ mod tests {
         head: &str,
         body: &[u8],
         catalog: &str,
+        cat: &str,
         log: &std::sync::Arc<std::sync::Mutex<Vec<String>>>,
     ) -> String {
         let req = head.lines().next().unwrap_or("");
@@ -1980,6 +2191,8 @@ mod tests {
             "{}".into()
         } else if path.contains("_search") {
             catalog.to_string()
+        } else if path.starts_with("/_cat/indices") {
+            cat.to_string()
         } else if path.ends_with("/_stats") {
             let name = path.trim_start_matches('/').trim_end_matches("/_stats");
             let (docs, bytes) = if name == "ax-only-a" {
@@ -2324,6 +2537,7 @@ mod tests {
             yes: true,
             prompt: false,
             state_dir: Some(state.path().to_path_buf()),
+            uncataloged: false,
         })
         .expect("remove");
         assert_eq!(report.exit_code, 0, "{}\n{}", report.summary, report.body);

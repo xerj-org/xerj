@@ -47,8 +47,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # <lastmod> comes from `git log -1 --format=%cs -- <file>`; a shallow
-          # clone would silently degrade every date to the filesystem mtime.
+          # <lastmod> comes from `git log --date=format-local` with TZ=UTC
+          # (`urlmap.DateSource`); a shallow clone would make every file look
+          # added at the boundary and silently degrade every date to mtime.
           fetch-depth: 0
 
       - uses: actions/setup-python@v5
@@ -66,19 +67,39 @@ jobs:
       - name: Date-source unit tests (full, shallow, untracked, no repo)
         run: python3 scripts/seo/test_urlmap.py
 
+      # HTTP is mocked; the post-deploy probe itself is never run in CI.
+      - name: Offline canonical-verifier unit tests
+        run: python3 scripts/seo/test_verify_live.py
+
       # Fixture HTTP server only: production verification runs after deploy.
       - name: Agent-discovery delivery regressions
         run: python3 scripts/seo/test_verify_agent_discovery.py
+
+      # The audit's <lastmod> must be the generator's date, or a freshly built
+      # sitemap reports itself stale; this also exercises the in-memory build
+      # used when landing/sitemap.xml (a deploy artifact) is absent.
+      - name: Audit date unit tests
+        run: python3 scripts/seo/test_audit_dates.py
 
       # The field report has its own section, ahead of Optional, and the
       # homepage prompt asks before sending.
       - name: Field-report section and permission line
         run: python3 scripts/seo/test_llms_field_report.py
 
+      - name: Public skill discovery metadata and digest
+        run: |
+          python3 scripts/seo/test_build_skills.py
+          python3 scripts/seo/build_skills.py --check
+
       - name: generated articles are current
         run: python3 scripts/seo/build_articles.py --check
 
-      - name: sitemap.xml is generated, not hand-edited
+      # sitemap.xml is a deploy artifact: `Deploy site (Cloudflare Pages)` runs
+      # `gen_sitemap.py --write` on a full checkout before uploading landing/,
+      # and no copy is committed. The tools that inspect it (`seo_lint.py`,
+      # `audit.py`, `verify_live.py`) build it from the tree when the file is
+      # absent, so this step is the gate on the derivation itself.
+      - name: sitemap derivation is valid
         run: python3 scripts/seo/gen_sitemap.py --check
 
       - name: every <head> matches the generator

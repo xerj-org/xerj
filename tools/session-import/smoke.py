@@ -24,6 +24,7 @@ def run(binary, arguments, env, work, expected=0):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', type=Path, required=True)
+    parser.add_argument('--format', choices=('claude-code', 'codex'), default='claude-code')
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
     env = {k: v for k, v in os.environ.items() if not k.startswith('XERJ_')
@@ -32,11 +33,12 @@ def main():
     with tempfile.TemporaryDirectory(prefix='xerj-sessions-smoke-') as temp:
         work = Path(temp)
         source = work / 'session.jsonl'
-        source.write_bytes((ROOT / 'engine/crates/xerj-autoindex/tests/fixtures/claude-session.jsonl').read_bytes())
+        fixture = 'codex-session.jsonl' if args.format == 'codex' else 'claude-session.jsonl'
+        source.write_bytes((ROOT / 'engine/crates/xerj-autoindex/tests/fixtures' / fixture).read_bytes())
         exports = work / 'export'
         exports.mkdir()
         output = exports / 'records.jsonl'
-        command = ['sessions', 'import', '--format', 'claude-code', '--input', str(source), '--output', str(output)]
+        command = ['sessions', 'import', '--format', args.format, '--input', str(source), '--output', str(output)]
         imported = json.loads(run(binary, command, env, work).stdout)
         assert imported['records'] == 2, imported
         safe = output.read_bytes()
@@ -134,12 +136,15 @@ def main():
                 assert 'owner@example.com' not in json.dumps(stored)
                 assert 'DO_NOT_EXPORT' not in json.dumps(stored)
                 decision = next(h['_source'] for h in stored if 'durable journal' in h['_source']['body'])
-                assert decision['source_file'] == 'session.jsonl' and decision['source_line'] == 3, decision
-                assert decision['files'] == ['src/watch.rs'], decision
+                expected_line = 9 if args.format == 'codex' else 3
+                expected_files = [] if args.format == 'codex' else ['src/watch.rs']
+                assert decision['source_file'] == 'session.jsonl' and decision['source_line'] == expected_line, decision
+                assert decision['files'] == expected_files, decision
+                assert decision['session_format'] == args.format, decision
                 search = run(binary, ['search', '--prefix', 'session-smoke', '--url', url,
                                       '--json', 'why did we drop polling'], env, work)
                 assert 'durable journal' in search.stdout, search.stdout
-                print('search: decision text found; original session.jsonl:3 and src/watch.rs retained', flush=True)
+                print(f'search: decision text found; original session.jsonl:{expected_line}; files={expected_files}', flush=True)
             finally:
                 stop(child)
             child = start(log)

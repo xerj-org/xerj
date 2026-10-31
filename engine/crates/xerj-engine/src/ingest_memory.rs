@@ -125,10 +125,18 @@ pub enum Category {
     CacheDecodedStored,
     CacheFtsReader,
     CacheVectorColumn,
+    /// In-memory HNSW graphs (vectors + neighbour lists + id maps), sampled
+    /// from every open index (#2427). Not a cache: it lives as long as the
+    /// index is open and grows with every vector document.
+    VectorGraph,
+    /// Per-index document version maps (doc id -> seq/segment), sampled
+    /// from every open index (#2427). Lives as long as the index is open
+    /// and grows with every distinct doc id.
+    VersionMap,
 }
 
 impl Category {
-    pub const ALL: [Self; 23] = [
+    pub const ALL: [Self; 25] = [
         Self::HttpBody,
         Self::HttpRewriteBuffer,
         Self::RawSource,
@@ -152,6 +160,8 @@ impl Category {
         Self::CacheDecodedStored,
         Self::CacheFtsReader,
         Self::CacheVectorColumn,
+        Self::VectorGraph,
+        Self::VersionMap,
     ];
 
     const COUNT: usize = Self::ALL.len();
@@ -506,6 +516,8 @@ fn measurement(category: Category) -> Measurement {
         | Category::CacheDecodedStored
         | Category::CacheFtsReader
         | Category::CacheVectorColumn
+        | Category::VectorGraph
+        | Category::VersionMap
         | Category::MergeDecoded
         | Category::MergeSurvivor
         | Category::MergeParsed => Measurement::Estimated,
