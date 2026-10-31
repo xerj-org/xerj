@@ -2198,6 +2198,83 @@ mod flush_publication_recovery_tests {
         drop(cached);
     }
 
+    /// #2427: a doc-values decode the hydration cache refuses is rebuilt by
+    /// every query, and it must hold a read-budget reservation for as long
+    /// as a query holds it, the same as a transient stored-slices build. A
+    /// decode the cache keeps reserves nothing.
+    ///
+    /// Fails before the fix: the refused decode was served uncached with no
+    /// reservation, so the read budget saw 0 bytes.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn transient_doc_values_hold_a_read_reservation_until_dropped_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        let mut schema = Schema::empty();
+        schema
+            .add_field(FieldConfig::new("status", FieldType::Keyword))
+            .unwrap();
+        schema
+            .add_field(FieldConfig::new("bytes", FieldType::Long))
+            .unwrap();
+        engine.create_index("dv-read-budget", schema).unwrap();
+        let idx = engine.get_index("dv-read-budget").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..2048u64 {
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"status": format!("s{}", i % 37), "bytes": i * 7}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        let seg = idx.store.snapshot().segments[0].clone();
+        let segments_dir = idx.data_dir.join("segments");
+        assert!(
+            segments_dir.join(format!("{}.dv", seg.id)).exists(),
+            "precondition: the segment has a doc-values sidecar"
+        );
+        let read = ReadTransientBudget::new(1 << 30, std::time::Duration::from_secs(5));
+        idx.release_memory();
+        assert!(!idx.dv_cache.contains_key(&seg.id), "precondition: cold");
+
+        // No room in the cache: transient, reserved until the value drops.
+        let full = SegmentHydrationBudget::new(0);
+        let cols = idx
+            .dv_columns_for_with(&segments_dir, &seg.id, &full, &read)
+            .expect("doc values decode");
+        assert!(!idx.dv_cache.contains_key(&seg.id));
+        let decoded: u64 = cols
+            .value()
+            .values()
+            .map(|c| c.estimated_retained_bytes())
+            .sum();
+        let held = read.snapshot().current;
+        assert!(
+            decoded > 0 && held >= decoded,
+            "the transient decode must reserve at least its decoded bytes ({held} held, {decoded} decoded)"
+        );
+        let second = Arc::clone(&cols);
+        drop(cols);
+        assert_eq!(read.snapshot().current, held, "a live reader keeps it");
+        drop(second);
+        assert_eq!(read.snapshot().current, 0, "released with the last reader");
+
+        // Room in the cache: admitted, nothing reserved.
+        let roomy = SegmentHydrationBudget::new(u64::MAX);
+        let cached = idx
+            .dv_columns_for_with(&segments_dir, &seg.id, &roomy, &read)
+            .expect("doc values decode");
+        assert!(idx.dv_cache.contains_key(&seg.id));
+        assert_eq!(read.snapshot().current, 0);
+        assert_eq!(
+            read.snapshot().admitted,
+            1,
+            "only the transient decode reserved"
+        );
+        drop(cached);
+    }
+
     fn topk_projection_config(dir: &std::path::Path) -> Config {
         let mut config = Config::default();
         config.server.data_dir = dir.to_string_lossy().into_owned();
@@ -32064,10 +32141,45 @@ impl Index {
         segments_dir: &std::path::Path,
         segment_id: &str,
     ) -> Option<Resident<DocValueMap>> {
+        self.dv_columns_for_with(
+            segments_dir,
+            segment_id,
+            &self.segment_hydration_budget,
+            crate::read_budget::global(),
+        )
+    }
+
+    /// [`Self::dv_columns_for`] against explicit budgets (#2427). A decode
+    /// the hydration cache cannot keep is rebuilt by every query that needs
+    /// it; it reserves its size in the read budget before decoding and
+    /// holds the reservation until its last reader drops it, like the
+    /// stored-slices and FTS-reader builds. Before this, a refused decode
+    /// was neither cached nor reserved, so concurrent searches stacked
+    /// whole decoded sidecars (~100 MB late in the cap-2048 ingest run)
+    /// that no budget saw.
+    fn dv_columns_for_with(
+        &self,
+        segments_dir: &std::path::Path,
+        segment_id: &str,
+        hydration: &Arc<SegmentHydrationBudget>,
+        read_budget: &Arc<ReadTransientBudget>,
+    ) -> Option<Resident<DocValueMap>> {
         if let Some(entry) = self.dv_cache.get(segment_id) {
             return Some(Arc::clone(entry.value()));
         }
-        let cols = read_doc_values_sidecar(segments_dir, segment_id);
+        let raw = std::fs::read(segments_dir.join(format!("{segment_id}.dv"))).ok()?;
+        let doc_count = self
+            .store
+            .snapshot()
+            .segments
+            .iter()
+            .find(|meta| meta.id == segment_id)
+            .map_or(0, |meta| meta.doc_count);
+        let estimate = xerj_storage::doc_values::estimate_decoded_bytes(&raw, doc_count)
+            .saturating_add(raw.len() as u64);
+        let permit = transient_read_permit(hydration, read_budget, estimate);
+        let cols = xerj_storage::doc_values::decode_columns(&raw).unwrap_or_default();
+        drop(raw);
         if cols.is_empty() {
             return None;
         }
@@ -32077,13 +32189,15 @@ impl Index {
             std::mem::size_of::<CacheResident<DocValueMap>>(),
             &cols,
         );
-        Some(self.publish_current(
+        Some(self.publish_current_permitted(
             &self.dv_cache,
             segment_id,
             key,
             SegmentCacheCategory::DocValues,
             bytes,
             cols,
+            hydration,
+            permit,
         ))
     }
 

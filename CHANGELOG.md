@@ -63,6 +63,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A search that decodes a segment's doc-values sidecar the segment cache has
+  no room to keep now reserves the decoded size in the read transient budget
+  before decoding, and holds it until the query drops the columns. Before,
+  such decodes were neither cached nor reserved, so concurrent searches during
+  heavy ingest could stack decoded sidecars (about 100 MB late in the
+  cap-2048 run) that no memory budget counted (Refs #2427).
+
 - The per-index document version map is smaller and now visible in the
   ingest memory trace. Its keys are `Box<str>` instead of `String`, which
   saves 8 of 64 bytes per hash bucket and drops any spare capacity carried
