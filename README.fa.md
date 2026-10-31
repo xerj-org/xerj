@@ -1001,3 +1001,13 @@ DeepSeek Harness هر سرور MCP را به‌عنوان یک افزونه مس
 <a href="https://xerj.org/docs/agents/schemas/mcp-tools.json">xerj.org/docs/agents/schemas/mcp-tools.json</a>.
 این طرح‌واره‌ها مستقیماً از یک فراخوانی زنده <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>tools/list</code></span> تولید می‌شوند و به‌صورت دستی نوشته نشده‌اند. همچنین با بررسی‌های CI در فایل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>scripts/mcp-schema-check.sh</code></span> و یک تست واحد کنترل می‌شوند تا فهرست منتشرشده هیچ‌گاه با فهرست ابزارهای واقعی سرور مغایرت پیدا نکند.
 </p>
+
+<h2 dir="rtl" align="right">چرا XERJ به وجود آمده است؟</h2>
+
+<p dir="rtl" align="right">
+عامل‌های هوش مصنوعی بخش زیادی از پنجره زمینه (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Context Window</span>) خود را صرف خواندن فایل‌ها می‌کنند. کدهای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">PHP</span> در هسته <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">WordPress</span> حدود ۵٫۲ میلیون توکن حجم دارند؛ یعنی معادل ۲۶ پنجره زمینه کامل. بنابراین، عامل هوش مصنوعی نمی‌تواند به‌سادگی تمام آن‌ها را بخواند. استفاده از <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">grep</span> هم این مشکل را حل نمی‌کند؛ چون نتیجه <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">grep</span> فقط یک خط از فایل است و برای تشخیص ارتباط آن خط با مسئله، عامل باید کل فایل را باز کند.
+</p>
+
+<p dir="rtl" align="right">
+در مقابل، جست‌وجو در یک ایندکس برای هر پرس‌وجو تنها چند کیلوبایت داده مصرف می‌کند. در <a href="https://xerj.org/use-cases/code-security-audit.html">ممیزی امنیتی هسته WordPress با کمک هوش مصنوعی</a>، یک عامل توانست روی ۱٬۴۹۲ فایل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">PHP</span> کار کند و این کار را با مصرف حدود ۲۶ هزار توکن انجام دهد؛ یعنی تقریباً به‌اندازه بارگذاری تنها نیم درصد از کل کدهای پروژه.
+</p>
