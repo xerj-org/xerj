@@ -1063,3 +1063,34 @@ DeepSeek Harness هر سرور MCP را به‌عنوان یک افزونه مس
 <p dir="rtl" align="right">
 <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> با رابط برنامه‌نویسی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Elasticsearch</span> سازگار است؛ اما بازپیاده‌سازی ساختارهای داخلی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Elasticsearch</span> نیست و از آن نیز انشعاب (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Fork</span>) گرفته نشده است.
 </p>
+
+<h2 dir="rtl" align="right">بنچمارک‌ها</h2>
+
+<p dir="rtl" align="right">
+<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> در مجموعه‌ای از آزمون‌های مقایسه‌ای مستقیم با <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Elasticsearch 8.13.4</span> ارزیابی شده است. این آزمون‌ها شامل ورود داده‌ها (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Ingest</span>)، جست‌وجوی متنی کامل، تجمیع داده‌ها (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Aggregations</span>)، جست‌وجوی برداری و خواندن داده‌ها هم‌زمان با حجم بالایی از عملیات نوشتن هستند. آخرین اجرای آزمون با بارگذاری حلقه‌بسته (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Closed-loop</span>)، شامل ۵۵ برتری، ۲۶ نتیجه برابر و ۴ شکست بوده است؛ از جمله توان عملیاتی ورود داده‌ها با سرعت ۱٫۷۲ برابر و فضای ذخیره‌سازی روی دیسک با حجم ۱٫۶۱ برابر کمتر.
+</p>
+
+<p dir="rtl" align="right">
+هر چهار مورد شکست به یک محدودیت مشترک مربوط می‌شوند: صدک ۹۹ زمان پاسخ‌گویی خواندن (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Read p99</span>) هنگام اجرای یک فرایند نوشتن با نرخ بالا. این موضوع به‌طور کامل در <a href="./demo/playbooks/MIXED_READ_UNDER_WRITE_FINDING_2026-07-08.md">گزارش بررسی این محدودیت</a> مستند شده و از نتایج حذف نشده است. نتایج، روش‌شناسی و ابزار اجرای آزمون‌ها در <a href="https://xerj.org/benchmarks">صفحه بنچمارک‌های XERJ</a> و پوشه <a href="./demo/playbooks"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>demo/playbooks</code></span></a> در دسترس هستند تا بتوانید خودتان آن‌ها را دوباره اجرا کنید. نسبت به هر عددی که امکان بازتولید آن را ندارید، با تردید برخورد کنید؛ حتی اگر آن عدد متعلق به ما باشد.
+</p>
+
+<h3 dir="rtl" align="right">ایندکس‌گذاری کد</h3>
+
+<p dir="rtl" align="right">
+فایل‌های منبع با استفاده از <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">tree-sitter</span> تجزیه و با آگاهی از ساختار درخت نحوی انتزاعی (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">AST-aware</span>) ایندکس می‌شوند؛ به این معنا که هم نمادهای کد (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Symbols</span>) و هم متن کامل فایل‌ها در ایندکس قرار می‌گیرند. در نتیجه، عامل هوش مصنوعی می‌تواند یک تابع را بازیابی کند، نه صرفاً یک خط از کد را.
+</p>
+
+<p dir="rtl" align="right">
+در یک نسخه دریافت‌شده از پروژه <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Apache Lucene</span>، شامل ۶٬۱۱۳ فایل منبع با حجم ۵۱ مگابایت، فرایند استخراج درون‌پردازه‌ای و تک‌ریسمانی (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Single-threaded In-process</span>) با سرعتی در حدود <strong>۱٬۵۰۰ فایل در ثانیه (۱۳ مگابایت در ثانیه)</strong> اجرا می‌شود. مرحله تجزیه با <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">tree-sitter</span> حدود ۷۲ درصد از این زمان را به خود اختصاص می‌دهد و حداقل زمان لازم برای پردازش هر فایل را تعیین می‌کند. برای بازتولید این نتیجه، دستور زیر را اجرا کنید:
+</p>
+
+<pre dir="ltr"><code>XERJ_EXTRACT_BENCH=/path/to/repo cargo test -p xerj-autoindex --release \
+  extract_bench -- --nocapture --ignored</code></pre>
+
+<p dir="rtl" align="right">
+ایندکس‌گذاری مجدد به‌صورت <strong>افزایشی (Incremental)</strong> انجام می‌شود: اگر محتوای یک فایل از نظر بایتی با آخرین نسخه ایندکس‌شده یکسان باشد، مرحله تجزیه آن کاملاً رد می‌شود و نتیجه ثبت‌شده قبلی بدون تغییر حفظ می‌شود. بنابراین، پس از ویرایش تعداد محدودی از فایل‌ها، اجرای مجدد فقط به‌اندازه تغییرات انجام‌شده کار می‌کند، نه کل مخزن کد؛ این حالت در فرایندهای معمول ویرایش و اجرای مجدد یا <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">CI</span> رایج است که معمولاً بیش از ۹۵ درصد فایل‌ها بدون تغییر باقی می‌مانند.
+</p>
+
+<p dir="rtl" align="right">
+البته برای تشخیص تغییرات، همچنان هش کامل محتوای فایل محاسبه می‌شود؛ بنابراین حداقل زمان لازم برای ایندکس‌گذاری مجدد را عملیات محاسبه هش تعیین می‌کند، نه مرحله تجزیه فایل‌ها.
+</p>
