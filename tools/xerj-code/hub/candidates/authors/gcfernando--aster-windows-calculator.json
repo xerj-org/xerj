@@ -8,15 +8,15 @@
   {
    "repo": "aster-windows-calculator",
    "url": "https://github.com/gcfernando/aster-windows-calculator",
-   "sha": "bab5c26aea15ff62d893f4314d869227d435e94e",
-   "licence": "MIT (LICENSE file at pin bab5c26aea15, GitHub licence API 2026-10-31)",
+   "sha": "80cef65bfb9081b9cbb28a59b964e089269cc281",
+   "licence": "MIT (LICENSE file at pin 80cef65bfb90, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T19:31Z",
     "consent_receipt": "d3cf08762e5d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:31Z (receipt d3cf08762e5d); pinned to the default-branch head. LICENSE file at pin bab5c26aea15 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:31Z (receipt d3cf08762e5d); pinned to the default-branch head. LICENSE file at pin 80cef65bfb90 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
    }
   }
  ]

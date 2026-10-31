@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Go queries this for how krishankumar01/goravel-taskflow implements it: TaskFlow, a task management REST API built with Goravel v1.18: the companion code for the DevChalk Goravel series (selected work: app/console, tests, app/mails)",
+ "domain": "an agent working on golang, golang-application, golang-examples queries this for how krishankumar01/goravel-taskflow implements it: TaskFlow, a task management REST API built with Goravel v1.18: the companion code for the DevChalk Goravel series (selected work: app/console, tests, app/mails)",
  "repos": [
   {
    "repo": "goravel-taskflow",

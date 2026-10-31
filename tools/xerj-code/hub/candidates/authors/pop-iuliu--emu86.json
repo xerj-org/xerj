@@ -1,0 +1,23 @@
+{
+ "corpus": "pop-iuliu--emu86",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how Pop-Iuliu/Emu86 implements it: Web-Based Emulator for i8086 (selected work: crates/core, crates/wasm, web)",
+ "repos": [
+  {
+   "repo": "Emu86",
+   "url": "https://github.com/Pop-Iuliu/Emu86",
+   "sha": "23105b9f2de73e5d63acb031b1cffadde98fe47f",
+   "licence": "MIT (LICENSE file at pin 23105b9f2de7, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T12:10Z",
+    "consent_receipt": "0f7588fed619",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T12:10Z (receipt 0f7588fed619); selected commit 23105b9f2de7: \"feat: run loop with breakpoints, disassembler, and execution panel ad\u2026\". LICENSE file at pin 23105b9f2de7 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

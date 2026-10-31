@@ -1,0 +1,23 @@
+{
+ "corpus": "arhanth255-ui--hobbyspark",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how arhanth255-ui/HobbySpark implements it: HobbySpark is a Python-based hobby project and development toolkit designed to make programming more accessible and fun. It includes utiliti (selected work: electron)",
+ "repos": [
+  {
+   "repo": "HobbySpark",
+   "url": "https://github.com/arhanth255-ui/HobbySpark",
+   "sha": "d96cfe87958d79417572e790a9f57c367d1b4a54",
+   "licence": "Apache-2.0 (LICENSE file at pin d96cfe87958d, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T11:39Z",
+    "consent_receipt": "99a6836a488c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T11:39Z (receipt 99a6836a488c); selected commit d96cfe87958d: \"Improve Arduino integration and terminal workflow\". LICENSE file at pin d96cfe87958d detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}
