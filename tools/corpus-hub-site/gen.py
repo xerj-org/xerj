@@ -1875,6 +1875,8 @@ HEADERS = """/me
   X-Robots-Tag: noindex
 /me.html
   X-Robots-Tag: noindex
+/search/index.json
+  X-Robots-Tag: noindex
 """
 
 # Cloudflare Pages _redirects: the old About URLs keep working; every README badge URL

@@ -364,6 +364,12 @@ def load_seen(path=SEEN):
     return set(json.loads(p.read_text(encoding="utf-8")).get("slugs", [])) if p.exists() else set()
 
 
+def load_seen_contributors(path=SEEN):
+    """Contributor logins whose /contributors/ page has at least one Google Search impression."""
+    p = pathlib.Path(path)
+    return set(json.loads(p.read_text(encoding="utf-8")).get("contributors", [])) if p.exists() else set()
+
+
 def weak(f, seen=frozenset()):
     """'' for a page worth indexing, else the reason it is noindexed."""
     if f["slug"] in seen:

@@ -185,3 +185,14 @@ test('logout clears the session cookie', async () => {
   assert.equal(r.status, 302); assert.equal(r.headers.get('location'), '/contributors/ann.html');
   assert.match(r.headers.get('set-cookie'), new RegExp(`^${SESSION_COOKIE}=; Path=/; Max-Age=0`));
 });
+
+test('login never answers 5xx: an internal error redirects home with ?signin=failed', async () => {
+  const broken = { get url() { throw new Error('boom'); }, headers: new Headers() };
+  const r = await login({ request: broken, env: ENV }, 'github');
+  assert.equal(r.status, 302);
+  assert.equal(r.headers.get('location'), '/?signin=failed');
+  assert.equal(r.headers.get('x-robots-tag'), 'noindex, nofollow');
+  const ok = await login({ request: req('/auth/github/login?return=%2Fcorpus%2Freact'), env: ENV }, 'github');
+  assert.equal(ok.status, 302);
+  assert.equal(ok.headers.get('x-robots-tag'), 'noindex, nofollow');
+});
