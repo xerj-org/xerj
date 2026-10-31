@@ -2,17 +2,17 @@
 ---
 title: "How do I read email and PDFs after indexing a folder?"
 canonical: "https://xerj.org/answers/read-indexed-email-and-pdf-folder"
-updated: "2026-10-28"
+updated: "2026-10-30"
 source: "content/answers/read-indexed-email-and-pdf-folder.md"
 ---
 
 # I indexed a folder of email and PDFs. How do I actually read what it found?
 
-**Short answer** (updated 2026-10-28): I indexed a folder of email and PDFs; how do I actually read what it found? Run xerj brain on the folder and open the console it prints. The Corpus page lists what was indexed, and the Reader opens an email with headers, body and attachments, or one PDF page. It shows extracted text only.
+**Short answer** (updated 2026-10-30): I indexed a folder of email and PDFs; how do I actually read what it found? Run xerj brain on the folder and open the console it prints. The Corpus page lists what was indexed, and the Reader opens an email with headers, body and attachments, or one PDF page. It shows extracted text only.
 
 **Key number:** In the recorded run, xerj brain turned 10 files into 81 records in one dataset and wrote 33 links into the brain. (as of 2026-10-19; source: [docs/usecases/console-reader/live-e2e.json](https://github.com/xerj-org/xerj/blob/main/docs/usecases/console-reader/live-e2e.json))
 
-**TL;DR** — Run `xerj brain <folder>`, then open the console it prints. The Corpus page lists what was indexed, and the Reader opens any record: an email with its headers, body and attachments, or one PDF page, beside the files it links to. The Reader shows extracted text only. It renders no email HTML and no PDF pages.
+**TL;DR** Run `xerj brain <folder>` and open the console it prints. Corpus lists what was indexed. The Reader opens one email with its attachments, or one PDF page, as extracted text.
 
 ## Agent prompt
 
@@ -32,62 +32,35 @@ xerj brain ./casefile --no-open
 
 ### Command 2
 
-Note: Find an email by a word in its subject; the _id of a hit is what the Reader link takes, and ax_file is what its attachments share.
+Note: Find an email by a word in its subject. The _id of a hit goes into the Reader link, and its attachments share its ax_file.
 
 ```sh
 curl -s -XPOST http://localhost:9200/ax-docs/_search -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' -d '{"query":{"bool":{"filter":[{"wildcard":{"email_subject":{"value":"*invoice*","case_insensitive":true}}}],"must_not":[{"exists":{"field":"attachment_name"}}]}},"_source":["email_subject","email_from","email_date","ax_file"],"size":5}'
 ```
 
-### Command 3
-
-Note: List the attachment records of one email: every record that came out of one .eml file shares its ax_file.
-
-```sh
-curl -s -XPOST http://localhost:9200/ax-docs/_search -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' -d '{"query":{"bool":{"filter":[{"term":{"ax_file":"AX_FILE_OF_THE_EMAIL"}},{"exists":{"field":"attachment_name"}}]}},"_source":["attachment_name","page","ax_locator"],"size":50}'
-```
+*Figure: Counts from the recorded run in docs/usecases/console-reader ( live-e2e.json ). The Reader shows extracted text only. It renders no email HTML and no PDF pages.*
 
 ## Index the folder, then open the console
 
-`xerj brain <folder>` starts a local node if none is running, indexes every readable file, detects the links between files, and prints a console URL. A first run also prints a one-time passkey setup link. The node it starts has auth on, and its admin key is in `<data-dir>/admin.key`.
-
-```sh
-xerj brain ./casefile --no-open
-```
-
-In a recorded run, a folder of 10 files became 81 records in one dataset, `ax-docs`, and the brain `casefile` received 33 links. The folder held 6 `.eml` messages, two of them with a PDF attached, 2 more PDFs and 2 Markdown notes. The run is scripted in `docs/usecases/console-reader/` in the repository.
+`xerj brain <folder>` starts a local node if none is running, indexes every readable file, detects the links between files and prints a console URL. A first run also prints a one-time passkey setup link. The node it starts has auth on, and its admin key is in `<data-dir>/admin.key`.
 
 ## Corpus lists what was indexed
 
-The console's landing page is Corpus. It reads the `autoindex-catalog` index and shows one card per dataset: record, file and byte counts, the formats, the date range, the fields with their types, and the sample queries the catalog entry carries. A sample query opens the Reader with the sample's text in the search box and already run, over the Reader's search fields and the field the sample was written for.
+Corpus is the console's landing page. It reads `autoindex-catalog` and shows one card per dataset: record, file and byte counts, formats, date range, fields with types, and sample queries. A sample query opens the Reader with that search already run.
 
-A card describes the last `xerj brain` or `xerj autoindex` run over that dataset. The record count is the index total. The file count, the formats and the field types are that run's own, and the card labels them `last run`.
-
-An empty node shows one command, `xerj brain <folder>`, and no sample data. If the catalog cannot be read, the page shows the error and nothing in its place.
+The record count is the index total. File count, formats and field types come from the last run over that dataset, and the card labels them `last run`. An empty node shows one command, `xerj brain <folder>`, and no sample data.
 
 ## The Reader opens one record
 
-The route is `/_xerj-console/#/reader?index=<index>&id=<id>`. Every hit in the console's Discover page links there, and an agent can hand a person that link instead of pasting a document into a chat. Find the id with an ordinary search:
+The route is `/_xerj-console/#/reader?index=<index>&id=<id>`. Every hit in Discover links there, so an agent can hand a person that link instead of pasting a document into a chat.
 
-```sh
-curl -s -XPOST 'http://localhost:9200/ax-docs/_search' \
-  -H "Authorization: ApiKey $XERJ_API_KEY" -H 'content-type: application/json' \
-  -d '{"query":{"bool":{"filter":[{"wildcard":{"email_subject":{"value":"*invoice*","case_insensitive":true}}}],"must_not":[{"exists":{"field":"attachment_name"}}]}},"_source":["email_subject","email_from","email_date","ax_file"],"size":5}'
-```
+*Figure: The four record shapes the Reader renders, from the console reader use case in the repository. Every record that came out of one .eml file carries the same ax_file , and the Reader joins on it.*
 
-The query is a `wildcard` and not a `match` for a reason. `xerj autoindex` usually types `email_subject` as `keyword`, because every attachment page record copies its email's subject and the field then holds few distinct values. On a `keyword` field a `match` finds only the whole subject. In a recorded check, `match` on `email_subject` for `Lunch` returned 0 hits while the subject `Lunch on Friday?` was indexed, and the `wildcard` for `*lunch*` returned 1. The `must_not` keeps the attachment records out, because each one carries a copy of the subject. The Reader's own search box does the same.
-
-The Reader renders a record by its shape:
-
-| Record | What the Reader shows |
-|---|---|
-| email | From, To, Cc, Date and Message-ID, the body text, and the attachment list |
-| attachment | name, type and size, the extracted text of that page, and a link back to the email |
-| PDF page | the title, the page number, and that page's text |
-| file | the path and format, and every record that came out of that file |
+The second command above finds an email by a word in its subject. It uses `wildcard`, not `match`. `xerj autoindex` usually types `email_subject` as `keyword`, and on a `keyword` field `match` finds only the whole subject. In a recorded check, `match` for `Lunch` returned 0 hits on the subject `Lunch on Friday?`, and the `wildcard` for `*lunch*` returned 1. The `must_not` drops attachment records, which each carry a copy of the subject.
 
 ## How one email is stored
 
-`xerj autoindex` writes one record for the file, one for the message, and one for each page section of each attachment. All of them share `ax_file`, and the Reader joins an email to its attachments on it. The attachment records also copy `email_message_id`, stored without the angle brackets, but only when the message has a `Message-ID` header, and two files can carry the same id. The `ax_locator` field numbers the attachments: `att0-p3-s0` is page 3 of the first attachment. In the recorded run the shared index held 6 emails and 43 attachment records.
+`xerj autoindex` writes one record for the file, one for the message and one for each page section of each attachment. All of them share `ax_file`. In the recorded run the shared index held 6 emails and 43 attachment records. To list one email's attachments, filter on its `ax_file`:
 
 ```sh
 curl -s -XPOST 'http://localhost:9200/ax-docs/_search' \
@@ -95,31 +68,29 @@ curl -s -XPOST 'http://localhost:9200/ax-docs/_search' \
   -d '{"query":{"bool":{"filter":[{"term":{"ax_file":"AX_FILE_OF_THE_EMAIL"}},{"exists":{"field":"attachment_name"}}]}},"_source":["attachment_name","page","ax_locator"],"size":50}'
 ```
 
-Replace `AX_FILE_OF_THE_EMAIL` with the `ax_file` value of the email hit. A long PDF becomes many records. If one email carries more than 50, raise `size` or add `from` to read the next 50.
+Attachment records also copy `email_message_id` without the angle brackets, but only when the message has a `Message-ID` header, and two files can carry the same id. If one email has more than 50 records, raise `size` or add `from`.
 
-## The linked records come from the brain
+## Linked records come from the brain
 
-Under the record, the Reader shows its one-hop neighbours from `GET /_graph/{brain}/ego`, grouped by link type. The same-folder, Markdown-link and path-citation detectors link file records, not the records inside a file. So the Reader also reads the links of the record's file and marks those `FILE`. In the recorded run the hostile email had 2 linked records, and both were same-folder links of its file.
+Under the record, the Reader shows its one-hop neighbours from `GET /_graph/{brain}/ego`, grouped by link type. The detectors link file records, so the Reader also reads the links of the record's file and marks them `FILE`. In the recorded run the hostile email had 2 linked records, both same-folder links of its file. The detectors are structural and read no meaning from the text.
 
-The detectors are structural. No detector reads meaning from the text.
+## Text on purpose
 
-## It shows text on purpose
+A subject, an attachment name and a body are text a stranger wrote. The Reader builds its page from text nodes, renders no email HTML and links no URL found in a document. The console's Content-Security-Policy allows scripts and connections from its own origin only.
 
-An email subject, an attachment name and a body are text that a stranger wrote. The Reader builds its page from text nodes and never from markup, renders no email HTML, and links no URL found in a document. The console page is served with a Content-Security-Policy that allows scripts and connections from its own origin only.
+The recorded run includes a hostile message with a `<script>` in the subject, an `<svg onload>` in the sender name and a PDF attachment whose name carries an `onerror` payload. The Reader showed all of it as text, nothing executed, and no request left the origin. A control page that renders the same subject through `innerHTML` does get compromised, so the fixtures are live.
 
-The recorded run includes one hostile message: a `<script>` in the subject, an `<svg onload>` in the sender name, and a PDF attachment named `"><img src=x onerror=…>.pdf`. The Reader displayed all of it as text. No payload executed, and no request left the origin. A control page in the same test suite renders the same subject through `innerHTML` and does get compromised, which proves that the fixtures are live.
+## Two limits with auth on
 
-## Two limits on a node with auth on
+The linked-records panel is refused for a signed-in operator on a node with auth on, which is the default. The console holds a passkey session and the graph API wants an API key. Search, records and attachments still work, and the panel works on a node started with `--insecure`.
 
-The linked-records panel is refused for a signed-in operator on a node with auth on, which is the default. The console holds a passkey session, and the graph API wants an API key. The panel says that it was refused. Search, records and attachments still work, and the panel works on a node started with `--insecure`.
-
-The console's passkey sign-in works only when the console is reached at `http://localhost:9200`. A node on another port refuses the enrolment. Both limits are tracked in the repository's issue tracker as #935 and #936.
+Passkey sign-in works only at `http://localhost:9200`. A node on another port refuses the enrolment. Both limits are tracked as #935 and #936.
 
 ## Read-only guest mode
 
-The console has a guest mode for share links. A share hands the console one record: a read-only API key, the shared index names, an optional brain, an expiry and a label. With that record the console starts a separate read-only shell that shows Corpus and the Reader for those indices under a banner with the expiry time.
+A share link hands the console one record: a read-only API key, the shared index names, an optional brain, an expiry and a label. The console then opens a separate read-only shell with Corpus and the Reader for those indices, under a banner with the expiry time.
 
-In the recorded run the guest key received `200` on its own index and on the brain, and `403` on another index, on `autoindex-catalog` and on a write. The console API answered it `401`, and the guest tab made 0 console API requests. The key is the boundary. The shell exists so that the page never asks for more.
+*Figure: Statuses from live-e2e.json in docs/usecases/console-reader . The guest tab made 0 console API requests. The key is the boundary.*
 
 ## FAQ
 
@@ -129,7 +100,7 @@ Open the console the run printed. The Corpus page lists what was indexed, and th
 
 ### Does the Reader show the original PDF or the HTML version of an email?
 
-No. It shows the text the extractor indexed. XERJ stores extracted text, not attachment bytes, and the Reader never renders email HTML: an HTML body is displayed as its source.
+No. It shows the text the extractor indexed. XERJ stores extracted text, not attachment bytes, and the Reader never renders email HTML. An HTML body is displayed as its source.
 
 ### How are an email and its attachments connected in the index?
 
