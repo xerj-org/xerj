@@ -505,3 +505,62 @@ curl localhost:9200/ax-orders/_search -H 'content-type: application/json' -d '{
 <li><a href="./benchmarks/beir-hybrid/results/2026-09-20-rerank-full-fiqa"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>benchmarks/beir-hybrid</code></span></a></li>
 <li><a href="./benchmarks/decisions-as-retrieval"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>benchmarks/decisions-as-retrieval</code></span></a></li>
 </ul>
+
+<h2 dir="rtl" align="right">اتصال یک عامل هوش مصنوعی از طریق MCP</h2>
+
+<p dir="rtl" align="right">
+همه عامل‌های هوش مصنوعی امکان اجرای دستورات شِل را ندارند. دستیارهای دسکتاپ و میزبان‌هایی که از فراخوانی تابع (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Function Calling</span>) پشتیبانی می‌کنند، از طریق پروتکل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Model Context Protocol (MCP)</span> به ابزارها متصل می‌شوند. فایل اجرایی‌ای که همین حالا نصب کرده‌اید، خودش سرور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">MCP</span> است. نیازی به دانلود ابزار دیگری یا کامپایل کردن چیزی ندارید:
+</p>
+
+<pre dir="ltr"><code>xerj --insecure --data-dir ~/xerj-data &amp;     # 1. the node the tools query
+xerj mcp                                # 2. MCP stdio server (your client runs this)</code></pre>
+
+<p dir="rtl" align="right">
+دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj mcp</code></span> از طریق <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">stdio</span> با پروتکل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">MCP</span> ارتباط برقرار می‌کند و درخواست‌ها را به نودی که با متغیر محیطی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>XERJ_URL</code></span> مشخص شده است، ارسال می‌کند. مقدار پیش‌فرض این متغیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>http://localhost:9200</code></span> است.
+</p>
+
+<p dir="rtl" align="right">
+این دستور خودش نود را راه‌اندازی نمی‌کند؛ بنابراین اجرای مرحله اول پیش‌نیاز آن است. سرور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">MCP</span> نیز لایه امنیتی مستقلی اضافه نمی‌کند؛ همان فایل اجرایی است که از طریق <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">stdio</span> با کلاینت شما و از طریق <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">HTTP</span> ساده با نود ارتباط برقرار می‌کند. در نتیجه، مرز امنیتی تعیین‌کننده همان مرز امنیتی نود است. مرحله اول نیز همان نود توسعه با پارامتر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>--insecure</code></span> را راه‌اندازی می‌کند.
+</p>
+
+<p dir="rtl" align="right">
+تنظیمات زیر را در فایل پیکربندی کلاینت <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">MCP</span> خود قرار دهید:
+</p>
+
+<pre dir="ltr"><code>{
+  "mcpServers": {
+    "xerj": {
+      "command": "/home/you/.local/bin/xerj",
+      "args": ["mcp"],
+      "env": { "XERJ_URL": "http://localhost:9200" }
+    }
+  }
+}</code></pre>
+
+<p dir="rtl" align="right">
+حتماً از مسیر مطلق (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Absolute Path</span>) استفاده کنید.
+</p>
+
+<p dir="rtl" align="right">
+نصاب مبتنی بر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>sh</code></span> که برای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Linux</span>، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">macOS</span> و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Windows Git Bash</span>، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">MSYS</span> و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Cygwin</span> در دسترس است، فایل اجرایی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj</code></span> را در مسیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>~/.local/bin</code></span> قرار می‌دهد. در ویندوز نام فایل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj.exe</code></span> خواهد بود.
+</p>
+
+<p dir="rtl" align="right">
+این نصاب متغیر محیطی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">PATH</span> را تغییر نمی‌دهد. برای اطمینان از محل نصب فایل اجرایی می‌توانید دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>command -v xerj</code></span> را اجرا کنید.
+</p>
+
+<p dir="rtl" align="right">
+نصاب PowerShell یعنی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>get.ps1</code></span>، فایل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj.exe</code></span> را در مسیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>%LOCALAPPDATA%\Programs\xerj</code></span> قرار می‌دهد و این مسیر را به <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">PATH</span> کاربر اضافه می‌کند.
+</p>
+
+<p dir="rtl" align="right">
+برای بررسی محل فایل اجرایی در PowerShell می‌توانید دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>(Get-Command xerj).Source</code></span> را اجرا کنید. همچنین با تنظیم متغیر محیطی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>XERJ_NO_PATH=1</code></span> می‌توانید از اضافه شدن مسیر نصب به <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">PATH</span> جلوگیری کنید.
+</p>
+
+<p dir="rtl" align="right">
+میزبان‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">MCP</span> که از طریق آیکون دسکتاپ اجرا می‌شوند، متغیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">PATH</span> محیط شِل شما را به ارث نمی‌برند؛ بنابراین استفاده از مسیر مطلق فایل اجرایی اهمیت دارد.
+</p>
+
+<p dir="rtl" align="right">
+اگر نود با احراز هویت اجرا می‌شود (یعنی در زمان راه‌اندازی از پارامتر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>--insecure</code></span> استفاده نشده است)، متغیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>"XERJ_AUTH": "ApiKey &lt;key&gt;"</code></span> را نیز در کنار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>XERJ_URL</code></span> به بخش <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>env</code></span> اضافه کنید. کلید دسترسی در مسیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>&lt;data-dir&gt;/admin.key</code></span> قرار دارد.
+</p>
