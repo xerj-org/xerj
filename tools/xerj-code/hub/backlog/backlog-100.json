@@ -13631,6 +13631,40 @@
   },
   {
    "cat": "AI",
+   "domain": "an agent formalizing forbidden-subgraph spectral bounds in Lean queries this for general clique removal, weighted deletion, hub separation and uniform two-eigenvalue bounds with a maximum-degree correction",
+   "g7": {
+    "verdict": "PENDING",
+    "note": "Retrieval evaluation pending.",
+    "queries": [
+     "How does strengthened_asymptotic assemble the uniform forbidden subgraph spectral bound with maximum degree correction?",
+     "How is general clique removal derived from regularity and transversal clique counting?",
+     "How does weighted deletion follow from graph blowup approximation and clique removal?",
+     "How does spectral hub separation isolate a high degree vertex and bound rank two energy?",
+     "Why does positiveTwoEnergy eventually equal the first two ordered eigenvalue squares in strengthened_ordered_asymptotic?"
+    ]
+   },
+   "lane": "A",
+   "refresh": "pinned",
+   "slug": "kkp-asymptotic-spectral-bound",
+   "sources": [
+    {
+     "licence_hint": "Apache-2.0; see LICENSE and bundled attribution at the pinned commit",
+     "url": "https://github.com/shaikidris/kkp-asymptotic-spectral-bound"
+    }
+   ],
+   "status": "live",
+   "tags": {
+    "region": "GLOBAL",
+    "topics": [
+     "lean4",
+     "formal-verification",
+     "spectral-graph-theory",
+     "clique-removal"
+    ]
+   }
+  },
+  {
+   "cat": "AI",
    "domain": "an agent implementing coding-agent context tracking queries this for cross-harness context-budget hooks, usage accounting and regression tests",
    "lane": "A",
    "refresh": "pinned",
