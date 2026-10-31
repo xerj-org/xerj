@@ -13304,6 +13304,40 @@
   },
   {
    "cat": "AI",
+   "domain": "an agent formalizing spectral counterexamples in Lean queries this for the connected tripartite-bridge-K4 family, K5-minus-edge exclusion and exact two-vector adjacency compression for KKP Conjecture 1.16 and Li-Liu-Zhang Conjecture 5.4",
+   "g7": {
+    "verdict": "PENDING",
+    "note": "Retrieval evaluation pending.",
+    "queries": [
+     "How is K_{s,s,s} joined to K4 by a single bridge to construct connected counterexamples?",
+     "Where is the K5 minus edge forbidden graph proved color critical and absent from the bridge graph?",
+     "Which exact integer vectors give the quadratic form certificate for the connected counterexample?",
+     "How does the rank two variational compression bound apply to the actual adjacency spectrum?",
+     "Where are the positive rational spectral gap and arbitrarily large edge counts proved for s at least 3?"
+    ]
+   },
+   "lane": "A",
+   "refresh": "pinned",
+   "slug": "kkp-connected-spectral-counterexamples",
+   "sources": [
+    {
+     "licence_hint": "Apache-2.0; see LICENSE and bundled attribution at the pinned commit",
+     "url": "https://github.com/shaikidris/kkp-connected-spectral-counterexamples"
+    }
+   ],
+   "status": "live",
+   "tags": {
+    "region": "GLOBAL",
+    "topics": [
+     "lean4",
+     "formal-verification",
+     "spectral-graph-theory",
+     "counterexamples"
+    ]
+   }
+  },
+  {
+   "cat": "AI",
    "domain": "an agent building reusable content-production skills queries this for skill installation and routing validation, audio-locked video story contracts, SRT generation, and code-rendered video QA",
    "lane": "A",
    "refresh": "pinned",
