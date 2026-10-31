@@ -132,6 +132,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   200-580 MB of warmed stored slices between 40 breaker engages. Queries
   still hydrate a segment on first read. (Refs #2427)
 
+- A cold full-text query no longer starts one background whole-section
+  stored decode per cold segment at once (refs #2427). On the 1 GB gate's
+  `pg-docs` (54 cold segments) one 5-hit query drove anon RSS from ~1.0 to
+  ~4.7 GB after it had returned, with most decodes refused by the hydration
+  budget at publish and thrown away. One background warm per index now runs
+  at a time and the others are skipped. Query answers are unchanged.
+
 - `simple_query_string` with `"fields": ["*"]` is answered from the inverted
   index instead of a stored-document scan of every segment (refs #2427). The
   bare `*` pattern lowered to a literal `"*"` field that has no index
