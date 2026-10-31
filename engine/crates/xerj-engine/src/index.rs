@@ -78,6 +78,42 @@ fn transient_read_permit(
     }
 }
 
+/// How long a rayon worker polls a segment's stored-decode flight lock
+/// before decoding on its own (#2427).
+const STORED_FLIGHT_WORKER_WAIT: std::time::Duration = std::time::Duration::from_millis(200);
+
+/// #2427: take a segment's stored-decode single-flight lock (`None`: decode
+/// without it).
+///
+/// The lock is held across a whole stored-section decode, and that decode
+/// fans its columns out on the global rayon pool. A rayon worker that
+/// blocked on the lock could therefore deadlock forever: while it waits in a
+/// `join` it steals a query's hydration job that wants the lock, so the
+/// decode job the holder is waiting for sits beneath a frame that never
+/// returns. A post-ingest node froze in exactly this cycle (a cold-stored
+/// warm held the lock; a query's `hydrate_deferred_cold_sources` job on
+/// `xerj-search-4` waited on it), and every later search touching the
+/// segment hung to the 30 s request deadline. Threads outside the pool keep
+/// the blocking single-flight; a worker polls for a bounded time, then pays
+/// a duplicate decode rather than block.
+fn lock_stored_flight(flight: &std::sync::Mutex<()>) -> Option<std::sync::MutexGuard<'_, ()>> {
+    if rayon::current_thread_index().is_none() {
+        return flight.lock().ok();
+    }
+    let deadline = std::time::Instant::now() + STORED_FLIGHT_WORKER_WAIT;
+    loop {
+        match flight.try_lock() {
+            Ok(guard) => return Some(guard),
+            Err(std::sync::TryLockError::Poisoned(_)) => return None,
+            Err(std::sync::TryLockError::WouldBlock) => {}
+        }
+        if std::time::Instant::now() >= deadline {
+            return None;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(2));
+    }
+}
+
 /// Retained-size bound of a `StoredSlices` built from `raw` (the framing-only
 /// estimator; a zstd frame without a content size falls back to 8x raw).
 fn stored_slices_bound(raw: &[u8], expect_docs: u64) -> u64 {
@@ -2658,6 +2694,94 @@ mod flush_publication_recovery_tests {
         assert!(row_projection_keeps_column(&keep, "prefix"));
         assert!(!row_projection_keeps_column(&keep, "metadata"));
         assert!(!row_projection_keeps_column(&keep, "ab"));
+    }
+
+    /// #2427: a rayon worker must not block on a segment's stored-decode
+    /// flight lock. The holder (a cold-stored warm) waits on its own
+    /// rayon-parallel decode, so a worker parked on the lock can sit on top
+    /// of the very job the holder needs: a permanent deadlock that pinned
+    /// every later search of the segment at the 30 s request deadline.
+    /// Threads outside the pool still single-flight.
+    ///
+    /// Fails before the fix: the worker blocks on the held lock, so the
+    /// holder, which waits for the pool before it releases, times out.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn rayon_worker_never_blocks_on_a_held_stored_flight_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine
+            .create_index("flight-lock", topk_projection_schema())
+            .unwrap();
+        let idx = engine.get_index("flight-lock").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..256u64 {
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"title": format!("title {i}"), "body": format!("body text {i}")}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        let seg = idx.store.snapshot().segments[0].clone();
+        idx.release_memory();
+        assert!(
+            !idx.stored_slices_cache.contains_key(&seg.id),
+            "precondition: cold"
+        );
+
+        let flight = Arc::clone(
+            idx.stored_slices_build_locks
+                .entry(seg.id.clone())
+                .or_default()
+                .value(),
+        );
+        let held = flight.lock().unwrap();
+        let roomy = SegmentHydrationBudget::new(u64::MAX);
+        let read = ReadTransientBudget::new(1 << 30, std::time::Duration::from_secs(5));
+        let build = |idx: Arc<Index>,
+                     roomy: Arc<SegmentHydrationBudget>,
+                     read: Arc<ReadTransientBudget>| {
+            let (seg_id, docs) = (seg.id.clone(), seg.doc_count);
+            move || {
+                idx.stored_slices_for_with(&seg_id, docs, &roomy, &read)
+                    .is_some()
+            }
+        };
+
+        // Outside the pool: still single-flight, waits for the holder.
+        let (outside_tx, outside_rx) = std::sync::mpsc::channel();
+        let outside = build(Arc::clone(&idx), Arc::clone(&roomy), Arc::clone(&read));
+        let outside_thread = std::thread::spawn(move || outside_tx.send(outside()).unwrap());
+        assert!(
+            outside_rx
+                .recv_timeout(std::time::Duration::from_millis(500))
+                .is_err(),
+            "a caller outside the pool keeps the blocking single-flight"
+        );
+
+        // On a rayon worker: the holder waits for the pool, as a warm's
+        // parallel decode does; the worker must decode without the lock.
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(1)
+            .build()
+            .unwrap();
+        let (worker_tx, worker_rx) = std::sync::mpsc::channel();
+        let worker = build(Arc::clone(&idx), Arc::clone(&roomy), Arc::clone(&read));
+        pool.spawn(move || worker_tx.send(worker()).unwrap());
+        let worker_result = worker_rx.recv_timeout(std::time::Duration::from_secs(10));
+        drop(held);
+        assert_eq!(
+            worker_result,
+            Ok(true),
+            "a rayon worker must not block on a held stored flight lock"
+        );
+        assert_eq!(
+            outside_rx.recv_timeout(std::time::Duration::from_secs(10)),
+            Ok(true)
+        );
+        outside_thread.join().unwrap();
+        assert!(idx.stored_slices_cache.contains_key(&seg.id));
     }
 
     /// #950: building the id→position map must NOT materialise the full
@@ -22248,7 +22372,7 @@ impl Index {
                             .or_default();
                         std::sync::Arc::clone(entry.value())
                     };
-                    let _flight_guard = flight.lock().ok();
+                    let _flight_guard = lock_stored_flight(&flight);
                     // Re-check under the flight lock — another thread may
                     // have decoded and published while we waited.
                     let rechecked: Option<Vec<u8>> = self
@@ -27248,7 +27372,7 @@ impl Index {
                                 .or_default();
                             Arc::clone(entry.value())
                         };
-                        let _flight_guard = flight.lock().ok();
+                        let _flight_guard = lock_stored_flight(&flight);
                         // Re-check both caches now that we hold this
                         // segment's flight lock — another thread may have
                         // decoded and published while we waited.
@@ -35275,7 +35399,7 @@ impl Index {
                 .or_default();
             Arc::clone(entry.value())
         };
-        let _flight_guard = flight.lock().ok()?;
+        let _flight_guard = lock_stored_flight(&flight);
         if let Some(entry) = self.stored_slices_cache.get(seg_id) {
             return Some(Arc::clone(entry.value()));
         }

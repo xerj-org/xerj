@@ -63,6 +63,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A search no longer hangs forever when a cold segment's stored fields are
+  being warmed in the background. A search-pool thread that waited for the
+  warm's decode could block the decode it waited for, so every later search
+  of that segment timed out at 30 s after ingest stopped. Search-pool threads
+  now wait at most 200 ms and then decode the segment themselves (#2427).
 - A small merge write admitted after a run of merge yields is now checked
   against the memory watermark instead of the process limit, so it can no
   longer take a node from below the watermark into the parent breaker band and
