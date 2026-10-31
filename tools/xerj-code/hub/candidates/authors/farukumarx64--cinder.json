@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on C queries this for how farukumarx64/cinder implements it: Cinder is an experimental neural-network inference runtime in C11. It implements float32 tensors, matrix-vector operations, bias addition, R (selected work: tests, src, include)",
+ "domain": "an agent working on C queries this for how farukumarx64/cinder implements it: A tiny neural-network inference runtime in C11 with Dense, ReLU, and Softmax layers, PyTorch model export, and CLI tools for inference, insp (selected work: tests, src, include)",
  "repos": [
   {
    "repo": "cinder",

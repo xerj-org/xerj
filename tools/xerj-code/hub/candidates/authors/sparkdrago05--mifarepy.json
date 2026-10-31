@@ -1,0 +1,23 @@
+{
+ "corpus": "sparkdrago05--mifarepy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on mifare, mifare-classic, mifare-classic-1k queries this for how SparkDrago05/mifarepy implements it: A Python library that enables seamless communication with MIFARE RFID card readers, supporting serial (RS232, USB) interfaces and GNetPlus p",
+ "repos": [
+  {
+   "repo": "mifarepy",
+   "url": "https://github.com/SparkDrago05/mifarepy",
+   "sha": "844b040e7ab40e7c0b7c481d770f293177a5fca0",
+   "licence": "author's permission (LICENSE at pin 844b040e7ab4: NOASSERTION; repository: LGPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T06:31Z",
+    "consent_receipt": "90bcbc6783a5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T06:31Z (receipt 90bcbc6783a5); pinned to the default-branch head. LICENSE at pin 844b040e7ab4: NOASSERTION (repository: LGPL-3.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

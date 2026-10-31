@@ -1,0 +1,23 @@
+{
+ "corpus": "fullfran--bifrost",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how FullFran/bifrost implements it: The Universal AI Coding Agent Bridge & Worktree Orchestrator",
+ "repos": [
+  {
+   "repo": "bifrost",
+   "url": "https://github.com/FullFran/bifrost",
+   "sha": "b0cbca94f9c0fcba4181acb48fb4b8eebe3b4b6d",
+   "licence": "MIT (LICENSE file at pin b0cbca94f9c0, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T07:14Z",
+    "consent_receipt": "590671f73ebc",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T07:14Z (receipt 590671f73ebc); pinned to the default-branch head. LICENSE file at pin b0cbca94f9c0 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}
