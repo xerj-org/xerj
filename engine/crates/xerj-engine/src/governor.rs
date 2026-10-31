@@ -1014,8 +1014,8 @@ impl ResourceGovernor {
 
     /// [`Self::admit_merge_write`] for a batch of `input_bytes`: after a
     /// streak of yields with nothing merged, a small background batch's
-    /// write is checked against the hard process limit instead of the
-    /// merge-pool ceiling, so a node resting between the two still merges
+    /// write is checked against the hard process limit, capped at the memory
+    /// watermark, instead of the merge-pool ceiling, so a node resting between the two still merges
     /// (#2427). See `merge_budget::merge_write_limit_after`.
     pub fn admit_merge_write_for(
         &self,
@@ -1034,7 +1034,10 @@ impl ResourceGovernor {
             .yield_streak;
         let line = crate::merge_budget::merge_write_limit_after(
             self.merge_pool_ceiling_bytes(),
-            self.memory_limit_bytes,
+            crate::merge_budget::merge_write_hard_line(
+                self.memory_limit_bytes,
+                self.memory_watermark_bytes(),
+            ),
             forced,
             input_bytes,
             streak,

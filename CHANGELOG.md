@@ -63,6 +63,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A small merge write admitted after a run of merge yields is now checked
+  against the memory watermark instead of the process limit, so it can no
+  longer take a node from below the watermark into the parent breaker band and
+  turn ingest into HTTP 429s. The relief for a search node resting between the
+  merge-pool ceiling and the watermark is kept (#2427).
 - The HNSW doc-id maps now share one allocation per graphed document between
   the forward and reverse maps, instead of storing every id as two `String`s,
   and their bucket arrays and id bytes count toward the `vector_graph` ingest
