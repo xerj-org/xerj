@@ -212,3 +212,8 @@ scripts/seo/evidence/
 
 # nix build output link (flake.nix)
 /result
+
+# Re-include: Claude plugin skills and slash commands are markdown by format
+# (plugins/<name>/skills/<skill>/SKILL.md, plugins/<name>/commands/*.md).
+!plugins/*/skills/**/*.md
+!plugins/*/commands/*.md
