@@ -258,7 +258,7 @@ set (O(N) memory) instead of a sketch.
 Metric — `avg`, `sum`, `min`, `max`, `stats`, `extended_stats`, `value_count`,
 `cardinality`, `percentiles`, `percentile_ranks`, `median_absolute_deviation`,
 `matrix_stats`, `string_stats`, `boxplot`, `top_metrics`, `top_hits`,
-`scripted_metric`
+`scripted_metric`, `weighted_avg`
 
 Bucket — `terms`, `multi_terms`, `rare_terms`, `significant_terms`,
 `significant_text`, `range`, `date_range`, `ip_range`, `ip_prefix`,

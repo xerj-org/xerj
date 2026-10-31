@@ -110,6 +110,7 @@ pub const SUPPORTED_AGG_TYPES: &[&str] = &[
     "top_metrics",
     "value_count",
     "variable_width_histogram",
+    "weighted_avg",
 ];
 
 // ── Field value cache ─────────────────────────────────────────────────────────
@@ -3120,6 +3121,7 @@ fn execute_agg_with_all_cached<'d>(
         "string_stats" => run_string_stats(agg_params, docs),
         "boxplot" => run_boxplot(agg_params, docs),
         "top_metrics" => run_top_metrics(agg_params, docs),
+        "weighted_avg" => run_weighted_avg(agg_params, cache),
         // nested — flatten each parent doc's nested-path array so that
         // doc_count reflects the number of nested objects, and sub-aggs
         // (like `terms` on `courses.name`) see one "doc" per nested entry.
@@ -6702,6 +6704,103 @@ fn run_avg<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) ->
         return json!({ "value": avg, "value_as_string": s, "__xy_count__": count, "__xy_sum__": sum });
     }
     json!({ "value": avg, "__xy_count__": count, "__xy_sum__": sum })
+}
+
+/// `weighted_avg`: `sum(value × weight) / sum(weight)` over the bucket.
+///
+/// Both sides are field configs — `{ "field": ..., "missing": <number> }`.
+/// A document with no value for a side is skipped unless that side declares
+/// `missing`. A multi-valued value field contributes every value, each
+/// paired with the document's weight, so the weight enters the denominator
+/// once per value (ES-YAML `aggregations/weighted_avg.yml`, "Multi value
+/// field": `(1+2+3)*2 + (0+1+4)*4` over `3*2 + 3*4` = 16/9).
+///
+/// `sum(weights) == 0` and an empty bucket both yield `value: null`, as ES
+/// does.
+///
+/// ES rejects a multi-valued *weight* field with a 400 ("Multi weight field
+/// not allowed"). The aggregation evaluator has no error channel, so such a
+/// document is skipped here; the case stays in
+/// `tests/es-compat-yaml/catch-lenient.txt` until that channel exists.
+/// The API layer still rejects a `weighted_avg` that has no `field`, a
+/// non-numeric `missing`, or a `script` (see `find_invalid_agg_params`).
+fn run_weighted_avg<'d>(params: &Value, cache: &mut FieldCache<'d>) -> Value {
+    let (Some(value_cfg), Some(weight_cfg)) = (params.get("value"), params.get("weight")) else {
+        return weighted_avg_result(0.0, 0.0);
+    };
+    let (Some(value_field), Some(weight_field)) = (
+        value_cfg.get("field").and_then(Value::as_str),
+        weight_cfg.get("field").and_then(Value::as_str),
+    ) else {
+        return weighted_avg_result(0.0, 0.0);
+    };
+    let value_missing = get_missing_value(value_cfg);
+    let weight_missing = get_missing_value(weight_cfg);
+
+    // Both slices are indexed by document. The cache borrows mutably per
+    // lookup, so materialise the value side before asking for the weight side.
+    let values_per_doc: Vec<Vec<f64>> = cache.get_numeric_multi(value_field).to_vec();
+    let weights_per_doc = cache.get_numeric_multi(weight_field);
+
+    let mut weighted_sum = 0.0f64;
+    let mut weight_sum = 0.0f64;
+    for (values, weights) in values_per_doc.iter().zip(weights_per_doc) {
+        // A multi-valued weight is an error in ES (see the doc comment); skip
+        // the document rather than pairing every value with every weight.
+        if weights.len() > 1 {
+            continue;
+        }
+        let value_placeholder: [f64; 1];
+        let values: &[f64] = if values.is_empty() {
+            match value_missing {
+                Some(m) => {
+                    value_placeholder = [m];
+                    &value_placeholder
+                }
+                None => continue,
+            }
+        } else {
+            values
+        };
+        let weight_placeholder: [f64; 1];
+        let weights: &[f64] = if weights.is_empty() {
+            match weight_missing {
+                Some(m) => {
+                    weight_placeholder = [m];
+                    &weight_placeholder
+                }
+                None => continue,
+            }
+        } else {
+            weights
+        };
+        let weight = weights[0];
+        for value in values {
+            weighted_sum += value * weight;
+            weight_sum += weight;
+        }
+    }
+
+    weighted_avg_result(weighted_sum, weight_sum)
+}
+
+/// The response shape for `weighted_avg`.
+///
+/// The internal sums let the API combine this metric across indices
+/// (`merge_metric_agg`): averaging two already-averaged values would be wrong.
+/// `strip_internal_tracking` removes them before the response.
+fn weighted_avg_result(weighted_sum: f64, weight_sum: f64) -> Value {
+    let value = if weight_sum == 0.0 {
+        Value::Null
+    } else {
+        json!(weighted_sum / weight_sum)
+    };
+    json!({
+        "value": value,
+        "__xy_agg__": "weighted_avg",
+        "__xy_weight_sum__": weight_sum,
+        "__xy_weighted_sum__": weighted_sum,
+    })
 }
 
 fn run_sum<'d>(params: &Value, docs: &'d [Value], cache: &mut FieldCache<'d>) -> Value {
@@ -14388,6 +14487,81 @@ mod tests {
             rd["mn"]["value_as_string"].is_string(),
             "date min_as_string: {rd:?}"
         );
+    }
+
+    /// FAIL-BEFORE: `weighted_avg` was accepted by the request path and fell
+    /// through to the dispatch catch-all, so the response carried
+    /// `{"error": "unsupported aggregation type 'weighted_avg'"}` inside a
+    /// 200. The ES-YAML cases only asserted `close_to`, which treats a missing
+    /// value as NaN and passes vacuously — so the suite was green while the
+    /// aggregation did nothing. These assertions are the same arithmetic the
+    /// fixture expects, computed for real.
+    #[test]
+    fn weighted_avg_matches_es_semantics() {
+        // aggregations/weighted_avg.yml "Basic test" corpus.
+        let docs = vec![
+            json!({"double_field": 1.0, "long_field": 6, "integer_field": 10,
+                   "multi_value_field": [1, 2, 3], "weight": 2}),
+            json!({"double_field": 3.0, "long_field": 2,
+                   "multi_value_field": [0, 1, 4], "weight": 4}),
+            json!({"double_field": 1.0, "long_field": 1}),
+            json!({"double_field": 5.0, "long_field": 3, "integer_field": 4, "weight": 3}),
+        ];
+        let close = |a: Option<f64>, b: f64| a.is_some_and(|v| (v - b).abs() < 1e-6);
+        let wa = |value: Value, weight: Value| {
+            run_aggs(
+                &json!({"w": {"weighted_avg": {"value": value, "weight": weight}}}),
+                &docs,
+            )
+        };
+
+        // (6*2 + 2*4 + 3*3) / (2+4+3); doc 3 has no weight and is skipped.
+        let r = wa(json!({"field": "long_field"}), json!({"field": "weight"}));
+        assert!(close(r["w"]["value"].as_f64(), 29.0 / 9.0), "{r}");
+
+        // (10*2 + 4*3) / (2+3); integer_field is absent on docs 2 and 3.
+        let r = wa(
+            json!({"field": "integer_field"}),
+            json!({"field": "weight"}),
+        );
+        assert!(close(r["w"]["value"].as_f64(), 6.4), "{r}");
+
+        // value.missing substitutes 2 for docs 2 and 3.
+        let r = wa(
+            json!({"field": "integer_field", "missing": 2}),
+            json!({"field": "weight"}),
+        );
+        assert!(close(r["w"]["value"].as_f64(), 40.0 / 9.0), "{r}");
+
+        // weight.missing makes doc 3 contribute (1*4); denominator 13.
+        let r = wa(
+            json!({"field": "long_field"}),
+            json!({"field": "weight", "missing": 4}),
+        );
+        assert!(close(r["w"]["value"].as_f64(), 33.0 / 13.0), "{r}");
+
+        // Multi-valued value: each value is paired with the doc weight and the
+        // weight enters the denominator once per value.
+        let r = wa(
+            json!({"field": "multi_value_field"}),
+            json!({"field": "weight"}),
+        );
+        assert!(close(r["w"]["value"].as_f64(), 32.0 / 18.0), "{r}");
+
+        // Every weight is zero (unknown field + missing 0) -> null, not NaN.
+        let r = wa(
+            json!({"field": "integer_field"}),
+            json!({"field": "unknown", "missing": 0}),
+        );
+        assert_eq!(r["w"]["value"], Value::Null, "{r}");
+
+        // Empty bucket -> null.
+        let empty = run_aggs(
+            &json!({"w": {"weighted_avg": {"value": {"field": "n"},
+                                           "weight": {"field": "weight"}}}}),
+            &[],
+        );
+        assert_eq!(empty["w"]["value"], Value::Null, "{empty}");
     }
 
     #[test]
