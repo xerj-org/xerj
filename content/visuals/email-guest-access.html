@@ -1,0 +1,18 @@
+<figure class="vz" id="fig-email-guest" aria-labelledby="fig-email-guest-cap">
+  <span class="vz-label">Recorded run: guest key</span>
+  <p class="vz-title">What a read-only share can reach</p>
+  <div class="vz-scroll">
+    <table class="vz-table">
+      <thead><tr><th scope="col">Request from the guest key</th><th scope="col">HTTP status</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Search its own shared index</th><td><span class="vz-chip">200</span></td></tr>
+        <tr><th scope="row">Read the shared brain</th><td><span class="vz-chip">200</span></td></tr>
+        <tr><th scope="row">Search another index</th><td><span class="vz-chip is-no">403</span></td></tr>
+        <tr><th scope="row">Read <code>autoindex-catalog</code></th><td><span class="vz-chip is-no">403</span></td></tr>
+        <tr><th scope="row">Write a document</th><td><span class="vz-chip is-no">403</span></td></tr>
+        <tr><th scope="row">Call the console API</th><td><span class="vz-chip is-no">401</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <figcaption id="fig-email-guest-cap">Statuses from <code>live-e2e.json</code> in <a href="https://github.com/xerj-org/xerj/tree/main/docs/usecases/console-reader">docs/usecases/console-reader</a>. The guest tab made 0 console API requests. The key is the boundary.</figcaption>
+</figure>

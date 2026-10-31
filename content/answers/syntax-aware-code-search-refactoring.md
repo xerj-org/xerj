@@ -7,13 +7,13 @@ cluster: "Files and formats"
 question: "Is there a syntax-aware code search tool for refactoring?"
 intent: "tool-selection"
 published: "2026-08-21"
-updated: "2026-10-20"
+updated: "2026-10-30"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
 structured_data: [faq]
 agent_prompt: "Act as a coding agent. Read https://xerj.org/llms.txt, start a XERJ node with --insecure, run xerj autoindex ./code --prefix code, then send two queries to code-*/_search: a match on body for a symbol name and a match on defs for the same name, and report ax_path, language and the symbols array with kind, name and line for each declaration hit."
-answer: "Is there a syntax-aware code search tool for refactoring? XERJ gives you two code queries on one index: match on body for raw text, and match on defs for declared symbols, which returns a symbols array with kind, name and line. It extracts definitions only and rewrites nothing; for structural rewrites use ast-grep."
+answer: "Is there a syntax-aware code search tool for refactoring? XERJ gives you two code queries on one index: match on body for raw text, and match on defs for declared symbols, which returns a symbols array with kind, name and line. It extracts definitions only and rewrites nothing. For structural rewrites use ast-grep."
 key_fact: "XERJ's tree-sitter registry covers 36 languages, pinned by a unit test."
 key_fact_source: "engine/crates/xerj-autoindex/src/extract/code.rs"
 key_fact_date: "2026-10-19"
@@ -32,6 +32,9 @@ links_out:
   - "index-monorepo-for-agent"
   - "xerj-vs-ripgrep-for-code-agents"
   - "/case-studies/reference-coding"
+evidence:
+  - claim: "A source file over the 2 MiB code cap (CODE_CAP = 2 << 20) is refused, and the refusal reason names the cap."
+    source: "engine/crates/xerj-autoindex/src/extract/code.rs"
 faq:
   - q: "What makes the search syntax-aware?"
     a: "XERJ parses each source file with tree-sitter and writes the declared symbols into a `defs` field and a `symbols` array with a kind, a name and a line."
@@ -44,64 +47,48 @@ faq:
   - q: "Does case matter in a symbol query?"
     a: "Yes, in practice. `src/query.go` declares `MergeSegments`, and the query token `merge_segments` did not match it in our capture."
   - q: "What happens if a file fails to parse?"
-    a: "Nothing is lost. A parse failure is never fatal, and XERJ still indexes the file body as plain text so the text query keeps working."
+    a: "Nothing is lost. If a grammar fails to parse a file, XERJ indexes the file as plain text, so the text query keeps working."
   - q: "How large a source file can XERJ parse?"
-    a: "2 MB per file, with at most 5,000 symbols per file. A symbol name longer than 200 characters is truncated."
+    a: "2 MiB per file. A larger file is refused, and the refusal names the cap. A file keeps at most 5,000 symbols, and a symbol name longer than 200 bytes is skipped."
 ---
 
-**TL;DR** — XERJ gives you 2 code queries on the same index: a `match` on `body` for raw text, and a `match` on `defs` for declared symbols. The definition query returns a `symbols` array with a kind, a name and a line. Extraction is definitions only.
+**TL;DR** XERJ gives you 2 code queries on one index. A `match` on `body` finds raw text, and a `match` on `defs` finds declared symbols with a kind, a name and a line. Extraction is definitions only, so XERJ rewrites nothing.
 
-## Two queries over one index
-
-`xerj autoindex` writes `body`, `defs`, `symbols`, `symbol_count`, `language` and `title` for every source file, so text search and symbol search share one index. Query `body` when you want any occurrence, and query `defs` when you want a declaration.
-
-Index a source tree into the prefix `code` first.
-
-```sh
-xerj autoindex ./code --url http://127.0.0.1:9410 --prefix code --state-dir ./state-code --progress plain --disable-feedback
+```visual
+code-two-queries
 ```
 
-## The text match
+## One index, two fields
 
-A `match` on `body` for `checkpoint_journal_offset` returned 2 hits in our capture, `src/ingest.py` at `0.5359981` and `src/lib.rs` at `0.4608517`. The text query searches the whole file text, so it also matches a call site inside a function body.
+`xerj autoindex` writes `body`, `defs`, `symbols`, `symbol_count`, `language` and `title` for every source file. Query `body` for any occurrence. Query `defs` for a declaration. The first command above indexes a source tree into the prefix `code`, and the next two are the queries in the figure.
 
-```sh
-curl -s -XPOST 'http://127.0.0.1:9410/code-*/_search' -H 'content-type: application/json' -d '{"query":{"match":{"body":"checkpoint_journal_offset"}},"size":10,"_source":["ax_path","language","title","defs","symbol_count"],"track_total_hits":true}'
+## What the definition hit carries
+
+A `defs` hit returns the file's `symbols` array. That array is what a refactoring step consumes: it says where each declaration starts.
+
+```visual
+code-symbol-lines
 ```
 
-## The definition-only match
+On this 3-file tree both queries returned 2 hits, so the definition query was not narrower here. The difference is the field searched and the fields returned. Case matters too. `src/query.go` declares `MergeSegments`, and `merge_segments` did not match it.
 
-A `match` on `defs` for `merge_segments` returned 2 hits, and each hit carried a `symbols` array with a kind, a name and a line number. The `defs` field holds only declared symbols, so a hit means the file declares the name.
+## Where XERJ stops
 
-```sh
-curl -s -XPOST 'http://127.0.0.1:9410/code-*/_search' -H 'content-type: application/json' -d '{"query":{"match":{"defs":"merge_segments"}},"size":10,"_source":["ax_path","language","title","defs","symbols"],"track_total_hits":true}'
-```
+XERJ extracts definitions only. It builds no call graph, no import graph and no cross-file reference resolution, so it does not find the callers of a symbol.
 
-The Rust hit carried 4 symbols with the line of each declaration.
+| Step in a refactor | Tool |
+| --- | --- |
+| Find every declaration of a name across 36 languages | XERJ, `match` on `defs` |
+| Find every textual occurrence, call sites included | XERJ, `match` on `body` |
+| A rename that must be sound | A language server or a compiler plugin |
+| A structural rewrite | ast-grep |
 
-| kind | name | line |
-| --- | --- | --- |
-| `struct` | `SegmentReader` | 3 |
-| `function` | `open` | 8 |
-| `function` | `checkpoint_journal_offset` | 12 |
-| `function` | `merge_segments` | 17 |
-
-## What the capture actually proves
-
-Both queries returned 2 hits on this 3-file tree, so the definition query was not narrower here. What differs is the field searched and the fields returned, and the `symbols` array is what a refactoring tool consumes.
-
-One miss is worth naming. The file `src/query.go` declares `MergeSegments`, and the token `merge_segments` did not match it. Spell the identifier the way the language spells it.
-
-## The boundary for refactoring work
-
-XERJ extracts definitions only. There is no call graph, no import graph and no cross-file reference resolution, so XERJ does not find callers of a symbol.
-
-That boundary decides the tool choice. Use XERJ to locate every declaration and every textual occurrence across 36 languages. Use a language server or a compiler plugin for a rename that must be sound.
-
-What an agent reads, against the lines grep prints, is [local code search over MCP](/answers/local-code-search-mcp-fewer-tokens-than-grep).
+What an agent reads, against the lines grep prints, is on the [local code search over MCP page](/answers/local-code-search-mcp-fewer-tokens-than-grep).
 
 ## Caps and failure behavior
 
-Tree-sitter extraction stops at 2 MB per source file and 5,000 symbols per file, and a symbol name is truncated at 200 characters. A parse failure is never fatal. XERJ still indexes the file body as plain text, so the text query keeps working.
+```visual
+code-caps
+```
 
-The capture ran on 1 single-node XERJ process over 3 source files in 3 languages. This run measured no large repository.
+The capture ran on 1 single-node XERJ process over 3 source files in 3 languages: `rust`, `python` and `go`. No large repository was measured for this page.

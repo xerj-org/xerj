@@ -49,6 +49,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   at `/.well-known/agent-skills/`. The index is generated from the published
   skill's metadata and exact-byte SHA-256, with a CI drift check.
 
+- `xerj autoindex` reads an agent skill's `SKILL.md` frontmatter: every
+  passage of the file is titled with the skill's `name` and carries its
+  `description` as a field of its own, whether the file is read as prose or
+  as line windows. Before, a prose `SKILL.md` was titled by the first line
+  after its frontmatter and a line-window one had no title at all. Only files named exactly
+  `SKILL.md` change; the body, record ids and every other Markdown file index
+  as before. A frontmatter block strict YAML refuses, such as one with an
+  `argument-hint: [path] [--dry-run]` line, still gives its one-line `name`
+  and `description`. Unchanged files are not re-extracted, so an
+  existing index gains the fields as each skill changes, or all at once with
+  `xerj autoindex --fresh`. Part of #2644.
+
 ### Fixed
 
 - The HNSW doc-id maps now share one allocation per graphed document between
@@ -273,6 +285,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reading to the table reading. The file is set aside with a rebuild message
   (exit 3) and every other file is still indexed. It used to stop the whole
   run with "frozen assignment has 0 matches for group" (#2720).
+- `xerj autoindex` indexes HTML partials and template files instead of
+  junk-filing them as malformed XML. A file that opens with markup and has
+  closing tags was read as XML, so a folder of 16 or more such files became an
+  XML dataset and every file was junked at its first `<%`, `&&` or unclosed
+  tag, with the text after that point lost. `.html` and `.htm` are now read as
+  HTML, and `.hbs`, `.handlebars`, `.mustache`, `.ejs`, `.erb`, `.jsp`,
+  `.aspx`, `.cshtml`, `.razor`, `.twig`, `.jinja`, `.jinja2`, `.j2`, `.njk`,
+  `.liquid`, `.astro`, `.marko` and `.riot` as text, also when gzipped. Real
+  XML, including `.xml`, `.xaml` and `.svg`, is unchanged. An index built
+  before this fix keeps its junked files until each one changes or the folder
+  is indexed again with `--fresh` (#2740).
 
 ## [1.0.0-rc.100] - 2026-10-26
 
