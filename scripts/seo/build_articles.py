@@ -13,6 +13,7 @@ import argparse
 import collections
 import datetime as dt
 import html
+import html as html_lib
 import json
 import pathlib
 import posixpath
@@ -172,6 +173,91 @@ class BuildContext:
         if parsed.scheme or raw.strip().startswith("//"):
             raise line_error(article, line, f"unsupported Markdown link URL {raw!r}")
         return self.resolve(raw, article.category, article, line).href
+
+
+# A fenced block whose language is `visual` holds one line, the name of a figure in
+# content/visuals/<name>.html. The figure is hand-written HTML and inline SVG, inlined
+# into the page as-is, so it is held to an allowlist here: one <figure class="vz">
+# root with a <figcaption>, no script, no style element, no event handler, no
+# javascript: URL and no external media. Behaviour lives in landing/visuals.js and
+# styling in landing/visuals.css; both load only on pages that carry a visual. The
+# Markdown twin gets the caption, and factcheck.py reads the figure's visible text.
+VISUAL_DIR = ("content", "visuals")
+VISUAL_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+VISUAL_FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})\s*visual\s*$")
+VISUAL_FORBIDDEN = (
+    (re.compile(r"<\s*/?\s*(?:script|style|iframe|object|embed|link|meta|base|form|img|video|audio|source|foreignobject)\b", re.I),
+     "element is not allowed in a visual"),
+    (re.compile(r"\son[a-z]+\s*=", re.I), "event handler attributes are not allowed in a visual"),
+    (re.compile(r"javascript:", re.I), "javascript: URLs are not allowed in a visual"),
+    (re.compile(r"\s(?:src|srcset|xlink:href)\s*=", re.I), "external media is not allowed in a visual"),
+    (re.compile(r"\shref\s*=\s*[\"'](?!/|#|https://)", re.I), "a visual link must be /path, #anchor or https://"),
+    (re.compile("[\u2013\u2014]"), "en and em dashes are not allowed in a visual"),
+)
+_VISUAL_CACHE: dict[str, tuple[str, str]] = {}
+
+
+def _indent_visual(html: str) -> str:
+    """Indent a figure by two spaces, except lines inside <textarea> or <pre>,
+    whose leading whitespace is content."""
+    out: list[str] = []
+    raw = False
+    for line in html.splitlines():
+        out.append(line if raw or not line.strip() else "  " + line)
+        low = line.lower()
+        opens = low.count("<textarea") + low.count("<pre")
+        closes = low.count("</textarea>") + low.count("</pre>")
+        if opens > closes:
+            raw = True
+        elif closes > opens:
+            raw = False
+    return "\n".join(out)
+
+
+def load_visual(article: article_data.Article, name: str, line: int,
+                context: "BuildContext") -> tuple[str, str]:
+    """Return (html, caption text) for content/visuals/<name>.html."""
+    if not VISUAL_NAME_RE.fullmatch(name):
+        raise line_error(article, line, f"visual name {name!r} must be lowercase-hyphenated")
+    path = context.repo.joinpath(*VISUAL_DIR, f"{name}.html")
+    key = str(path)
+    if key in _VISUAL_CACHE:
+        return _VISUAL_CACHE[key]
+    if not path.is_file():
+        raise line_error(article, line, f"visual {name!r} not found at {path.relative_to(context.repo)}")
+    html = path.read_text(encoding="utf-8").strip()
+    if not (html.startswith('<figure class="vz') and html.endswith("</figure>")):
+        raise line_error(article, line, f"visual {name!r} must be one <figure class=\"vz ...\"> element")
+    for pattern, message in VISUAL_FORBIDDEN:
+        hit = pattern.search(html)
+        if hit:
+            raise line_error(article, line, f"visual {name!r}: {message} ({hit.group(0).strip()!r})")
+    caption = re.search(r"<figcaption[^>]*>(.*?)</figcaption>", html, re.S)
+    if not caption:
+        raise line_error(article, line, f"visual {name!r} needs a <figcaption>")
+    text = " ".join(html_lib.unescape(re.sub(r"<[^>]+>", " ", caption.group(1))).split())
+    _VISUAL_CACHE[key] = (html, text)
+    return _VISUAL_CACHE[key]
+
+
+def has_visuals(article: article_data.Article) -> bool:
+    return any(VISUAL_FENCE_RE.match(line) for line in article.body.splitlines())
+
+
+def _twin_visuals(body: str, article: article_data.Article, context: "BuildContext") -> str:
+    lines = body.splitlines()
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        if VISUAL_FENCE_RE.match(lines[i]) and i + 2 < len(lines) + 1:
+            name = lines[i + 1].strip() if i + 1 < len(lines) else ""
+            _, caption = load_visual(article, name, article.body_start_line, context)
+            out.append(f"*Figure: {caption}*")
+            i += 3
+            continue
+        out.append(lines[i])
+        i += 1
+    return "\n".join(out)
 
 
 def _check_raw_html(lines: list[str], article: article_data.Article) -> None:
@@ -345,6 +431,13 @@ def render_markdown_blocks(article: article_data.Article, context: BuildContext)
                 i += 1
             if not closed:
                 raise line_error(article, line_no, "fenced code block has no closing fence")
+            if info == "visual":
+                names = [c.strip() for c in code if c.strip()]
+                if len(names) != 1:
+                    raise line_error(article, line_no, "a visual block names exactly one figure")
+                html, _ = load_visual(article, names[0], line_no, context)
+                rendered.append(_indent_visual(html))
+                continue
             body = esc_text("\n".join(code))
             if code:
                 body += "\n"
@@ -683,7 +776,7 @@ def render_markdown_twin(article: article_data.Article, context: BuildContext) -
         while out and out[-1] == "":
             out.pop()
     if body:
-        out += ["", body]
+        out += ["", _twin_visuals(body, article, context)]
 
     out += ["", "## FAQ", ""]
     for item in article.faq:
@@ -723,13 +816,18 @@ def render_article_sections(article: article_data.Article, context: BuildContext
     out: list[str] = []
     if body_blocks:
         out.append(body_blocks[0])
+    rest = body_blocks[1:]
+    # A visual placed directly under the TL;DR is the page's lead figure: it goes
+    # above the prompt and command cards so the answer, then the picture, come first.
+    if rest and rest[0].startswith('  <figure class="vz'):
+        out.append(rest.pop(0))
     prompt = render_agent_prompt(article)
     if prompt:
         out.append(prompt)
     commands = render_commands(article)
     if commands:
         out.append(commands)
-    out.extend(body_blocks[1:])
+    out.extend(rest)
     out.append("  <h2>FAQ</h2>")
     for item in article.faq:
         # No grammar rule on the question string. A real user types "The
@@ -844,7 +942,7 @@ def footer(category: str) -> str:
 
 
 def _head(title: str, description: str, rel: str, block: str,
-          alternate_markdown: str | None = None) -> str:
+          alternate_markdown: str | None = None, visuals: bool = False) -> str:
     alternate = (f'<link rel="alternate" type="text/markdown" href="{esc_attr(alternate_markdown)}">\n'
                  if alternate_markdown else "")
     return f'''<!DOCTYPE html>
@@ -861,7 +959,7 @@ def _head(title: str, description: str, rel: str, block: str,
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0b0d'/><text x='50' y='68' font-size='60' font-family='Big Shoulders Display,sans-serif' font-weight='900' fill='%23ffc400' text-anchor='middle'>X</text></svg>">
 <script src="/theme.js"></script>
 <link rel="stylesheet" href="/style.css?v=as2">
-{alternate}{block}
+{'<link rel="stylesheet" href="/visuals.css?v=1">' + chr(10) if visuals else ''}{alternate}{block}
 </head>'''
 
 
@@ -878,6 +976,7 @@ def render_article(article: article_data.Article, context: BuildContext) -> str:
     block = seo_head.build_block(rel, article.title, article.description,
                                  article.published, modified, meta)
     body = render_article_sections(article, context)
+    visuals = has_visuals(article)
     answer_card = render_answer_card(article, context, modified)
     if answer_card:
         answer_card += "\n"
@@ -885,7 +984,7 @@ def render_article(article: article_data.Article, context: BuildContext) -> str:
     source_note = (f"AUTHOR · {article.author} · REVIEWED BY · {article.reviewer} · "
                    f"PUBLISHED · {article.published} · UPDATED · {modified}")
     return f'''{marker}
-{_head(article.title, article.description, rel, block, markdown_path(article))}
+{_head(article.title, article.description, rel, block, markdown_path(article), visuals)}
 <body>
 {primary_nav(rel)}
 <div class="docs-shell article-shell">
@@ -899,7 +998,7 @@ def render_article(article: article_data.Article, context: BuildContext) -> str:
 {article_nav(context, article)}
 </div>
 {footer(article.category)}
-<script src="/interact.js"></script>
+{'<script src="/visuals.js?v=1"></script>' + chr(10) if visuals else ''}<script src="/interact.js"></script>
 </body>
 </html>
 '''

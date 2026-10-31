@@ -1,0 +1,12 @@
+<figure class="vz" id="fig-gzip-parity" aria-labelledby="fig-gzip-parity-cap">
+  <span class="vz-label">Measured: one log, plain and gzip</span>
+  <p class="vz-title">Same counts with or without the wrapper</p>
+  <p class="vz-legend"><span><i class="is-cmp"></i>Plain log</span><span><i></i>Gzip copy of the same log</span></p>
+  <ul class="vz-bars">
+    <li class="vz-bar"><span><code>_count</code>, plain</span><span class="vz-track"><span class="vz-fill is-cmp" style="width:100%"></span></span><span class="vz-v">5001</span></li>
+    <li class="vz-bar"><span><code>_count</code>, gzip</span><span class="vz-track"><span class="vz-fill" style="width:100%"></span></span><span class="vz-v">5001</span></li>
+    <li class="vz-bar"><span><code>level=ERROR</code> hits, plain</span><span class="vz-track"><span class="vz-fill is-cmp" style="width:25%"></span></span><span class="vz-v">1250</span></li>
+    <li class="vz-bar"><span><code>level=ERROR</code> hits, gzip</span><span class="vz-track"><span class="vz-fill" style="width:25%"></span></span><span class="vz-v">1250</span></li>
+  </ul>
+  <figcaption id="fig-gzip-parity-cap">Bars are drawn to scale against 5001. The gzip index recorded <code>ax_format</code> as <code>logs(gzip)</code>. Source: the capture on the <a href="/answers/search-gzip-logs-without-zgrep">gzip logs page</a>. This is the log family; no <code>.csv.gz</code> or <code>.json.gz</code> run was measured.</figcaption>
+</figure>

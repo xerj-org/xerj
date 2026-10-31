@@ -1,0 +1,33 @@
+<figure class="vz" id="fig-code-queries" aria-labelledby="fig-code-queries-cap">
+  <span class="vz-label">Recorded capture: 3 files, 3 languages</span>
+  <p class="vz-title">One index, two questions</p>
+  <div class="vz-tabs" data-vz-tabs>
+    <div class="vz-tablist" role="tablist" aria-label="Two code queries">
+      <button type="button" class="vz-tab" role="tab" id="cq-tab-body" aria-controls="cq-panel-body" aria-selected="true">match on body</button>
+      <button type="button" class="vz-tab" role="tab" id="cq-tab-defs" aria-controls="cq-panel-defs" aria-selected="false">match on defs</button>
+    </div>
+    <div class="vz-panel" role="tabpanel" id="cq-panel-body" aria-labelledby="cq-tab-body" tabindex="0">
+      <p class="vz-panel-h">match on body</p>
+      <pre><code>{"query":{"match":{"body":"checkpoint_journal_offset"}}}</code></pre>
+      <div class="vz-scroll">
+        <table class="vz-table">
+          <thead><tr><th scope="col">ax_path</th><th scope="col">score</th></tr></thead>
+          <tbody>
+            <tr><th scope="row"><code>src/ingest.py</code></th><td>0.5359981</td></tr>
+            <tr><th scope="row"><code>src/lib.rs</code></th><td>0.4608517</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="vz-d">Any occurrence in the file text, including a call inside a function body.</p>
+    </div>
+    <div class="vz-panel" role="tabpanel" id="cq-panel-defs" aria-labelledby="cq-tab-defs" tabindex="0">
+      <p class="vz-panel-h">match on defs</p>
+      <pre><code>{"query":{"match":{"defs":"merge_segments"}}}</code></pre>
+      <div class="vz-cols">
+        <div class="vz-card is-hi"><span class="vz-k">hits</span><span class="vz-t">2 files</span><span class="vz-d">Each hit means the file declares the name, and each carries a <code>symbols</code> array.</span></div>
+        <div class="vz-card"><span class="vz-k">missed</span><span class="vz-t"><code>MergeSegments</code> in <code>src/query.go</code></span><span class="vz-d">The token <code>merge_segments</code> did not match it. Spell the name the way the language does.</span></div>
+      </div>
+    </div>
+  </div>
+  <figcaption id="fig-code-queries-cap">Both queries from the capture on this page, run against one index on 1 single-node XERJ process. Scores are the <code>_score</code> values returned.</figcaption>
+</figure>
