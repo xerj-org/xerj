@@ -2756,6 +2756,32 @@ impl Drop for AnalyzeReservation {
     }
 }
 
+#[cfg(test)]
+impl ResourceGovernor {
+    /// A standalone governor whose watermark sits `headroom` bytes above the
+    /// live RSS, for tests that watch one index's analyze reservations.
+    pub(crate) fn with_analyze_headroom_for_test(headroom: u64) -> Arc<Self> {
+        let mut cfg = Config::default();
+        cfg.limits.max_total_memtable_mb = 0;
+        let governor = build(&cfg);
+        governor.set_analyze_headroom_for_test(headroom);
+        Arc::new(governor)
+    }
+
+    /// Move the watermark to `headroom` bytes above the live RSS.
+    pub(crate) fn set_analyze_headroom_for_test(&self, headroom: u64) {
+        let live = self.observed_process_memory();
+        self.memory_watermark_bytes
+            .store(live.saturating_add(headroom).max(1), Ordering::Relaxed);
+        self.rss_bytes.store(live, Ordering::Relaxed);
+    }
+
+    /// Bytes currently held by analyze reservations.
+    pub(crate) fn analyze_reserved_for_test(&self) -> u64 {
+        self.analyze_reserved.load(Ordering::Acquire)
+    }
+}
+
 /// Admission RSS of each held analyze reservation (#2427).
 #[derive(Debug, Default)]
 pub(crate) struct AnalyzeBaselines {

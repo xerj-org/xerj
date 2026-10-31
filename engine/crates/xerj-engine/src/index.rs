@@ -1573,6 +1573,110 @@ mod collection_publication_fail_closed_tests {
             .is_none());
     }
 
+    /// #2427: the raw batch path took its analyze reservation before the
+    /// parse and held it across the schema reads, schema evolution and the
+    /// WAL append. A batch parked on any of those waits kept its estimate
+    /// "reserved" without allocating it, and concurrent bulks were refused
+    /// with 429s far below the watermark. The parse and the analysis now
+    /// each hold a reservation only while they allocate.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn raw_batch_holds_no_analyze_reservation_across_waits() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("raw-reservation-scope", text_schema())
+            .unwrap();
+        let idx = engine.get_index("raw-reservation-scope").unwrap();
+        let governor = crate::governor::ResourceGovernor::with_analyze_headroom_for_test(1 << 40);
+        *idx.analyze_governor_override.write() = Some(Arc::clone(&governor));
+        let seen = Arc::new(parking_lot::Mutex::new(Vec::new()));
+        {
+            let governor = Arc::clone(&governor);
+            let seen = Arc::clone(&seen);
+            idx.set_publication_test_hook(Some(Arc::new(move |_, point| {
+                if matches!(
+                    point,
+                    PublicationTestPoint::RawBeforeCollectionBegin
+                        | PublicationTestPoint::RawAfterAnalyze
+                        | PublicationTestPoint::RawAfterWalVersionMap
+                ) {
+                    seen.lock()
+                        .push((point, governor.analyze_reserved_for_test()));
+                }
+            })));
+        }
+        idx.index_batch_turbo_raw(vec![
+            (
+                "one".into(),
+                Arc::<[u8]>::from(br#"{"body":"alpha beta gamma"}"#.as_slice()),
+            ),
+            (
+                "two".into(),
+                Arc::<[u8]>::from(br#"{"body":"delta epsilon"}"#.as_slice()),
+            ),
+        ])
+        .await
+        .unwrap();
+        idx.set_publication_test_hook(None);
+        assert_eq!(
+            *seen.lock(),
+            vec![
+                (PublicationTestPoint::RawBeforeCollectionBegin, 0),
+                (PublicationTestPoint::RawAfterAnalyze, 0),
+                (PublicationTestPoint::RawAfterWalVersionMap, 0),
+            ],
+            "no reservation may be held while the batch waits on the schema or the WAL"
+        );
+        assert_eq!(governor.analyze_reserved_for_test(), 0);
+        idx.refresh().await.unwrap();
+        assert!(idx.get_document("one").await.unwrap().is_some());
+        assert!(idx.get_document("two").await.unwrap().is_some());
+    }
+
+    /// #2427: the token reservation is now taken after the schema waits. When
+    /// memory filled up during those waits it refuses the batch with a 429,
+    /// and the refusal must leave nothing published or written to the WAL.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn raw_batch_refused_after_schema_wait_writes_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine
+            .create_index("raw-reservation-refused", text_schema())
+            .unwrap();
+        let idx = engine.get_index("raw-reservation-refused").unwrap();
+        let governor = crate::governor::ResourceGovernor::with_analyze_headroom_for_test(1 << 40);
+        *idx.analyze_governor_override.write() = Some(Arc::clone(&governor));
+        {
+            let governor = Arc::clone(&governor);
+            idx.set_publication_test_hook(Some(Arc::new(move |_, point| {
+                if point == PublicationTestPoint::RawBeforeCollectionBegin {
+                    // Memory filled up while this batch waited on the schema.
+                    governor.set_analyze_headroom_for_test(0);
+                }
+            })));
+        }
+        let error = idx
+            .index_batch_turbo_raw(vec![(
+                "late".into(),
+                Arc::<[u8]>::from(br#"{"body":"alpha"}"#.as_slice()),
+            )])
+            .await
+            .unwrap_err();
+        idx.set_publication_test_hook(None);
+        let EngineError::Common(error) = error else {
+            panic!("expected a 429, got {error:?}");
+        };
+        assert_eq!(error.http_status(), 429, "{error}");
+        assert_eq!(governor.analyze_reserved_for_test(), 0);
+        assert!(!idx.collection_publication.state().2);
+        assert!(idx.store.version_map.get("late").is_none());
+        assert!(idx.get_document("late").await.unwrap().is_none());
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn raw_cancellation_before_publication_does_not_poison_or_write() {
         let dir = tempfile::tempdir().unwrap();
@@ -10954,6 +11058,7 @@ enum PublicationTestPoint {
     AfterFts,
     AfterHnsw,
     RawBeforeCollectionBegin,
+    RawAfterAnalyze,
     RawAfterWalVersionMap,
     SyncBeforeCollectionBegin,
     MergeAfterRepoint,
@@ -11040,6 +11145,11 @@ pub struct Index {
     collection_publication: Arc<crate::collection_publication::CollectionPublication>,
     #[cfg(test)]
     publication_test_hook: Arc<parking_lot::RwLock<Option<PublicationTestHook>>>,
+    /// Test-only governor for the analyze reservations of this index, so a
+    /// test can watch its own reservations without the process-wide one.
+    #[cfg(test)]
+    analyze_governor_override:
+        Arc<parking_lot::RwLock<Option<Arc<crate::governor::ResourceGovernor>>>>,
     #[cfg(test)]
     test_panic_after_merge_publish: Arc<AtomicBool>,
     #[cfg(test)]
@@ -12006,6 +12116,8 @@ impl Index {
             #[cfg(test)]
             publication_test_hook: Arc::new(parking_lot::RwLock::new(None)),
             #[cfg(test)]
+            analyze_governor_override: Arc::new(parking_lot::RwLock::new(None)),
+            #[cfg(test)]
             test_panic_after_merge_publish: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
             test_fail_merge_before_apply: Arc::new(AtomicBool::new(false)),
@@ -12515,6 +12627,8 @@ impl Index {
             collection_publication: crate::collection_publication::CollectionPublication::new(),
             #[cfg(test)]
             publication_test_hook: Arc::new(parking_lot::RwLock::new(None)),
+            #[cfg(test)]
+            analyze_governor_override: Arc::new(parking_lot::RwLock::new(None)),
             #[cfg(test)]
             test_panic_after_merge_publish: Arc::new(AtomicBool::new(false)),
             #[cfg(test)]
@@ -13691,10 +13805,13 @@ impl Index {
             }
         }
 
-        // Charge the token spike before the batch is parsed. Eight bulks can
-        // pass one RSS sample and then analyze together; the reservation
-        // makes the second one 429 while the first is still allocating (#1122).
-        let analyze_reservation = Self::reserve_batch_analyze(validated.docs())?;
+        // Charge the parse spike before the batch is parsed. Eight bulks can
+        // pass one RSS sample and then parse together; the reservation makes
+        // the second one 429 while the first is still allocating (#1122).
+        // It ends with the parse: the parsed values are live RSS from here on,
+        // and the batch is about to wait on schema locks it must not hold a
+        // reservation across (#2427).
+        let parse_reservation = self.reserve_batch_analyze(validated.docs())?;
         let dom_t = std::time::Instant::now();
         let validated = crate::ingest_pool()
             .install(|| xerj_storage::IndexStore::parse_validated_raw_batch(validated))
@@ -13704,6 +13821,7 @@ impl Index {
                 ),
                 error => EngineError::Storage(error),
             })?;
+        drop(parse_reservation);
         let raw_parse_elapsed = syntax_elapsed.saturating_add(dom_t.elapsed());
         let index_start = std::time::Instant::now();
         // THROWAWAY prof (XERJ_PROF): per-phase attribution of the turbo path.
@@ -13768,6 +13886,63 @@ impl Index {
         #[cfg(test)]
         if let Some((doc, _)) = validated.docs().first() {
             self.publication_test_point(doc, PublicationTestPoint::RawBeforeCollectionBegin);
+            tokio::task::yield_now().await;
+        }
+
+        // Analyze every doc OUTSIDE the shard locks and before the WAL write.
+        // The schema text-field extraction + dynamic-mapping tree walk +
+        // analyzer tokenisation are the dominant per-doc CPU cost of
+        // `insert` (~30 s of tokenize per 1 M docs) and are pure — running
+        // them here on the rayon pool instead of inside `with_shard_mut` cuts
+        // the lock-held work from ~39 µs/doc to ~9 µs/doc, which is what lets
+        // 8 concurrent bulk clients scale instead of convoying on the shard
+        // write locks. Uses the exact same analyzer lookup as
+        // `FtsMemtable::insert`, so the postings are bit-identical.
+        //
+        // #2427: the token reservation is taken here, after every schema
+        // await above, and released as soon as the tokens exist. It used to
+        // be taken before the parse and held across the schema reads, schema
+        // evolution, the WAL append and the shard inserts, so a batch waiting
+        // on a lock or on the log kept hundreds of MB "reserved" that were
+        // never allocated, and concurrent bulks were refused with 429s at a
+        // fraction of the watermark. A refusal here is still safe: nothing
+        // has been published or written to the WAL yet, and the schema work
+        // above is additive preparation (see the comment before
+        // `evolve_schema_from_docs`).
+        let analyze_reservation = self.reserve_batch_analyze(validated.docs())?;
+        let analyzed: Vec<Vec<(String, Vec<xerj_fts::analyzer::Token>)>> = {
+            let schema = &publication_schema.schema;
+            let analyzer = self
+                .memtable
+                .default_analyzer()
+                .expect("standard analyzer always present");
+            let excluded_fts_fields = crate::memtable::fts_excluded_fields(schema);
+            let p_t = std::time::Instant::now();
+            let analyzed = crate::ingest_pool().install(|| {
+                sources_for_prepare
+                    .par_iter()
+                    .map(|source| {
+                        crate::memtable::analyze_doc_excluding(
+                            source.as_ref(),
+                            schema,
+                            &analyzer,
+                            &excluded_fts_fields,
+                        )
+                    })
+                    .collect()
+            });
+            if prof {
+                p_analyze_us = p_t.elapsed().as_micros();
+            }
+            analyzed
+        };
+        // The tokens are allocated, so live RSS now counts them; keeping the
+        // estimate as well would charge them twice while the batch waits on
+        // the WAL and the shard locks.
+        drop(analyze_reservation);
+        #[cfg(test)]
+        if let Some((doc, _)) = validated.docs().first() {
+            self.publication_test_point(doc, PublicationTestPoint::RawAfterAnalyze);
             tokio::task::yield_now().await;
         }
 
@@ -13856,41 +14031,7 @@ impl Index {
         // rayon worker holding that shard's lock exactly once — the
         // DocumentsWriterPerThread analogue.
         {
-            let schema = &publication_schema.schema;
             let mem = &*self.memtable;
-
-            // 3a. Pre-analyze every doc OUTSIDE the shard locks.  The
-            // schema text-field extraction + dynamic-mapping tree walk
-            // + analyzer tokenisation are the dominant per-doc CPU cost
-            // of `insert` (~30 s of tokenize per 1 M docs) and are pure
-            // — running them here on the rayon pool instead of inside
-            // `with_shard_mut` cuts the lock-held work from ~39 µs/doc
-            // to ~9 µs/doc, which is what lets 8 concurrent bulk
-            // clients actually scale instead of convoying on the shard
-            // write locks.  Uses the exact same analyzer lookup as
-            // `FtsMemtable::insert`, so the postings are bit-identical.
-            let analyzer = mem
-                .default_analyzer()
-                .expect("standard analyzer always present");
-            let excluded_fts_fields = crate::memtable::fts_excluded_fields(schema);
-            let p_t = std::time::Instant::now();
-            let analyzed: Vec<Vec<(String, Vec<xerj_fts::analyzer::Token>)>> = crate::ingest_pool()
-                .install(|| {
-                    sources
-                        .par_iter()
-                        .map(|source| {
-                            crate::memtable::analyze_doc_excluding(
-                                source.as_ref(),
-                                schema,
-                                &analyzer,
-                                &excluded_fts_fields,
-                            )
-                        })
-                        .collect()
-                });
-            if prof {
-                p_analyze_us = p_t.elapsed().as_micros();
-            }
             let p_t = std::time::Instant::now();
 
             let n_shards = mem.shard_count().max(1);
@@ -13930,9 +14071,7 @@ impl Index {
                 p_insert_us = p_t.elapsed().as_micros();
             }
         }
-        // Tokens are in the memtable. Drop the estimate so the next batch
-        // is charged the live RSS of those tokens, not the estimate as well.
-        drop(analyze_reservation);
+        drop(analyzed);
         drop(publication_schema);
 
         if prof {
@@ -14093,7 +14232,7 @@ impl Index {
             }
         }
 
-        let analyze_reservation = Self::reserve_batch_analyze(validated.docs())?;
+        let analyze_reservation = self.reserve_batch_analyze(validated.docs())?;
         let _hnsw_publication = has_vector_mapping.then(|| self.begin_hnsw_publication());
         let index_start = std::time::Instant::now();
         let wal_t = std::time::Instant::now();
@@ -30332,9 +30471,18 @@ impl Index {
     /// governor reserves nothing, so an `Index` built directly in a unit test
     /// is unchanged.
     fn reserve_batch_analyze(
+        &self,
         docs: &[xerj_storage::RawJsonDoc],
     ) -> Result<crate::governor::AnalyzeReservation> {
-        let Some(governor) = crate::governor::global() else {
+        #[cfg(test)]
+        let governor = self
+            .analyze_governor_override
+            .read()
+            .clone()
+            .or_else(crate::governor::global);
+        #[cfg(not(test))]
+        let governor = crate::governor::global();
+        let Some(governor) = governor else {
             return Ok(crate::governor::AnalyzeReservation::none());
         };
         let reserve = docs
