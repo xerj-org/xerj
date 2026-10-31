@@ -289,7 +289,78 @@ struct SlabGraphStorage {
     /// Sum of `node_level` over all slots (layers above 0), for the O(1)
     /// heap estimate in [`SlabGraphStorage::heap_bytes`].
     upper_layer_slots: usize,
+    /// Ids mutated while [`HnswIndex::compact`] rebuilds this graph
+    /// (#2796); `None` when no compaction is running.
+    journal: Option<CompactionJournal>,
 }
+
+/// Ids inserted or (un)tombstoned while a compaction rebuilds the graph
+/// (#2796). Recorded under the graph write lock, so every mutation the
+/// rebuild's snapshot missed is in here, and replayed onto the rebuilt
+/// graph before it replaces this one.
+#[derive(Default)]
+struct CompactionJournal {
+    inserted: Vec<u64>,
+    flagged: Vec<u64>,
+}
+
+impl CompactionJournal {
+    fn len(&self) -> usize {
+        self.inserted.len() + self.flagged.len()
+    }
+}
+
+/// One journaled id brought up to date on the rebuilt graph: its current
+/// vector when it was (re)inserted, and whether it is tombstoned now.
+struct CompactionReplay {
+    id: u64,
+    vector: Option<Vec<f32>>,
+    deleted: bool,
+}
+
+impl CompactionReplay {
+    fn collect(graph: &SlabGraphStorage, journal: &CompactionJournal) -> Vec<Self> {
+        let view = graph.read_view();
+        let inserted: HashSet<u64> = journal.inserted.iter().copied().collect();
+        let mut seen = HashSet::new();
+        journal
+            .inserted
+            .iter()
+            .chain(&journal.flagged)
+            .copied()
+            .filter(|id| seen.insert(*id))
+            .map(|id| CompactionReplay {
+                id,
+                vector: inserted
+                    .contains(&id)
+                    .then(|| view.current_slot(id).map(|slot| view.vector(slot).to_vec()))
+                    .flatten(),
+                deleted: graph.tomb_ids.contains(&id),
+            })
+            .collect()
+    }
+}
+
+/// A node's external id and vector, as fed to [`HnswIndex::insert_batch`].
+type IdVector = (u64, Vec<f32>);
+
+/// What [`HnswIndex::compact`] did (#2796).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CompactStats {
+    /// Nodes before the rebuild, dead ones included.
+    pub nodes_before: usize,
+    /// Nodes in the rebuilt graph that replaced it.
+    pub nodes_after: usize,
+}
+
+/// A compaction swaps in the rebuilt graph once the mutations journaled
+/// since its last catch-up round are at most this many. The final round
+/// replays them serially under the write lock, so this bounds how long
+/// searches and inserts wait on the swap.
+const COMPACT_FINAL_ROUND_MAX: usize = 256;
+/// Unlocked catch-up rounds before a compaction under sustained writes
+/// gives up (the graph is left as it was; a later call tries again).
+const COMPACT_MAX_CATCH_UP_ROUNDS: usize = 8;
 
 /// Read-only, slot-stable graph storage consumed by HNSW traversal and
 /// persistence.
@@ -443,6 +514,7 @@ impl SlabGraphStorage {
             entry_slot: None,
             entry_layer: 0,
             upper_layer_slots: 0,
+            journal: None,
         }
     }
 
@@ -986,10 +1058,10 @@ fn encode_graph_bytes(
 /// A thread-safe HNSW approximate nearest-neighbor index.
 ///
 /// Soft deletes: deleting a doc removes its entry from the caller's id
-/// maps but the node and its neighbour edges stay in the graph until a
-/// graph compaction (planned v0.7+). Tombstoned nodes are skipped as
-/// results but still traversed. Tombstones persist with the graph
-/// (format v2+).
+/// maps but the node and its neighbour edges stay in the graph until
+/// [`HnswIndex::compact`] rebuilds it from the live nodes (#2796).
+/// Tombstoned nodes are skipped as results but still traversed.
+/// Tombstones persist with the graph (format v2+).
 pub struct HnswIndex {
     params: HnswParams,
     inner: RwLock<SlabGraphStorage>,
@@ -1026,13 +1098,16 @@ impl HnswIndex {
 
     /// Mark `id` as deleted. Search will skip the node and never
     /// return it as a hit. The node and its neighbour edges remain
-    /// until a graph compaction (planned v0.7+). Idempotent.
+    /// until [`Self::compact`] (#2796). Idempotent.
     pub fn mark_deleted(&self, id: u64) {
         let mut g = self.inner.write().unwrap();
         if let Some(&slot) = g.slot_of.get(&id) {
             g.tomb[slot as usize] = true;
         }
         g.tomb_ids.insert(id);
+        if let Some(journal) = g.journal.as_mut() {
+            journal.flagged.push(id);
+        }
     }
 
     /// Reverse of `mark_deleted` — used in tests and on un-delete /
@@ -1043,6 +1118,9 @@ impl HnswIndex {
             g.tomb[slot as usize] = false;
         }
         g.tomb_ids.remove(&id);
+        if let Some(journal) = g.journal.as_mut() {
+            journal.flagged.push(id);
+        }
     }
 
     /// True if `id` has been tombstoned via `mark_deleted`.
@@ -1058,6 +1136,136 @@ impl HnswIndex {
     /// this to decide when to schedule a compaction.
     pub fn tombstone_count(&self) -> usize {
         self.inner.read().unwrap().read_view().tombstone_count()
+    }
+
+    /// `(live, dead)` node counts (#2796). A node is dead when it is
+    /// tombstoned or was superseded by a later insert under the same id;
+    /// dead nodes keep their vector and edges in memory and in the saved
+    /// graph until [`Self::compact`] drops them. O(live).
+    pub fn live_and_dead_counts(&self) -> (usize, usize) {
+        let g = self.inner.read().unwrap();
+        let live = g
+            .slot_of
+            .values()
+            .filter(|&&slot| !g.tomb[slot as usize])
+            .count();
+        (live, g.ids.len() - live)
+    }
+
+    /// Rebuild the graph from its live nodes only, dropping every
+    /// tombstoned or superseded node and the tombstone list (#2796).
+    ///
+    /// External ids and vectors are unchanged, so callers' id maps stay
+    /// valid. The rebuild runs without holding the graph lock, planning
+    /// inserts in parallel on the caller's rayon pool; searches and
+    /// inserts continue against the old graph meanwhile. Mutations made
+    /// during the rebuild are journaled and replayed onto the new graph,
+    /// in unlocked rounds until at most `COMPACT_FINAL_ROUND_MAX` remain,
+    /// and the final round and the swap happen under the write lock.
+    ///
+    /// Peak memory is the old graph plus the new one (live nodes only).
+    /// Returns `Ok(None)` without changing anything when another
+    /// compaction is running, or when writes outpace the catch-up rounds.
+    /// Tombstones of dropped nodes are forgotten: re-inserting such an id
+    /// later makes it live, as on a graph that never held it.
+    pub fn compact(&self) -> Result<Option<CompactStats>> {
+        let Some((nodes_before, items)) = self.compact_begin() else {
+            return Ok(None);
+        };
+        let fresh = HnswIndex::new(self.params.clone());
+        let outcome = self.compact_into(&fresh, items, nodes_before);
+        if !matches!(outcome, Ok(Some(_))) {
+            self.inner.write().unwrap().journal = None;
+        }
+        outcome
+    }
+
+    /// Start journaling and snapshot the live nodes in slot order.
+    /// `None` when a compaction is already running.
+    fn compact_begin(&self) -> Option<(usize, Vec<IdVector>)> {
+        {
+            let mut g = self.inner.write().unwrap();
+            if g.journal.is_some() {
+                return None;
+            }
+            g.journal = Some(CompactionJournal::default());
+        }
+        // Journaling is on before the snapshot, so a write landing between
+        // the two is replayed (at worst twice, which leaves a dead node).
+        let g = self.inner.read().unwrap();
+        let view = g.read_view();
+        let items = (0..view.node_count() as u32)
+            .filter(|&slot| is_live_slot(&view, slot) && !view.tombstoned(slot))
+            .map(|slot| (view.external_id(slot), view.vector(slot).to_vec()))
+            .collect();
+        Some((view.node_count(), items))
+    }
+
+    fn compact_into(
+        &self,
+        fresh: &HnswIndex,
+        items: Vec<IdVector>,
+        nodes_before: usize,
+    ) -> Result<Option<CompactStats>> {
+        fresh.insert_batch(items)?;
+        for _ in 0..=COMPACT_MAX_CATCH_UP_ROUNDS {
+            let journal = {
+                let mut g = self.inner.write().unwrap();
+                let pending = g.journal.as_ref().map_or(0, CompactionJournal::len);
+                if pending <= COMPACT_FINAL_ROUND_MAX {
+                    // Final round: serial inserts only. A rayon wait here
+                    // could steal a job that needs this graph's lock.
+                    let journal = g.journal.take().unwrap_or_default();
+                    for replay in CompactionReplay::collect(&g, &journal) {
+                        fresh.apply_replay(replay, false)?;
+                    }
+                    let slab = std::mem::replace(
+                        &mut *fresh.inner.write().unwrap(),
+                        SlabGraphStorage::new(self.params.dim, self.params.metric),
+                    );
+                    let nodes_after = slab.ids.len();
+                    let old = std::mem::replace(&mut *g, slab);
+                    drop(g);
+                    drop(old);
+                    debug!(nodes_before, nodes_after, "HNSW graph compacted");
+                    return Ok(Some(CompactStats {
+                        nodes_before,
+                        nodes_after,
+                    }));
+                }
+                std::mem::take(g.journal.as_mut().expect("journal checked above"))
+            };
+            let replays = {
+                let g = self.inner.read().unwrap();
+                CompactionReplay::collect(&g, &journal)
+            };
+            let (with_vectors, flags_only): (Vec<_>, Vec<_>) =
+                replays.into_iter().partition(|r| r.vector.is_some());
+            fresh.insert_batch(
+                with_vectors
+                    .iter()
+                    .map(|r| (r.id, r.vector.clone().expect("partitioned on vector")))
+                    .collect(),
+            )?;
+            for replay in with_vectors.into_iter().chain(flags_only) {
+                fresh.apply_replay(replay, true)?;
+            }
+        }
+        Ok(None)
+    }
+
+    /// Bring one journaled id up to date on a graph being rebuilt by
+    /// [`Self::compact`]. `inserted` says the vector is already in.
+    fn apply_replay(&self, replay: CompactionReplay, inserted: bool) -> Result<()> {
+        if let Some(vector) = replay.vector.filter(|_| !inserted) {
+            self.insert(replay.id, vector)?;
+        }
+        if replay.deleted {
+            self.mark_deleted(replay.id);
+        } else {
+            self.unmark_deleted(replay.id);
+        }
+        Ok(())
     }
 
     /// True when node `id` exists and stores exactly `v` (bit-exact f32
@@ -1174,6 +1382,9 @@ impl HnswIndex {
         } = plan;
 
         let mut g = self.inner.write().unwrap();
+        if let Some(journal) = g.journal.as_mut() {
+            journal.inserted.push(id);
+        }
         let current_entry = g.entry_slot.map(|slot| (slot, g.entry_layer));
         let grown = g.ids.len().saturating_sub(nodes);
         let entry_rose =
@@ -2650,6 +2861,129 @@ mod tests {
                 expect.to_bits(),
                 "id {id}: search {dist} scalar {expect}"
             );
+        }
+    }
+
+    fn spread_vec(seed: u64, dim: usize) -> Vec<f32> {
+        (0..dim as u64)
+            .map(|d| {
+                let h = (seed * dim as u64 + d + 1).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                ((h >> 40) % 2001) as f32 / 1000.0 - 1.0
+            })
+            .collect()
+    }
+
+    /// #2796: overwriting docs the way the engine does (a fresh node id
+    /// per write, the old node tombstoned) left every old vector in the
+    /// graph and in `graph.bin` forever. `compact` must drop them and keep
+    /// every live node findable under its id.
+    #[test]
+    fn compact_drops_dead_nodes_and_keeps_live_ones_2796() {
+        const DIM: usize = 16;
+        const LIVE: usize = 200;
+        const ROUNDS: u64 = 5;
+        let idx = make_index(DIM);
+        let mut next_id = 0u64;
+        let mut current: Vec<(u64, Vec<f32>)> = Vec::new();
+        for doc in 0..LIVE {
+            let v = spread_vec(doc as u64, DIM);
+            idx.insert(next_id, v.clone()).unwrap();
+            current.push((next_id, v));
+            next_id += 1;
+        }
+        let mut superseded = Vec::new();
+        for round in 1..=ROUNDS {
+            for (doc, slot) in current.iter_mut().enumerate() {
+                let v = spread_vec(round * 10_000 + doc as u64, DIM);
+                idx.mark_deleted(slot.0);
+                superseded.push((slot.0, slot.1.clone()));
+                idx.insert(next_id, v.clone()).unwrap();
+                *slot = (next_id, v);
+                next_id += 1;
+            }
+        }
+        // A same-id re-insert orphans the earlier slot, which is dead too.
+        idx.insert(current[0].0, current[0].1.clone()).unwrap();
+
+        let dead_before = LIVE * ROUNDS as usize + 1;
+        assert_eq!(idx.live_and_dead_counts(), (LIVE, dead_before));
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("graph.bin");
+        idx.save_to(&path).unwrap();
+        let bytes_before = std::fs::metadata(&path).unwrap().len();
+
+        let stats = idx.compact().unwrap().expect("no concurrent writer");
+        assert_eq!(stats.nodes_before, LIVE + dead_before);
+        assert_eq!(stats.nodes_after, LIVE);
+        assert_eq!(idx.live_and_dead_counts(), (LIVE, 0));
+        assert_eq!(idx.len(), LIVE);
+        assert_eq!(idx.tombstone_count(), 0);
+
+        idx.save_to(&path).unwrap();
+        let bytes_after = std::fs::metadata(&path).unwrap().len();
+        assert!(
+            bytes_after * 5 < bytes_before,
+            "graph.bin {bytes_before} -> {bytes_after} bytes for {LIVE} live of {} nodes",
+            LIVE + dead_before
+        );
+
+        for (id, v) in &current {
+            assert!(idx.vector_matches(*id, v));
+            assert_eq!(idx.search(v, 1, 64).unwrap()[0].0, *id);
+        }
+        for (id, v) in &superseded {
+            assert!(!idx.vector_matches(*id, v), "dead node {id} survived");
+        }
+        let reloaded = HnswIndex::load_from(&path).unwrap();
+        assert_eq!(reloaded.live_and_dead_counts(), (LIVE, 0));
+        let (id, v) = &current[LIVE / 2];
+        assert_eq!(reloaded.search(v, 1, 64).unwrap()[0].0, *id);
+    }
+
+    /// #2796: writes landing while `compact` rebuilds must not be lost.
+    /// More than `COMPACT_FINAL_ROUND_MAX` of them force an unlocked
+    /// catch-up round before the locked final one.
+    #[test]
+    fn compact_replays_writes_made_during_the_rebuild_2796() {
+        const DIM: usize = 16;
+        let idx = make_index(DIM);
+        for id in 0..300u64 {
+            idx.insert(id, spread_vec(id, DIM)).unwrap();
+        }
+        idx.mark_deleted(3);
+
+        let (nodes_before, items) = idx.compact_begin().expect("not running");
+        assert_eq!(items.len(), 299, "the snapshot skips the dead node");
+        // Writes made between the snapshot and the swap.
+        let added = 300..300 + COMPACT_FINAL_ROUND_MAX as u64 * 2;
+        for id in added.clone() {
+            idx.insert(id, spread_vec(id, DIM)).unwrap();
+        }
+        idx.mark_deleted(5);
+        idx.mark_deleted(400);
+        let moved = spread_vec(99_999, DIM);
+        idx.insert(7, moved.clone()).unwrap();
+        assert!(idx.compact().unwrap().is_none(), "one compaction at a time");
+
+        let fresh = HnswIndex::new(idx.params.clone());
+        let stats = idx
+            .compact_into(&fresh, items, nodes_before)
+            .unwrap()
+            .expect("catch-up converges without further writes");
+        assert_eq!(stats.nodes_before, 300);
+        assert!(idx.inner.read().unwrap().journal.is_none());
+
+        let live = 300 - 1 + added.clone().count() - 2;
+        assert_eq!(idx.live_and_dead_counts().0, live);
+        assert!(!idx.is_deleted(3), "dropped node's tombstone is gone");
+        assert!(idx.is_deleted(5) && idx.is_deleted(400));
+        assert!(idx.vector_matches(7, &moved));
+        assert_eq!(idx.search(&moved, 1, 64).unwrap()[0].0, 7);
+        for id in [0u64, 299, 300, 555, added.end - 1] {
+            assert_eq!(idx.search(&spread_vec(id, DIM), 1, 64).unwrap()[0].0, id);
+        }
+        for (id, _) in idx.search(&spread_vec(5, DIM), 10, 64).unwrap() {
+            assert!(id != 5 && id != 400, "tombstoned node {id} returned");
         }
     }
 }

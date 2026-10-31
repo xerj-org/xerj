@@ -76,6 +76,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Re-indexing the same doc ids no longer grows `hnsw/graph.bin` without
+  bound. Each overwrite tombstoned the old graph node and nothing ever
+  removed one, so the graph (on disk and in memory) kept every vector ever
+  written: 87.7 MB for 1,000 live vectors. The graph save now compacts the
+  graph once dead nodes reach the live count (and at least 1,024): it
+  rebuilds from the live vectors off-lock, replays writes that land during
+  the rebuild, and swaps the result in, so the graph stays within about
+  twice the live set. (#2796)
+
 - Code-extraction size skips now report exact file/limit byte counts and
   explain that `--max-file-gb` / `--max-file-mb` / `--max-file-bytes` do not
   raise the separate fixed 2 MiB AST source-file cap. The reason no longer

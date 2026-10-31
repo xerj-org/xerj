@@ -188,6 +188,15 @@ async fn await_publication_barrier<T>(rx: tokio::sync::oneshot::Receiver<T>, wha
     }
 }
 
+/// Dead HNSW nodes below this count are never worth a rebuild (#2796).
+const HNSW_COMPACT_MIN_DEAD: usize = 1024;
+
+/// Whether a graph with `live` and `dead` nodes should be compacted:
+/// once dead nodes are at least as many as live ones (#2796).
+fn hnsw_compaction_due(live: usize, dead: usize) -> bool {
+    dead >= HNSW_COMPACT_MIN_DEAD && dead >= live
+}
+
 /// Forcemerge batch selection over segments sorted smallest first: chunks
 /// of at most `chunk_len` segments whose input stays under `cap` bytes
 /// (`0` = no cap, #948). Returns index lists into `sizes`.
@@ -8277,6 +8286,87 @@ mod semantic_deadline_regression_tests {
         .expect("dedicated sync ingest thread panicked")
         .unwrap();
         assert!(sync_idx.passage_chunks_require_exact("body_vector"));
+    }
+
+    /// #2796: re-indexing the same ids tombstoned each old node and nothing
+    /// ever removed one, so `graph.bin` held every vector ever written
+    /// (87.7 MB for 1,000 live 1024-d vectors after 20 rounds). The graph
+    /// save now compacts once dead nodes reach the live count, so the node
+    /// count and the file stay within about twice the live set.
+    #[tokio::test]
+    async fn overwriting_the_same_ids_keeps_the_hnsw_graph_bounded_2796() {
+        const LIVE: usize = 1200;
+        const ROUNDS: usize = 6;
+        let dir = TempDir::new().unwrap();
+        let engine_instance = engine(&dir);
+        let mut schema = Schema::empty();
+        let mut vector = FieldConfig::new("v", FieldType::Vector);
+        vector.options.dimensions = Some(8);
+        vector.options.similarity = Some("cosine".into());
+        schema.add_field(vector).unwrap();
+        engine_instance
+            .create_index("overwrite-hnsw", schema)
+            .unwrap();
+        let idx = engine_instance.get_index("overwrite-hnsw").unwrap();
+
+        let vector_for = |doc: usize, round: usize| -> Vec<f32> {
+            (0..8u64)
+                .map(|d| {
+                    let seed = (round * LIVE + doc) as u64 * 8 + d + 1;
+                    let h = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                    ((h >> 40) % 2001) as f32 / 1000.0 - 1.0
+                })
+                .collect()
+        };
+        let mut first_graph_bytes = 0;
+        for round in 0..ROUNDS {
+            let docs: Vec<(String, Value)> = (0..LIVE)
+                .map(|doc| {
+                    (
+                        format!("doc-{doc}"),
+                        serde_json::json!({ "text": "t", "v": vector_for(doc, round) }),
+                    )
+                })
+                .collect();
+            idx.index_batch_turbo(docs, true, false).await.unwrap();
+            idx.save_hnsw_to_disk().await.unwrap();
+
+            let (live, dead) = {
+                let guard = idx.hnsw.read().await;
+                guard.as_ref().expect("graph built").live_and_dead_counts()
+            };
+            assert_eq!(live, LIVE, "round {round}");
+            assert!(
+                dead < LIVE.max(HNSW_COMPACT_MIN_DEAD),
+                "round {round}: {dead} dead nodes for {live} live ones"
+            );
+            let graph_bytes = std::fs::metadata(idx.hnsw_graph_path()).unwrap().len();
+            if round == 0 {
+                first_graph_bytes = graph_bytes;
+            }
+            assert!(
+                graph_bytes < first_graph_bytes * 5 / 2,
+                "round {round}: graph.bin {graph_bytes} bytes, {first_graph_bytes} after round 0"
+            );
+        }
+
+        // Ids and vectors survive the rebuilds: the id maps still resolve,
+        // the heap gauge tracks the compacted graph, and kNN finds every
+        // probe by its latest vector, never by an overwritten one.
+        assert_eq!(idx.hnsw_id_map.read().await.len(), LIVE);
+        assert_eq!(idx.vector_doc_count.load(Ordering::Relaxed), LIVE as u64);
+        let heap = idx.hnsw.read().await.as_ref().unwrap().heap_bytes();
+        assert_eq!(idx.hnsw_heap_bytes.load(Ordering::Relaxed), heap);
+        for probe in [0usize, 599, LIVE - 1] {
+            let hits = idx.knn_search(&vector_for(probe, ROUNDS - 1), 1).await;
+            assert_eq!(
+                hits.first().map(|h| h.0.as_str()),
+                Some(format!("doc-{probe}").as_str())
+            );
+        }
+        let saved = HnswIndex::load_from(&idx.hnsw_graph_path()).unwrap();
+        assert_eq!(saved.live_and_dead_counts().0, LIVE);
+        assert!(!idx.hnsw_stale.load(Ordering::Acquire));
     }
 
     /// #2427: a vector-bearing batch goes into the graph through one
@@ -18049,6 +18139,53 @@ impl Index {
         Ok(false)
     }
 
+    /// Rebuild the HNSW graph without its dead nodes once they are at least
+    /// as many as the live ones (#2796).
+    ///
+    /// Every overwrite or delete of a graphed doc tombstones its node, and
+    /// nothing else ever removed one: re-indexing the same 1,000 ids 20
+    /// times left a 87.7 MB `graph.bin` for 1,000 live vectors, and the
+    /// dead nodes' vectors and edges stayed in RSS as well. Rebuilding when
+    /// dead >= live keeps the graph within about twice its live size and
+    /// costs at most one extra insert per overwrite, amortised. The rebuild
+    /// runs on the deprioritised background pool while searches and inserts
+    /// keep using the old graph (`HnswIndex::compact`).
+    async fn maybe_compact_hnsw(&self) {
+        let hnsw = Arc::clone(&self.hnsw);
+        let heap_bytes = Arc::clone(&self.hnsw_heap_bytes);
+        let outcome = tokio::task::spawn_blocking(move || {
+            let guard = hnsw.blocking_read();
+            let graph = guard.as_ref()?;
+            let (live, dead) = graph.live_and_dead_counts();
+            if !hnsw_compaction_due(live, dead) {
+                return None;
+            }
+            let result = crate::background_pool().install(|| graph.compact());
+            heap_bytes.store(graph.heap_bytes(), Ordering::Relaxed);
+            Some(result)
+        })
+        .await;
+        match outcome {
+            Ok(Some(Ok(Some(stats)))) => info!(
+                index = self.name.as_str(),
+                nodes_before = stats.nodes_before,
+                nodes_after = stats.nodes_after,
+                "HNSW graph compacted"
+            ),
+            Ok(Some(Ok(None))) => debug!(
+                index = self.name.as_str(),
+                "HNSW compaction skipped: concurrent compaction or writes outpaced it"
+            ),
+            Ok(Some(Err(error))) => {
+                warn!(index = self.name.as_str(), %error, "HNSW compaction failed")
+            }
+            Err(error) => {
+                warn!(index = self.name.as_str(), %error, "HNSW compaction task failed")
+            }
+            Ok(None) => {}
+        }
+    }
+
     /// True when `doc_id` has a graph node whose stored vector bit-matches
     /// `vector` (rebuild fast path — no insert needed).
     async fn hnsw_vector_current(&self, doc_id: &str, vector: &[f32]) -> bool {
@@ -21637,6 +21774,10 @@ impl Index {
     /// `self.hnsw` is None (no vector field has been indexed yet).
     /// Called on flush completion and graceful shutdown.
     pub async fn save_hnsw_to_disk(&self) -> Result<()> {
+        // Drop dead nodes first so the file written below is the compacted
+        // graph (#2796). Ids and vectors are unchanged, so this cannot move
+        // the freshness stamp taken next.
+        self.maybe_compact_hnsw().await;
         let publication_generation_before =
             self.hnsw_publication_generation.load(Ordering::Acquire);
         // This stamp brackets graph, identity-map, and passage-guard
