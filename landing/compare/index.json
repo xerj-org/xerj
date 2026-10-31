@@ -3,21 +3,55 @@
   "section": "compare",
   "articles": [
     {
+      "title": "claude-mem vs MemPalace vs XERJ: memory for Claude Code",
+      "question": "Should I use claude-mem, MemPalace or XERJ as memory for Claude Code?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-claude-mem-and-mempalace",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-claude-mem-and-mempalace.md",
+      "cluster": "Comparison: agent memory",
+      "updated": "2026-10-30",
+      "summary": "claude-mem summarizes sessions with a model. MemPalace keeps every word. XERJ stores what the agent chooses. A fair comparison and a picker to find your fit.",
+      "intent_group": "agent memory",
+      "answer": "Should I use claude-mem, MemPalace or XERJ for Claude Code memory? Use claude-mem for automatic, model-written session summaries. Use MemPalace to keep every conversation word for word, saved by hooks. Use XERJ when you want the agent to choose what to save and one local engine for memory, logs, docs and code.",
+      "queries": [
+        "claude-mem alternative",
+        "mempalace alternative",
+        "best mcp memory server for claude code",
+        "claude-mem vs mempalace"
+      ]
+    },
+    {
       "title": "XERJ vs Mem0, Zep, Letta and Cognee for agent memory",
       "question": "Should I use Mem0, Zep, Letta, Cognee or XERJ for AI agent memory?",
       "canonical_url": "https://xerj.org/compare/xerj-vs-agent-memory-tools",
       "markdown_url": "https://xerj.org/compare/xerj-vs-agent-memory-tools.md",
       "cluster": "Comparison: agent memory",
-      "updated": "2026-10-28",
+      "updated": "2026-10-30",
       "summary": "How XERJ compares with Mem0, Zep, Letta and Cognee for AI agent memory: what each one stores, what it needs to run, and when to pick each one.",
       "intent_group": "agent memory",
       "answer": "Should I use Mem0, Zep, Letta, Cognee or XERJ for agent memory? Pick Mem0 or Cognee to have a model extract facts and links for you, Zep or Graphiti for facts that change over time, Letta for a full stateful agent. Pick XERJ for plain local memory, searched like any other data, with no generative fact-extraction step.",
       "queries": [
         "mem0 vs zep vs letta",
-        "mem0 alternative open source",
         "zep alternative self-hosted",
         "agent memory tools comparison",
         "self-hosted agent memory no LLM"
+      ]
+    },
+    {
+      "title": "XERJ vs Mem0: two ways to give an AI agent memory",
+      "question": "Should I use XERJ or Mem0 for AI agent memory?",
+      "canonical_url": "https://xerj.org/compare/xerj-vs-mem0",
+      "markdown_url": "https://xerj.org/compare/xerj-vs-mem0.md",
+      "cluster": "Comparison: agent memory",
+      "updated": "2026-10-30",
+      "summary": "Mem0 uses a language model to turn chats into facts. XERJ stores the text your agent sends and finds it with search. A live recall demo and when to pick each.",
+      "intent_group": "agent memory",
+      "answer": "Should I use XERJ or Mem0 for agent memory? Pick Mem0 if you want a language model to read chats and keep a tidy list of facts for you. Pick XERJ if you want the agent to store exactly what it writes, find it with keyword, vector or hybrid search, and run it all on your own machine.",
+      "queries": [
+        "mem0 alternatives",
+        "mem0 alternative open source",
+        "best memory for AI agents",
+        "xerj vs mem0",
+        "mem0 without openai"
       ]
     },
     {

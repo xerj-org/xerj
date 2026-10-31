@@ -2,13 +2,13 @@
 ---
 title: "XERJ vs Mem0, Zep, Letta and Cognee for agent memory"
 canonical: "https://xerj.org/compare/xerj-vs-agent-memory-tools"
-updated: "2026-10-28"
+updated: "2026-10-30"
 source: "content/compare/xerj-vs-agent-memory-tools.md"
 ---
 
 # XERJ vs agent memory tools: Mem0, Zep, Letta and Cognee
 
-**Short answer** (updated 2026-10-28): Should I use Mem0, Zep, Letta, Cognee or XERJ for agent memory? Pick Mem0 or Cognee to have a model extract facts and links for you, Zep or Graphiti for facts that change over time, Letta for a full stateful agent. Pick XERJ for plain local memory, searched like any other data, with no generative fact-extraction step.
+**Short answer** (updated 2026-10-30): Should I use Mem0, Zep, Letta, Cognee or XERJ for agent memory? Pick Mem0 or Cognee to have a model extract facts and links for you, Zep or Graphiti for facts that change over time, Letta for a full stateful agent. Pick XERJ for plain local memory, searched like any other data, with no generative fact-extraction step.
 
 **TL;DR**: Mem0, Zep, Letta and Cognee add intelligence on top of memory: models that extract facts, graphs that track change, or a whole agent runtime. XERJ does less on purpose. It stores what your agent writes and finds it with search, in one local binary with no generative fact-extraction step. No head-to-head was run.
 
@@ -132,6 +132,8 @@ No. No head-to-head was run. This page compares what each project documents abou
 
 ## Related
 
+- [XERJ vs Mem0: which memory fits your AI agent?](/compare/xerj-vs-mem0)
+- [claude-mem vs MemPalace vs XERJ: which memory should Claude Code use?](/compare/xerj-vs-claude-mem-and-mempalace)
 - [Should my agent call a search API or stand up Qdrant for persistent memory?](/compare/xerj-vs-vector-database)
 - [What's a simpler alternative to Khoj if I only need search and memory?](/compare/xerj-vs-khoj)
 - [What is agentic memory?](/answers/what-is-agentic-memory)
@@ -140,4 +142,4 @@ No. No head-to-head was run. This page compares what each project documents abou
 - [How do I stop an agent memory store from filling with near-duplicate notes?](/answers/store-agent-memory-without-llm-call)
 - [Should agent memory use a knowledge graph?](/answers/knowledge-graphs-for-agent-memory) (same intent: agent memory)
 - [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant) (same intent: agent memory)
-- [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions) (same intent: agent memory)
+- [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory) (same intent: agent memory)

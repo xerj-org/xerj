@@ -7,7 +7,7 @@ cluster: "Agent memory: concepts"
 question: "What is the difference between agentic memory and RAG?"
 intent: "informational"
 published: "2026-10-28"
-updated: "2026-10-28"
+updated: "2026-10-30"
 author: "XERJ documentation team"
 reviewer: "XERJ engineering team"
 schema_type: "TechArticle"
@@ -18,7 +18,6 @@ intent_group: "agent memory"
 queries:
   - "agentic memory vs RAG"
   - "agent memory vs RAG"
-  - "RAG vs agentic RAG"
   - "do AI agents need memory or RAG"
 evidence:
   - claim: "Is Complex Agentic Memory Always Needed? Naive RAG Is Stronger Than We Thought: a raw-history RAG baseline ranks first among the compared memory systems in six of seven benchmark-model settings."
@@ -38,6 +37,7 @@ links_out:
   - "what-is-agentic-memory"
   - "what-is-an-mcp-memory-server"
   - "rag-without-vector-database"
+  - "agentic-rag-vs-rag"
   - "compare/xerj-vs-agent-memory-tools"
   - "compare/xerj-vs-vector-database"
 faq:
@@ -66,7 +66,7 @@ faq:
 
 ## Agentic RAG sits in between
 
-Agentic RAG means the agent decides when and what to search, often in several rounds. Its sources can change during work. Persisting notes or history for later tasks adds a memory workflow; the two are compatible.
+Agentic RAG means the agent decides when and what to search, often in several rounds. Its sources can change during work. Persisting notes or history for later tasks adds a memory workflow; the two are compatible. See [agentic RAG vs RAG](/answers/agentic-rag-vs-rag) for a step-by-step comparison.
 
 ## Simple often wins
 

@@ -126,5 +126,5 @@ No. There is no decay and no TTL. A memory is permanent until explicitly forgott
 - [How do I stop an agent memory store from filling with near-duplicate notes?](/answers/store-agent-memory-without-llm-call)
 - [Agent memory](/docs/recipes/agentic-memory)
 - [How do people store user preferences so an agent can recall them next week?](/answers/coding-agent-memory-across-sessions) (same intent: agent memory)
+- [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory) (same intent: agent memory)
 - [How do I give two agents private memory on one laptop?](/answers/private-agent-memory-namespaces) (same intent: agent memory)
-- [How do I set the MCP memory storage path?](/answers/set-mcp-memory-storage-path) (same intent: agent memory)
