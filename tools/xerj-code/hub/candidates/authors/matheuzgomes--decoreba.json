@@ -1,0 +1,23 @@
+{
+ "corpus": "matheuzgomes--decoreba",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on cli, fuzzy-search, mcp queries this for how matheuzgomes/decoreba implements it: Personal command vault for your terminal \u2014 inline fuzzy search, variables, workflows, MCP. ~2ms, zero deps",
+ "repos": [
+  {
+   "repo": "decoreba",
+   "url": "https://github.com/matheuzgomes/decoreba",
+   "sha": "e39cffee9c871d6c7f5236fabc5cc132e220ca99",
+   "licence": "MIT (LICENSE file at pin e39cffee9c87, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T00:40Z",
+    "consent_receipt": "e35071d08cf2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T00:40Z (receipt e35071d08cf2); pinned to the default-branch head. LICENSE file at pin e39cffee9c87 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "whisper-vulkan-win",
    "url": "https://github.com/fahrim/whisper-vulkan-win",
-   "sha": "490c44dac0a14083e25f6e3f0de4caf08867473f",
-   "licence": "author's permission (LICENSE at pin 490c44dac0a1: NOASSERTION; repository: NOASSERTION)",
+   "sha": "7ae77eb0c69debc4c05047e1251cff12a2792b4f",
+   "licence": "author's permission (LICENSE at pin 7ae77eb0c69d: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T21:55Z",
     "consent_receipt": "ac322908d45a",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T21:55Z (receipt ac322908d45a); pinned to the default-branch head. LICENSE at pin 490c44dac0a1: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T21:55Z (receipt ac322908d45a); pinned to the default-branch head. LICENSE at pin 7ae77eb0c69d: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

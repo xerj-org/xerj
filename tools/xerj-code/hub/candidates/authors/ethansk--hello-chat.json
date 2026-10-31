@@ -9,14 +9,14 @@
    "repo": "hello-chat",
    "url": "https://github.com/EthanSK/hello-chat",
    "sha": "aa07ee95acf7000b468f3a1268a912f08624c8cf",
-   "licence": "MIT (LICENSE file at pin aa07ee95acf7, GitHub licence API 2026-10-29)",
+   "licence": "author's permission (LICENSE at pin aa07ee95acf7: MIT; repository: NOASSERTION)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T20:42Z",
     "consent_receipt": "ffc7b8230c9a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:42Z (receipt ffc7b8230c9a); selected commit aa07ee95acf7: \"Publish HelloChat website, setup guide, and test suite\". LICENSE file at pin aa07ee95acf7 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:42Z (receipt ffc7b8230c9a); selected commit aa07ee95acf7: \"Publish HelloChat website, setup guide, and test suite\". LICENSE at pin aa07ee95acf7: MIT (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

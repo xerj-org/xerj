@@ -8,15 +8,15 @@
   {
    "repo": "wake-lock-indicator",
    "url": "https://github.com/dMopp/wake-lock-indicator",
-   "sha": "d2eb8373c415b3e69da33c65b367c23b0082c8f7",
-   "licence": "MIT (LICENSE file at pin d2eb8373c415, GitHub licence API 2026-10-30)",
+   "sha": "f7dab24e3ef11edab2f80b89c1e268374c9e87f7",
+   "licence": "MIT (LICENSE file at pin f7dab24e3ef1, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T20:24Z",
     "consent_receipt": "12a5caffa149",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T20:24Z (receipt 12a5caffa149); pinned to the default-branch head. LICENSE file at pin d2eb8373c415 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T20:24Z (receipt 12a5caffa149); pinned to the default-branch head. LICENSE file at pin f7dab24e3ef1 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
    }
   }
  ]

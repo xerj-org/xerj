@@ -1,9 +1,9 @@
 {
- "corpus": "hayagrivai-labs--phantom",
+ "corpus": "alok-108--phantom",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on cli, code-generation, good-first-issue queries this for how hayagrivai-labs/phantom implements it: Phantom: dual-layer programming language - structured instructions embedded in ordinary Python source (selected work: src/phantom, tests)",
+ "domain": "an agent working on cli, code-generation, good-first-issue queries this for how alok-108/phantom implements it: Phantom: dual-layer programming language - structured instructions embedded in ordinary Python source (selected work: src/phantom, tests)",
  "repos": [
   {
    "repo": "phantom",

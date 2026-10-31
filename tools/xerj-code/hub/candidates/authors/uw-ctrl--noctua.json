@@ -8,15 +8,15 @@
   {
    "repo": "noctua",
    "url": "https://github.com/UW-CTRL/noctua",
-   "sha": "901ebe2a58c95614ff8e5defd06a510e1cc9a368",
-   "licence": "MIT (LICENSE file at pin 901ebe2a58c9, GitHub licence API 2026-10-30)",
+   "sha": "eb288ca8fe11138ee9e764ed4b777f55242e0044",
+   "licence": "MIT (LICENSE file at pin eb288ca8fe11, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-27T03:26Z",
     "consent_receipt": "fb855b7673d4",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T03:26Z (receipt fb855b7673d4); selected commit 901ebe2a58c9: \"Prompt for updates at startup with concise release highlights\". LICENSE file at pin 901ebe2a58c9 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head 901ebe2a58c9 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T03:26Z (receipt fb855b7673d4); selected commit eb288ca8fe11: \"Prompt for updates at startup with concise release highlights\". LICENSE file at pin eb288ca8fe11 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head eb288ca8fe11 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]
