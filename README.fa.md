@@ -204,3 +204,50 @@ xerj gain                                        # what it did for you — count
 <p dir="rtl" align="right">
 محدودیت‌های واقعی این روش به‌طور شفاف در <a href="https://xerj.org/case-studies/reference-coding.html">مطالعه موردی</a> توضیح داده شده‌اند.
 </p>
+
+<h2 dir="rtl" align="right">هر پوشه‌ای را در اختیارش قرار دهید</h2>
+
+<p dir="rtl" align="right">
+برنامه‌نویسی مبتنی بر ارجاع، یکی از کاربردهای همین قابلیت پایه است: دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj autoindex &lt;folder&gt;</code></span> به یک عامل هوش مصنوعی کمک می‌کند به‌جای جست‌وجوی مکرر فایل‌ها با <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">grep</span>، محتوای یک مجموعه‌داده را بشناسد و از آن استفاده کند.
+</p>
+
+<p dir="rtl" align="right">
+با اجرای تنها یک دستور، کدها، مستندات، گزارش‌های سیستم، فایل‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">PDF</span>، پایگاه‌های داده <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">SQLite</span> و فایل‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">CSV</span> با ساختارهای پیچیده، به ایندکس‌های ساختاریافته و قابل جست‌وجو تبدیل می‌شوند. این ایندکس‌ها برای جست‌وجو، تولید پاسخ مبتنی بر بازیابی اطلاعات (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">RAG</span>)، ممیزی امنیتی و حافظه عامل‌های هوش مصنوعی قابل استفاده هستند؛ بدون اینکه نیازی به تعریف <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Schema</span> یا پیکربندی یک <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Pipeline</span> داشته باشید.
+</p>
+
+<pre dir="ltr"><code>xerj --insecure --data-dir ~/xerj-data &amp;      # start it
+xerj autoindex ~/my-project                   # point it at anything</code></pre>
+
+<p dir="rtl" align="right">
+پارامتر &#x200E;<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">--insecure</span>&#x200E; در اینجا نیز به معنای غیرفعال بودن <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">TLS</span> و احراز هویت است؛ بنابراین هر کلاینتی که بتواند متصل شود، دسترسی کامل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Superuser</span> خواهد داشت. در نتیجه، همان محدودیت امنیتی استفاده توسط یک کاربر روی یک دستگاه توسعه که در بخش قبل توضیح داده شد، در اینجا نیز برقرار است (<a href="./docs/SECURITY_MODEL.md">مدل امنیتی</a>).
+</p>
+
+<p dir="rtl" align="right">
+<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> تمام فایل‌ها را بررسی می‌کند، نوع هرکدام را تشخیص می‌دهد و برای هر مجموعه‌داده‌ای که پیدا کند، یک ایندکس جداگانه می‌سازد.
+</p>
+
+<p dir="rtl" align="right">
+کدها نیز از طریق <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">tree-sitter</span> همراه با نمادها و شماره خطوط مربوط به خود پردازش می‌شوند، نه به‌صورت متن ساده و بدون ساختار:
+</p>
+
+<pre dir="ltr"><code>phase A: 593 datasets inferred, 1955 junk/skipped files
+phase B: indexing 25329 files with 8 workers
+done in 158.1s, 593 datasets, 83103 records live, 790 junk records</code></pre>
+
+<p dir="rtl" align="right">
+برای اشتراک‌گذاری یک نقشه آفلاین از داده‌ها، از دستور زیر استفاده کنید:
+</p>
+
+<pre dir="ltr"><code>xerj autoindex map --prefix myproject --html xerj-map.html --redact-paths</code></pre>
+
+<p dir="rtl" align="right">
+همچنین می‌توانید با استفاده از پارامتر &#x200E;<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">--md xerj-map.md</span>&#x200E; خروجی را در قالب <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Markdown</span> دریافت کنید.
+</p>
+
+<p dir="rtl" align="right">
+این گزارش‌ها شامل تعداد مجموعه‌داده‌ها، نام نمادها، گره‌های مرکزی گراف در صورت وجود، اطلاعات فایل‌های ردشده یا نادیده‌گرفته‌شده و پیشنهادهایی برای جست‌وجو هستند. پیش از اشتراک‌گذاری، نام فراداده‌ها را بررسی کنید.
+</p>
+
+<p dir="rtl" align="right">
+<a href="tools/map-report/README.md">نمونه‌ها، محدوده اطلاعات حریم خصوصی و روش بازتولید گزارش</a>
+</p>
