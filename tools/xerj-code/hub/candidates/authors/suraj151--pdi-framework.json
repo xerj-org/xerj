@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on esp8266, mqtt-service, esp-mail-service queries this for how Suraj151/pdi-framework implements it: Portable Device Interface (PDI) framework stack for easy configurable applications running over avr, esp8266, esp32 devices. Designed to man (selected work: tests, src/service_provider, src/transports)",
+ "domain": "an agent working on esp8266, mqtt-service, esp-mail-service queries this for how Suraj151/pdi-framework implements it: Portable Device Interface (PDI) C++ framework that boots up your device into tiny OS for easy configurable applications. Designed to manage  (selected work: tests, src/service_provider, src/transports)",
  "repos": [
   {
    "repo": "pdi-framework",

@@ -1,0 +1,23 @@
+{
+ "corpus": "sandeep-miriyala--aksharadhara",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how sandeep-miriyala/Aksharadhara implements it: Telugu, Sanskrit, Hindi & English OCR in the browser, with Vedic swara (pitch) marking and a mantra manager. Installable PWA, no uploads",
+ "repos": [
+  {
+   "repo": "Aksharadhara",
+   "url": "https://github.com/sandeep-miriyala/Aksharadhara",
+   "sha": "81cdce35f76f6a154b80d36176a47a4a0ef2aa3a",
+   "licence": "GPL-3.0 (LICENSE file at pin 81cdce35f76f, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-28T14:37Z",
+    "consent_receipt": "7383ebd908d1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T14:37Z (receipt 7383ebd908d1); pinned to the default-branch head. LICENSE file at pin 81cdce35f76f detected as GPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

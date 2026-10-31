@@ -1,9 +1,9 @@
 {
- "corpus": "sandeepmiriyala03--yuktai",
+ "corpus": "sandeep-miriyala--yuktai",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how sandeepmiriyala03/yuktai implements it: Open-source AI + accessibility toolkit for Next.js, React and plain HTML. Agentic data grid you can talk to (filters, BI answers, multi-step (selected work: src/grid, src)",
+ "domain": "an agent working on TypeScript queries this for how sandeep-miriyala/yuktai implements it: Open-source AI + accessibility toolkit for Next.js, React and plain HTML. Agentic data grid you can talk to (filters, BI answers, multi-step (selected work: src/grid, src)",
  "repos": [
   {
    "repo": "yuktai",

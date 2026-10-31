@@ -1,9 +1,9 @@
 {
- "corpus": "wtflauncher--wtflauncher",
+ "corpus": "komorebilauncher--komorebilauncher",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on minecraft, minecraft-clientside queries this for how WTFLauncher/WTFLauncher implements it: \u9762\u5411\u9700\u8981\u56fd\u5185\u4e0b\u8f7d\u73af\u5883\u7684 Minecraft \u73a9\u5bb6\u7684\u542f\u52a8\u5668\u3002 (selected work: launcher, tests)",
+ "domain": "an agent working on minecraft, minecraft-clientside, launcher queries this for how KomorebiLauncher/KomorebiLauncher implements it: \u9762\u5411\u56fd\u5185\u7f51\u7edc\u73af\u5883\u7684 Minecraft: Java Edition \u542f\u52a8\u5668\uff0cfork \u81ea Prism Launcher\u3002 (selected work: launcher, tests)",
  "repos": [
   {
    "repo": "WTFLauncher",

@@ -1,0 +1,23 @@
+{
+ "corpus": "artemtsitronov--dotconnector",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how artemtsitronov/dotconnector implements it: A keyboard-driven, symmetrical dot-and-line drawing tool built with PyQt6",
+ "repos": [
+  {
+   "repo": "dotconnector",
+   "url": "https://github.com/artemtsitronov/dotconnector",
+   "sha": "13cf0cfd788dc2565571325fe7359fb16007526b",
+   "licence": "MIT (LICENSE file at pin 13cf0cfd788d, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T08:49Z",
+    "consent_receipt": "8bb4bd451c2a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T08:49Z (receipt 8bb4bd451c2a); pinned to the default-branch head. LICENSE file at pin 13cf0cfd788d detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

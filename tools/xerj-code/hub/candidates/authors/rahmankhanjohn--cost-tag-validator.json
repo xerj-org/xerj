@@ -8,15 +8,15 @@
   {
    "repo": "cost-tag-validator",
    "url": "https://github.com/rahmankhanjohn/cost-tag-validator",
-   "sha": "02dd88996fd391d3203b4c03bbc8e38839de95b2",
-   "licence": "MIT (LICENSE file at pin 02dd88996fd3, GitHub licence API 2026-10-30)",
+   "sha": "78d0640a7bdc0476a641611ccf73e763130ed2f7",
+   "licence": "MIT (LICENSE file at pin 78d0640a7bdc, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T21:22Z",
     "consent_receipt": "acd07f1e3baf",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:22Z (receipt acd07f1e3baf); pinned to the default-branch head. LICENSE file at pin 02dd88996fd3 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:22Z (receipt acd07f1e3baf); pinned to the default-branch head. LICENSE file at pin 78d0640a7bdc detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
    }
   }
  ]

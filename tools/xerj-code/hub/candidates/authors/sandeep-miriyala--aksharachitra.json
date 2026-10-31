@@ -1,0 +1,23 @@
+{
+ "corpus": "sandeep-miriyala--aksharachitra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how sandeep-miriyala/AksharaChitra implements it: AksharaChitra",
+ "repos": [
+  {
+   "repo": "AksharaChitra",
+   "url": "https://github.com/sandeep-miriyala/AksharaChitra",
+   "sha": "ae05eb029c64f069647a165c56e57f5878c6b706",
+   "licence": "GPL-3.0 (LICENSE file at pin ae05eb029c64, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T18:34Z",
+    "consent_receipt": "5c2755e4e00f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:34Z (receipt 5c2755e4e00f); pinned to the default-branch head. LICENSE file at pin ae05eb029c64 detected as GPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

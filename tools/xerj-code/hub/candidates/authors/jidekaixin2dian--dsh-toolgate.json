@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on deepseek-harness, dsh-plugin, mcp queries this for how jidekaixin2dian/dsh-toolgate implements it: Manage MCP servers and skills in DeepSeek Harness, and control which tools enter the next prompt (selected work: lib, test, host-tests)",
+ "domain": "an agent working on deepseek-harness, dsh-plugin, mcp queries this for how jidekaixin2dian/dsh-toolgate implements it: DeepSeek Harness\uff08DSH\uff09\u63d2\u4ef6\uff1a\u7ba1\u7406 MCP \u670d\u52a1\u5668\u4e0e Skills\uff0c\u6309\u7ec4\u63a7\u5236\u5de5\u5177\u53ef\u89c1\u6027\u548c\u4e0a\u4e0b\u6587\u9884\u7b97\u3002 (selected work: lib, test, host-tests)",
  "repos": [
   {
    "repo": "dsh-toolgate",

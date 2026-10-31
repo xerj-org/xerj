@@ -8,15 +8,15 @@
   {
    "repo": "soc-evals",
    "url": "https://github.com/rahmankhanjohn/soc-evals",
-   "sha": "da933e416fbb194db1810be1af34080879dcc8ab",
-   "licence": "MIT (LICENSE file at pin da933e416fbb, GitHub licence API 2026-10-30)",
+   "sha": "cfe1ffc2a0c082cbdd13ea6f0a84144d10bd1c60",
+   "licence": "MIT (LICENSE file at pin cfe1ffc2a0c0, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T21:22Z",
     "consent_receipt": "ddf448e43285",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:22Z (receipt ddf448e43285); pinned to the default-branch head. LICENSE file at pin da933e416fbb detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:22Z (receipt ddf448e43285); pinned to the default-branch head. LICENSE file at pin cfe1ffc2a0c0 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
    }
   }
  ]
