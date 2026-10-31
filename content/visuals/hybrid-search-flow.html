@@ -1,0 +1,29 @@
+<figure class="vz" id="fig-hy-flow" aria-labelledby="fig-hy-flow-cap">
+  <span class="vz-label">Diagram</span>
+  <p class="vz-title">One query, two rankings, one list</p>
+  <div class="vz-svg">
+    <svg viewBox="0 0 720 230" role="img" aria-describedby="fig-hy-flow-svg" aria-label="Hybrid search: two searches fused into one list">
+      <desc id="fig-hy-flow-svg">The query goes to BM25 and to vector search. Each returns a ranked list. Fusion merges them into one list.</desc>
+      <rect class="vz-s-box" x="10" y="90" width="130" height="50" rx="4"/>
+      <text class="vz-s-t vz-s-b" x="75" y="112" text-anchor="middle">Query</text>
+      <text class="vz-s-m vz-s-mute" x="75" y="130" text-anchor="middle">"server down"</text>
+      <path class="vz-s-line" d="M140 115 L200 55 M140 115 L200 175"/>
+      <rect class="vz-s-box" x="200" y="20" width="200" height="70" rx="4"/>
+      <text class="vz-s-t vz-s-b" x="300" y="45" text-anchor="middle">BM25</text>
+      <text class="vz-s-t vz-s-mute" x="300" y="65" text-anchor="middle">scores shared words</text>
+      <text class="vz-s-m vz-s-acc" x="300" y="82" text-anchor="middle">rank 1, 2, 3</text>
+      <rect class="vz-s-box" x="200" y="140" width="200" height="70" rx="4"/>
+      <text class="vz-s-t vz-s-b" x="300" y="165" text-anchor="middle">Vector search</text>
+      <text class="vz-s-t vz-s-mute" x="300" y="185" text-anchor="middle">scores closeness of meaning</text>
+      <text class="vz-s-m vz-s-acc" x="300" y="202" text-anchor="middle">rank 1, 2, 3</text>
+      <path class="vz-s-line" d="M400 55 L460 115 M400 175 L460 115"/>
+      <rect class="vz-s-hi" x="460" y="80" width="120" height="70" rx="4"/>
+      <text class="vz-s-t vz-s-b" x="520" y="108" text-anchor="middle">Fusion</text>
+      <text class="vz-s-m" x="520" y="128" text-anchor="middle">RRF, k=60</text>
+      <path class="vz-s-line" d="M580 115 L620 115"/>
+      <rect class="vz-s-box" x="620" y="90" width="90" height="50" rx="4"/>
+      <text class="vz-s-t vz-s-b" x="665" y="120" text-anchor="middle">1 list</text>
+    </svg>
+  </div>
+  <figcaption id="fig-hy-flow-cap">Both searches run on the same query. Fusion reads only the rank of each result, so a BM25 score and a cosine score never have to be put on one scale. In XERJ both run inside one index and one request.</figcaption>
+</figure>

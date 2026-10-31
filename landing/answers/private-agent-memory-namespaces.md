@@ -143,6 +143,6 @@ TLS and API-key authentication. Any client that reaches the port can then read a
 - [Should agent memory use a knowledge graph?](/answers/knowledge-graphs-for-agent-memory)
 - [Auth & TLS](/docs/security)
 - [How do I set the MCP memory storage path?](/answers/set-mcp-memory-storage-path)
+- [XERJ vs Mem0: which memory fits your AI agent?](/compare/xerj-vs-mem0) (same intent: agent memory)
 - [What's a simple way to give an agent long-term memory on my laptop without Qdrant?](/answers/agent-memory-without-postgres-qdrant) (same intent: agent memory)
-- [Agentic memory vs RAG: what is the difference?](/answers/agentic-memory-vs-rag) (same intent: agent memory)
-- [What is agentic memory?](/answers/what-is-agentic-memory) (same intent: agent memory)
+- [How does Claude Code memory work, and when do you need more?](/answers/claude-code-memory) (same intent: agent memory)

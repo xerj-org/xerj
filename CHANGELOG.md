@@ -61,6 +61,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   existing index gains the fields as each skill changes, or all at once with
   `xerj autoindex --fresh`. Part of #2644.
 
+- `xerj init` teaches agents to find an installed skill by task: index the
+  skills folder once with `xerj autoindex <skills folder> --prefix skills`, then
+  run `xerj search --prefix skills "<what you want to do>"`. The generated
+  `SKILL.md` and the `AGENTS.md` section it writes both say so, and say the
+  match is on words, not meaning. The init files version moves to 7, so a
+  re-run upgrades a `SKILL.md` (and `.cursor/rules/xerj.mdc`) that an earlier
+  init stamped and nobody edited. An existing `AGENTS.md` that already mentions
+  `xerj search` or `xerj def`, which includes every one an earlier init wrote,
+  is kept as it is, so only an `AGENTS.md` without XERJ text gets the new
+  lines. A new recipe, `docs/recipes/find-a-skill.md`, walks the loop with
+  measured output.
+  Part of #2644.
+
 ### Fixed
 
 - The version map takes about 23% less memory per document (#2427). A
@@ -69,6 +82,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   separate 48 B heap allocation, other ids up to 24 bytes are stored inline,
   and the tombstone flag shares the version word. On the 2.46 M-entry perf-gate
   corpus the map drops from about 347 MB to 268 MB.
+- A `_delete_by_query` whose matches fit in one scroll page no longer flushes
+  the whole memtable before deleting. `autoindex --fresh` sends one such
+  delete-before-replace per file, and each one used to cut a new tiny segment
+  out of every other worker's pending bulks (about 1,050 segments on the
+  #2640 corpus). Larger deletes keep the flush-then-page path (#2640).
 - A search no longer hangs forever when a cold segment's stored fields are
   being warmed in the background. A search-pool thread that waited for the
   warm's decode could block the decode it waited for, so every later search
@@ -87,6 +105,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   600 s patience. The bounds now come from two sorted size-1 searches, and a
   429 from the per-query memory guard is no longer retried, since the same
   query is refused again (#2427).
+- The `xerj-autoindex` corpus-lock tests no longer fail at random in CI
+  (#2520, Refs #2427). One test put `-c core.fsmonitor=false` after the git
+  subcommand, so git exited 129 at once and the test only passed by winning a
+  race against that exit; and under the test harness a lock another test just
+  released can stay held for 10-30 ms by a sibling test's forked child until it
+  execs. Test builds now wait out a busy lock for up to 500 ms; a real
+  `corpus add` still refuses at once.
 - A search that decodes a segment's doc-values sidecar the segment cache has
   no room to keep now reserves the decoded size in the read transient budget
   before decoding, and holds it until the query drops the columns. Before,

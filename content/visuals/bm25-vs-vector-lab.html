@@ -1,0 +1,41 @@
+<figure class="vz" id="fig-bv-lab" aria-labelledby="fig-bv-lab-cap">
+  <span class="vz-label">Try it: same query, two scorers</span>
+  <p class="vz-title">BM25 next to a toy vector search</p>
+  <div class="vz-check" data-vz-search>
+    <p class="vz-d">Six lines to search:</p>
+    <ol class="vz-docs">
+      <li>Error: connection refused on port 9200</li>
+      <li>The agent cannot reach the search server</li>
+      <li>Restart the server if the index looks stuck</li>
+      <li>Give a coding agent memory across sessions</li>
+      <li>Port 9200 is the default search API port</li>
+      <li>My assistant forgets what we discussed yesterday</li>
+    </ol>
+    <div class="vz-q">
+      <label class="vz-d" for="bv-lab-q">Query</label>
+      <input type="text" id="bv-lab-q" value="server unreachable" spellcheck="false" aria-describedby="bv-lab-out">
+    </div>
+    <div class="vz-js-only">
+      <div class="vz-q">
+        <button type="button" class="vz-btn" data-q="connection refused">connection refused</button>
+        <button type="button" class="vz-btn" data-q="server unreachable">server unreachable</button>
+        <button type="button" class="vz-btn" data-q="network down">network down</button>
+        <button type="button" class="vz-btn" data-q="bot remembers last week">bot remembers last week</button>
+      </div>
+      <div class="vz-cols">
+        <div class="vz-card"><span class="vz-k">BM25 score</span><ol class="vz-hits" data-out="bm25"></ol></div>
+        <div class="vz-card"><span class="vz-k">Toy vector, cosine</span><ol class="vz-hits" data-out="vec"></ol></div>
+      </div>
+      <p class="vz-out" id="bv-lab-out" aria-live="polite"></p>
+    </div>
+    <div class="vz-nojs">
+      <p class="vz-out">With JavaScript off, here are BM25 scores a local XERJ node returned on these lines:</p>
+      <ul class="vz-hits">
+        <li>"connection refused": line 1 at 3.3007</li>
+        <li>"server unreachable": line 2 at 1.0395, line 3 at 0.9829</li>
+        <li>"agent memory": line 4 at 2.5948, line 2 at 1.0395</li>
+      </ul>
+    </div>
+  </div>
+  <figcaption id="fig-bv-lab-cap">Runs in your browser and sends nothing. The BM25 column uses the formula and defaults in XERJ's bm25.rs (k1 1.2, b 0.75); on these six lines it matched a local XERJ v1.0.0-rc.97 node to 4 decimals for 6 test queries on 2026-10-30. The vector column is a toy: each word gets 5 hand-set numbers (network, server, memory, error, time). A real model learns hundreds of numbers per text from data.</figcaption>
+</figure>

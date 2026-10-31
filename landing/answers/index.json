@@ -74,15 +74,31 @@
       "canonical_url": "https://xerj.org/answers/agentic-memory-vs-rag",
       "markdown_url": "https://xerj.org/answers/agentic-memory-vs-rag.md",
       "cluster": "Agent memory: concepts",
-      "updated": "2026-10-28",
+      "updated": "2026-10-30",
       "summary": "RAG retrieves evidence for generation. Agentic memory stores information across tasks, often retrieved with RAG. Compare the roles and use both in one local node.",
       "intent_group": "agent memory",
       "answer": "What is the difference between agentic memory and RAG? RAG retrieves evidence to inform generation, including documents or conversation history. Agentic memory retains information across tasks; RAG can be its retrieval step. Both depend on good search, so XERJ serves document search and agent memory from the same local binary.",
       "queries": [
         "agentic memory vs RAG",
         "agent memory vs RAG",
-        "RAG vs agentic RAG",
         "do AI agents need memory or RAG"
+      ]
+    },
+    {
+      "title": "Agentic RAG vs RAG: what changes and when it is worth it",
+      "question": "What is agentic RAG, and how is it different from regular RAG?",
+      "canonical_url": "https://xerj.org/answers/agentic-rag-vs-rag",
+      "markdown_url": "https://xerj.org/answers/agentic-rag-vs-rag.md",
+      "cluster": "Agent memory: concepts",
+      "updated": "2026-10-30",
+      "summary": "RAG searches once and answers. Agentic RAG lets the model plan, search again and check results. Step through one question and see when the loop pays off.",
+      "intent_group": "rag",
+      "answer": "What is agentic RAG and how is it different from RAG? Plain RAG runs one search for the question and answers from the results. Agentic RAG lets the model plan, choose tools, search several times and check what it found before answering. It handles multi-step questions better and costs more model calls.",
+      "queries": [
+        "agentic rag",
+        "agentic rag vs rag",
+        "RAG vs agentic RAG",
+        "what is agentic rag"
       ]
     },
     {
@@ -176,6 +192,23 @@
       "answer": "How do I keep one agent's memory from leaking into another agent's? Give each agent its own namespace and its own scoped API key. XERJ keeps memory on local disk, and our capture saw 0 non-loopback connections during store and recall, but roles are stored, not enforced, so the key is the boundary.",
       "queries": [
         "local first agent memory privacy"
+      ]
+    },
+    {
+      "title": "Claude Code memory: CLAUDE.md, auto memory and MCP servers",
+      "question": "How does Claude Code memory work, and how do I give a coding agent persistent memory?",
+      "canonical_url": "https://xerj.org/answers/claude-code-memory",
+      "markdown_url": "https://xerj.org/answers/claude-code-memory.md",
+      "cluster": "Agent memory: setup",
+      "updated": "2026-10-30",
+      "summary": "Claude Code remembers through CLAUDE.md files and auto memory. See what loads at session start, where the limits are, and how a memory server adds recall.",
+      "intent_group": "agent memory",
+      "answer": "How does Claude Code memory work? Claude Code loads CLAUDE.md files you write and an auto memory index Claude writes at the start of every session. For more history than fits in context, or memory shared across agents, add an MCP memory server such as XERJ that the agent searches on demand.",
+      "queries": [
+        "claude code memory",
+        "memory for coding agents",
+        "claude code persistent memory",
+        "claude code auto memory"
       ]
     },
     {
@@ -1277,6 +1310,40 @@
       "queries": [
         "grep vs semantic search for coding agents",
         "vector database vs full text search"
+      ]
+    },
+    {
+      "title": "BM25 vs vector search: keyword vs semantic, side by side",
+      "question": "BM25 vs vector search: which one should you use?",
+      "canonical_url": "https://xerj.org/answers/bm25-vs-vector-search",
+      "markdown_url": "https://xerj.org/answers/bm25-vs-vector-search.md",
+      "cluster": "Search quality",
+      "updated": "2026-10-30",
+      "summary": "BM25 matches the words in a query. Vector search matches meaning. Type a query into a live toy, see where each one fails, and read recorded benchmark numbers.",
+      "intent_group": "hybrid search",
+      "answer": "BM25 vs vector search: which should you use? BM25 scores the exact words a document shares with the query, so it is best for names, codes and error strings. Vector search compares meaning, so it finds paraphrases. Most search over mixed text works best with both, merged as hybrid search.",
+      "queries": [
+        "bm25 vs vector search",
+        "keyword vs semantic search",
+        "bm25 vs embeddings",
+        "lexical vs semantic search"
+      ]
+    },
+    {
+      "title": "What is hybrid search? BM25 plus vectors, explained",
+      "question": "What is hybrid search?",
+      "canonical_url": "https://xerj.org/answers/what-is-hybrid-search",
+      "markdown_url": "https://xerj.org/answers/what-is-hybrid-search.md",
+      "cluster": "Search quality",
+      "updated": "2026-10-30",
+      "summary": "Hybrid search runs BM25 and vector search on one query and merges the two ranked lists. Try a live toy, a worked RRF example and a recorded benchmark.",
+      "intent_group": "hybrid search",
+      "answer": "What is hybrid search? It runs a keyword search such as BM25 and a vector search on the same query, then merges the two ranked lists into one. Keywords catch exact words like error codes and names. Vectors catch the same idea in different words. Fusion, often Reciprocal Rank Fusion, combines the ranks.",
+      "queries": [
+        "hybrid search",
+        "what is hybrid search",
+        "hybrid search without a vector database",
+        "hybrid search explained"
       ]
     },
     {
