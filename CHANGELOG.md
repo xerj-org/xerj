@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A Nix flake: `nix run github:xerj-org/xerj` builds and runs `xerj` from
+  source, `nix build` produces it, and `nix develop` opens a shell with the
+  Rust toolchain. The package builds the engine and embeds the Console assets
+  with no network access during the build. (#2479)
 - `xerj autoindex map --html <FILE>` and `--md <FILE>` export an offline
   report with datasets, format counts, top symbols, graph file hubs,
   catalog exclusions and suggested searches. `--redact-paths` hides file
@@ -45,8 +49,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   at `/.well-known/agent-skills/`. The index is generated from the published
   skill's metadata and exact-byte SHA-256, with a CI drift check.
 
+- `xerj autoindex` reads an agent skill's `SKILL.md` frontmatter: every
+  passage of the file is titled with the skill's `name` and carries its
+  `description` as a field of its own, whether the file is read as prose or
+  as line windows. Before, a prose `SKILL.md` was titled by the first line
+  after its frontmatter and a line-window one had no title at all. Only files named exactly
+  `SKILL.md` change; the body, record ids and every other Markdown file index
+  as before. A frontmatter block strict YAML refuses, such as one with an
+  `argument-hint: [path] [--dry-run]` line, still gives its one-line `name`
+  and `description`. Unchanged files are not re-extracted, so an
+  existing index gains the fields as each skill changes, or all at once with
+  `xerj autoindex --fresh`. Part of #2644.
+
 ### Fixed
 
+- A small merge write admitted after a run of merge yields is now checked
+  against the memory watermark instead of the process limit, so it can no
+  longer take a node from below the watermark into the parent breaker band and
+  turn ingest into HTTP 429s. The relief for a search node resting between the
+  merge-pool ceiling and the watermark is kept (#2427).
 - **A memory-pressure drain no longer spikes RSS past the cap while it
   flushes** (#2427). The breaker drain and the cache-release path
   flushed each index with every non-empty memtable shard building its
@@ -67,7 +88,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   destination. `_source:false` is refused with ES's sentence, and a `script`
   body is refused before any work instead of silently copying the
   untransformed document (this build has no reindex script context).
+- Publishing a flushed or merged segment no longer decompresses its whole
+  stored section when the result cannot be kept. The publish-time warm now
+  sizes the stored slices from the section framing first and skips the warm
+  when the segment hydration cache has no room for them, or when keeping them
+  would carry the node to the memory watermark. Before, a merged segment's
+  section (hundreds of MB on the 1 GB autoindex gate) was decoded and then
+  refused, a transient spike that pushed ingesting nodes over the breaker.
+  Queries hydrate such a segment on demand, as before (#2427).
 
+- The in-memory HNSW graph no longer stores every vector in one contiguous
+  buffer. That buffer doubled on growth, so near ~393K 384-dim vectors a
+  single 384 MiB -> 768 MiB realloc kept both copies live (~1.15 GB
+  transient) outside any memory accounting. Vectors now live in 4 MiB
+  chunks (no realloc copy, at most one chunk of slack), and the graph's
+  estimated heap is reported as the new `vector_graph` category in the
+  ingest memory trace. (#2427)
+
+- `_bulk` requests of ordinary text and code are no longer refused with a
+  429 while the node has memory to spare. Each raw bulk reserved 28 bytes
+  per input byte for analysis, a rate sized for the densest text, so a bulk
+  of prose reserved about 3x and a bulk of code about 4x what parsing and
+  analyzing it allocates. The reservation now follows the estimated token
+  count of each document, and dense text keeps the old rate (Refs #2427).
+- `_bulk` admission no longer counts analysis memory twice. A held analyze reservation was added on top of live RSS even after its batch had allocated most of it, so a node with several bulks mid-analysis refused writes at about half its watermark. Held reservations are now counted from the RSS they were admitted at (Refs #2427).
 - A node whose resting memory sits between the merge-pool ceiling and the
   memory watermark merges again. Every background merge's output write was
   refused there, so small batches were retried every 5 s without ever
@@ -248,6 +292,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reading to the table reading. The file is set aside with a rebuild message
   (exit 3) and every other file is still indexed. It used to stop the whole
   run with "frozen assignment has 0 matches for group" (#2720).
+- `xerj autoindex` indexes HTML partials and template files instead of
+  junk-filing them as malformed XML. A file that opens with markup and has
+  closing tags was read as XML, so a folder of 16 or more such files became an
+  XML dataset and every file was junked at its first `<%`, `&&` or unclosed
+  tag, with the text after that point lost. `.html` and `.htm` are now read as
+  HTML, and `.hbs`, `.handlebars`, `.mustache`, `.ejs`, `.erb`, `.jsp`,
+  `.aspx`, `.cshtml`, `.razor`, `.twig`, `.jinja`, `.jinja2`, `.j2`, `.njk`,
+  `.liquid`, `.astro`, `.marko` and `.riot` as text, also when gzipped. Real
+  XML, including `.xml`, `.xaml` and `.svg`, is unchanged. An index built
+  before this fix keeps its junked files until each one changes or the folder
+  is indexed again with `--fresh` (#2740).
 
 ## [1.0.0-rc.100] - 2026-10-26
 

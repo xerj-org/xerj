@@ -4512,6 +4512,15 @@ impl Engine {
             .sum()
     }
 
+    /// Sum of every open index's in-memory HNSW graph estimate (#2427),
+    /// reported as the `vector_graph` ingest-memory category.
+    pub fn total_vector_graph_bytes(&self) -> u64 {
+        self.indices
+            .iter()
+            .map(|e| e.value().vector_graph_bytes() as u64)
+            .sum()
+    }
+
     /// Sum of every open index's version-map estimate (#2427), reported as
     /// the `version_map` ingest-memory category.
     pub fn total_version_map_bytes(&self) -> u64 {

@@ -352,8 +352,14 @@ pub fn extract(
         Family::Xml => xml_x::extract(path, sn.gzip, sink),
         Family::Html => html::extract(path, sn.gzip, sink),
         Family::Yaml => yaml_x::extract(path, sn.gzip, sink),
-        Family::TxtProse => txt::extract_prose(path, sn.gzip, sink),
-        Family::TxtLines => txt::extract_lines(path, sn.gzip, limit_bytes, sink),
+        Family::TxtProse => txt::extract_prose(path, sn.gzip, txt::is_skill_file(logical), sink),
+        Family::TxtLines => txt::extract_lines(
+            path,
+            sn.gzip,
+            limit_bytes,
+            txt::is_skill_file(logical),
+            sink,
+        ),
         Family::Pdf => pdf::extract(path, sink),
         Family::Eml => eml::extract(path, sn.gzip, sink),
         Family::Mbox => mbox::extract(path, sn.gzip, limit_bytes, sink),
@@ -989,12 +995,13 @@ pub fn split_sections(text: &str) -> Vec<String> {
 fn section_record(
     title: &str,
     headings: &[String],
+    extra: &Map<String, Value>,
     i: usize,
     multi: bool,
     section: String,
     start_line: Option<u64>,
 ) -> RawRecord {
-    let mut fields = Map::new();
+    let mut fields = extra.clone();
     fields.insert("title".into(), Value::String(title.to_string()));
     if !headings.is_empty() {
         fields.insert(
@@ -1044,6 +1051,33 @@ pub fn emit_document(
     sink: Sink,
     stats: &mut ExtractStats,
 ) -> bool {
+    emit_document_extra(
+        title,
+        headings,
+        &Map::new(),
+        body,
+        base_line,
+        max_records,
+        sink,
+        stats,
+    )
+}
+
+/// [`emit_document`] with `extra` fields stamped on every section record (a
+/// SKILL.md's `description`, #2644). The section's own `title`/`body`/... win
+/// over a key of the same name, and the locators are the same `s{i}`, so a
+/// file's record ids do not change when it gains fields.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn emit_document_extra(
+    title: &str,
+    headings: &[String],
+    extra: &Map<String, Value>,
+    body: &str,
+    base_line: Option<u64>,
+    max_records: usize,
+    sink: Sink,
+    stats: &mut ExtractStats,
+) -> bool {
     // One section of lookahead: the `section` field is only present when the
     // document actually splits, which is not known until a second one arrives.
     let mut pending: Option<String> = None;
@@ -1070,6 +1104,7 @@ pub fn emit_document(
         alive = sink(section_record(
             title,
             headings,
+            extra,
             i,
             true,
             prev,
@@ -1097,6 +1132,7 @@ pub fn emit_document(
             sink(section_record(
                 title,
                 headings,
+                extra,
                 next,
                 next > 0,
                 last,
@@ -1924,6 +1960,178 @@ mod phrase_skip_tests {
             .filter_map(|v| v.as_str())
             .collect::<Vec<_>>()
             .join("\n")
+    }
+
+    /// Every record `extract` emits for `bytes`, read from a content path named
+    /// `blob` so only the logical name can say what the file is (#294).
+    fn records_for(logical: &str, family: Family, bytes: &str) -> Vec<RawRecord> {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("blob");
+        std::fs::write(&path, bytes).unwrap();
+        let mut recs = Vec::new();
+        extract(&path, &sniffed(family, logical), None, &mut |r| {
+            recs.push(r);
+            true
+        })
+        .unwrap();
+        recs
+    }
+
+    const SKILL_FRONT: &str = "---\nname: pdf\ndescription: Fill in PDF forms, merge PDF files and extract their text.\nlicense: Proprietary\n---\n";
+
+    /// #2644: an agent skill is found by what it is for, and its frontmatter
+    /// already says that in two keys. A prose SKILL.md takes `name` as its
+    /// title and carries `description` as a field of its own; the body,
+    /// frontmatter included, is unchanged.
+    #[test]
+    fn a_prose_skill_md_takes_its_name_and_description() {
+        let text = format!(
+            "{SKILL_FRONT}\n# PDF processing\n\nOpen the file with pypdf, then fill each field by its name.\n"
+        );
+        let recs = records_for("skills/pdf/SKILL.md", Family::TxtProse, &text);
+        assert_eq!(recs.len(), 1);
+        assert_eq!(recs[0].fields["title"], "pdf");
+        assert_eq!(
+            recs[0].fields["description"],
+            "Fill in PDF forms, merge PDF files and extract their text."
+        );
+        assert_eq!(recs[0].fields["body"], text.trim());
+        assert_eq!(recs[0].locator, "s0", "the record id is unchanged");
+    }
+
+    /// A SKILL.md with code blocks reads as line windows, which never looked at
+    /// frontmatter: no title, and the description only inside the first window.
+    /// Every window carries both, including those past a frontmatter block
+    /// longer than one window, and a folded `description` reads as one line.
+    #[test]
+    fn every_line_window_of_a_skill_md_carries_its_name_and_description() {
+        let mut text = String::from(
+            "---\nname: release-notes\ndescription: >-\n  Generate release notes\n  from git history.\n",
+        );
+        for i in 0..45 {
+            text.push_str(&format!("tag{i}: value {i}\n"));
+        }
+        text.push_str("---\n");
+        for i in 0..60 {
+            text.push_str(&format!("    git log --oneline v{i}..HEAD\n"));
+        }
+        let recs = records_for("skills/release-notes/SKILL.md", Family::TxtLines, &text);
+        assert!(recs.len() > 2, "the file spans several windows");
+        for r in &recs {
+            assert_eq!(r.fields["title"], "release-notes", "{}", r.locator);
+            assert_eq!(
+                r.fields["description"], "Generate release notes from git history.",
+                "{}",
+                r.locator
+            );
+            assert!(!r.fields["text"].as_str().unwrap().is_empty());
+        }
+    }
+
+    /// The fields come from the skill's own file name only. The same
+    /// frontmatter in any other Markdown file indexes exactly as before.
+    #[test]
+    fn only_a_file_named_skill_md_gets_skill_fields() {
+        let text = format!("{SKILL_FRONT}\n# PDF processing\n\nOpen the file with pypdf.\n");
+        let prose = records_for("docs/guide.md", Family::TxtProse, &text);
+        assert_eq!(prose[0].fields["title"], "# PDF processing");
+        assert!(!prose[0].fields.contains_key("description"));
+        let lines = records_for("docs/README.md", Family::TxtLines, &text);
+        assert!(!lines[0].fields.contains_key("title"));
+        assert!(!lines[0].fields.contains_key("description"));
+        let lower = records_for("skills/pdf/skill.md", Family::TxtProse, &text);
+        assert!(
+            !lower[0].fields.contains_key("description"),
+            "the loader name is SKILL.md"
+        );
+    }
+
+    /// Each key is used only when it is a non-blank string. A missing `name`
+    /// keeps the usual title; text that is not frontmatter adds nothing.
+    #[test]
+    fn a_skill_md_takes_only_the_keys_it_has() {
+        let no_name = "---\ndescription: Merge PDF files.\n---\n\n# PDF\n\nUse pypdf.\n";
+        let recs = records_for("s/SKILL.md", Family::TxtProse, no_name);
+        assert_eq!(recs[0].fields["title"], "# PDF");
+        assert_eq!(recs[0].fields["description"], "Merge PDF files.");
+
+        let list_name = "---\nname: [a, b]\ndescription: \"  \"\n---\n\n# PDF\n\nUse pypdf.\n";
+        let recs = records_for("s/SKILL.md", Family::TxtProse, list_name);
+        assert_eq!(recs[0].fields["title"], "# PDF");
+        assert!(!recs[0].fields.contains_key("description"));
+
+        let unclosed = "---\nname: pdf\n\n# PDF\n\nUse pypdf.\n";
+        let recs = records_for("s/SKILL.md", Family::TxtLines, unclosed);
+        assert!(!recs[0].fields.contains_key("title"));
+        assert!(!recs[0].fields.contains_key("description"));
+    }
+
+    /// Skill loaders read frontmatter that strict YAML refuses: an
+    /// `argument-hint: [path] [--dry-run]` line is two flow sequences on one
+    /// line, a YAML syntax error. Three of 78 skills in one real library have
+    /// that shape. Their single-line `name` and `description` are still read;
+    /// a block scalar is not guessed at.
+    #[test]
+    fn a_skill_md_with_loader_only_frontmatter_still_has_its_name() {
+        let text = "---\nname: repo-adopt\ndescription: 'Scaffold any repo for worktrees.'\nargument-hint: [repo path] [--dry-run]\n---\n\n# Repo adopt\n\nCopy the scripts.\n";
+        for family in [Family::TxtProse, Family::TxtLines] {
+            let recs = records_for("s/SKILL.md", family, text);
+            assert_eq!(recs[0].fields["title"], "repo-adopt", "{family:?}");
+            assert_eq!(
+                recs[0].fields["description"], "Scaffold any repo for worktrees.",
+                "{family:?}"
+            );
+        }
+        let folded = "---\nname: audit\ndescription: >-\n  Run an audit.\nargument-hint: [a] [b]\n---\n\n# Audit\n\nRun it.\n";
+        let recs = records_for("s/SKILL.md", Family::TxtProse, folded);
+        assert_eq!(recs[0].fields["title"], "audit");
+        assert!(!recs[0].fields.contains_key("description"));
+        // Not a skill: titled exactly as before this change, by the first line
+        // inside the block YAML refused.
+        let other = records_for("docs/guide.md", Family::TxtProse, text);
+        assert_eq!(other[0].fields["title"], "name: repo-adopt");
+        assert!(!other[0].fields.contains_key("description"));
+    }
+
+    /// Review of #2644: a long prose SKILL.md splits into several sections,
+    /// and every one carries the fields, not only the last.
+    #[test]
+    fn every_section_of_a_long_prose_skill_md_carries_its_fields() {
+        let para = "Open the file, read each form field by its name and fill it in.\n\n";
+        let text = format!(
+            "{SKILL_FRONT}\n# Forms\n\n{}\n# Merging\n\n{}",
+            para.repeat(600),
+            para.repeat(600)
+        );
+        let recs = records_for("skills/pdf/SKILL.md", Family::TxtProse, &text);
+        assert!(recs.len() > 1, "the body splits into sections");
+        for r in &recs {
+            assert_eq!(r.fields["title"], "pdf", "{}", r.locator);
+            assert!(r.fields.contains_key("description"), "{}", r.locator);
+        }
+    }
+
+    /// Review of #2644: gaining the fields does not move a line window. The
+    /// same CRLF bytes as SKILL.md and as README.md give the same locators,
+    /// lines and text.
+    #[test]
+    fn a_skill_md_line_window_keeps_its_locator_and_lines() {
+        let mut text = String::from("---\r\nname: pdf\r\ndescription: Fill forms.\r\n---\r\n");
+        for i in 0..70 {
+            text.push_str(&format!("    pdftk form.pdf fill_form f{i}.fdf\r\n"));
+        }
+        let skill = records_for("s/SKILL.md", Family::TxtLines, &text);
+        let plain = records_for("s/README.md", Family::TxtLines, &text);
+        assert_eq!(skill.len(), plain.len());
+        for (a, b) in skill.iter().zip(&plain) {
+            assert_eq!(a.locator, b.locator);
+            for key in ["start_line", "end_line", "text"] {
+                assert_eq!(a.fields[key], b.fields[key], "{key} at {}", a.locator);
+            }
+            assert_eq!(a.fields["title"], "pdf");
+            assert_eq!(a.fields["description"], "Fill forms.");
+            assert!(!b.fields.contains_key("description"));
+        }
     }
 
     /// #1504: a multilingual repo's catalogs contain every UI phrase once per

@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use regex::Regex;
@@ -89,6 +89,24 @@ fn stored_slices_bound(raw: &[u8], expect_docs: u64) -> u64 {
                 .saturating_mul(8)
                 .saturating_add(expect_docs.saturating_mul(8))
         })
+}
+
+/// #2427: whether a publish-time stored-slices warm whose retained size is
+/// at most `bound` may decode at all: the hydration cache must have room to
+/// keep it, and when the parent RSS watermark is armed (`rss_room` is the
+/// distance to it) keeping it must not carry the node over the watermark.
+fn publish_stored_warm_fits(
+    budget: &SegmentHydrationBudget,
+    bound: u64,
+    rss_room: Option<u64>,
+) -> bool {
+    budget.has_headroom(bound) && rss_room.is_none_or(|room| bound < room)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Publish-time stored-section decodes on this thread (#2427 tests).
+    static PUBLISH_STORED_WARM_DECODES: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
 
 /// Wait for a publication test barrier, on the runtime and bounded.
@@ -2042,6 +2060,74 @@ mod flush_publication_recovery_tests {
         let idx = restarted.get_index("bm25-failed-publication").unwrap();
         idx.abort_background_tasks();
         assert_eq!(idx.search(&request).await.unwrap().hits[0].id, "survivor");
+    }
+
+    /// #2427: publish-time warming must size a stored-slices warm BEFORE it
+    /// decompresses the section. A merged segment's section decodes to
+    /// hundreds of MB; when the hydration cache has no room the result is
+    /// refused right after the build, so the decode was nothing but a
+    /// transient RSS spike on an ingesting node.
+    ///
+    /// Fails before the fix: the full-budget warm still decodes the section
+    /// once (and the cache then refuses it).
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn publish_warm_skips_a_stored_decode_the_cache_would_refuse_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let engine = crate::Engine::new(topk_projection_config(dir.path())).unwrap();
+        engine
+            .create_index("publish-warm-fit", topk_projection_schema())
+            .unwrap();
+        let idx = engine.get_index("publish-warm-fit").unwrap();
+        idx.abort_background_tasks();
+        for i in 0..512u64 {
+            idx.index_document(
+                Some(format!("doc-{i}")),
+                json!({"title": format!("title {i}"), "body": format!("body text {i}"), "blob": "x".repeat(64)}),
+            )
+            .await
+            .unwrap();
+        }
+        idx.flush().await.unwrap();
+        let seg = idx.store.snapshot().segments[0].clone();
+        idx.release_memory();
+        assert!(
+            !idx.stored_slices_cache.contains_key(&seg.id),
+            "precondition: cold"
+        );
+        let segments_dir = idx.data_dir.join("segments");
+        let decodes = || PUBLISH_STORED_WARM_DECODES.with(|n| n.get());
+
+        // No room in the cache: the section is not decompressed at all.
+        let mut caches = idx.publish_warm_caches();
+        caches.budget = SegmentHydrationBudget::new(0);
+        let before = decodes();
+        warm_segment_at_publish(&idx.store, &segments_dir, &caches, &seg.id, seg.doc_count);
+        assert_eq!(
+            decodes() - before,
+            0,
+            "a warm the hydration cache would refuse must not decode the stored section"
+        );
+        assert!(!idx.stored_slices_cache.contains_key(&seg.id));
+
+        // Room in the cache: warmed and kept, exactly as before.
+        caches.budget = SegmentHydrationBudget::new(u64::MAX);
+        let before = decodes();
+        warm_segment_at_publish(&idx.store, &segments_dir, &caches, &seg.id, seg.doc_count);
+        assert_eq!(decodes() - before, 1);
+        assert!(idx.stored_slices_cache.contains_key(&seg.id));
+    }
+
+    /// #2427: the RSS side of the publish-warm fit — a warm that would carry
+    /// the node to the parent watermark is skipped even with cache room.
+    #[test]
+    fn publish_stored_warm_fit_respects_cache_room_and_rss_watermark_2427() {
+        let roomy = SegmentHydrationBudget::new(u64::MAX);
+        let full = SegmentHydrationBudget::new(0);
+        assert!(publish_stored_warm_fits(&roomy, 100, None), "watermark off");
+        assert!(publish_stored_warm_fits(&roomy, 100, Some(101)));
+        assert!(!publish_stored_warm_fits(&roomy, 100, Some(100)));
+        assert!(!publish_stored_warm_fits(&roomy, 100, Some(0)));
+        assert!(!publish_stored_warm_fits(&full, 100, None), "no cache room");
     }
 
     /// #2427/#1122: a stored-slices build the hydration cache cannot hold is
@@ -10267,6 +10353,10 @@ pub struct Index {
     /// Optional HNSW index for dense-vector KNN search.
     /// Lazily created on first vector document insertion.
     pub hnsw: Arc<RwLock<Option<HnswIndex>>>,
+    /// Last observed `HnswIndex::heap_bytes` (#2427), refreshed under the
+    /// `hnsw` write guard on every insert and reload so the ingest-memory
+    /// sampler can read it without contending for the graph lock.
+    hnsw_heap_bytes: Arc<AtomicUsize>,
     /// Maps string doc-id → u64 node-id used by HNSW.
     hnsw_id_map: Arc<RwLock<HashMap<String, u64>>>,
     /// Maps u64 node-id → string doc-id (reverse of hnsw_id_map).
@@ -11178,6 +11268,7 @@ impl Index {
             test_segment_cache_publish_ready_mask: Arc::new(AtomicU64::new(0)),
             enrichments: Arc::new(RwLock::new(HashMap::new())),
             hnsw: Arc::new(RwLock::new(None)),
+            hnsw_heap_bytes: Arc::new(AtomicUsize::new(0)),
             hnsw_id_map: Arc::new(RwLock::new(HashMap::new())),
             hnsw_id_rev: Arc::new(RwLock::new(HashMap::new())),
             hnsw_next_id: Arc::new(AtomicU64::new(1)),
@@ -11643,6 +11734,9 @@ impl Index {
             schema_hash_cache: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             schema_hash_epoch: Arc::new(AtomicU64::new(0)),
             last_flush_doc_count: Arc::new(AtomicU64::new(0)),
+            hnsw_heap_bytes: Arc::new(AtomicUsize::new(
+                hnsw_init.as_ref().map_or(0, HnswIndex::heap_bytes),
+            )),
             hnsw: Arc::new(RwLock::new(hnsw_init)),
             hnsw_id_map: Arc::new(RwLock::new(id_map_init)),
             hnsw_id_rev: Arc::new(RwLock::new(id_rev_init)),
@@ -16659,7 +16753,10 @@ impl Index {
                 if let Some(old) = old_node {
                     hnsw.mark_deleted(old);
                 }
-                if let Err(e) = hnsw.insert(node_id, vector) {
+                let inserted = hnsw.insert(node_id, vector);
+                self.hnsw_heap_bytes
+                    .store(hnsw.heap_bytes(), Ordering::Relaxed);
+                if let Err(e) = inserted {
                     warn!(doc_id, error = %e, "HNSW insert failed");
                     return false;
                 }
@@ -21024,7 +21121,9 @@ impl Index {
         self.hnsw_stale
             .store(stale, std::sync::atomic::Ordering::Release);
         let nodes = loaded.graph.len();
+        let graph_bytes = loaded.graph.heap_bytes();
         *self.hnsw.write().await = Some(loaded.graph);
+        self.hnsw_heap_bytes.store(graph_bytes, Ordering::Relaxed);
         info!(
             nodes,
             stale, "HNSW reloaded from disk — skipping WAL replay rebuild"
@@ -28750,6 +28849,12 @@ impl Index {
         self.memtable.size_bytes()
     }
 
+    /// Estimated heap held by this index's in-memory HNSW graph (#2427).
+    /// Lock-free: reads the value cached on the last insert/reload.
+    pub fn vector_graph_bytes(&self) -> usize {
+        self.hnsw_heap_bytes.load(Ordering::Relaxed)
+    }
+
     /// Estimated heap held by this index's document version map (#2427).
     pub fn version_map_bytes(&self) -> usize {
         self.store.version_map.heap_bytes()
@@ -29139,17 +29244,21 @@ impl Index {
     }
 
     /// Reserve headroom for the token spike of `docs` before they are parsed
-    /// (#1122). See [`crate::governor::analyze_reserve_bytes`]. No governor
-    /// reserves nothing, so an `Index` built directly in a unit test is unchanged.
+    /// (#1122). See [`crate::governor::analyze_reserve_bytes_for_doc`]. No
+    /// governor reserves nothing, so an `Index` built directly in a unit test
+    /// is unchanged.
     fn reserve_batch_analyze(
         docs: &[xerj_storage::RawJsonDoc],
     ) -> Result<crate::governor::AnalyzeReservation> {
         let Some(governor) = crate::governor::global() else {
             return Ok(crate::governor::AnalyzeReservation::none());
         };
-        let raw = docs.iter().map(|(_, bytes)| bytes.len() as u64).sum();
+        let reserve = docs
+            .iter()
+            .map(|(_, bytes)| crate::governor::analyze_reserve_bytes_for_doc(bytes))
+            .fold(0u64, u64::saturating_add);
         governor
-            .reserve_analyze(crate::governor::analyze_reserve_bytes(raw))
+            .reserve_analyze(reserve)
             .map_err(EngineError::Common)
     }
 
@@ -54688,6 +54797,25 @@ fn warm_segment_at_publish(
         let built: Option<StoredSlices> = (|| {
             let reader = store.open_segment_arc(seg_id).ok()?;
             let raw = reader.section(SectionType::Stored).ok()??;
+            // #2427: size the warm BEFORE decompressing. A merged segment's
+            // stored section decodes to hundreds of MB (332 MB live in one
+            // late-ingest heap profile of the 1 GB gate) plus the column
+            // materialisation on top while it runs. When the hydration cache
+            // has no room the result is refused right after it is built, so
+            // the whole decode was a pure transient spike; and when the node
+            // is already within that many bytes of the RSS watermark, keeping
+            // it trips the parent breaker on the next sample. Either way the
+            // first query re-hydrates on demand (the pre-warm status quo).
+            let bound = stored_slices_bound(raw, expect_docs);
+            let rss_room = crate::governor::global().and_then(|g| {
+                let watermark = g.memory_watermark_bytes();
+                (watermark > 0).then(|| watermark.saturating_sub(g.observed_rss_bytes()))
+            });
+            if !publish_stored_warm_fits(&caches.budget, bound, rss_room) {
+                return None;
+            }
+            #[cfg(test)]
+            PUBLISH_STORED_WARM_DECODES.with(|n| n.set(n.get() + 1));
             let bytes = xerj_storage::stored_codec::decode_stored(raw).ok()?;
             if bytes.len() > u32::MAX as usize {
                 return None;
