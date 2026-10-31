@@ -7810,6 +7810,7 @@ dependencies = [
  "bitpacking",
  "byteorder",
  "bytes",
+ "compact_str",
  "crc32fast",
  "crossbeam",
  "dashmap",
