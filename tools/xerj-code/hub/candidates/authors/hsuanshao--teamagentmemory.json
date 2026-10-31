@@ -1,9 +1,9 @@
 {
- "corpus": "hsuanshao--agentmemory",
+ "corpus": "hsuanshao--teamagentmemory",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, ai-agent-memory, docker queries this for how hsuanshao/AgentMemory implements it: Self-hosted memory service for AI agents that work in teams, written in Rust: layered L0\u2192L3 memory, async LLM distillation, hybrid BM25 + ve (selected work: crates/memory-infrastructure, the project root, crates/memory-server)",
+ "domain": "an agent working on ai, ai-agent-memory, docker queries this for how hsuanshao/TeamAgentMemory implements it: Self-hosted memory service for AI agents that work in teams, written in Rust: layered L0\u2192L3 memory, async LLM distillation, hybrid BM25 + ve (selected work: crates/memory-infrastructure, the project root, crates/memory-server)",
  "repos": [
   {
    "repo": "AgentMemory",

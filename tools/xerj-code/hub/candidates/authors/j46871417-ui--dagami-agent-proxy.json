@@ -8,15 +8,15 @@
   {
    "repo": "Dagami-Agent-Proxy",
    "url": "https://github.com/j46871417-ui/Dagami-Agent-Proxy",
-   "sha": "566e9480cf9f9cab9463d090446ba68ecbcfeb52",
-   "licence": "MIT (LICENSE file at pin 566e9480cf9f, GitHub licence API 2026-10-28)",
+   "sha": "e04e5ed9545c62d4cec10635c49d439eb63d3be9",
+   "licence": "MIT (LICENSE file at pin e04e5ed9545c, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T10:57Z",
     "consent_receipt": "90b5b71a2be3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-28T10:57Z (receipt 90b5b71a2be3); selected commit 566e9480cf9f: \"Clean sources while preserving the latest DNS release\". LICENSE file at pin 566e9480cf9f detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Pinned to head 566e9480cf9f (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T10:57Z (receipt 90b5b71a2be3); selected commit e04e5ed9545c: \"Clean sources while preserving the latest DNS release\". LICENSE file at pin e04e5ed9545c detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head e04e5ed9545c (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]

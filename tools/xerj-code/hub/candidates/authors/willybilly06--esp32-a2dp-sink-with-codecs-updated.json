@@ -1,0 +1,23 @@
+{
+ "corpus": "willybilly06--esp32-a2dp-sink-with-codecs-updated",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on a2dp-bluetooth, a2dp-sink, aac queries this for how WillyBilly06/ESP32-A2DP-SINK-WITH-CODECS-UPDATED implements it: ESP32 Bluetooth A2DP Sink with LDAC, aptX, aptX-HD, AAC codec support",
+ "repos": [
+  {
+   "repo": "ESP32-A2DP-SINK-WITH-CODECS-UPDATED",
+   "url": "https://github.com/WillyBilly06/ESP32-A2DP-SINK-WITH-CODECS-UPDATED",
+   "sha": "f4eb12517438a486af9e33987114c4823af40aca",
+   "licence": "author's permission (LICENSE at pin f4eb12517438: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T09:44Z",
+    "consent_receipt": "6e577d91e626",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T09:44Z (receipt 6e577d91e626); pinned to the default-branch head. LICENSE at pin f4eb12517438: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

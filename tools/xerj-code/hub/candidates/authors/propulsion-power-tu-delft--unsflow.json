@@ -1,0 +1,23 @@
+{
+ "corpus": "propulsion-power-tu-delft--unsflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Jupyter Notebook queries this for how Propulsion-Power-TU-Delft/unsflow implements it: Set of tools for compressor flow instabilities prediction (selected work: src/unsflow, testcases)",
+ "repos": [
+  {
+   "repo": "unsflow",
+   "url": "https://github.com/Propulsion-Power-TU-Delft/unsflow",
+   "sha": "9fda83baae99351a7c9b1414bd91fd8963349b9a",
+   "licence": "MIT (LICENSE file at pin 9fda83baae99, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T09:17Z",
+    "consent_receipt": "084b379ec601",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T09:17Z (receipt 084b379ec601); selected commit 9fda83baae99: \"added senoo from gemini\". LICENSE file at pin 9fda83baae99 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

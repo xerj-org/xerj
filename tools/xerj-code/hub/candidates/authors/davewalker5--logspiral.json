@@ -1,0 +1,23 @@
+{
+ "corpus": "davewalker5--logspiral",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on growth, mollusca, molluscs queries this for how davewalker5/LogSpiral implements it: Exploring shell form through computational growth: procedural models of growth trajectories, aperture geometry, whorl interaction, and inter",
+ "repos": [
+  {
+   "repo": "LogSpiral",
+   "url": "https://github.com/davewalker5/LogSpiral",
+   "sha": "36b30380321036fe1ba5c32f203e2b0b866f039a",
+   "licence": "MIT (LICENSE file at pin 36b303803210, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T10:04Z",
+    "consent_receipt": "13a24cbcaf51",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T10:04Z (receipt 13a24cbcaf51); pinned to the default-branch head. LICENSE file at pin 36b303803210 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

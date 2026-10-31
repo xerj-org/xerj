@@ -8,15 +8,15 @@
   {
    "repo": "RedAgent",
    "url": "https://github.com/Zwony/RedAgent",
-   "sha": "eb996edf125caa805539dfd0a611e5d8e8737fa8",
-   "licence": "author's permission (LICENSE at pin eb996edf125c: NOASSERTION; repository: NOASSERTION)",
+   "sha": "997ca8cb8eec8ef9e1027c92d3073c071499f89d",
+   "licence": "author's permission (LICENSE at pin 997ca8cb8eec: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:27Z",
     "consent_receipt": "a4f8dfee954b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:27Z (receipt a4f8dfee954b); pinned to the default-branch head. LICENSE at pin eb996edf125c: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:27Z (receipt a4f8dfee954b); pinned to the default-branch head. LICENSE at pin 997ca8cb8eec: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

@@ -8,15 +8,15 @@
   {
    "repo": "UmlCraft",
    "url": "https://github.com/udvlp/UmlCraft",
-   "sha": "257b4a007446617f91d835c854755bc51144c7d0",
-   "licence": "author's permission (LICENSE at pin 257b4a007446: NOASSERTION; repository: Apache-2.0)",
+   "sha": "5c75779f0cac912cbdf87d7aa5459f1d21e9628a",
+   "licence": "author's permission (LICENSE at pin 5c75779f0cac: NOASSERTION; repository: Apache-2.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-25T19:44Z",
     "consent_receipt": "cc4d9b1ab1d5",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T19:44Z (receipt cc4d9b1ab1d5); pinned to the default-branch head. LICENSE at pin 257b4a007446: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T19:44Z (receipt cc4d9b1ab1d5); pinned to the default-branch head. LICENSE at pin 5c75779f0cac: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
    }
   }
  ]
