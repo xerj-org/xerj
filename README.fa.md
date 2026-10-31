@@ -319,3 +319,59 @@ done in 158.1s, 593 datasets, 83103 records live, 790 junk records</code></pre>
 <sub>راه‌اندازی، ورود انبوه داده‌ها، جست‌وجو، جست‌وجوی نزدیک‌ترین همسایه برداری (Vector kNN) و داشبوردهای زنده؛ بدون هیچ‌گونه برش یا تدوین در ویدئو.
 <a href="https://xerj.org/aise-demo.html">مشاهده ویدئو در xerj.org</a> یا
 <a href="https://xerj.org/playground/">امتحان محیط آزمایشی آنلاین</a>.</sub>
+
+<h2 dir="rtl" align="right">نصب دستی</h2>
+
+<pre dir="ltr"><code>curl -fsSL https://xerj.org/get | sh</code></pre>
+
+<p dir="rtl" align="right">
+**ویندوز (PowerShell):**
+</p>
+
+<pre dir="ltr"><code>irm https://xerj.org/get.ps1 | iex</code></pre>
+
+<p dir="rtl" align="right">
+**Nix** (ساخت از سورس؛ دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>nix develop</code></span> یک محیط شِل همراه با ابزارهای توسعه <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Rust</span> آماده می‌کند):
+</p>
+
+<pre dir="ltr"><code>nix run github:xerj-org/xerj -- --version</code></pre>
+
+<p dir="rtl" align="right">
+تنها یک فایل اجرایی مستقل، بدون نیاز به <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">JVM</span> یا وابستگی‌های جانبی. نسخه‌های از پیش کامپایل‌شده برای سیستم‌عامل‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Linux</span>، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">macOS</span> و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Windows</span> و برای معماری‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">x86-64</span> و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">arm64</span> ارائه می‌شوند.
+</p>
+
+<p dir="rtl" align="right">
+نسخه‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">x86-64</span> با هدف سازگاری با استاندارد <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">x86-64-v2</span> ساخته شده‌اند (مبتنی بر دستورالعمل <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">SSE4.2</span>؛ پردازنده‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Intel Nehalem</span> از سال ۲۰۰۸ به بعد و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">AMD Bulldozer</span> به بعد). این نسخه‌ها هنگام اجرا، در صورت پشتیبانی پردازنده، از دستورالعمل‌های <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">AVX2</span> و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">FMA</span> نیز استفاده می‌کنند؛ بنابراین حتی سیستم‌های قدیمی‌تر از <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Haswell</span> هم می‌توانند همین فایل اجرایی را اجرا کنند.
+</p>
+
+<p dir="rtl" align="right">
+<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> از <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">API</span> سازگار با <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Elasticsearch</span> استفاده می‌کند؛ بنابراین کلاینت‌ها، داشبوردها و ابزارهای موجود می‌توانند بدون هیچ تغییری با آن کار کنند.
+</p>
+
+<p dir="rtl" align="right">
+**اولین دستورات پس از نصب:**
+</p>
+
+<p dir="rtl" align="right">
+نصاب محل قرارگیری فایل اجرایی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj</code></span> را نمایش می‌دهد؛ در صورت نیاز، مسیر آن را به متغیر محیطی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">PATH</span> اضافه کنید. سپس سرور را با دستور زیر اجرا کنید:
+</p>
+
+<pre dir="ltr"><code>xerj --insecure --data-dir ~/xerj-data &amp;</code></pre>
+
+<p dir="rtl" align="right">
+منتظر بمانید تا نشانی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>http://localhost:9200</code></span> پاسخ‌گو شود. سپس پروژه موردنظر را ایندکس کنید:
+</p>
+
+<pre dir="ltr"><code>xerj autoindex ~/my-project</code></pre>
+
+<p dir="rtl" align="right">
+برای اطلاعات بیشتر به بخش <a href="#index-a-folder">ایندکس کردن یک پوشه</a> مراجعه کنید.
+</p>
+
+<p dir="rtl" align="right">
+اگر می‌خواهید <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> را روی میزبانی اجرا کنید که به اینترنت دسترسی ندارد، دستورالعمل <a href="./docs/recipes/air-gapped-deployment.md">استقرار در محیط ایزوله (Air-gapped)</a> را دنبال کنید.
+</p>
+
+<p dir="rtl" align="right">
+موتور تعبیه‌سازی واژگانی (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Lexical Embedder</span>) به‌صورت پیش‌فرض بدون نیاز به اینترنت کار می‌کند؛ اما برای استفاده از حالت عصبی (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Neural Mode</span>)، باید سه فایل مدل موردنیاز را پیش از اولین عملیات معنایی، به‌صورت محلی آماده کرده باشید.
+</p>
