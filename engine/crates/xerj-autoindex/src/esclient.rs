@@ -965,6 +965,10 @@ fn is_whole_request_too_large(v: &Value, sent_actions: Option<usize>) -> bool {
 }
 
 /// Read a bulk response body item by item.
+/// The server's wording for a document over its per-document byte limit
+/// (`xerj_common::document_limit`), however the item's status reads.
+const DOCUMENT_LIMIT_REASON: &str = "byte limit for one indexed JSON document";
+
 fn parse_round(v: &Value) -> Round {
     let items = v.get("items").and_then(|i| i.as_array());
     let mut round = Round {
@@ -1018,8 +1022,20 @@ fn parse_round(v: &Value) -> Round {
             if round.outcome.first_server_error.is_none() {
                 round.outcome.first_server_error = Some(error_text());
             }
-        } else if round.first_settled_error.is_none() {
-            round.first_settled_error = Some(op["error"].to_string().chars().take(300).collect());
+        } else {
+            if round.first_settled_error.is_none() {
+                round.first_settled_error =
+                    Some(op["error"].to_string().chars().take(300).collect());
+            }
+            let reason = op["error"]
+                .get("reason")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            round.outcome.refused.push(RefusedItem {
+                id: op.get("_id").and_then(Value::as_str).map(str::to_owned),
+                error: error_text(),
+                too_large: item_status == 413 || reason.contains(DOCUMENT_LIMIT_REASON),
+            });
         }
         if round.outcome.first_error.is_none() {
             round.outcome.first_error = Some(op["error"].to_string().chars().take(300).collect());
@@ -1028,9 +1044,22 @@ fn parse_round(v: &Value) -> Round {
     round
 }
 
+/// One item the server refused for the record itself (not a 429, 5xx or
+/// write block), with the `_id` the bulk action named.
+#[derive(Debug, Clone)]
+pub struct RefusedItem {
+    pub id: Option<String>,
+    pub error: String,
+    /// Refused because the stored document passed the server's per-document
+    /// byte limit, which a retry of the same record cannot clear (#2807).
+    pub too_large: bool,
+}
+
 #[derive(Debug, Default)]
 pub struct BulkOutcome {
     pub item_errors: u64,
+    /// The record-level refusals counted in `item_errors`, in item order.
+    pub refused: Vec<RefusedItem>,
     /// Per-item backend/admission failures — 5xx/429 statuses plus
     /// cluster/index write blocks recognised by TYPE (see
     /// [`is_index_block_error`]). These are not bad source records: the same
@@ -1054,6 +1083,7 @@ impl BulkOutcome {
     /// Fold the outcome of a later window of the same body into this one.
     fn absorb(&mut self, other: BulkOutcome) {
         self.item_errors += other.item_errors;
+        self.refused.extend(other.refused);
         self.server_errors += other.server_errors;
         self.throttled_out += other.throttled_out;
         if self.first_error.is_none() {

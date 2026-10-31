@@ -446,6 +446,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   XML, including `.xml`, `.xaml` and `.svg`, is unchanged. An index built
   before this fix keeps its junked files until each one changes or the folder
   is indexed again with `--fresh` (#2740).
+- When the server refuses a record or a graph edge, `xerj autoindex` now
+  names the file it came from and does not mark that file done. It used to
+  mark every file in the same bulk done, so the rerun the abort message asks
+  for resumed past the file, reported success and never sent the refused
+  record (#2807).
 
 ## [1.0.0-rc.100] - 2026-10-26
 

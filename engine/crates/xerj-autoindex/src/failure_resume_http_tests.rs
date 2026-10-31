@@ -920,7 +920,9 @@ fn bulk_response(body: &[u8], state: &Arc<Mutex<MockState>>) -> Value {
         let mut items = Vec::new();
         for (nth, pair) in lines.as_chunks::<2>().0.iter().enumerate() {
             if nth == 0 {
+                let action: Value = serde_json::from_slice(pair[0]).unwrap();
                 items.push(json!({"index": {
+                    "_id": action.pointer("/index/_id").cloned().unwrap_or(Value::Null),
                     "status": 400,
                     "error": {
                         "type": "document_parsing_exception",
@@ -3934,6 +3936,9 @@ fn write_block_rejections_are_backend_fatal_and_the_file_stays_pending() {
 /// The rejection count is therefore reported in the one place a rejected run
 /// ever reaches: the abort message, where it supplies the scale that
 /// `bulk_errors`' first-five sample cannot.
+///
+/// The file that carried the refused record is named and stays un-journaled,
+/// so the rerun the message asks for really retries it (#2807).
 #[test]
 fn backend_rejected_records_abort_the_run_before_any_map_is_written() {
     let _guard = FAILPOINT_TEST_LOCK
@@ -3966,23 +3971,24 @@ fn backend_rejected_records_abort_the_run_before_any_map_is_written() {
         "the abort must state how many records were refused, not just sample the errors: {error}"
     );
 
-    // Measured, and deliberately pinned even though it is NOT what the abort
-    // message implies: `record_bulk_outcome` treats a per-item rejection as
-    // non-fatal to the worker (only `server_errors` set `send_err`), so the
-    // file is journaled COMPLETE and the run aborts only at the end. A rerun
-    // therefore resumes past this file and never retries the refused record,
-    // while the message says failed sources "were not journaled complete".
-    //
-    // That divergence predates this branch — it is `main`'s behaviour for the
-    // item-error class — and fixing it means changing when a worker treats a
-    // rejection as fatal, which is a resume-semantics change with nothing to
-    // do with map metadata. Recorded here so the next reader finds the fact
-    // rather than the assumption; tracked in the PR body as a known gap.
+    // #2807: the refused record's source file is named and is NOT journaled
+    // complete, as the message says. It used to be journaled, so a rerun
+    // resumed past it, reported success and never sent the refused record.
+    assert!(
+        error.contains("records.csv"),
+        "the abort must name the file whose record was refused: {error}"
+    );
     assert_eq!(
         file_done_count(state_dir.path()),
-        1,
-        "pre-existing: a per-item rejection still journals the source complete"
+        0,
+        "a source with a refused record must not be journaled complete"
     );
+
+    // With the refusal gone, the same command resumes and sends every record.
+    endpoint.state.lock().unwrap().reject_first_data_item = false;
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url);
+    run_index_report(config).unwrap();
+    assert_eq!(file_done_count(state_dir.path()), 1);
 }
 
 /// #195 last-resort gate: a backend that ACCEPTS every bulk but persists
