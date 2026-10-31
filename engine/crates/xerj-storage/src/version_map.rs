@@ -975,18 +975,25 @@ mod tests {
             .is_err());
         assert_eq!(vm.len(), 0);
         assert_eq!(vm.key_heap.load(Ordering::Relaxed), 0);
+        // Ids longer than the 24-byte inline CompactString and not packable
+        // as hex or UUID, so they hold key heap and exercise its accounting.
+        // A short id is stored inline and adds nothing to the key heap.
+        const FRESH: &str = "fresh-doc-with-a-heap-allocated-key";
+        const KEPT: &str = "kept-doc-with-a-heap-allocated-key";
         let empty = vm.heap_bytes();
         {
             let mut tx = VersionRepointTransaction::with_capacity(Arc::clone(&vm), 1);
-            tx.repoint_if_latest("fresh-doc", 3, Arc::from("seg-m"), false);
+            tx.repoint_if_latest(FRESH, 3, Arc::from("seg-m"), false);
             assert_eq!(vm.len(), 1);
-            assert!(vm.heap_bytes() >= empty + "fresh-doc".len());
+            assert_eq!(vm.key_heap.load(Ordering::Relaxed), FRESH.len());
+            assert!(vm.heap_bytes() >= empty + FRESH.len());
         }
         assert_eq!(vm.len(), 0);
         assert_eq!(vm.key_heap.load(Ordering::Relaxed), 0);
-        vm.set("kept", 1, "seg", false);
-        vm.set("kept", 2, "seg", false);
-        assert!(vm.heap_bytes() >= "kept".len());
+        vm.set(KEPT, 1, "seg", false);
+        vm.set(KEPT, 2, "seg", false);
+        assert_eq!(vm.key_heap.load(Ordering::Relaxed), KEPT.len());
+        assert!(vm.heap_bytes() >= KEPT.len());
         vm.remove_segment(&["seg".to_string()]);
         assert_eq!(vm.len(), 0);
         assert_eq!(vm.key_heap.load(Ordering::Relaxed), 0);
