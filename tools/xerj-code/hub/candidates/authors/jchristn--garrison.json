@@ -8,15 +8,15 @@
   {
    "repo": "Garrison",
    "url": "https://github.com/jchristn/Garrison",
-   "sha": "22d3f98cb506f0794e4abc815e860b80563a4a45",
-   "licence": "MIT (LICENSE file at pin 22d3f98cb506, GitHub licence API 2026-10-31)",
+   "sha": "5ff96703e2520f59603d774f41c74c46a62898b7",
+   "licence": "MIT (LICENSE file at pin 5ff96703e252, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:23Z",
     "consent_receipt": "50eb587e7579",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt 50eb587e7579); pinned to the default-branch head. LICENSE file at pin 22d3f98cb506 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:23Z (receipt 50eb587e7579); pinned to the default-branch head. LICENSE file at pin 5ff96703e252 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
    }
   }
  ]

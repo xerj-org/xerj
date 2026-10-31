@@ -2,8 +2,8 @@
  "corpus": "tensorix--metahub-core",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how Tensorix/metahub-core implements it: Tensorix/metahub-core (TypeScript) (selected work: src/webui, apps/desktop, assets)",
+ "shelf": "AI",
+ "domain": "an agent working on agent-memory, ai-agents, bun queries this for how Tensorix/metahub-core implements it: Local-first knowledge base and persistent memory for AI agents, with structured tables, Markdown docs, CRDT sync, CLI, WebUI, and REST API (selected work: src/webui, apps/desktop, assets)",
  "repos": [
   {
    "repo": "metahub-core",

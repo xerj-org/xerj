@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, price-comparison, self-hosted queries this for how hhtower/price-comparison implements it: AI \u8ba2\u9605\u4e0e\u5361\u7f51\u6bd4\u4ef7\uff0c\u805a\u5408 ChatGPT / Codex\u3001Claude\u3001Gemini\u3001Grok\u3001Cursor \u7b49\u4ee3\u5145\u3001\u6210\u54c1\u53f7\u4e0e\u5151\u6362\u7801\u62a5\u4ef7\uff0c\u63d0\u4f9b\u4ef7\u683c\u8d70\u52bf\u3001\u5b98\u65b9\u5730\u533a\u4ef7\u53c2\u8003\u548c AI / IP \u68c0\u6d4b\u3002Compare AI subscription and account offers  (selected work: apps/api)",
+ "domain": "an agent working on ai, price-comparison, self-hosted queries this for how hhtower/price-comparison implements it: AI \u8ba2\u9605\u4e0e\u5361\u7f51\u6bd4\u4ef7\u5e73\u53f0\uff0c\u8bf4\u51fa\u9700\u6c42\uff0c\u8ba9 AI \u5e2e\u4f60\u9009\u3002\u805a\u5408 ChatGPT / Codex\u3001Claude\u3001Gemini \u7b49\u4ee3\u5145\u6216\u8d26\u53f7\u62a5\u4ef7\uff0c\u5bf9\u6bd4\u4ef7\u683c\u8d70\u52bf\u3001\u5145\u503c\u6e20\u9053\u4e0e\u8d28\u4fdd\u3002AI-powered shopping and price comparison for subscriptio (selected work: apps/api)",
  "repos": [
   {
    "repo": "price-comparison",

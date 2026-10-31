@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how AlexeyYurko/BookVault implements it: simple tool for managing your books (selected work: templates, app/handlers, alembic)",
+ "domain": "an agent working on Python queries this for how AlexeyYurko/BookVault implements it: A self-hosted catalog for the books you already have on disk (selected work: templates, app/handlers, alembic)",
  "repos": [
   {
    "repo": "BookVault",

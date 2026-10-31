@@ -1,9 +1,9 @@
 {
- "corpus": "diego1505-art--dowflow-v12",
+ "corpus": "diego1505-art--dowflow-v13",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on dowload-video, downloader, local queries this for how diego1505-Art/DowFlow-V12 implements it: Il r\u00e9cup\u00e8re des URL et t\u00e9l\u00e9charge la vid\u00e9o associ\u00e9 peut cocher la case bot et peut sauter les pubs (selected work: the project root, templates, url_expanders)",
+ "domain": "an agent working on dowload-video, downloader, local queries this for how diego1505-Art/DowFlow-V13 implements it: Local Windows app (Flask + yt-dlp) to download videos and music from URLs, with Turbo mode (aria2c), resumable downloads and a local music l (selected work: the project root, templates, url_expanders)",
  "repos": [
   {
    "repo": "DowFlow-v11",

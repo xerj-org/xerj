@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Python queries this for how DekrovDev/firefox-ghost-ui implements it: Floating Firefox toolbar, native vertical tabs and automatic Windows installer (selected work: companion, scripts, tests)",
+ "domain": "an agent working on C# queries this for how DekrovDev/firefox-ghost-ui implements it: Floating Firefox toolbar, native vertical tabs and automatic Windows installer (selected work: companion, scripts, tests)",
  "repos": [
   {
    "repo": "firefox-ghost-ui",
