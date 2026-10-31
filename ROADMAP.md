@@ -632,7 +632,13 @@ Built-in non-coding tool sets (Writing, Bio, Cyber), all native Rust in the xerj
 - **`xerj init` auto-integration** ([#2761](https://github.com/xerj-org/xerj/issues/2761)). Registers the MCP server and writes SKILL.md files for Claude Code, Cursor and Codex.
 - **Declarative recipe runner** ([#2762](https://github.com/xerj-org/xerj/issues/2762)). TOML recipes (corpora, filters, ranking, output schema, checks), so a new pack needs corpora and recipes but no new code.
 - **Writing pack:** `write.outline` ([#2763](https://github.com/xerj-org/xerj/issues/2763)), `write.section` ([#2764](https://github.com/xerj-org/xerj/issues/2764)), and `write.review`, a deterministic anti-slop and citation checker that uses no model ([#2765](https://github.com/xerj-org/xerj/issues/2765)).
-- **Bio pack** ([#2766](https://github.com/xerj-org/xerj/issues/2766)) grades evidence by study type. **Cyber pack** ([#2767](https://github.com/xerj-org/xerj/issues/2767)) returns advisory and CVE context: affected code, fix commit and similar past bugs.
+- **Bio pack** ([#2766](https://github.com/xerj-org/xerj/issues/2766)) grades evidence by study type. **Cyber pack** ([#2767](https://github.com/xerj-org/xerj/issues/2767)) covers separate scenarios that share one finding schema, cite corpus evidence, and guard scope (authorized targets only):
+  - source code review, `cyber.code_review` ([#2771](https://github.com/xerj-org/xerj/issues/2771));
+  - black-box test planning, `cyber.blackbox` ([#2772](https://github.com/xerj-org/xerj/issues/2772));
+  - fuzzing plans and crash triage, `cyber.fuzz_plan` ([#2773](https://github.com/xerj-org/xerj/issues/2773));
+  - exploitability and impact validation, `cyber.exploitability` ([#2774](https://github.com/xerj-org/xerj/issues/2774));
+  - risk scoring with deterministic CVSS v3.1/v4 plus EPSS/KEV context, `cyber.score` ([#2775](https://github.com/xerj-org/xerj/issues/2775));
+  - advisory writing, `cyber.advisory` / `cyber.cve_context` ([#2776](https://github.com/xerj-org/xerj/issues/2776)).
 - **Docs, `xerj tools list`, site pages** ([#2768](https://github.com/xerj-org/xerj/issues/2768)).
 
 ## Beyond 1.0 — themes
