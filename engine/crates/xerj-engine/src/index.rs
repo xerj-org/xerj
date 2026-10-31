@@ -197,6 +197,52 @@ fn hnsw_compaction_due(live: usize, dead: usize) -> bool {
     dead >= HNSW_COMPACT_MIN_DEAD && dead >= live
 }
 
+/// Heap held by the bucket arrays of the HNSW id maps (#2427). hashbrown
+/// keeps one `(K, V)` slot and one control byte per bucket, and its bucket
+/// count is the power of two above `capacity * 8 / 7`. The doc-id strings
+/// are counted separately by [`hnsw_id_key_bytes`].
+fn hnsw_id_table_bytes(map: &HashMap<HnswDocId, u64>, rev: &HashMap<u64, HnswDocId>) -> usize {
+    fn table(cap: usize, slot: usize) -> usize {
+        if cap == 0 {
+            return 0;
+        }
+        let buckets = (cap.saturating_mul(8) / 7).next_power_of_two();
+        buckets * (slot + 1)
+    }
+    table(map.capacity(), std::mem::size_of::<(HnswDocId, u64)>())
+        + table(rev.capacity(), std::mem::size_of::<(u64, HnswDocId)>())
+}
+
+/// A doc id held by the HNSW id maps. The forward map's key and the
+/// reverse map's value share one allocation (#2427: two `String` copies
+/// per graphed doc were ~half of the maps' heap).
+type HnswDocId = Arc<str>;
+
+/// Heap bytes of one shared doc id: the string plus the `Arc` counts.
+fn hnsw_id_key_cost(doc_id: &str) -> usize {
+    doc_id.len() + 2 * std::mem::size_of::<usize>()
+}
+
+/// Doc-id bytes held by the HNSW id maps: one shared allocation per id.
+fn hnsw_id_key_bytes(map: &HashMap<HnswDocId, u64>) -> usize {
+    map.keys().map(|k| hnsw_id_key_cost(k)).sum()
+}
+
+/// Build the forward and reverse id maps over shared doc ids.
+fn hnsw_id_maps_from(
+    pairs: impl IntoIterator<Item = (String, u64)>,
+    capacity: usize,
+) -> (HashMap<HnswDocId, u64>, HashMap<u64, HnswDocId>) {
+    let mut id_map: HashMap<HnswDocId, u64> = HashMap::with_capacity(capacity);
+    let mut id_rev: HashMap<u64, HnswDocId> = HashMap::with_capacity(capacity);
+    for (doc_id, nid) in pairs {
+        let key: HnswDocId = Arc::from(doc_id);
+        id_rev.insert(nid, Arc::clone(&key));
+        id_map.insert(key, nid);
+    }
+    (id_map, id_rev)
+}
+
 /// Forcemerge batch selection over segments sorted smallest first: chunks
 /// of at most `chunk_len` segments whose input stays under `cap` bytes
 /// (`0` = no cap, #948). Returns index lists into `sizes`.
@@ -1808,6 +1854,105 @@ mod flush_publication_recovery_tests {
             .add_field(FieldConfig::new("embedding", FieldType::Vector))
             .unwrap();
         schema
+    }
+
+    /// #2427: after the graph's vectors, the doc-id <-> node-id maps beside
+    /// it were the next-largest live heap on the cap-2048 ingest run (about
+    /// 110 MB of 1.3 GB in a late heap profile) and no ledger category
+    /// counted them. They are part of `vector_graph` now, and a re-index of
+    /// the same ids must not count them twice.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn vector_graph_bytes_counts_hnsw_id_maps_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("vg-id-maps", vector_schema()).unwrap();
+        let idx = engine.get_index("vg-id-maps").unwrap();
+        idx.abort_background_tasks();
+        let n = 1500usize;
+        let id = |i: usize| format!("doc-{i:060}");
+        for round in 0..2 {
+            for i in 0..n {
+                idx.index_document(
+                    Some(id(i)),
+                    json!({"embedding": [1.0, i as f64, round as f64 + 0.5]}),
+                )
+                .await
+                .unwrap();
+            }
+        }
+        assert_eq!(idx.hnsw_id_map.read().await.len(), n);
+        let graph = idx
+            .hnsw
+            .read()
+            .await
+            .as_ref()
+            .map_or(0, HnswIndex::heap_bytes);
+        let key_bytes = n * hnsw_id_key_cost(&id(0));
+        let table_floor = n * (std::mem::size_of::<(HnswDocId, u64)>() + 1) * 2;
+        let reported = idx.vector_graph_bytes();
+        assert!(
+            reported >= graph + key_bytes + table_floor,
+            "vector_graph reports {reported} B; graph {graph} B + id keys {key_bytes} B + id tables >= {table_floor} B"
+        );
+        assert_eq!(
+            idx.hnsw_id_key_bytes.load(Ordering::Relaxed),
+            key_bytes,
+            "re-indexing the same ids must not grow the key bytes"
+        );
+    }
+
+    /// #2427: every graphed doc id was held as two `String`s — one key in
+    /// the forward map, one value in the reverse map. The two maps now share
+    /// one allocation per id, through inserts, re-indexes, deletes and a
+    /// reload from ids.json.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn hnsw_id_maps_share_one_doc_id_allocation_2427() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index("vg-id-share", vector_schema()).unwrap();
+        let idx = engine.get_index("vg-id-share").unwrap();
+        idx.abort_background_tasks();
+        let n = 300usize;
+        let id = |i: usize| format!("doc-{i:040}");
+        for round in 0..2 {
+            for i in 0..n {
+                idx.index_document(
+                    Some(id(i)),
+                    json!({"embedding": [1.0, i as f64, round as f64 + 0.5]}),
+                )
+                .await
+                .unwrap();
+            }
+        }
+        idx.delete_document(&id(0)).await.unwrap();
+        async fn assert_shared(idx: &Index, live: usize, what: &str) {
+            let id_map = idx.hnsw_id_map.read().await;
+            let id_rev = idx.hnsw_id_rev.read().await;
+            assert_eq!(id_map.len(), live, "{what}: forward map size");
+            assert_eq!(id_rev.len(), live, "{what}: reverse map size");
+            for (doc_id, node) in id_map.iter() {
+                let rev = id_rev.get(node).expect("reverse entry");
+                assert_eq!(**doc_id, **rev, "{what}: maps disagree");
+                assert_eq!(
+                    doc_id.as_ptr(),
+                    rev.as_ptr(),
+                    "{what}: doc id {doc_id} is stored twice (forward key and reverse value are separate allocations)"
+                );
+            }
+            assert_eq!(
+                idx.hnsw_id_key_bytes.load(Ordering::Relaxed),
+                hnsw_id_key_bytes(&id_map),
+                "{what}: key bytes ledger drifted"
+            );
+        }
+        assert_shared(&idx, n - 1, "after ingest").await;
+        idx.save_hnsw_to_disk().await.unwrap();
+        assert!(idx.load_hnsw_from_disk().await.unwrap(), "snapshot reloads");
+        assert_shared(&idx, n - 1, "after reload").await;
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -10928,10 +11073,17 @@ pub struct Index {
     /// `hnsw` write guard on every insert and reload so the ingest-memory
     /// sampler can read it without contending for the graph lock.
     hnsw_heap_bytes: Arc<AtomicUsize>,
+    /// Bucket arrays of `hnsw_id_map` + `hnsw_id_rev`, refreshed whenever an
+    /// insert or reload can have grown them (#2427). Part of `vector_graph`.
+    hnsw_id_table_bytes: Arc<AtomicUsize>,
+    /// Doc-id string bytes held by the two id maps (one shared allocation
+    /// per id). Part of `vector_graph`.
+    hnsw_id_key_bytes: Arc<AtomicUsize>,
     /// Maps string doc-id → u64 node-id used by HNSW.
-    hnsw_id_map: Arc<RwLock<HashMap<String, u64>>>,
-    /// Maps u64 node-id → string doc-id (reverse of hnsw_id_map).
-    hnsw_id_rev: Arc<RwLock<HashMap<u64, String>>>,
+    hnsw_id_map: Arc<RwLock<HashMap<HnswDocId, u64>>>,
+    /// Maps u64 node-id → string doc-id (reverse of hnsw_id_map). Values
+    /// share their allocation with `hnsw_id_map`'s keys.
+    hnsw_id_rev: Arc<RwLock<HashMap<u64, HnswDocId>>>,
     /// Monotonic counter for HNSW node IDs.
     hnsw_next_id: Arc<AtomicU64>,
     /// Number of distinct live docs that CARRY the pinned vector field (item
@@ -11849,6 +12001,8 @@ impl Index {
             enrichments: Arc::new(RwLock::new(HashMap::new())),
             hnsw: Arc::new(RwLock::new(None)),
             hnsw_heap_bytes: Arc::new(AtomicUsize::new(0)),
+            hnsw_id_table_bytes: Arc::new(AtomicUsize::new(0)),
+            hnsw_id_key_bytes: Arc::new(AtomicUsize::new(0)),
             hnsw_id_map: Arc::new(RwLock::new(HashMap::new())),
             hnsw_id_rev: Arc::new(RwLock::new(HashMap::new())),
             hnsw_next_id: Arc::new(AtomicU64::new(1)),
@@ -12323,6 +12477,11 @@ impl Index {
                 hnsw_init.as_ref().map_or(0, HnswIndex::heap_bytes),
             )),
             hnsw: Arc::new(RwLock::new(hnsw_init)),
+            hnsw_id_table_bytes: Arc::new(AtomicUsize::new(hnsw_id_table_bytes(
+                &id_map_init,
+                &id_rev_init,
+            ))),
+            hnsw_id_key_bytes: Arc::new(AtomicUsize::new(hnsw_id_key_bytes(&id_map_init))),
             hnsw_id_map: Arc::new(RwLock::new(id_map_init)),
             hnsw_id_rev: Arc::new(RwLock::new(id_rev_init)),
             hnsw_next_id: Arc::new(AtomicU64::new(next_id_init)),
@@ -17399,7 +17558,7 @@ impl Index {
             let id_map = self.hnsw_id_map.read().await;
             items
                 .iter()
-                .map(|(doc_id, _)| id_map.get(doc_id).copied())
+                .map(|(doc_id, _)| id_map.get(doc_id.as_str()).copied())
                 .collect()
         };
         let mut node_ids = Vec::with_capacity(items.len());
@@ -17490,9 +17649,20 @@ impl Index {
             if let Some(old) = old_nodes[i] {
                 id_rev.remove(&old);
             }
-            id_map.insert(doc_id.clone(), node_id);
-            id_rev.insert(node_id, doc_id.clone());
+            // A re-index keeps the map's existing key and points the reverse
+            // entry at that same allocation; only a new doc allocates one.
+            let key: HnswDocId = match id_map.get_key_value(doc_id.as_str()) {
+                Some((existing, _)) => Arc::clone(existing),
+                None => Arc::from(doc_id.as_str()),
+            };
+            if id_map.insert(Arc::clone(&key), node_id).is_none() {
+                self.hnsw_id_key_bytes
+                    .fetch_add(hnsw_id_key_cost(doc_id), Ordering::Relaxed);
+            }
+            id_rev.insert(node_id, key);
         }
+        self.hnsw_id_table_bytes
+            .store(hnsw_id_table_bytes(&id_map, &id_rev), Ordering::Relaxed);
         inserted
     }
 
@@ -17833,7 +18003,11 @@ impl Index {
         let id_rev = self.hnsw_id_rev.read().await;
         results
             .into_iter()
-            .filter_map(|(node_id, dist)| id_rev.get(&node_id).map(|doc_id| (doc_id.clone(), dist)))
+            .filter_map(|(node_id, dist)| {
+                id_rev
+                    .get(&node_id)
+                    .map(|doc_id| (doc_id.to_string(), dist))
+            })
             .collect()
     }
 
@@ -18063,12 +18237,12 @@ impl Index {
 
             // Prune graphed docs that are no longer live — WAL-tail deletes
             // the flush-time id_map still carries.
-            let prune_candidates: Vec<(String, u64)> = {
+            let prune_candidates: Vec<(HnswDocId, u64)> = {
                 let id_map = self.hnsw_id_map.read().await;
                 id_map
                     .iter()
-                    .filter(|(doc_id, _)| !seen.contains(*doc_id))
-                    .map(|(doc_id, node)| (doc_id.clone(), *node))
+                    .filter(|(doc_id, _)| !seen.contains(doc_id.as_ref()))
+                    .map(|(doc_id, node)| (Arc::clone(doc_id), *node))
                     .collect()
             };
             let mut pruned = 0u64;
@@ -18088,10 +18262,13 @@ impl Index {
                     // a concurrent re-index replaces the mapping and must
                     // keep its fresh node.
                     let mut id_map = self.hnsw_id_map.write().await;
-                    if id_map.get(&doc_id) != Some(&node_id) {
+                    if id_map.get(doc_id.as_ref()) != Some(&node_id) {
                         continue;
                     }
-                    id_map.remove(&doc_id);
+                    if id_map.remove(doc_id.as_ref()).is_some() {
+                        self.hnsw_id_key_bytes
+                            .fetch_sub(hnsw_id_key_cost(&doc_id), Ordering::Relaxed);
+                    }
                 }
                 self.hnsw_id_rev.write().await.remove(&node_id);
                 if let Some(h) = self.hnsw.read().await.as_ref() {
@@ -18388,11 +18565,11 @@ impl Index {
         // race can briefly leave two live nodes for one doc.
         let doc_ids: Vec<String> = {
             let id_rev = self.hnsw_id_rev.read().await;
-            let mut seen: HashSet<&str> = HashSet::with_capacity(raw.len());
+            let mut seen: HashSet<&HnswDocId> = HashSet::with_capacity(raw.len());
             raw.iter()
                 .filter_map(|(node_id, _)| id_rev.get(node_id))
-                .filter(|doc_id| seen.insert(doc_id.as_str()))
-                .cloned()
+                .filter(|doc_id| seen.insert(*doc_id))
+                .map(|doc_id| doc_id.to_string())
                 .collect()
         };
 
@@ -21848,7 +22025,10 @@ impl Index {
             || publication_generation_before != publication_generation_after;
         let snapshot = serde_json::json!({
             "next_id": self.hnsw_next_id.load(Ordering::Relaxed),
-            "map": *id_map,
+            "map": id_map
+                .iter()
+                .map(|(doc_id, node)| (doc_id.to_string(), serde_json::Value::from(*node)))
+                .collect::<serde_json::Map<String, serde_json::Value>>(),
             "field": hnsw_field,
             "seq_no": seq_before,
             "stale": snapshot_stale,
@@ -21897,6 +22077,10 @@ impl Index {
         let mut id_rev = self.hnsw_id_rev.write().await;
         *id_map = loaded.id_map;
         *id_rev = loaded.id_rev;
+        self.hnsw_id_table_bytes
+            .store(hnsw_id_table_bytes(&id_map, &id_rev), Ordering::Relaxed);
+        self.hnsw_id_key_bytes
+            .store(hnsw_id_key_bytes(&id_map), Ordering::Relaxed);
         // Item 8: re-seed the coverage-gate denominator from the reloaded
         // graph (every graphed doc is a vector doc). Staleness is handled
         // separately by `hnsw_stale`.
@@ -22635,7 +22819,10 @@ impl Index {
             drop(hnsw_guard);
             // Remove from id maps so a re-index of the same doc_id
             // gets a fresh node_id (the old one stays tombstoned).
-            self.hnsw_id_map.write().await.remove(id);
+            if self.hnsw_id_map.write().await.remove(id).is_some() {
+                self.hnsw_id_key_bytes
+                    .fetch_sub(hnsw_id_key_cost(id), Ordering::Relaxed);
+            }
             self.hnsw_id_rev.write().await.remove(&node_id);
             // Item 8: this doc leaves the coverage-gate denominator.
             self.vector_doc_count
@@ -29654,10 +29841,13 @@ impl Index {
         self.memtable.size_bytes()
     }
 
-    /// Estimated heap held by this index's in-memory HNSW graph (#2427).
-    /// Lock-free: reads the value cached on the last insert/reload.
+    /// Estimated heap held by this index's in-memory HNSW graph and the
+    /// doc-id <-> node-id maps beside it (#2427). Lock-free: reads values
+    /// cached on the last insert, delete or reload.
     pub fn vector_graph_bytes(&self) -> usize {
         self.hnsw_heap_bytes.load(Ordering::Relaxed)
+            + self.hnsw_id_table_bytes.load(Ordering::Relaxed)
+            + self.hnsw_id_key_bytes.load(Ordering::Relaxed)
     }
 
     /// Estimated heap held by this index's document version map (#2427).
@@ -44466,8 +44656,8 @@ fn make_neural_embedder(_cfg: &xerj_common::config::EmbeddingConfig) -> Result<x
 
 struct LoadedHnsw {
     graph: xerj_vector::HnswIndex,
-    id_map: HashMap<String, u64>,
-    id_rev: HashMap<u64, String>,
+    id_map: HashMap<HnswDocId, u64>,
+    id_rev: HashMap<u64, HnswDocId>,
     next_id: u64,
     /// Pinned field identity stamped into ids.json at save time.
     /// `None` = legacy snapshot (pre-field-stamp): the HNSW query path
@@ -44548,14 +44738,12 @@ fn load_hnsw_artifacts_sync(
             return None;
         }
     };
-    let mut id_map: HashMap<String, u64> = HashMap::with_capacity(map_obj.len());
-    let mut id_rev: HashMap<u64, String> = HashMap::with_capacity(map_obj.len());
-    for (doc_id, node_id_v) in map_obj.iter() {
-        if let Some(nid) = node_id_v.as_u64() {
-            id_map.insert(doc_id.clone(), nid);
-            id_rev.insert(nid, doc_id.clone());
-        }
-    }
+    let (id_map, id_rev) = hnsw_id_maps_from(
+        map_obj
+            .iter()
+            .filter_map(|(doc_id, node_id_v)| node_id_v.as_u64().map(|nid| (doc_id.clone(), nid))),
+        map_obj.len(),
+    );
     let graph = match xerj_vector::HnswIndex::load_from(&graph_path) {
         Ok(g) => g,
         Err(e) => {

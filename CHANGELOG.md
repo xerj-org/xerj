@@ -113,6 +113,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer take a node from below the watermark into the parent breaker band and
   turn ingest into HTTP 429s. The relief for a search node resting between the
   merge-pool ceiling and the watermark is kept (#2427).
+- The HNSW doc-id maps now share one allocation per graphed document between
+  the forward and reverse maps, instead of storing every id as two `String`s,
+  and their bucket arrays and id bytes count toward the `vector_graph` ingest
+  memory category, so the breaker budget sees them. On the cap-2048 ingest
+  run these maps held about 110 MB of live heap that no category reported
+  (Refs #2427).
 - `xerj autoindex` no longer stalls for up to 10 minutes per large dataset in
   `finalize-count`. The dataset time range was read with `min`/`max`
   aggregations, which make the node copy every document first; on a
