@@ -1044,3 +1044,22 @@ DeepSeek Harness هر سرور MCP را به‌عنوان یک افزونه مس
 <p dir="rtl" align="right">
 نمونه‌های قابل اجرا در پوشه‌های <a href="./recipes/"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>recipes/</code></span></a> و <a href="./docs/examples/"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>docs/examples/</code></span></a> قرار دارند.
 </p>
+
+<h2 dir="rtl" align="right">سازگاری با Elasticsearch</h2>
+
+<p dir="rtl" align="right">
+<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> رابط برنامه‌نویسی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">REST API</span> مربوط به <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Elasticsearch</span> را پیاده‌سازی می‌کند؛ از جمله ایندکس‌ها، اسناد، عملیات گروهی (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Bulk</span>)، جست‌وجو، تجمیع داده‌ها (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Aggregations</span>)، نگاشت‌ها (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Mappings</span>)، جست‌وجوی نزدیک‌ترین همسایه‌ها (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">kNN</span>)، پیمایش نتایج (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Scroll</span>)، ایندکس‌گذاری مجدد (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Reindex</span>) و نقاط پایانی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>_cat</code></span>. ابزار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Kibana</span> و کتابخانه‌های رسمی کلاینت نیز می‌توانند مستقیماً به آن متصل شوند.
+</p>
+
+<p dir="rtl" align="right">
+پیش از استفاده از ابزارهای خروجی‌گیری (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Export</span>)، یک محدودیت مهم وجود دارد که باید بدانید: قابلیت <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Scroll</span> یک تصویر ثابت و محدود از نتایج را در ابتدای کار ایجاد می‌کند و مانند یک نشانگر پیمایش پیوسته، بین بخش‌های داده حرکت نمی‌کند. بنابراین، اگر تعداد دقیق نتایج یک پرس‌وجو از محدوده این تصویر ثابت بیشتر باشد، درخواست با خطای <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>400</code></span> رد می‌شود و نتایج بدون اطلاع شما ناقص نخواهند شد. برای مجموعه‌نتایج با هر اندازه‌ای، از <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>search_after</code></span> استفاده کنید (<a href="https://xerj.org/docs/api-es-compat.html#scroll-cap">محدودیت Scroll</a>).
+</p>
+
+<p dir="rtl" align="right">
+مجموعه آزمون‌های سازگاری (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Conformance Suite</span>) با هر کامیت اجرا می‌شود و در حال حاضر ۱۴۴۴ مورد از مجموع ۱۴۵۴ مورد را با موفقیت پشت سر می‌گذارد؛ بدون هیچ مورد ناموفق و با ۱۰ مورد ردشده از آزمون (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Skipped</span>).
+این مجموعه در پوشه <a href="./engine/tests/es-compat-yaml"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>engine/tests/es-compat-yaml</code></span></a> قرار دارد و مواردی که هنوز پشتیبانی نمی‌شوند، به‌جای پنهان شدن، همان‌جا فهرست شده‌اند.
+</p>
+
+<p dir="rtl" align="right">
+<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> با رابط برنامه‌نویسی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Elasticsearch</span> سازگار است؛ اما بازپیاده‌سازی ساختارهای داخلی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Elasticsearch</span> نیست و از آن نیز انشعاب (<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Fork</span>) گرفته نشده است.
+</p>
