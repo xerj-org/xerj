@@ -52,11 +52,11 @@ XERJ با ابزارهایی مانند <bdi>Claude Code</bdi>، <bdi>Cursor</bd
 </div>
 
 <p dir="rtl" align="right">
-<bdi dir="ltr">XERJ</bdi> یک موتور جست‌وجوی محلی مبتنی بر هوش مصنوعی است که اعتماد جامعه را جلب کرده و به‌صورت خودکار هر پوشه‌ای را ایندکس می‌کند. به این ترتیب، عامل برنامه‌نویسی شما دیگر برای خواندن فایل‌ها به‌صورت تک‌به‌تک، توکن‌های زیادی مصرف نمی‌کند و به‌جای آن، کد دقیق موردنیازش را مستقیماً پیدا می‌کند.
+<span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> یک موتور جست‌وجوی محلی مبتنی بر هوش مصنوعی است که اعتماد جامعه را جلب کرده و به‌صورت خودکار هر پوشه‌ای را ایندکس می‌کند. به این ترتیب، عامل برنامه‌نویسی شما دیگر برای خواندن فایل‌ها به‌صورت تک‌به‌تک، توکن‌های زیادی مصرف نمی‌کند و به‌جای آن، کد دقیق موردنیازش را مستقیماً پیدا می‌کند.
 </p>
 
 <p dir="rtl" align="right">
-مهم‌ترین کاربرد <bdi dir="ltr">XERJ</bdi> و برجسته‌ترین مزیت آن، <bdi dir="ltr">Reference Coding</bdi> است: کافی است یک وظیفه را به عامل هوش مصنوعی بسپارید تا مخازن متن‌باز مرتبط با آن را دانلود و ایندکس کند و پیش از نوشتن کد خودش، از راهکارهایی که قبلاً برای حل همان مسئله استفاده شده‌اند بهره ببرد.
+مهم‌ترین کاربرد <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> و برجسته‌ترین مزیت آن، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">Reference Coding</span> است: کافی است یک وظیفه را به عامل هوش مصنوعی بسپارید تا مخازن متن‌باز مرتبط با آن را دانلود و ایندکس کند و پیش از نوشتن کد خودش، از راهکارهایی که قبلاً برای حل همان مسئله استفاده شده‌اند بهره ببرد.
 </p>
 
 <p dir="rtl" align="right">
@@ -91,34 +91,34 @@ xerj def "euler_to_rotationmatrix"               # go-to-definition: file:line +
 xerj gain                                        # what it did for you — counted, not estimated</code></pre>
 
 <p dir="rtl" align="right">
-برای اجرای هم‌زمان چند شناسه یا پرسش، از دستور <bdi dir="ltr"><code>xerj batch-search --input queries.json</code></bdi> یا متد <bdi dir="ltr"><code>xerj_batch_search</code></bdi> در <bdi dir="ltr"><code>MCP</code></bdi> استفاده کنید:
+برای اجرای هم‌زمان چند شناسه یا پرسش، از دستور <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj batch-search --input queries.json</code></span> یا متد <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>xerj_batch_search</code></span> در <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>MCP</code></span> استفاده کنید:
 <a href="docs/recipes/batch-search.md">نتایج مرتب‌شده، ارجاعات و خطاهای هر مورد</a>.
 </p>
 
 <p dir="rtl" align="right">
-پوشه داده را خارج از هر پوشه‌ای قرار دهید که قصد دارید با <bdi dir="ltr"><code>autoindex</code></bdi> ایندکس کنید. مسیر <bdi dir="ltr"><code>data/</code></bdi> در فهرست مسیرهای نادیده‌گرفته‌شده پیش‌فرض قرار ندارد؛ بنابراین اگر پوشه داده را با استفاده از پارامتر <bdi dir="ltr"><code>--data-dir ./data</code></bdi> داخل پوشه‌ای قرار دهید که بعداً آن را ایندکس می‌کنید، نود اطلاعات ذخیره‌سازی خودش را نیز ایندکس خواهد کرد.
+پوشه داده را خارج از هر پوشه‌ای قرار دهید که قصد دارید با <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>autoindex</code></span> ایندکس کنید. مسیر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>data/</code></span> در فهرست مسیرهای نادیده‌گرفته‌شده پیش‌فرض قرار ندارد؛ بنابراین اگر پوشه داده را با استفاده از پارامتر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>--data-dir ./data</code></span> داخل پوشه‌ای قرار دهید که بعداً آن را ایندکس می‌کنید، نود اطلاعات ذخیره‌سازی خودش را نیز ایندکس خواهد کرد.
 </p>
 
 <p dir="rtl" align="right">
-هنگام راه‌اندازی، مقدار <bdi dir="ltr"><code>Data dir</code></bdi> مسیر مطلق نهایی را نمایش می‌دهد، <bdi dir="ltr"><code>Data source</code></bdi> مشخص می‌کند این مسیر از کجا انتخاب شده است (پارامتر خط فرمان، فایل پیکربندی انتخاب‌شده یا مقدار پیش‌فرض) و <bdi dir="ltr"><code>Data status</code></bdi> نشان می‌دهد که آیا این اجرا پوشه را ایجاد کرده است یا خیر.
+هنگام راه‌اندازی، مقدار <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>Data dir</code></span> مسیر مطلق نهایی را نمایش می‌دهد، <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>Data source</code></span> مشخص می‌کند این مسیر از کجا انتخاب شده است (پارامتر خط فرمان، فایل پیکربندی انتخاب‌شده یا مقدار پیش‌فرض) و <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>Data status</code></span> نشان می‌دهد که آیا این اجرا پوشه را ایجاد کرده است یا خیر.
 </p>
 
 <p dir="rtl" align="right">
-استفاده از یک پوشه جدید ممکن است باعث شود ایندکس‌ها یا حساب مالک موجود در یک نود قدیمی، دیگر در دسترس به نظر نرسند. برای دسترسی مجدد، برنامه را با مسیر قبلی <bdi dir="ltr"><code>--data-dir</code></bdi> یا فایل پیکربندی قبلی از طریق <bdi dir="ltr"><code>--config</code></bdi> راه‌اندازی کنید. <bdi dir="ltr"><code>XERJ</code></bdi> پوشه‌های داده دیگر را به‌صورت خودکار شناسایی یا مهاجرت نمی‌دهد.
+استفاده از یک پوشه جدید ممکن است باعث شود ایندکس‌ها یا حساب مالک موجود در یک نود قدیمی، دیگر در دسترس به نظر نرسند. برای دسترسی مجدد، برنامه را با مسیر قبلی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>--data-dir</code></span> یا فایل پیکربندی قبلی از طریق <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>--config</code></span> راه‌اندازی کنید. <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;">XERJ</span> پوشه‌های داده دیگر را به‌صورت خودکار شناسایی یا مهاجرت نمی‌دهد.
 </p>
 
 <p dir="rtl" align="right">
-راهنمای نصب در ویندوز و نصب دستیِ تأییدشده را در بخش <a href="#install-by-hand"><bdi dir="ltr"><code>Install by hand</code></bdi></a> ببینید.
+راهنمای نصب در ویندوز و نصب دستیِ تأییدشده را در بخش <a href="#install-by-hand"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>Install by hand</code></span></a> ببینید.
 </p>
 
 <p dir="rtl" align="right">
-پارامتر <bdi dir="ltr"><code>--insecure</code></bdi> یک مرز امنیتی مهم را تغییر می‌دهد و صرفاً یک گزینه تشریفاتی نیست. این پارامتر <bdi dir="ltr"><code>TLS</code></bdi> و احراز هویت مبتنی بر <bdi dir="ltr"><code>API Key</code></bdi> را غیرفعال می‌کند؛ بنابراین هر کلاینتی که بتواند به پورت دسترسی پیدا کند، دسترسی <bdi dir="ltr"><code>Superuser</code></bdi> خواهد داشت و می‌تواند تمام ایندکس‌ها، از جمله تمام فضاهای نام <bdi dir="ltr"><code>/_memory</code></bdi> را بخواند یا حذف کند.
+پارامتر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>--insecure</code></span> یک مرز امنیتی مهم را تغییر می‌دهد و صرفاً یک گزینه تشریفاتی نیست. این پارامتر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>TLS</code></span> و احراز هویت مبتنی بر <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>API Key</code></span> را غیرفعال می‌کند؛ بنابراین هر کلاینتی که بتواند به پورت دسترسی پیدا کند، دسترسی <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>Superuser</code></span> خواهد داشت و می‌تواند تمام ایندکس‌ها، از جمله تمام فضاهای نام <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>/_memory</code></span> را بخواند یا حذف کند.
 </p>
 
 <p dir="rtl" align="right">
-این حالت برای استفاده یک کاربر روی یک دستگاه توسعه در نظر گرفته شده است: یک نود تازه به‌طور پیش‌فرض فقط به آدرس <bdi dir="ltr"><code>127.0.0.1</code></bdi> متصل می‌شود و اگر بخواهید آن را بدون رمزنگاری روی رابط شبکه دیگری در دسترس قرار دهید، برنامه تا زمانی که صراحتاً اجازه این کار را صادر نکنید، راه‌اندازی نخواهد شد.
+این حالت برای استفاده یک کاربر روی یک دستگاه توسعه در نظر گرفته شده است: یک نود تازه به‌طور پیش‌فرض فقط به آدرس <span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>127.0.0.1</code></span> متصل می‌شود و اگر بخواهید آن را بدون رمزنگاری روی رابط شبکه دیگری در دسترس قرار دهید، برنامه تا زمانی که صراحتاً اجازه این کار را صادر نکنید، راه‌اندازی نخواهد شد.
 </p>
 
 <p dir="rtl" align="right">
-مدل امنیتی کامل در فایل <a href="./docs/SECURITY_MODEL.md"><bdi dir="ltr"><code>docs/SECURITY_MODEL.md</code></bdi></a> توضیح داده شده است.
+مدل امنیتی کامل در فایل <a href="./docs/SECURITY_MODEL.md"><span dir="ltr" style="direction: ltr; unicode-bidi: isolate;"><code>docs/SECURITY_MODEL.md</code></span></a> توضیح داده شده است.
 </p>
