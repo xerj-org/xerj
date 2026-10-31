@@ -971,11 +971,76 @@ fn highest_live_entry(graph: &impl GraphStorageRead) -> Option<(u32, usize)> {
     best
 }
 
+#[cfg(test)]
 fn encode_graph_bytes(
     params: &HnswParams,
     graph: &impl GraphStorageRead,
 ) -> Result<(Vec<u8>, usize)> {
-    let mut buffer = Vec::with_capacity(1024 * 1024);
+    encode_graph_to(params, graph, Vec::with_capacity(1024 * 1024))
+}
+
+/// Feeds every byte written through it into a CRC32 hasher.
+struct CrcWriter<W> {
+    inner: W,
+    hasher: crc32fast::Hasher,
+}
+
+impl<W: Write> Write for CrcWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = self.inner.write(buf)?;
+        self.hasher.update(&buf[..n]);
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+/// Counts the bytes written through it.
+struct CountingWriter<W> {
+    inner: W,
+    count: u64,
+}
+
+impl<W> CountingWriter<W> {
+    fn new(inner: W) -> Self {
+        Self { inner, count: 0 }
+    }
+}
+
+impl<W: Write> Write for CountingWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let n = self.inner.write(buf)?;
+        self.count += n as u64;
+        Ok(n)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+/// Encode the graph into `out` and return it with the live node count.
+///
+/// This is the whole on-disk format; nothing proportional to the graph is held in memory. Saving a
+/// graph used to build the whole file in a `Vec` that grew by doubling, so
+/// every save — each flush, including the memory-pressure drain — added
+/// one to two times the graph size to RSS (#2427: +1.0 GB for a 0.93 GB
+/// graph). Writes go through a 1 MiB buffer and the CRC is computed over
+/// the same stream.
+fn encode_graph_to<W: Write>(
+    params: &HnswParams,
+    graph: &impl GraphStorageRead,
+    out: W,
+) -> Result<(W, usize)> {
+    let mut buffer = std::io::BufWriter::with_capacity(
+        1024 * 1024,
+        CrcWriter {
+            inner: out,
+            hasher: crc32fast::Hasher::new(),
+        },
+    );
     buffer.write_all(HNSW_MAGIC).map_err(io_to_xerj)?;
     buffer
         .write_u32::<LittleEndian>(HNSW_FORMAT_VERSION)
@@ -1046,9 +1111,13 @@ fn encode_graph_bytes(
             .write_u64::<LittleEndian>(tombstone)
             .map_err(io_to_xerj)?;
     }
-    let crc = crc32fast::hash(&buffer);
-    buffer.write_u32::<LittleEndian>(crc).map_err(io_to_xerj)?;
-    Ok((buffer, live.len()))
+    let CrcWriter { mut inner, hasher } = buffer
+        .into_inner()
+        .map_err(|e| io_to_xerj(e.into_error()))?;
+    inner
+        .write_u32::<LittleEndian>(hasher.finalize())
+        .map_err(io_to_xerj)?;
+    Ok((inner, live.len()))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1595,10 +1664,6 @@ impl HnswIndex {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(io_to_xerj)?;
         }
-        let g = self.inner.read().unwrap();
-        let (buf, node_count) = encode_graph_bytes(&self.params, &g.read_view())?;
-        drop(g);
-
         // Atomic + durable publish (RC4 W2 item 19). The previous
         // fs::write + rename left both the file bytes and the directory
         // entry in the volatile page cache: a power loss shortly after a
@@ -1606,12 +1671,27 @@ impl HnswIndex {
         // the next open) or no file at all — and because the id-map/graph
         // pair then fails to load or fails its freshness stamp, every kNN
         // after recovery silently degraded to permanent-stale/brute.
-        // write_file_durable fsyncs the temp file, renames, then fsyncs
+        // write_file_durable_streaming fsyncs the temp file, renames, then fsyncs
         // the parent directory so the rename itself survives power loss.
-        xerj_common::fsio::write_file_durable(path, &buf).map_err(io_to_xerj)?;
+        // Stream straight into the temp file (#2427): the read lock is held
+        // while the bytes go to the page cache, and released before fsync.
+        let mut written = (0u64, 0usize);
+        xerj_common::fsio::write_file_durable_streaming(path, |file| {
+            let g = self.inner.read().unwrap();
+            let (mut out, node_count) =
+                encode_graph_to(&self.params, &g.read_view(), CountingWriter::new(file))
+                    .map_err(|e| std::io::Error::other(e.to_string()))?;
+            drop(g);
+            out.flush()?;
+            written = (out.count, node_count);
+            Ok(())
+        })
+        .map_err(io_to_xerj)?;
+        let (bytes, node_count) = written;
+
         debug!(
             path = %path.display(),
-            bytes = buf.len(),
+            bytes,
             nodes = node_count,
             "HNSW graph persisted"
         );
@@ -2582,6 +2662,35 @@ mod tests {
                 "writer bytes changed for {metric:?}"
             );
         }
+    }
+
+    #[test]
+    fn streamed_save_writes_legacy_bytes_and_round_trips() {
+        let index = HnswIndex::new(HnswParams::new(8, DistanceMetric::Cosine));
+        for id in 0..600u64 {
+            let v: Vec<f32> = (0..8)
+                .map(|d| ((id * 31 + d * 7) % 97) as f32 + 1.0)
+                .collect();
+            index.insert(id + (1 << 40), v).unwrap();
+        }
+        for id in (0..600u64).step_by(7) {
+            index.mark_deleted(id + (1 << 40));
+        }
+        let expected = {
+            let slab = index.inner.read().unwrap();
+            legacy_encode_graph_bytes(&index.params, &slab)
+        };
+        // Bigger than the 1 MiB write buffer would be ideal, but the CRC and
+        // byte layout are what can break; 600 nodes span many buffer refills
+        // of the BufWriter's partial-write path through CountingWriter.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("graph.bin");
+        index.save_to(&path).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), expected);
+        let loaded = HnswIndex::load_from(&path).unwrap();
+        assert_eq!(loaded.len(), index.len());
+        let leftovers = std::fs::read_dir(dir.path()).unwrap().count();
+        assert_eq!(leftovers, 1, "temp file left behind");
     }
 
     #[test]

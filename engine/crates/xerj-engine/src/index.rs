@@ -218,6 +218,94 @@ fn hnsw_id_table_bytes(map: &HashMap<HnswDocId, u64>, rev: &HashMap<u64, HnswDoc
 /// per graphed doc were ~half of the maps' heap).
 type HnswDocId = Arc<str>;
 
+/// `hnsw/ids.json`, serialized without an intermediate `serde_json::Value`
+/// (#2427). Field order matches the loader's historical `json!` layout.
+#[derive(serde::Serialize)]
+struct HnswIdsSnapshot<'a> {
+    next_id: u64,
+    map: HnswIdMapJson<'a>,
+    field: Option<String>,
+    seq_no: u64,
+    stale: bool,
+    passage_guard_version: u32,
+    passage_chunk_fields: Vec<String>,
+}
+
+/// The doc-id → node map of [`HnswIdsSnapshot`], streamed in map order.
+struct HnswIdMapJson<'a>(&'a HashMap<HnswDocId, u64>);
+
+impl serde::Serialize for HnswIdMapJson<'_> {
+    fn serialize<S: serde::Serializer>(
+        &self,
+        serializer: S,
+    ) -> std::result::Result<S::Ok, S::Error> {
+        serializer.collect_map(self.0.iter().map(|(doc_id, node)| (&**doc_id, *node)))
+    }
+}
+
+fn write_hnsw_ids_snapshot(
+    file: &mut std::fs::File,
+    snapshot: &HnswIdsSnapshot<'_>,
+) -> std::io::Result<()> {
+    let mut out = std::io::BufWriter::with_capacity(1024 * 1024, file);
+    serde_json::to_writer(&mut out, snapshot).map_err(std::io::Error::other)?;
+    std::io::Write::flush(&mut out)
+}
+
+#[cfg(test)]
+mod hnsw_ids_snapshot_tests {
+    use super::*;
+
+    /// The streamed ids.json must be byte-identical to the `json!` layout
+    /// it replaced, so old and new binaries read each other's files.
+    #[test]
+    fn streamed_ids_json_matches_value_layout() {
+        let mut id_map: HashMap<HnswDocId, u64> = HashMap::new();
+        for i in 0..64u64 {
+            id_map.insert(Arc::from(format!("doc-\"{i}\"\u{e9}").as_str()), i * 3);
+        }
+        for (field, chunks) in [
+            (
+                Some("body".to_string()),
+                vec!["a".to_string(), "b".to_string()],
+            ),
+            (None, Vec::new()),
+        ] {
+            let legacy = serde_json::json!({
+                "next_id": 192u64,
+                "map": id_map
+                    .iter()
+                    .map(|(doc_id, node)| (doc_id.to_string(), serde_json::Value::from(*node)))
+                    .collect::<serde_json::Map<String, serde_json::Value>>(),
+                "field": field.clone(),
+                "seq_no": 41u64,
+                "stale": true,
+                "passage_guard_version": 1,
+                "passage_chunk_fields": chunks.clone(),
+            });
+            let snapshot = HnswIdsSnapshot {
+                next_id: 192,
+                map: HnswIdMapJson(&id_map),
+                field,
+                seq_no: 41,
+                stale: true,
+                passage_guard_version: 1,
+                passage_chunk_fields: chunks,
+            };
+            let dir = tempfile::tempdir().unwrap();
+            let path = dir.path().join("ids.json");
+            xerj_common::fsio::write_file_durable_streaming(&path, |file| {
+                write_hnsw_ids_snapshot(file, &snapshot)
+            })
+            .unwrap();
+            assert_eq!(
+                std::fs::read(&path).unwrap(),
+                serde_json::to_vec(&legacy).unwrap()
+            );
+        }
+    }
+}
+
 /// Heap bytes of one shared doc id: the string plus the `Arc` counts.
 fn hnsw_id_key_cost(doc_id: &str) -> usize {
     doc_id.len() + 2 * std::mem::size_of::<usize>()
@@ -22023,18 +22111,15 @@ impl Index {
             || seq_after != seq_before
             || publication_in_flight != 0
             || publication_generation_before != publication_generation_after;
-        let snapshot = serde_json::json!({
-            "next_id": self.hnsw_next_id.load(Ordering::Relaxed),
-            "map": id_map
-                .iter()
-                .map(|(doc_id, node)| (doc_id.to_string(), serde_json::Value::from(*node)))
-                .collect::<serde_json::Map<String, serde_json::Value>>(),
-            "field": hnsw_field,
-            "seq_no": seq_before,
-            "stale": snapshot_stale,
-            "passage_guard_version": 1,
-            "passage_chunk_fields": passage_chunk_fields,
-        });
+        let snapshot = HnswIdsSnapshot {
+            next_id: self.hnsw_next_id.load(Ordering::Relaxed),
+            map: HnswIdMapJson(&id_map),
+            field: hnsw_field,
+            seq_no: seq_before,
+            stale: snapshot_stale,
+            passage_guard_version: 1,
+            passage_chunk_fields,
+        };
         // Durable atomic publish (RC4 W2 item 19 — same treatment as
         // graph.bin in HnswIndex::save_to): fsync file + rename + fsync
         // parent dir, so power loss can't leave a torn/evaporating
@@ -22043,10 +22128,14 @@ impl Index {
         // stamp then mismatches the replayed WAL position → the loader
         // marks the pair stale and the rebuild path re-derives it (never
         // serves a mixed pair).
-        if let Err(e) = xerj_common::fsio::write_file_durable(
-            &self.hnsw_ids_path(),
-            &serde_json::to_vec(&snapshot).unwrap_or_default(),
-        ) {
+        //
+        // Serialized straight into the temp file (#2427): building a
+        // `serde_json::Value` map of every id first cost ~6x the file size.
+        if let Err(e) =
+            xerj_common::fsio::write_file_durable_streaming(&self.hnsw_ids_path(), |file| {
+                write_hnsw_ids_snapshot(file, &snapshot)
+            })
+        {
             warn!(error = %e, "HNSW save: ids.json write failed");
             return Ok(());
         }
