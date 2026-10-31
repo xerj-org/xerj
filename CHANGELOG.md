@@ -80,6 +80,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   destination. `_source:false` is refused with ES's sentence, and a `script`
   body is refused before any work instead of silently copying the
   untransformed document (this build has no reindex script context).
+- A document written through the per-document path (single-doc index and the
+  `_bulk` per-document path) is now held once in memory until the next flush
+  instead of twice: the storage memtable and the full-text memtable share one
+  parsed `_source` rather than each keeping its own deep copy. On a 1 GB
+  `_bulk` load a late heap profile had the two copies at ~470 MB of ~1.75 GB
+  in use (#2427).
+
 - Publishing a flushed or merged segment no longer decompresses its whole
   stored section when the result cannot be kept. The publish-time warm now
   sizes the stored slices from the section framing first and skips the warm
@@ -112,6 +119,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ~4.7 GB after it had returned, with most decodes refused by the hydration
   budget at publish and thrown away. One background warm per index now runs
   at a time and the others are skipped. Query answers are unchanged.
+
+- `simple_query_string` with `"fields": ["*"]` is answered from the inverted
+  index instead of a stored-document scan of every segment (refs #2427). The
+  bare `*` pattern lowered to a literal `"*"` field that has no index
+  projection, so each query parsed every flushed document; on the 1 GB
+  autoindex release gate a 5-hit query walked ~1.2M stored docs and ran into
+  the 30 s request deadline (raw-surface p95 ≈ 30 s). `["*"]` now lowers like
+  an absent `fields` list, which is what ES means by it: unquoted terms are
+  matched over every mapped searchable text field. A boost on the bare
+  pattern (`"*^2"`) is dropped, and quoted phrases are unchanged. On a
+  flushed segment this also applies the searchable-field rule, so `["*"]` no
+  longer matches through an `index: false` field. `query_string` with
+  `["*"]` is unchanged.
+
+- A restarted node that receives no writes no longer runs catch-up merges
+  when its indexes open. Inherited merge debt is now paid at the first
+  segment-set change (a flush, refresh or delete) or on `_forcemerge`. Before,
+  a search-only node in the 1 GB gate started merging straight after the
+  restart, while it was serving reads under the memory breaker. This
+  supersedes the 120 s open quiet period in #2492, which only delayed the
+  same merges (Refs #2427).
 
 - `_bulk` requests of ordinary text and code are no longer refused with a
   429 while the node has memory to spare. Each raw bulk reserved 28 bytes
