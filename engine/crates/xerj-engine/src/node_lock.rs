@@ -21,6 +21,16 @@
 //! A live PID, or a PID that cannot be checked, still fails the second
 //! start. The recorded PID is a diagnostic; a running holder is excluded by
 //! the OS lock, not by the bytes in the file.
+//!
+//! The holder also writes its PID to `<data_dir>/node.lock.pid`, a plain
+//! file it never locks (#2431). `LockFileEx` locks the whole of `node.lock`,
+//! so on Windows a second process cannot read the PID inside it: the refusal
+//! said "pid unknown" and the dead-holder reclaim above could never run.
+//! The note is read only when reading `node.lock` itself fails. Only a
+//! process that has just taken the OS lock writes it, so it names the
+//! current holder once that holder has stamped, or the last one. The window
+//! between taking the lock and writing the note is the one
+//! `STALE_CONFIRM` already covers for the PID inside the lock file.
 
 use std::fs::{self, File, OpenOptions, TryLockError};
 use std::io::{self, Read, Seek, SeekFrom, Write};
@@ -32,6 +42,9 @@ use tracing::warn;
 use crate::{EngineError, Result};
 
 const LOCK_NAME: &str = "node.lock";
+
+/// Unlocked copy of the holder's PID, readable while `node.lock` is locked.
+const PID_NOTE_NAME: &str = "node.lock.pid";
 
 /// How many times [`acquire`] will replace a stale lock file before giving up.
 const ACQUIRE_ATTEMPTS: u32 = 4;
@@ -133,6 +146,12 @@ pub(crate) fn acquire(data_dir: &Path) -> Result<NodeLock> {
                     drop(file);
                     continue;
                 }
+                write_pid_note(&lock_path).map_err(|e| {
+                    config_err(format!(
+                        "failed to record the holder pid in '{}': {e}",
+                        lock_path.with_file_name(PID_NOTE_NAME).display()
+                    ))
+                })?;
                 if let Some(pid) = reclaimed_from.or_else(|| dead_other(previous)) {
                     log_reclaim(&lock_path, pid);
                 }
@@ -334,9 +353,63 @@ fn reclaim_dest(path: &Path, pid: u32) -> PathBuf {
     ))
 }
 
+/// Write this process's PID to the unlocked note beside `lock_path`.
+///
+/// Staged through a per-process temp file and renamed over the note, so a
+/// reader sees the previous PID or this one, never half a line.
+fn write_pid_note(lock_path: &Path) -> io::Result<()> {
+    let note = lock_path.with_file_name(PID_NOTE_NAME);
+    let pid = std::process::id();
+    let tmp = lock_path.with_file_name(format!("{PID_NOTE_NAME}.tmp-{pid}"));
+    let record = format!("{pid}\n");
+    if stage_and_rename(&tmp, &note, record.as_bytes()).is_err() {
+        let _ = fs::remove_file(&tmp);
+        // A rename can fail on Windows while a reader has the note open.
+        // Writing in place is still correct: readers parse one line.
+        fs::write(&note, record.as_bytes())?;
+    }
+    Ok(())
+}
+
+fn stage_and_rename(tmp: &Path, dest: &Path, bytes: &[u8]) -> io::Result<()> {
+    let mut out = File::create(tmp)?;
+    out.write_all(bytes)?;
+    out.sync_all()?;
+    drop(out);
+    fs::rename(tmp, dest)
+}
+
 fn read_holder(path: &Path) -> Option<u32> {
-    let file = File::open(path).ok()?;
-    read_pid_from_file(&file)
+    holder_from(
+        File::open(path).and_then(|file| read_lock_bytes(&file)),
+        || read_pid_note(path),
+    )
+}
+
+/// The PID in `node.lock` when its bytes can be read; the note otherwise.
+///
+/// A read that succeeds but holds no PID (an empty or foreign file) stays
+/// unknown: the note is the answer only to a lock that hides its bytes.
+fn holder_from(lock_bytes: io::Result<String>, note: impl FnOnce() -> Option<u32>) -> Option<u32> {
+    match lock_bytes {
+        Ok(text) => parse_pid(&text),
+        // No lock file: there is no holder for the note to describe.
+        Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+        Err(_) => note(),
+    }
+}
+
+fn read_lock_bytes(file: &File) -> io::Result<String> {
+    let mut cloned = file.try_clone()?;
+    cloned.seek(SeekFrom::Start(0))?;
+    let mut buf = [0_u8; 64];
+    let n = cloned.read(&mut buf)?;
+    Ok(String::from_utf8_lossy(&buf[..n]).into_owned())
+}
+
+fn read_pid_note(lock_path: &Path) -> Option<u32> {
+    let text = fs::read_to_string(lock_path.with_file_name(PID_NOTE_NAME)).ok()?;
+    parse_pid(&text)
 }
 
 fn read_pid_from_file(file: &File) -> Option<u32> {
@@ -720,6 +793,86 @@ mod tests {
         let err = err.to_string();
         assert!(err.contains("already in use"), "{err}");
         assert!(err.contains("unknown"), "{err}");
+    }
+
+    /// #2431: the holder's PID must be readable while `node.lock` is locked.
+    #[test]
+    fn acquire_records_the_holder_pid_in_an_unlocked_note() {
+        let _guard = serialize_tests();
+        let dir = tempfile::tempdir().unwrap();
+        let held = acquire(dir.path()).unwrap();
+        let note = fs::read_to_string(dir.path().join(PID_NOTE_NAME)).unwrap();
+        assert_eq!(parse_pid(&note), Some(std::process::id()), "{note:?}");
+        let names: Vec<_> = fs::read_dir(dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        assert!(
+            !names.iter().any(|n| n.contains(".tmp-")),
+            "the staged note must be renamed into place: {names:?}"
+        );
+        drop(held);
+    }
+
+    #[test]
+    fn the_note_is_read_only_when_the_lock_bytes_cannot_be_read() {
+        let hidden = || Err(io::Error::other("lock violation"));
+        assert_eq!(holder_from(hidden(), || Some(77)), Some(77));
+        assert_eq!(holder_from(hidden(), || None), None);
+        let missing = Err(io::Error::from(io::ErrorKind::NotFound));
+        assert_eq!(holder_from(missing, || panic!("note read")), None);
+        // Readable bytes win; the note is not consulted.
+        assert_eq!(
+            holder_from(Ok("0000000042\n".into()), || panic!("note read")),
+            Some(42)
+        );
+        assert_eq!(holder_from(Ok("\n".into()), || panic!("note read")), None);
+    }
+
+    /// The Windows shape of #2431: a stuck lock left by a dead node. Unix
+    /// reads the PID from `node.lock`; Windows cannot, and reads the note.
+    /// Both must reclaim.
+    #[test]
+    fn a_busy_lock_left_by_a_dead_pid_is_reclaimed_with_the_note_present() {
+        let _guard = serialize_tests();
+        let dir = tempfile::tempdir().unwrap();
+        let dead = reaped_pid();
+        let path = dir.path().join(LOCK_NAME);
+        fs::write(&path, format!("{dead}\n")).unwrap();
+        fs::write(dir.path().join(PID_NOTE_NAME), format!("{dead}\n")).unwrap();
+        let holder = hold(&path);
+        assert_eq!(read_holder(&path), Some(dead));
+
+        let logs = capture_warns(|| {
+            let file = acquire(dir.path()).expect("a dead holder is reclaimed");
+            assert_eq!(read_holder(&path), Some(std::process::id()));
+            let note = fs::read_to_string(dir.path().join(PID_NOTE_NAME)).unwrap();
+            assert_eq!(parse_pid(&note), Some(std::process::id()));
+            drop(file);
+        });
+        assert!(
+            logs.contains(&format!("reclaimed stale node.lock left by pid {dead}")),
+            "reclaim must be logged: {logs}"
+        );
+        drop(holder);
+    }
+
+    /// Windows only: the lock hides its bytes, and the refusal must name the
+    /// live holder from the note instead of "pid unknown".
+    #[cfg(windows)]
+    #[test]
+    fn a_hidden_busy_lock_names_the_live_holder_from_the_note() {
+        let _guard = serialize_tests();
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(LOCK_NAME);
+        fs::write(&path, b"\n").unwrap();
+        let live = std::process::id();
+        fs::write(dir.path().join(PID_NOTE_NAME), format!("{live}\n")).unwrap();
+        let _holder = hold(&path);
+        let err = acquire(dir.path())
+            .expect_err("a live holder blocks")
+            .to_string();
+        assert!(err.contains(&live.to_string()), "{err}");
     }
 
     #[test]
