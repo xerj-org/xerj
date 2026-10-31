@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Python queries this for how VictoireNdala/Schemaja implements it: Schemaja est un logiciel d'Installation en masse des fichiers `.ttf`/`.otf` sur Windows, en une seule commande, avec une interface GUI sans  (selected work: tests, core, ui)",
+ "domain": "an agent working on Python queries this for how VictoireNdala/Schemaja implements it: Schemaja is software for the bulk installation of `.ttf`/`.otf` font files on Windows. It allows for installation via a single command or a  (selected work: tests, core, ui)",
  "repos": [
   {
    "repo": "Schemaja",

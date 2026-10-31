@@ -8,15 +8,15 @@
   {
    "repo": "blindradio",
    "url": "https://github.com/serrebidev/blindradio",
-   "sha": "70f9e019af28b6c2d07c5086a47cb94fe85e1c62",
-   "licence": "MIT (LICENSE file at pin 70f9e019af28, GitHub licence API 2026-10-31)",
+   "sha": "4b8a70ec3b6789af4412cd5acbafcef9c580800a",
+   "licence": "MIT (LICENSE file at pin 4b8a70ec3b67, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T23:37Z",
     "consent_receipt": "63cb611864b7",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt 63cb611864b7); pinned to the default-branch head. LICENSE file at pin 70f9e019af28 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt 63cb611864b7); pinned to the default-branch head. LICENSE file at pin 4b8a70ec3b67 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
    }
   }
  ]

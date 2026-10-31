@@ -1,0 +1,23 @@
+{
+ "corpus": "dkritarth--freeflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-tools, cli queries this for how dkritarth/FreeFlow implements it: Publish AI-generated HTML plans, mockups, and idea boards to your own Cloudflare Worker \u2014 self-hosted, no vendor lock-in. One CLI command tu",
+ "repos": [
+  {
+   "repo": "FreeFlow",
+   "url": "https://github.com/dkritarth/FreeFlow",
+   "sha": "df90166a3362b3bd4fd5880560b223dac46bd042",
+   "licence": "MIT (LICENSE file at pin df90166a3362, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T13:42Z",
+    "consent_receipt": "79b4f064d2d6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T13:42Z (receipt 79b4f064d2d6); pinned to the default-branch head. LICENSE file at pin df90166a3362 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on console, crt, mcp queries this for how z-hunter/Scanline-Term implements it: Retro-futuristic terminal emulator for Windows with (optional) CRT simulation, AI assistant, MCP, and built-in minimalistic web browser, opt (selected work: src-tauri, src/terminal, src)",
+ "domain": "an agent working on console, crt, mcp queries this for how z-hunter/Scanline-Term implements it: Retro-futuristic terminal emulator for Windows with (optional) CRT simulation, AI assistant, MCP, Lua automation and built-in minimalistic w (selected work: src-tauri, src/terminal, src)",
  "repos": [
   {
    "repo": "Scanline-Term",

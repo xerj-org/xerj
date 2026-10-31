@@ -1,0 +1,23 @@
+{
+ "corpus": "networked-system-and-security-group--grc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Python queries this for how Networked-System-and-Security-Group/GRC implements it: ICNP'26-GRC: Extending RDMA to Wide-Area Networks via Gateway-Mediated Rate Control (selected work: P4)",
+ "repos": [
+  {
+   "repo": "GRC",
+   "url": "https://github.com/Networked-System-and-Security-Group/GRC",
+   "sha": "c3ffed2b87682254a63d9d20a0d9cb52efad61fd",
+   "licence": "MIT (LICENSE file at pin c3ffed2b8768, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T14:22Z",
+    "consent_receipt": "ab7955262be5",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T14:22Z (receipt ab7955262be5); selected commit c3ffed2b8768: \"\u4ee3\u7801 polish \u4e0e\u5f00\u6e90\". LICENSE file at pin c3ffed2b8768 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

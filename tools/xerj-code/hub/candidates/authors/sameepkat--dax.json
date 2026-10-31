@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on dax, shell, terminal queries this for how sameepkat/Dax implements it: A custom Unix shell written in C++ with support for piping, redirection, history management, and built-in commands (selected work: the project root)",
+ "domain": "an agent working on dax, shell, terminal queries this for how sameepkat/Dax implements it: A sensible shell with a customizable core (selected work: the project root)",
  "repos": [
   {
    "repo": "Dax",

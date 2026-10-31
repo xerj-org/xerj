@@ -1,0 +1,30 @@
+{
+ "corpus": "hhtower--price-comparison",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, price-comparison, self-hosted queries this for how hhtower/price-comparison implements it: AI \u8ba2\u9605\u4e0e\u5361\u7f51\u6bd4\u4ef7\uff0c\u805a\u5408 ChatGPT / Codex\u3001Claude\u3001Gemini\u3001Grok\u3001Cursor \u7b49\u4ee3\u5145\u3001\u6210\u54c1\u53f7\u4e0e\u5151\u6362\u7801\u62a5\u4ef7\uff0c\u63d0\u4f9b\u4ef7\u683c\u8d70\u52bf\u3001\u5b98\u65b9\u5730\u533a\u4ef7\u53c2\u8003\u548c AI / IP \u68c0\u6d4b\u3002Compare AI subscription and account offers  (selected work: apps/api)",
+ "repos": [
+  {
+   "repo": "price-comparison",
+   "url": "https://github.com/hhtower/price-comparison",
+   "sha": "9e681d02db18b492077944fd5cf0bca353baa7c0",
+   "licence": "GPL-3.0 (LICENSE file at pin 9e681d02db18, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T14:33Z",
+    "consent_receipt": "cd1586812e3c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T14:33Z (receipt cd1586812e3c); selected commit 9e681d02db18: \"perf(api): \u4f18\u5316\u76ee\u5f55\u5ba1\u6838\u8bfb\u53d6\u4e0e\u9759\u6001\u8d44\u6e90\u7f13\u5b58\". LICENSE file at pin 9e681d02db18 detected as GPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "9e681d02db18b492077944fd5cf0bca353baa7c0",
+     "at": "2026-10-31T14:33Z",
+     "receipt": "cd1586812e3c"
+    }
+   }
+  }
+ ]
+}
