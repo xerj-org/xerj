@@ -16,6 +16,7 @@ from urllib.request import Request, build_opener, ProxyHandler
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', type=Path, required=True)
+    parser.add_argument('--authenticated', action='store_true', help='use the node default API-key authentication')
     args = parser.parse_args()
     original = args.binary.resolve(strict=True)
     env = {k: v for k, v in os.environ.items() if not k.startswith('XERJ_')
@@ -70,8 +71,10 @@ def main():
             return result
 
         def request(path, body=None):
-            req = Request(url + path, None if body is None else json.dumps(body).encode(),
-                          headers={'Content-Type': 'application/json'})
+            headers = {'Content-Type': 'application/json'}
+            if 'XERJ_API_KEY' in env:
+                headers['Authorization'] = 'ApiKey ' + env['XERJ_API_KEY']
+            req = Request(url + path, None if body is None else json.dumps(body).encode(), headers=headers)
             with opener.open(req, timeout=5) as response:
                 return json.load(response)
 
@@ -109,10 +112,16 @@ def main():
             nonlocal node
             log = (work / f'node-{len(logs)}.log').open('w')
             logs.append(log)
-            node = subprocess.Popen([str(binary), '--insecure', '-c', str(node_config)],
+            flags = [] if args.authenticated else ['--insecure']
+            node = subprocess.Popen([str(binary), *flags, '-c', str(node_config)],
                                     cwd=work, env=env, stdout=log, stderr=log)
             def ready():
                 assert node.poll() is None, 'node exited early'
+                if args.authenticated:
+                    key = work / 'data' / 'admin.key'
+                    if not key.exists():
+                        return False
+                    env['XERJ_API_KEY'] = key.read_text().strip()
                 try:
                     request('/')
                     return True
@@ -218,7 +227,8 @@ def main():
             plan = cli('autoindex', 'remove', '--prefix', prefix, '--root', str(state / 'exports'), '--url', url, expected=4)
             assert prefix in plan.stdout + plan.stderr
             cli('autoindex', 'remove', '--prefix', prefix, '--root', str(state / 'exports'), '--url', url, '--yes')
-            req = Request(url + '/_memory/' + namespace, method='DELETE')
+            headers = {'Authorization': 'ApiKey ' + env['XERJ_API_KEY']} if 'XERJ_API_KEY' in env else {}
+            req = Request(url + '/_memory/' + namespace, method='DELETE', headers=headers)
             with opener.open(req, timeout=5) as response:
                 assert response.status == 200
             assert request('/_memory/' + namespace + '?size=10')['count'] == 0

@@ -108,6 +108,7 @@ private config name the exact prefix/namespace; substitute those values below:
 
 ```sh
 python3 tools/session-memory/smoke.py --binary engine/target/release/xerj
+python3 tools/session-memory/smoke.py --binary engine/target/release/xerj --authenticated
 ```
 
 The script uses synthetic transcripts, a copied executable, quoted paths and a
