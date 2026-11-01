@@ -8335,6 +8335,57 @@ mod semantic_deadline_regression_tests {
         );
     }
 
+    /// #2807: this server checks the per-document limit after it adds the
+    /// vectors, so autoindex sizes each record before it sends it with
+    /// `xerj_common::document_limit::semantic_vector_bytes`. A change to what
+    /// `apply_semantic_embeddings_batch` writes has to change that function.
+    #[tokio::test]
+    async fn semantic_vector_bytes_is_what_embedding_adds() {
+        let dir = TempDir::new().unwrap();
+        let engine_instance = engine(&dir);
+        let mut schema = Schema::empty();
+        let mut body = FieldConfig::new("body", FieldType::Text);
+        body.options.dimensions = Some(384);
+        body.options.similarity = Some("cosine".into());
+        body.embedding = Some(xerj_common::types::EmbeddingConfig {
+            endpoint: None,
+            model: None,
+            target_field: Some("body_vector".into()),
+        });
+        schema.add_field(body).unwrap();
+        let mut companion = FieldConfig::new("body_vector", FieldType::Vector);
+        companion.options.dimensions = Some(384);
+        companion.options.similarity = Some("cosine".into());
+        schema.add_field(companion).unwrap();
+        engine_instance
+            .create_index("sized-passages", schema)
+            .unwrap();
+        let idx = engine_instance.get_index("sized-passages").unwrap();
+
+        for text in [
+            "One short passage, caf\u{e9}.".to_string(),
+            "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. "
+                .repeat(40),
+        ] {
+            let passages = xerj_ai::semantic_lexical::semantic_passage_offsets(&text);
+            let source = serde_json::json!({"title": "t", "body": text});
+            let before = serde_json::to_vec(&source).unwrap().len();
+            let embedded = idx.apply_semantic_embeddings(source).await.unwrap();
+            let after = serde_json::to_vec(&embedded).unwrap().len();
+            assert_eq!(
+                after - before,
+                xerj_common::document_limit::semantic_vector_bytes(
+                    "body",
+                    "body_vector",
+                    384,
+                    &passages
+                ),
+                "{} passages",
+                passages.len()
+            );
+        }
+    }
+
     #[tokio::test]
     async fn mixed_short_and_chunked_semantic_docs_use_exact_passage_winner() {
         let dir = TempDir::new().unwrap();

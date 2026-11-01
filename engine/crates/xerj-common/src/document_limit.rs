@@ -124,6 +124,62 @@ fn exceeds(value: &Value, accounted: &mut usize) -> bool {
     }
 }
 
+/// Name prefix of the passage metadata member the server writes beside each
+/// semantic vector. Equal to `xerj_query::executor::PASSAGE_METADATA_PREFIX`.
+const PASSAGE_METADATA_PREFIX: &str = "__xerj_passage_meta__";
+
+/// Bytes the server adds to a document's compact JSON when it embeds one
+/// `semantic_text` field (#2807).
+///
+/// The server checks [`MAX_INDEXED_DOCUMENT_BYTES`] after it has added the
+/// vectors, so a client that needs to know whether a record fits adds this to
+/// the record's own length. `passages` are the UTF-8 byte offsets ingest
+/// embeds (`xerj_ai::semantic_lexical::semantic_passage_offsets`), and `dims`
+/// is the vector width the server reports. The count follows what
+/// `xerj-engine` `apply_semantic_embeddings_batch` inserts: the pooled
+/// vector, the passage metadata, and one vector per passage when there is
+/// more than one. Every member is charged a separating comma, so the result is
+/// one byte high for a document that had no other member. It assumes every
+/// vector packs (`packed_f32`); the server writes a vector with a non-finite
+/// value as a longer number array, which this does not count.
+pub fn semantic_vector_bytes(
+    field: &str,
+    target: &str,
+    dims: usize,
+    passages: &[(usize, usize)],
+) -> usize {
+    if passages.is_empty() {
+        return 0;
+    }
+    // `,"key":value`
+    let member = |key: &str, value: usize| 2 + json_string_len(key) + value;
+    let packed = crate::packed_f32::PACKED_F32_PREFIX.len() + 8 * dims + 2;
+    // `[[start,end],...]`
+    let offsets = 1 + passages
+        .iter()
+        .map(|&(start, end)| 4 + decimal_len(start) + decimal_len(end))
+        .sum::<usize>();
+    // `{"field":"…","chunks":[…]}`: two braces, and no comma before the first member.
+    let metadata = 2 + member("field", json_string_len(field)) + member("chunks", offsets) - 1;
+    let mut bytes =
+        member(target, packed) + member(&format!("{PASSAGE_METADATA_PREFIX}{target}"), metadata);
+    if passages.len() > 1 {
+        bytes += member(
+            &format!("{target}_chunks"),
+            1 + passages.len() * (packed + 1),
+        );
+    }
+    bytes
+}
+
+fn json_string_len(text: &str) -> usize {
+    serde_json::to_string(text).map_or(text.len() * 6 + 2, |json| json.len())
+}
+
+fn decimal_len(n: usize) -> usize {
+    n.checked_ilog10().map_or(1, |digits| digits as usize + 1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -183,6 +239,43 @@ mod tests {
         let at_least = indexed_document_refusal_at_least(MAX_INDEXED_DOCUMENT_BYTES + 3);
         assert!(at_least.contains("at least"));
         assert!(at_least.contains("not indexed"));
+    }
+
+    #[test]
+    fn semantic_vector_bytes_matches_what_the_server_inserts() {
+        // The members `apply_semantic_embeddings_batch` writes, built the
+        // same way. A change to that shape has to change this function too.
+        let vector = |seed: f32| vec![seed; 384];
+        for passages in [
+            vec![(0usize, 7usize)],
+            vec![(0, 512), (448, 960), (896, 10_042)],
+        ] {
+            let mut doc = json!({"title": "t", "body": "text"});
+            let object = doc.as_object_mut().unwrap();
+            let before = Value::Object(object.clone()).to_string().len();
+            let packed =
+                |seed| Value::String(crate::packed_f32::pack_f32_vector(&vector(seed)).unwrap());
+            object.insert("body_vector".into(), packed(0.5));
+            let offsets: Vec<Value> = passages
+                .iter()
+                .map(|&(start, end)| json!([start, end]))
+                .collect();
+            object.insert(
+                "__xerj_passage_meta__body_vector".into(),
+                json!({"field": "body", "chunks": offsets}),
+            );
+            if passages.len() > 1 {
+                let chunks: Vec<Value> = (0..passages.len()).map(|i| packed(i as f32)).collect();
+                object.insert("body_vector_chunks".into(), Value::Array(chunks));
+            }
+            let after = doc.to_string().len();
+            assert_eq!(
+                semantic_vector_bytes("body", "body_vector", 384, &passages),
+                after - before,
+                "{passages:?}"
+            );
+        }
+        assert_eq!(semantic_vector_bytes("body", "body_vector", 384, &[]), 0);
     }
 
     #[test]

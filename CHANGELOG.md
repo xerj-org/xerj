@@ -478,9 +478,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refused record came from, and for a size refusal they say how to index the
   rest: under a new `--prefix` and `--state-dir`, with the file left out
   (`--exclude`) or with `--no-semantic`. That route fixes its file list before
-  it sends anything, so it cannot set the file aside, and a rerun repeats the
-  refusal. It used to say only "prepared bulk contained 1 rejected items"
-  (#2807).
+  it sends anything, so it cannot set a refused file aside. It used to say
+  only "prepared bulk contained 1 rejected items" (#2807).
+- `xerj corpus index` and `xerj autoindex --no-graph` now size each record
+  with the vectors the server will add, before they fix the file list, and
+  set aside a record that would not fit as a junk record. The run completes
+  with exit 3, the file's other records are indexed, and reruns complete too.
+  The 2 MB generated `.d.ts` file from #2807 loses only its whole-file record;
+  its type records are still indexed. That route used to stop on the server's
+  refusal, and every rerun stopped on the same record. A run that an earlier
+  version already stopped this way replays the list it fixed and stops again;
+  index that folder under a new `--prefix` and `--state-dir` (#2807).
 
 ## [1.0.0-rc.100] - 2026-10-26
 
