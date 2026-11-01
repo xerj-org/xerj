@@ -8,15 +8,15 @@
   {
    "repo": "DriversUpdate",
    "url": "https://github.com/neosoda/DriversUpdate",
-   "sha": "b9146501fba3b01448ea794c01fb3df583f55c3b",
-   "licence": "MIT (LICENSE file at pin b9146501fba3, GitHub licence API 2026-10-29)",
+   "sha": "2e8970c27a4e3da94308e55f62eb42ea6e46d84f",
+   "licence": "MIT (LICENSE file at pin 2e8970c27a4e, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T11:27Z",
     "consent_receipt": "c74915a6b940",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T11:27Z (receipt c74915a6b940); pinned to the default-branch head. LICENSE file at pin b9146501fba3 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T11:27Z (receipt c74915a6b940); pinned to the default-branch head. LICENSE file at pin 2e8970c27a4e detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

@@ -1,9 +1,9 @@
 {
- "corpus": "yosnap--codeia-cost-guard",
+ "corpus": "humanitek--codeia-cost-guard",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude-code, codex, cost-control queries this for how yosnap/codeia-cost-guard implements it: Mide y frena el gasto de tokens de tu flota de agentes (Claude Code, Codex, OpenCode): panel, app de barra de menus y reglas globales. Por C (selected work: the project root, infobar, tests)",
+ "domain": "an agent working on claude-code, codex, cost-control queries this for how Humanitek/codeia-cost-guard implements it: Mide y frena el gasto de tokens de tu flota de agentes (Claude Code, Codex, OpenCode, pi). Proyecto de Asociaci\u00f3n Humanitek (selected work: the project root, infobar, tests)",
  "repos": [
   {
    "repo": "codeia-cost-guard",

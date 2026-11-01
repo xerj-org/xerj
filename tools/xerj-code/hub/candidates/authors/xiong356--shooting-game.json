@@ -8,15 +8,15 @@
   {
    "repo": "shooting-game",
    "url": "https://github.com/xiong356/shooting-game",
-   "sha": "a8d184ffb8041bd0b461ce70a28772822b9537f8",
-   "licence": "MIT (LICENSE file at pin a8d184ffb804, GitHub licence API 2026-10-24)",
+   "sha": "301a2ad69057e7f295f216334eb82dc57fb5342b",
+   "licence": "MIT (LICENSE file at pin 301a2ad69057, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-24T07:22Z",
     "consent_receipt": "b60cf1ec6b88",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T07:22Z (receipt b60cf1ec6b88); selected commit a8d184ffb804: \"feat: M6 A \u6bb5\u2014\u2014L7 \u6570\u503c\u5899\u5904\u7f6e\uff08\u4e0b\u8c03\u5305\uff09+ \u6807\u5b9a\u94fe\u8def\u6536\u53e3 + \u6807\u5b9a\u62a5\u544a\u5de5\u5177\". LICENSE file at pin a8d184ffb804 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Pinned to head a8d184ffb804 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T07:22Z (receipt b60cf1ec6b88); selected commit 301a2ad69057: \"feat: M6 A \u6bb5\u2014\u2014L7 \u6570\u503c\u5899\u5904\u7f6e\uff08\u4e0b\u8c03\u5305\uff09+ \u6807\u5b9a\u94fe\u8def\u6536\u53e3 + \u6807\u5b9a\u62a5\u544a\u5de5\u5177\". LICENSE file at pin 301a2ad69057 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 301a2ad69057 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

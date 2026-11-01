@@ -1,0 +1,23 @@
+{
+ "corpus": "davewalker5--fishtrack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on computer-vision, fish-detection, fish-tracking queries this for how davewalker5/FishTrack implements it: Detect, segment and track fish in underwater video using computer vision and AI",
+ "repos": [
+  {
+   "repo": "FishTrack",
+   "url": "https://github.com/davewalker5/FishTrack",
+   "sha": "9b24e7bc97ab6e757dbf4324a9a15c725cd03591",
+   "licence": "MIT (LICENSE file at pin 9b24e7bc97ab, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T12:14Z",
+    "consent_receipt": "616869f41dc6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T12:14Z (receipt 616869f41dc6); pinned to the default-branch head. LICENSE file at pin 9b24e7bc97ab detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

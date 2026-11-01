@@ -1,0 +1,23 @@
+{
+ "corpus": "ansarisepehr--oauth2-sso-emulator-ranger-integration",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on JavaScript queries this for how AnsariSepehr/Oauth2-SSO-Emulator-Ranger-Integration implements it: OAuth2 SSO emulator (Authorization Code + PKCE, client_credentials, JWKS, UserInfo) in Node.js/Express/PostgreSQL, modelled on a bank \u201cSmart (selected work: src/routes, src/lib, ranger)",
+ "repos": [
+  {
+   "repo": "Oauth2-SSO-Emulator-Ranger-Integration",
+   "url": "https://github.com/AnsariSepehr/Oauth2-SSO-Emulator-Ranger-Integration",
+   "sha": "fe973a56f583e22a53f90f17d6a0665f3238d20d",
+   "licence": "MIT (LICENSE file at pin fe973a56f583, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T10:17Z",
+    "consent_receipt": "b1fe762326a3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T10:17Z (receipt b1fe762326a3); selected commit fe973a56f583: \"Add files via upload\". LICENSE file at pin fe973a56f583 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

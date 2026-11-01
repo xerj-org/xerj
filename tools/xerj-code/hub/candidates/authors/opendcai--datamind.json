@@ -1,0 +1,23 @@
+{
+ "corpus": "opendcai--datamind",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on data, data-preparation, database queries this for how OpenDCAI/DataMind implements it: All-in-one intelligent assistant powered by LlamaIndex \u2014 RAG, GraphRAG, NL2SQL, Skills & Memory with multimodal support (selected work: datamind, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "DataMind",
+   "url": "https://github.com/OpenDCAI/DataMind",
+   "sha": "87ca7580667636638bbb3a67ae767f6d9b94a290",
+   "licence": "Apache-2.0 (LICENSE file at pin 87ca75806676, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T10:33Z",
+    "consent_receipt": "244c86d981d9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T10:33Z (receipt 244c86d981d9); selected commit 87ca75806676: \"fix: harden optional versioning providers and require integration CI\". LICENSE file at pin 87ca75806676 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

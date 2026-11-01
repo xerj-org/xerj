@@ -1,0 +1,30 @@
+{
+ "corpus": "guydols--bytehive",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Rust queries this for how guydols/ByteHive implements it: A self-hosted cloud server framework with a plugin architecture for composable, focused applications (selected work: crates/filesync)",
+ "repos": [
+  {
+   "repo": "ByteHive",
+   "url": "https://github.com/guydols/ByteHive",
+   "sha": "fca80c7bb87b5b07947a4ac1241b11ff5581d6cb",
+   "licence": "GPL-3.0 (LICENSE file at pin fca80c7bb87b, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T11:16Z",
+    "consent_receipt": "067f63e88cbf",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T11:16Z (receipt 067f63e88cbf); selected commit fca80c7bb87b: \"feat(gui): iced Trash tab with restore-to-new-place and purge\". LICENSE file at pin fca80c7bb87b detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "fca80c7bb87b5b07947a4ac1241b11ff5581d6cb",
+     "at": "2026-11-01T11:16Z",
+     "receipt": "067f63e88cbf"
+    }
+   }
+  }
+ ]
+}

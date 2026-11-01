@@ -1,0 +1,23 @@
+{
+ "corpus": "vertopolkalf--codex-minibar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, codex, codexbar queries this for how vertopolkaLF/codex-minibar implements it: Windows tray companion for monitoring ChatGPT Work/Codex usage limits without having to login (selected work: src/popup_window, src, src/linux)",
+ "repos": [
+  {
+   "repo": "codex-minibar",
+   "url": "https://github.com/vertopolkaLF/codex-minibar",
+   "sha": "16688344982f0f40b8ba4473bccd0d114e4d5e80",
+   "licence": "Apache-2.0 (LICENSE file at pin 16688344982f, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T10:59Z",
+    "consent_receipt": "9fd30054aef9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T10:59Z (receipt 9fd30054aef9); selected commit 16688344982f: \"Add configurable Linux popup placement\". LICENSE file at pin 16688344982f detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}
