@@ -4,12 +4,28 @@
 //! and the bytes of source that will be embedded. This module never substitutes
 //! a constant rate. No probe, a zero probe, a non-neural backend, or zero
 //! source bytes produces no estimate.
+//!
+//! The probe is one cold batch of code-dense text. Scaled linearly, it
+//! overstated a real prose ingest about 7x (#2822). The note therefore leads
+//! with the probe time divided by [`PROBE_OVER_STEADY_STATE`] and gives the
+//! unscaled probe time as the upper bound. Both come from the measured rate.
 
 use std::collections::{HashMap, HashSet};
 
 use crate::esclient::EmbeddingExecutionIdentity;
 use crate::estimate::{human_bytes, human_secs};
 use crate::state::{FileAssignment, Plan};
+
+/// How far the linear probe estimate overstated a real neural ingest (#2822).
+///
+/// From an rc.100 field report: a 13 MB markdown archive (4,530 records,
+/// 9 datasets, linux x86_64) printed 42.8 min (2,568 s), and the ingest took
+/// 348 s, a ratio of 7.38. The probe embeds 32 copies of a code-like line, which
+/// tokenizes to roughly twice as many tokens per byte as prose. It also times
+/// a single batch after a one-passage warmup, so it pays first-full-batch
+/// costs that a long ingest amortizes. Code-dense corpora sit between the
+/// calibrated time and the probe time, so the note prints both.
+pub const PROBE_OVER_STEADY_STATE: f64 = 7.4;
 
 /// What `source_bytes` counts, so the sentence does not call a whole NDJSON
 /// file "the embedded text".
@@ -56,15 +72,20 @@ pub fn note(
                   is lexical (`xerj --embed-mode lexical`, or omit the flag).";
     let body = match probe {
         Some((bytes, passages, millis)) => {
-            let seconds = estimate_seconds(source_bytes, bytes, millis);
+            let probe_seconds = estimate_seconds(source_bytes, bytes, millis);
+            let seconds = calibrated_seconds(probe_seconds);
             let per_passage = bytes / u64::from(passages);
             let rate = (bytes as f64) * 1000.0 / (millis as f64);
             format!(
-                "neural ingest: about {} to embed {subject}, from a measured probe of {passages} \
-                 passages / {} ({per_passage} bytes each) in {millis} ms ({} of that probe text \
-                 per second, timed after one untimed warmup passage). Embedding time only: chunk \
-                 overlap is not included, and denser text such as source code can take longer. {sticky}",
+                "neural ingest: about {} to embed {subject} at the steady-state rate, and up to {} \
+                 at the probe's own rate (code-dense text can approach that bound). From a measured \
+                 probe of {passages} passages / {} ({per_passage} bytes each) in {millis} ms ({} of \
+                 that probe text per second, timed after one untimed warmup passage); a cold \
+                 code-dense probe overstated a measured prose ingest about \
+                 {PROBE_OVER_STEADY_STATE}x, so the first figure divides by that. Embedding time \
+                 only: chunk overlap is not included. {sticky}",
                 human_secs(seconds),
+                human_secs(probe_seconds),
                 human_bytes(bytes),
                 human_bytes(rate.round() as u64),
             )
@@ -88,6 +109,11 @@ pub fn estimate_seconds(source_bytes: u64, probe_bytes: u64, probe_millis: u64) 
         return f64::NAN;
     }
     (source_bytes as f64) * (probe_millis as f64) / ((probe_bytes as f64) * 1000.0)
+}
+
+/// The probe-linear estimate scaled to steady-state ingest (#2822).
+pub fn calibrated_seconds(probe_seconds: f64) -> f64 {
+    probe_seconds / PROBE_OVER_STEADY_STATE
 }
 
 /// Sum of file sizes that feed a dataset with `semantic_field` set.
@@ -201,7 +227,9 @@ mod tests {
             SourceBytes::SemanticSource,
         )
         .expect("neural with a probe and source bytes");
-        assert!(note.contains("about 2.0 s"), "{note}");
+        // 2.0 s at the probe rate; 2.0 / 7.4 = 0.27 s at steady state.
+        assert!(note.contains("about 0.3 s"), "{note}");
+        assert!(note.contains("up to 2.0 s"), "{note}");
         assert!(note.contains("32 passages"), "{note}");
         assert!(note.contains("16.0 KB"), "{note}");
         assert!(note.contains("re-index"), "{note}");
@@ -257,7 +285,37 @@ mod tests {
         )
         .unwrap();
         assert!(note.contains("upper bound"), "{note}");
-        assert!(note.contains("about 2.0 s"), "{note}");
+        assert!(note.contains("about 0.3 s"), "{note}");
+        assert!(note.contains("up to 2.0 s"), "{note}");
+    }
+
+    /// #2822: the reported run printed 42.8 min and took 348 s (5.8 min).
+    /// The probe below reproduces the 42.8 min at the probe rate; the lead
+    /// figure must land within 2x of the measured ingest.
+    #[test]
+    fn the_lead_estimate_matches_the_reported_prose_ingest() {
+        let source_bytes = 13_u64 * 1024 * 1024;
+        let (probe_bytes, passages) = (16_384_u64, 32_u32);
+        // Probe millis that make the linear estimate 2,568 s (42.8 min).
+        let millis = (2_568.0 * 1000.0 * probe_bytes as f64 / source_bytes as f64).round() as u64;
+        let probe = estimate_seconds(source_bytes, probe_bytes, millis);
+        assert!((probe - 2_568.0).abs() < 2.0, "{probe}");
+        let lead = calibrated_seconds(probe);
+        let actual = 348.0;
+        assert!(
+            lead <= actual * 2.0 && lead >= actual / 2.0,
+            "lead {lead} s vs actual {actual} s"
+        );
+        assert!((lead / actual - 1.0).abs() < 0.05, "{lead}");
+
+        let note = note(
+            &identity("neural", Some((probe_bytes, passages, millis))),
+            source_bytes,
+            SourceBytes::SemanticSource,
+        )
+        .unwrap();
+        assert!(note.contains("about 5.8 min"), "{note}");
+        assert!(note.contains("up to 42.8 min"), "{note}");
     }
 
     fn assignment(slug: &str, digest: Option<&str>) -> FileAssignment {
