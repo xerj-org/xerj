@@ -457,6 +457,10 @@ jobs:
         run: cargo fmt --manifest-path fuzz/Cargo.toml --check
 
       - name: Build + run every fuzz target
+        env:
+          # Must match the pinned toolchain above; the script defaults to the
+          # runner's floating `nightly`, which is the broken 2026-10-31 build.
+          FUZZ_TOOLCHAIN: nightly-2026-10-30
         run: bash .github/scripts/fuzz-smoke.sh
 
       # A crashing input is the entire product of this job; losing it would
