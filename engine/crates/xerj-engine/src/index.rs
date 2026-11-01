@@ -46720,13 +46720,6 @@ fn apply_lexical_passages(hits: Vec<Hit>, query: &QueryNode) -> Vec<Hit> {
         .collect()
 }
 
-/// Shared tail of every top-level kNN executor (brute force and HNSW):
-/// rank by score desc, cap the candidate pool at `k`, window with
-/// `from`/`size`, and shape the response. Centralised so the exact and
-/// approximate paths cannot drift on hits format or total semantics.
-// `schema` is the one parameter the aggregation tail needs beyond the kNN
-// executor's own tuple; a struct for it would exist only here.
-#[allow(clippy::too_many_arguments)]
 /// Exact distance in the HNSW graph's convention (smaller is nearer).
 fn exact_hnsw_distance(metric: DistanceMetric, query: &[f32], vector: &[f32]) -> f32 {
     let dot: f32 = query.iter().zip(vector).map(|(a, b)| a * b).sum();
@@ -46749,6 +46742,13 @@ fn exact_hnsw_distance(metric: DistanceMetric, query: &[f32], vector: &[f32]) ->
     }
 }
 
+/// Shared tail of every top-level kNN executor (brute force and HNSW):
+/// rank by score desc, cap the candidate pool at `k`, window with
+/// `from`/`size`, and shape the response. Centralised so the exact and
+/// approximate paths cannot drift on hits format or total semantics.
+// `schema` is the one parameter the aggregation tail needs beyond the kNN
+// executor's own tuple; a struct for it would exist only here.
+#[allow(clippy::too_many_arguments)]
 fn knn_result_from_scored(
     index: &Index,
     request: &SearchRequest,
