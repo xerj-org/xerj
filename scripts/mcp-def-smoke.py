@@ -15,6 +15,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 def main():
     binary = sys.argv[1]
     requests = []
+    catalog_reads = []
     mapping = {"project-code": {"mappings": {"properties": {
         "name": {"type": "keyword"}, "kind": {"type": "keyword"},
         "language": {"type": "keyword"}, "code": {"type": "text"},
@@ -47,7 +48,11 @@ def main():
 
         def do_POST(self):
             body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
-            requests.append((self.path, body))
+            if self.path == "/autoindex-catalog/_search":
+                # Staleness-hint catalog read (#2426), made by both CLI and MCP.
+                catalog_reads.append(self.path)
+            else:
+                requests.append((self.path, body))
             self.respond({"hits": {"total": {"value": len(hits)}, "hits": hits}})
 
     with ThreadingHTTPServer(("127.0.0.1", 0), Handler) as server:
@@ -63,6 +68,7 @@ def main():
             for symbol, filters in [("Cache", {}), ("cache entries", {}),
                                     ("Cache", {"kind": "struct", "lang": "rust"})]:
                 requests.clear()
+                catalog_reads.clear()
                 cli_args = ["def", "--url", url, "--api-key", "fixture",
                             "--prefix", "project", "-k", "2", "--json",
                             "--disable-feedback", symbol]
@@ -82,6 +88,7 @@ def main():
                 assert reply["result"]["isError"] is False, reply
                 mcp = json.loads(reply["result"]["content"][0]["text"])
                 assert len(requests) == 2 and requests[0] == requests[1], requests
+                assert len(catalog_reads) == 2, catalog_reads
                 assert requests[0][0] == "/project-*/_search", requests
                 assert cli == mcp, (cli, mcp)
                 assert [h["_id"] for h in mcp["hits"]["hits"]] == ["real", "alias"], mcp

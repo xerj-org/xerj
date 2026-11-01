@@ -972,7 +972,7 @@ fn parse_search_cli(
 /// Entry point for the `search` subcommand. Returns a process exit code.
 /// Start the staleness check on its own thread so it overlaps the search.
 /// The check uses its own blocking client with a short timeout.
-fn spawn_staleness_check(
+pub(crate) fn spawn_staleness_check(
     url: &str,
     api_key: Option<&str>,
     prefix: &str,
