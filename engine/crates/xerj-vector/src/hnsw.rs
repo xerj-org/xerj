@@ -314,6 +314,11 @@ struct ChunkedVectors {
     chunks: Vec<Vec<u16>>,
     /// slot → power-of-two scale of the stored codes.
     scales: Vec<f32>,
+    /// slot → `‖v − decode(slot)‖`, rounded up: bounds how far any graph
+    /// distance to the slot can be from the exact one, so callers that
+    /// rescore exactly can fetch every candidate that might be in the true
+    /// top-k (see [`HnswIndex::search_rescore_candidates`]).
+    errors: Vec<f32>,
     len: usize,
 }
 
@@ -328,6 +333,7 @@ impl ChunkedVectors {
             chunk_shift,
             chunks: Vec::new(),
             scales: Vec::new(),
+            errors: Vec::new(),
             len: 0,
         }
     }
@@ -348,12 +354,18 @@ impl ChunkedVectors {
         let scale = half_scale(vector);
         let inverse = 1.0 / scale;
         let chunk = self.chunks.last_mut().expect("chunk allocated above");
-        chunk.extend(
-            vector
-                .iter()
-                .map(|&value| f32_to_half_bits(value * inverse)),
-        );
+        let mut error = 0.0f64;
+        chunk.extend(vector.iter().map(|&value| {
+            let code = f32_to_half_bits(value * inverse);
+            let delta = f64::from(value) - f64::from(half_bits_to_f32(code) * scale);
+            error += delta * delta;
+            code
+        }));
         self.scales.push(scale);
+        // Round the norm up a hair so f32 storage never understates it.
+        let error = error.sqrt();
+        self.errors
+            .push((error * (1.0 + 1e-6)) as f32 + f32::MIN_POSITIVE);
         self.len += 1;
     }
 
@@ -369,6 +381,12 @@ impl ChunkedVectors {
     #[inline(always)]
     fn scale(&self, slot: u32) -> f32 {
         self.scales[slot as usize]
+    }
+
+    /// Upper bound on `‖v − decode(slot)‖` for the vector stored at `slot`.
+    #[inline(always)]
+    fn error(&self, slot: u32) -> f32 {
+        self.errors[slot as usize]
     }
 
     /// True when `vector` encodes to exactly what `slot` stores.
@@ -394,6 +412,7 @@ impl ChunkedVectors {
             .sum::<usize>()
             + self.chunks.capacity() * std::mem::size_of::<Vec<u16>>()
             + self.scales.capacity() * std::mem::size_of::<f32>()
+            + self.errors.capacity() * std::mem::size_of::<f32>()
     }
 
     /// Largest single allocation backing the vectors.
@@ -796,6 +815,35 @@ fn query_inverse(graph: &impl GraphStorageRead, query: &[f32]) -> f32 {
     } else {
         1.0
     }
+}
+
+/// Upper bound on `|graph distance − exact distance|` for one candidate,
+/// given `error = ‖v − decode(v)‖` (Cauchy–Schwarz), with slack for the f32
+/// arithmetic of both distances.
+fn distance_error_bound(
+    metric: DistanceMetric,
+    graph_distance: f32,
+    query_norm: f32,
+    error: f32,
+    inverse_norm: f32,
+) -> f32 {
+    let bound = match metric {
+        // Unit query: |q̂·(v − ṽ)| / ‖v‖ <= error / ‖v‖.
+        DistanceMetric::Cosine => {
+            if query_norm > 0.0 {
+                error * inverse_norm
+            } else {
+                0.0
+            }
+        }
+        DistanceMetric::DotProduct => query_norm * error,
+        // Squared L2: ‖q − v‖ <= ‖q − ṽ‖ + error.
+        DistanceMetric::L2 => {
+            let root = graph_distance.max(0.0).sqrt();
+            2.0 * root * error + error * error
+        }
+    };
+    bound * (1.0 + 1e-3) + 1e-6 * (1.0 + graph_distance.abs())
 }
 
 /// Decode `slot`'s stored vector into `out` (cleared first).
@@ -1732,6 +1780,60 @@ impl HnswIndex {
         ef: usize,
         filter: &dyn Fn(u64) -> bool,
     ) -> Result<Vec<(u64, f32)>> {
+        Ok(self
+            .search_bounded(query, k, ef, filter)?
+            .into_iter()
+            .take(k)
+            .map(|(id, distance, _)| (id, distance))
+            .collect())
+    }
+
+    /// Candidates for a caller that rescores exactly and keeps the best `k`.
+    ///
+    /// Graph distances are computed against half-precision vectors (#2427),
+    /// so the graph's own top-`k` can differ from the exact top-`k` among
+    /// near-ties. This returns the graph top-`k` plus every other admitted
+    /// beam candidate whose distance error bound means it could still beat
+    /// the `k`-th: `distance − bound <= kth(distance + bound)`. Rescoring
+    /// these exactly and truncating to `k` gives the same answer exact
+    /// storage would for the candidates the beam reached. Sorted by graph
+    /// distance ascending; usually only a few longer than `k`.
+    pub fn search_rescore_candidates(
+        &self,
+        query: &[f32],
+        k: usize,
+        ef: usize,
+    ) -> Result<Vec<(u64, f32)>> {
+        let candidates = self.search_bounded(query, k, ef, &|_| true)?;
+        if candidates.len() <= k || k == 0 {
+            return Ok(candidates
+                .into_iter()
+                .map(|(id, distance, _)| (id, distance))
+                .collect());
+        }
+        let mut uppers: Vec<f32> = candidates
+            .iter()
+            .map(|&(_, distance, bound)| distance + bound)
+            .collect();
+        let (_, kth, _) = uppers.select_nth_unstable_by(k - 1, |a, b| a.total_cmp(b));
+        let kth = *kth;
+        Ok(candidates
+            .into_iter()
+            .enumerate()
+            .filter(|&(rank, (_, distance, bound))| rank < k || distance - bound <= kth)
+            .map(|(_, (id, distance, _))| (id, distance))
+            .collect())
+    }
+
+    /// Beam search returning every admitted candidate (up to `ef.max(k)`),
+    /// sorted by graph distance, with each one's distance error bound.
+    fn search_bounded(
+        &self,
+        query: &[f32],
+        k: usize,
+        ef: usize,
+        filter: &dyn Fn(u64) -> bool,
+    ) -> Result<Vec<(u64, f32, f32)>> {
         if query.len() != self.params.dim {
             return Err(XerjError::invalid_query(format!(
                 "HNSW search: query dim {} != index dim {}",
@@ -1764,11 +1866,20 @@ impl HnswIndex {
         };
         let candidates = beam(&graph, query, q_inv, curr_ep, ef.max(k), 0, &admit);
 
+        let query_norm = query.iter().map(|value| value * value).sum::<f32>().sqrt();
         Ok(candidates
             .into_iter()
             .filter(|&(_, s)| admit(s))
-            .take(k)
-            .map(|(dist, slot)| (graph.external_id(slot), dist))
+            .map(|(dist, slot)| {
+                let bound = distance_error_bound(
+                    graph.metric(),
+                    dist,
+                    query_norm,
+                    g.vectors.error(slot),
+                    graph.inverse_norm(slot),
+                );
+                (graph.external_id(slot), dist, bound)
+            })
             .collect())
     }
 

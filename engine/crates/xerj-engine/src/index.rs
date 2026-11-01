@@ -18213,29 +18213,58 @@ impl Index {
     /// Perform KNN search over the HNSW index.
     ///
     /// Returns the top-`k` (doc_id, distance) pairs.
+    ///
+    /// The graph orders candidates by half-precision distances (#2427), so
+    /// the candidates that could be in the exact top-`k` are rescored
+    /// against the stored source vectors before truncating. A candidate
+    /// whose source cannot be read keeps its graph distance.
     pub async fn knn_search(&self, query_vector: &[f32], k: usize) -> Vec<(String, f32)> {
-        let hnsw_guard = self.hnsw.read().await;
-        let hnsw = match hnsw_guard.as_ref() {
-            Some(h) => h,
-            None => return vec![],
-        };
-        let ef = (k * 2).max(64);
-        let results = match hnsw.search(query_vector, k, ef) {
-            Ok(r) => r,
-            Err(e) => {
-                warn!(error = %e, "HNSW search failed");
-                return vec![];
+        // Hold the graph guard only for the beam search (see the lock
+        // discipline note in the ANN query path).
+        let (results, metric) = {
+            let hnsw_guard = self.hnsw.read().await;
+            let hnsw = match hnsw_guard.as_ref() {
+                Some(h) => h,
+                None => return vec![],
+            };
+            let ef = (k * 2).max(64);
+            match hnsw.search_rescore_candidates(query_vector, k, ef) {
+                Ok(r) => (r, hnsw.params().metric),
+                Err(e) => {
+                    warn!(error = %e, "HNSW search failed");
+                    return vec![];
+                }
             }
         };
-        let id_rev = self.hnsw_id_rev.read().await;
-        results
-            .into_iter()
-            .filter_map(|(node_id, dist)| {
-                id_rev
-                    .get(&node_id)
-                    .map(|doc_id| (doc_id.to_string(), dist))
-            })
-            .collect()
+        let mapped: Vec<(String, f32)> = {
+            let id_rev = self.hnsw_id_rev.read().await;
+            results
+                .into_iter()
+                .filter_map(|(node_id, dist)| {
+                    id_rev
+                        .get(&node_id)
+                        .map(|doc_id| (doc_id.to_string(), dist))
+                })
+                .collect()
+        };
+        if mapped.len() <= k {
+            return mapped;
+        }
+        let field = self.hnsw_field.read().unwrap().clone();
+        let mut rescored = Vec::with_capacity(mapped.len());
+        for (doc_id, graph_distance) in mapped {
+            let exact = match (&field, self.get_document_uncounted(&doc_id).await) {
+                (Some(field), Ok(Some(source))) => extract_numeric_vector(&source, field)
+                    .filter(|vector| vector.len() == query_vector.len())
+                    .map(|vector| exact_hnsw_distance(metric, query_vector, &vector)),
+                _ => None,
+            };
+            rescored.push((doc_id, exact.unwrap_or(graph_distance)));
+        }
+        // Stable: exact ties keep graph order.
+        rescored.sort_by(|a, b| a.1.total_cmp(&b.1));
+        rescored.truncate(k);
+        rescored
     }
 
     /// Spawn the background stale-HNSW heal (RC4 W2 item 17) if the loaded
@@ -18775,7 +18804,7 @@ impl Index {
             if params.metric != DistanceMetric::Cosine || params.dim != query_vec.len() {
                 return None;
             }
-            match hnsw.search(query_vec, k, ef) {
+            match hnsw.search_rescore_candidates(query_vec, k, ef) {
                 Ok(r) => r,
                 Err(_) => return None,
             }
@@ -46698,6 +46727,28 @@ fn apply_lexical_passages(hits: Vec<Hit>, query: &QueryNode) -> Vec<Hit> {
 // `schema` is the one parameter the aggregation tail needs beyond the kNN
 // executor's own tuple; a struct for it would exist only here.
 #[allow(clippy::too_many_arguments)]
+/// Exact distance in the HNSW graph's convention (smaller is nearer).
+fn exact_hnsw_distance(metric: DistanceMetric, query: &[f32], vector: &[f32]) -> f32 {
+    let dot: f32 = query.iter().zip(vector).map(|(a, b)| a * b).sum();
+    match metric {
+        DistanceMetric::Cosine => {
+            let qn = query.iter().map(|x| x * x).sum::<f32>().sqrt();
+            let vn = vector.iter().map(|x| x * x).sum::<f32>().sqrt();
+            if qn > 0.0 && vn > 0.0 {
+                1.0 - dot / (qn * vn)
+            } else {
+                1.0
+            }
+        }
+        DistanceMetric::DotProduct => -dot,
+        DistanceMetric::L2 => query
+            .iter()
+            .zip(vector)
+            .map(|(a, b)| (a - b) * (a - b))
+            .sum(),
+    }
+}
+
 fn knn_result_from_scored(
     index: &Index,
     request: &SearchRequest,
