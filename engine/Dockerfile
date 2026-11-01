@@ -1,15 +1,15 @@
-# Multi-arch container — v0.8 8-V6.
-#
-# Build with `docker buildx build --platform linux/amd64,linux/arm64 -t xerj/xerj:0.8.0 .`
-#
-# Build stage
-FROM --platform=$BUILDPLATFORM rust:1.94-slim AS builder
+# Multi-architecture container image.
+# Build for the target platform so the binary matches the runtime image.
+FROM rust:1.94-slim AS builder
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends make perl \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 COPY . .
 RUN cargo build --release -p xerj-server && strip target/release/xerj
 
-# Runtime stage — distroless-like minimal
-FROM debian:bookworm-slim
+# Match the builder's Debian release to avoid glibc incompatibilities.
+FROM debian:trixie-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
