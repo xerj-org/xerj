@@ -3498,9 +3498,10 @@ struct PipeState {
     /// Workers that may still call [`BulkPipe::submit`]. Decremented by
     /// [`BulkPipe::retire`] as each worker drains its queue.
     live_workers: usize,
-    /// Live workers currently parked inside `settle` (or waiting for an
-    /// in-flight slot in `submit`). `live == parked` is the "no more bytes
-    /// are coming" signal that flushes a residual buffer.
+    /// Live workers currently parked inside `settle`, or inside `submit`
+    /// waiting for an in-flight slot or for the bulk carrying their chunk to
+    /// land (that worker submits again once it does). `live == parked` is
+    /// the "no more bytes are coming" signal that flushes a residual buffer.
     parked_workers: usize,
     /// Bulk bodies currently on the wire. Capped at [`MAX_IN_FLIGHT`].
     in_flight: usize,
