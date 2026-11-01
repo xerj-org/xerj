@@ -10,7 +10,9 @@ const JSON_HEADERS = { 'content-type': 'application/json', 'cache-control': 'no-
 export async function onRequestPost({ request, env }) {
   try {
     const body = (await request.json().catch(() => ({}))) ?? {};
-    const email = String(body.email || '').trim().toLowerCase();
+    const email = typeof body.email === 'string'
+      ? body.email.trim().toLowerCase()
+      : '';
     if (!email || !email.includes('@') || email.length > 254) {
       return new Response(JSON.stringify({ ok: false, error: 'invalid email' }), { status: 400, headers: JSON_HEADERS });
     }

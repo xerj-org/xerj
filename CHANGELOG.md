@@ -101,6 +101,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `/lead` rejects non-string email values with HTTP 400 before storage.
+  Arrays no longer become accepted addresses through string coercion, and
+  objects with a non-callable `toString` no longer cause HTTP 500.
+
 - `weighted_avg` now executes field-based requests (`value` / `weight`, each
   with a `field` and optional numeric `missing`) instead of returning HTTP 200
   with an `unsupported aggregation type` error in the aggregations body. A
