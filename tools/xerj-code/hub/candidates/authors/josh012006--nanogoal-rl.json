@@ -2,8 +2,8 @@
  "corpus": "josh012006--nanogoal-rl",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on goal-conditioned-rl, gymnasium, rl queries this for how Josh012006/NanoGoal-RL implements it: A goal-conditioned reinforcement learning project where a simulated 2D nanorobot learns to reach various target positions, showcasing autono",
+ "shelf": "API",
+ "domain": "an agent working on seeded-determinism, artificial-intelligence, goal-conditioned-reinforcement-learning queries this for how Josh012006/NanoGoal-RL implements it: A goal-conditioned reinforcement learning project where a simulated 2D nanorobot learns to reach various target positions, showcasing autono",
  "repos": [
   {
    "repo": "NanoGoal-RL",

@@ -1,0 +1,23 @@
+{
+ "corpus": "zarmumia--group-welcome-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, arabic, automation queries this for how zarmumia/group-welcome-agent implements it: AI agent that prepares a branded, personal welcome post for new Facebook group members, in Hebrew, Arabic or English. A human clicks Post. B",
+ "repos": [
+  {
+   "repo": "group-welcome-agent",
+   "url": "https://github.com/zarmumia/group-welcome-agent",
+   "sha": "6bf8312ea52da94cfc4e8d29101d89c1ec217509",
+   "licence": "MIT (LICENSE file at pin 6bf8312ea52d, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T05:22Z",
+    "consent_receipt": "97b576ef691c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T05:22Z (receipt 97b576ef691c); pinned to the default-branch head. LICENSE file at pin 6bf8312ea52d detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

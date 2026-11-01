@@ -2,8 +2,8 @@
  "corpus": "jponf--aia-chaser",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how jponf/aia-chaser implements it: Chase authority information access (AIA) from a host certificate to complete the chain of trust (selected work: tests, aia_chaser)",
+ "shelf": "NET",
+ "domain": "an agent working on aia, crl, ocsp queries this for how jponf/aia-chaser implements it: Chase authority information access (AIA) from a host certificate to complete the chain of trust (selected work: tests, aia_chaser)",
  "repos": [
   {
    "repo": "aia-chaser",

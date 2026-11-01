@@ -8,15 +8,15 @@
   {
    "repo": "zpq",
    "url": "https://github.com/chicagobuss/zpq",
-   "sha": "8de7763fc8e855da320e7f64ce3e722701110c9e",
-   "licence": "MIT (LICENSE file at pin 8de7763fc8e8, GitHub licence API 2026-10-31)",
+   "sha": "2d29eb6e68c29837fd5347bf1dd927a79f5d1536",
+   "licence": "MIT (LICENSE file at pin 2d29eb6e68c2, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T04:02Z",
     "consent_receipt": "059c6b104784",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T04:02Z (receipt 059c6b104784); pinned to the default-branch head. LICENSE file at pin 8de7763fc8e8 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T04:02Z (receipt 059c6b104784); pinned to the default-branch head. LICENSE file at pin 2d29eb6e68c2 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

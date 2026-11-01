@@ -1,0 +1,23 @@
+{
+ "corpus": "mkleelee--fivem-qbox-server",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how MkLeeLee/fivem-qbox-server implements it: fivem-qbox-server (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "fivem-qbox-server",
+   "url": "https://github.com/MkLeeLee/fivem-qbox-server",
+   "sha": "61bab924d33a025eb594755110ee2502a01b38b0",
+   "licence": "Apache-2.0 (LICENSE file at pin 61bab924d33a, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T06:05Z",
+    "consent_receipt": "addcdad66cb9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T06:05Z (receipt addcdad66cb9); selected commit 61bab924d33a: \"Initial Impl\". LICENSE file at pin 61bab924d33a detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "nasa--fprime",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on flight-software, embedded-systems, nasa queries this for how nasa/fprime implements it: F\u00b4 - A flight software and embedded systems framework (selected work: Utils, Svc)",
+ "repos": [
+  {
+   "repo": "fprime",
+   "url": "https://github.com/nasa/fprime",
+   "sha": "062b1cda86c6891ff4ae6c42c70ee99f5f7a4346",
+   "licence": "Apache-2.0 (LICENSE file at pin 062b1cda86c6, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T07:18Z",
+    "consent_receipt": "084d14db09d2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T07:18Z (receipt 084d14db09d2); selected commit 062b1cda86c6: \"Svc/RateGroupDriver: compute rollover using LCM instead of product (#\u2026\". LICENSE file at pin 062b1cda86c6 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

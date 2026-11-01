@@ -1,0 +1,30 @@
+{
+ "corpus": "peterbmarks--jttychatmac",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how peterbmarks/JttyChatMac implements it: Simple HF chat client (selected work: JttyChat)",
+ "repos": [
+  {
+   "repo": "JttyChatMac",
+   "url": "https://github.com/peterbmarks/JttyChatMac",
+   "sha": "f7f90e7dcc06162896d2e64a38a406f60371a4bf",
+   "licence": "GPL-3.0 (LICENSE file at pin f7f90e7dcc06, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T07:54Z",
+    "consent_receipt": "26b092bff796",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T07:54Z (receipt 26b092bff796); selected commit f7f90e7dcc06: \"Update to the new streaming window api\". LICENSE file at pin f7f90e7dcc06 detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "f7f90e7dcc06162896d2e64a38a406f60371a4bf",
+     "at": "2026-11-01T07:54Z",
+     "receipt": "26b092bff796"
+    }
+   }
+  }
+ ]
+}

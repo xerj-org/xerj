@@ -8,15 +8,15 @@
   {
    "repo": "PersonalPlanner",
    "url": "https://github.com/Karthikshabari/PersonalPlanner",
-   "sha": "80875772d1d70af9c83bfe07b4fbb196f9be14df",
-   "licence": "MIT (LICENSE file at pin 80875772d1d7, GitHub licence API 2026-10-31)",
+   "sha": "28c345f2ef49f76a8c41a597dd6f818ff23396a1",
+   "licence": "MIT (LICENSE file at pin 28c345f2ef49, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T18:18Z",
     "consent_receipt": "f165e7a287ae",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:18Z (receipt f165e7a287ae); selected commit 80875772d1d7: \"Fixed the time zone issue where it was showing differently\". LICENSE file at pin 80875772d1d7 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head 80875772d1d7 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:18Z (receipt f165e7a287ae); selected commit 28c345f2ef49: \"Fixed the time zone issue where it was showing differently\". LICENSE file at pin 28c345f2ef49 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 28c345f2ef49 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on android, apk, arsc queries this for how delvinru/apk-info implements it: Fast, malware-robust parser for Android APK/XAPK/APKM files (selected work: crates/axml, crates/zip, core/src)",
+ "domain": "an agent working on android, apk, arsc queries this for how delvinru/apk-info implements it: Fast, malware-robust parser for Android apk/xapk/apkm/apks files (selected work: crates/axml, crates/zip, core/src)",
  "repos": [
   {
    "repo": "apk-info",

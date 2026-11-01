@@ -8,15 +8,15 @@
   {
    "repo": "omarchy-fedora",
    "url": "https://github.com/whelanh/omarchy-fedora",
-   "sha": "1fca07a792e9f3bc9ae245526e13b61143586e34",
-   "licence": "author's permission (LICENSE at pin 1fca07a792e9: NOASSERTION; repository: NOASSERTION)",
+   "sha": "b0ac72525da8771563164419945664e301e825f7",
+   "licence": "author's permission (LICENSE at pin b0ac72525da8: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T20:49Z",
     "consent_receipt": "0fb173c71060",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:49Z (receipt 0fb173c71060); pinned to the default-branch head. LICENSE at pin 1fca07a792e9: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:49Z (receipt 0fb173c71060); pinned to the default-branch head. LICENSE at pin b0ac72525da8: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

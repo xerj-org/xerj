@@ -8,15 +8,15 @@
   {
    "repo": "cuda-rust",
    "url": "https://github.com/NVIDIA/cuda-rust",
-   "sha": "999094fe568fc3080f80d49e9c44e3680ad1c968",
-   "licence": "Apache-2.0 (LICENSE file at pin 999094fe568f, GitHub licence API 2026-10-31)",
+   "sha": "8c586168fb3ab93a84c83765c3418e4566af9195",
+   "licence": "Apache-2.0 (LICENSE file at pin 8c586168fb3a, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-17T17:25Z",
     "consent_receipt": "6d4550392cbd",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T17:25Z (receipt 6d4550392cbd); selected commit 999094fe568f: \"feat(examples): add image convolution example\". LICENSE file at pin 999094fe568f detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head 999094fe568f (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T17:25Z (receipt 6d4550392cbd); selected commit 8c586168fb3a: \"feat(examples): add image convolution example\". LICENSE file at pin 8c586168fb3a detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 8c586168fb3a (contains the selected commit): the LICENSE at the selected commit was NOASSERTION."
    }
   }
  ]
