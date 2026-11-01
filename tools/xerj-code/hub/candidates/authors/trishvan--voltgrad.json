@@ -2,8 +2,8 @@
  "corpus": "trishvan--voltgrad",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Go queries this for how Trishvan/VoltGrad implements it: VoltGrad trains models on any Vulkan GPU from pure Go. Fixed-point Q16 tensors start at 2 bits and widen instead of clipping \u2014 never quantiz (selected work: voltgrad)",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how Trishvan/VoltGrad implements it: Train neural networks on Vulkan GPUs with pure Go. VoltGrad uses Q16 fixed-point tensors that dynamically widen from 2\u201364 bits to prevent ra (selected work: voltgrad)",
  "repos": [
   {
    "repo": "VoltGrad",

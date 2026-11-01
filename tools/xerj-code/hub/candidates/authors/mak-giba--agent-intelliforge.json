@@ -8,15 +8,15 @@
   {
    "repo": "agent-intelliforge",
    "url": "https://github.com/Mak-GIBA/agent-intelliforge",
-   "sha": "0807de084a5ed8459fd9a114d6270b6f0acd1260",
-   "licence": "MIT (LICENSE file at pin 0807de084a5e, GitHub licence API 2026-10-29)",
+   "sha": "dfe49c16ac910b554970febb2e3cc05203d5d2a6",
+   "licence": "MIT (LICENSE file at pin dfe49c16ac91, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T00:52Z",
     "consent_receipt": "1d985c9a5b40",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T00:52Z (receipt 1d985c9a5b40); selected commit 0807de084a5e: \"feat(workgraph): simplify GitHub memory sync and preserve local edits\". LICENSE file at pin 0807de084a5e detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution. Pinned to head 0807de084a5e (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T00:52Z (receipt 1d985c9a5b40); selected commit dfe49c16ac91: \"feat(workgraph): simplify GitHub memory sync and preserve local edits\". LICENSE file at pin dfe49c16ac91 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head dfe49c16ac91 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "allamaprabhuani--sofa-remote",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on iphone, keyboard, macos queries this for how allamaprabhuani/sofa-remote implements it: Free, open-source iPhone touchpad, keyboard and media remote for Mac. No screen streaming, ads or accounts",
+ "repos": [
+  {
+   "repo": "sofa-remote",
+   "url": "https://github.com/allamaprabhuani/sofa-remote",
+   "sha": "35da2d32494a282f8903cc660f6176618169eca0",
+   "licence": "MIT (LICENSE file at pin 35da2d32494a, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T14:17Z",
+    "consent_receipt": "f0b6205e0387",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T14:17Z (receipt f0b6205e0387); pinned to the default-branch head. LICENSE file at pin 35da2d32494a detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

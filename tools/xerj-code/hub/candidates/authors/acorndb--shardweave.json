@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on mysql-proxy, sharding, database queries this for how acorndb/shardweave implements it: A MySQL sharding proxy in Go: single, read/write-split, and sharded topologies over one data path. Every statement is either merged correctl (selected work: test, docker, the project root)",
+ "domain": "an agent working on mysql-proxy, sharding, database queries this for how acorndb/shardweave implements it: A MySQL sharding proxy in Go: single, read/write-split, and sharding topologies over one data path. Every statement is either merged correct (selected work: test, docker, the project root)",
  "repos": [
   {
    "repo": "shardweave",

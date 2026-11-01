@@ -1,0 +1,23 @@
+{
+ "corpus": "tetrassky--dualrip",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on audio, homebrew, nds queries this for how TetraSsky/DualRip implements it: Nintendo DS/3DS ripper, emulates DS & 3DS sound driver (selected work: dualrip, tests)",
+ "repos": [
+  {
+   "repo": "DualRip",
+   "url": "https://github.com/TetraSsky/DualRip",
+   "sha": "ea8f39b522dc092ec3c3637ba7abcbbaa1b5fa37",
+   "licence": "MIT (LICENSE file at pin ea8f39b522dc, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T16:10Z",
+    "consent_receipt": "ce9b907a7975",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T16:10Z (receipt ce9b907a7975); selected commit ea8f39b522dc: \"feat: Added support for multi-channel stereo entries w/ support for m\u2026\". LICENSE file at pin ea8f39b522dc detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

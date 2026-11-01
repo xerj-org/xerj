@@ -8,15 +8,15 @@
   {
    "repo": "antigravity-ui",
    "url": "https://github.com/omid-io/antigravity-ui",
-   "sha": "524274d28b56a3e79c6f6555d89807d1ea918632",
-   "licence": "author's permission (LICENSE at pin 524274d28b56: NOASSERTION; repository: NOASSERTION)",
+   "sha": "85963ffd8498fef6e313e3b8dd9ed8238be9917f",
+   "licence": "author's permission (LICENSE at pin 85963ffd8498: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T03:06Z",
     "consent_receipt": "49b8bc62a058",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:06Z (receipt 49b8bc62a058); pinned to the default-branch head. LICENSE at pin 524274d28b56: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T03:06Z (receipt 49b8bc62a058); pinned to the default-branch head. LICENSE at pin 85963ffd8498: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "pr0gorib--skidbot-bdfd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on bdfd, discord-bot, nsfw queries this for how PR0Gorib/SkidBot-BDFD implements it: NSFW-focused Discord bot made with BDFD \u2014 open source & free to use",
+ "repos": [
+  {
+   "repo": "SkidBot-BDFD",
+   "url": "https://github.com/PR0Gorib/SkidBot-BDFD",
+   "sha": "ca596a8c43db52e4e59823a887c307e795cefee7",
+   "licence": "MIT (LICENSE file at pin ca596a8c43db, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T16:12Z",
+    "consent_receipt": "f349aa3149f0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T16:12Z (receipt f349aa3149f0); pinned to the default-branch head. LICENSE file at pin ca596a8c43db detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

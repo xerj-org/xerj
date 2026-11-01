@@ -8,15 +8,15 @@
   {
    "repo": "discord.cpp-self",
    "url": "https://github.com/Cavanshirpro/discord.cpp-self",
-   "sha": "a8681265e0c6ee58017639070c891d06d9624d8e",
-   "licence": "author's permission (LICENSE at pin a8681265e0c6: NOASSERTION; repository: LGPL-3.0)",
+   "sha": "6231a8968f7ec8bf103571311585cb3d62a0fe88",
+   "licence": "author's permission (LICENSE at pin 6231a8968f7e: NOASSERTION; repository: LGPL-3.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-31T18:25Z",
     "consent_receipt": "f1c1ced8600e",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T18:25Z (receipt f1c1ced8600e); pinned to the default-branch head. LICENSE at pin a8681265e0c6: NOASSERTION (repository: LGPL-3.0); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T18:25Z (receipt f1c1ced8600e); pinned to the default-branch head. LICENSE at pin 6231a8968f7e: NOASSERTION (repository: LGPL-3.0); used with the author's permission, with attribution."
    }
   }
  ]
