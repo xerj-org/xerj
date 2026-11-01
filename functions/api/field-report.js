@@ -80,12 +80,12 @@ async function handlePost({ request, env }) {
   const declared = parseInt(request.headers.get('content-length') || '0', 10);
   if (Number.isFinite(declared) && declared > MAX_BODY) return json({ ok:false, error:'body too large' }, 413);
 
-  let raw;
-  try { raw = await request.text(); } catch (_) { return json({ ok:false, error:'could not read body' }, 400); }
-  if (raw.length > MAX_BODY) return json({ ok:false, error:'body too large' }, 413);
+  let bytes;
+  try { bytes = await request.arrayBuffer(); } catch (_) { return json({ ok:false, error:'could not read body' }, 400); }
+  if (bytes.byteLength > MAX_BODY) return json({ ok:false, error:'body too large' }, 413);
 
   let body;
-  try { body = JSON.parse(raw); } catch (_) { return json({ ok:false, error:'invalid JSON body' }, 400); }
+  try { body = JSON.parse(new TextDecoder().decode(bytes)); } catch (_) { return json({ ok:false, error:'invalid JSON body' }, 400); }
   if (body === null || typeof body !== 'object' || Array.isArray(body)) return json({ ok:false, error:'body must be a JSON object' }, 400);
 
   const report = {};

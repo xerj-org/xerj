@@ -101,6 +101,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The field-report HTTP fallback now enforces its 16 KiB body limit on raw
+  bytes before decoding or storage access. Multibyte JSON without a reliable
+  `Content-Length` no longer bypasses the limit by having fewer characters.
+
 - `weighted_avg` now executes field-based requests (`value` / `weight`, each
   with a `field` and optional numeric `missing`) instead of returning HTTP 200
   with an `unsupported aggregation type` error in the aggregations body. A
