@@ -101,6 +101,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `xerj autoindex` no longer stalls near the end of a run at high
+  `--workers`. When all 8 bulk slots were busy, a worker whose chunk crossed
+  the flush size parked; if another worker then shipped the shared buffer,
+  that chunk included, the first one woke to an empty buffer and parked again
+  every 30 s for good, so the run never finished. It now returns once the
+  bulk carrying its chunk has landed. The same loop could also return while
+  that bulk was still on the wire, so a file could be journaled complete
+  before, or even though, one of its bulks failed; it now waits. On a
+  26-file, 28 MB scientific CSV folder, rc.100 stalled at 21 of 26 files with
+  `--workers 32` and 19 of 26 with `--workers 16`; both now finish all 26
+  files and 179,374 records (#2841).
+
 - `weighted_avg` now executes field-based requests (`value` / `weight`, each
   with a `field` and optional numeric `missing`) instead of returning HTTP 200
   with an `unsupported aggregation type` error in the aggregations body. A
