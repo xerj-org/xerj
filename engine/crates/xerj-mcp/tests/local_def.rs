@@ -73,7 +73,12 @@ async fn local_def_mapping_guards_scope_auth_and_legacy_passages() {
         )
         .await;
         assert_eq!(response["hits"]["hits"], json!([legacy]));
-        let requests = requests.lock().unwrap();
+        let all = requests.lock().unwrap();
+        // #2426: a definition lookup reads the autoindex catalog once for
+        // the staleness hint, like search; the lookup itself is unchanged.
+        let catalog = "/autoindex-catalog/_search";
+        assert_eq!(all.iter().filter(|r| r.0 == catalog).count(), 1);
+        let requests: Vec<_> = all.iter().filter(|r| r.0 != catalog).collect();
         assert_eq!(requests.len(), 2);
         assert_eq!(requests[0].0, "/project-*/_mapping");
         assert_eq!(requests[1].0, "/project-*/_search");
