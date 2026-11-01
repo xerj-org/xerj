@@ -423,8 +423,15 @@ jobs:
 
       # libFuzzer + the sanitizer runtimes are nightly-only.
       - name: Install Rust (nightly)
-        uses: dtolnay/rust-toolchain@7c8d7d138f5c09cef361f8214cf96882cd029cdb # nightly (pinned action ref; toolchain itself floats by design)
+        uses: dtolnay/rust-toolchain@7c8d7d138f5c09cef361f8214cf96882cd029cdb # nightly (pinned action ref)
         with:
+          # Temporarily pinned: rustc 1.101.0-nightly (f9ceb4a4d 2026-10-31)
+          # fails to compile xerj-engine with E0391 ("cycle detected when
+          # computing when `xerj_fts::search::Query` needs async drop"), a
+          # compiler regression; nightly-2026-10-30 (rustc 92b5b8c87
+          # 2026-10-29) built and ran every target. Drop this line to float
+          # again once a newer nightly compiles the engine.
+          toolchain: nightly-2026-10-30
           components: rustfmt
 
       - name: Cache
@@ -450,6 +457,10 @@ jobs:
         run: cargo fmt --manifest-path fuzz/Cargo.toml --check
 
       - name: Build + run every fuzz target
+        env:
+          # Must match the pinned toolchain above; the script defaults to the
+          # runner's floating `nightly`, which is the broken 2026-10-31 build.
+          FUZZ_TOOLCHAIN: nightly-2026-10-30
         run: bash .github/scripts/fuzz-smoke.sh
 
       # A crashing input is the entire product of this job; losing it would

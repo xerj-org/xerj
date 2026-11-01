@@ -127,6 +127,7 @@ landing/resources/xerj-sales-kit.zip
 # Re-include the public architecture doc (Markdown is ignored by default above).
 !docs/ARCHITECTURE.md
 !ROADMAP.md
+!/ROADMAP.zh-CN.md
 !docs/**/*.md
 
 # Re-include the shipped tooling's own docs. `tools/xerj-code/SKILL.md` is part

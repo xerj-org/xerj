@@ -544,8 +544,15 @@ pub fn run_code_query(
     // and win natural-language queries. They stay searchable, behind source.
     let mut hits = hits;
     render::demote_sparse_definition_hits(&mut hits, &query);
-    let hits = demote_catalog_noise(hits);
+    let mut hits = demote_catalog_noise(hits);
+    // #2426: a compound identifier (`LabPanoAdapter`) is a lookup. Its
+    // definition goes first, and a page that only shares parts of the name
+    // says so instead of passing a different symbol off as the answer.
+    render::promote_exact_identifier_hits(&mut hits, &query);
     let (hits, file_dropped, index_dropped) = diversify(hits, params.k);
+    if let Some(miss) = render::exact_identifier_miss(&hits, &query) {
+        warnings.push(miss);
+    }
     if file_dropped > 0 || index_dropped > 0 {
         let mut caps = Vec::new();
         if file_dropped > 0 {

@@ -133,10 +133,14 @@ pub enum Category {
     /// from every open index (#2427). Lives as long as the index is open
     /// and grows with every distinct doc id.
     VersionMap,
+    /// Estimated working set of in-flight memtable flush builds (#2427):
+    /// the governor's flush reservation, held from before the freeze until
+    /// the segment is published.
+    FlushBuild,
 }
 
 impl Category {
-    pub const ALL: [Self; 25] = [
+    pub const ALL: [Self; 26] = [
         Self::HttpBody,
         Self::HttpRewriteBuffer,
         Self::RawSource,
@@ -162,6 +166,7 @@ impl Category {
         Self::CacheVectorColumn,
         Self::VectorGraph,
         Self::VersionMap,
+        Self::FlushBuild,
     ];
 
     const COUNT: usize = Self::ALL.len();
@@ -518,6 +523,7 @@ fn measurement(category: Category) -> Measurement {
         | Category::CacheVectorColumn
         | Category::VectorGraph
         | Category::VersionMap
+        | Category::FlushBuild
         | Category::MergeDecoded
         | Category::MergeSurvivor
         | Category::MergeParsed => Measurement::Estimated,

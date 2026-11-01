@@ -181,8 +181,9 @@ pub const HIDDEN_OUTSIDE_ROOT_RULE: &str = "symlink:outside-root+hidden";
 /// A symlink the walk did not follow. The default is not to follow links, and
 /// an unfollowed symlink is not a file to walkdir, so it used to be skipped
 /// with no line on the ignore report — a tree of links looked empty. One
-/// warning names `--follow-symlinks`; each link is counted under this rule.
-/// A target outside the folder stays refused even when the flag is on
+/// warning names `--follow-symlinks` (and `--follow-symlinks-outside-root` for
+/// targets outside the folder); each link is counted under this rule. A target
+/// outside the folder stays refused with `--follow-symlinks` alone
 /// ([`ESCAPED_ROOT_RULE`]).
 pub const NOT_FOLLOWED_RULE: &str = "symlink:not-followed";
 
@@ -847,7 +848,17 @@ impl IgnoreStack {
     /// A symlink target outside the indexed root, also decided by the walker
     /// (it needs the canonical root, which this stack does not carry) and
     /// reported through the same accounting. See [`ESCAPED_ROOT_RULE`].
+    /// The warning is once per walk and names the flag that waives the
+    /// boundary, so a tree of links to elsewhere does not look empty (#2823).
     pub fn record_symlink_escape(&mut self, path: &Path, is_dir: bool) {
+        if !self.report.by_rule.contains_key(ESCAPED_ROOT_RULE) {
+            self.warn(
+                "symlink: target outside this folder, not followed (pass \
+                 --follow-symlinks-outside-root to index it; a link through a hidden folder \
+                 stays refused)"
+                    .into(),
+            );
+        }
         if is_dir {
             self.report.dirs_pruned += 1;
             self.report
@@ -885,7 +896,8 @@ impl IgnoreStack {
         if !self.report.by_rule.contains_key(NOT_FOLLOWED_RULE) {
             self.warn(
                 "symlink: not followed (pass --follow-symlinks to index a target inside \
-                 this folder; a target outside it stays refused)"
+                 this folder; add --follow-symlinks-outside-root as well for a target \
+                 outside it)"
                     .into(),
             );
         }
