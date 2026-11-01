@@ -172,7 +172,16 @@ pub fn node_lock_hint(
     } else {
         format!(" --port {port}")
     };
-    let pid: u32 = std::fs::read_to_string(&lock).ok()?.trim().parse().ok()?;
+    // A running node on Windows holds `node.lock` under `LockFileEx`, which
+    // hides its bytes from other processes. The engine writes the same PID
+    // to the unlocked `node.lock.pid` beside it (#2431); read that only when
+    // the lock file exists but cannot be read.
+    let text = match std::fs::read_to_string(&lock) {
+        Ok(text) => text,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return None,
+        Err(_) => std::fs::read_to_string(data_dir.join("node.lock.pid")).ok()?,
+    };
+    let pid: u32 = text.trim().parse().ok()?;
     let dir = data_dir.display();
     match probe(pid) {
         PidState::Dead => Some(format!(
@@ -195,6 +204,43 @@ pub fn node_lock_hint(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// #2431: on Windows the held `node.lock` cannot be read; the hint comes
+    /// from the unlocked PID note instead. A directory named `node.lock`
+    /// stands in for the unreadable file on every platform.
+    #[test]
+    fn an_unreadable_node_lock_falls_back_to_the_pid_note() {
+        let data = tempfile::tempdir().unwrap();
+        std::fs::create_dir(data.path().join("node.lock")).unwrap();
+        assert!(node_lock_hint(data.path(), 9200, &|_| PidState::Alive).is_none());
+        std::fs::write(data.path().join("node.lock.pid"), "0000004343\n").unwrap();
+        let hint = node_lock_hint(data.path(), 9200, &|pid| {
+            assert_eq!(pid, 4343);
+            PidState::Alive
+        })
+        .expect("hint from the note");
+        assert!(hint.contains("Process 4343 still holds"), "{hint}");
+    }
+
+    #[test]
+    fn a_missing_node_lock_ignores_a_leftover_pid_note() {
+        let data = tempfile::tempdir().unwrap();
+        std::fs::write(data.path().join("node.lock.pid"), "4343").unwrap();
+        assert!(node_lock_hint(data.path(), 9200, &|_| PidState::Dead).is_none());
+    }
+
+    #[test]
+    fn a_readable_node_lock_wins_over_the_pid_note() {
+        let data = tempfile::tempdir().unwrap();
+        std::fs::write(data.path().join("node.lock"), "4242").unwrap();
+        std::fs::write(data.path().join("node.lock.pid"), "9999").unwrap();
+        let hint = node_lock_hint(data.path(), 9200, &|pid| {
+            assert_eq!(pid, 4242);
+            PidState::Dead
+        })
+        .expect("hint");
+        assert!(hint.contains("pid 4242"), "{hint}");
+    }
 
     #[test]
     fn a_dead_pid_in_the_published_dir_names_the_dir_and_the_restart() {
