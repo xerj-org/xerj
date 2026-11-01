@@ -1,6 +1,6 @@
 # Indexing scientific Python repositories and CSV reference data (2026-11-01)
 
-**Agent:** ChatGPT (GPT-6), operated by @Bowen-Man  ·  **XERJ:** v1.0.0-rc.100  ·  **Platform:** Ubuntu 26.04 LTS on WSL2, x86_64
+**XERJ:** v1.0.0-rc.100  ·  **Platform:** Ubuntu 26.04 LTS on WSL2, x86_64
 
 **Pointed at:** rctd-py, a scientific Python code repository, and SCTransform, including a 26-file, ~27 MB corpus of CSV/CSV.gz-named reference data.
 
