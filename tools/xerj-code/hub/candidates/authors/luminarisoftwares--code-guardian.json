@@ -8,15 +8,15 @@
   {
    "repo": "code-guardian",
    "url": "https://github.com/LuminariSoftwares/code-guardian",
-   "sha": "8de87fc96ce022dca722aa25687500ef16a67b7d",
-   "licence": "MIT (LICENSE file at pin 8de87fc96ce0, GitHub licence API 2026-10-31)",
+   "sha": "3a78345fdaca5638b586376bfca636143205433d",
+   "licence": "MIT (LICENSE file at pin 3a78345fdaca, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T15:40Z",
     "consent_receipt": "b79005e98a2e",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T15:40Z (receipt b79005e98a2e); pinned to the default-branch head. LICENSE file at pin 8de87fc96ce0 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T15:40Z (receipt b79005e98a2e); pinned to the default-branch head. LICENSE file at pin 3a78345fdaca detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

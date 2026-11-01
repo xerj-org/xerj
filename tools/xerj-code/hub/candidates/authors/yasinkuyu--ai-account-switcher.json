@@ -1,0 +1,23 @@
+{
+ "corpus": "yasinkuyu--ai-account-switcher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on account-switcher, ai-tools, claude queries this for how yasinkuyu/ai-account-switcher implements it: One command to switch accounts in AI coding CLIs \u2014 Claude Code, Codex, Cursor, Copilot, OpenCode, Antigravity, Kimi. Single binary, no depen (selected work: cmd/aisw)",
+ "repos": [
+  {
+   "repo": "ai-account-switcher",
+   "url": "https://github.com/yasinkuyu/ai-account-switcher",
+   "sha": "70fae8f52fbdc77288ceb032dfe68219a3368087",
+   "licence": "MIT (LICENSE file at pin 70fae8f52fbd, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T03:45Z",
+    "consent_receipt": "04e4895b33f5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T03:45Z (receipt 04e4895b33f5); selected commit 70fae8f52fbd: \"Show usage limits for Claude Code and Codex accounts\". LICENSE file at pin 70fae8f52fbd detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

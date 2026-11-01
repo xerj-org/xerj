@@ -8,15 +8,15 @@
   {
    "repo": "OgnelissShare",
    "url": "https://github.com/oedante/OgnelissShare",
-   "sha": "1f57563af9843aac0d893b565934f29f7a683d52",
-   "licence": "Apache-2.0 (LICENSE file at pin 1f57563af984, GitHub licence API 2026-10-31)",
+   "sha": "b37da21ccb511e5ceb05e4e72c2982fb5354f6ba",
+   "licence": "Apache-2.0 (LICENSE file at pin b37da21ccb51, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T05:13Z",
     "consent_receipt": "4f96951ae8d3",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T05:13Z (receipt 4f96951ae8d3); pinned to the default-branch head. LICENSE file at pin 1f57563af984 detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T05:13Z (receipt 4f96951ae8d3); pinned to the default-branch head. LICENSE file at pin b37da21ccb51 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

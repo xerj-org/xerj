@@ -1,0 +1,23 @@
+{
+ "corpus": "mono-is-byte--task-tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on kanban, nextjs, prisma queries this for how mono-is-byte/Task-Tracker implements it: Self-hosted, multi-user task tracker for small teams; Kanban board, inline-editable table, timeline, calendar with holidays, workload and re (selected work: scripts, src/lib, tests)",
+ "repos": [
+  {
+   "repo": "Task-Tracker",
+   "url": "https://github.com/mono-is-byte/Task-Tracker",
+   "sha": "5ce2e935a7dd88c7ace72ec599297f6af678df2a",
+   "licence": "MIT (LICENSE file at pin 5ce2e935a7dd, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T04:43Z",
+    "consent_receipt": "b48d7ec2cf26",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T04:43Z (receipt b48d7ec2cf26); selected commit 5ce2e935a7dd: \"Add Turso backup and reset-flow hardening; refresh project docs\". LICENSE file at pin 5ce2e935a7dd detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

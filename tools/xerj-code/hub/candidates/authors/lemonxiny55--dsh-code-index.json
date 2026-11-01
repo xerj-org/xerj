@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on code-index, deepseek-harness, dsh-plugin queries this for how lemonxiny55/dsh-code-index implements it: Local code intelligence for DSH: task-aware source context packs with relationships, changes, likely tests, and hard budgets (selected work: tests, src, grammars)",
+ "domain": "an agent working on code-index, deepseek-harness, dsh-plugin queries this for how lemonxiny55/dsh-code-index implements it: Local code intelligence for DSH: source-backed Context Packs, symbol navigation, and Git-diff Impact X-Ray (selected work: tests, src, grammars)",
  "repos": [
   {
    "repo": "dsh-code-index",

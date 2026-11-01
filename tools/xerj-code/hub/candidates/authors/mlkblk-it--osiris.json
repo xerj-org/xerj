@@ -1,0 +1,23 @@
+{
+ "corpus": "mlkblk-it--osiris",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, cache, context-engineering queries this for how MlkBlk-IT/osiris implements it: Cache-aware context engine & state governor for AI agents: standard MCP server, lossless pruning, prefix integrity",
+ "repos": [
+  {
+   "repo": "osiris",
+   "url": "https://github.com/MlkBlk-IT/osiris",
+   "sha": "57651cdd0246312ad0cf6f54f899e9232e3e9bd3",
+   "licence": "MIT (LICENSE file at pin 57651cdd0246, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T04:52Z",
+    "consent_receipt": "5318be73dc4a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:52Z (receipt 5318be73dc4a); pinned to the default-branch head. LICENSE file at pin 57651cdd0246 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

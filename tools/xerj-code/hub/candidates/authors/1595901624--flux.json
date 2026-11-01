@@ -1,0 +1,30 @@
+{
+ "corpus": "1595901624--flux",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on C# queries this for how 1595901624/flux implements it: Flux is a lightweight proxy client for Windows powered by the mihomo core, built with WinUI 3 (selected work: Views, tests, Flux.Core)",
+ "repos": [
+  {
+   "repo": "flux",
+   "url": "https://github.com/1595901624/flux",
+   "sha": "8ae32bf70cc8a0e83c73c4f5d8873add866bd123",
+   "licence": "GPL-3.0 (LICENSE file at pin 8ae32bf70cc8, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T04:58Z",
+    "consent_receipt": "165f7c904921",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T04:58Z (receipt 165f7c904921); selected commit 8ae32bf70cc8: \"fix: read and verify UWP loopback exemptions correctly\". LICENSE file at pin 8ae32bf70cc8 detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "8ae32bf70cc8a0e83c73c4f5d8873add866bd123",
+     "at": "2026-11-01T04:58Z",
+     "receipt": "165f7c904921"
+    }
+   }
+  }
+ ]
+}

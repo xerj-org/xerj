@@ -1,0 +1,23 @@
+{
+ "corpus": "noresign--paboot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, android, claude-code queries this for how noResign/paboot implements it: Built as one across clients \u2014 drive every agent on your computer from your phone or desktop (Claude Code, Codex and DeepSeek-Harness). \u591a\u7aef\u4e00\u4f53\uff0c (selected work: ios)",
+ "repos": [
+  {
+   "repo": "paboot",
+   "url": "https://github.com/noResign/paboot",
+   "sha": "b5267db79e2ba94559cc479b2c3a885a212a8fc7",
+   "licence": "Apache-2.0 (LICENSE file at pin b5267db79e2b, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T03:33Z",
+    "consent_receipt": "4d7ea36ddc4a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T03:33Z (receipt 4d7ea36ddc4a); selected commit b5267db79e2b: \"feat(ios): \u5b9e\u73b0\u534f\u8bae\u4e0e\u4f20\u8f93\u5c42 & \u65b0\u589e\u8fde\u63a5\u9875\". LICENSE file at pin b5267db79e2b detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}
