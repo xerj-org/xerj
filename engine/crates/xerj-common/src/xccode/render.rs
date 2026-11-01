@@ -431,6 +431,88 @@ pub fn demote_sparse_definition_hits(hits: &mut [Value], query: &str) {
     }
 }
 
+/// The query when it is one compound identifier: `LabPanoAdapter`,
+/// `resolve_exports`, `svgTrend` (#2426).
+///
+/// Only compound names qualify. The analyzer splits them into parts, so a
+/// different symbol that shares a part (`MapAdapter`) can outrank the one
+/// the agent named. A plain word such as `Token` is left to the engine.
+pub fn compound_identifier(query: &str) -> Option<&str> {
+    let q = query.trim();
+    let first = q.chars().next()?;
+    if !(first.is_ascii_alphabetic() || first == '_' || first == '$') {
+        return None;
+    }
+    if !q
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '$')
+    {
+        return None;
+    }
+    let bytes = q.as_bytes();
+    let camel = bytes
+        .windows(2)
+        .any(|w| w[0].is_ascii_lowercase() && w[1].is_ascii_uppercase());
+    let snake = q.trim_matches('_').contains('_');
+    (camel || snake).then_some(q)
+}
+
+/// True when the hit names `ident` as its symbol: the per-symbol `name`,
+/// or an entry in the file record's `symbols` list. Case-sensitive.
+fn hit_defines(hit: &Value, ident: &str) -> bool {
+    let Some(src) = hit.get("_source") else {
+        return false;
+    };
+    if src.get("name").and_then(Value::as_str) == Some(ident) {
+        return true;
+    }
+    src.get("symbols")
+        .and_then(Value::as_array)
+        .is_some_and(|syms| {
+            syms.iter()
+                .any(|s| s.get("name").and_then(Value::as_str) == Some(ident))
+        })
+}
+
+/// Move hits that define the queried compound identifier to the front
+/// (#2426). Both groups keep their engine order. Any other query, or a page
+/// with no such hit, is unchanged.
+pub fn promote_exact_identifier_hits(hits: &mut [Value], query: &str) {
+    let Some(ident) = compound_identifier(query) else {
+        return;
+    };
+    let defines: Vec<bool> = hits.iter().map(|h| hit_defines(h, ident)).collect();
+    if !defines.contains(&true) || defines.iter().all(|d| *d) {
+        return;
+    }
+    let original = hits.to_vec();
+    let order = (0..original.len())
+        .filter(|&i| defines[i])
+        .chain((0..original.len()).filter(|&i| !defines[i]));
+    for (dest, src) in order.enumerate() {
+        hits[dest] = original[src].clone();
+    }
+}
+
+/// A warning when the query is a compound identifier and no hit on the page
+/// contains it (#2426). The hits then match only parts of the name, and the
+/// agent should not read them as the definition.
+pub fn exact_identifier_miss(hits: &[Value], query: &str) -> Option<String> {
+    let ident = compound_identifier(query)?;
+    if hits.is_empty() {
+        return None;
+    }
+    let needle = ident.to_lowercase();
+    if hits.iter().any(|h| hit_haystack(h).contains(&needle)) {
+        return None;
+    }
+    Some(format!(
+        "no result contains `{ident}` itself; these hits only share parts of the name. \
+         It may not be indexed in this corpus (or the index is stale): check the source \
+         directly before relying on them"
+    ))
+}
+
 /// One RRF leg at rank 1: `1/(k+1)`. Two legs at rank 1 — a typical strong
 /// hybrid hit — score twice that. k is [`super::RRF_K`] (60), the value the
 /// request sends.
@@ -2047,5 +2129,84 @@ mod tests {
              @weak why=corpus-may-not-cover\n\
              @ok f=scann/tune.md:10 rrf=0.0328 weak\n"
         );
+    }
+
+    /// #2426: `LabPanoAdapter` returned `MapAdapter`, which only shares the
+    /// `Adapter` part. The definition named in the query goes first.
+    #[test]
+    fn an_exact_compound_identifier_definition_ranks_first() {
+        let map = json!({
+            "_score": 9.0,
+            "_source": {
+                "ax_path": "refsec/routing.js",
+                "symbols": [{ "name": "MapAdapter", "kind": "class", "line": 3 }],
+                "body": "class MapAdapter { route() {} }"
+            }
+        });
+        let lab = json!({
+            "_score": 4.0,
+            "_source": {
+                "ax_path": "app/labpano-core.js",
+                "symbols": [{ "name": "LabPanoAdapter", "kind": "class", "line": 7201 }],
+                "body": "class LabPanoAdapter { load() {} }"
+            }
+        });
+        let sym = json!({
+            "_score": 3.0,
+            "_source": { "name": "LabPanoAdapter", "kind": "class", "ax_path": "app/b.js" }
+        });
+        let mut hits = vec![map.clone(), lab.clone(), sym.clone()];
+        promote_exact_identifier_hits(&mut hits, " LabPanoAdapter ");
+        assert_eq!(hits, vec![lab.clone(), sym.clone(), map.clone()]);
+        assert_eq!(exact_identifier_miss(&hits, "LabPanoAdapter"), None);
+
+        // Case matters for the promotion, and a plain word is left alone.
+        let mut lower = vec![map.clone(), lab.clone()];
+        promote_exact_identifier_hits(&mut lower, "labpanoadapter");
+        assert_eq!(lower, vec![map.clone(), lab.clone()]);
+        let mut plain = vec![map.clone(), lab.clone()];
+        promote_exact_identifier_hits(&mut plain, "Adapter");
+        assert_eq!(plain, vec![map.clone(), lab.clone()]);
+        let mut words = vec![map.clone(), lab.clone()];
+        promote_exact_identifier_hits(&mut words, "LabPanoAdapter load");
+        assert_eq!(words, vec![map, lab]);
+    }
+
+    #[test]
+    fn a_compound_identifier_found_nowhere_on_the_page_warns() {
+        let map = json!({
+            "_score": 9.0,
+            "_source": { "ax_path": "refsec/routing.js", "body": "class MapAdapter {}" }
+        });
+        let warn = exact_identifier_miss(std::slice::from_ref(&map), "LabPanoAdapter")
+            .expect("a partial-name page warns");
+        assert!(warn.contains("`LabPanoAdapter`"), "{warn}");
+        assert_eq!(exact_identifier_miss(&[], "LabPanoAdapter"), None);
+        assert_eq!(
+            exact_identifier_miss(std::slice::from_ref(&map), "adapter"),
+            None
+        );
+        assert_eq!(
+            exact_identifier_miss(std::slice::from_ref(&map), "map adapter"),
+            None
+        );
+    }
+
+    #[test]
+    fn compound_identifiers_are_camel_or_snake_names_only() {
+        for q in [
+            "LabPanoAdapter",
+            "svgTrend",
+            "resolve_exports",
+            "$scopeId",
+            "open_price",
+        ] {
+            assert_eq!(compound_identifier(q), Some(q), "{q}");
+        }
+        for q in [
+            "Token", "token", "TOKEN", "_private", "a b", "foo.bar", "9lives", "", "x-y",
+        ] {
+            assert_eq!(compound_identifier(q), None, "{q}");
+        }
     }
 }
