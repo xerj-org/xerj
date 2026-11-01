@@ -1,0 +1,34 @@
+{
+  "corpus": "pursers-fleet-recovery",
+  "cloned_at": null,
+  "repos": [
+    {
+      "repo": "Pursers",
+      "url": "https://github.com/swisspra/Pursers",
+      "licence": "AI-agent inspection of the pinned root LICENSE states Apache License 2.0; human G4 review pending",
+      "sha": "a6063e879c44158c7f142dc7cd6d0484e7c55e01",
+      "files": 353,
+      "bytes": 37434116,
+      "paths": [
+        "tools/board-butler",
+        "tools/seat-kit",
+        "docs"
+      ],
+      "review": {
+        "spdx": "Apache-2.0",
+        "use": "UNREVIEWED",
+        "by": "",
+        "at": "",
+        "note": "On behalf of @swisspra, an AI agent inspected the complete root LICENSE at this exact pin; its text is the Apache License 2.0. This is agent verification, not completed human G4 review. Suggested use: adapt-with-attribution. @swisspra is the sole credited source author. Before promotion, a human reviewer must personally open the license at the pinned SHA, confirm the SPDX classification and use, and record their own by/at fields."
+      }
+    }
+  ],
+  "status": "draft",
+  "domain": "An agent building or operating a leased multi-seat worker fleet queries this for recovery after worker exit, stale-offer filtering before model calls, unfinished owned-turn recovery without idle lease loops, and signed operator adoption checks for roster authorization, exact identity, generation, and lease safety.",
+  "promotion_requirements": [
+    "Complete and record a human G4 license review at the exact source pin; the reviewer must personally inspect the root LICENSE and record their own by/at fields before promotion.",
+    "Run cargo test --profile ci-test -p xerj-common xccode::manifest; Cargo was unavailable in the preparation environment.",
+    "Complete the applicable corpus build, shape review, and five-query retrieval evaluation before moving this draft into hub/ and setting its backlog row to live."
+  ],
+  "note": "Non-live proposal only. The source pin and scoped file/byte measurements are recorded for review, but this draft is not a clone recipe and must not be used with corpus add/index or promoted until the listed human review and validation requirements are complete."
+}
