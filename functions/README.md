@@ -31,11 +31,15 @@ Content-Type: application/json
 ```
 
 - `200 { ok:true, stored:true, note:"...GitHub PR is canonical..." }` on success.
-- `405` non-POST · `415` wrong Content-Type · `413` body > ~16 KB ·
+- `405` non-POST · `415` wrong Content-Type · `413` body > 16 KiB (16,384 bytes) ·
   `400` bad JSON / missing required field · `429` rate limited ·
   `503` daily cap reached (use the GitHub PR path).
 - CORS is open for POST (`Access-Control-Allow-Origin: *`); `OPTIONS` preflight
   returns `204`.
+
+The body limit counts raw request bytes, including a UTF-8 BOM, before decoding,
+JSON parsing or storage access. `Content-Length` enables early rejection; the
+actual body is still checked when that header is missing or understates its size.
 
 **Rate limit** — at most **1 accepted report per IP per minute** (`rl:<ip>`,
 60s TTL). A second request inside the minute → `429`.
