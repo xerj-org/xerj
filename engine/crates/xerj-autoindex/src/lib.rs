@@ -3543,10 +3543,11 @@ const MAX_IN_FLIGHT: usize = 8;
 /// The pipe lock is NOT held across the wire: a flush detaches the buffer as
 /// a job, drops the lock, sends, and resolves tokens on return, so up to
 /// [`MAX_IN_FLIGHT`] bulks are on the wire at once. Per-file order still
-/// holds — a file's cut chunks are sent synchronously by its own worker
-/// inside `submit`, so any later job carrying its tail ships after those
-/// completed; files interleave arbitrarily, exactly as the 32 parallel
-/// per-file buffers always did.
+/// holds: a file's cut chunk has landed before its worker's `submit`
+/// returns (sent by that worker, or by another that took the buffer while
+/// it was parked on a full wire), so any later job carrying its tail ships
+/// after those completed; files interleave arbitrarily, exactly as the 32
+/// parallel per-file buffers always did.
 ///
 /// Durability semantics are the per-file code's, unchanged: a token settles
 /// `Ok` only after EVERY bulk carrying its records was accepted (server_errors
@@ -3636,6 +3637,14 @@ where
         // delivery frees one — backpressure, exactly like the per-file code
         // blocking inside its own bulk send.
         let job = loop {
+            // While this worker was parked, another one may have shipped the
+            // whole buffer, these bytes with it. That job was this worker's
+            // flush: return once it has landed, as if it were sent from
+            // here. Waiting for a job of its own would park on an empty
+            // buffer for good (#2841).
+            if !st.pending.contains(&token) && !st.in_flight_tokens.contains_key(&token) {
+                return;
+            }
             if let Some(job) = self.take_job(&mut st) {
                 break job;
             }
@@ -17271,6 +17280,88 @@ mod bulk_pipe_tests {
         assert!(
             n < WORKERS * FILES_PER_WORKER,
             "{WORKERS}x{FILES_PER_WORKER} files left as {n} bodies — no coalescing happened"
+        );
+    }
+
+    /// #2841: with every wire slot busy, two workers cross the cut and park.
+    /// When a slot frees, the first one awake ships the whole buffer, the
+    /// other's bytes with it. The other wakes to an empty buffer, so it can
+    /// never take a job of its own; it must still return once its bytes were
+    /// accepted. It used to park again, every 30 s, for good, and the run
+    /// stalled at 16 and 32 workers on a 26-file corpus.
+    #[test]
+    fn a_worker_whose_bytes_another_worker_shipped_returns() {
+        use std::sync::Condvar;
+        use std::time::{Duration, Instant};
+
+        // 'static, so a worker that never returns fails this test instead
+        // of hanging it inside a thread scope.
+        let gate: &'static (Mutex<bool>, Condvar) =
+            Box::leak(Box::new((Mutex::new(false), Condvar::new())));
+        let on_wire: &'static AtomicU64 = Box::leak(Box::new(AtomicU64::new(0)));
+        let rejected: &'static AtomicU64 = Box::leak(Box::new(AtomicU64::new(0)));
+        let pipe = &*Box::leak(Box::new(BulkPipe::new(
+            move |_body| {
+                on_wire.fetch_add(1, Ordering::SeqCst);
+                let (open, cv) = gate;
+                let mut open = open.lock().unwrap();
+                while !*open {
+                    open = cv.wait(open).unwrap();
+                }
+                Ok(outcome())
+            },
+            64,
+            5000,
+            rejected,
+            10,
+        )));
+        let wait_until = |what: &str, ok: &dyn Fn() -> bool| {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while !ok() {
+                assert!(Instant::now() < deadline, "timed out waiting for {what}");
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        };
+
+        // Fill every wire slot with a body the gate holds.
+        for _ in 0..super::MAX_IN_FLIGHT {
+            let t = pipe.token();
+            std::thread::spawn(move || pipe.submit(t, vec![b'x'; 200], 1));
+        }
+        wait_until("every wire slot to be busy", &|| {
+            on_wire.load(Ordering::SeqCst) == super::MAX_IN_FLIGHT as u64
+        });
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut tokens = Vec::new();
+        for parked in 1..=2 {
+            let t = pipe.token();
+            tokens.push(t);
+            let tx = tx.clone();
+            std::thread::spawn(move || {
+                pipe.submit(t, vec![b'y'; 200], 1);
+                tx.send(t).unwrap();
+            });
+            wait_until("a worker to park on the full wire", &|| {
+                pipe.lock().parked_workers == parked
+            });
+        }
+
+        let (open, cv) = gate;
+        *open.lock().unwrap() = true;
+        cv.notify_all();
+
+        for _ in 0..2 {
+            rx.recv_timeout(Duration::from_secs(10))
+                .expect("both parked workers return once their bytes were shipped");
+        }
+        for t in tokens {
+            pipe.settle(t).expect("accepted");
+        }
+        assert_eq!(
+            on_wire.load(Ordering::SeqCst),
+            super::MAX_IN_FLIGHT as u64 + 1,
+            "the two parked workers' bytes rode one body"
         );
     }
 }
