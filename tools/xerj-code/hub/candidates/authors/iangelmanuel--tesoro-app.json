@@ -1,0 +1,23 @@
+{
+ "corpus": "iangelmanuel--tesoro-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on business-finance, cash-flow, nextjs queries this for how iangelmanuel/tesoro-app implements it: Gestor y recomendador de finanzas personales y empresariales de c\u00f3digo abierto. Registra tus movimientos y obt\u00e9n gr\u00e1ficas claras, recomendac (selected work: src/features, app/dashboard)",
+ "repos": [
+  {
+   "repo": "tesoro-app",
+   "url": "https://github.com/iangelmanuel/tesoro-app",
+   "sha": "a1ae9edf4738bd850096a5b7ca0620c8e6c3b901",
+   "licence": "MIT (LICENSE file at pin a1ae9edf4738, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T00:22Z",
+    "consent_receipt": "570d2b1da37a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T00:22Z (receipt 570d2b1da37a); selected commit a1ae9edf4738: \"feat(business): implement business deletion and restoration features \u2026\". LICENSE file at pin a1ae9edf4738 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

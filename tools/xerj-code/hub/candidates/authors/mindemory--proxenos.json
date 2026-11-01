@@ -2,21 +2,21 @@
  "corpus": "mindemory--proxenos",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how mindemory/proxenos implements it: mindemory/proxenos (Python) (selected work: src/twin, tests, web)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, healthtech, local-first queries this for how mindemory/proxenos implements it: Local-first AI agent to manage healthcare records, tracking referrals, bills, and communications securely on your computer (selected work: src/twin, tests, web)",
  "repos": [
   {
    "repo": "proxenos",
    "url": "https://github.com/mindemory/proxenos",
-   "sha": "63cf2f996bf842013dcd8049db3931ec3403aea8",
-   "licence": "MIT (LICENSE file at pin 63cf2f996bf8, GitHub licence API 2026-10-31)",
+   "sha": "92855bca2b36355c8f6abd4ba9e12fe8e29a64c3",
+   "licence": "MIT (LICENSE file at pin 92855bca2b36, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T04:09Z",
     "consent_receipt": "d295ef904d42",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:09Z (receipt d295ef904d42); selected commit 63cf2f996bf8: \"Searchable memory, recall, a corrected network and Google readers\". LICENSE file at pin 63cf2f996bf8 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head 63cf2f996bf8 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:09Z (receipt d295ef904d42); selected commit 92855bca2b36: \"Searchable memory, recall, a corrected network and Google readers\". LICENSE file at pin 92855bca2b36 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 92855bca2b36 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

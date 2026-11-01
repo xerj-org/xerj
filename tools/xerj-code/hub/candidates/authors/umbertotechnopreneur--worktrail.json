@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on activity-tracker, csharp, dotnet queries this for how umbertotechnopreneur/WorkTrail implements it: Private, local-first workday memory for Windows with searchable activity, screenshots, on-device OCR, reports, and OPTIONAL AI-provider reca (selected work: WorkTrail.Core, WorkTrail, WorkTrail.Core.Tests)",
+ "domain": "an agent working on csharp, dotnet, local-first queries this for how umbertotechnopreneur/WorkTrail implements it: Native WinUI 3 time-zone and availability planner for Windows. Compare cities at a glance, plan meeting times, export PDFs, and keep snappin (selected work: WorkTrail.Core, WorkTrail, WorkTrail.Core.Tests)",
  "repos": [
   {
    "repo": "WorkTrail",

@@ -1,0 +1,23 @@
+{
+ "corpus": "version-1--tasq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how version-1/tasq implements it: AI-native task orchestrator for coding agents (selected work: cmd/web)",
+ "repos": [
+  {
+   "repo": "tasq",
+   "url": "https://github.com/version-1/tasq",
+   "sha": "9b7291aa496488ae850dcfb658c8c9ceaf64d6ba",
+   "licence": "Apache-2.0 (LICENSE file at pin 9b7291aa4964, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T00:50Z",
+    "consent_receipt": "c2546daf1dc5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T00:50Z (receipt c2546daf1dc5); selected commit 9b7291aa4964: \"feat: simulate auto ok workflow in standalone mocks\". LICENSE file at pin 9b7291aa4964 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}
