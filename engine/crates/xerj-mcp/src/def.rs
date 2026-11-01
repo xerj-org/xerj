@@ -19,7 +19,11 @@ pub(crate) fn spec() -> Value {
             "may carry fields._passage instead. hits.total counts engine matches before deduplication. ",
             "No match is a successful empty hits list. Unlike xerj_hub_def, this queries the ",
             "configured node, not a Hub pack. Optional max_tokens caps the response; see its ",
-            "tokenizer and locator-only rule."
+            "tokenizer and locator-only rule. ",
+            "If this prefix was autoindexed from a folder on this machine and a file there is ",
+            "newer than the last run, or an indexed file has been removed, the response adds ",
+            "`_xerj.hints` code `index_stale` with the last index time and a reindex command, ",
+            "the same check as xerj_search: a definition from that index can be stale or missing."
         ),
         "inputSchema": {
             "type": "object",

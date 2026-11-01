@@ -2072,7 +2072,16 @@ async fn call_tool(ctx: &Ctx, msg: &Value) -> Value {
     // the response hits are penalized and trimmed back to `page`.
     let mut demote_page: Option<usize> = None;
     let result = match name {
-        "xerj_def" => return def::run(ctx, &args).await,
+        "xerj_def" => {
+            // Same staleness hint as xerj_search (#2426): an index older than
+            // the folder can return a definition that moved or was removed.
+            let result = def::run(ctx, &args).await;
+            if result.get("isError") == Some(&Value::Bool(true)) {
+                return result;
+            }
+            let hint = search_staleness(ctx, name, &args).await;
+            return apply_staleness(result, hint);
+        }
         // Keep the batch state machine off the shared dispatcher future's
         // stack: single-item tools must not inherit its larger frame.
         "xerj_batch_search" => return Box::pin(batch::run(ctx, &args)).await,
@@ -3552,7 +3561,15 @@ fn search_match_query(name: &str, args: &Value) -> Option<String> {
     }
 }
 
-/// Catalog + mtime check for `xerj_search`, after the search has returned.
+/// Tools whose results come from autoindexed prefixes and carry the
+/// `index_stale` hint: passages (`xerj_search`, #2345) and definitions
+/// (`xerj_def`, #2426).
+fn staleness_checked(name: &str) -> bool {
+    matches!(name, "xerj_search" | "xerj_def")
+}
+
+/// Catalog + mtime check for `xerj_search` and `xerj_def`, after the lookup
+/// has returned.
 ///
 /// The walk uses a blocking HTTP client, so it runs on a blocking thread.
 /// It starts only once the search result is in hand: a second connection
@@ -3564,7 +3581,7 @@ async fn search_staleness(
     name: &str,
     args: &Value,
 ) -> Option<xerj_autoindex::staleness::StalenessHint> {
-    if name != "xerj_search" {
+    if !staleness_checked(name) {
         return None;
     }
     let prefix = xerj_autoindex::search::prefix_from_scope(
@@ -6333,6 +6350,42 @@ mod tests {
         let err = tool_text("XERJ returned HTTP 400: no", true);
         let kept = apply_staleness(err.clone(), Some(hint));
         assert_eq!(kept, err);
+    }
+
+    /// #2426: `xerj_def` answered from an index older than the folder with
+    /// no warning, while `xerj_search` on the same prefix carried
+    /// `index_stale`. Both lookups now share the check; other tools do not.
+    #[test]
+    fn a_definition_lookup_carries_the_same_staleness_hint_as_search() {
+        assert!(staleness_checked("xerj_search"));
+        assert!(staleness_checked("xerj_def"));
+        for other in ["xerj_code_search", "xerj_hub_def", "xerj_hybrid_search"] {
+            assert!(!staleness_checked(other), "{other}");
+        }
+        let spec = def::spec();
+        let description = spec["description"].as_str().unwrap();
+        assert!(description.contains("index_stale"), "{description}");
+
+        let hint = xerj_autoindex::staleness::StalenessHint {
+            code: "index_stale",
+            reason: "The index for prefix `ax` was last built at 2026-10-23T23:46:52Z. `src/chart.ts` is newer than that index, so a page on disk can be missing from these results. Reindex with: xerj autoindex /repo --prefix ax".into(),
+            indexed_at: "2026-10-23T23:46:52Z".into(),
+            root: "/repo".into(),
+            run_id: String::new(),
+            prefix: "ax".into(),
+            path: "src/chart.ts".into(),
+            change: "newer",
+        };
+        let def_hit = r#"{"hits":{"total":{"value":1},"hits":[{"_index":"ax-code","_source":{"ax_path":"src/chart.ts","line":12,"code":"export function svgTrend("}}]}}"#;
+        let merged = apply_staleness(tool_text(def_hit, false), Some(hint));
+        let parsed: Value =
+            serde_json::from_str(merged["content"][0]["text"].as_str().unwrap()).unwrap();
+        assert_eq!(parsed["_xerj"]["hints"][0]["code"], "index_stale");
+        assert_eq!(parsed["_xerj"]["hints"][0]["path"], "src/chart.ts");
+        assert_eq!(
+            parsed["hits"]["hits"][0]["_source"]["code"],
+            "export function svgTrend("
+        );
     }
 
     /// A process with no hub signing key must not advertise tools that can

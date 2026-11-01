@@ -569,7 +569,7 @@ pub fn run_def_cli() -> i32 {
         }
     }
 
-    let es = match Es::new(&url, api_key) {
+    let es = match Es::new(&url, api_key.clone()) {
         Ok(es) => es,
         Err(e) => {
             eprintln!("xerj def: could not build client for {url}: {e}");
@@ -608,6 +608,10 @@ pub fn run_def_cli() -> i32 {
         k,
         raw_mapping.as_ref(),
     );
+    // Same catalog + mtime check as `xerj search` (#2345), run beside the
+    // query: a definition from an index older than the folder can be stale
+    // or missing (#2426), and the lookup should say so.
+    let stale = crate::search::spawn_staleness_check(&url, api_key.as_deref(), &prefix);
     let mut resp = match es.search(&pattern, &body) {
         Ok(v) => v,
         Err(e) => {
@@ -617,13 +621,21 @@ pub fn run_def_cli() -> i32 {
     };
 
     let hits = finalize_definition_response(&mut resp, &query, k);
+    let hint = stale.join().ok().flatten();
 
     if as_json {
+        if let Some(hint) = &hint {
+            crate::staleness::attach(&mut resp, hint);
+        }
         println!(
             "{}",
             serde_json::to_string_pretty(&resp).unwrap_or_default()
         );
         return 0;
+    }
+
+    if let Some(hint) = &hint {
+        println!("{}", hint.cli_line_for("def"));
     }
 
     if hits.is_empty() {

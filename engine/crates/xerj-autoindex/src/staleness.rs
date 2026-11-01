@@ -74,7 +74,12 @@ pub struct StalenessHint {
 impl StalenessHint {
     /// The line `xerj search` prints before its passages.
     pub fn cli_line(&self) -> String {
-        format!("xerj search: {}", self.reason)
+        self.cli_line_for("search")
+    }
+
+    /// The same line for another subcommand, e.g. `xerj def` (#2426).
+    pub fn cli_line_for(&self, command: &str) -> String {
+        format!("xerj {command}: {}", self.reason)
     }
 }
 
@@ -898,6 +903,12 @@ mod tests {
         assert_eq!(found.change, "newer");
         assert_eq!(found.code, "index_stale");
         assert!(line.starts_with("xerj search: "), "{line}");
+        // #2426: `xerj def` prints the same warning under its own name.
+        let def_line = found.cli_line_for("def");
+        assert_eq!(
+            def_line.strip_prefix("xerj def: "),
+            line.strip_prefix("xerj search: ")
+        );
         assert!(line.contains("docs/page.md"), "{line}");
         assert!(line.contains("2026-10-23T23:46:52Z"), "{line}");
         assert!(line.contains("run-20261023T234652Z-2c98-0000"), "{line}");
