@@ -1,0 +1,23 @@
+{
+ "corpus": "nisconder--npm-safe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cli, desktop-app, llm queries this for how nisconder/npm-safe implements it: Local-first npm supply-chain security scanner: static + optional LLM analysis, CLI/CI gates, desktop app, and AI-agent skills (selected work: packages/core, packages/desktop)",
+ "repos": [
+  {
+   "repo": "npm-safe",
+   "url": "https://github.com/nisconder/npm-safe",
+   "sha": "2894f4baf96293f2c8cad9b980f853b735829bc4",
+   "licence": "Apache-2.0 (LICENSE file at pin 2894f4baf962, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T02:17Z",
+    "consent_receipt": "7ed402e3c83f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T02:17Z (receipt 7ed402e3c83f); selected commit 2894f4baf962: \"fix: repair install gate execution and validation\". LICENSE file at pin 2894f4baf962 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

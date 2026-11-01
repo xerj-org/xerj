@@ -1,0 +1,30 @@
+{
+ "corpus": "big-sh0t114--nachobot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on bilibili-bot, chatbot, discord-bot queries this for how Big-Sh0t114/NachoBot implements it: \u57fa\u4e8eMaibot\u6838\u5fc3\u4fee\u6539\u800c\u6210\u7684\u591a\u529f\u80fd\u7b28\u86cb\u673a\u5668\u4eba (selected work: NachoBot-Live2D-Adapter)",
+ "repos": [
+  {
+   "repo": "NachoBot",
+   "url": "https://github.com/Big-Sh0t114/NachoBot",
+   "sha": "bc0e0c32f6614fbaff69210967569940ed6e60f2",
+   "licence": "GPL-3.0 (LICENSE file at pin bc0e0c32f661, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T01:31Z",
+    "consent_receipt": "dff52142f084",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T01:31Z (receipt dff52142f084); selected commit bc0e0c32f661: \"feat(live2d): improve desktop pet experience\". LICENSE file at pin bc0e0c32f661 detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "bc0e0c32f6614fbaff69210967569940ed6e60f2",
+     "at": "2026-11-01T01:31Z",
+     "receipt": "dff52142f084"
+    }
+   }
+  }
+ ]
+}

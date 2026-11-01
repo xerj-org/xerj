@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent, agentic-ai, ai-coding queries this for how treeol/wakil implements it: A terminal-native coding agent (selected work: internal/agent)",
+ "domain": "an agent working on agent, agentic-ai, ai-coding queries this for how treeol/wakil implements it: A multi-model, terminal-native AI agent (selected work: internal/agent)",
  "repos": [
   {
    "repo": "wakil",

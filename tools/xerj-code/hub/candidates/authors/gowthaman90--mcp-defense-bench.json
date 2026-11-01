@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agentic-ai, ai-security, benchmark queries this for how Gowthaman90/mcp-defense-bench implements it: Vendor-neutral benchmark measuring how MCP security proxies/gateways DEFEND against 22+ attack vectors \u2014 crosswalked to NIST AI RMF & OWASP  (selected work: results, adapters, bin)",
+ "domain": "an agent working on agentic-ai, ai-security, benchmark queries this for how Gowthaman90/mcp-defense-bench implements it: Vendor-neutral benchmark measuring how MCP security proxies/gateways DEFEND against 41 attack vectors \u2014 crosswalked to NIST AI RMF & OWASP L (selected work: results, adapters, bin)",
  "repos": [
   {
    "repo": "mcp-defense-bench",

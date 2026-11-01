@@ -1,0 +1,23 @@
+{
+ "corpus": "99apps-id--termixgo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how 99apps-id/termixgo implements it: Termixgo is a coding agent that runs entirely in your terminal. Built with Go",
+ "repos": [
+  {
+   "repo": "termixgo",
+   "url": "https://github.com/99apps-id/termixgo",
+   "sha": "ca80e00cd6615dc44ad5e49d8bf726395392244c",
+   "licence": "Apache-2.0 (LICENSE file at pin ca80e00cd661, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T01:32Z",
+    "consent_receipt": "36720fcc4108",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T01:32Z (receipt 36720fcc4108); pinned to the default-branch head. LICENSE file at pin ca80e00cd661 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}
