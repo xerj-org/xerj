@@ -294,7 +294,7 @@ mod tests {
     /// figure must land within 2x of the measured ingest.
     #[test]
     fn the_lead_estimate_matches_the_reported_prose_ingest() {
-        let source_bytes = 13 * 1024 * 1024;
+        let source_bytes = 13_u64 * 1024 * 1024;
         let (probe_bytes, passages) = (16_384_u64, 32_u32);
         // Probe millis that make the linear estimate 2,568 s (42.8 min).
         let millis = (2_568.0 * 1000.0 * probe_bytes as f64 / source_bytes as f64).round() as u64;
