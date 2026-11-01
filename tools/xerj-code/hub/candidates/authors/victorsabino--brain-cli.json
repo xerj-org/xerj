@@ -1,0 +1,23 @@
+{
+ "corpus": "victorsabino--brain-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-memory, ai-agents, claude-code queries this for how victorsabino/brain-cli implements it: Persistent memory for AI agents and personal knowledge management. Single-file Python CLI: hybrid semantic + keyword search (SQLite FTS5 + s (selected work: mcp, the project root)",
+ "repos": [
+  {
+   "repo": "brain-cli",
+   "url": "https://github.com/victorsabino/brain-cli",
+   "sha": "861c65a45cefea4162ddc3ee4ac61116b3f02ced",
+   "licence": "MIT (LICENSE file at pin 861c65a45cef, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T20:36Z",
+    "consent_receipt": "de12d8f5b354",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T20:36Z (receipt de12d8f5b354); selected commit 861c65a45cef: \"mcp: lifecycle tools (remember/update/invalidate), locked stdout capt\u2026\". LICENSE file at pin 861c65a45cef detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

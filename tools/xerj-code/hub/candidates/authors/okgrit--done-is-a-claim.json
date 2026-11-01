@@ -1,9 +1,9 @@
 {
- "corpus": "grit-77--done-is-a-claim",
+ "corpus": "okgrit--done-is-a-claim",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agents-md, ai-agents, claude-code queries this for how Grit-77/done-is-a-claim implements it: Your coding agent says done. Show the receipt. Evidence-first workflows, practical skills, and plugins for Claude Code and Codex (selected work: tests, tools, the project root)",
+ "domain": "an agent working on agents-md, ai-agents, claude-code queries this for how okgrit/done-is-a-claim implements it: Your coding agent says done. Show the receipt. Evidence-first workflows, practical skills, and plugins for Claude Code and Codex (selected work: tests, tools, the project root)",
  "repos": [
   {
    "repo": "done-is-a-claim",

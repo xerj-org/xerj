@@ -1,9 +1,9 @@
 {
- "corpus": "manmohanbrahma--open-inference-fabric",
+ "corpus": "openinferencefabric--oif",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Shell queries this for how manmohanbrahma/open-inference-fabric implements it: One open-source platform to schedule, serve, benchmark and observe LLMs on NVIDIA and AMD GPUs (Run:ai, Dynamo, AIPerf) (selected work: installer, tests, platform)",
+ "domain": "an agent working on amd, dynamo, gpu queries this for how openinferencefabric/oif implements it: One open-source platform to schedule, serve, benchmark and observe LLMs on NVIDIA and AMD GPUs (Run:ai, Dynamo, AIPerf) (selected work: installer, tests, platform)",
  "repos": [
   {
    "repo": "open-inference-fabric",
