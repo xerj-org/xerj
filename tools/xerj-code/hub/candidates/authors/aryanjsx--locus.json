@@ -8,15 +8,15 @@
   {
    "repo": "Locus",
    "url": "https://github.com/aryanjsx/Locus",
-   "sha": "f77a0413a181837f40dced2bb725e72a5a074746",
-   "licence": "Apache-2.0 (LICENSE file at pin f77a0413a181, GitHub licence API 2026-11-01)",
+   "sha": "7c688860a727af1abd046fde79620f161c1ef489",
+   "licence": "Apache-2.0 (LICENSE file at pin 7c688860a727, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-12T04:56Z",
     "consent_receipt": "1b2443182574",
-    "note": "Inclusion consented by the commit author by email at 2026-10-12T04:56Z (receipt 1b2443182574); selected commit f77a0413a181: \"feat(experiments): add stage 2 benchmark harness\". LICENSE file at pin f77a0413a181 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head f77a0413a181 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-12T04:56Z (receipt 1b2443182574); selected commit 7c688860a727: \"feat(experiments): add stage 2 benchmark harness\". LICENSE file at pin 7c688860a727 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 7c688860a727 (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

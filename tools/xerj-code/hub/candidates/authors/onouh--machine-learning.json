@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Jupyter Notebook queries this for how onouh/Machine-Learning implements it: Various machine learning models trained and tested against data. Optimized parameters and feature selection/modifications (selected work: src/hotel_booking, the project root, tests)",
+ "domain": "an agent working on Python queries this for how onouh/Machine-Learning implements it: Various machine learning models trained and tested against data. Optimized parameters and feature selection/modifications (selected work: src/hotel_booking, the project root, tests)",
  "repos": [
   {
    "repo": "Machine-Learning",

@@ -8,15 +8,15 @@
   {
    "repo": "FishTrack",
    "url": "https://github.com/davewalker5/FishTrack",
-   "sha": "9b24e7bc97ab6e757dbf4324a9a15c725cd03591",
-   "licence": "MIT (LICENSE file at pin 9b24e7bc97ab, GitHub licence API 2026-11-01)",
+   "sha": "6a4a2c562e5c9c873652875a3cdeb0fd199ce0ad",
+   "licence": "MIT (LICENSE file at pin 6a4a2c562e5c, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T12:14Z",
     "consent_receipt": "616869f41dc6",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T12:14Z (receipt 616869f41dc6); pinned to the default-branch head. LICENSE file at pin 9b24e7bc97ab detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T12:14Z (receipt 616869f41dc6); pinned to the default-branch head. LICENSE file at pin 6a4a2c562e5c detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

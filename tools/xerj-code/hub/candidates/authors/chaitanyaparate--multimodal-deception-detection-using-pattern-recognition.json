@@ -1,0 +1,23 @@
+{
+ "corpus": "chaitanyaparate--multimodal-deception-detection-using-pattern-recognition",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on computer-vision, deception-detection, deep-learning queries this for how ChaitanyaParate/Multimodal_Deception_Detection_Using_Pattern_Recognition implements it: Multimodal deception detection system that analyzes speech content, vocal acoustics, and facial behavior from video input and fuses them int (selected work: the project root, outputs)",
+ "repos": [
+  {
+   "repo": "Multimodal_Deception_Detection_Using_Pattern_Recognition",
+   "url": "https://github.com/ChaitanyaParate/Multimodal_Deception_Detection_Using_Pattern_Recognition",
+   "sha": "866d634e06fd794121b7c36dc4f777647d981e26",
+   "licence": "MIT (LICENSE file at pin 866d634e06fd, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T17:04Z",
+    "consent_receipt": "694886c0815f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T17:04Z (receipt 694886c0815f); selected commit 866d634e06fd: \"feat: multimodal pattern recognition studio, 13-model benchmark, and \u2026\". LICENSE file at pin 866d634e06fd detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

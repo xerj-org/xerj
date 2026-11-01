@@ -1,9 +1,9 @@
 {
- "corpus": "gitmehdi-sys--urbanflow-ai",
+ "corpus": "gitmehdi-sys--ditwin",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how GitMehdi-sys/UrbanFlow-AI implements it: UrbanFlow AI: multi-agent coordination (selected work: agentsumo, web, the project root)",
+ "domain": "an agent working on Python queries this for how GitMehdi-sys/Ditwin implements it: UrbanFlow AI: multi-agent coordination (selected work: agentsumo, web, the project root)",
  "repos": [
   {
    "repo": "UrbanFlow-AI",

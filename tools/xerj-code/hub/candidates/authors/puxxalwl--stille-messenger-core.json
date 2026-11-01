@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "CRYPTO",
- "domain": "an agent working on cryptography, end-to-end-encryption, messenger queries this for how Puxxalwl/stille-messenger-core implements it: shopot-core - Serverless P2P messaging engine \u2014 end-to-end encrypted with forward secrecy, no servers, no accounts, encrypted local history. (selected work: zig)",
+ "domain": "an agent working on cryptography, end-to-end-encryption, messenger queries this for how puxxalwl/stille-messenger-core implements it: shopot-core - Serverless P2P messaging engine \u2014 end-to-end encrypted with forward secrecy, no servers, no accounts, encrypted local history. (selected work: zig)",
  "repos": [
   {
    "repo": "stille-messenger-core",

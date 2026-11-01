@@ -8,15 +8,15 @@
   {
    "repo": "ACEStream",
    "url": "https://github.com/esohns/ACEStream",
-   "sha": "0cc95e01fcb0328ce8ee72499b3f53fc0ed42fe4",
-   "licence": "author's permission (LICENSE at pin 0cc95e01fcb0: NOASSERTION; repository: LGPL-3.0)",
+   "sha": "7b6ebf31493cf099b166300ded1ca864a35c104f",
+   "licence": "author's permission (LICENSE at pin 7b6ebf31493c: NOASSERTION; repository: LGPL-3.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-28T19:13Z",
     "consent_receipt": "ad3f921a0cc8",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:13Z (receipt ad3f921a0cc8); pinned to the default-branch head. LICENSE at pin 0cc95e01fcb0: NOASSERTION (repository: LGPL-3.0); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:13Z (receipt ad3f921a0cc8); pinned to the default-branch head. LICENSE at pin 7b6ebf31493c: NOASSERTION (repository: LGPL-3.0); used with the author's permission, with attribution."
    }
   }
  ]

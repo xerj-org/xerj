@@ -1,0 +1,23 @@
+{
+ "corpus": "dp9318--recall",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, ai-agents, chromadb queries this for how dp9318/RECALL implements it: Persistent memory engine for AI coding agents \u2014 preserve project context, retrieve relevant knowledge, and maintain consistency across sessi (selected work: frontend, the project root, scripts)",
+ "repos": [
+  {
+   "repo": "RECALL",
+   "url": "https://github.com/dp9318/RECALL",
+   "sha": "9cb4815ff4c71d7a9a0194479739220a9cd4e984",
+   "licence": "MIT (LICENSE file at pin 9cb4815ff4c7, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-25T22:30Z",
+    "consent_receipt": "58f026a31c1f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T22:30Z (receipt 58f026a31c1f); selected commit 9cb4815ff4c7: \"v2.1.1 - minor ui bug fixes\". LICENSE file at pin 9cb4815ff4c7 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}
