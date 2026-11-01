@@ -1,0 +1,30 @@
+{
+ "corpus": "darkignite--levitas",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how DarkIgnite/levitas implements it: Lightweight Minecraft: Java Edition 26.3 server written from scratch in Rust (selected work: crates/levitas-server)",
+ "repos": [
+  {
+   "repo": "levitas",
+   "url": "https://github.com/DarkIgnite/levitas",
+   "sha": "b76d96a4fa2ce80718e55553055e931fde3a9d79",
+   "licence": "GPL-3.0 (LICENSE file at pin b76d96a4fa2c, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T00:05Z",
+    "consent_receipt": "a12c0755aa48",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T00:05Z (receipt a12c0755aa48); selected commit b76d96a4fa2c: \"feat: implement wandering traders, trader llamas, zombie villagers, c\u2026\". LICENSE file at pin b76d96a4fa2c detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "b76d96a4fa2ce80718e55553055e931fde3a9d79",
+     "at": "2026-11-01T00:05Z",
+     "receipt": "a12c0755aa48"
+    }
+   }
+  }
+ ]
+}

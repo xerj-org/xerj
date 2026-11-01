@@ -1,0 +1,23 @@
+{
+ "corpus": "mattszein--pro-rails",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Ruby queries this for how mattszein/pro-rails implements it: mattszein/pro-rails (Ruby) (selected work: spec, app/interactors, app/models)",
+ "repos": [
+  {
+   "repo": "pro-rails",
+   "url": "https://github.com/mattszein/pro-rails",
+   "sha": "a90c51ab72fb3b158a1b43a5b03c3e85ada14d82",
+   "licence": "MIT (LICENSE file at pin a90c51ab72fb, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T23:45Z",
+    "consent_receipt": "f3ffc9ccd8ce",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T23:45Z (receipt f3ffc9ccd8ce); selected commit a90c51ab72fb: \"Lock the requester composer while the AI analyzes, write the AI note \u2026\". LICENSE file at pin a90c51ab72fb detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

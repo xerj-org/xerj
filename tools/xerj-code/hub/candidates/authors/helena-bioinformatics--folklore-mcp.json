@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how helena-bioinformatics/folklore-mcp implements it: Folklore Clinical Variant Interpretation MCP \u2014 official public Helena Bioinformatics MCP for ACMG/AMP evidence and literature (selected work: integrations, tests)",
+ "domain": "an agent working on Python queries this for how helena-bioinformatics/folklore-mcp implements it: Automated ACMG/AMP germline variant classification and assessment via MCP, with gene profiles and scientific literature (selected work: integrations, tests)",
  "repos": [
   {
    "repo": "folklore-mcp",

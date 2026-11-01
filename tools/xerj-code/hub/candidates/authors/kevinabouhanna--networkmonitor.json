@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on appkit, bandwidth-monitor, data-usage queries this for how kevinabouhanna/NetworkMonitor implements it: Live network speed in your macOS menu bar, with a per-app breakdown of your data usage. No telemetry, no Dock icon (selected work: Sources)",
+ "domain": "an agent working on appkit, bandwidth-monitor, data-usage queries this for how kevinabouhanna/NetworkMonitor implements it: Live network speed in your Mac's menu bar, which apps used your data, and a free, open-source firewall: see who every app talks to, and bloc (selected work: Sources)",
  "repos": [
   {
    "repo": "NetworkMonitor",

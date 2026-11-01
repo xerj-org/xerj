@@ -8,15 +8,15 @@
   {
    "repo": "biotech",
    "url": "https://github.com/Biotech-Futures/biotech",
-   "sha": "f26d9de3f66069cf654c4544b72f100e285871e5",
-   "licence": "Apache-2.0 (LICENSE file at pin f26d9de3f660, GitHub licence API 2026-10-31)",
+   "sha": "4c341b3bc353bd4c357945f2eadd4d69ca1e6107",
+   "licence": "Apache-2.0 (LICENSE file at pin 4c341b3bc353, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-26T22:29Z",
     "consent_receipt": "d164d55b7185",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T22:29Z (receipt d164d55b7185); selected commit f26d9de3f660: \"Improve group meeting editing and responsive layout\". LICENSE file at pin f26d9de3f660 detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head f26d9de3f660 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T22:29Z (receipt d164d55b7185); selected commit 4c341b3bc353: \"Improve group meeting editing and responsive layout\". LICENSE file at pin 4c341b3bc353 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 4c341b3bc353 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

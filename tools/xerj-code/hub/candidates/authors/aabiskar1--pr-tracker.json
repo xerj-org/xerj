@@ -1,0 +1,23 @@
+{
+ "corpus": "aabiskar1--pr-tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how aabiskar1/pr-tracker implements it: PR Tracker is a browser extension for Chrome and Firefox that brings your GitHub pull requests and review requests into one compact popup. C (selected work: tests, src/background, src/components)",
+ "repos": [
+  {
+   "repo": "pr-tracker",
+   "url": "https://github.com/aabiskar1/pr-tracker",
+   "sha": "2f877450db443a873a7fe5372d9ec47aba9bc6c0",
+   "licence": "MIT (LICENSE file at pin 2f877450db44, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T23:29Z",
+    "consent_receipt": "396210c338fa",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T23:29Z (receipt 396210c338fa); selected commit 2f877450db44: \"feat: retain previously reviewed open pull requests\". LICENSE file at pin 2f877450db44 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

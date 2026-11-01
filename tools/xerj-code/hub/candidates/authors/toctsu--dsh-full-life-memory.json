@@ -1,0 +1,23 @@
+{
+ "corpus": "toctsu--dsh-full-life-memory",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on context-window, deepseek-harness, dsh-plugin queries this for how Toctsu/dsh-full-life-memory implements it: A biomimetic memory plugin for DeepSeek Harness. Folds context into token clues and reconstructs memories, enabling infinite conversations w (selected work: the project root, test)",
+ "repos": [
+  {
+   "repo": "dsh-full-life-memory",
+   "url": "https://github.com/Toctsu/dsh-full-life-memory",
+   "sha": "78a8acece35e3f026640ba27de2a2c7591ce2b93",
+   "licence": "MIT (LICENSE file at pin 78a8acece35e, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T00:09Z",
+    "consent_receipt": "1e9b54be3f6c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T00:09Z (receipt 1e9b54be3f6c); selected commit 78a8acece35e: \"feat: add scene-specific overrides (qqbot, wechat, etc.)\". LICENSE file at pin 78a8acece35e detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 78a8acece35e (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}
