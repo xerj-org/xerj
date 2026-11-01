@@ -1,0 +1,23 @@
+{
+ "corpus": "ic-devops-lab--internal-devops-platform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Shell queries this for how ic-devops-lab/internal-devops-platform implements it: A step-by-step guide to building a production-inspired private infrastructure for a small software company using open-source technologies. T (selected work: lab-infra, the project root)",
+ "repos": [
+  {
+   "repo": "internal-devops-platform",
+   "url": "https://github.com/ic-devops-lab/internal-devops-platform",
+   "sha": "38f4f5393571bc6f30bfd8c304eef0b7b150419e",
+   "licence": "MIT (LICENSE file at pin 38f4f5393571, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T18:58Z",
+    "consent_receipt": "cb0f929177f1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T18:58Z (receipt cb0f929177f1); selected commit 38f4f5393571: \"feat(ansible,jenkins) automate (accept credentials) Jenkins Controlle\u2026\". LICENSE file at pin 38f4f5393571 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

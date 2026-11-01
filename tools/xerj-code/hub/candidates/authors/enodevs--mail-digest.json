@@ -1,0 +1,23 @@
+{
+ "corpus": "enodevs--mail-digest",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Enodevs/mail_digest implements it: Enodevs/mail_digest (Python) (selected work: the project root, agent)",
+ "repos": [
+  {
+   "repo": "mail_digest",
+   "url": "https://github.com/Enodevs/mail_digest",
+   "sha": "bc3a8f12e538faa6e4fb5bd97b699d9c371a1cfb",
+   "licence": "MIT (LICENSE file at pin bc3a8f12e538, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T18:15Z",
+    "consent_receipt": "3676c0f1e919",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T18:15Z (receipt 3676c0f1e919); selected commit bc3a8f12e538: \"Changed the automation to have a bot alongside it and changed chat pr\u2026\". LICENSE file at pin bc3a8f12e538 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

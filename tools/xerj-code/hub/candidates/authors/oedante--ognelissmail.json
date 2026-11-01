@@ -8,15 +8,15 @@
   {
    "repo": "OgnelissMail",
    "url": "https://github.com/oedante/OgnelissMail",
-   "sha": "0d9cb41a890d093380e3d078ec416e9d0807e170",
-   "licence": "Apache-2.0 (LICENSE file at pin 0d9cb41a890d, GitHub licence API 2026-11-01)",
+   "sha": "4ed0904867b6505e75c4faad12c8f73abaf45cbf",
+   "licence": "Apache-2.0 (LICENSE file at pin 4ed0904867b6, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-31T05:13Z",
     "consent_receipt": "02248a10ef66",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T05:13Z (receipt 02248a10ef66); pinned to the default-branch head. LICENSE file at pin 0d9cb41a890d detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T05:13Z (receipt 02248a10ef66); pinned to the default-branch head. LICENSE file at pin 4ed0904867b6 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

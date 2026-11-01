@@ -1,0 +1,23 @@
+{
+ "corpus": "idiagovaleta--localollamarag",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on bm25, faiss, hexagonal-architecture queries this for how iDiagoValeta/localOllamaRAG implements it: Local multimodal RAG for PDFs: MinerU, embeddinggemma-2, FAISS, BM25, BGE reranking and Ollama. Runs on your hardware via web and desktop; s (selected work: tools, tests)",
+ "repos": [
+  {
+   "repo": "localOllamaRAG",
+   "url": "https://github.com/iDiagoValeta/localOllamaRAG",
+   "sha": "9b746a785a0fb5dd0bb825f3b90db23be1c5c958",
+   "licence": "MIT (LICENSE file at pin 9b746a785a0f, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T18:27Z",
+    "consent_receipt": "52cf6fa140ae",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T18:27Z (receipt 52cf6fa140ae); selected commit 9b746a785a0f: \"One-command install, launch and uninstall on Linux (#559) (#577)\". LICENSE file at pin 9b746a785a0f detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

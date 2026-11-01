@@ -1,0 +1,23 @@
+{
+ "corpus": "nekotyy--misis-rasp-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how nekotyy/misis-rasp-bot implements it: \u0410\u0441\u0438\u043d\u0445\u0440\u043e\u043d\u043d\u044b\u0439 \u0431\u043e\u0442 \u0440\u0430\u0441\u043f\u0438\u0441\u0430\u043d\u0438\u044f \u041e\u041f\u041a \u0421\u0422\u0418 \u041d\u0418\u0422\u0423 \u041c\u0418\u0421\u0418\u0421 \u0434\u043b\u044f Telegram \u0438 VK \u0441 \u0432\u0435\u0431-\u0434\u0430\u0448\u0431\u043e\u0440\u0434\u043e\u043c, RabbitMQ \u0438 \u0441\u0447\u0435\u0442\u0447\u0438\u043a\u0430\u043c\u0438 \u043f\u0430\u0440 (selected work: src, tests, web_configurator)",
+ "repos": [
+  {
+   "repo": "misis-rasp-bot",
+   "url": "https://github.com/nekotyy/misis-rasp-bot",
+   "sha": "b27578f9c8c716a28782205e098896e01328f7a9",
+   "licence": "MIT (LICENSE file at pin b27578f9c8c7, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T18:23Z",
+    "consent_receipt": "0fe7d7cf91c2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T18:23Z (receipt 0fe7d7cf91c2); selected commit b27578f9c8c7: \"feat: \u0434\u043e\u0431\u0430\u0432\u0438\u043b \u0440\u0430\u0441\u043f\u0438\u0441\u0430\u043d\u0438\u0435 \u0443\u043d\u0438\u0432\u0435\u0440\u0441\u0438\u0442\u0435\u0442\u0430 \u0438 \u0432\u044b\u0431\u043e\u0440 \u0447\u0438\u0441\u043b\u0438\u0442\u0435\u043b\u044f \u0438 \u0437\u043d\u0430\u043c\u0435\u043d\u0430\u0442\u0435\u043b\u044f\". LICENSE file at pin b27578f9c8c7 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

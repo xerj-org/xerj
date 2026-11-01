@@ -1,0 +1,23 @@
+{
+ "corpus": "ajitpal--dynamic-island-android",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on andriod, dynamic-island queries this for how ajitpal/dynamic-island-android implements it: The Dynamic Island for every Android phone (selected work: modules/speech, modules/voice, modules/ai)",
+ "repos": [
+  {
+   "repo": "dynamic-island-android",
+   "url": "https://github.com/ajitpal/dynamic-island-android",
+   "sha": "1725508f89676492fe7343aaa66db74c3d827962",
+   "licence": "MIT (LICENSE file at pin 1725508f8967, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T19:43Z",
+    "consent_receipt": "fce034cb7709",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T19:43Z (receipt fce034cb7709); selected commit 1725508f8967: \"1.11.0: Meeting Notes in Hindi and Hinglish, Import Audio File, Speec\u2026\". LICENSE file at pin 1725508f8967 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

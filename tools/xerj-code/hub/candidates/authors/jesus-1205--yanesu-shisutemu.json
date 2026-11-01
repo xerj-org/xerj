@@ -8,15 +8,15 @@
   {
    "repo": "yanesu-shisutemu",
    "url": "https://github.com/Jesus-1205/yanesu-shisutemu",
-   "sha": "3cb28e64c20b41794127fe31b6c8fb3e98cf62d2",
-   "licence": "MIT (LICENSE file at pin 3cb28e64c20b, GitHub licence API 2026-10-26)",
+   "sha": "d7b3068fcaa5abec795d3f6d4c66569ab31f4476",
+   "licence": "MIT (LICENSE file at pin d7b3068fcaa5, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-23T22:03Z",
     "consent_receipt": "e8bad3ceb942",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T22:03Z (receipt e8bad3ceb942); selected commit 3cb28e64c20b: \"feat(inventory): add base seed functions for demo data\". LICENSE file at pin 3cb28e64c20b detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Pinned to head 3cb28e64c20b (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T22:03Z (receipt e8bad3ceb942); selected commit d7b3068fcaa5: \"feat(inventory): add base seed functions for demo data\". LICENSE file at pin d7b3068fcaa5 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head d7b3068fcaa5 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

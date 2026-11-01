@@ -1,0 +1,23 @@
+{
+ "corpus": "peopleworks--wpshield",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on C# queries this for how peopleworks/WPShield implements it: Open-source, multilingual Windows Power Shield. An open-source security gateway for Windows Server and IIS (selected work: tests, src/WPShield.NetworkSensor, src/WPShield.Cli)",
+ "repos": [
+  {
+   "repo": "WPShield",
+   "url": "https://github.com/peopleworks/WPShield",
+   "sha": "1641f3b49b34e19fe53229869d8906c46d78a11d",
+   "licence": "MIT (LICENSE file at pin 1641f3b49b34, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T19:40Z",
+    "consent_receipt": "75ac81be9286",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T19:40Z (receipt 75ac81be9286); selected commit 1641f3b49b34: \"feat(network-sensor, gateway): add passive network capture and concur\u2026\". LICENSE file at pin 1641f3b49b34 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

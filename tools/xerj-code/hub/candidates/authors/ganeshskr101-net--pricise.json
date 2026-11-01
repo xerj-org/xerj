@@ -8,15 +8,15 @@
   {
    "repo": "Pricise",
    "url": "https://github.com/ganeshskr101-net/Pricise",
-   "sha": "0a445d4f4bff081575a7266358439670a92e2fef",
-   "licence": "MIT (LICENSE file at pin 0a445d4f4bff, GitHub licence API 2026-10-29)",
+   "sha": "92256bc70766eb7986ef2655a88cd34e932a5221",
+   "licence": "MIT (LICENSE file at pin 92256bc70766, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T15:34Z",
     "consent_receipt": "92ec6488db93",
-    "note": "Inclusion consented by the commit author by email at 2026-10-29T15:34Z (receipt 92ec6488db93); selected commit 0a445d4f4bff: \"Josh: Zetaris data layer, Store Lab A-I, Price Agent\". LICENSE file at pin 0a445d4f4bff detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution. Pinned to head 0a445d4f4bff (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T15:34Z (receipt 92ec6488db93); selected commit 92256bc70766: \"Josh: Zetaris data layer, Store Lab A-I, Price Agent\". LICENSE file at pin 92256bc70766 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 92256bc70766 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

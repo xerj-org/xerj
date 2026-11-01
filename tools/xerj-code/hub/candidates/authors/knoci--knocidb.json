@@ -8,15 +8,15 @@
   {
    "repo": "knociDB",
    "url": "https://github.com/knoci/knociDB",
-   "sha": "7f968e210daf9b7cc44664ae56fb2d047050704d",
-   "licence": "MIT (LICENSE file at pin 7f968e210daf, GitHub licence API 2026-11-01)",
+   "sha": "78f21e49eac0e40389da45c043a793ee563bcd65",
+   "licence": "MIT (LICENSE file at pin 78f21e49eac0, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T12:28Z",
     "consent_receipt": "5519bca30ad5",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T12:28Z (receipt 5519bca30ad5); pinned to the default-branch head. LICENSE file at pin 7f968e210daf detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T12:28Z (receipt 5519bca30ad5); pinned to the default-branch head. LICENSE file at pin 78f21e49eac0 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

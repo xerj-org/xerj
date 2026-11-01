@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on game-engine, game-preservation, game-preservation-reverse-engineering queries this for how DarkArshyn/OpenJade implements it: Open-source Jade Engine reimplementation targeting Prince of Persia, Beyond Good & Evil, and other Jade Engine games (selected work: src, tests, tools)",
+ "domain": "an agent working on game-engine, game-preservation, jade-engine queries this for how DarkArshyn/OpenJade implements it: Open-source Jade Engine reimplementation targeting Prince of Persia, Beyond Good & Evil, and other Jade Engine games (selected work: src, tests, tools)",
  "repos": [
   {
    "repo": "OpenJade",
