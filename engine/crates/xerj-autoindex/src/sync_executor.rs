@@ -3166,6 +3166,7 @@ pub fn create_snapshot(
         // The source-snapshot wrapper has no plan and therefore never runs
         // `prepare_artifact`; a labeler would have nothing to vote on.
         None,
+        None,
     )
 }
 
@@ -3195,6 +3196,8 @@ pub fn create_prepared_snapshot(
         "prepared-records-v1",
         // Test-only wrapper: no `--label` in these snapshots' contracts.
         None,
+        // Test-only wrapper: no server vectors to size records against.
+        None,
     )
 }
 
@@ -3212,6 +3215,13 @@ pub fn create_prepared_snapshot(
 /// one-file change seals O(changed) new bytes. `chunker_identity` is the run's
 /// `prepared_records_identity` and becomes part of each file's sealed
 /// preparation identity.
+///
+/// #2807: `vector_dims` is the width of the vectors the server adds to each
+/// record's semantic field, from its embedding identity. A record that would
+/// pass [`xerj_common::document_limit::MAX_INDEXED_DOCUMENT_BYTES`] once they
+/// are added is set aside as a junk record instead of sealed. `None` sizes
+/// records without vectors. The width is pinned in the generation's execution
+/// identity, so a reused artifact was sized against the same width.
 #[allow(clippy::too_many_arguments)]
 pub fn create_prepared_snapshot_reporting(
     state_dir: &Path,
@@ -3224,6 +3234,7 @@ pub fn create_prepared_snapshot_reporting(
     reuse: Option<&SourceSnapshot>,
     chunker_identity: &str,
     labeler: Option<&crate::label::Labeler>,
+    vector_dims: Option<usize>,
 ) -> Result<SourceSnapshot> {
     create_snapshot_inner(
         state_dir,
@@ -3236,6 +3247,7 @@ pub fn create_prepared_snapshot_reporting(
         reuse,
         chunker_identity,
         labeler,
+        vector_dims,
     )
 }
 
@@ -3251,6 +3263,7 @@ fn create_snapshot_inner(
     reuse: Option<&SourceSnapshot>,
     chunker_identity: &str,
     labeler: Option<&crate::label::Labeler>,
+    vector_dims: Option<usize>,
 ) -> Result<SourceSnapshot> {
     validate_tx_id(tx_id)?;
     ensure_inventory_lengths(inventory)?;
@@ -3463,6 +3476,8 @@ fn create_snapshot_inner(
                             lookup.as_ref().expect("assignment implies a plan"),
                             &mut budget,
                             labeler,
+                            vector_dims,
+                            pr,
                         )?),
                         None => None,
                     },
@@ -3511,6 +3526,8 @@ fn create_snapshot_inner(
                         lookup.as_ref().expect("assignment implies a plan"),
                         &mut budget,
                         labeler,
+                        vector_dims,
+                        pr,
                     )?),
                     None => None,
                 };
@@ -3736,6 +3753,8 @@ fn prepare_artifact(
     // differently-labelled) NDJSON. `None` — the default, and every caller
     // without `--label` — seals unlabelled exactly as before.
     labeler: Option<&crate::label::Labeler>,
+    vector_dims: Option<usize>,
+    pr: &crate::progress::Progress,
 ) -> Result<PreparedArtifact> {
     let datasets = &lookup.datasets;
     let coercions = &lookup.coercions;
@@ -3766,6 +3785,9 @@ fn prepare_artifact(
     let mut records_by_dataset: BTreeMap<String, u64> = BTreeMap::new();
     let mut passages = 0u64;
     let mut vectors = 0u64;
+    // Records set aside for size, and the first one's locator and size.
+    let mut oversized = 0u64;
+    let mut first_oversized: Option<(String, usize, bool)> = None;
     let mut sink_error: Option<anyhow::Error> = None;
     let mut sink = |record: crate::extract::RawRecord| -> bool {
         let Some(slug) = assignments
@@ -3833,10 +3855,39 @@ fn prepare_artifact(
                 }
             }
         }
+        let semantic = dataset
+            .semantic_field
+            .as_ref()
+            .is_some_and(|field| fields.get(field).is_some());
+        // #2807: the server adds the semantic vectors before it checks the
+        // per-document limit, so a record well under it can be refused, and a
+        // refusal after sealing stops every rerun of this generation. Size the
+        // record as the server will see it, and set it aside as a junk record
+        // when it would not fit. The file's other records are still indexed.
+        let vector_bytes = match (vector_dims, dataset.semantic_field.as_deref()) {
+            (Some(dims), Some(field)) => {
+                fields.get(field).and_then(Value::as_str).map_or(0, |text| {
+                    xerj_common::document_limit::semantic_vector_bytes(
+                        field,
+                        &format!("{field}_vector"),
+                        dims,
+                        &xerj_ai::semantic_lexical::semantic_passage_offsets(text),
+                    )
+                })
+            }
+            _ => 0,
+        };
+        let document = Value::Object(fields).to_string();
+        let indexed_bytes = document.len().saturating_add(vector_bytes);
+        if xerj_common::document_limit::indexed_document_too_large(indexed_bytes) {
+            oversized += 1;
+            first_oversized.get_or_insert((record.locator, indexed_bytes, vector_bytes > 0));
+            return true;
+        }
         let id = crate::ids::doc_id(slug, content_id, &record.locator);
         let action = serde_json::json!({"index": {"_index": dataset.index, "_id": id}});
-        if let Err(error) = writeln!(writer, "{action}")
-            .and_then(|_| writeln!(writer, "{}", Value::Object(fields.clone())))
+        if let Err(error) =
+            writeln!(writer, "{action}").and_then(|_| writeln!(writer, "{document}"))
         {
             sink_error = Some(anyhow::Error::new(error).context("write prepared NDJSON"));
             return false;
@@ -3846,11 +3897,7 @@ fn prepare_artifact(
         // under, so a file that fans out over several datasets stays reconcilable
         // against each one separately.
         *records_by_dataset.entry(slug.to_string()).or_default() += 1;
-        if dataset
-            .semantic_field
-            .as_ref()
-            .is_some_and(|field| fields.get(field).is_some())
-        {
+        if semantic {
             passages += 1;
             vectors += 1;
         }
@@ -3895,6 +3942,23 @@ fn prepare_artifact(
     if let Some(error) = sink_error {
         return Err(error);
     }
+    if let Some((locator, indexed_bytes, with_vectors)) = first_oversized {
+        let (sized, remedy) = if with_vectors {
+            (
+                "with the vectors the server adds, ",
+                "; --no-semantic indexes it without vectors",
+            )
+        } else {
+            ("", "")
+        };
+        pr.note(&format!(
+            "warning: {} had {oversized} record(s) set aside as junk: {sized}record \
+             {locator} would be {indexed_bytes} bytes, over the {} byte limit for one \
+             document. The file's other records are indexed{remedy}",
+            source.rel,
+            xerj_common::document_limit::MAX_INDEXED_DOCUMENT_BYTES,
+        ));
+    }
     writer.flush()?;
     writer.inner.get_ref().sync_all()?;
     drop(writer);
@@ -3904,7 +3968,7 @@ fn prepare_artifact(
         records,
         passages,
         vectors,
-        junk: stats.junk,
+        junk: stats.junk + oversized,
         truncated: stats.truncated,
         records_by_dataset,
         bytes,
@@ -4438,6 +4502,7 @@ mod tests {
             None,
             "chunker-v1",
             None,
+            None,
         )
         .unwrap();
         assert_eq!(first.files.len(), 3);
@@ -4473,6 +4538,7 @@ mod tests {
             &crate::progress::Progress::silent(),
             Some(&first),
             "chunker-v1",
+            None,
             None,
         )
         .unwrap();
@@ -4649,6 +4715,7 @@ mod tests {
                 prior,
                 "chunker-v1",
                 None,
+                None,
             )
             .unwrap();
             (snapshot, source)
@@ -4745,6 +4812,7 @@ mod tests {
             None,
             "chunker-v1",
             None,
+            None,
         )
         .unwrap();
         std::fs::write(corpus.path().join("b.md"), "bravo contents CHANGED\n").unwrap();
@@ -4760,6 +4828,7 @@ mod tests {
             &crate::progress::Progress::silent(),
             Some(&first),
             "chunker-v1",
+            None,
             None,
         )
         .unwrap();
@@ -4799,6 +4868,7 @@ mod tests {
             None,
             "chunker-v1",
             None,
+            None,
         )
         .unwrap();
         let second = create_prepared_snapshot_reporting(
@@ -4811,6 +4881,7 @@ mod tests {
             &crate::progress::Progress::silent(),
             Some(&first),
             "chunker-v2",
+            None,
             None,
         )
         .unwrap();

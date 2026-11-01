@@ -7468,6 +7468,7 @@ dependencies = [
  "tree-sitter-zig",
  "uuid",
  "walkdir",
+ "xerj-ai",
  "xerj-common",
  "xerj-wasm",
  "xxhash-rust",

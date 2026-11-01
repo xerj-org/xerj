@@ -24,6 +24,27 @@ pub fn semantic_chunker() -> TextChunker {
     TextChunker::new(SEMANTIC_CHUNK_SIZE, SEMANTIC_CHUNK_OVERLAP)
 }
 
+/// UTF-8 byte offsets of the passages ingest embeds for `text`: the chunker's
+/// passages, or the whole text when it cuts one or none. This is the offset
+/// list `xerj-engine` `apply_semantic_embeddings_batch` builds and stores in
+/// the passage metadata, so a client can size a document before it sends it
+/// (#2807, `xerj_common::document_limit::semantic_vector_bytes`).
+pub fn semantic_passage_offsets(text: &str) -> Vec<(usize, usize)> {
+    // A text of at most `SEMANTIC_CHUNK_SIZE` bytes has at most that many
+    // chars, so the chunker returns it whole; skip its per-char pass.
+    if text.len() <= SEMANTIC_CHUNK_SIZE {
+        return vec![(0, text.len())];
+    }
+    let chunks = semantic_chunker().chunk(text, None);
+    if chunks.len() <= 1 {
+        return vec![(0, text.len())];
+    }
+    chunks
+        .iter()
+        .map(|chunk| (chunk.start_offset, chunk.end_offset))
+        .collect()
+}
+
 /// L2-normalize each input vector, mean-pool across all of them, then
 /// re-normalize the pooled result. Produces a unit-norm vector of the same
 /// dimensionality as the inputs (empty input => empty vec). Vectors whose
@@ -103,6 +124,31 @@ pub fn lexical_semantic_vectors(text: &str, dims: usize) -> Option<LexicalSemant
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn passage_offsets_match_the_chunker_on_both_sides_of_the_fast_path() {
+        // #2807: the short-text shortcut must give what the chunker gives.
+        let multibyte = "é".repeat(300); // 600 bytes, 300 chars: one passage
+        let long = "Word after word. ".repeat(100);
+        for text in ["", "short", multibyte.as_str(), long.as_str()] {
+            let chunks = semantic_chunker().chunk(text, None);
+            let expected: Vec<(usize, usize)> = if chunks.len() <= 1 {
+                vec![(0, text.len())]
+            } else {
+                chunks
+                    .iter()
+                    .map(|c| (c.start_offset, c.end_offset))
+                    .collect()
+            };
+            assert_eq!(
+                semantic_passage_offsets(text),
+                expected,
+                "{} bytes",
+                text.len()
+            );
+        }
+        assert!(semantic_passage_offsets(&long).len() > 1);
+    }
 
     #[test]
     fn short_text_is_one_unpooled_passage() {
