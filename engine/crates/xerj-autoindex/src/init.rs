@@ -64,12 +64,21 @@ OPTIONS:
     --url <U>       node endpoint baked into the MCP config
                     (default $XERJ_URL or http://localhost:9200)
     --dry-run       print what would be written, write nothing
+    --memory        opt in to project-local Claude Code session handoff (macOS/Linux)
+    --remove        with --memory, remove only these hooks; keep private data
     --disable-feedback
                     accepted; turns off the feedback invitation on help
                     screens. Honoured in any position (env XERJ_DISABLE_FEEDBACK)
     -h, --help      this help
 
-After init: restart the agent session so it picks up the new tools, then
+With --memory, init manages only SessionEnd/SessionStart hooks in
+.claude/settings.local.json. User/assistant text is PII-redacted, saved locally
+and indexed on the chosen loopback node in the background. The next session
+gets bounded, cited excerpts, not an LLM summary. No key is saved. Private
+archives and pending work stay in .claude/xerj-memory/; --remove retains them.
+Read tools/session-memory/README.md for limits, inspection and deletion.
+
+After ordinary init: restart the agent session so it picks up the new tools, then
 `xerj autoindex <folder> --prefix <name>` anything you want searchable.
 Pass that same `--prefix <name>` to `xerj search` and `xerj def`; without it
 they search the default `ax` prefix. {hub_next}init also prints the MCP registration line for each client.
@@ -573,6 +582,8 @@ struct InitFlags {
     url: String,
     dry: bool,
     help: bool,
+    memory: bool,
+    remove: bool,
 }
 
 /// `Err` is the unexpected-argument line, without the help page.
@@ -582,6 +593,8 @@ fn read_init_flags(args: impl IntoIterator<Item = String>) -> Result<InitFlags, 
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| DEFAULT_URL.to_string());
     let mut dry = false;
+    let mut memory = false;
+    let mut remove = false;
     let mut it = args.into_iter();
     while let Some(a) = it.next() {
         match a.as_str() {
@@ -590,21 +603,41 @@ fn read_init_flags(args: impl IntoIterator<Item = String>) -> Result<InitFlags, 
                     url,
                     dry,
                     help: true,
+                    memory,
+                    remove,
                 });
             }
             "--url" => url = it.next().unwrap_or(url),
             "--dry-run" => dry = true,
+            "--memory" => memory = true,
+            "--remove" => remove = true,
             // Also stripped by args_after_subcommand. Accepted here so a
             // caller that passes the raw list still does not exit 2.
             "--disable-feedback" => {}
             other => return Err(format!("xerj init: unexpected argument '{other}'")),
         }
     }
+    if remove && !memory {
+        return Err("xerj init: --remove requires --memory".into());
+    }
     Ok(InitFlags {
         url,
         dry,
         help: false,
+        memory,
+        remove,
     })
+}
+
+#[cfg(test)]
+mod memory_flag_regression {
+    #[test]
+    fn memory_hooks_are_an_explicit_init_opt_in() {
+        let plain = super::read_init_flags(Vec::new()).unwrap();
+        assert!(!plain.memory && !plain.remove);
+        let result = super::read_init_flags(["--memory", "--dry-run"].map(String::from));
+        assert!(result.is_ok(), "memory opt-in refused: {:?}", result.err());
+    }
 }
 
 /// Entry point for the `init` subcommand. Returns a process exit code.
@@ -623,6 +656,25 @@ pub fn run_init_cli() -> i32 {
     let url = flags.url;
     let dry = flags.dry;
     let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    if flags.memory {
+        let result = std::env::current_exe()
+            .map_err(anyhow::Error::from)
+            .and_then(|binary| {
+                crate::session_memory::configure(&cwd, &url, dry, flags.remove, &binary)
+            });
+        return match result {
+            Ok(lines) => {
+                for line in lines {
+                    println!("{line}");
+                }
+                0
+            }
+            Err(error) => {
+                eprintln!("xerj init --memory: {error}");
+                1
+            }
+        };
+    }
     let hub = xerj_common::hub::hub_key_configured();
     match run_init_with(&cwd, &url, dry, hub) {
         Ok(lines) => {
