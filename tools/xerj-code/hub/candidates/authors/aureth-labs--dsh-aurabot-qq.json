@@ -1,9 +1,9 @@
 {
- "corpus": "accomplish07zrh-eng--dsh-aurabot-qq",
+ "corpus": "aureth-labs--dsh-aurabot-qq",
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on dsh-plugin, chatbot, deepseek queries this for how accomplish07zrh-eng/dsh-aurabot-qq implements it: \u8ba9 DeepSeek Harness \u91cc\u7684 AI \u4ee5\u300c\u5927\u80a5\u9c7c\u300d\u4f4f\u8fdb QQ\uff1a\u4f1a\u804a\u5929\u3001\u53d1\u8868\u60c5\u3001\u53d1\u8bed\u97f3\u3001\u8bb0\u4e8b\u3001\u53d1\u7a7a\u95f4\u3001\u5237 B \u7ad9\u3001\u5531\u6b4c\u3002\u529f\u80fd\u90fd\u662f\u6a21\u5757\uff0c\u80fd\u5f00\u5173\u3001\u80fd\u81ea\u5df1\u5199\uff0c\u8fd8\u80fd\u4ece\u6a21\u5757\u5e02\u573a\u88c5\u66f4\u591a\uff08SnowLuma / OneBot v11\uff09\u3002 (selected work: src/purpose, test, client)",
+ "domain": "an agent working on dsh-plugin, chatbot, deepseek queries this for how aureth-labs/dsh-aurabot-qq implements it: \u8ba9 DeepSeek Harness \u91cc\u7684 AI \u4ee5\u300c\u5927\u80a5\u9c7c\u300d\u4f4f\u8fdb QQ\uff1a\u4f1a\u804a\u5929\u3001\u53d1\u8868\u60c5\u3001\u53d1\u8bed\u97f3\u3001\u8bb0\u4e8b\u3001\u53d1\u7a7a\u95f4\u3001\u5237 B \u7ad9\u3001\u5531\u6b4c\u3002\u529f\u80fd\u90fd\u662f\u6a21\u5757\uff0c\u80fd\u5f00\u5173\u3001\u80fd\u81ea\u5df1\u5199\uff0c\u8fd8\u80fd\u4ece\u6a21\u5757\u5e02\u573a\u88c5\u66f4\u591a\uff08SnowLuma / OneBot v11\uff09\u3002 (selected work: src/purpose, test, client)",
  "repos": [
   {
    "repo": "dsh-aurabot-qq",

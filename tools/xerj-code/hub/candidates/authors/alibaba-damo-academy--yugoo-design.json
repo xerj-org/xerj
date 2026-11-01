@@ -1,0 +1,23 @@
+{
+ "corpus": "alibaba-damo-academy--yugoo-design",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, codex, deepseek-harness queries this for how alibaba-damo-academy/yugoo-design implements it: Turn your AI agent app into an interactive ideation and design workbench. A general-purpose, open-source framework with editable panels and  (selected work: packages/studio, packages/companion, packages/studio-ui)",
+ "repos": [
+  {
+   "repo": "yugoo-design",
+   "url": "https://github.com/alibaba-damo-academy/yugoo-design",
+   "sha": "5b2ac0f49848e445edd48dae599cfd4a1241f7a0",
+   "licence": "Apache-2.0 (LICENSE file at pin 5b2ac0f49848, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:16Z",
+    "consent_receipt": "da75092b7d8f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T09:16Z (receipt da75092b7d8f); selected commit 5b2ac0f49848: \"fix: release 0.2.1 installer and Studio corrections\". LICENSE file at pin 5b2ac0f49848 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

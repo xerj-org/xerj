@@ -1,0 +1,23 @@
+{
+ "corpus": "dakaufeeboii--kaufee-home",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how DaKaufeeBoii/Kaufee-Home implements it: A local agent that can manage files in your PC. There's a lot more, but I ain't saying it here (selected work: src/kaufee, tests, the project root)",
+ "repos": [
+  {
+   "repo": "Kaufee-Home",
+   "url": "https://github.com/DaKaufeeBoii/Kaufee-Home",
+   "sha": "483d8b45e7701df44be8845a3c4e161ff64f3dfb",
+   "licence": "MIT (LICENSE file at pin 483d8b45e770, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:41Z",
+    "consent_receipt": "761e62fa6a19",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T09:41Z (receipt 761e62fa6a19); selected commit 483d8b45e770: \"feat: implement responsible AI architecture, guardrails, and autonomy\u2026\". LICENSE file at pin 483d8b45e770 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "acorndb--shardweave",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how acorndb/shardweave implements it: acorndb/shardweave (Go) (selected work: test, docker, the project root)",
+ "repos": [
+  {
+   "repo": "shardweave",
+   "url": "https://github.com/acorndb/shardweave",
+   "sha": "00359465acd47c81c78f2e5e90a86fff00c2ee0f",
+   "licence": "Apache-2.0 (LICENSE file at pin 00359465acd4, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T10:05Z",
+    "consent_receipt": "6fe7e49d4ef9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T10:05Z (receipt 6fe7e49d4ef9); selected commit 00359465acd4: \"test: add mtr test\". LICENSE file at pin 00359465acd4 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

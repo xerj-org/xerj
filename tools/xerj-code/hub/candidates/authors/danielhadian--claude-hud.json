@@ -1,0 +1,23 @@
+{
+ "corpus": "danielhadian--claude-hud",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on arduino, claude-code, esp8266 queries this for how danielhadian/claude-hud implements it: USB hardware dashboard for Claude Code usage and session activity, with a Go host tool and ESP reference firmware (selected work: tools, firmware)",
+ "repos": [
+  {
+   "repo": "claude-hud",
+   "url": "https://github.com/danielhadian/claude-hud",
+   "sha": "1b0273a862f6a5f91c1cd3ef75789e66de7e0eb4",
+   "licence": "MIT (LICENSE file at pin 1b0273a862f6, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:49Z",
+    "consent_receipt": "dddca1439578",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T09:49Z (receipt dddca1439578); selected commit 1b0273a862f6: \"Fix statusline installation, concurrent state, and reconnect replay\". LICENSE file at pin 1b0273a862f6 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

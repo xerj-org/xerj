@@ -1,0 +1,23 @@
+{
+ "corpus": "sany86russ--wardogs-fire-control",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on artillery-calculator, ballistics, cpp queries this for how sany86russ/Wardogs-Fire-Control implements it: WARDOGS mortar calculator and artillery calculator for L81 and SPH-2 on Windows: local OCR, range, bearing/MIL, terrain, impact corrections, (selected work: source)",
+ "repos": [
+  {
+   "repo": "Wardogs-Fire-Control",
+   "url": "https://github.com/sany86russ/Wardogs-Fire-Control",
+   "sha": "37727c479dcbab5f5dd96452c631e184bf4568f3",
+   "licence": "MIT (LICENSE file at pin 37727c479dcb, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:01Z",
+    "consent_receipt": "380fd47f2c2a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T09:01Z (receipt 380fd47f2c2a); selected commit 37727c479dcb: \"feat(helpers): release 2.14.0 with mini-card helper status\". LICENSE file at pin 37727c479dcb detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "arpittak027--outpost",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, ai-agent, blocknote queries this for how arpittak027/OUTPOST implements it: \u26a1 Next-gen agentic AI workspace \u2014 collaborate with an AI agent that writes rich documents and draws live visual canvas diagrams in real time (selected work: app/(main), scripts, the project root)",
+ "repos": [
+  {
+   "repo": "OUTPOST",
+   "url": "https://github.com/arpittak027/OUTPOST",
+   "sha": "0b741d02908ba341f61d74972daf800fe55ee747",
+   "licence": "GPL-3.0 (LICENSE file at pin 0b741d02908b, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T09:32Z",
+    "consent_receipt": "87098a16bb81",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T09:32Z (receipt 87098a16bb81); selected commit 0b741d02908b: \"Support 3-way side-by-side workspace layout (Doc, Canvas, Agent) and \u2026\". LICENSE file at pin 0b741d02908b detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}
