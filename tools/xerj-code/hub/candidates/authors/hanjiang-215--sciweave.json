@@ -1,0 +1,23 @@
+{
+ "corpus": "hanjiang-215--sciweave",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai4science, hackathon, mcp queries this for how hanjiang-215/SciWeave implements it: SciWeave \u2014 Agent \u9a71\u52a8\u7684\u591a\u4eba\u79d1\u7814\u534f\u4f5c\u5e73\u53f0\uff08\u817e\u8baf AI4Science \u9ed1\u5ba2\u677e\u9879\u76ee\uff09\uff1a\u4ee5\u7814\u7a76\u8def\u7ebf\u7ec4\u7ec7\u4efb\u52a1\uff0cAgent \u6267\u884c\u3001\u8bc1\u636e\u63d0\u4ea4\u3001\u5019\u9009\u5ba1\u6838\u4e0e\u6b63\u5f0f\u53d1\u5e03\u5168\u7a0b\u53ef\u8ffd\u6eaf\u3002Apache-2.0 \u5f00\u6e90\u3002 (selected work: sci-weave)",
+ "repos": [
+  {
+   "repo": "SciWeave",
+   "url": "https://github.com/hanjiang-215/SciWeave",
+   "sha": "29d385c57ff61f6ad1e18460e47376de06357f7f",
+   "licence": "Apache-2.0 (LICENSE file at pin 29d385c57ff6, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T02:38Z",
+    "consent_receipt": "2299d9cef2e2",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T02:38Z (receipt 2299d9cef2e2); selected commit 29d385c57ff6: \"feat(web-ui): add layered DAG mind-map view for task routes\". LICENSE file at pin 29d385c57ff6 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 29d385c57ff6 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

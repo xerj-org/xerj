@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how Hollowpath/claimflow implements it: Employee expense and reimbursement workflow demonstrating TypeScript, React, serverless AWS, Cognito authentication, transactional DynamoDB  (selected work: services)",
+ "domain": "an agent working on amazon-cognito, aws, aws-cdk queries this for how Hollowpath/claimflow implements it: Employee expense and reimbursement workflow demonstrating TypeScript, React, serverless AWS, Cognito authentication, transactional DynamoDB  (selected work: services)",
  "repos": [
   {
    "repo": "claimflow",
    "url": "https://github.com/Hollowpath/claimflow",
-   "sha": "cae36611c84ac4899be190be928d3822e5b6c5f3",
-   "licence": "MIT (LICENSE file at pin cae36611c84a, GitHub licence API 2026-10-30)",
+   "sha": "0df4ddddcfa861231e91c90b500b5b5c04359de1",
+   "licence": "MIT (LICENSE file at pin 0df4ddddcfa8, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-21T20:24Z",
     "consent_receipt": "0efd80540130",
-    "note": "Inclusion consented by the commit author by email at 2026-10-21T20:24Z (receipt 0efd80540130); selected commit cae36611c84a: \"feat(api): strengthen DynamoDB claim reader\". LICENSE file at pin cae36611c84a detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head cae36611c84a (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-21T20:24Z (receipt 0efd80540130); selected commit 0df4ddddcfa8: \"feat(api): strengthen DynamoDB claim reader\". LICENSE file at pin 0df4ddddcfa8 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 0df4ddddcfa8 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

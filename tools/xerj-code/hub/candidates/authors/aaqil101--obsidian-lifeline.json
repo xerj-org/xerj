@@ -1,0 +1,30 @@
+{
+ "corpus": "aaqil101--obsidian-lifeline",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on TypeScript queries this for how Aaqil101/obsidian-lifeline implements it: Back up your YouTube subscriptions, playlists, and Watch Later list into Markdown notes in your Obsidian vault, because accounts get banned, (selected work: src)",
+ "repos": [
+  {
+   "repo": "obsidian-lifeline",
+   "url": "https://github.com/Aaqil101/obsidian-lifeline",
+   "sha": "8de2e122865aa53a65a57235f128ff32138435de",
+   "licence": "GPL-3.0 (LICENSE file at pin 8de2e122865a, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T02:14Z",
+    "consent_receipt": "887b0c45b9ff",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T02:14Z (receipt 887b0c45b9ff); selected commit 8de2e122865a: \"Add playlist-owner avatars to video bullets\". LICENSE file at pin 8de2e122865a detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 8de2e122865a (contains the selected commit): the LICENSE at the selected commit was 0BSD.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "065fcb2f15249d86d76506f63b7cdeb32af29dab",
+     "at": "2026-11-01T02:14Z",
+     "receipt": "887b0c45b9ff"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "mehmoodulhaq570--lightline",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on fast, ide, lightline queries this for how mehmoodulhaq570/LightLine implements it: A fast IDE made in Rust",
+ "repos": [
+  {
+   "repo": "LightLine",
+   "url": "https://github.com/mehmoodulhaq570/LightLine",
+   "sha": "70c212b8bda86711b1d2ea2e70f7b884dfce0582",
+   "licence": "MIT (LICENSE file at pin 70c212b8bda8, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T01:45Z",
+    "consent_receipt": "8232bf2c8d86",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T01:45Z (receipt 8232bf2c8d86); pinned to the default-branch head. LICENSE file at pin 70c212b8bda8 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

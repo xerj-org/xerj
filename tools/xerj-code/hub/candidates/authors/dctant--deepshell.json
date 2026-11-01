@@ -1,0 +1,30 @@
+{
+ "corpus": "dctant--deepshell",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Java queries this for how DCTANT/Deepshell implements it: \u628a SSH \u7ec8\u7aef\u3001AI \u8fd0\u7ef4\u52a9\u624b\u548c Windows \u98ce\u683c\u8fdc\u7a0b\u684c\u9762\u88c5\u8fdb\u6d4f\u89c8\u5668\uff1aAI \u80fd\u81ea\u5df1\u767b\u5f55\u670d\u52a1\u5668\u6267\u884c\u547d\u4ee4\uff0c\u4f60\u5728\u53ef\u89c6\u5316\u684c\u9762\u91cc\u770b\u5b83\u5e72\u6d3b\u3002\u5355 JAR \u81ea\u6258\u7ba1\uff0c\u6570\u636e\u672c\u5730\u4fdd\u5b58\u3002 (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "Deepshell",
+   "url": "https://github.com/DCTANT/Deepshell",
+   "sha": "7e1d02863b0524ddafd03d96f641a35ab013326b",
+   "licence": "AGPL-3.0 (LICENSE file at pin 7e1d02863b05, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T02:08Z",
+    "consent_receipt": "9de406749549",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T02:08Z (receipt 9de406749549); selected commit 7e1d02863b05: \"feat: AI \u8bbe\u7f6e\u589e\u52a0 token \u4f7f\u7528\u7edf\u8ba1\". LICENSE file at pin 7e1d02863b05 detected as AGPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "7e1d02863b0524ddafd03d96f641a35ab013326b",
+     "at": "2026-11-01T02:08Z",
+     "receipt": "9de406749549"
+    }
+   }
+  }
+ ]
+}
