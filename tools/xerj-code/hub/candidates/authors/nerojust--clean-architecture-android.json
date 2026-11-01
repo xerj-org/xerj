@@ -8,15 +8,15 @@
   {
    "repo": "clean-architecture-android",
    "url": "https://github.com/Nerojust/clean-architecture-android",
-   "sha": "f056cc83f6fb23b009e22d430dfa33181f32f7ae",
-   "licence": "MIT (LICENSE file at pin f056cc83f6fb, GitHub licence API 2026-10-31)",
+   "sha": "9cf824ca1ab2254fc9c672edacba23910a5f5f45",
+   "licence": "MIT (LICENSE file at pin 9cf824ca1ab2, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T08:19Z",
     "consent_receipt": "5937307bcb39",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:19Z (receipt 5937307bcb39); pinned to the default-branch head. LICENSE file at pin f056cc83f6fb detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T08:19Z (receipt 5937307bcb39); pinned to the default-branch head. LICENSE file at pin 9cf824ca1ab2 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

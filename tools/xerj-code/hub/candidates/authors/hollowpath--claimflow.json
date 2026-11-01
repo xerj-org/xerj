@@ -8,15 +8,15 @@
   {
    "repo": "claimflow",
    "url": "https://github.com/Hollowpath/claimflow",
-   "sha": "0df4ddddcfa861231e91c90b500b5b5c04359de1",
-   "licence": "MIT (LICENSE file at pin 0df4ddddcfa8, GitHub licence API 2026-11-01)",
+   "sha": "defb35bc8400e967db4af0f2b47b76389ca4fae8",
+   "licence": "MIT (LICENSE file at pin defb35bc8400, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-21T20:24Z",
     "consent_receipt": "0efd80540130",
-    "note": "Inclusion consented by the commit author by email at 2026-10-21T20:24Z (receipt 0efd80540130); selected commit 0df4ddddcfa8: \"feat(api): strengthen DynamoDB claim reader\". LICENSE file at pin 0df4ddddcfa8 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 0df4ddddcfa8 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-21T20:24Z (receipt 0efd80540130); selected commit defb35bc8400: \"feat(api): strengthen DynamoDB claim reader\". LICENSE file at pin defb35bc8400 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head defb35bc8400 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

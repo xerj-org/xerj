@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-tool, llm, local-llm queries this for how LuminariSoftwares/context-guardian implements it: Compaction for local models that actually fires and never bricks the session. OpenAI-compatible proxy + DeepSeek Harness engine",
+ "domain": "an agent working on ai-tool, llm, local-llm queries this for how LuminariSoftwares/context-guardian implements it: Compaction for local models that actually fires and never bricks the session. OpenAI-compatible proxy + DeepSeek Harness engine (selected work: tests, the project root)",
  "repos": [
   {
    "repo": "context-guardian",
    "url": "https://github.com/LuminariSoftwares/context-guardian",
-   "sha": "fabdfcce3c4331cd8f5a759667f4cc52aa8e32df",
-   "licence": "MIT (LICENSE file at pin fabdfcce3c43, GitHub licence API 2026-11-01)",
+   "sha": "d144d75d880f24c1cb60836bec2f2c8d9c745c71",
+   "licence": "MIT (LICENSE file at pin d144d75d880f, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T00:26Z",
     "consent_receipt": "e1b8bc25027c",
-    "note": "Inclusion consented by the repository owner by email at 2026-10-30T00:26Z (receipt e1b8bc25027c) and extended to the whole repository by the owner in #2836 (2026-11-01); pinned to the default-branch head. LICENSE file at pin fabdfcce3c43 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T00:26Z (receipt e1b8bc25027c); selected commit d144d75d880f: \"feat(proxy): detect the window on vLLM and llama.cpp, not only Ollama\". LICENSE file at pin d144d75d880f detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
    }
   }
  ]

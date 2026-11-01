@@ -1,0 +1,23 @@
+{
+ "corpus": "billwgong--dsh-go-mac",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on apple-silicon, deepseek, deepseek-harness queries this for how BillWGong/dsh-go-mac implements it: DSH Go Mac \u2014\u2014 DeepSeek Harness \u7684 macOS \u5ba2\u6237\u7aef\uff0c\u79fb\u690d\u81ea ccch1mneyyy/dsh-go",
+ "repos": [
+  {
+   "repo": "dsh-go-mac",
+   "url": "https://github.com/BillWGong/dsh-go-mac",
+   "sha": "69338f21403dc2679543f27c034419922d471099",
+   "licence": "AGPL-3.0 (LICENSE file at pin 69338f21403d, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T04:03Z",
+    "consent_receipt": "53293d9f718d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:03Z (receipt 53293d9f718d); pinned to the default-branch head. LICENSE file at pin 69338f21403d detected as AGPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

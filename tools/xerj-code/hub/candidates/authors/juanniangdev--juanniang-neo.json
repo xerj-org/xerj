@@ -1,0 +1,23 @@
+{
+ "corpus": "juanniangdev--juanniang-neo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Vue queries this for how JuanNiangDev/JuanNiang-Neo implements it: \u590d\u6d3b\u5427\u5377\u5a18 (selected work: internal/api, web)",
+ "repos": [
+  {
+   "repo": "JuanNiang-Neo",
+   "url": "https://github.com/JuanNiangDev/JuanNiang-Neo",
+   "sha": "12b1616ce6f68eaa6249940416008341fd707958",
+   "licence": "MIT (LICENSE file at pin 12b1616ce6f6, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T04:46Z",
+    "consent_receipt": "be13d6491ee6",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T04:46Z (receipt be13d6491ee6); selected commit 12b1616ce6f6: \"fix(tools): \u4fee\u590d\u7ba1\u7406\u5458\u6743\u9650\u4fdd\u5b58\u53ca\u5de5\u5177\u5217\u8868\u8df3\u52a8\". LICENSE file at pin 12b1616ce6f6 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

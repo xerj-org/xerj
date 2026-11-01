@@ -1,0 +1,23 @@
+{
+ "corpus": "slavkomelnyk--camera-embed",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how slavkomelnyk/camera-embed implements it: Capture, compress, and embed photos directly into Obsidian notes (selected work: the project root, src)",
+ "repos": [
+  {
+   "repo": "camera-embed",
+   "url": "https://github.com/slavkomelnyk/camera-embed",
+   "sha": "4d33f3a6f0828a4a3cba4de0661a2f0d98e29687",
+   "licence": "MIT (LICENSE file at pin 4d33f3a6f082, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T04:42Z",
+    "consent_receipt": "d59d546dd30b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:42Z (receipt d59d546dd30b); selected commit 4d33f3a6f082: \"Big refactor: restored picker, updated gallery, and many bug fixes\". LICENSE file at pin 4d33f3a6f082 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}
