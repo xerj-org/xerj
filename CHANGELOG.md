@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opt-in Claude Code session handoff with `xerj init --memory` on macOS/Linux
+  (Refs #2645). SessionEnd queues a background redacting import and lexical
+  autoindex; SessionStart returns bounded, cited historical excerpts from a
+  project memory namespace, with an offline cache. `--memory --remove` removes
+  only the owned hooks and retains data. Ordinary init and manual session
+  import are unchanged; Codex lifecycle hooks are not included in this first version.
+
 - A second Claude plugin in the xerj marketplace, `xerj-knowledge`, for
   document search rather than code: a skill and `/xerj-knowledge:index` and
   `/xerj-knowledge:find` commands that search local folders, notes, PDFs,
