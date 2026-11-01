@@ -442,6 +442,9 @@ pub struct ResourceGovernor {
     /// Process-wide ledger of in-flight segment merges and their estimated
     /// working set (#2427). See [`ResourceGovernor::try_reserve_merge`].
     merge_ledger: Arc<Mutex<MergeLedger>>,
+    /// In-flight memtable flush builds and their estimated working set
+    /// (#2427). See [`ResourceGovernor::reserve_flush_build`].
+    flush_ledger: Arc<FlushLedger>,
 
     // ── item 1: per-query memory guard (`max_query_memory_mb`) ──────────
     /// Maximum bytes a single query may be estimated to allocate. `0` = off.
@@ -606,6 +609,90 @@ impl ResourceGovernor {
         }
         self.analyze_reserved.fetch_sub(bytes, Ordering::AcqRel);
         Err(self.analyze_reservation_refused(bytes))
+    }
+
+    /// Admit one memtable flush build whose working set is estimated at
+    /// `bytes`, or `None` to wait (#2427).
+    ///
+    /// A flush build (JSON re-parse, full-text postings, doc-value columns,
+    /// stored-section encode) allocates several times the frozen memtable
+    /// bytes for 1-2 s, and none of that was charged anywhere: the gate's
+    /// ingest-memory trace never showed `flush_drained` above 50 MB while
+    /// untracked memory jumped by ~550 MB and RSS crossed the cap on each
+    /// flush burst. Admission is now against the same committed total the
+    /// analyze reservations use (live RSS, or the reservations' baseline
+    /// plus every held reservation), so:
+    ///
+    /// - a second build that would carry the process past the watermark
+    ///   waits for the first one to finish instead of stacking on it, and
+    /// - the reservation is added to the analyze pool, so ingest admission
+    ///   sees the build's bytes before they are allocated and answers 429
+    ///   instead of letting RSS trip the breaker.
+    ///
+    /// A build is always admitted when no other build is in flight, so
+    /// flushing (which is what frees memtable memory) always progresses.
+    pub(crate) fn try_reserve_flush_build(&self, bytes: u64) -> Option<FlushBuildReservation> {
+        let mut state = self
+            .flush_ledger
+            .state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let watermark = self.memory_watermark_bytes.load(Ordering::Relaxed);
+        let observed = self.observed_process_memory();
+        if state.in_flight > 0 && watermark > 0 && bytes > 0 {
+            let already = self.analyze_reserved.load(Ordering::Acquire);
+            if !self.analyze_fits(watermark, observed, already, bytes) {
+                return None;
+            }
+        }
+        state.in_flight += 1;
+        state.reserved = state.reserved.saturating_add(bytes);
+        drop(state);
+        let counted = watermark > 0 && bytes > 0;
+        let baseline = counted.then(|| {
+            self.analyze_reserved.fetch_add(bytes, Ordering::AcqRel);
+            let id = self.lock_analyze_baselines().insert(observed);
+            (Arc::clone(&self.analyze_baselines), id)
+        });
+        Some(FlushBuildReservation {
+            ledger: Arc::clone(&self.flush_ledger),
+            analyze: AnalyzeReservation {
+                slot: counted.then(|| Arc::clone(&self.analyze_reserved)),
+                baseline,
+                bytes: if counted { bytes } else { 0 },
+            },
+            bytes,
+        })
+    }
+
+    /// [`Self::try_reserve_flush_build`], waiting until the build fits or
+    /// no other build is in flight. Unbounded: the caller puts its flush
+    /// admission deadline around it and fails the flush before the freeze.
+    pub(crate) async fn reserve_flush_build(&self, bytes: u64) -> FlushBuildReservation {
+        loop {
+            let released = self.flush_ledger.released.notified();
+            tokio::pin!(released);
+            released.as_mut().enable();
+            if let Some(reservation) = self.try_reserve_flush_build(bytes) {
+                return reservation;
+            }
+            // A finishing build wakes us; RSS can also fall without one
+            // (cache release, allocator purge), so poll as well.
+            tokio::select! {
+                _ = &mut released => {}
+                _ = tokio::time::sleep(FLUSH_BUILD_POLL) => {}
+            }
+        }
+    }
+
+    /// Estimated working set held by in-flight flush builds, and how many.
+    pub fn flush_build_reserved(&self) -> (u64, u64) {
+        let state = self
+            .flush_ledger
+            .state
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        (state.reserved, state.in_flight)
     }
 
     /// Admit one `_bulk` request before its body is split and parsed (#2427).
@@ -2240,6 +2327,7 @@ fn build(config: &Config) -> ResourceGovernor {
         memory_engaged_since: Mutex::new(None),
         memory_band_anchor: AtomicU64::new(0),
         merge_ledger: Arc::new(Mutex::new(MergeLedger::default())),
+        flush_ledger: Arc::new(FlushLedger::default()),
         max_query_memory_bytes,
         search_pool: Arc::new(Semaphore::new(max_concurrent_searches)),
         max_concurrent_searches,
@@ -2717,6 +2805,58 @@ impl Drop for MergeReservation {
         let mut ledger = self.ledger.lock().unwrap_or_else(|e| e.into_inner());
         ledger.reserved = ledger.reserved.saturating_sub(self.bytes);
         ledger.in_flight = ledger.in_flight.saturating_sub(1);
+    }
+}
+
+/// How often a flush build waiting for headroom rechecks RSS (#2427).
+const FLUSH_BUILD_POLL: Duration = Duration::from_millis(100);
+
+/// Process-wide accounting behind [`FlushBuildReservation`] (#2427).
+#[derive(Debug, Default)]
+pub(crate) struct FlushLedger {
+    state: Mutex<FlushLedgerState>,
+    released: tokio::sync::Notify,
+}
+
+#[derive(Debug, Default)]
+struct FlushLedgerState {
+    reserved: u64,
+    in_flight: u64,
+}
+
+/// One memtable flush build's estimated working set, held from before the
+/// freeze until the segment is published (#2427). Counted in the analyze
+/// pool so ingest admission sees it; dropping it releases the bytes and wakes
+/// a build waiting for headroom.
+#[derive(Debug)]
+#[must_use = "dropping the reservation releases the flush budget at once"]
+pub(crate) struct FlushBuildReservation {
+    ledger: Arc<FlushLedger>,
+    analyze: AnalyzeReservation,
+    bytes: u64,
+}
+
+impl FlushBuildReservation {
+    /// Bytes this reservation holds.
+    pub(crate) fn bytes(&self) -> u64 {
+        self.bytes
+    }
+}
+
+impl Drop for FlushBuildReservation {
+    fn drop(&mut self) {
+        // Release the admission bytes first, then the ledger slot, so a woken
+        // waiter sees both.
+        drop(std::mem::replace(
+            &mut self.analyze,
+            AnalyzeReservation::none(),
+        ));
+        {
+            let mut state = self.ledger.state.lock().unwrap_or_else(|e| e.into_inner());
+            state.reserved = state.reserved.saturating_sub(self.bytes);
+            state.in_flight = state.in_flight.saturating_sub(1);
+        }
+        self.ledger.released.notify_waiters();
     }
 }
 
@@ -5347,5 +5487,90 @@ mod tests {
         assert!(g.check_ingest_admission().is_err());
         g.refresh(0, raised * 98 / 100, 0);
         assert!(g.check_ingest_admission().is_err());
+    }
+
+    // ── #2427: flush build reservation ────────────────────────────────────
+
+    const MB: u64 = 1 << 20;
+
+    #[test]
+    fn lone_flush_build_is_admitted_even_past_the_watermark() {
+        let g = ResourceGovernor::with_analyze_headroom_for_test(64 * MB);
+        let r = g
+            .try_reserve_flush_build(1024 * MB)
+            .expect("lone build admitted");
+        assert_eq!(r.bytes(), 1024 * MB);
+        assert_eq!(g.flush_build_reserved(), (1024 * MB, 1));
+        drop(r);
+        assert_eq!(g.flush_build_reserved(), (0, 0));
+        assert_eq!(g.analyze_reserved_for_test(), 0);
+    }
+
+    #[test]
+    fn second_flush_build_waits_when_it_does_not_fit() {
+        let g = ResourceGovernor::with_analyze_headroom_for_test(1024 * MB);
+        let first = g.try_reserve_flush_build(800 * MB).expect("first build");
+        assert!(
+            g.try_reserve_flush_build(400 * MB).is_none(),
+            "800 + 400 MB over 1 GB of headroom must wait"
+        );
+        let small = g
+            .try_reserve_flush_build(64 * MB)
+            .expect("a build that fits is admitted");
+        drop(small);
+        drop(first);
+        let second = g
+            .try_reserve_flush_build(400 * MB)
+            .expect("fits once the first is done");
+        assert_eq!(g.flush_build_reserved(), (400 * MB, 1));
+        drop(second);
+    }
+
+    #[test]
+    fn flush_build_reservation_counts_against_ingest_admission() {
+        let g = ResourceGovernor::with_analyze_headroom_for_test(1024 * MB);
+        let build = g.try_reserve_flush_build(900 * MB).expect("build");
+        assert_eq!(g.analyze_reserved_for_test(), 900 * MB);
+        assert!(
+            g.reserve_analyze(300 * MB).is_err(),
+            "ingest must see the flush working set before it is allocated"
+        );
+        drop(build);
+        assert_eq!(g.analyze_reserved_for_test(), 0);
+        let analyze = g.reserve_analyze(300 * MB).expect("fits after the build");
+        drop(analyze);
+    }
+
+    #[test]
+    fn unlimited_watermark_tracks_builds_without_charging_admission() {
+        let g = ResourceGovernor::with_analyze_headroom_for_test(MB);
+        g.memory_watermark_bytes.store(0, Ordering::Relaxed);
+        let a = g.try_reserve_flush_build(500 * MB).expect("a");
+        let b = g
+            .try_reserve_flush_build(500 * MB)
+            .expect("no watermark, no wait");
+        assert_eq!(g.flush_build_reserved(), (1000 * MB, 2));
+        assert_eq!(g.analyze_reserved_for_test(), 0);
+        drop((a, b));
+        assert_eq!(g.flush_build_reserved(), (0, 0));
+    }
+
+    #[tokio::test]
+    async fn waiting_flush_build_is_woken_by_the_release() {
+        let g = ResourceGovernor::with_analyze_headroom_for_test(1024 * MB);
+        let first = g.try_reserve_flush_build(800 * MB).expect("first build");
+        let waiter = {
+            let g = Arc::clone(&g);
+            tokio::spawn(async move { g.reserve_flush_build(400 * MB).await })
+        };
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        assert!(!waiter.is_finished(), "second build must wait for headroom");
+        drop(first);
+        let second = tokio::time::timeout(Duration::from_secs(5), waiter)
+            .await
+            .expect("woken after the release")
+            .expect("task");
+        assert_eq!(second.bytes(), 400 * MB);
+        assert_eq!(g.flush_build_reserved(), (400 * MB, 1));
     }
 }

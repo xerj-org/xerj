@@ -302,7 +302,7 @@ mod pressure_cache_release_gate_tests {
 /// Run the installed allocator purge, if any. Never panics: a broken hook
 /// must not take the drain (or the process) down — purging is an
 /// optimisation for RSS return, not a correctness step.
-fn purge_allocator_pages() {
+pub(crate) fn purge_allocator_pages() {
     let hook = ALLOCATOR_PURGE_HOOK
         .read()
         .unwrap_or_else(|e| e.into_inner());
