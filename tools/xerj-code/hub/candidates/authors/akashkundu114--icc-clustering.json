@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "HEALTH",
- "domain": "an agent working on anchor-graph, bioinformatics, clustering queries this for how AkashKundu114/icc-clustering implements it: Official code and benchmark reproduction suite for 'Feature-Gated Bipartite Graph Ensembles for Stable Clustering in High-Dimensional Extrem (selected work: research_audit, src/icc, tests)",
+ "domain": "an agent working on anchor-graph, bioinformatics, clustering queries this for how AkashKundu114/icc-clustering implements it: Invariant Core Consensus: Feature-gated bipartite graph ensembles for stable clustering in high-dimensional regimes (selected work: research_audit, src/icc, tests)",
  "repos": [
   {
    "repo": "icc-clustering",

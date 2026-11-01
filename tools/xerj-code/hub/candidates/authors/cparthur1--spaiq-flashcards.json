@@ -1,0 +1,23 @@
+{
+ "corpus": "cparthur1--spaiq-flashcards",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how cparthur1/spaiq_flashcards implements it: Um webapp simples de flashcards que uso pra carregar .json com conte\u00fados da faculdade e decorar conceitos (selected work: js, pages, the project root)",
+ "repos": [
+  {
+   "repo": "Flashcards",
+   "url": "https://github.com/cparthur1/Flashcards",
+   "sha": "f9ca2ad944fdf9fabd006e165995b7ac3ec48add",
+   "licence": "GPL-2.0 (LICENSE file at pin f9ca2ad944fd, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-20T22:15Z",
+    "consent_receipt": "b59eac8e5f9a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T22:15Z (receipt b59eac8e5f9a); selected commit f9ca2ad944fd: \"FEAT: dynamic messages throug out the day\". LICENSE file at pin f9ca2ad944fd detected as GPL-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head f9ca2ad944fd (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

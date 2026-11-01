@@ -8,15 +8,15 @@
   {
    "repo": "tower-rate-limiter",
    "url": "https://github.com/nivek3/tower-rate-limiter",
-   "sha": "9e1a4111bed16d2530ff8e767feca76d36fa7003",
-   "licence": "author's permission (LICENSE at pin 9e1a4111bed1: NOASSERTION; repository: Apache-2.0)",
+   "sha": "00861700c8d61e712a5f5b3a95ed2beca8b1a3d4",
+   "licence": "author's permission (LICENSE at pin 00861700c8d6: NOASSERTION; repository: Apache-2.0)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T00:30Z",
     "consent_receipt": "4e922dbf48e6",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:30Z (receipt 4e922dbf48e6); pinned to the default-branch head. LICENSE at pin 9e1a4111bed1: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T00:30Z (receipt 4e922dbf48e6); pinned to the default-branch head. LICENSE at pin 00861700c8d6: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
    }
   }
  ]

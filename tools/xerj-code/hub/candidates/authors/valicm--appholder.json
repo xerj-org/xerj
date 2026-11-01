@@ -8,15 +8,15 @@
   {
    "repo": "appholder",
    "url": "https://github.com/valicm/appholder",
-   "sha": "6b96d5a7c4b0d0335750ddf75c0ab9384b5723ef",
-   "licence": "MIT (LICENSE file at pin 6b96d5a7c4b0, GitHub licence API 2026-10-28)",
+   "sha": "150a1ffe46ccef8046c57e0c00b553ff82b283ad",
+   "licence": "MIT (LICENSE file at pin 150a1ffe46cc, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T20:15Z",
     "consent_receipt": "e7e15d12846b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:15Z (receipt e7e15d12846b); pinned to the default-branch head. LICENSE file at pin 6b96d5a7c4b0 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:15Z (receipt e7e15d12846b); pinned to the default-branch head. LICENSE file at pin 150a1ffe46cc detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "nhartman000--nych",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how nhartman000/nych implements it: nych 2.5 pro",
+ "repos": [
+  {
+   "repo": "nych",
+   "url": "https://github.com/nhartman000/nych",
+   "sha": "57b81e9220069dd5ff72197b41288c9613e3343b",
+   "licence": "MIT (LICENSE file at pin 57b81e922006, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T12:50Z",
+    "consent_receipt": "464ab5c8d15c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T12:50Z (receipt 464ab5c8d15c); pinned to the default-branch head. LICENSE file at pin 57b81e922006 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

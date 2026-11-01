@@ -1,0 +1,23 @@
+{
+ "corpus": "flawsom--test-mandi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how flawsom/test-mandi implements it: flawsom/test-mandi (Python)",
+ "repos": [
+  {
+   "repo": "test-mandi",
+   "url": "https://github.com/flawsom/test-mandi",
+   "sha": "16b32a21077d38443960c90b772b5b4b57a3a088",
+   "licence": "MIT (LICENSE file at pin 16b32a21077d, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T13:44Z",
+    "consent_receipt": "972c1eadb09b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T13:44Z (receipt 972c1eadb09b); pinned to the default-branch head. LICENSE file at pin 16b32a21077d detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

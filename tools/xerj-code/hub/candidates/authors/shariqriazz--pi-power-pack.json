@@ -1,9 +1,9 @@
 {
- "corpus": "shariqriazz--shariq-pi-extensions",
+ "corpus": "shariqriazz--pi-power-pack",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how shariqriazz/shariq-pi-extensions implements it: Private Pi extension and skill suite (selected work: extensions, the project root)",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, coding-agent, context-compaction queries this for how shariqriazz/pi-power-pack implements it: Subagents, background terminals, smart compaction, goals, task list, ask_user, image/video/audio understanding, WebP images, and web search  (selected work: extensions, the project root)",
  "repos": [
   {
    "repo": "shariq-pi-extensions",

@@ -1,0 +1,23 @@
+{
+ "corpus": "praveensenpai--netpulse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, jetpack-compose, kotlin queries this for how Praveensenpai/NetPulse implements it: Ultra-low power internet speed meter for Samsung Galaxy One UI (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "NetPulse",
+   "url": "https://github.com/Praveensenpai/NetPulse",
+   "sha": "dd94fa650d027456ea5ae4cc26802f212bd2bf2d",
+   "licence": "MIT (LICENSE file at pin dd94fa650d02, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T14:05Z",
+    "consent_receipt": "24d604655100",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T14:05Z (receipt 24d604655100); selected commit dd94fa650d02: \"fix: hold seeded live rows until the sweep reports bytes\". LICENSE file at pin dd94fa650d02 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}
