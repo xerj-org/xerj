@@ -9458,6 +9458,9 @@ fn run_index_report_inner(
             );
         } else {
             println!("no files found under {root_str}");
+            if let Some(hint) = skipped_links_hint(&ignore_report) {
+                println!("{hint}");
+            }
             pr.finish(true, 0, "no-files", &[]);
         }
         return Ok((0, None));
@@ -17728,5 +17731,76 @@ mod dataset_time_range_tests {
             assert!(body.get("aggs").is_none(), "materialising agg sent: {body}");
             assert_eq!(body.get("size"), Some(&json!(1)), "{body}");
         }
+    }
+}
+
+/// The line printed when a walk found no files but skipped links, naming the
+/// flags that would index them (#2823). `None` when no link was skipped.
+pub(crate) fn skipped_links_hint(report: &ignore_rules::IgnoreReport) -> Option<String> {
+    let count = |rule: &str| {
+        report
+            .by_rule
+            .get(rule)
+            .map_or(0, |c| c.files.saturating_add(c.dirs))
+    };
+    let not_followed = count(ignore_rules::NOT_FOLLOWED_RULE);
+    let outside = count(ignore_rules::ESCAPED_ROOT_RULE);
+    let total = not_followed.saturating_add(outside);
+    if total == 0 {
+        return None;
+    }
+    let flags = if outside > 0 {
+        "--follow-symlinks --follow-symlinks-outside-root"
+    } else {
+        "--follow-symlinks (add --follow-symlinks-outside-root for targets outside the folder)"
+    };
+    Some(format!(
+        "{total} symlink{} skipped: links are not followed by default. To index them, rerun with {flags}",
+        if total == 1 { " was" } else { "s were" }
+    ))
+}
+
+#[cfg(test)]
+mod skipped_links_hint_tests {
+    use super::skipped_links_hint;
+    use crate::ignore_rules::{IgnoreReport, RuleCount, ESCAPED_ROOT_RULE, NOT_FOLLOWED_RULE};
+
+    #[test]
+    fn no_skipped_links_no_hint() {
+        assert_eq!(skipped_links_hint(&IgnoreReport::default()), None);
+    }
+
+    #[test]
+    fn unfollowed_links_name_the_flags() {
+        let mut report = IgnoreReport::default();
+        report.by_rule.insert(
+            NOT_FOLLOWED_RULE.to_string(),
+            RuleCount {
+                files: 3,
+                ..RuleCount::default()
+            },
+        );
+        let hint = skipped_links_hint(&report).expect("links skipped: a hint");
+        assert!(hint.starts_with("3 symlinks were skipped"), "{hint}");
+        assert!(hint.contains("--follow-symlinks "), "{hint}");
+        assert!(hint.contains("--follow-symlinks-outside-root"), "{hint}");
+    }
+
+    #[test]
+    fn escaped_links_ask_for_both_flags() {
+        let mut report = IgnoreReport::default();
+        report.by_rule.insert(
+            ESCAPED_ROOT_RULE.to_string(),
+            RuleCount {
+                dirs: 1,
+                ..RuleCount::default()
+            },
+        );
+        let hint = skipped_links_hint(&report).expect("escaped link: a hint");
+        assert!(
+            hint.contains("1 symlink was skipped")
+                && hint.ends_with("--follow-symlinks --follow-symlinks-outside-root"),
+            "{hint}"
+        );
     }
 }
