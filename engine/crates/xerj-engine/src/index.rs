@@ -38352,6 +38352,79 @@ async fn await_flush_task(
     }
 }
 
+/// Working set of one memtable flush build, in percent of the frozen
+/// memtable bytes it starts from (#2427). `XERJ_FLUSH_WORKING_SET_PCT`
+/// overrides it; `0` turns the flush reservation off.
+const FLUSH_WORKING_SET_PCT_DEFAULT: u64 = 200;
+
+/// RSS, in percent of the watermark, above which a finished flush build
+/// returns its freed pages to the OS at once (#2427).
+const FLUSH_PURGE_RSS_PCT: u64 = 70;
+
+fn flush_working_set_pct() -> u64 {
+    static PCT: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    *PCT.get_or_init(|| {
+        std::env::var("XERJ_FLUSH_WORKING_SET_PCT")
+            .ok()
+            .and_then(|v| v.trim().parse::<u64>().ok())
+            .unwrap_or(FLUSH_WORKING_SET_PCT_DEFAULT)
+    })
+}
+
+/// Estimated working set of a flush build over `memtable_bytes` of frozen
+/// memtable (#2427). The build re-parses every source into a `Value`, builds
+/// postings and doc-value columns, and encodes the stored section from a
+/// JSON copy of the sources, all at once; see [`FLUSH_WORKING_SET_PCT_DEFAULT`].
+fn flush_working_set_bytes(memtable_bytes: usize) -> u64 {
+    (memtable_bytes as u64).saturating_mul(flush_working_set_pct()) / 100
+}
+
+/// Release a finished build's reservation, then return its freed pages to
+/// the OS when the process is close to the watermark (#2427).
+///
+/// jemalloc keeps freed pages resident for `dirty_decay_ms` (1 s). A build
+/// frees several hundred MB at once, and on the gate those pages were still
+/// resident when the next burst allocated: 454 MB of the 3,364 MB peak was
+/// free pages. Purging right away hands them back before the next build
+/// starts; under the threshold the decay alone is enough.
+fn release_flush_build(reservation: crate::governor::FlushBuildReservation) {
+    drop(reservation);
+    let Some(governor) = crate::governor::global() else {
+        return;
+    };
+    let watermark = governor.memory_watermark_bytes();
+    if flush_build_should_purge(governor.observed_rss_bytes(), watermark) {
+        crate::engine::purge_allocator_pages();
+    }
+}
+
+fn flush_build_should_purge(rss: u64, watermark: u64) -> bool {
+    watermark > 0 && rss.saturating_mul(100) >= watermark.saturating_mul(FLUSH_PURGE_RSS_PCT)
+}
+
+#[cfg(test)]
+mod flush_working_set_tests {
+    use super::*;
+
+    #[test]
+    fn purge_only_near_the_watermark() {
+        assert!(!flush_build_should_purge(1 << 30, 0));
+        assert!(!flush_build_should_purge(69, 100));
+        assert!(flush_build_should_purge(70, 100));
+        assert!(flush_build_should_purge(150, 100));
+    }
+
+    #[test]
+    fn working_set_scales_with_the_frozen_bytes() {
+        let pct = flush_working_set_pct();
+        assert_eq!(flush_working_set_bytes(0), 0);
+        assert_eq!(
+            flush_working_set_bytes(100 << 20),
+            (100u64 << 20) * pct / 100
+        );
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn do_flush_shard(
     shard_idx: usize,
@@ -38441,6 +38514,57 @@ async fn do_flush_shard(
     } else {
         None
     };
+    // #2427 — reserve this build's working set before the freeze. The build
+    // (JSON re-parse, postings, doc-value columns, stored encode) allocates a
+    // multiple of the frozen memtable bytes, and nothing charged it: each
+    // flush burst on the gate was ~550 MB of untracked memory that pushed RSS
+    // past the cap. A build that does not fit next to the ones in flight
+    // waits for them here; the reservation also counts against ingest
+    // admission until the segment is published. Same deadline and same
+    // before-the-freeze failure as the gates above.
+    let flush_reservation = match crate::governor::global() {
+        Some(governor) if !bypass_finalize_gate && flush_working_set_pct() > 0 => {
+            let shard_bytes = memtable.shard_load(shard_idx).1;
+            let bytes = flush_working_set_bytes(shard_bytes);
+            let wait_started = std::time::Instant::now();
+            match within_wall_clock(admit_timeout, governor.reserve_flush_build(bytes)).await {
+                Some(reservation) => {
+                    tracing::debug!(
+                        index = %index_name,
+                        shard = shard_idx,
+                        shard_bytes,
+                        reserved = bytes,
+                        wait_ms = wait_started.elapsed().as_millis() as u64,
+                        "flush build working set reserved"
+                    );
+                    if std::env::var_os("XERJ_PROF").is_some() {
+                        eprintln!(
+                            "XERJ_PROF flush-reserve shard={shard_idx} shard_bytes={shard_bytes} reserved={bytes} wait_us={}",
+                            wait_started.elapsed().as_micros()
+                        );
+                    }
+                    Some(reservation)
+                }
+                None => {
+                    drop(pressure_permit);
+                    drop(fin_permit);
+                    on_drained();
+                    return Err(flush_admit_timeout_error(
+                        &index_name,
+                        "the flush memory budget",
+                        admit_timeout,
+                    ));
+                }
+            }
+        }
+        _ => None,
+    };
+    let flush_build_trace = flush_reservation.as_ref().map(|reservation| {
+        crate::ingest_memory::Retained::new(
+            crate::ingest_memory::Category::FlushBuild,
+            reservation.bytes() as usize,
+        )
+    });
     // #1015 — NO collection-publication guard here.  The drain below is a
     // FREEZE, not a removal: the claimed docs stay reader-visible in the
     // shard's frozen generations for the whole segment build, so there is
@@ -38649,7 +38773,9 @@ async fn do_flush_shard(
     let segments_dir = data_dir.join("segments");
     let registry_for_build = Arc::clone(&registry);
     let fts_doc_count = drained_fts.len();
-    let drained_fts_for_build = Arc::clone(&drained_fts);
+    // Moved, not cloned: the build closure is the last owner, so the parsed
+    // payload is freed as soon as the side-cars are written (#2427).
+    let drained_fts_for_build = drained_fts;
     let segments_dir_for_dv = segments_dir.clone();
     let store_for_warm = Arc::clone(&store);
     // POV battery (B-3) caught that gating FTS+DV on the raw-bytes path
@@ -38819,7 +38945,7 @@ async fn do_flush_shard(
     //      dispatch.
     let t_finalize = std::time::Instant::now();
     let store_for_finalize = Arc::clone(&store);
-    let storage_drained_for_finalize = Arc::clone(&storage_drained);
+    let storage_drained_for_finalize = storage_drained;
     // #1015 — the claim rides the coordinator into the worker: the build
     // holds it (frozen generations stay reader-visible), publish RETIRES it
     // inside the bracket, and every failure path releases it.
@@ -38836,114 +38962,132 @@ async fn do_flush_shard(
         let joined = tokio::task::spawn_blocking(move || {
             let _fin_permit = fin_permit;
             let _pressure_permit = pressure_permit;
-            // This lease lives in the blocking worker, not either async waiter.
-            // It spans build→publish exactly as before: it tracks the caches
-            // `build_fts` warms so a failed publication can evict them.
-            let lease =
-                PrePublicationLease::tracked(failed_warm_caches, Arc::clone(&warmed_segment_id));
-            // ── BUILD — NO publication bracket (#1015).  The frozen
-            // generations keep the drained docs fully reader-visible
-            // (postings, doc-values, sources) while the segment and its
-            // side-cars are written; a search racing the build sees the
-            // exact same doc set as before the flush started.  ──
-            let built = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                crate::background_pool().install(|| {
-                    store_for_finalize.build_flush_segment(&storage_drained_for_finalize, build_fts)
-                })
-            }));
-            let meta = match built {
-                Ok(Ok(meta)) => meta,
-                Ok(Err(error)) => {
-                    // Build failed before anything reader-visible happened:
-                    // release the claim — the frozen generations stay
-                    // readable and unclaimed, so the next flush of this
-                    // shard recycles them.  This pointer-flag flip replaces
-                    // the old `restore_failed_flush` re-insert entirely
-                    // (the docs never left the view, so there is nothing to
-                    // re-insert and no version-map resurrection guard to
-                    // re-check).
-                    claim_for_finalize.release();
-                    return Ok(Err(error));
-                }
-                Err(payload) => {
-                    claim_for_finalize.release();
-                    std::panic::resume_unwind(payload);
-                }
-            };
-            // ── PUBLISH — the ONLY reader-visible instant (#1015).  The
-            // bracket opened here spans: version-map repoint, the snapshot
-            // rcu, the frozen-generation retire, and the guard commit —
-            // millisecond-scale.  A capture that straddles any part of it
-            // fails the #1014 evenness check and retries on the next
-            // instant, instead of retrying against the full drain+build
-            // (~600 ms) window the old pre-drain bracket held.  ──
-            let mut collection_publication_guard = match collection_publication.begin() {
-                Ok(guard) => guard,
-                Err(_) => {
-                    claim_for_finalize.release();
-                    return Err(collection_publication_interrupted());
-                }
-            };
-            let published = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                crate::background_pool().install(|| {
-                    store_for_finalize.publish_flush_segment(&storage_drained_for_finalize, &meta)
-                })
-            }));
-            let outcome = match published {
-                Ok(Ok(
-                    outcome @ xerj_storage::index_store::FlushFinalizeOutcome::Published { .. },
-                )) => {
-                    // Retire INSIDE the bracket, immediately after the
-                    // snapshot swap: "the segment is in the snapshot" and
-                    // "the frozen docs left the memtable" are one atomic
-                    // instant for capturing readers.  The freed bytes leave
-                    // the memtable aggregate here (they were resident — and
-                    // charged — for the whole build).
-                    let _retained = claim_for_finalize.retire();
-                    collection_publication_guard.commit();
-                    // finalize published the snapshot before it returned;
-                    // commit the lease while still in the worker, no await.
-                    lease.commit();
-                    outcome
-                }
-                Ok(Ok(xerj_storage::index_store::FlushFinalizeOutcome::Empty)) => {
-                    // publish_flush_segment never returns Empty on a
-                    // non-empty drain set (build_flush_segment errors
-                    // first); handle it defensively as a failure.
-                    claim_for_finalize.release();
-                    collection_publication_guard.cancel();
-                    xerj_storage::index_store::FlushFinalizeOutcome::Empty
-                }
-                Ok(Err(error)) => {
-                    // Publication failed and was rolled back (failpoints
-                    // included): the segment is abandoned, the version map
-                    // is restored, and the docs must stay visible — release
-                    // the claim so the next flush retries them.
-                    claim_for_finalize.release();
-                    collection_publication_guard.cancel();
-                    return Ok(Err(error));
-                }
-                Err(payload) => {
-                    claim_for_finalize.release();
-                    collection_publication_guard.cancel();
-                    std::panic::resume_unwind(payload);
-                }
-            };
-            // ── POST-publish maintenance — OUTSIDE the bracket (#1015):
-            // the bucket catalog PUT is network I/O and the WAL
-            // checkpoint/prune takes locks; neither belongs between
-            // `begin()` and `commit()`.  Deferred failures are warn-only —
-            // the segment is already published.  ──
-            if let Err(error) =
-                store_for_finalize.after_flush_publish(&storage_drained_for_finalize, &meta)
-            {
-                tracing::warn!(
-                    error = %error,
-                    segment_id = %meta.id,
-                    "flush maintenance deferred after publication"
+            let flush_reservation = flush_reservation;
+            let flush_build_trace = flush_build_trace;
+            // The build, publish and maintenance run in this inner closure so
+            // every payload it owns (drained docs, segment buffers) is freed
+            // before the reservation is released below (#2427).
+            let result = (move || {
+                // This lease lives in the blocking worker, not either async waiter.
+                // It spans build→publish exactly as before: it tracks the caches
+                // `build_fts` warms so a failed publication can evict them.
+                let lease = PrePublicationLease::tracked(
+                    failed_warm_caches,
+                    Arc::clone(&warmed_segment_id),
                 );
+                // ── BUILD — NO publication bracket (#1015).  The frozen
+                // generations keep the drained docs fully reader-visible
+                // (postings, doc-values, sources) while the segment and its
+                // side-cars are written; a search racing the build sees the
+                // exact same doc set as before the flush started.  ──
+                let built = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    crate::background_pool().install(|| {
+                        store_for_finalize
+                            .build_flush_segment(&storage_drained_for_finalize, build_fts)
+                    })
+                }));
+                let meta = match built {
+                    Ok(Ok(meta)) => meta,
+                    Ok(Err(error)) => {
+                        // Build failed before anything reader-visible happened:
+                        // release the claim — the frozen generations stay
+                        // readable and unclaimed, so the next flush of this
+                        // shard recycles them.  This pointer-flag flip replaces
+                        // the old `restore_failed_flush` re-insert entirely
+                        // (the docs never left the view, so there is nothing to
+                        // re-insert and no version-map resurrection guard to
+                        // re-check).
+                        claim_for_finalize.release();
+                        return Ok(Err(error));
+                    }
+                    Err(payload) => {
+                        claim_for_finalize.release();
+                        std::panic::resume_unwind(payload);
+                    }
+                };
+                // ── PUBLISH — the ONLY reader-visible instant (#1015).  The
+                // bracket opened here spans: version-map repoint, the snapshot
+                // rcu, the frozen-generation retire, and the guard commit —
+                // millisecond-scale.  A capture that straddles any part of it
+                // fails the #1014 evenness check and retries on the next
+                // instant, instead of retrying against the full drain+build
+                // (~600 ms) window the old pre-drain bracket held.  ──
+                let mut collection_publication_guard = match collection_publication.begin() {
+                    Ok(guard) => guard,
+                    Err(_) => {
+                        claim_for_finalize.release();
+                        return Err(collection_publication_interrupted());
+                    }
+                };
+                let published = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    crate::background_pool().install(|| {
+                        store_for_finalize
+                            .publish_flush_segment(&storage_drained_for_finalize, &meta)
+                    })
+                }));
+                let outcome = match published {
+                    Ok(Ok(
+                        outcome @ xerj_storage::index_store::FlushFinalizeOutcome::Published {
+                            ..
+                        },
+                    )) => {
+                        // Retire INSIDE the bracket, immediately after the
+                        // snapshot swap: "the segment is in the snapshot" and
+                        // "the frozen docs left the memtable" are one atomic
+                        // instant for capturing readers.  The freed bytes leave
+                        // the memtable aggregate here (they were resident — and
+                        // charged — for the whole build).
+                        let _retained = claim_for_finalize.retire();
+                        collection_publication_guard.commit();
+                        // finalize published the snapshot before it returned;
+                        // commit the lease while still in the worker, no await.
+                        lease.commit();
+                        outcome
+                    }
+                    Ok(Ok(xerj_storage::index_store::FlushFinalizeOutcome::Empty)) => {
+                        // publish_flush_segment never returns Empty on a
+                        // non-empty drain set (build_flush_segment errors
+                        // first); handle it defensively as a failure.
+                        claim_for_finalize.release();
+                        collection_publication_guard.cancel();
+                        xerj_storage::index_store::FlushFinalizeOutcome::Empty
+                    }
+                    Ok(Err(error)) => {
+                        // Publication failed and was rolled back (failpoints
+                        // included): the segment is abandoned, the version map
+                        // is restored, and the docs must stay visible — release
+                        // the claim so the next flush retries them.
+                        claim_for_finalize.release();
+                        collection_publication_guard.cancel();
+                        return Ok(Err(error));
+                    }
+                    Err(payload) => {
+                        claim_for_finalize.release();
+                        collection_publication_guard.cancel();
+                        std::panic::resume_unwind(payload);
+                    }
+                };
+                // ── POST-publish maintenance — OUTSIDE the bracket (#1015):
+                // the bucket catalog PUT is network I/O and the WAL
+                // checkpoint/prune takes locks; neither belongs between
+                // `begin()` and `commit()`.  Deferred failures are warn-only —
+                // the segment is already published.  ──
+                if let Err(error) =
+                    store_for_finalize.after_flush_publish(&storage_drained_for_finalize, &meta)
+                {
+                    tracing::warn!(
+                        error = %error,
+                        segment_id = %meta.id,
+                        "flush maintenance deferred after publication"
+                    );
+                }
+                Ok(Ok(outcome))
+            })();
+            drop(flush_build_trace);
+            if let Some(reservation) = flush_reservation {
+                release_flush_build(reservation);
             }
-            Ok(Ok(outcome))
+            result
         })
         .await;
         match joined {
