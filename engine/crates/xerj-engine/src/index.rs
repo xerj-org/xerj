@@ -26213,7 +26213,16 @@ impl Index {
                 // direction, the same argument the segment walk's `page_worst`
                 // relies on.
                 let mut scan_worst: Option<(f32, u64, String)> = None;
-                for (seq_no, doc_id, source) in docs {
+                for (scanned, (seq_no, doc_id, source)) in docs.into_iter().enumerate() {
+                    // Cooperative deadline (#2431): this per-document walk
+                    // of the whole memtable is the `mem_admit` phase that
+                    // ran 115 s on rc.97 with no check at all. Stop like the
+                    // segment walk does: partial hits, `timed_out: true`.
+                    // Checked on the first document and every 256 after.
+                    if scanned % 256 == 0 && std::time::Instant::now() >= search_deadline {
+                        deadline_exceeded = true;
+                        break;
+                    }
                     let matched = if let QueryNode::Ids { values } = query {
                         values.iter().any(|v| v == doc_id.as_str())
                     } else if !query_may_read_id || source.get("_id").is_some() {
