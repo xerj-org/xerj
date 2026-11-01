@@ -3633,32 +3633,15 @@ where
         if st.buf.len() < self.bulk_cut && st.docs < self.doc_cap {
             return;
         }
-        // Cut crossed: ship inline. If every wire slot is busy, park until a
-        // delivery frees one — backpressure, exactly like the per-file code
-        // blocking inside its own bulk send.
-        let job = loop {
-            // While this worker was parked, another one may have shipped the
-            // whole buffer, these bytes with it. That job was this worker's
-            // flush: return once it has landed, as if it were sent from
-            // here. Waiting for a job of its own would park on an empty
-            // buffer for good (#2841).
-            if !st.pending.contains(&token) && !st.in_flight_tokens.contains_key(&token) {
-                return;
-            }
-            if let Some(job) = self.take_job(&mut st) {
-                break job;
-            }
-            st.parked_workers += 1;
-            let (guard, _) = self
-                .ready
-                .wait_timeout(st, std::time::Duration::from_secs(30))
-                .unwrap_or_else(|p| p.into_inner());
-            st = guard;
-            st.parked_workers -= 1;
-        };
-        drop(st);
-        let outcome = (self.send)(job.0);
-        self.deliver(job.1, job.2, outcome);
+        // Cut crossed: ship inline, and return only once these bytes have
+        // landed. If every wire slot is busy, park until a delivery frees
+        // one: backpressure, exactly like the per-file code blocking inside
+        // its own bulk send. If another worker ships the buffer meanwhile,
+        // these bytes with it, that job was this worker's flush. Waiting for
+        // a job of its own instead parked on an empty buffer for good
+        // (#2841), and shipping someone else's bytes in its place returned
+        // while this worker's own chunk was still on the wire.
+        self.quiesce_locked(st, token);
     }
 
     /// The server's reason when this token failed only on records over the
@@ -3668,11 +3651,18 @@ where
     }
 
     /// Block until no bulk holding this file's records is buffered or in
-    /// flight. A failed token settles at its first refusal, while its later
-    /// chunks may still be on the wire; a purge before they land would leave
-    /// a junk file half searchable.
+    /// flight, shipping the buffer while they are still in it. `submit`
+    /// flushes through this. A failed token settles at its first refusal,
+    /// while its later chunks may still be on the wire; a purge before they
+    /// land would leave a junk file half searchable.
     fn quiesce(&self, token: u64) {
-        let mut st = self.lock();
+        self.quiesce_locked(self.lock(), token);
+    }
+
+    /// [`Self::quiesce`] under a lock the caller already holds, so `submit`
+    /// ships the buffer it just crossed the cut with before any other
+    /// worker can add to it.
+    fn quiesce_locked<'s>(&'s self, mut st: std::sync::MutexGuard<'s, PipeState>, token: u64) {
         loop {
             let buffered = st.pending.contains(&token);
             if !buffered && !st.in_flight_tokens.contains_key(&token) {
@@ -17363,6 +17353,120 @@ mod bulk_pipe_tests {
             super::MAX_IN_FLIGHT as u64 + 1,
             "the two parked workers' bytes rode one body"
         );
+    }
+
+    /// A parked worker whose chunk another worker shipped must not return
+    /// until that chunk has landed, even when the wire frees up and the
+    /// buffer holds someone else's bytes it could ship instead. Returning
+    /// early let a file's tail settle `Ok` while its earlier chunk was still
+    /// on the wire, so a later failure of that chunk went unread.
+    #[test]
+    fn a_parked_worker_returns_only_after_its_own_chunk_lands() {
+        use std::sync::Condvar;
+        use std::time::{Duration, Instant};
+
+        type Gate = (Mutex<bool>, Condvar);
+        fn hold(gate: &Gate) {
+            let mut open = gate.0.lock().unwrap();
+            while !*open {
+                open = gate.1.wait(open).unwrap();
+            }
+        }
+        fn open(gate: &Gate) {
+            *gate.0.lock().unwrap() = true;
+            gate.1.notify_all();
+        }
+        let leak_gate =
+            || -> &'static Gate { Box::leak(Box::new((Mutex::new(false), Condvar::new()))) };
+        // Seven bodies of `x` and one of `z` fill the wire; the parked
+        // workers' shared body (it carries `a`) is held on its own gate.
+        let x_gate = leak_gate();
+        let z_gate = leak_gate();
+        let a_gate = leak_gate();
+        let on_wire: &'static AtomicU64 = Box::leak(Box::new(AtomicU64::new(0)));
+        let rejected: &'static AtomicU64 = Box::leak(Box::new(AtomicU64::new(0)));
+        let pipe = &*Box::leak(Box::new(BulkPipe::new(
+            move |body: Vec<u8>| {
+                on_wire.fetch_add(1, Ordering::SeqCst);
+                if body.contains(&b'a') {
+                    hold(a_gate);
+                } else if body.first() == Some(&b'x') {
+                    hold(x_gate);
+                } else if body.first() == Some(&b'z') {
+                    hold(z_gate);
+                }
+                Ok(outcome())
+            },
+            64,
+            5000,
+            rejected,
+            10,
+        )));
+        let wait_until = |what: &str, ok: &dyn Fn() -> bool| {
+            let deadline = Instant::now() + Duration::from_secs(10);
+            while !ok() {
+                assert!(Instant::now() < deadline, "timed out waiting for {what}");
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        };
+
+        for (fill, byte) in [(super::MAX_IN_FLIGHT - 1, b'x'), (1, b'z')] {
+            let busy = pipe.lock().in_flight + fill;
+            for _ in 0..fill {
+                let t = pipe.token();
+                std::thread::spawn(move || pipe.submit(t, vec![byte; 200], 1));
+            }
+            wait_until("the wire to fill", &|| pipe.lock().in_flight == busy);
+        }
+        assert_eq!(pipe.lock().in_flight, super::MAX_IN_FLIGHT);
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut tokens = Vec::new();
+        for (parked, byte) in [(1, b'a'), (2, b'b')] {
+            let t = pipe.token();
+            tokens.push(t);
+            let tx = tx.clone();
+            std::thread::spawn(move || {
+                pipe.submit(t, vec![byte; 200], 1);
+                tx.send(t).unwrap();
+            });
+            wait_until("a worker to park on the full wire", &|| {
+                pipe.lock().parked_workers == parked
+            });
+        }
+
+        // One slot frees: one parked worker ships both chunks, held on the
+        // wire; the other parks again with its chunk in flight.
+        open(z_gate);
+        wait_until("the shared body to go out", &|| {
+            on_wire.load(Ordering::SeqCst) == super::MAX_IN_FLIGHT as u64 + 1
+        });
+        wait_until("the other worker to park again", &|| {
+            pipe.lock().parked_workers == 1
+        });
+
+        // Another file's sub-cut chunk waits in the buffer, then the rest of
+        // the wire frees up.
+        let c = pipe.token();
+        tokens.push(c);
+        pipe.submit(c, vec![b'c'; 10], 1);
+        open(x_gate);
+        wait_until("the x bodies to land", &|| pipe.lock().in_flight == 1);
+        std::thread::sleep(Duration::from_millis(200));
+        assert!(
+            rx.try_recv().is_err(),
+            "a worker returned while its chunk was still on the wire"
+        );
+
+        open(a_gate);
+        for _ in 0..2 {
+            rx.recv_timeout(Duration::from_secs(10))
+                .expect("both workers return once their chunk has landed");
+        }
+        pipe.retire();
+        for t in tokens {
+            pipe.settle(t).expect("accepted");
+        }
     }
 }
 
