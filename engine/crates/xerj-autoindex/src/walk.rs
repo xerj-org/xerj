@@ -1495,7 +1495,12 @@ mod unfollowed_symlink_tests {
             "{report:?}"
         );
         let lines = report.summary_lines().join("\n");
-        assert_eq!(lines.matches("--follow-symlinks").count(), 1, "{lines}");
+        assert_eq!(lines.matches("--follow-symlinks ").count(), 1, "{lines}");
+        assert_eq!(
+            lines.matches("--follow-symlinks-outside-root").count(),
+            1,
+            "the hint names the flag for an outside target (#2823): {lines}"
+        );
         assert!(lines.contains(NOT_FOLLOWED_RULE), "{lines}");
 
         let (followed, followed_report) =
@@ -1519,6 +1524,15 @@ mod unfollowed_symlink_tests {
                 .iter()
                 .any(|l| l.contains("symlink:outside-root")),
             "{followed_report:?}"
+        );
+        let followed_lines = followed_report.summary_lines().join("\n");
+        assert_eq!(
+            followed_lines
+                .matches("pass --follow-symlinks-outside-root")
+                .count(),
+            1,
+            "an escaped link names the flag that waives the boundary, once (#2823): \
+             {followed_lines}"
         );
     }
 }
