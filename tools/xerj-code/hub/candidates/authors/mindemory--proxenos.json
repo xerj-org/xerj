@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-agents, healthtech, local-first queries this for how mindemory/proxenos implements it: Local-first AI agent to manage healthcare records, tracking referrals, bills, and communications securely on your computer (selected work: src/twin, tests, web)",
+ "domain": "an agent working on ai-agents, healthtech, local-first queries this for how mindemory/proxenos implements it: A free, open-source agent that keeps your own records private on your computer and drafts the next step for you. Built first for people getting through the health care system (selected work: src/proxenos, tests, docs)",
  "repos": [
   {
    "repo": "proxenos",
    "url": "https://github.com/mindemory/proxenos",
-   "sha": "2c2fa58a673e2c493049c3549b6bcbc32ff81968",
-   "licence": "MIT (LICENSE file at pin 2c2fa58a673e, GitHub licence API 2026-11-01)",
+   "sha": "1b67bd25079a77c345eb450a4f882d20fe82729f",
+   "licence": "MIT (LICENSE file at pin 1b67bd25079a, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T04:09Z",
     "consent_receipt": "d295ef904d42",
-    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:09Z (receipt d295ef904d42); selected commit 2c2fa58a673e: \"Searchable memory, recall, a corrected network and Google readers\". LICENSE file at pin 2c2fa58a673e detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 2c2fa58a673e (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:09Z (receipt d295ef904d42); selected commit 22c400d2bf48: \"Read medical records in FHIR from Apple Health's export and patient p\u2026\" (chosen by the repository owner in #2831). LICENSE file at pin 1b67bd25079a detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to the default-branch head 1b67bd25079a at the owner's request (#2831)."
    }
   }
  ]
