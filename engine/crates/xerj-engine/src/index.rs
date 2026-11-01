@@ -27795,7 +27795,8 @@ impl Index {
                                         for (scanned, sh) in seg_hits.iter().enumerate() {
                                             // #2431: source decode per hit; under
                                             // a sort this walks every match.
-                                            if segment_deadline_hit(scanned, Some(search_deadline)) {
+                                            if segment_deadline_hit(scanned, Some(search_deadline))
+                                            {
                                                 deadline_exceeded = true;
                                                 break;
                                             }
@@ -66103,7 +66104,10 @@ mod segment_inner_deadline_2431_tests {
             let mut expired = xerj_query::parse_request(&body).unwrap();
             expired.timeout_ms = Some(0);
             let partial = idx.search(&expired).await.unwrap();
-            assert!(partial.timed_out, "expired deadline must report timed_out for {body}");
+            assert!(
+                partial.timed_out,
+                "expired deadline must report timed_out for {body}"
+            );
 
             let mut live = xerj_query::parse_request(&body).unwrap();
             live.timeout_ms = Some(60_000);
