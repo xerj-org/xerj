@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, trace};
 use xerj_common::XerjError;
 
-use crate::distance::{compute_distance, DistanceMetric};
+use crate::distance::DistanceMetric;
 
 /// Result alias.
 pub type Result<T> = std::result::Result<T, XerjError>;
@@ -79,71 +79,178 @@ fn corrupt(msg: &str) -> XerjError {
     XerjError::storage(format!("HNSW graph corrupt: {msg}"))
 }
 
-/// Dot product with eight independent accumulators.
+// ─────────────────────────────────────────────────────────────────────────────
+// Half-precision vector storage (#2427)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Round an `f32` to the nearest IEEE 754 binary16 (ties to even), as bits.
+fn f32_to_half_bits(value: f32) -> u16 {
+    let bits = value.to_bits();
+    let sign = ((bits >> 16) & 0x8000) as u16;
+    let exponent = ((bits >> 23) & 0xff) as i32;
+    let mantissa = bits & 0x007f_ffff;
+    if exponent == 0xff {
+        let nan = if mantissa != 0 { 0x0200 } else { 0 };
+        return sign | 0x7c00 | nan;
+    }
+    let half_exponent = exponent - 127 + 15;
+    if half_exponent >= 0x1f {
+        return sign | 0x7c00;
+    }
+    if half_exponent <= 0 {
+        if half_exponent < -10 {
+            return sign;
+        }
+        // Subnormal half: value / 2^-24, rounded.
+        let significand = mantissa | 0x0080_0000;
+        let shift = (14 - half_exponent) as u32;
+        let halfway = 1u32 << (shift - 1);
+        let rest = significand & ((1u32 << shift) - 1);
+        let mut rounded = significand >> shift;
+        if rest > halfway || (rest == halfway && rounded & 1 == 1) {
+            rounded += 1;
+        }
+        return sign | rounded as u16;
+    }
+    let mut rounded = ((half_exponent as u32) << 10) | (mantissa >> 13);
+    let rest = mantissa & 0x1fff;
+    if rest > 0x1000 || (rest == 0x1000 && rounded & 1 == 1) {
+        // A carry out of the mantissa bumps the exponent, up to infinity.
+        rounded += 1;
+    }
+    sign | rounded as u16
+}
+
+/// Exact `f32` value of binary16 `bits` (the same value F16C produces).
+#[inline(always)]
+fn half_bits_to_f32(bits: u16) -> f32 {
+    let sign = ((bits & 0x8000) as u32) << 16;
+    let exponent = ((bits >> 10) & 0x1f) as u32;
+    let mantissa = (bits & 0x03ff) as u32;
+    if exponent == 0 {
+        let magnitude = mantissa as f32 * (1.0 / 16_777_216.0);
+        return f32::from_bits(magnitude.to_bits() | sign);
+    }
+    let out = if exponent == 0x1f {
+        sign | 0x7f80_0000 | (mantissa << 13)
+    } else {
+        sign | ((exponent + 112) << 23) | (mantissa << 13)
+    };
+    f32::from_bits(out)
+}
+
+/// Power-of-two scale that maps a vector into `[-1, 1)` before it is
+/// rounded to half precision, so components of any magnitude fit binary16
+/// and the scaling itself is exact.
+fn half_scale(vector: &[f32]) -> f32 {
+    let largest = vector
+        .iter()
+        .filter(|value| value.is_finite())
+        .fold(0.0f32, |acc, value| acc.max(value.abs()));
+    let exponent = (largest.to_bits() >> 23) & 0xff;
+    if exponent == 0 {
+        1.0
+    } else {
+        f32::from_bits((exponent + 1).min(254) << 23)
+    }
+}
+
+/// `query · decode(codes)` without the scale, for one 8-wide decoder, with
+/// eight independent accumulators.
 ///
 /// A single-accumulator `for` loop is a strict serial f32 dependency chain.
 /// LLVM will not reassociate it, so it stays scalar even at `x86-64-v3`.
 /// Eight independent chains are what the beam-search inner loop actually
 /// vectorizes. The release baseline is `x86-64-v2` (no AVX2; #2161), and
-/// the same source is compiled again in [`dot_avx2`] with AVX2 and FMA
-/// enabled. Rust does not contract `acc += x * y` into an FMA, so the two
-/// compilations are bit-identical; only the instruction width changes.
-/// Callers rescore exact similarities downstream — this value only orders
-/// the beam.
-#[inline(always)]
-fn dot_scalar(a: &[f32], b: &[f32]) -> f32 {
-    let mut acc = [0.0f32; 8];
-    // `as_chunks::<8>()` yields the same 8-wide windows + remainder as
-    // `chunks_exact(8)` (the `x`/`y` are now `&[f32; 8]`, so the fixed
-    // indexing below is bounds-check-free); required by clippy 1.98's
-    // `chunks_exact_to_as_chunks`.
-    let (ca, ra) = a.as_chunks::<8>();
-    let (cb, rb) = b.as_chunks::<8>();
-    for (x, y) in ca.iter().zip(cb.iter()) {
-        acc[0] += x[0] * y[0];
-        acc[1] += x[1] * y[1];
-        acc[2] += x[2] * y[2];
-        acc[3] += x[3] * y[3];
-        acc[4] += x[4] * y[4];
-        acc[5] += x[5] * y[5];
-        acc[6] += x[6] * y[6];
-        acc[7] += x[7] * y[7];
-    }
-    let mut s = ((acc[0] + acc[4]) + (acc[1] + acc[5])) + ((acc[2] + acc[6]) + (acc[3] + acc[7]));
-    for (x, y) in ra.iter().zip(rb.iter()) {
-        s += x * y;
-    }
-    s
+/// the same body is compiled again in [`dot_half_avx2`] with AVX2, FMA and
+/// F16C. The half decode is exact either way, and Rust does not contract
+/// `acc += x * y` into an FMA, so the two compilations are bit-identical;
+/// only the instruction width changes. Callers rescore exact similarities
+/// downstream — this value only orders the beam.
+macro_rules! half_dot_body {
+    ($a:expr, $b:expr, $decode8:expr) => {{
+        let (a, b): (&[f32], &[u16]) = ($a, $b);
+        let mut acc = [0.0f32; 8];
+        let (ca, ra) = a.as_chunks::<8>();
+        let (cb, rb) = b.as_chunks::<8>();
+        for (x, h) in ca.iter().zip(cb.iter()) {
+            let y: [f32; 8] = $decode8(h);
+            acc[0] += x[0] * y[0];
+            acc[1] += x[1] * y[1];
+            acc[2] += x[2] * y[2];
+            acc[3] += x[3] * y[3];
+            acc[4] += x[4] * y[4];
+            acc[5] += x[5] * y[5];
+            acc[6] += x[6] * y[6];
+            acc[7] += x[7] * y[7];
+        }
+        let mut s =
+            ((acc[0] + acc[4]) + (acc[1] + acc[5])) + ((acc[2] + acc[6]) + (acc[3] + acc[7]));
+        for (x, &h) in ra.iter().zip(rb.iter()) {
+            s += x * half_bits_to_f32(h);
+        }
+        s
+    }};
 }
 
-/// [`dot_scalar`] compiled with AVX2 and FMA available to LLVM.
+#[inline(always)]
+fn decode8_scalar(h: &[u16; 8]) -> [f32; 8] {
+    h.map(half_bits_to_f32)
+}
+
+#[inline(always)]
+fn dot_half_scalar(a: &[f32], b: &[u16]) -> f32 {
+    half_dot_body!(a, b, decode8_scalar)
+}
+
+/// [`dot_half_scalar`] with the decode done by F16C.
 ///
 /// # Safety
 ///
-/// The current CPU must support both AVX2 and FMA. The `*_avx2` entry
-/// points check `is_x86_feature_detected` before calling in.
+/// The current CPU must support AVX2, FMA and F16C; the `*_avx2` entry
+/// points check all three before calling in.
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-#[target_feature(enable = "avx2,fma")]
+#[target_feature(enable = "avx2,fma,f16c")]
 #[inline]
-unsafe fn dot_avx2(a: &[f32], b: &[f32]) -> f32 {
-    dot_scalar(a, b)
+unsafe fn dot_half_avx2(a: &[f32], b: &[u16]) -> f32 {
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::{__m128i, _mm256_cvtph_ps, _mm256_storeu_ps, _mm_loadu_si128};
+    #[cfg(target_arch = "x86_64")]
+    use std::arch::x86_64::{__m128i, _mm256_cvtph_ps, _mm256_storeu_ps, _mm_loadu_si128};
+    let decode8 = |h: &[u16; 8]| -> [f32; 8] {
+        let mut out = [0.0f32; 8];
+        // SAFETY: `h` is 16 readable bytes and `out` 32 writable bytes; the
+        // enclosing function requires F16C and AVX.
+        unsafe {
+            let packed = _mm_loadu_si128(h.as_ptr() as *const __m128i);
+            _mm256_storeu_ps(out.as_mut_ptr(), _mm256_cvtph_ps(packed));
+        }
+        out
+    };
+    half_dot_body!(a, b, decode8)
 }
 
-/// `AVX2 == true` selects [`dot_avx2`]. That monomorphization is only
-/// reached from a `#[target_feature(enable = "avx2,fma")]` wrapper.
+/// `query · vector` for a stored half-precision vector, `scale` applied.
 #[inline(always)]
-fn dot<const AVX2: bool>(a: &[f32], b: &[f32]) -> f32 {
-    // `AVX2` is read on every architecture so the const parameter is used
-    // when the x86 block below is compiled out.
+fn dot_half<const AVX2: bool>(a: &[f32], b: &[u16], scale: f32) -> f32 {
     if AVX2 && cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            // SAFETY: the corresponding `*_avx2` wrapper checked both features
-            // and carries `target_feature(enable = "avx2,fma")`.
-            return unsafe { dot_avx2(a, b) };
+            // SAFETY: the corresponding `*_avx2` wrapper checked the features
+            // and carries `target_feature(enable = "avx2,fma,f16c")`.
+            return unsafe { dot_half_avx2(a, b) } * scale;
         }
     }
-    dot_scalar(a, b)
+    dot_half_scalar(a, b) * scale
+}
+
+/// True when the AVX2 kernels (AVX2 + FMA + F16C) can run on this CPU.
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+#[inline]
+fn avx2_kernels_available() -> bool {
+    std::is_x86_feature_detected!("avx2")
+        && std::is_x86_feature_detected!("fma")
+        && std::is_x86_feature_detected!("f16c")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -193,17 +300,31 @@ const VECTOR_CHUNK_BYTES: usize = 4 << 20;
 
 /// Append-only vector storage in fixed-size chunks. `vector(slot)` stays a
 /// shift + mask + slice, and a vector never straddles two chunks.
+///
+/// Vectors are held in half precision (#2427): each one is scaled by a power
+/// of two into `[-1, 1)` and rounded to binary16, with the scale kept per
+/// slot. The graph only uses them to order its beams (callers rescore exact
+/// similarities downstream), and they were ~85% of the resident graph: on
+/// the 1 GB gate the 384-d `audit` graph grew to ~1 GB and stayed resident
+/// after a restart. Half precision halves that.
 struct ChunkedVectors {
     dim: usize,
     /// log2(vectors per chunk).
     chunk_shift: u32,
-    chunks: Vec<Vec<f32>>,
+    chunks: Vec<Vec<u16>>,
+    /// slot → power-of-two scale of the stored codes.
+    scales: Vec<f32>,
+    /// slot → `‖v − decode(slot)‖`, rounded up: bounds how far any graph
+    /// distance to the slot can be from the exact one, so callers that
+    /// rescore exactly can fetch every candidate that might be in the true
+    /// top-k (see [`HnswIndex::search_rescore_candidates`]).
+    errors: Vec<f32>,
     len: usize,
 }
 
 impl ChunkedVectors {
     fn new(dim: usize) -> Self {
-        let per_vector = dim.max(1) * std::mem::size_of::<f32>();
+        let per_vector = dim.max(1) * std::mem::size_of::<u16>();
         let per_chunk = (VECTOR_CHUNK_BYTES / per_vector).max(1);
         // Largest power of two <= per_chunk, so slot -> chunk is a shift.
         let chunk_shift = usize::BITS - 1 - per_chunk.leading_zeros();
@@ -211,6 +332,8 @@ impl ChunkedVectors {
             dim,
             chunk_shift,
             chunks: Vec::new(),
+            scales: Vec::new(),
+            errors: Vec::new(),
             len: 0,
         }
     }
@@ -228,26 +351,68 @@ impl ChunkedVectors {
             self.chunks
                 .push(Vec::with_capacity(self.per_chunk() * self.dim));
         }
+        let scale = half_scale(vector);
+        let inverse = 1.0 / scale;
         let chunk = self.chunks.last_mut().expect("chunk allocated above");
-        chunk.extend_from_slice(vector);
+        let mut error = 0.0f64;
+        chunk.extend(vector.iter().map(|&value| {
+            let code = f32_to_half_bits(value * inverse);
+            let delta = f64::from(value) - f64::from(half_bits_to_f32(code) * scale);
+            error += delta * delta;
+            code
+        }));
+        self.scales.push(scale);
+        // Round the norm up a hair so f32 storage never understates it.
+        let error = error.sqrt();
+        self.errors
+            .push((error * (1.0 + 1e-6)) as f32 + f32::MIN_POSITIVE);
         self.len += 1;
     }
 
+    /// Half-precision codes of `slot`; multiply by [`Self::scale`] to decode.
     #[inline(always)]
-    fn get(&self, slot: u32) -> &[f32] {
+    fn get(&self, slot: u32) -> &[u16] {
         let slot = slot as usize;
         let chunk = &self.chunks[slot >> self.chunk_shift];
         let start = (slot & (self.per_chunk() - 1)) * self.dim;
         &chunk[start..start + self.dim]
     }
 
+    #[inline(always)]
+    fn scale(&self, slot: u32) -> f32 {
+        self.scales[slot as usize]
+    }
+
+    /// Upper bound on `‖v − decode(slot)‖` for the vector stored at `slot`.
+    #[inline(always)]
+    fn error(&self, slot: u32) -> f32 {
+        self.errors[slot as usize]
+    }
+
+    /// True when `vector` encodes to exactly what `slot` stores.
+    fn matches(&self, slot: u32, vector: &[f32]) -> bool {
+        if vector.len() != self.dim {
+            return false;
+        }
+        let scale = half_scale(vector);
+        let inverse = 1.0 / scale;
+        scale == self.scale(slot)
+            && self
+                .get(slot)
+                .iter()
+                .zip(vector)
+                .all(|(&code, &value)| code == f32_to_half_bits(value * inverse))
+    }
+
     /// Bytes reserved for vector data (capacity, not length).
     fn reserved_bytes(&self) -> usize {
         self.chunks
             .iter()
-            .map(|c| c.capacity() * std::mem::size_of::<f32>())
+            .map(|c| c.capacity() * std::mem::size_of::<u16>())
             .sum::<usize>()
-            + self.chunks.capacity() * std::mem::size_of::<Vec<f32>>()
+            + self.chunks.capacity() * std::mem::size_of::<Vec<u16>>()
+            + self.scales.capacity() * std::mem::size_of::<f32>()
+            + self.errors.capacity() * std::mem::size_of::<f32>()
     }
 
     /// Largest single allocation backing the vectors.
@@ -255,7 +420,7 @@ impl ChunkedVectors {
     fn largest_allocation_bytes(&self) -> usize {
         self.chunks
             .iter()
-            .map(|c| c.capacity() * std::mem::size_of::<f32>())
+            .map(|c| c.capacity() * std::mem::size_of::<u16>())
             .max()
             .unwrap_or(0)
     }
@@ -333,7 +498,7 @@ impl CompactionReplay {
                 id,
                 vector: inserted
                     .contains(&id)
-                    .then(|| view.current_slot(id).map(|slot| view.vector(slot).to_vec()))
+                    .then(|| view.current_slot(id).map(|slot| decode_vector(&view, slot)))
                     .flatten(),
                 deleted: graph.tomb_ids.contains(&id),
             })
@@ -379,7 +544,10 @@ trait GraphStorageRead {
     fn node_count(&self) -> usize;
     fn external_id(&self, slot: u32) -> u64;
     fn current_slot(&self, id: u64) -> Option<u32>;
-    fn vector(&self, slot: u32) -> &[f32];
+    /// Half-precision codes of `slot`; see [`ChunkedVectors`].
+    fn vector(&self, slot: u32) -> &[u16];
+    /// Scale that decodes [`Self::vector`]: `value = half(code) * scale`.
+    fn vector_scale(&self, slot: u32) -> f32;
     fn inverse_norm(&self, slot: u32) -> f32;
     fn layer_count(&self, slot: u32) -> usize;
     fn neighbors(&self, slot: u32, layer: usize) -> &[u32];
@@ -430,8 +598,13 @@ impl GraphStorageRead for SlabGraphRead<'_> {
     }
 
     #[inline(always)]
-    fn vector(&self, slot: u32) -> &[f32] {
+    fn vector(&self, slot: u32) -> &[u16] {
         self.slab.vectors.get(slot)
+    }
+
+    #[inline(always)]
+    fn vector_scale(&self, slot: u32) -> f32 {
+        self.slab.vectors.scale(slot)
     }
 
     #[inline(always)]
@@ -644,6 +817,54 @@ fn query_inverse(graph: &impl GraphStorageRead, query: &[f32]) -> f32 {
     }
 }
 
+/// Upper bound on `|graph distance − exact distance|` for one candidate,
+/// given `error = ‖v − decode(v)‖` (Cauchy–Schwarz), with slack for the f32
+/// arithmetic of both distances.
+fn distance_error_bound(
+    metric: DistanceMetric,
+    graph_distance: f32,
+    query_norm: f32,
+    error: f32,
+    inverse_norm: f32,
+) -> f32 {
+    let bound = match metric {
+        // Unit query: |q̂·(v − ṽ)| / ‖v‖ <= error / ‖v‖.
+        DistanceMetric::Cosine => {
+            if query_norm > 0.0 {
+                error * inverse_norm
+            } else {
+                0.0
+            }
+        }
+        DistanceMetric::DotProduct => query_norm * error,
+        // Squared L2: ‖q − v‖ <= ‖q − ṽ‖ + error.
+        DistanceMetric::L2 => {
+            let root = graph_distance.max(0.0).sqrt();
+            2.0 * root * error + error * error
+        }
+    };
+    bound * (1.0 + 1e-3) + 1e-6 * (1.0 + graph_distance.abs())
+}
+
+/// Decode `slot`'s stored vector into `out` (cleared first).
+fn decode_vector_into(graph: &impl GraphStorageRead, slot: u32, out: &mut Vec<f32>) {
+    let scale = graph.vector_scale(slot);
+    out.clear();
+    out.extend(
+        graph
+            .vector(slot)
+            .iter()
+            .map(|&code| half_bits_to_f32(code) * scale),
+    );
+}
+
+/// `slot`'s stored vector, decoded to `f32`.
+fn decode_vector(graph: &impl GraphStorageRead, slot: u32) -> Vec<f32> {
+    let mut out = Vec::with_capacity(graph.dimension());
+    decode_vector_into(graph, slot, &mut out);
+    out
+}
+
 #[inline(always)]
 fn slot_distance<const AVX2: bool>(
     graph: &impl GraphStorageRead,
@@ -651,12 +872,23 @@ fn slot_distance<const AVX2: bool>(
     query_inverse_norm: f32,
     slot: u32,
 ) -> f32 {
-    let vector = graph.vector(slot);
+    let codes = graph.vector(slot);
+    let scale = graph.vector_scale(slot);
     match graph.metric() {
         DistanceMetric::Cosine => {
-            1.0 - dot::<AVX2>(query, vector) * query_inverse_norm * graph.inverse_norm(slot)
+            1.0 - dot_half::<AVX2>(query, codes, scale)
+                * query_inverse_norm
+                * graph.inverse_norm(slot)
         }
-        metric => compute_distance(metric, query, vector),
+        DistanceMetric::DotProduct => -dot_half::<AVX2>(query, codes, scale),
+        DistanceMetric::L2 => query
+            .iter()
+            .zip(codes)
+            .map(|(&q, &code)| {
+                let d = q - half_bits_to_f32(code) * scale;
+                d * d
+            })
+            .sum(),
     }
 }
 
@@ -669,7 +901,7 @@ fn greedy_layer(
 ) -> (u32, f32) {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
-        if std::is_x86_feature_detected!("avx2") && std::is_x86_feature_detected!("fma") {
+        if avx2_kernels_available() {
             // SAFETY: both features are present; `greedy_layer_avx2` enables them.
             return unsafe { greedy_layer_avx2(graph, query, query_inverse_norm, start, layer) };
         }
@@ -678,7 +910,7 @@ fn greedy_layer(
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-#[target_feature(enable = "avx2,fma")]
+#[target_feature(enable = "avx2,fma,f16c")]
 unsafe fn greedy_layer_avx2(
     graph: &impl GraphStorageRead,
     query: &[f32],
@@ -734,7 +966,7 @@ where
 {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
-        if std::is_x86_feature_detected!("avx2") && std::is_x86_feature_detected!("fma") {
+        if avx2_kernels_available() {
             // SAFETY: both features are present; `beam_avx2` enables them.
             return unsafe { beam_avx2(graph, query, query_inverse_norm, entry, ef, layer, admit) };
         }
@@ -743,7 +975,7 @@ where
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-#[target_feature(enable = "avx2,fma")]
+#[target_feature(enable = "avx2,fma,f16c")]
 unsafe fn beam_avx2<G, A>(
     graph: &G,
     query: &[f32],
@@ -854,7 +1086,7 @@ fn select_diverse(
 ) -> Vec<(f32, u32)> {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
-        if std::is_x86_feature_detected!("avx2") && std::is_x86_feature_detected!("fma") {
+        if avx2_kernels_available() {
             // SAFETY: both features are present; `select_diverse_avx2` enables them.
             return unsafe { select_diverse_avx2(graph, candidates, max_neighbors) };
         }
@@ -863,7 +1095,7 @@ fn select_diverse(
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-#[target_feature(enable = "avx2,fma")]
+#[target_feature(enable = "avx2,fma,f16c")]
 unsafe fn select_diverse_avx2(
     graph: &impl GraphStorageRead,
     candidates: &[(f32, u32)],
@@ -881,14 +1113,15 @@ fn select_diverse_impl<const AVX2: bool>(
     let mut sorted = candidates.to_vec();
     sorted.sort_unstable_by(|left, right| left.0.partial_cmp(&right.0).unwrap());
     let mut kept = Vec::with_capacity(max_neighbors);
+    let mut vector = Vec::with_capacity(graph.dimension());
     for &(candidate_distance, candidate) in &sorted {
         if kept.len() >= max_neighbors {
             break;
         }
-        let vector = graph.vector(candidate);
+        decode_vector_into(graph, candidate, &mut vector);
         let inverse_norm = graph.inverse_norm(candidate);
         let diverse = kept.iter().all(|&(_, retained)| {
-            slot_distance::<AVX2>(graph, vector, inverse_norm, retained) >= candidate_distance
+            slot_distance::<AVX2>(graph, &vector, inverse_norm, retained) >= candidate_distance
         });
         if diverse {
             kept.push((candidate_distance, candidate));
@@ -900,7 +1133,7 @@ fn select_diverse_impl<const AVX2: bool>(
 fn backlink_distances(graph: &impl GraphStorageRead, base: u32, layer: usize) -> Vec<(f32, u32)> {
     #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
     {
-        if std::is_x86_feature_detected!("avx2") && std::is_x86_feature_detected!("fma") {
+        if avx2_kernels_available() {
             // SAFETY: both features are present; `backlink_distances_avx2` enables them.
             return unsafe { backlink_distances_avx2(graph, base, layer) };
         }
@@ -909,7 +1142,7 @@ fn backlink_distances(graph: &impl GraphStorageRead, base: u32, layer: usize) ->
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-#[target_feature(enable = "avx2,fma")]
+#[target_feature(enable = "avx2,fma,f16c")]
 unsafe fn backlink_distances_avx2(
     graph: &impl GraphStorageRead,
     base: u32,
@@ -924,14 +1157,14 @@ fn backlink_distances_impl<const AVX2: bool>(
     base: u32,
     layer: usize,
 ) -> Vec<(f32, u32)> {
-    let vector = graph.vector(base);
+    let vector = decode_vector(graph, base);
     let inverse_norm = graph.inverse_norm(base);
     graph
         .neighbors(base, layer)
         .iter()
         .map(|&neighbor| {
             (
-                slot_distance::<AVX2>(graph, vector, inverse_norm, neighbor),
+                slot_distance::<AVX2>(graph, &vector, inverse_norm, neighbor),
                 neighbor,
             )
         })
@@ -1099,7 +1332,7 @@ fn encode_graph_to<W: Write>(
         buffer
             .write_u32::<LittleEndian>(graph.layer_count(slot).saturating_sub(1) as u32)
             .map_err(io_to_xerj)?;
-        for &value in graph.vector(slot) {
+        for value in decode_vector(graph, slot) {
             buffer
                 .write_f32::<LittleEndian>(value)
                 .map_err(io_to_xerj)?;
@@ -1279,7 +1512,7 @@ impl HnswIndex {
         let view = g.read_view();
         let items = (0..view.node_count() as u32)
             .filter(|&slot| is_live_slot(&view, slot) && !view.tombstoned(slot))
-            .map(|slot| (view.external_id(slot), view.vector(slot).to_vec()))
+            .map(|slot| (view.external_id(slot), decode_vector(&view, slot)))
             .collect();
         Some((view.node_count(), items))
     }
@@ -1351,8 +1584,8 @@ impl HnswIndex {
         Ok(())
     }
 
-    /// True when node `id` exists and stores exactly `v` (bit-exact f32
-    /// compare). Used by the stale-graph rebuild (RC4 W2 item 17) to skip
+    /// True when node `id` exists and stores exactly what `v` encodes to
+    /// (bit-exact compare of the half-precision codes and scale). Used by the stale-graph rebuild (RC4 W2 item 17) to skip
     /// re-inserting docs whose graph vector already matches the document
     /// source, making a rebuild pass O(N·dim) compares + O(changed·log N)
     /// inserts instead of a full O(N·log N) reconstruction.
@@ -1360,7 +1593,7 @@ impl HnswIndex {
         let g = self.inner.read().unwrap();
         let graph = g.read_view();
         match graph.current_slot(id) {
-            Some(slot) => graph.vector(slot) == v,
+            Some(slot) => g.vectors.matches(slot, v),
             None => false,
         }
     }
@@ -1547,6 +1780,60 @@ impl HnswIndex {
         ef: usize,
         filter: &dyn Fn(u64) -> bool,
     ) -> Result<Vec<(u64, f32)>> {
+        Ok(self
+            .search_bounded(query, k, ef, filter)?
+            .into_iter()
+            .take(k)
+            .map(|(id, distance, _)| (id, distance))
+            .collect())
+    }
+
+    /// Candidates for a caller that rescores exactly and keeps the best `k`.
+    ///
+    /// Graph distances are computed against half-precision vectors (#2427),
+    /// so the graph's own top-`k` can differ from the exact top-`k` among
+    /// near-ties. This returns the graph top-`k` plus every other admitted
+    /// beam candidate whose distance error bound means it could still beat
+    /// the `k`-th: `distance − bound <= kth(distance + bound)`. Rescoring
+    /// these exactly and truncating to `k` gives the same answer exact
+    /// storage would for the candidates the beam reached. Sorted by graph
+    /// distance ascending; usually only a few longer than `k`.
+    pub fn search_rescore_candidates(
+        &self,
+        query: &[f32],
+        k: usize,
+        ef: usize,
+    ) -> Result<Vec<(u64, f32)>> {
+        let candidates = self.search_bounded(query, k, ef, &|_| true)?;
+        if candidates.len() <= k || k == 0 {
+            return Ok(candidates
+                .into_iter()
+                .map(|(id, distance, _)| (id, distance))
+                .collect());
+        }
+        let mut uppers: Vec<f32> = candidates
+            .iter()
+            .map(|&(_, distance, bound)| distance + bound)
+            .collect();
+        let (_, kth, _) = uppers.select_nth_unstable_by(k - 1, |a, b| a.total_cmp(b));
+        let kth = *kth;
+        Ok(candidates
+            .into_iter()
+            .enumerate()
+            .filter(|&(rank, (_, distance, bound))| rank < k || distance - bound <= kth)
+            .map(|(_, (id, distance, _))| (id, distance))
+            .collect())
+    }
+
+    /// Beam search returning every admitted candidate (up to `ef.max(k)`),
+    /// sorted by graph distance, with each one's distance error bound.
+    fn search_bounded(
+        &self,
+        query: &[f32],
+        k: usize,
+        ef: usize,
+        filter: &dyn Fn(u64) -> bool,
+    ) -> Result<Vec<(u64, f32, f32)>> {
         if query.len() != self.params.dim {
             return Err(XerjError::invalid_query(format!(
                 "HNSW search: query dim {} != index dim {}",
@@ -1579,11 +1866,20 @@ impl HnswIndex {
         };
         let candidates = beam(&graph, query, q_inv, curr_ep, ef.max(k), 0, &admit);
 
+        let query_norm = query.iter().map(|value| value * value).sum::<f32>().sqrt();
         Ok(candidates
             .into_iter()
             .filter(|&(_, s)| admit(s))
-            .take(k)
-            .map(|(dist, slot)| (graph.external_id(slot), dist))
+            .map(|(dist, slot)| {
+                let bound = distance_error_bound(
+                    graph.metric(),
+                    dist,
+                    query_norm,
+                    g.vectors.error(slot),
+                    graph.inverse_norm(slot),
+                );
+                (graph.external_id(slot), dist, bound)
+            })
             .collect())
     }
 
@@ -1984,6 +2280,71 @@ mod ordered_float {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::distance::compute_distance;
+
+    /// What the slab stores for `v`: its half codes and scale (#2427).
+    fn half_encode(v: &[f32]) -> (Vec<u16>, f32) {
+        let scale = half_scale(v);
+        let inverse = 1.0 / scale;
+        (
+            v.iter().map(|&x| f32_to_half_bits(x * inverse)).collect(),
+            scale,
+        )
+    }
+
+    /// `v` after the slab's half-precision round trip.
+    fn half_round_trip(v: &[f32]) -> Vec<f32> {
+        let (codes, scale) = half_encode(v);
+        codes.iter().map(|&c| half_bits_to_f32(c) * scale).collect()
+    }
+
+    /// #2427: the software binary16 conversion rounds to nearest-even and
+    /// decodes exactly, including subnormals, signed zero and infinities.
+    #[test]
+    fn half_conversion_round_trips_and_rounds_to_even() {
+        for bits in 0..=u16::MAX {
+            let value = half_bits_to_f32(bits);
+            if value.is_nan() {
+                assert!(half_bits_to_f32(f32_to_half_bits(value)).is_nan());
+                continue;
+            }
+            assert_eq!(f32_to_half_bits(value), bits, "bits {bits:#06x}");
+        }
+        assert_eq!(f32_to_half_bits(1.0), 0x3c00);
+        assert_eq!(f32_to_half_bits(-2.0), 0xc000);
+        assert_eq!(f32_to_half_bits(65504.0), 0x7bff);
+        assert_eq!(f32_to_half_bits(65520.0), 0x7c00);
+        assert_eq!(f32_to_half_bits(1.0e-9), 0);
+        // Halfway between 1.0 and the next half (1 + 2^-10): ties to even.
+        assert_eq!(f32_to_half_bits(1.0 + 2f32.powi(-11)), 0x3c00);
+        assert_eq!(f32_to_half_bits(1.0 + 3.0 * 2f32.powi(-11)), 0x3c02);
+        // Smallest subnormal and halfway below it.
+        assert_eq!(f32_to_half_bits(2f32.powi(-24)), 0x0001);
+        assert_eq!(f32_to_half_bits(2f32.powi(-25)), 0x0000);
+        assert_eq!(f32_to_half_bits(3.0 * 2f32.powi(-25)), 0x0002);
+    }
+
+    /// #2427: scaling keeps any magnitude inside binary16, and the stored
+    /// vector stays within half-precision error of the original.
+    #[test]
+    fn half_storage_keeps_large_and_small_vectors_accurate() {
+        for magnitude in [1.0e-30f32, 1.0e-3, 1.0, 1.0e3, 1.0e6, 1.0e30] {
+            let v: Vec<f32> = (0..64)
+                .map(|i| magnitude * ((i as f32 * 0.37).sin()))
+                .collect();
+            let back = half_round_trip(&v);
+            let largest = v.iter().fold(0.0f32, |a, x| a.max(x.abs()));
+            for (x, y) in v.iter().zip(&back) {
+                assert!(y.is_finite());
+                assert!(
+                    (x - y).abs() <= largest * 2f32.powi(-10),
+                    "magnitude {magnitude}: {x} -> {y}"
+                );
+            }
+            assert_eq!(half_round_trip(&back), back, "re-encoding is stable");
+        }
+        assert_eq!(half_round_trip(&[0.0; 4]), vec![0.0; 4]);
+    }
 
     /// #2427: the slab's vector storage must grow in bounded chunks. One
     /// contiguous `Vec<f32>` doubled on every grow; at the 1 GB gate's ~393K
@@ -1995,19 +2356,19 @@ mod tests {
     #[test]
     fn slab_vector_storage_grows_in_bounded_chunks_2427() {
         let dim = 384;
-        let per_vector = dim * std::mem::size_of::<f32>();
+        let per_vector = dim * std::mem::size_of::<u16>();
         let n = 3 * (VECTOR_CHUNK_BYTES / per_vector) + 7;
         let mut slab = SlabGraphStorage::new(dim, DistanceMetric::Cosine);
+        let vector_of = |i: usize| -> Vec<f32> { (0..dim).map(|d| (i * dim + d) as f32).collect() };
         for i in 0..n {
-            let v: Vec<f32> = (0..dim).map(|d| (i * dim + d) as f32).collect();
-            slab.alloc_slot(i as u64, v, 0, 16);
+            slab.alloc_slot(i as u64, vector_of(i), 0, 16);
         }
         let view = slab.read_view();
         for i in (0..n).step_by(97).chain([n - 1]) {
-            let v = view.vector(i as u32);
-            assert_eq!(v.len(), dim);
-            assert_eq!(v[0], (i * dim) as f32, "slot {i}");
-            assert_eq!(v[dim - 1], (i * dim + dim - 1) as f32, "slot {i}");
+            assert_eq!(view.vector(i as u32).len(), dim);
+            let v = decode_vector(&view, i as u32);
+            assert_eq!(v, half_round_trip(&vector_of(i)), "slot {i}");
+            assert!(slab.vectors.matches(i as u32, &vector_of(i)), "slot {i}");
         }
         let largest = slab.vectors.largest_allocation_bytes();
         assert!(
@@ -2038,12 +2399,13 @@ mod tests {
         }
         let full = index.heap_bytes();
         assert!(full > empty);
-        assert!(full >= 200 * dim * std::mem::size_of::<f32>());
+        assert!(full >= 200 * dim * std::mem::size_of::<u16>());
     }
 
     struct FragmentedTestGraph {
         ids: Vec<u64>,
-        vectors: Vec<Vec<f32>>,
+        /// Half codes and scale per slot, as the slab stores them.
+        vectors: Vec<(Vec<u16>, f32)>,
         inverse_norms: Vec<f32>,
         neighbors: Vec<Vec<Vec<u32>>>,
         tombstones: Vec<u64>,
@@ -2057,7 +2419,7 @@ mod tests {
             Self: 'a;
 
         fn dimension(&self) -> usize {
-            self.vectors.first().map_or(0, Vec::len)
+            self.vectors.first().map_or(0, |(codes, _)| codes.len())
         }
 
         fn metric(&self) -> DistanceMetric {
@@ -2079,8 +2441,12 @@ mod tests {
                 .map(|slot| slot as u32)
         }
 
-        fn vector(&self, slot: u32) -> &[f32] {
-            &self.vectors[slot as usize]
+        fn vector(&self, slot: u32) -> &[u16] {
+            &self.vectors[slot as usize].0
+        }
+
+        fn vector_scale(&self, slot: u32) -> f32 {
+            self.vectors[slot as usize].1
         }
 
         fn inverse_norm(&self, slot: u32) -> f32 {
@@ -2187,7 +2553,7 @@ mod tests {
             buffer
                 .write_u32::<LittleEndian>(layers.len().saturating_sub(1) as u32)
                 .unwrap();
-            for &value in graph.vectors.get(slot) {
+            for value in decode_vector(&graph.read_view(), slot) {
                 buffer.write_f32::<LittleEndian>(value).unwrap();
             }
             for neighbors in layers {
@@ -2233,14 +2599,15 @@ mod tests {
             1.0
         };
         let distance = |slot: u32| {
-            let vector = graph.vectors.get(slot);
+            let vector = decode_vector(&graph.read_view(), slot);
             match graph.metric {
                 DistanceMetric::Cosine => {
-                    1.0 - dot_scalar(query, vector)
+                    1.0 - dot_half_scalar(query, graph.vectors.get(slot))
+                        * graph.vectors.scale(slot)
                         * query_inverse_norm
                         * graph.inv_norms[slot as usize]
                 }
-                metric => compute_distance(metric, query, vector),
+                metric => compute_distance(metric, query, &vector),
             }
         };
         for layer in (1..=graph.entry_layer).rev() {
@@ -2486,9 +2853,13 @@ mod tests {
         assert!(recall >= 0.95, "recall@10 {recall:.3} < 0.95");
         for i in (0..n).step_by(97) {
             let found = idx.search(&vector_for(i), 1, 64).unwrap();
-            assert_eq!(
-                found[0].0, i as u64,
-                "node {i} not found as its own nearest"
+            // Half-precision storage (11-bit significand) cannot order the
+            // generator's near-duplicates, which sit within ~1e-4 cosine
+            // distance of each other; any of them is a hit.
+            let nearest = found[0].0 as usize;
+            assert!(
+                nearest == i || cosine(&vector_for(i), &vector_for(nearest)) < 5e-4,
+                "node {i} not found as its own nearest (got {nearest})"
             );
         }
     }
@@ -2743,7 +3114,10 @@ mod tests {
     fn generic_read_boundary_accepts_fragmented_backend() {
         let graph = FragmentedTestGraph {
             ids: vec![17, (1u64 << 48) + 5, 91],
-            vectors: vec![vec![1.0, 0.0], vec![0.8, 0.2], vec![0.0, 1.0]],
+            vectors: [[1.0, 0.0], [0.8, 0.2], [0.0, 1.0]]
+                .iter()
+                .map(|v| half_encode(v))
+                .collect(),
             inverse_norms: vec![1.0, 1.0 / 0.68f32.sqrt(), 1.0],
             neighbors: vec![vec![vec![1]], vec![vec![0, 2]], vec![vec![1]]],
             tombstones: vec![91],
@@ -2996,7 +3370,7 @@ mod tests {
     fn avx2_dot_matches_scalar_bits() {
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            if !std::is_x86_feature_detected!("avx2") || !std::is_x86_feature_detected!("fma") {
+            if !avx2_kernels_available() {
                 return;
             }
             let mut state = 0xC0FFEE_u64;
@@ -3019,10 +3393,10 @@ mod tests {
                         continue;
                     }
                     let a = &data[off..off + len];
-                    let b = &data[off + len..off + len * 2];
-                    let scalar = dot_scalar(a, b);
+                    let (b, _) = half_encode(&data[off + len..off + len * 2]);
+                    let scalar = dot_half_scalar(a, &b);
                     // SAFETY: the feature check above succeeded.
-                    let avx = unsafe { dot_avx2(a, b) };
+                    let avx = unsafe { dot_half_avx2(a, &b) };
                     assert_eq!(
                         scalar.to_bits(),
                         avx.to_bits(),
@@ -3059,7 +3433,8 @@ mod tests {
             let v = &vecs[id as usize];
             let n = v.iter().map(|x| x * x).sum::<f32>().sqrt();
             let inv = if n > 0.0 { 1.0 / n } else { 0.0 };
-            let expect = 1.0 - dot_scalar(&q, v) * q_inv * inv;
+            let (codes, scale) = half_encode(v);
+            let expect = 1.0 - dot_half_scalar(&q, &codes) * scale * q_inv * inv;
             assert_eq!(
                 dist.to_bits(),
                 expect.to_bits(),
