@@ -26912,7 +26912,7 @@ impl Index {
                 // Cooperative deadline: stop fanning into further segments
                 // once the request timeout has elapsed — partial results
                 // with `timed_out: true`, exactly like ES.
-                if std::time::Instant::now() >= search_deadline {
+                if fanout_deadline_armed() && std::time::Instant::now() >= search_deadline {
                     deadline_exceeded = true;
                     break;
                 }
@@ -26975,7 +26975,7 @@ impl Index {
                     // `timed_out: false`).
                     let searcher =
                         FtsSearcher::new(Arc::clone(&reader), Arc::clone(&self.registry))
-                            .with_deadline(Some(search_deadline))
+                            .with_deadline(fanout_deadline_armed().then_some(search_deadline))
                             // #188: index-wide BM25 statistics — one union of
                             // avgdl/N/df over every segment plus the memtable,
                             // so `_score` stops depending on which segment a
@@ -27186,7 +27186,13 @@ impl Index {
                                                 .and_then(|d| d.get(pos as usize).cloned())
                                         }
                                     };
-                                    for sh in &seg_hits {
+                                    for (scanned, sh) in seg_hits.iter().enumerate() {
+                                        // #2431: per-hit source reads + full
+                                        // query re-test over O(matches) hits.
+                                        if segment_deadline_hit(scanned, Some(search_deadline)) {
+                                            deadline_exceeded = true;
+                                            break;
+                                        }
                                         let doc = match fetch(sh.doc_id) {
                                             Some(d) => d,
                                             None => continue,
@@ -27412,6 +27418,8 @@ impl Index {
                                                 sort_topk.as_mut().expect("gated on is_some"),
                                                 &mut seen_ids,
                                                 &mut discard,
+                                                Some(search_deadline),
+                                                &mut deadline_exceeded,
                                                 score_doc,
                                             );
                                             fts_sorted_handled = true;
@@ -27784,7 +27792,13 @@ impl Index {
                                         ) {
                                             self.trim_page_to_cap(hits, materialisation_limit)
                                         };
-                                        for sh in &seg_hits {
+                                        for (scanned, sh) in seg_hits.iter().enumerate() {
+                                            // #2431: source decode per hit; under
+                                            // a sort this walks every match.
+                                            if segment_deadline_hit(scanned, Some(search_deadline)) {
+                                                deadline_exceeded = true;
+                                                break;
+                                            }
                                             // `seg_hits` descends by score, so once
                                             // a hit's score is STRICTLY below the
                                             // worst kept score, neither it nor any
@@ -28335,6 +28349,8 @@ impl Index {
                                     sort_topk.as_mut().expect("gated on is_some"),
                                     &mut seen_ids,
                                     &mut total_count,
+                                    Some(search_deadline),
+                                    &mut deadline_exceeded,
                                     score_doc,
                                 );
                                 dbg_scan_ms += t_scan.elapsed().as_millis() as u64;
@@ -28422,6 +28438,8 @@ impl Index {
                                     &mut total_count,
                                     &mut all_hits,
                                     &mut seen_ids,
+                                    Some(search_deadline),
+                                    &mut deadline_exceeded,
                                     score_doc,
                                     &dmq_schema,
                                 );
@@ -36719,6 +36737,10 @@ impl Index {
         topk: &mut SortTopK,
         seen_ids: &mut HashSet<String>,
         total_count: &mut u64,
+        // #2431: cooperative deadline, polled every 256 candidates; on
+        // expiry the walk stops and sets `*timed_out` (partial page).
+        deadline: Option<std::time::Instant>,
+        timed_out: &mut bool,
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
@@ -36730,7 +36752,11 @@ impl Index {
         // is also rejected — break WITHOUT parsing.  After the heap warms
         // up this makes each additional segment O(ties) parses instead of
         // O(cap).
-        for &(key_bits, pos) in &candidates.ordered {
+        for (scanned, &(key_bits, pos)) in candidates.ordered.iter().enumerate() {
+            if segment_deadline_hit(scanned, deadline) {
+                *timed_out = true;
+                break;
+            }
             if topk.primary_f64_rejects(f64::from_bits(key_bits as u64)) {
                 break;
             }
@@ -36903,6 +36929,9 @@ impl Index {
         total_count: &mut u64,
         all_hits: &mut Vec<Hit>,
         seen_ids: &mut HashSet<String>,
+        // #2431: cooperative deadline, polled every 256 positions.
+        deadline: Option<std::time::Instant>,
+        timed_out: &mut bool,
         // Per-doc scorer from `search_inner` (`score_doc`): single-applies
         // any peeled function_score and resolves `_id` for ids clauses.
         scorer: &(dyn Fn(&Value, &str) -> f32 + Send + Sync),
@@ -36918,7 +36947,11 @@ impl Index {
         // order.  Pre-fix this function collected the whole `HashSet` into
         // a Vec and `select_nth`ed it PER QUERY — a stable ~0.17 ms tax on
         // a 10-doc page over a 100k-position cached set.
-        for &pos in pre_filter.sorted.iter() {
+        for (scanned, &pos) in pre_filter.sorted.iter().enumerate() {
+            if segment_deadline_hit(scanned, deadline) {
+                *timed_out = true;
+                break;
+            }
             if count_authoritative && !count_only && all_hits.len() >= materialisation_limit {
                 break;
             }
@@ -65935,8 +65968,37 @@ mod unwrap_single_clause_643_wrapper_tests {
     }
 }
 
+/// #2431: in-segment cooperative deadline poll. The segment walk checks the
+/// request deadline between segments, but one large segment is otherwise an
+/// uninterruptible unit, so every per-segment hydration / collection loop
+/// polls this on its first item and every 256 after (the same cadence as
+/// `scan_stored_section_into` and the memtable scan).
+#[inline]
+fn segment_deadline_hit(scanned: usize, deadline: Option<std::time::Instant>) -> bool {
+    scanned & 0xFF == 0 && deadline.is_some_and(|dl| std::time::Instant::now() >= dl)
+}
+
+/// Whether the between-segment deadline gate (and the FTS searcher's own
+/// deadline) are armed. Always true outside tests; the #2431 tests switch it
+/// off with `INNER_DEADLINE_ONLY` so an expired request reaches the
+/// in-segment loops and the test proves THOSE polls stop it.
+#[inline]
+fn fanout_deadline_armed() -> bool {
+    #[cfg(test)]
+    {
+        !INNER_DEADLINE_ONLY.with(|c| c.get())
+    }
+    #[cfg(not(test))]
+    {
+        true
+    }
+}
+
 #[cfg(test)]
 thread_local! {
+    /// #2431 test hook: see [`fanout_deadline_armed`].
+    pub(crate) static INNER_DEADLINE_ONLY: std::cell::Cell<bool> =
+        const { std::cell::Cell::new(false) };
     /// #577 fail-before instrument: the high-water mark of `all_hits.len()`
     /// reached inside the `residual_gate` per-segment loop.
     pub(crate) static RESIDUAL_HITS_PEAK: std::cell::Cell<usize> =
@@ -65950,6 +66012,106 @@ thread_local! {
         const { std::cell::Cell::new(0) };
     pub(crate) static SEG_STORED_SCANS: std::cell::Cell<usize> =
         const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+mod segment_inner_deadline_2431_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Disarms the between-segment gate and the FTS searcher deadline for the
+    /// guard's lifetime, so only the in-segment loop polls can stop a search.
+    struct InnerDeadlineOnly;
+    impl InnerDeadlineOnly {
+        fn arm() -> Self {
+            INNER_DEADLINE_ONLY.with(|c| c.set(true));
+            InnerDeadlineOnly
+        }
+    }
+    impl Drop for InnerDeadlineOnly {
+        fn drop(&mut self) {
+            INNER_DEADLINE_ONLY.with(|c| c.set(false));
+        }
+    }
+
+    async fn flushed_index(name: &str, n: usize) -> (tempfile::TempDir, crate::Engine) {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.server.data_dir = dir.path().to_string_lossy().into_owned();
+        let engine = crate::Engine::new(config).unwrap();
+        engine.create_index(name, Schema::empty()).unwrap();
+        let idx = engine.get_index(name).unwrap();
+        for i in 0..n {
+            idx.index_document(Some(format!("d{i}")), json!({"body": "alpha beta", "n": i}))
+                .await
+                .unwrap();
+        }
+        idx.flush().await.unwrap();
+        (dir, engine)
+    }
+
+    /// #2431: an expired request that gets past the segment fan-out must be
+    /// stopped by the residual-gate loop itself (per-hit source read + query
+    /// re-test), not walk every match. Fail-before: with the hook on, the loop
+    /// had no poll, so the search ran to completion with `timed_out: false`.
+    #[tokio::test]
+    async fn residual_gate_loop_stops_at_the_search_deadline() {
+        let (_dir, engine) = flushed_index("deadline-2431-residual", 2000).await;
+        let idx = engine.get_index("deadline-2431-residual").unwrap();
+        let body = json!({
+            "size": 10,
+            "query": {"bool": {
+                "must": [{"match": {"body": "alpha"}}],
+                "filter": [{"range": {"n": {"gte": 0}}}]
+            }}
+        });
+        let _hook = InnerDeadlineOnly::arm();
+
+        RESIDUAL_HITS_PEAK.with(|c| c.set(0));
+        let mut expired = xerj_query::parse_request(&body).unwrap();
+        expired.timeout_ms = Some(0);
+        let partial = idx.search(&expired).await.unwrap();
+        assert!(
+            partial.timed_out,
+            "an expired deadline must stop the residual-gate loop and report timed_out"
+        );
+        assert_eq!(
+            RESIDUAL_HITS_PEAK.with(|c| c.get()),
+            0,
+            "the loop must stop before admitting any hit"
+        );
+
+        let mut live = xerj_query::parse_request(&body).unwrap();
+        live.timeout_ms = Some(60_000);
+        let full = idx.search(&live).await.unwrap();
+        assert!(!full.timed_out, "a live deadline must not trip");
+        assert_eq!(full.total.value, 2000);
+        assert_eq!(full.hits.len(), 10);
+    }
+
+    /// #2431: the same for the sorted paths (dv-sorted candidate hydration /
+    /// FTS hit hydration under a sort), which walk every match of a segment.
+    #[tokio::test]
+    async fn sorted_segment_paths_stop_at_the_search_deadline() {
+        let (_dir, engine) = flushed_index("deadline-2431-sorted", 2000).await;
+        let idx = engine.get_index("deadline-2431-sorted").unwrap();
+        let _hook = InnerDeadlineOnly::arm();
+        for body in [
+            json!({"size": 10, "query": {"range": {"n": {"gte": 0}}}, "sort": [{"n": "asc"}]}),
+            json!({"size": 10, "query": {"match": {"body": "alpha"}}, "sort": [{"n": "desc"}]}),
+        ] {
+            let mut expired = xerj_query::parse_request(&body).unwrap();
+            expired.timeout_ms = Some(0);
+            let partial = idx.search(&expired).await.unwrap();
+            assert!(partial.timed_out, "expired deadline must report timed_out for {body}");
+
+            let mut live = xerj_query::parse_request(&body).unwrap();
+            live.timeout_ms = Some(60_000);
+            let full = idx.search(&live).await.unwrap();
+            assert!(!full.timed_out, "a live deadline must not trip for {body}");
+            assert_eq!(full.hits.len(), 10, "full page for {body}");
+        }
+    }
 }
 
 #[cfg(test)]
