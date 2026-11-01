@@ -1,0 +1,23 @@
+{
+ "corpus": "gitbingxu--dragon-quant",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how gitBingxu/dragon-quant implements it: \ud83d\udc09 \u9f99\u5934\u6218\u6cd5\u91cf\u5316\u5206\u6790 \u2014 \u4ece\u5e26\u52a8\u6027\u3001\u6297\u8dcc\u6027\u3001\u9886\u6da8\u6027\u3001\u8d44\u91d1\u627f\u63a5\u6027\u56db\u4e2a\u7ef4\u5ea6\u8bc4\u4f30\u6da8\u505c\u80a1\u7684\u9f99\u5934\u8d28\u91cf (selected work: dragon_quant, web_ui)",
+ "repos": [
+  {
+   "repo": "dragon-quant",
+   "url": "https://github.com/gitBingxu/dragon-quant",
+   "sha": "ce862d83ade27602c04a03e5dc223c48cb14022e",
+   "licence": "MIT (LICENSE file at pin ce862d83ade2, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T05:47Z",
+    "consent_receipt": "ff27a644b85c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T05:47Z (receipt ff27a644b85c); selected commit ce862d83ade2: \"\u2728 feat: review \u652f\u6301\u4e25\u683c\u4e0e\u5bbd\u677e\u53e3\u5f84\u5207\u6362\". LICENSE file at pin ce862d83ade2 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

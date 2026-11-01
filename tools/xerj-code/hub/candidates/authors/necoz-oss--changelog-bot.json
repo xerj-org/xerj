@@ -1,9 +1,9 @@
 {
- "corpus": "nyaomaru--changelog-bot",
+ "corpus": "necoz-oss--changelog-bot",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on ai, changelog, typescript queries this for how nyaomaru/changelog-bot implements it: Automatic create changelog with AI. \ud83e\udd16 It provides CLI and github actions. \ud83d\ude80 https://www.npmjs.com/package/@nyaomaru/changelog-bot (selected work: src/providers, src/evaluation, tests)",
+ "domain": "an agent working on ai, changelog, typescript queries this for how necoz-oss/changelog-bot implements it: Automatic create changelog with AI. \ud83e\udd16 It provides CLI and github actions. \ud83d\ude80 https://www.npmjs.com/package/@nyaomaru/changelog-bot (selected work: src/providers, src/evaluation, tests)",
  "repos": [
   {
    "repo": "changelog-bot",

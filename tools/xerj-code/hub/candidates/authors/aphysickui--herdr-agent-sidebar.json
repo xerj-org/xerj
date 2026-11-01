@@ -1,0 +1,23 @@
+{
+ "corpus": "aphysickui--herdr-agent-sidebar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on herdr-plugin queries this for how APhysickui/herdr-agent-sidebar implements it: Task-first Herdr sidebar: live Pi task labels, stable pane IDs, Kimi Code compatibility, and automatic refresh. \u4e2d\u6587\u6587\u6863 / English docs (selected work: plugin, tests, the project root)",
+ "repos": [
+  {
+   "repo": "herdr-agent-sidebar",
+   "url": "https://github.com/APhysickui/herdr-agent-sidebar",
+   "sha": "07abd93dd69b9cacf3b4f993b3e4b5476ce8e85e",
+   "licence": "Apache-2.0 (LICENSE file at pin 07abd93dd69b, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T05:46Z",
+    "consent_receipt": "ba381b2c462b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T05:46Z (receipt ba381b2c462b); selected commit 07abd93dd69b: \"feat: add real-time task summaries and compact project tabs\". LICENSE file at pin 07abd93dd69b detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

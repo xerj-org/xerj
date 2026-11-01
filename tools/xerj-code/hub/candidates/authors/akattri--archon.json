@@ -1,0 +1,30 @@
+{
+ "corpus": "akattri--archon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how akattri/Archon implements it: akattri/Archon (JavaScript) (selected work: the project root, src, scripts)",
+ "repos": [
+  {
+   "repo": "Archon",
+   "url": "https://github.com/akattri/Archon",
+   "sha": "d758f6ad4483ade29a5b4757dd03478d31473e8b",
+   "licence": "GPL-3.0 (LICENSE file at pin d758f6ad4483, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T08:07Z",
+    "consent_receipt": "979aa8cf13a7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T08:07Z (receipt 979aa8cf13a7); selected commit d758f6ad4483: \"feat: complete single-page productivity workspace architecture and Go\u2026\". LICENSE file at pin d758f6ad4483 detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "d758f6ad4483ade29a5b4757dd03478d31473e8b",
+     "at": "2026-11-01T08:07Z",
+     "receipt": "979aa8cf13a7"
+    }
+   }
+  }
+ ]
+}

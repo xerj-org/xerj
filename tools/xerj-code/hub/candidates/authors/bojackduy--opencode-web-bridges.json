@@ -1,0 +1,30 @@
+{
+ "corpus": "bojackduy--opencode-web-bridges",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on browser-bridge, chatgpt, deepseek queries this for how bojackduy/opencode-web-bridges implements it: Use ChatGPT Web (free, your own login, no API key) as an OpenCode model \u2014 one-line install (selected work: src/server, test, the project root)",
+ "repos": [
+  {
+   "repo": "opencode-web-bridges",
+   "url": "https://github.com/bojackduy/opencode-web-bridges",
+   "sha": "7b61a03e85365e4aec97e23bc288fa6cca5ff564",
+   "licence": "AGPL-3.0 (LICENSE file at pin 7b61a03e8536, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T07:30Z",
+    "consent_receipt": "589083f0fefe",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T07:30Z (receipt 589083f0fefe); selected commit 7b61a03e8536: \"feat(tui): palette actions to recheck or one-shot correct a rejected \u2026\". LICENSE file at pin 7b61a03e8536 detected as AGPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 7b61a03e8536 (contains the selected commit): the LICENSE at the selected commit was NOASSERTION.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "944a0cf3927f1e0ba725d9053dc9c4f628cbc968",
+     "at": "2026-11-01T07:30Z",
+     "receipt": "589083f0fefe"
+    }
+   }
+  }
+ ]
+}

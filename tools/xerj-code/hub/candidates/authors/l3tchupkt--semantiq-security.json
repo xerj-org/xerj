@@ -8,15 +8,15 @@
   {
    "repo": "semantiq-security",
    "url": "https://github.com/l3tchupkt/semantiq-security",
-   "sha": "1e032b6325dcbacf4671e97b189c545e16c7b1c6",
-   "licence": "author's permission (LICENSE at pin 1e032b6325dc: NOASSERTION; repository: NOASSERTION)",
+   "sha": "fe7693dc173f54d145917efcaec6a2506d393027",
+   "licence": "author's permission (LICENSE at pin fe7693dc173f: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T18:12Z",
     "consent_receipt": "ff2cd30cf14c",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:12Z (receipt ff2cd30cf14c); pinned to the default-branch head. LICENSE at pin 1e032b6325dc: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T18:12Z (receipt ff2cd30cf14c); pinned to the default-branch head. LICENSE at pin fe7693dc173f: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]

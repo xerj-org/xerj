@@ -1,0 +1,23 @@
+{
+ "corpus": "phsithzz--aitrainer-mobile",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Dart queries this for how Phsithzz/AiTrainer-mobile implements it: Flutter, BLoC (selected work: lib/features)",
+ "repos": [
+  {
+   "repo": "AiTrainer-mobile",
+   "url": "https://github.com/Phsithzz/AiTrainer-mobile",
+   "sha": "924178fa83fc26fb8d6392a383eea73ca89841b3",
+   "licence": "MIT (LICENSE file at pin 924178fa83fc, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T05:59Z",
+    "consent_receipt": "2ca1ca2219d4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T05:59Z (receipt 2ca1ca2219d4); selected commit 924178fa83fc: \"feat(exercise): implement real-time AI workout trainer with MediaPipe\u2026\". LICENSE file at pin 924178fa83fc detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 924178fa83fc (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

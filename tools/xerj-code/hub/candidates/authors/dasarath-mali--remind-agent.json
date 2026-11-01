@@ -1,0 +1,23 @@
+{
+ "corpus": "dasarath-mali--remind-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how Dasarath-Mali/Remind_agent implements it: it is a code base that locally runs on your pc in every OS (windows,macos,linux) efficiently and monitors your work flow `",
+ "repos": [
+  {
+   "repo": "Remind_agent",
+   "url": "https://github.com/Dasarath-Mali/Remind_agent",
+   "sha": "60e9d05d2acf69cf3a0655d9b54a162e5e60f968",
+   "licence": "MIT (LICENSE file at pin 60e9d05d2acf, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T06:09Z",
+    "consent_receipt": "a888c8cce0b7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T06:09Z (receipt a888c8cce0b7); pinned to the default-branch head. LICENSE file at pin 60e9d05d2acf detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

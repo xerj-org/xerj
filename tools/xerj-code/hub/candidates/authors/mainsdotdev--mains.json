@@ -1,0 +1,23 @@
+{
+ "corpus": "mainsdotdev--mains",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ade, agentic-ai, claude-code queries this for how mainsdotdev/mains implements it: Mains for AI coding agents (selected work: apps/mobile, packages/backend, packages/contracts)",
+ "repos": [
+  {
+   "repo": "mains",
+   "url": "https://github.com/mainsdotdev/mains",
+   "sha": "4f0bf08282cb1f91a87dfb5c9149aa5951b1ade2",
+   "licence": "MIT (LICENSE file at pin 4f0bf08282cb, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T07:53Z",
+    "consent_receipt": "0392655cd62e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T07:53Z (receipt 0392655cd62e); selected commit 4f0bf08282cb: \"refactor: unify MCP elicitation schema handling across desktop and mo\u2026\". LICENSE file at pin 4f0bf08282cb detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}
