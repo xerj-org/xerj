@@ -15,6 +15,12 @@ use xerj_autoindex::feedback::{parse, run, Cfg};
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());
 
+/// The env lock, even after another test panicked while holding it, so one
+/// failure (a denied loopback bind) does not show as a `PoisonError` in the rest.
+fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+    ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 struct EnvVar {
     key: &'static str,
     previous: Option<std::ffi::OsString>,
@@ -53,6 +59,17 @@ fn filled(endpoint: &str, no_github: bool) -> Cfg {
     cfg.no_github = no_github;
     cfg.endpoint = endpoint.to_string();
     cfg
+}
+
+/// A loopback listener for the mock endpoint. A sandbox that denies the bind
+/// gets a message naming the requirement, not a bare `PermissionDenied` (#2886).
+fn bind_loopback() -> TcpListener {
+    TcpListener::bind("127.0.0.1:0").unwrap_or_else(|e| {
+        panic!(
+            "loopback bind to 127.0.0.1:0 failed ({e}): these tests start a mock endpoint \
+             on 127.0.0.1 and need loopback networking"
+        )
+    })
 }
 
 fn read_one_http(listener: TcpListener) -> String {
@@ -101,8 +118,8 @@ fn read_one_http(listener: TcpListener) -> String {
 /// No `--yes`: `--submit` sends on its own (here straight to the endpoint).
 #[test]
 fn submit_sends_without_yes() {
-    let _lock = ENV_LOCK.lock().unwrap();
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let _lock = env_lock();
+    let listener = bind_loopback();
     let port = listener.local_addr().unwrap().port();
     let endpoint = format!("http://127.0.0.1:{port}/api/field-report");
     let server = std::thread::spawn(move || read_one_http(listener));
@@ -118,10 +135,10 @@ fn submit_sends_without_yes() {
 /// report falls back to the endpoint automatically.
 #[test]
 fn submit_falls_back_to_the_endpoint_when_github_is_unavailable() {
-    let _lock = ENV_LOCK.lock().unwrap();
+    let _lock = env_lock();
     let empty = tempfile::tempdir().unwrap();
     let _path = EnvVar::set("PATH", empty.path().to_str().unwrap());
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let listener = bind_loopback();
     let port = listener.local_addr().unwrap().port();
     let endpoint = format!("http://127.0.0.1:{port}/api/field-report");
     let server = std::thread::spawn(move || read_one_http(listener));
@@ -142,7 +159,7 @@ fn submit_falls_back_to_the_endpoint_when_github_is_unavailable() {
 #[test]
 fn submit_asks_github_first_then_posts() {
     use std::os::unix::fs::PermissionsExt;
-    let _lock = ENV_LOCK.lock().unwrap();
+    let _lock = env_lock();
     let bin = tempfile::tempdir().unwrap();
     let log = bin.path().join("gh.log");
     let gh = bin.path().join("gh");
@@ -157,7 +174,7 @@ fn submit_asks_github_first_then_posts() {
     std::fs::set_permissions(&gh, std::fs::Permissions::from_mode(0o755)).unwrap();
     let path = format!("{}:/usr/bin:/bin", bin.path().display());
     let _path = EnvVar::set("PATH", &path);
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let listener = bind_loopback();
     let port = listener.local_addr().unwrap().port();
     let endpoint = format!("http://127.0.0.1:{port}/api/field-report");
     let server = std::thread::spawn(move || read_one_http(listener));
@@ -172,10 +189,10 @@ fn submit_asks_github_first_then_posts() {
 /// `--github-only` (what the MCP tool uses) never POSTs.
 #[test]
 fn github_only_never_posts() {
-    let _lock = ENV_LOCK.lock().unwrap();
+    let _lock = env_lock();
     let empty = tempfile::tempdir().unwrap();
     let _path = EnvVar::set("PATH", empty.path().to_str().unwrap());
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let listener = bind_loopback();
     listener.set_nonblocking(true).unwrap();
     let port = listener.local_addr().unwrap().port();
     let mut cfg = filled(&format!("http://127.0.0.1:{port}/api/field-report"), false);
@@ -190,9 +207,9 @@ fn github_only_never_posts() {
 /// `XERJ_DISABLE_FEEDBACK=true` opts out: nothing is sent.
 #[test]
 fn disable_feedback_sends_nothing() {
-    let _lock = ENV_LOCK.lock().unwrap();
+    let _lock = env_lock();
     let _off = EnvVar::set("XERJ_DISABLE_FEEDBACK", "true");
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let listener = bind_loopback();
     listener.set_nonblocking(true).unwrap();
     let port = listener.local_addr().unwrap().port();
     let code = run(&filled(
@@ -208,8 +225,8 @@ fn disable_feedback_sends_nothing() {
 
 #[test]
 fn submit_posts_json_and_sends_no_github_token() {
-    let _lock = ENV_LOCK.lock().unwrap();
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let _lock = env_lock();
+    let listener = bind_loopback();
     let port = listener.local_addr().unwrap().port();
     let endpoint = format!("http://127.0.0.1:{port}/api/field-report");
     let token = "ghp_should_not_appear";
@@ -251,8 +268,8 @@ fn submit_posts_json_and_sends_no_github_token() {
 
 #[test]
 fn submit_refuses_placeholders_without_connecting() {
-    let _lock = ENV_LOCK.lock().unwrap();
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let _lock = env_lock();
+    let listener = bind_loopback();
     listener.set_nonblocking(true).unwrap();
     let port = listener.local_addr().unwrap().port();
     let mut cfg = parse(vec!["--submit".into(), "--no-autofill".into()])

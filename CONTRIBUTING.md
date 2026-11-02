@@ -42,6 +42,10 @@ cargo test                                # unit + integration tests
 cargo test -p xerj-engine --test integration
 ```
 
+Many tests start fake nodes on `127.0.0.1`, so they need loopback networking. In a
+sandbox that denies binding `127.0.0.1`, the `xerj-autoindex` tests fail with a
+message that says so.
+
 ### ES-YAML conformance suite (required)
 
 XERJ's compatibility contract is the Elasticsearch REST API YAML test suite based on ES 8.13. **CI requires 0 failed cases — there is no "known failures" list.** The runner reports passed, failed, and skipped cases separately; skipped cases do not fail the gate, and the total changes as cases are added. If a test expects one response and XERJ returns another, XERJ is wrong; fix the engine, not the test.

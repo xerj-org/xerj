@@ -132,6 +132,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The `xerj-autoindex` tests name the cause when loopback networking is
+  unavailable (#2886). Their fake nodes bind 127.0.0.1 through one helper, so a
+  sandbox that denies the bind fails with "the xerj-autoindex tests ... need
+  loopback networking" instead of hundreds of bare `PermissionDenied` panics.
+
 - `/lead` rejects non-string email values with HTTP 400 before storage.
   Arrays no longer become accepted addresses through string coercion, and
   objects with a non-callable `toString` no longer cause HTTP 500.

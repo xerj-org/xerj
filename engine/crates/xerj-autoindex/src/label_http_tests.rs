@@ -11,7 +11,7 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpStream;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -46,7 +46,7 @@ struct NodeState {
 
 impl LabelNode {
     fn start() -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         listener.set_nonblocking(true).unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
         let state = Arc::new(Mutex::new(NodeState::default()));

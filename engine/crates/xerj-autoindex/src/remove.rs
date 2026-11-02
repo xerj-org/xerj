@@ -2102,7 +2102,6 @@ mod tests {
     ) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
         let cat = Value::Array(live.iter().map(|n| json!({"index": n})).collect()).to_string();
         use std::io::{Read, Write};
-        use std::net::TcpListener;
         use std::sync::{Arc, Mutex};
 
         let hits: Vec<Value> = docs
@@ -2111,7 +2110,7 @@ mod tests {
             .collect();
         let catalog = json!({"hits": {"total": {"value": hits.len()}, "hits": hits}}).to_string();
         let log = Arc::new(Mutex::new(Vec::new()));
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let port = listener.local_addr().unwrap().port();
         let log_thread = Arc::clone(&log);
         let (ready_tx, ready_rx) = std::sync::mpsc::channel();

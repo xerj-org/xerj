@@ -1273,7 +1273,7 @@ mod tests {
     #[test]
     fn staleness_check_runs_beside_the_search_instead_of_after_it() {
         use std::io::{Read, Write};
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let url = format!("http://{}", listener.local_addr().unwrap());
         let server = std::thread::spawn(move || {
             let (mut sock, _) = listener.accept().unwrap();
@@ -2536,7 +2536,7 @@ mod tests {
     ) {
         use std::io::{Read, Write};
         use std::sync::atomic::Ordering;
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let url = format!("http://{}", listener.local_addr().unwrap());
         listener.set_nonblocking(true).unwrap();
         let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));

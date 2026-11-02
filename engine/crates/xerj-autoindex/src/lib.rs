@@ -61,6 +61,8 @@ pub mod staleness;
 pub mod state;
 mod sync;
 mod sync_executor;
+#[cfg(test)]
+mod test_loopback;
 pub mod walk;
 pub mod watch;
 pub mod xc;
@@ -17658,7 +17660,6 @@ mod legacy_rebuild_argv_tests {
 mod map_folder_preview {
     use super::{cli, run_index};
     use std::io::{BufRead, BufReader, Read, Write};
-    use std::net::TcpListener;
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::{Arc, Mutex};
     use std::time::Duration;
@@ -17672,7 +17673,7 @@ mod map_folder_preview {
 
     impl Node {
         fn start() -> Self {
-            let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+            let listener = crate::test_loopback::bind();
             listener.set_nonblocking(true).unwrap();
             let url = format!("http://{}", listener.local_addr().unwrap());
             let requests = Arc::new(Mutex::new(Vec::new()));
@@ -17860,7 +17861,6 @@ mod map_folder_preview {
 mod dataset_time_range_tests {
     use super::*;
     use std::io::Read;
-    use std::net::TcpListener;
     use std::sync::Arc;
 
     const T_MIN: i64 = 1_790_812_800_000; // 2026-10-01T00:00:00Z
@@ -17902,7 +17902,7 @@ mod dataset_time_range_tests {
     /// sorted size-1 search answers from doc values.
     #[test]
     fn time_bounds_come_from_sorted_searches_not_materialising_aggs() {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener = crate::test_loopback::bind();
         let address = listener.local_addr().unwrap();
         let bodies = Arc::new(Mutex::new(Vec::<Value>::new()));
         let seen = Arc::clone(&bodies);
