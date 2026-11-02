@@ -1,0 +1,23 @@
+{
+ "corpus": "nikosklms--farebot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on docker, flight-tracker, google-flights queries this for how nikosklms/FareBot implements it: nikosklms/FareBot (Python) (selected work: bot, tests, database)",
+ "repos": [
+  {
+   "repo": "FareBot",
+   "url": "https://github.com/nikosklms/FareBot",
+   "sha": "0f050c6e6fc1049bfe371f62ecf2788c91a3d3b0",
+   "licence": "MIT (LICENSE file at pin 0f050c6e6fc1, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T18:33Z",
+    "consent_receipt": "37d956626281",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T18:33Z (receipt 37d956626281); selected commit 0f050c6e6fc1: \"feat: direct flights only for explores and digests; origin buttons sh\u2026\". LICENSE file at pin 0f050c6e6fc1 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

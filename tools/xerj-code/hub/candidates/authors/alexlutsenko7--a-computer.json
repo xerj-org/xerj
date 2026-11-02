@@ -1,0 +1,23 @@
+{
+ "corpus": "alexlutsenko7--a-computer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Verilog queries this for how alexlutsenko7/A_Computer implements it: To implement my childhoods PCs on FPGA (selected work: LSpectrum, AMenu, LTari)",
+ "repos": [
+  {
+   "repo": "A_Computer",
+   "url": "https://github.com/alexlutsenko7/A_Computer",
+   "sha": "56e4c72ed82eb328b243b04f0f5253cfe6daf387",
+   "licence": "author's permission (LICENSE at pin 56e4c72ed82e: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T18:16Z",
+    "consent_receipt": "3b7fc66a82df",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T18:16Z (receipt 3b7fc66a82df); selected commit 56e4c72ed82e: \"LTari .atr BASIC prompt, fast SD flash update, Bluetooth fixes\". LICENSE at pin 56e4c72ed82e: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

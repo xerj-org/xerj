@@ -1,0 +1,23 @@
+{
+ "corpus": "paradis-ez-utilities--paradis-capture",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how Paradis-EZ-Utilities/Paradis-Capture implements it: A simple, lightweight Windows screen and audio recorder (selected work: src/ParadisCapture, tests, src/ParadisCapture.Core)",
+ "repos": [
+  {
+   "repo": "Paradis-Capture",
+   "url": "https://github.com/Paradis-EZ-Utilities/Paradis-Capture",
+   "sha": "22e6ff89fef37bb87b0030979f3a9eb50191a7ad",
+   "licence": "MIT (LICENSE file at pin 22e6ff89fef3, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T19:51Z",
+    "consent_receipt": "12b7bb3a9c4f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T19:51Z (receipt 12b7bb3a9c4f); selected commit 22e6ff89fef3: \"Paradis Capture v1.0.1\". LICENSE file at pin 22e6ff89fef3 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, agentic-workflow, ai-implementation queries this for how ShayanSpiel/SpielOS implements it: SpielOS: your company context across chats. A Codex and Claude Code plugin with a Director, local dashboard, tested workflows, evaluations a (selected work: company, tools, the project root)",
+ "domain": "an agent working on agent-skills, agentic-workflow, ai-implementation queries this for how ShayanSpiel/SpielOS implements it: A portable company workspace for Codex and Claude Code. Build recurring workflows with Director, preserve context, and improve work through  (selected work: company, tools, the project root)",
  "repos": [
   {
    "repo": "SpielOS",

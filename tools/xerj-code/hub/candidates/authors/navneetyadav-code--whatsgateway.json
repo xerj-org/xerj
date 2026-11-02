@@ -1,9 +1,9 @@
 {
- "corpus": "navneetyadav-code--whatsapp-api",
+ "corpus": "navneetyadav-code--whatsgateway",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on baileys, bulk-messaging, developer-tools queries this for how navneetyadav-code/whatsapp-api implements it: \ud83d\ude80 100% Free WhatsApp API & Gateway (Self-Hosted, Open-Source). Twilio & Meta Cloud API Alternative. Send unlimited WhatsApp messages, media, (selected work: src/pages, public, config)",
+ "domain": "an agent working on baileys, bulk-messaging, developer-tools queries this for how navneetyadav-code/WhatsGateway implements it: \u26a1 WhatsGateway: Free, self-hosted WhatsApp API & AI Agent Gateway. High-performance Twilio & Meta Cloud API alternative. Send unlimited mess (selected work: src/pages, public, config)",
  "repos": [
   {
    "repo": "whatsapp-api",
