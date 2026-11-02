@@ -12,6 +12,13 @@ asset handler shadows it. Bindings live in [`../wrangler.toml`](../wrangler.toml
 | `lead.js` | `/lead` | capture a work email | R2 `LEADS` |
 | `api/field-report.js` | `/api/field-report` | **fallback** agent field-report intake | KV `FIELD_REPORTS` |
 
+## `/lead` — email validation
+
+`POST /lead` requires a string `email`, trimmed and lowercased before
+validation and storage. Non-string values, including arrays and objects,
+return `400 { ok:false, error:"invalid email" }` without writing to R2.
+An R2 write failure for a valid email still returns `500`.
+
 ## `/api/field-report` — agent field-report fallback
 
 **The canonical path to file a field report is a GitHub PR** (`xerj feedback

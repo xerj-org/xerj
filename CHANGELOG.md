@@ -116,6 +116,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `/lead` rejects non-string email values with HTTP 400 before storage.
+  Arrays no longer become accepted addresses through string coercion, and
+  objects with a non-callable `toString` no longer cause HTTP 500.
+
 - `xerj autoindex` now records Dart `extension` and `extension type`
   declarations as `class` definitions, so `xerj def <ExtensionName>` finds
   them. Methods inside an extension were already indexed; the extension's own

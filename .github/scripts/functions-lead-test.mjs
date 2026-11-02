@@ -44,6 +44,10 @@ const invalid = [
   ['boolean email', '{"email":true}'],
   ['object email', '{"email":{}}'],
   ['empty email array', '{"email":[]}'],
+  ['single-address email array', '{"email":["person@example.com"]}'],
+  ['multiple-address email array', '{"email":["first@example.com","second@example.com"]}'],
+  ['email object with null toString', '{"email":{"toString":null}}'],
+  ['email object with string toString', '{"email":{"toString":"person@example.com"}}'],
 ];
 for (const [name, raw] of invalid) {
   test(`${name} returns 400 without writing`, async () => {
