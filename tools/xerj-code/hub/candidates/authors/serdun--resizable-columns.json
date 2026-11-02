@@ -1,0 +1,23 @@
+{
+ "corpus": "serdun--resizable-columns",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on collapsible, dart, desktop queries this for how SERDUN/resizable_columns implements it: Flutter widget: resizable, collapsible panes in a row or a column - an editor next to a preview, a sidebar and an inspector (selected work: lib/src, test)",
+ "repos": [
+  {
+   "repo": "resizable_columns",
+   "url": "https://github.com/SERDUN/resizable_columns",
+   "sha": "ba3e33505cbac25f2f311506980e1d2bb670ffaf",
+   "licence": "MIT (LICENSE file at pin ba3e33505cba, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T14:55Z",
+    "consent_receipt": "6747e69fb545",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T14:55Z (receipt 6747e69fb545); selected commit ba3e33505cba: \"fix: harden collapse against drags and restore exact sizes\". LICENSE file at pin ba3e33505cba detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

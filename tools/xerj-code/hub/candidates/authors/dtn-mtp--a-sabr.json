@@ -1,0 +1,23 @@
+{
+ "corpus": "dtn-mtp--a-sabr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how DTN-MTP/A-SABR implements it: The Adaptive Library for Schedule Aware-Bundle Routing (selected work: asabr)",
+ "repos": [
+  {
+   "repo": "A-SABR",
+   "url": "https://github.com/DTN-MTP/A-SABR",
+   "sha": "982fcefb41f7f7e0bc98851c22cc9ed69145827c",
+   "licence": "MIT (LICENSE file at pin 982fcefb41f7, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T14:21Z",
+    "consent_receipt": "d2d4ecab291e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T14:21Z (receipt d2d4ecab291e); selected commit 982fcefb41f7: \"Feature/polynomial capacity : Introduce Polynomial Capacity Segmentat\u2026\". LICENSE file at pin 982fcefb41f7 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

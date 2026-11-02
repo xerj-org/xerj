@@ -1,0 +1,23 @@
+{
+ "corpus": "feardread--jquery-layer-slider",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how FearDread/jquery.layer_slider implements it: Layers Slider - jQuery plugin",
+ "repos": [
+  {
+   "repo": "jquery.layer_slider",
+   "url": "https://github.com/FearDread/jquery.layer_slider",
+   "sha": "b8b7ff2f61bc8537eb6fa5c65d60753802da7749",
+   "licence": "MIT (LICENSE file at pin b8b7ff2f61bc, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T14:26Z",
+    "consent_receipt": "11e53e7bff03",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T14:26Z (receipt 11e53e7bff03); pinned to the default-branch head. LICENSE file at pin b8b7ff2f61bc detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

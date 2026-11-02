@@ -1,0 +1,23 @@
+{
+ "corpus": "feardread--fear-mon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on code queries this for how FearDread/fear-mon implements it: Next.js Baselime Template with OpenTelemetry Get started with OpenTelemetry and Real User Monitoring",
+ "repos": [
+  {
+   "repo": "fear-mon",
+   "url": "https://github.com/FearDread/fear-mon",
+   "sha": "30fc66138bc9ddb4d5b9df9a617cce88402ab85a",
+   "licence": "GPL-3.0 (LICENSE file at pin 30fc66138bc9, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T14:26Z",
+    "consent_receipt": "bd65373ddb53",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T14:26Z (receipt bd65373ddb53); pinned to the default-branch head. LICENSE file at pin 30fc66138bc9 detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}
