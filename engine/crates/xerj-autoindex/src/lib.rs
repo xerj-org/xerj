@@ -50,6 +50,7 @@ mod reconcile_plan;
 pub mod remove;
 pub mod resources;
 pub mod search;
+mod session_memory;
 pub mod sessions;
 pub mod skills;
 pub mod sniff;
