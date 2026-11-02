@@ -195,6 +195,32 @@ def _repo_url(url: object) -> str:
     return str(url or "").strip().rstrip("/").removesuffix(".git").lower()
 
 
+# Standing opt-outs (candidates/do-not-contact.json, issue-tracked). A refresh
+# that re-adds a no-include login or repository fails validation, so an owner
+# opt-out recorded in an issue cannot be silently reverted by a regeneration.
+DNC_PATH = HUB / "candidates" / "do-not-contact.json"
+DNC_BANNED: dict[str, int] = {}  # login-as-owner or owner/repo -> issue
+if DNC_PATH.exists():
+    for e in json.loads(DNC_PATH.read_text(encoding="utf-8")).get("entries", []):
+        if "no-include" not in (e.get("actions") or []):
+            continue
+        issue = e.get("issue")
+        for key in ("login", "also_login"):
+            if e.get(key):
+                DNC_BANNED[str(e[key]).lower()] = issue
+        if e.get("repo"):
+            DNC_BANNED[_repo_url(e["repo"])] = issue
+
+
+def _dnc_hit(login: object, repo_url: object) -> int | None:
+    repo = _repo_url(repo_url)
+    owner = repo.split("/")[0] if "/" in repo else ""
+    for key in (str(login or "").lower(), repo, owner):
+        if key in DNC_BANNED:
+            return DNC_BANNED[key]
+    return None
+
+
 author_files = sorted(AUTHORS.glob("*.json")) if AUTHORS.is_dir() else []
 ledger_rows: dict[str, list[dict]] = {}
 if AUTHORS.is_dir():
@@ -281,6 +307,11 @@ for path in author_files:
         err(f"{rel}: ledger rows name {sorted(urls)} — one corpus slug must be one repository URL")
     elif _repo_url(url) and _repo_url(url) not in urls:
         err(f"{rel}: manifest url {url!r} does not match the ledger ({next(iter(urls))})")
+    for r in rows_for:
+        issue = _dnc_hit((r.get("contributor") or {}).get("login"), r.get("repo_url"))
+        if issue:
+            err(f"{rel}: {r.get('repo_url')} is on candidates/do-not-contact.json "
+                f"(issue {issue}) - an opt-out cannot be re-added by a refresh")
     pins = set()
     for r in rows_for:
         pin = (r.get("pin") or {}).get("sha") or (r.get("contribution") or {}).get("commit") or ""
