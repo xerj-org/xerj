@@ -1,0 +1,23 @@
+{
+ "corpus": "auroranchen--starsea-gesture-particles",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Auroranchen/Starsea-Gesture-Particles implements it: \u667a\u63a7\u661f\u6d77\uff08StarSea\uff09\uff1a\u57fa\u4e8e\u5f00\u6e90 gesture-particles \u4e8c\u6b21\u5f00\u53d1\u7684\u624b\u52bf\u4ea4\u4e92\u7c92\u5b50\u53ef\u89c6\u5316\u9879\u76ee (selected work: src, src/ui)",
+ "repos": [
+  {
+   "repo": "Starsea-Gesture-Particles",
+   "url": "https://github.com/Auroranchen/Starsea-Gesture-Particles",
+   "sha": "e9e7218972738e3057c4461363f1d2f977e12622",
+   "licence": "MIT (LICENSE file at pin e9e721897273, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T02:44Z",
+    "consent_receipt": "0383ec11f406",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T02:44Z (receipt 0383ec11f406); selected commit e9e721897273: \"feat: \u4e3b\u5faa\u73af\u63a5\u5165\u65b0\u573a\u666f\uff0c\u754c\u9762\u4e2d\u6587\u5316\u4e0e\u54c1\u724c\u5316\". LICENSE file at pin e9e721897273 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

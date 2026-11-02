@@ -1,0 +1,23 @@
+{
+ "corpus": "dmarsal90--zipwarden-js",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how dmarsal90/zipwarden-js implements it: Safe ZIP reading and extraction (zip slip and zip bomb protection) - js (selected work: tests, src)",
+ "repos": [
+  {
+   "repo": "zipwarden-js",
+   "url": "https://github.com/dmarsal90/zipwarden-js",
+   "sha": "7b91758778aa6f8542e028044fc307f0b31d6d04",
+   "licence": "MIT (LICENSE file at pin 7b91758778aa, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T03:49Z",
+    "consent_receipt": "6e0e9653a674",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T03:49Z (receipt 6e0e9653a674); selected commit 7b91758778aa: \"feat: validate nested archives within the shared limits\". LICENSE file at pin 7b91758778aa detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

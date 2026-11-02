@@ -1,0 +1,23 @@
+{
+ "corpus": "txt-yusuf--win-arma",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how txt-yusuf/win-arma implements it: Windows i\u00e7in macOS Spotlight ilhaml\u0131 evrensel arama & ba\u015flat\u0131c\u0131 | Alt+Space launcher for Windows (selected work: Views, Services, the project root)",
+ "repos": [
+  {
+   "repo": "win-arma",
+   "url": "https://github.com/txt-yusuf/win-arma",
+   "sha": "9364b7f6827add5ac2cbfe63449f1dd22d5578c5",
+   "licence": "MIT (LICENSE file at pin 9364b7f6827a, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T12:05Z",
+    "consent_receipt": "100b4e2e9a73",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T12:05Z (receipt 100b4e2e9a73); selected commit 9364b7f6827a: \"Ayarlardan metin k\u0131sayolu d\u00fczenleme; hesap makinesi, hotkey ve ayar k\u2026\". LICENSE file at pin 9364b7f6827a detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

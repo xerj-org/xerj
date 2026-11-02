@@ -1,0 +1,23 @@
+{
+ "corpus": "shipap--ai-customer-support-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on customer-support, docker, fastapi queries this for how shipap/ai-customer-support-agent implements it: Customer support from company knowledge, with cited answers, conversation history, and human handoff",
+ "repos": [
+  {
+   "repo": "ai-customer-support-agent",
+   "url": "https://github.com/shipap/ai-customer-support-agent",
+   "sha": "bea22b902675fa852a186157cb2d00715157891a",
+   "licence": "MIT (LICENSE file at pin bea22b902675, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T13:28Z",
+    "consent_receipt": "76056c98e6c6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T13:28Z (receipt 76056c98e6c6); pinned to the default-branch head. LICENSE file at pin bea22b902675 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

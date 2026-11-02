@@ -1,0 +1,23 @@
+{
+ "corpus": "feardread--affiliates",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on code queries this for how FearDread/affiliates implements it: Collection of simple 1 - 5 page websites for generating affiliate program revenue",
+ "repos": [
+  {
+   "repo": "affiliates",
+   "url": "https://github.com/FearDread/affiliates",
+   "sha": "a196f31cabdf59953d48bfdfd891692fb37f4f95",
+   "licence": "MIT (LICENSE file at pin a196f31cabdf, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T14:26Z",
+    "consent_receipt": "12957c323519",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T14:26Z (receipt 12957c323519); pinned to the default-branch head. LICENSE file at pin a196f31cabdf detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

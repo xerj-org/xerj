@@ -1,0 +1,30 @@
+{
+ "corpus": "zezic--vu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how zezic/vu implements it: zezic/vu (Rust) (selected work: src/meter, src, src/audio)",
+ "repos": [
+  {
+   "repo": "vu",
+   "url": "https://github.com/zezic/vu",
+   "sha": "c489cb44969557fe608348f90b12a76e6fab46a1",
+   "licence": "GPL-2.0 (LICENSE file at pin c489cb449695, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T21:19Z",
+    "consent_receipt": "362fbc52d3c9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:19Z (receipt 362fbc52d3c9); selected commit c489cb449695: \"Don't clamp the timeline navigation for renderer\". LICENSE file at pin c489cb449695 detected as GPL-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution. Pinned to head c489cb449695 (contains the selected commit): the LICENSE at the selected commit was NONE.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "9a03556452c7628162bc57b1d44276b9b94ef18f",
+     "at": "2026-10-29T21:19Z",
+     "receipt": "362fbc52d3c9"
+    }
+   }
+  }
+ ]
+}

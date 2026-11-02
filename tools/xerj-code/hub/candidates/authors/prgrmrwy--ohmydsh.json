@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on deepseek-harness, dsh, dsh-plugin queries this for how prgrmrwy/ohmydsh implements it: dsh \u96c6\u6210\u914d\u7f6e (selected work: packages/dsh-pet)",
+ "domain": "an agent working on deepseek-harness, dsh queries this for how prgrmrwy/ohmydsh implements it: dsh \u96c6\u6210\u914d\u7f6e (selected work: packages/dsh-pet)",
  "repos": [
   {
    "repo": "ohmydsh",

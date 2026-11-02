@@ -1,0 +1,23 @@
+{
+ "corpus": "nyakooo--browser-storage-takeover",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Vue queries this for how Nyakooo/browser-storage-takeover implements it: \u64cd\u4f5c\u6d4f\u89c8\u5668Storage (selected work: packages/shell-components, tests, packages/shell-chrome)",
+ "repos": [
+  {
+   "repo": "browser-storage-takeover",
+   "url": "https://github.com/Nyakooo/browser-storage-takeover",
+   "sha": "f2a4a7b8aea9a3588d50e8eff484b3227c4d2cb9",
+   "licence": "MIT (LICENSE file at pin f2a4a7b8aea9, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T05:52Z",
+    "consent_receipt": "c50c00246260",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T05:52Z (receipt c50c00246260); selected commit f2a4a7b8aea9: \"feat: release v1.1.0 with complete storage inspection and new branding\". LICENSE file at pin f2a4a7b8aea9 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

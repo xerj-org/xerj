@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "CRYPTO",
- "domain": "an agent working on Python queries this for how cagriefe/algorithmic-trading implements it: A Python-based algorithmic trading system that implements technical analysis, pattern recognition, and signal generation for cryptocurrency  (selected work: tests, algotrading, the project root)",
+ "domain": "an agent working on algorithmic-trading, binance, cryptocurrency queries this for how cagriefe/algorithmic-trading implements it: A Python-based algorithmic trading system that implements technical analysis, pattern recognition, and signal generation for cryptocurrency  (selected work: tests, algotrading, the project root)",
  "repos": [
   {
    "repo": "algorithmic-trading",

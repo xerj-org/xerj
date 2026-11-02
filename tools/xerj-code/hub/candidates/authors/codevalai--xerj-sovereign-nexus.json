@@ -1,0 +1,23 @@
+{
+ "corpus": "codevalai--xerj-sovereign-nexus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how codevalai/XERJ-Sovereign-Nexus implements it: XERJ Sovereign Nexus",
+ "repos": [
+  {
+   "repo": "XERJ-Sovereign-Nexus",
+   "url": "https://github.com/codevalai/XERJ-Sovereign-Nexus",
+   "sha": "9dacbbe978c08bd9857832b733080a7fb78a21d2",
+   "licence": "author's permission (LICENSE at pin 9dacbbe978c0: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T06:48Z",
+    "consent_receipt": "0ab511854160",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T06:48Z (receipt 0ab511854160); pinned to the default-branch head. LICENSE at pin 9dacbbe978c0: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

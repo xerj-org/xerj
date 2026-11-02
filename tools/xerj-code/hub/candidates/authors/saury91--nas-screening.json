@@ -1,0 +1,23 @@
+{
+ "corpus": "saury91--nas-screening",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how saury91/nas-screening implements it: saury91/nas-screening (Kotlin) (selected work: server, tools, native)",
+ "repos": [
+  {
+   "repo": "nas-screening",
+   "url": "https://github.com/saury91/nas-screening",
+   "sha": "a2448fb90c719f56436e541e1ef51f6f0be3037c",
+   "licence": "MIT (LICENSE file at pin a2448fb90c71, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T09:47Z",
+    "consent_receipt": "957b48006cd3",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T09:47Z (receipt 957b48006cd3); selected commit a2448fb90c71: \"feat: \u79fb\u9664\u6240\u6709\u5185\u7f6e\u5185\u5bb9\u6e90\uff0c\u6539\u4e3a\u672c\u5730 seed + \u7528\u6237\u81ea\u914d\". LICENSE file at pin a2448fb90c71 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

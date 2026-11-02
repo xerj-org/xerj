@@ -1,0 +1,23 @@
+{
+ "corpus": "aliasgharpz--bahar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on TypeScript queries this for how AliAsgharPZ/Bahar implements it: Bahar \u2014 a multi-tenant school management system (Next.js, Prisma, SQLite/D1) with role-based dashboards for admins, teachers, students and p (selected work: src/app, src/lib)",
+ "repos": [
+  {
+   "repo": "Bahar",
+   "url": "https://github.com/AliAsgharPZ/Bahar",
+   "sha": "53a937ee12e936a4887d708cbe74930cc67c9e5c",
+   "licence": "MIT (LICENSE file at pin 53a937ee12e9, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T04:10Z",
+    "consent_receipt": "1639dd32ddf1",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:10Z (receipt 1639dd32ddf1); selected commit 53a937ee12e9: \"Add Bahar MCP server for agents\". LICENSE file at pin 53a937ee12e9 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,30 @@
+{
+ "corpus": "samkuler--moonwake",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on audio-player, audio-processing, juce queries this for how SamKuler/Moonwake implements it: A multichannel audio player with VST3 and Audio Unit (AU) plugin hosting support (selected work: Source, Tests)",
+ "repos": [
+  {
+   "repo": "Moonwake",
+   "url": "https://github.com/SamKuler/Moonwake",
+   "sha": "3eee43a6d1ffc65a726f311326506da1afe73a78",
+   "licence": "AGPL-3.0 (LICENSE file at pin 3eee43a6d1ff, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T04:03Z",
+    "consent_receipt": "5e04f133b2ca",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T04:03Z (receipt 5e04f133b2ca); selected commit 3eee43a6d1ff: \"fix(ui): stabilize player transitions and native plugin panels\". LICENSE file at pin 3eee43a6d1ff detected as AGPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "3eee43a6d1ffc65a726f311326506da1afe73a78",
+     "at": "2026-11-01T04:03Z",
+     "receipt": "5e04f133b2ca"
+    }
+   }
+  }
+ ]
+}

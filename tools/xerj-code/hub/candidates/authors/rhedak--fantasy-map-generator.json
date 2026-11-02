@@ -1,0 +1,23 @@
+{
+ "corpus": "rhedak--fantasy-map-generator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how rhedak/fantasy-map-generator implements it: generate fantasy maps with python",
+ "repos": [
+  {
+   "repo": "fantasy-map-generator",
+   "url": "https://github.com/rhedak/fantasy-map-generator",
+   "sha": "06dc961dee72429996689d289cea5906a29e94c3",
+   "licence": "MIT (LICENSE file at pin 06dc961dee72, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T05:39Z",
+    "consent_receipt": "b83b12fd5573",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T05:39Z (receipt b83b12fd5573); pinned to the default-branch head. LICENSE file at pin 06dc961dee72 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

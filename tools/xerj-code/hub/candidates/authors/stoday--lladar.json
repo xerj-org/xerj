@@ -1,0 +1,23 @@
+{
+ "corpus": "stoday--lladar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how stoday/LLaDAR implements it: stoday/LLaDAR (Python) (selected work: tests, scripts, src/lladar)",
+ "repos": [
+  {
+   "repo": "LLaDAR",
+   "url": "https://github.com/stoday/LLaDAR",
+   "sha": "50a5177534645e05ff2c715860f6facf8a6e377b",
+   "licence": "MIT (LICENSE file at pin 50a517753464, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T01:34Z",
+    "consent_receipt": "f74d405dc792",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T01:34Z (receipt f74d405dc792); selected commit 50a517753464: \"feat: organize generated artifacts and prepare v0.12.0\". LICENSE file at pin 50a517753464 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

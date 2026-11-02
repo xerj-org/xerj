@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on ci-cd, huggingface, llm queries this for how KratosLee-6/open-source-model-deploy implements it: \u5f00\u6e90\u5927\u6a21\u578b\u90e8\u7f72\u53ef\u884c\u6027\u9274\u522b\u5de5\u5177 \u00b7 127 \u4e2a\u5f00\u6e90\u6a21\u578b\u52a8\u6001\u8bc4\u4f30 / \u786c\u4ef6\u81ea\u52a8\u68c0\u6d4b / \u4e00\u952e\u90e8\u7f72\u811a\u672c\uff08CLI/MCP/HTTP \u4e09\u534f\u8bae\uff09\u00b7 \u6bcf\u5468\u81ea\u52a8\u4ece HuggingFace API \u8865\u6a21\u578b (selected work: scripts, data, src/core)",
+ "domain": "an agent working on ci-cd, huggingface, llm queries this for how KratosLee-6/open-source-model-deploy implements it: \u5f00\u6e90\u5927\u6a21\u578b\u90e8\u7f72\u53ef\u884c\u6027\u9274\u522b\u5de5\u5177 \u00b7 168 \u4e2a\u5f00\u6e90\u6a21\u578b\u52a8\u6001\u8bc4\u4f30\uff08\u542b 12 \u4e2a JEV/System One \u51b3\u7b56\u6a21\u578b\uff09\u00b7 \u786c\u4ef6\u81ea\u52a8\u68c0\u6d4b \u00b7 \u4e00\u952e\u90e8\u7f72\u811a\u672c\uff08CLI/MCP/HTTP \u4e09\u534f\u8bae\uff09\u00b7 \u6bcf\u5468\u81ea\u52a8\u4ece HuggingFace API \u8865\u6a21\u578b (selected work: scripts, data, src/core)",
  "repos": [
   {
    "repo": "open-source-model-deploy",

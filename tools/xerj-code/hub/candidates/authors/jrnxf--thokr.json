@@ -1,0 +1,23 @@
+{
+ "corpus": "jrnxf--thokr",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on rust, tui, typing queries this for how jrnxf/thokr implements it: \u2728 sleek typing tui with visualized results and historical logging (selected work: src)",
+ "repos": [
+  {
+   "repo": "thokr",
+   "url": "https://github.com/jrnxf/thokr",
+   "sha": "72274a514010bb2bda8db16ed0d9586359b96d4d",
+   "licence": "MIT (LICENSE file at pin 72274a514010, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:18Z",
+    "consent_receipt": "14048e4837a7",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:18Z (receipt 14048e4837a7); selected commit 72274a514010: \"feat: continuous timed mode, stream words until the clock stops (#26)\". LICENSE file at pin 72274a514010 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

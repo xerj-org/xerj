@@ -1,0 +1,23 @@
+{
+ "corpus": "colibriproject-dev--colibri-sdk-go",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on go, golang, google queries this for how colibriproject-dev/colibri-sdk-go implements it: Colibri SDK for Google Golang Stack (selected work: pkg/base)",
+ "repos": [
+  {
+   "repo": "colibri-sdk-go",
+   "url": "https://github.com/colibriproject-dev/colibri-sdk-go",
+   "sha": "3e411fb5a639b00f77d368fef65d9e04f3a19592",
+   "licence": "Apache-2.0 (LICENSE file at pin 3e411fb5a639, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T03:19Z",
+    "consent_receipt": "92ff35c6717f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T03:19Z (receipt 92ff35c6717f); selected commit 3e411fb5a639: \"fix: otelsql stable db semconv (#244)\". LICENSE file at pin 3e411fb5a639 detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

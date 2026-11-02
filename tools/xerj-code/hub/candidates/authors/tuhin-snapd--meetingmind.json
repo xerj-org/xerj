@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--meetingmind",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Tuhin-SnapD/MeetingMind implements it: MeetingMind is an open-source meeting and workday assistant. It transcribes meetings in real time, generates structured minutes, and surface",
+ "repos": [
+  {
+   "repo": "MeetingMind",
+   "url": "https://github.com/Tuhin-SnapD/MeetingMind",
+   "sha": "4c87564b7abbb952f2db0126711e5c51763a52f5",
+   "licence": "MIT (LICENSE file at pin 4c87564b7abb, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:29Z",
+    "consent_receipt": "5b2296090c4f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:29Z (receipt 5b2296090c4f); pinned to the default-branch head. LICENSE file at pin 4c87564b7abb detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

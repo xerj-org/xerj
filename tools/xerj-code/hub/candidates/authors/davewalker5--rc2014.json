@@ -1,0 +1,23 @@
+{
+ "corpus": "davewalker5--rc2014",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on basic, basic-programming, rc2014 queries this for how davewalker5/RC2014 implements it: Programs, experiments and utilities exploring what can be done with an RC2014 Mini II Z80-based Single Board Computer (SBC)",
+ "repos": [
+  {
+   "repo": "RC2014",
+   "url": "https://github.com/davewalker5/RC2014",
+   "sha": "d673bb785e10e8b873a84f9d2e89fd152ec2cc98",
+   "licence": "MIT (LICENSE file at pin d673bb785e10, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T10:09Z",
+    "consent_receipt": "60b626399215",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T10:09Z (receipt 60b626399215); pinned to the default-branch head. LICENSE file at pin d673bb785e10 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

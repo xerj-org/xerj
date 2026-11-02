@@ -1,0 +1,23 @@
+{
+ "corpus": "antonio-mello-ai--mcp-clickhouse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on felhen, mcp-server queries this for how antonio-mello-ai/mcp-clickhouse implements it: MCP server for clickhouse",
+ "repos": [
+  {
+   "repo": "mcp-clickhouse",
+   "url": "https://github.com/antonio-mello-ai/mcp-clickhouse",
+   "sha": "34b49b5230adaa5a6a792f3683e5758ac1cbc8ac",
+   "licence": "MIT (LICENSE file at pin 34b49b5230ad, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T12:17Z",
+    "consent_receipt": "2ac24cfcd9ff",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T12:17Z (receipt 2ac24cfcd9ff); pinned to the default-branch head. LICENSE file at pin 34b49b5230ad detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

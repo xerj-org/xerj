@@ -1,0 +1,23 @@
+{
+ "corpus": "kolezka--nl5h00x",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on HTML queries this for how kolezka/NL5H00X implements it: Firmware analysis and modification tools. Bypass security restrictions, install custom launchers, and safely modify locked-down Chinese proj (selected work: tools)",
+ "repos": [
+  {
+   "repo": "NL5H00X",
+   "url": "https://github.com/kolezka/NL5H00X",
+   "sha": "e9ee6321b294385f506a163f5407671ef33ace39",
+   "licence": "MIT (LICENSE file at pin e9ee6321b294, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T23:20Z",
+    "consent_receipt": "d009886ca8c1",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T23:20Z (receipt d009886ca8c1); selected commit e9ee6321b294: \"feat(tools): add stock recovery boot and UART console tools\". LICENSE file at pin e9ee6321b294 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -402,6 +402,30 @@ class RepoPagesTest(unittest.TestCase):
         self.assertIn("xerj autoindex ./b --url http://127.0.0.1:9200 --prefix b", p)
         self.assertIn("xerj autoindex map", p)
 
+    def test_weak_threshold_and_guides(self):
+        def f(stars, commits, files, slug="a--b", topics=(), langs=(), shelf=""):
+            st = {"commits": commits, "languages": list(langs)} if commits is not None else {}
+            return dict(slug=slug, st=st, stars=stars, tree={"files": files, "bytes": 1000} if files else None,
+                        topics=list(topics), langs=[l for l, _ in langs], short="b", repo="a/b", shelf=shelf,
+                        sha="f" * 40, spdx="MIT", w={"reviewed": True})
+        self.assertIn("no GitHub facts", repo_pages.weak(f(None, None, None)))
+        self.assertIn("commits", repo_pages.weak(f(2, 5, 500)))
+        self.assertIn("files", repo_pages.weak(f(2, 500, 10)))
+        self.assertEqual(repo_pages.weak(f(5, 1, 1)), "")
+        self.assertEqual(repo_pages.weak(f(0, 50, 50)), "")
+        self.assertEqual(repo_pages.weak(f(0, 1, 1), seen={"a--b"}), "")
+        g = repo_pages.guides(f(9, 9, 3000, topics=["mcp"], langs=[("PHP", 90.0)]))
+        urls = [u for u, _, _ in g]
+        self.assertEqual(len(g), 4)
+        self.assertTrue(all(u.startswith(("https://xerj.org/answers/", "https://xerj.org/compare/")) for u in urls))
+        self.assertIn("https://xerj.org/answers/code-search-mcp-for-claude-code", urls)
+        self.assertEqual(g[0][2], "b is tagged mcp on GitHub.")
+        for u, label in repo_pages.GUIDE.values():
+            self.assertNotIn("\u2014", label)
+        lic = repo_pages.licence_text(dict(f(9, 9, 9), st={"licence": "Apache-2.0"}), html.escape, "2026-10-29")
+        self.assertIn("but the LICENSE file", lic)
+        self.assertIn("2026-10-29", lic)
+
     def test_candidates_reads_author_manifests(self):
         with tempfile.TemporaryDirectory() as d:
             (pathlib.Path(d) / "candidates" / "authors").mkdir(parents=True)
@@ -506,6 +530,32 @@ class ContributorVolumeTest(unittest.TestCase):
         html = contributors.person_body(people["Ann"], gen.esc, set())
         self.assertIn("selected commit: 3 files", html)
         self.assertIn("whole repository at the pinned commit", html)
+
+    def test_card_shows_only_the_github_facts_that_exist(self):
+        # Search Console: contributor pages "crawled, not indexed" carried only a handle, stars and the
+        # commit. Cards now add the repository as GitHub reports it, and nothing GitHub did not return.
+        st = {"description": "Modern lobby management", "commits": 23, "forks": 0, "created": "2026-10-01",
+              "pushed": "2026-10-18", "languages": [["Java", 99.6], ["Shell", 0.4]],
+              "tree": {"files": 41, "bytes": 1, "sha": "a" * 40}}
+        h = contributors.repo_facts_html(st, gen.esc)
+        self.assertIn("Modern lobby management", h)
+        self.assertIn("23 commits · 41 files at the pinned commit · created 2026-10 · last push 2026-10-18", h)
+        self.assertIn("Languages: Java 100%", h)
+        self.assertNotIn("forks", h)      # zero forks: not worth a line
+        self.assertNotIn("Shell", h)      # under 1%
+        self.assertEqual(contributors.repo_facts_html({}, gen.esc), "")
+        self.assertNotIn("files at", contributors.repo_facts_html({"commits": 3}, gen.esc))
+        with tempfile.TemporaryDirectory() as d:
+            people = contributors.load(self._hub(d))
+        w = next(iter(people["Ann"]["work"].values()))
+        html = contributors.person_body(people["Ann"], gen.esc, set(), gh={repo_pages.key(w["repo_url"]): st})
+        self.assertIn('class="repofacts"', html)
+        self.assertNotIn('class="repofacts"', contributors.person_body(people["Ann"], gen.esc, set()))
+
+    def test_gsc_seen_lists_contributors(self):
+        seen = repo_pages.load_seen_contributors()
+        self.assertGreater(len(seen), 100)
+        self.assertTrue(all("/" not in l and not l.endswith(".html") for l in seen))
 
 
 class SignInNavTest(unittest.TestCase):
@@ -873,6 +923,27 @@ class SiteLinksTest(unittest.TestCase):
         self.assertIn('class="tmo"', repos_map)
         self.assertIn("others", repos_map)
 
+    def test_categories_list_contributed_corpora(self):
+        # owner, 2026-10-29: a contributor's corpus was live but missing from its category page.
+        # Every corpus in the contributor ledger is linked from its shelf's category page, to a page that exists.
+        import contributors, re as _re
+        people = contributors.load(gen.HUB, gen.load_registry())
+        want = {}
+        for pp in people.values():
+            for w in pp["work"].values():
+                for slug in w.get("corpora") or []:
+                    want.setdefault(slug, set()).add(w.get("shelf"))
+        if not want:
+            self.skipTest("no contributed corpora")
+        listed = {}
+        for f in (self.out / "category").glob("*.html"):
+            html = f.read_text()
+            if 'id="contributed"' in html:
+                for slug in set(_re.findall(r'href="\.\./corpus/([^"]+)"', html.split('id="contributed"', 1)[1])):
+                    listed.setdefault(slug, set()).add(f.stem)
+                    self.assertTrue((self.out / "corpus" / f"{slug}.html").is_file(), slug)
+        self.assertEqual(set(want) - set(listed), set())
+
     def test_home_stats_are_stars_and_contributors(self):
         # owner request: "registry rows" / "live corpora" replaced by real numbers
         import contributors
@@ -883,8 +954,16 @@ class SiteLinksTest(unittest.TestCase):
         people = contributors.load(gen.HUB, gen.load_registry())
         stars, n = contributors.pinned_repo_stars(people)
         self.assertIn(f"<b>{len(people):,}</b><span>contributors</span>", strip)
-        self.assertIn(f"<b>{contributors.compact(stars)}</b><span>GitHub stars across pinned repos</span>", strip)
+        self.assertIn(f"<b>{stars:,}</b><span>GitHub stars across pinned repos</span>", strip)   # full numbers, no "7.2M"
         self.assertIn(f"{stars:,} GitHub stars, summed over {n:,} distinct pinned repositories", strip)
+        # owner, 2026-10-29: the repository count and the file count (large numbers), not "11 domains" / "78.7 GB"
+        n_repos = len({w["repo_url"].rstrip("/").lower() for pp in people.values() for w in pp["work"].values() if w.get("repo_url")})
+        n_lines = sum(contributors.volume(pp)["lines"] for pp in people.values())
+        self.assertIn(f"<b>{n_lines:,}</b><span>lines of contributed code</span>", strip)
+        self.assertNotIn("contributed repositories</span>", strip)
+        self.assertNotRegex(strip, r"<b>[\d.]+[KMB]</b>")
+        self.assertRegex(strip, r"<b>[\d,]{7,}</b><span>pinned files</span>")
+        self.assertNotIn("<span>pinned text</span>", strip)
 
     def test_whats_this_replaces_about(self):
         self.assertTrue((self.out / "whats-this" / "index.html").is_file())
@@ -1150,6 +1229,35 @@ class BuiltSiteDiscoverabilityTest(SiteLinksTest):
             walk(json.loads(b))
         self.assertTrue({"Dataset", "SoftwareSourceCode", "BreadcrumbList", "Person"} <= types, types)
 
+    def test_weak_repo_pages_are_noindexed_and_left_out_of_the_sitemap(self):
+        sm = set(re.findall(r"<loc>https://hub.xerj.org/corpus/([^<]+)</loc>", (self.out / "sitemap-repos.xml").read_text()))
+        seen = repo_pages.load_seen()
+        noindexed = enriched = 0
+        for f in (self.out / "corpus").glob("*--*.html"):
+            h = f.read_text()
+            if 'class="rp"' not in h:
+                continue
+            head = h.split("</head>", 1)[0]
+            if '<meta name="robots" content="noindex,follow">' in head:
+                noindexed += 1
+                self.assertNotIn(f.stem, sm, f.stem)
+                self.assertNotIn(f.stem, seen, f.stem)
+                self.assertNotIn("Using XERJ with", h)
+            else:
+                enriched += 1
+                self.assertIn(f.stem, sm, f.stem)
+                self.assertIn("<h2>Contributors</h2>", h, f.stem)
+                self.assertRegex(h, r'href="https://xerj.org/(answers|compare)/', f.stem)
+                self.assertNotIn("\u2014", h.split("<h2>Inside the indexed corpus</h2>", 1)[-1])
+        self.assertGreater(enriched, 0)
+        h = (self.out / "corpus/jacobjoergensen--laravel-paper.html").read_text()
+        for s in ("Inside the indexed corpus", "Licence on GitHub and in the corpus", "Using XERJ with laravel-paper",
+                  "https://xerj.org/answers/audit-php-codebase-with-an-index"):
+            self.assertIn(s, h, s)
+        # contributor and registry corpus pages are never noindexed by this rule
+        self.assertNotIn('content="noindex', (self.out / "contributors/JacobJoergensen.html").read_text().split("</head>", 1)[0])
+        self.assertNotIn('content="noindex', (self.out / "corpus/exploit-pocs-2024.html").read_text().split("</head>", 1)[0])
+
     def test_no_repo_pages_for_the_exploit_poc_aggregates(self):
         reg = {c["slug"]: c for c in gen.load_registry()}
         pocs = {repo_pages.key(r["url"]) for s, c in reg.items() if s.startswith("exploit-pocs") for r in c["repos"]}
@@ -1245,6 +1353,7 @@ class BuiltSiteDiscoverabilityTest(SiteLinksTest):
         self.assertEqual(len(table), 237)
         restored = [r for r in table if r["restored"] == "yes"]
         withheld = [r for r in table if r["restored"] == "no"]
+        weak_restored = []
         self.assertEqual(len(restored), 200, len(restored))
         self.assertEqual(len(withheld), 37)
         authors = gen.HUB / "candidates" / "authors"
@@ -1312,8 +1421,14 @@ class BuiltSiteDiscoverabilityTest(SiteLinksTest):
             self.assertIn(f'href="../contributors/{login}"', corpus)
             loc = f"https://hub.xerj.org/corpus/{slug}"
             # A slug that is already a live registry corpus is listed with the
-            # corpora sitemap. Every other restored corpus is a repo page.
-            self.assertTrue(loc in sm_repos or loc in sm_corpora, slug)
+            # corpora sitemap. Every other restored corpus is a repo page, and a
+            # repo page that falls under the weak threshold (repo_pages.weak) is
+            # noindex,follow and left out of the sitemap like any other.
+            if 'content="noindex,follow"' in corpus.split("</head>", 1)[0]:
+                self.assertNotIn(loc, sm_repos, slug)
+                weak_restored.append(slug)
+            else:
+                self.assertTrue(loc in sm_repos or loc in sm_corpora, slug)
             # Thin contributor pages are noindex and stay out of the sitemap.
             # The corpus page above is the indexable URL for that work.
             if "noindex" not in person.split("</head>", 1)[0]:
@@ -1338,6 +1453,8 @@ class BuiltSiteDiscoverabilityTest(SiteLinksTest):
                 self.assertNotIn("G4", src["review"]["note"], slug)
                 self.assertIn("agreed by email", corpus, slug)
                 self.assertIn(consent["at"][:10], corpus, slug)
+        # The weak rule is a backstop for small repos, not a way to drop the restores.
+        self.assertLess(len(weak_restored), len(restored) // 2, weak_restored)
 
     def test_issue_2310_corpora_link_contributors_and_carry_seo(self):
         """r2r-mcp, r2r-enforce and admission-compare (Thneoly/r2r-jev, #2310)

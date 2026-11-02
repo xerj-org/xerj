@@ -1,0 +1,23 @@
+{
+ "corpus": "hjeon139--postbox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how HJeon139/postbox implements it: agentic ux framework (selected work: tests, server, shared)",
+ "repos": [
+  {
+   "repo": "postbox",
+   "url": "https://github.com/HJeon139/postbox",
+   "sha": "f61d52c930239520f7b9645d7831cc149c46e12a",
+   "licence": "Apache-2.0 (LICENSE file at pin f61d52c93023, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T23:09Z",
+    "consent_receipt": "22f873589d53",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T23:09Z (receipt 22f873589d53); selected commit f61d52c93023: \"feat(remote): remote read contract and protocol 3 fallback (#530)\". LICENSE file at pin f61d52c93023 detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

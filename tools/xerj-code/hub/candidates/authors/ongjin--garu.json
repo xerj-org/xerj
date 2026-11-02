@@ -1,0 +1,23 @@
+{
+ "corpus": "ongjin--garu",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on browser, hangul, korean queries this for how ongjin/garu implements it: \ucd08\uacbd\ub7c9 \ud55c\uad6d\uc5b4 \ud615\ud0dc\uc18c \ubd84\uc11d\uae30 \u2014 1MB \ubaa8\ub378\ub85c \ube0c\ub77c\uc6b0\uc800\uc5d0\uc11c \uc2e4\ud589(WASM). Ultra-lightweight Korean morphological analyzer in the browser. npm: garu-ko (selected work: crates/garu-core, training)",
+ "repos": [
+  {
+   "repo": "garu",
+   "url": "https://github.com/ongjin/garu",
+   "sha": "9dc18b05daca9d868bf66a274b2389477a2f768d",
+   "licence": "Apache-2.0 (LICENSE file at pin 9dc18b05daca, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:02Z",
+    "consent_receipt": "4af9fe903f5f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T06:02Z (receipt 4af9fe903f5f); selected commit 9dc18b05daca: \"feat: \ud0d0\uc0c9 \uc804 \uc544\ud06c \ube44\uc6a9 \ubcf4\uc815(Section 18)\uacfc \uad6c\uc5b4 \ud310\ubcc4 \uac8c\uc774\ud2b8 \u2014 \uc5f0\uad6c \ube0c\ub79c\uce58\". LICENSE file at pin 9dc18b05daca detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

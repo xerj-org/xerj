@@ -1,0 +1,30 @@
+{
+ "corpus": "o-x-l--ansible-opnsense",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on ansible-collection, ansible-modules, automation queries this for how O-X-L/ansible-opnsense implements it: Ansible Collection to manage OPNsense firewalls using their API (selected work: plugins)",
+ "repos": [
+  {
+   "repo": "ansible-opnsense",
+   "url": "https://github.com/O-X-L/ansible-opnsense",
+   "sha": "684c96ec3747871518cfa0d53eb6a7020290bc6b",
+   "licence": "GPL-3.0 (LICENSE file at pin 684c96ec3747, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T19:07Z",
+    "consent_receipt": "b56abdbb8ea9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T19:07Z (receipt b56abdbb8ea9); selected commit 684c96ec3747: \"feat: add firewall categories to alias and rules (#443)\". LICENSE file at pin 684c96ec3747 detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "684c96ec3747871518cfa0d53eb6a7020290bc6b",
+     "at": "2026-10-29T19:07Z",
+     "receipt": "b56abdbb8ea9"
+    }
+   }
+  }
+ ]
+}

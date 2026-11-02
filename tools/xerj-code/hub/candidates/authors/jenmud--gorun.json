@@ -1,0 +1,23 @@
+{
+ "corpus": "jenmud--gorun",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Go queries this for how jenmud/gorun implements it: Gorun is a deployment orchestrator that executes remote server commands through SSH using a simple declarative configuration file (selected work: cmd/web, cmd, the project root)",
+ "repos": [
+  {
+   "repo": "gorun",
+   "url": "https://github.com/jenmud/gorun",
+   "sha": "b4a245b04b4b44626c8c7046fc17be622b229643",
+   "licence": "MIT (LICENSE file at pin b4a245b04b4b, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T10:01Z",
+    "consent_receipt": "140b2e919093",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T10:01Z (receipt 140b2e919093); selected commit b4a245b04b4b: \"feat: restructure to cmd, improve history and usage\". LICENSE file at pin b4a245b04b4b detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "fullfran--claudeops-tui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on bubbletea, claude-code, cost-tracking queries this for how FullFran/claudeops-tui implements it: Local TUI to track Claude Code usage, costs, and tasks (Go + Bubbletea + SQLite) (selected work: internal/pi, cmd/claudeops)",
+ "repos": [
+  {
+   "repo": "claudeops-tui",
+   "url": "https://github.com/FullFran/claudeops-tui",
+   "sha": "771d8269d8fbe5e062d0ba68190d915eb4405409",
+   "licence": "MIT (LICENSE file at pin 771d8269d8fb, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:42Z",
+    "consent_receipt": "4e6560a44d25",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:42Z (receipt 4e6560a44d25); selected commit 771d8269d8fb: \"feat(pi): ship Pi extension and installer for ClaudeOps quota and usage\". LICENSE file at pin 771d8269d8fb detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "dundysm--gaitkeeper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on humanoid, isaac-lab, mujoco queries this for how dundysm/gaitkeeper implements it: find why a humanoid locomotion policy fails between simulators: contract, physics, or task. MuJoCo, CPU",
+ "repos": [
+  {
+   "repo": "gaitkeeper",
+   "url": "https://github.com/dundysm/gaitkeeper",
+   "sha": "a0111a4bc91cc9694124617f89c9d018eaf84bdf",
+   "licence": "Apache-2.0 (LICENSE file at pin a0111a4bc91c, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T14:55Z",
+    "consent_receipt": "f71783b84ae8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T14:55Z (receipt f71783b84ae8); pinned to the default-branch head. LICENSE file at pin a0111a4bc91c detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

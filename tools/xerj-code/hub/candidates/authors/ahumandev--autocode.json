@@ -1,0 +1,23 @@
+{
+ "corpus": "ahumandev--autocode",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-ai, agentic-coding, agentic-workflow queries this for how ahumandev/autocode implements it: The Opencode workflow plugin for traceable autonomous job execution (selected work: src/tools, src, src/hooks)",
+ "repos": [
+  {
+   "repo": "autocode",
+   "url": "https://github.com/ahumandev/autocode",
+   "sha": "93334ecffa686497f82ec46e23626edcf173efbe",
+   "licence": "MIT (LICENSE file at pin 93334ecffa68, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:01Z",
+    "consent_receipt": "768b32daaabf",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:01Z (receipt 768b32daaabf); selected commit 93334ecffa68: \"fix(session) - restore v2 session prompt handoff\". LICENSE file at pin 93334ecffa68 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -16,7 +16,7 @@ for the file count and bytes of the tree at the pinned commit. A truncated
 tree is stored as truncated with no numbers. Aggregates (more than 50 repos,
 like the exploit-pocs collections) are never fetched.
 """
-import concurrent.futures, datetime, json, os, re, subprocess, sys, time, urllib.error, urllib.request
+import concurrent.futures, datetime, http.client, json, os, re, subprocess, sys, time, urllib.error, urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -179,6 +179,8 @@ def tree(tok, repo, sha):
             d = json.loads(r.read())
     except urllib.error.HTTPError as e:
         return {"error": e.code}
+    except (http.client.IncompleteRead, urllib.error.URLError, TimeoutError, ConnectionError, ValueError):
+        return {"error": "network"}  # one bad read should not lose the whole run
     if d.get("truncated"):
         return {"truncated": True}
     blobs = [e for e in d.get("tree", []) if e.get("type") == "blob"]

@@ -1,0 +1,23 @@
+{
+ "corpus": "kajitsy--emilia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, characterai, chatbot queries this for how Kajitsy/Emilia implements it: Emilia - Desktop Character.AI Client (selected work: src/modules, src/lang, src)",
+ "repos": [
+  {
+   "repo": "Emilia",
+   "url": "https://github.com/Kajitsy/Emilia",
+   "sha": "263a24e9d0ee90b6d3cc22799311545ddbb26237",
+   "licence": "MIT (LICENSE file at pin 263a24e9d0ee, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T11:34Z",
+    "consent_receipt": "cccdb8ce261c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T11:34Z (receipt cccdb8ce261c); selected commit 263a24e9d0ee: \"Add 503 dialog\". LICENSE file at pin 263a24e9d0ee detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

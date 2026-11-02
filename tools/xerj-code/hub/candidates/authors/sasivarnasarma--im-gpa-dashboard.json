@@ -1,0 +1,23 @@
+{
+ "corpus": "sasivarnasarma--im-gpa-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Sasivarnasarma/im-gpa-dashboard implements it: High-contrast GPA Dashboard & Academic Planner for B.Sc. (Hons) in IT and MIT undergraduates at the University of Kelaniya (selected work: tests, src/lib, src/components)",
+ "repos": [
+  {
+   "repo": "im-gpa-dashboard",
+   "url": "https://github.com/Sasivarnasarma/im-gpa-dashboard",
+   "sha": "cf6350367651f53582096ae5e4b55e8cdee9077a",
+   "licence": "MIT (LICENSE file at pin cf6350367651, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T04:41Z",
+    "consent_receipt": "41e6ba3afeaa",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T04:41Z (receipt 41e6ba3afeaa); selected commit cf6350367651: \"\ud83d\udc1b fix(audit): align degree and class checks with handbook\". LICENSE file at pin cf6350367651 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

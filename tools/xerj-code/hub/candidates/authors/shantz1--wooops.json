@@ -1,0 +1,23 @@
+{
+ "corpus": "shantz1--wooops",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how shantz1/wooops implements it: shantz1/wooops (TypeScript) (selected work: test, src/components, src/lib)",
+ "repos": [
+  {
+   "repo": "wooops",
+   "url": "https://github.com/shantz1/wooops",
+   "sha": "454c56d115ab5f095985c57f5619319857db78ad",
+   "licence": "MIT (LICENSE file at pin 454c56d115ab, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T06:31Z",
+    "consent_receipt": "d11b3cb37dd0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T06:31Z (receipt d11b3cb37dd0); selected commit 454c56d115ab: \"security and feature updates\". LICENSE file at pin 454c56d115ab detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "CUDApp",
    "url": "https://github.com/aien-dev/CUDApp",
-   "sha": "cc0908bdc0a0377f2166e9328dcf1d985457e27f",
-   "licence": "Apache-2.0 (LICENSE file at pin cc0908bdc0a0, GitHub licence API 2026-10-29)",
+   "sha": "183fa4f161de512094e47cd68285dcfde9c53a0c",
+   "licence": "Apache-2.0 (LICENSE file at pin 183fa4f161de, GitHub licence API 2026-11-02)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-23T20:29Z",
     "consent_receipt": "d2d54904789c",
-    "note": "Inclusion consented by the commit author by email at 2026-10-23T20:29Z (receipt d2d54904789c); selected commit cc0908bdc0a0: \"CUDA++ Omega submit path (#4)\". LICENSE file at pin cc0908bdc0a0 detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution. Pinned to head cc0908bdc0a0 (contains the selected commit): the LICENSE at the selected commit was MIT."
+    "note": "Inclusion consented by the commit author by email at 2026-10-23T20:29Z (receipt d2d54904789c); selected commit 183fa4f161de: \"CUDA++ Omega submit path (#4)\". LICENSE file at pin 183fa4f161de detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head 183fa4f161de (contains the selected commit): the LICENSE at the selected commit was MIT."
    }
   }
  ]

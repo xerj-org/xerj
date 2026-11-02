@@ -1,0 +1,23 @@
+{
+ "corpus": "jeso87--patchy-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on apache, homebrew, local-development queries this for how jeso87/Patchy-UI implements it: A native macOS app for Patchy: host local PHP websites with Apache, HTTPS and .test addresses, without opening Terminal (selected work: PatchyUI, PatchyKit, PatchyUITests)",
+ "repos": [
+  {
+   "repo": "Patchy-UI",
+   "url": "https://github.com/jeso87/Patchy-UI",
+   "sha": "fe04310019aedbc236d5a2fa85316b03b8378fa4",
+   "licence": "MIT (LICENSE file at pin fe04310019ae, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:06Z",
+    "consent_receipt": "8e65cc003f69",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:06Z (receipt 8e65cc003f69); selected commit fe04310019ae: \"Use Patchy 1.3.0's --json CLI for everything instead of reading its f\u2026\". LICENSE file at pin fe04310019ae detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

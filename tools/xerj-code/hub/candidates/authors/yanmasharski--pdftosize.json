@@ -1,0 +1,23 @@
+{
+ "corpus": "yanmasharski--pdftosize",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Swift queries this for how yanmasharski/PDFtoSize implements it: Join PDFs and shrink them to the exact size a website asks for. Local, free, open source Mac app",
+ "repos": [
+  {
+   "repo": "PDFtoSize",
+   "url": "https://github.com/yanmasharski/PDFtoSize",
+   "sha": "93c0a99be99b8482e7c9d5e7e803a460912ac47e",
+   "licence": "MIT (LICENSE file at pin 93c0a99be99b, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T11:50Z",
+    "consent_receipt": "bf9f0748c3eb",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T11:50Z (receipt bf9f0748c3eb); pinned to the default-branch head. LICENSE file at pin 93c0a99be99b detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

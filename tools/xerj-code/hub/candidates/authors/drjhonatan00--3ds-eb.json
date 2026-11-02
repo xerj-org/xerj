@@ -1,0 +1,23 @@
+{
+ "corpus": "drjhonatan00--3ds-eb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how drJhonatan00/3DS-EB implements it: 3DS-EB is a complete ground-up C# re-engineering of Asia81's HackingToolkit9DS, built to deliver maximum speed, a clean interface, and seaml",
+ "repos": [
+  {
+   "repo": "3DS-EB",
+   "url": "https://github.com/drJhonatan00/3DS-EB",
+   "sha": "1b34a6b5d58d4053ffc506bab6e412e51d99c6b0",
+   "licence": "MIT (LICENSE file at pin 1b34a6b5d58d, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:39Z",
+    "consent_receipt": "bdebafbc6c39",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T20:39Z (receipt bdebafbc6c39); pinned to the default-branch head. LICENSE file at pin 1b34a6b5d58d detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

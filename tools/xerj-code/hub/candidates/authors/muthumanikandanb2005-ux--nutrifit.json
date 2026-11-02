@@ -8,15 +8,15 @@
   {
    "repo": "nutrifit",
    "url": "https://github.com/muthumanikandanb2005-ux/nutrifit",
-   "sha": "4f11b94dc79a419282807a70c95d66f2c6843c3c",
-   "licence": "author's permission (LICENSE at pin 4f11b94dc79a: NONE; repository: none)",
+   "sha": "813f6abcd0dd4421d662f4da912d9a30b1f69cc9",
+   "licence": "author's permission (LICENSE at pin 813f6abcd0dd: NONE; repository: none)",
    "review": {
     "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T02:25Z",
     "consent_receipt": "b31e2f669993",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:25Z (receipt b31e2f669993); pinned to the default-branch head. LICENSE at pin 4f11b94dc79a: NONE (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:25Z (receipt b31e2f669993); pinned to the default-branch head. LICENSE at pin 813f6abcd0dd: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

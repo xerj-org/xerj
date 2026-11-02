@@ -1,0 +1,23 @@
+{
+ "corpus": "loonystarzz--charcli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-roleplay, ai-roleplay-chat queries this for how loonystarzz/charcli implements it: terminal based python app aiming to create an experience similar to character ai roleplay apps like chai ai using the gemini api (selected work: the project root, characters, personas)",
+ "repos": [
+  {
+   "repo": "charcli",
+   "url": "https://github.com/loonystarzz/charcli",
+   "sha": "9e9e5031aa54c234b138d59a9541b5eb0228d081",
+   "licence": "MIT (LICENSE file at pin 9e9e5031aa54, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T13:12Z",
+    "consent_receipt": "a3003b09cd5b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T13:12Z (receipt a3003b09cd5b); selected commit 9e9e5031aa54: \"dded multi character support\". LICENSE file at pin 9e9e5031aa54 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

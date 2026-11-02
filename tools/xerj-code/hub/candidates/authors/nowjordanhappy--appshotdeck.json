@@ -1,0 +1,23 @@
+{
+ "corpus": "nowjordanhappy--appshotdeck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on app-marketing, app-store, marketing queries this for how nowjordanhappy/appshotdeck implements it: Browser-only Play Store & App Store screenshot composer. No server, no cloud (selected work: src/utils, src/store, the project root)",
+ "repos": [
+  {
+   "repo": "appshotdeck",
+   "url": "https://github.com/nowjordanhappy/appshotdeck",
+   "sha": "f3700250973e7e0ba90c082cf256e91f5b4819f6",
+   "licence": "MIT (LICENSE file at pin f3700250973e, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T20:53Z",
+    "consent_receipt": "66c2dda59d49",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:53Z (receipt 66c2dda59d49); selected commit f3700250973e: \"Add Vitest with unit tests for span pairing, reorder, layout and load\u2026\". LICENSE file at pin f3700250973e detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "hypertrophic--hostlog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on PHP queries this for how hypertrophic/HostLog implements it: Logging and threat detection for Hostinger Web Hosting. PHP logger, Python analyzer, and a live security dashboard built for shared hosting  (selected work: tests, PRIVATE, PUBLIC)",
+ "repos": [
+  {
+   "repo": "HostLog",
+   "url": "https://github.com/hypertrophic/HostLog",
+   "sha": "3e91bbec45e5a3863e9662c74b8485b5f2c1b477",
+   "licence": "MIT (LICENSE file at pin 3e91bbec45e5, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:48Z",
+    "consent_receipt": "92bf21403172",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:48Z (receipt 92bf21403172); selected commit 3e91bbec45e5: \"Fix logging and dashboard bugs for v3.1.0\". LICENSE file at pin 3e91bbec45e5 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

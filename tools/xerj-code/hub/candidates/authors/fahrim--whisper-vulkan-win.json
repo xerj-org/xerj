@@ -1,0 +1,23 @@
+{
+ "corpus": "fahrim--whisper-vulkan-win",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PowerShell queries this for how fahrim/whisper-vulkan-win implements it: whisper.cpp builds with the Vulkan backend for Windows x64 - GPU acceleration for AMD, Intel Arc and older NVIDIA. Upstream ships CUDA and C",
+ "repos": [
+  {
+   "repo": "whisper-vulkan-win",
+   "url": "https://github.com/fahrim/whisper-vulkan-win",
+   "sha": "7ae77eb0c69debc4c05047e1251cff12a2792b4f",
+   "licence": "author's permission (LICENSE at pin 7ae77eb0c69d: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:55Z",
+    "consent_receipt": "ac322908d45a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T21:55Z (receipt ac322908d45a); pinned to the default-branch head. LICENSE at pin 7ae77eb0c69d: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

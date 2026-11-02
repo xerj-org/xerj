@@ -1,0 +1,23 @@
+{
+ "corpus": "artemtsitronov--textual-studio-code",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how artemtsitronov/textual-studio-code implements it: This is a simple code editor made in Textual Python",
+ "repos": [
+  {
+   "repo": "textual-studio-code",
+   "url": "https://github.com/artemtsitronov/textual-studio-code",
+   "sha": "2a77a0b533475cc1cab6e24028203f9085c67e26",
+   "licence": "author's permission (LICENSE at pin 2a77a0b53347: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T08:49Z",
+    "consent_receipt": "4c8a1a06d2a1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T08:49Z (receipt 4c8a1a06d2a1); pinned to the default-branch head. LICENSE at pin 2a77a0b53347: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

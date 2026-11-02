@@ -1,0 +1,23 @@
+{
+ "corpus": "rhedak--burn-subs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how rhedak/burn_subs implements it: A utility for burning subtitles into video files",
+ "repos": [
+  {
+   "repo": "burn_subs",
+   "url": "https://github.com/rhedak/burn_subs",
+   "sha": "5358e44a83fc5bd18947b0453b0515cfc16ff267",
+   "licence": "Apache-2.0 (LICENSE file at pin 5358e44a83fc, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T05:39Z",
+    "consent_receipt": "008d29d0bed0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T05:39Z (receipt 008d29d0bed0); pinned to the default-branch head. LICENSE file at pin 5358e44a83fc detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-orchestration, ai-agents, claude-code queries this for how o8-run/o8 implements it: The operating system for autonomous software engineering (selected work: src-tauri, tests, src/app)",
+ "domain": "an agent working on agent-orchestration, ai-agents, claude-code queries this for how o8-run/o8 implements it: Operate everything autonomously, by voice. Native GPUI speed on Mac, Linux & Windows (selected work: src-tauri, tests, src/app)",
  "repos": [
   {
    "repo": "o8",

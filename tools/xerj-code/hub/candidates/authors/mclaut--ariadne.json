@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on bge-m3, claude-code, embeddings queries this for how mclaut/ariadne implements it: Local-first multilingual memory for Codex, Claude Code & MCP \u2014 auditable Qdrant recall, project isolation, and a single-instance desktop tra (selected work: internal/approval, cmd/ariadnectl)",
+ "domain": "an agent working on bge-m3, claude-code, embeddings queries this for how mclaut/ariadne implements it: Local-first multilingual memory for Codex, Claude Code and MCP. Go + Qdrant + bge-m3, project isolation, verified full-backup rotation and p (selected work: internal/approval, cmd/ariadnectl)",
  "repos": [
   {
    "repo": "ariadne",

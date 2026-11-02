@@ -1,0 +1,23 @@
+{
+ "corpus": "10bedicu--care-abdm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how 10bedicu/care_abdm implements it: ABDM plug for care (selected work: abdm, tests)",
+ "repos": [
+  {
+   "repo": "care_abdm",
+   "url": "https://github.com/10bedicu/care_abdm",
+   "sha": "de78aeb4c18a7219ed111f6508aeb3da19b5833e",
+   "licence": "MIT (LICENSE file at pin de78aeb4c18a, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T07:17Z",
+    "consent_receipt": "0293020e00be",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T07:17Z (receipt 0293020e00be); selected commit de78aeb4c18a: \"Link an existing ABHA with its number or address (#133)\". LICENSE file at pin de78aeb4c18a detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

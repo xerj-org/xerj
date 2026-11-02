@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--online-banking-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on typescript, html, scss queries this for how Tuhin-SnapD/Online-Banking-App implements it: A modern, feature-rich online banking application built with Angular 15. This application provides a comprehensive banking experience with a",
+ "repos": [
+  {
+   "repo": "Online-Banking-App",
+   "url": "https://github.com/Tuhin-SnapD/Online-Banking-App",
+   "sha": "03be92c1366995d12d3ab7f1fb4911642da8b759",
+   "licence": "author's permission (LICENSE at pin 03be92c13669: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:30Z",
+    "consent_receipt": "c763a5b5d353",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:30Z (receipt c763a5b5d353); pinned to the default-branch head. LICENSE at pin 03be92c13669: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "xupremix--incin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on compile-time, cuda, machine-learning queries this for how xupremix/incin implements it: Machine learning framework for setting fire to dimensionality bugs (selected work: crates/incin-backends)",
+ "repos": [
+  {
+   "repo": "incin",
+   "url": "https://github.com/xupremix/incin",
+   "sha": "8308b95026fa5859b4a67d67416d38e81fdb0d44",
+   "licence": "author's permission (LICENSE at pin 8308b95026fa: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:57Z",
+    "consent_receipt": "629f77dc4e13",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T19:57Z (receipt 629f77dc4e13); selected commit 8308b95026fa: \"feat(wgpu): Q8_0 quantize, dequantize, quantized_matmul rows (#91)\". LICENSE at pin 8308b95026fa: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

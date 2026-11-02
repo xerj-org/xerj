@@ -1,0 +1,23 @@
+{
+ "corpus": "iplly--raisaai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how iplly/RaisaAI implements it: iplly/RaisaAI (C++) (selected work: src/skills, src/net, src/tts)",
+ "repos": [
+  {
+   "repo": "RaisaAI",
+   "url": "https://github.com/iplly/RaisaAI",
+   "sha": "598fb11c96a1ff7caa9662574d0df869d6ec25db",
+   "licence": "GPL-3.0 (LICENSE file at pin 598fb11c96a1, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-28T04:49Z",
+    "consent_receipt": "bae988f43a06",
+    "note": "Inclusion consented by the commit author by email at 2026-10-28T04:49Z (receipt bae988f43a06); selected commit 598fb11c96a1: \"\u0444\u0438\u043a\u0441 TTS::generate, \u043a\u044d\u0448 curl, \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0430 \u043e\u0448\u0438\u0431\u043e\u043a\". LICENSE file at pin 598fb11c96a1 detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

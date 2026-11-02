@@ -1,0 +1,23 @@
+{
+ "corpus": "sophisid--pg-hive",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on property-graphs, schema-discovery queries this for how sophisid/PG-HIVE implements it: [EDBT26] PG-HIVE: Hybrid Incremental Schema Discovery for Property Graphs (selected work: schemadiscovery)",
+ "repos": [
+  {
+   "repo": "PG-HIVE",
+   "url": "https://github.com/sophisid/PG-HIVE",
+   "sha": "2ead6d1aae39fa8b25fd8913cd1f23b2ff7f7302",
+   "licence": "MIT (LICENSE file at pin 2ead6d1aae39, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:18Z",
+    "consent_receipt": "c6f085c97159",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:18Z (receipt c6f085c97159); selected commit 2ead6d1aae39: \"reduce memory usage\". LICENSE file at pin 2ead6d1aae39 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

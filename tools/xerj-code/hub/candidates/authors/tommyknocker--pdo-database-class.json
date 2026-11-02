@@ -1,0 +1,23 @@
+{
+ "corpus": "tommyknocker--pdo-database-class",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on database-abstraction-layer, mysql, postgresql queries this for how tommyknocker/pdo-database-class implements it: Framework-agnostic PHP database library with unified API for MySQL, MariaDB, PostgreSQL, SQLite, MSSQL, and Oracle. Query Builder, caching,  (selected work: tests, src/query, src/orm)",
+ "repos": [
+  {
+   "repo": "pdo-database-class",
+   "url": "https://github.com/tommyknocker/pdo-database-class",
+   "sha": "bbc950d0b9dda6e3ddd2d4bb7103b72d333e5086",
+   "licence": "MIT (LICENSE file at pin bbc950d0b9dd, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:00Z",
+    "consent_receipt": "5714841c7e7d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T19:00Z (receipt 5714841c7e7d); selected commit bbc950d0b9dd: \"fix: improve query reliability and PHP 8.5 support\". LICENSE file at pin bbc950d0b9dd detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

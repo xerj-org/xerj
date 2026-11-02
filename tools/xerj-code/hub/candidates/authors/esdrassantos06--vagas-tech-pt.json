@@ -8,15 +8,15 @@
   {
    "repo": "vagas-tech-pt",
    "url": "https://github.com/esdrassantos06/vagas-tech-pt",
-   "sha": "58865dfe6798e7bbb6afc789a49f1e5f2b9b2e1d",
-   "licence": "MIT (LICENSE file at pin 58865dfe6798, GitHub licence API 2026-10-28)",
+   "sha": "684561ba44f4da9363611775cf3c025f337864e9",
+   "licence": "MIT (LICENSE file at pin 684561ba44f4, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-27T18:27Z",
     "consent_receipt": "959f47634269",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T18:27Z (receipt 959f47634269); selected commit 58865dfe6798: \"feat(api): add REST API with job search, subscriptions and Telegram w\u2026\". LICENSE file at pin 58865dfe6798 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution. Pinned to head 58865dfe6798 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T18:27Z (receipt 959f47634269); selected commit 684561ba44f4: \"feat(api): add REST API with job search, subscriptions and Telegram w\u2026\". LICENSE file at pin 684561ba44f4 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 684561ba44f4 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

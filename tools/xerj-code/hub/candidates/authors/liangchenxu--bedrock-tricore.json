@@ -8,15 +8,15 @@
   {
    "repo": "bedrock-tricore",
    "url": "https://github.com/Liangchenxu/bedrock-tricore",
-   "sha": "90ef2fa19e978568b7f6e8426a75ebf3552bc4df",
-   "licence": "MIT (LICENSE file at pin 90ef2fa19e97, GitHub licence API 2026-10-29)",
+   "sha": "e220e43efcc595dfab1a54482ca243abb372ba3d",
+   "licence": "MIT (LICENSE file at pin e220e43efcc5, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T23:33Z",
     "consent_receipt": "b2ece160864b",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:33Z (receipt b2ece160864b); pinned to the default-branch head. LICENSE file at pin 90ef2fa19e97 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:33Z (receipt b2ece160864b); pinned to the default-branch head. LICENSE file at pin e220e43efcc5 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
    }
   }
  ]

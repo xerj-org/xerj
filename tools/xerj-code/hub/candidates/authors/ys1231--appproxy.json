@@ -1,0 +1,30 @@
+{
+ "corpus": "ys1231--appproxy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on android, flutter, proxy queries this for how ys1231/appproxy implements it: \u57fa\u4e8eflutter\u7684Android vpn\u4ee3\u7406\u5de5\u5177\u652f\u6301mcp\u8c03\u7528\uff0c Android VPN Proxy Tool Based on Flutter (selected work: android, lib/ui, lib/data)",
+ "repos": [
+  {
+   "repo": "appproxy",
+   "url": "https://github.com/ys1231/appproxy",
+   "sha": "f5e66e187a30a4193978016c2d09c4a9c01b5976",
+   "licence": "GPL-3.0 (LICENSE file at pin f5e66e187a30, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T02:01Z",
+    "consent_receipt": "16ba3b6e257e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T02:01Z (receipt 16ba3b6e257e); selected commit f5e66e187a30: \"- feat(ebpf): \u4fee\u590d http/socks5 \u4ee3\u7406\u94fe\u8def\u5e76\u652f\u6301\u9009\u62e9\u4e8c\u8fdb\u5236\u7248\u672c\". LICENSE file at pin f5e66e187a30 detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "f5e66e187a30a4193978016c2d09c4a9c01b5976",
+     "at": "2026-10-30T02:01Z",
+     "receipt": "16ba3b6e257e"
+    }
+   }
+  }
+ ]
+}

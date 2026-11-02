@@ -1,0 +1,23 @@
+{
+ "corpus": "badee2000--multi-platform-deployer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cli, deployement, devops queries this for how Badee2000/multi-platform-deployer implements it: Universal CLI + toolkit for deploying Django/Flask/FastAPI apps to Render, Railway, Vercel, and Heroku from a single workflow (selected work: tests, src/multi_platform_deployer)",
+ "repos": [
+  {
+   "repo": "multi-platform-deployer",
+   "url": "https://github.com/Badee2000/multi-platform-deployer",
+   "sha": "b078c24faeb872ef4774d061cd046fb8b312e1b5",
+   "licence": "MIT (LICENSE file at pin b078c24faeb8, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T12:41Z",
+    "consent_receipt": "c002dbe20dc0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T12:41Z (receipt c002dbe20dc0); selected commit b078c24faeb8: \"Fix Vercel, Railway and Heroku deployers against their official docs\". LICENSE file at pin b078c24faeb8 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

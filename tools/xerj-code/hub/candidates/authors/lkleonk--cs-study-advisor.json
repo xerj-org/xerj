@@ -1,0 +1,23 @@
+{
+ "corpus": "lkleonk--cs-study-advisor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how lkleonk/cs-study-advisor implements it: Unofficial Full-stack chatbot for the FU Berlin master of computer science (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "cs-study-advisor",
+   "url": "https://github.com/lkleonk/cs-study-advisor",
+   "sha": "124cba550f5ccba93b31ced4980ede082c2f07fd",
+   "licence": "MIT (LICENSE file at pin 124cba550f5c, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T13:45Z",
+    "consent_receipt": "2d84c2635e9f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T13:45Z (receipt 2d84c2635e9f); selected commit 124cba550f5c: \"feat: add WiSe 26/27 course offerings, restrict plan validation to M.\u2026\". LICENSE file at pin 124cba550f5c detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

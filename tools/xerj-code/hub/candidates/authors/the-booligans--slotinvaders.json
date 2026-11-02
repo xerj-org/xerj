@@ -1,0 +1,23 @@
+{
+ "corpus": "the-booligans--slotinvaders",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how The-Booligans/slotinvaders implements it: The-Booligans/slotinvaders (TypeScript) (selected work: code)",
+ "repos": [
+  {
+   "repo": "slotinvaders",
+   "url": "https://github.com/The-Booligans/slotinvaders",
+   "sha": "37cb2d41d4400b49ea44af9a184308148ffaede0",
+   "licence": "MIT (LICENSE file at pin 37cb2d41d440, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T18:04Z",
+    "consent_receipt": "b0035db031e8",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:04Z (receipt b0035db031e8); selected commit 37cb2d41d440: \"Unknown abhorrence (android app\u2728)\". LICENSE file at pin 37cb2d41d440 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

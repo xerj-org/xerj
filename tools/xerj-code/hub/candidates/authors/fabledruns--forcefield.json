@@ -1,0 +1,23 @@
+{
+ "corpus": "fabledruns--forcefield",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, developer-tools queries this for how fabledruns/forcefield implements it: An ultra-fast, lightweight, local-first AI agent harness for running specialized agents in Go (selected work: internal/sandbox, internal/config, cue)",
+ "repos": [
+  {
+   "repo": "forcefield",
+   "url": "https://github.com/fabledruns/forcefield",
+   "sha": "fdff788f4ef1cdb11a359f2176257697f6cd0c42",
+   "licence": "Apache-2.0 (LICENSE file at pin fdff788f4ef1, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T08:42Z",
+    "consent_receipt": "4605f13632a5",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T08:42Z (receipt 4605f13632a5); selected commit fdff788f4ef1: \"sandbox: add opt-in isolated execution via Landlock\". LICENSE file at pin fdff788f4ef1 detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "yeqinyang-victor--scout-marketing-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how YeqinYang-Victor/scout-marketing-agent implements it: YeqinYang-Victor/scout-marketing-agent (TypeScript) (selected work: tools)",
+ "repos": [
+  {
+   "repo": "scout-marketing-agent",
+   "url": "https://github.com/YeqinYang-Victor/scout-marketing-agent",
+   "sha": "b6343c2d671943372e4c743d61c0231c9a26e55d",
+   "licence": "MIT (LICENSE file at pin b6343c2d6719, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:03Z",
+    "consent_receipt": "f1b12a0884a4",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:03Z (receipt f1b12a0884a4); selected commit b6343c2d6719: \"feat(tools): trading-calendar generator and regression tests\". LICENSE file at pin b6343c2d6719 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

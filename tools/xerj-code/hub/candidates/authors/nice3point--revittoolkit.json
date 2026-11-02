@@ -1,0 +1,23 @@
+{
+ "corpus": "nice3point--revittoolkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on toolkit, revit-api, autodesk queries this for how Nice3point/RevitToolkit implements it: Toolkit for Revit plugin development (selected work: tests, source)",
+ "repos": [
+  {
+   "repo": "RevitToolkit",
+   "url": "https://github.com/Nice3point/RevitToolkit",
+   "sha": "d8907d58f10db52170300dbd5ce79858981a2185",
+   "licence": "MIT (LICENSE file at pin d8907d58f10d, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T15:13Z",
+    "consent_receipt": "8a9f0932ca84",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T15:13Z (receipt 8a9f0932ca84); selected commit d8907d58f10d: \"[Events] Run every raise of an external event and cancel a pending raise\". LICENSE file at pin d8907d58f10d detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

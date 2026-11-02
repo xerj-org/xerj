@@ -1,0 +1,30 @@
+{
+ "corpus": "ovolsan--chat-tags",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, chat-tags, exteragram queries this for how Ovolsan/Chat-tags implements it: \u041f\u043b\u0430\u0433\u0438\u043d exteraLess: \u043b\u0438\u0447\u043d\u044b\u0435 \u0442\u0435\u0433\u0438 \u0434\u043b\u044f \u0447\u0430\u0442\u043e\u0432 Telegram \u0438 \u043f\u043e\u0438\u0441\u043a \u043f\u043e \u0442\u0435\u0433\u0430\u043c. exteraLess plugin: Telegram chat tags, labels and tag search (selected work: the project root, native, tests)",
+ "repos": [
+  {
+   "repo": "Chat-tags",
+   "url": "https://github.com/Ovolsan/Chat-tags",
+   "sha": "087f1991df922da518f5b526b385b14c9f9e3735",
+   "licence": "GPL-3.0 (LICENSE file at pin 087f1991df92, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T19:26Z",
+    "consent_receipt": "1eb9b539f265",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:26Z (receipt 1eb9b539f265); selected commit 087f1991df92: \"\u0412\u0435\u0440\u0441\u0438\u044f 20261028.9: \u043d\u0430\u0436\u0430\u0442\u0438\u044f \u0432\u043e \u0432\u0442\u043e\u0440\u043e\u0439 \u0441\u0442\u0440\u043e\u043a\u0435 \u043a\u043d\u043e\u043f\u043e\u043a, \u043a\u0440\u0443\u043f\u043d\u044b\u0435 \u0430\u0432\u0430\u0442\u0430\u0440\u043a\u0438\". LICENSE file at pin 087f1991df92 detected as GPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "087f1991df922da518f5b526b385b14c9f9e3735",
+     "at": "2026-10-31T19:26Z",
+     "receipt": "1eb9b539f265"
+    }
+   }
+  }
+ ]
+}

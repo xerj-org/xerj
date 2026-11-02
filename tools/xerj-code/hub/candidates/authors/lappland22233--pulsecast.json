@@ -1,0 +1,30 @@
+{
+ "corpus": "lappland22233--pulsecast",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how lappland22233/PulseCast implements it: \u63a5\u6536\u5fc3\u7387\u5e7f\u64ad\u5e76\u4e14\u60ac\u6d6e\u7a97\u7f6e\u9876\u5230\u684c\u9762\u4e0a (selected work: src/HeartRateBroadcast.App, tests)",
+ "repos": [
+  {
+   "repo": "PulseCast",
+   "url": "https://github.com/lappland22233/PulseCast",
+   "sha": "9204eab3b36f1c6423e08feb7b80d090790f9b4e",
+   "licence": "GPL-3.0 (LICENSE file at pin 9204eab3b36f, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T17:57Z",
+    "consent_receipt": "2dfab7a4d565",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T17:57Z (receipt 2dfab7a4d565); selected commit 9204eab3b36f: \"feat: \u91cd\u6784\u8bbe\u5907\u7b5b\u9009\u4e0e\u73b0\u4ee3\u53cc\u680fUI\uff0c\u89e3\u51b3\u84dd\u7259\u4e2d\u6587\u4e71\u7801\u53ca\u53cd\u8272\u6301\u4e45\u5316\u7f3a\u9677\". LICENSE file at pin 9204eab3b36f detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "9204eab3b36f1c6423e08feb7b80d090790f9b4e",
+     "at": "2026-10-29T17:57Z",
+     "receipt": "2dfab7a4d565"
+    }
+   }
+  }
+ ]
+}

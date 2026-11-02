@@ -1,0 +1,23 @@
+{
+ "corpus": "feardread--jx-parser-java",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Java queries this for how FearDread/jx.parser.java implements it: JSON and XML parser for Android Applications",
+ "repos": [
+  {
+   "repo": "jx.parser.java",
+   "url": "https://github.com/FearDread/jx.parser.java",
+   "sha": "129fc78901eb8aadd982c9ad4b4f72a5631b883f",
+   "licence": "GPL-2.0 (LICENSE file at pin 129fc78901eb, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T14:26Z",
+    "consent_receipt": "2608835e7ed6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T14:26Z (receipt 2608835e7ed6); pinned to the default-branch head. LICENSE file at pin 129fc78901eb detected as GPL-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

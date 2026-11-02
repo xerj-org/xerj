@@ -1,0 +1,23 @@
+{
+ "corpus": "davewalker5--naturerecorderpy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on animals, nature, python queries this for how davewalker5/NatureRecorderPy implements it: Wildlife sightings recorder written in Python and using Flask to implement a simple web UI",
+ "repos": [
+  {
+   "repo": "NatureRecorderPy",
+   "url": "https://github.com/davewalker5/NatureRecorderPy",
+   "sha": "947739bc0f2bcc04c267b4cbde78d82dc5439855",
+   "licence": "MIT (LICENSE file at pin 947739bc0f2b, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T10:09Z",
+    "consent_receipt": "e6c06187b7dd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T10:09Z (receipt e6c06187b7dd); pinned to the default-branch head. LICENSE file at pin 947739bc0f2b detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

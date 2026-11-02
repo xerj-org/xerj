@@ -1,0 +1,23 @@
+{
+ "corpus": "neosoda--distrosentinel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how neosoda/DistroSentinel implements it: DistroSentinel est une plateforme moderne et performante con\u00e7ue pour explorer, filtrer et choisir la distribution Linux id\u00e9ale. D\u00e9velopp\u00e9e a",
+ "repos": [
+  {
+   "repo": "DistroSentinel",
+   "url": "https://github.com/neosoda/DistroSentinel",
+   "sha": "5c388937f4e6355a75a1142f6f417e37866064b4",
+   "licence": "author's permission (LICENSE at pin 5c388937f4e6: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T11:27Z",
+    "consent_receipt": "2c43375459f1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T11:27Z (receipt 2c43375459f1); pinned to the default-branch head. LICENSE at pin 5c388937f4e6: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

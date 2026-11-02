@@ -1,0 +1,23 @@
+{
+ "corpus": "fodydev--afrim-web",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on afrim, ime, web queries this for how fodydev/afrim-web implements it: Web platform for the afrim input method (selected work: packages/afrim-playground, packages/afrim-input)",
+ "repos": [
+  {
+   "repo": "afrim-web",
+   "url": "https://github.com/fodydev/afrim-web",
+   "sha": "20350777c62619f4233278da2eaecead60a1df3d",
+   "licence": "MIT (LICENSE file at pin 20350777c626, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T20:03Z",
+    "consent_receipt": "b273c24a5526",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:03Z (receipt b273c24a5526); selected commit 20350777c626: \"patch: turned afrim-web into a typing trainer (#61)\". LICENSE file at pin 20350777c626 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

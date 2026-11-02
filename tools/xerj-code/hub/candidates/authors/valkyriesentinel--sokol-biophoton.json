@@ -1,0 +1,23 @@
+{
+ "corpus": "valkyriesentinel--sokol-biophoton",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on biomimetic, immune-system, network-security queries this for how ValkyrieSentinel/sokol-biophoton implements it: Biomimetic quantum-inspired network communication with immune system defense",
+ "repos": [
+  {
+   "repo": "sokol-biophoton",
+   "url": "https://github.com/ValkyrieSentinel/sokol-biophoton",
+   "sha": "0484b96f2f837350ff4283fad14939c438b5bfb6",
+   "licence": "author's permission (LICENSE at pin 0484b96f2f83: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T22:56Z",
+    "consent_receipt": "e62eeac98f05",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T22:56Z (receipt e62eeac98f05); pinned to the default-branch head. LICENSE at pin 0484b96f2f83: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

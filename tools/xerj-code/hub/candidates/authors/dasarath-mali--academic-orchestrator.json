@@ -1,0 +1,23 @@
+{
+ "corpus": "dasarath-mali--academic-orchestrator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Dasarath-Mali/Academic_Orchestrator implements it: It is a tool that helps students to study, to know about deadlines and all stuff and also research on something they need",
+ "repos": [
+  {
+   "repo": "Academic_Orchestrator",
+   "url": "https://github.com/Dasarath-Mali/Academic_Orchestrator",
+   "sha": "630b05eb160612af206a00ba9ae9b0c8233df916",
+   "licence": "author's permission (LICENSE at pin 630b05eb1606: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T06:09Z",
+    "consent_receipt": "455dd917c1eb",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T06:09Z (receipt 455dd917c1eb); pinned to the default-branch head. LICENSE at pin 630b05eb1606: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

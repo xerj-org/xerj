@@ -1,0 +1,30 @@
+{
+ "corpus": "mattlag--font-flux-js",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on typeface-design queries this for how mattlag/Font-Flux-JS implements it: Convert a font file to JSON... and back! (selected work: test, src, src/validate)",
+ "repos": [
+  {
+   "repo": "Font-Flux-JS",
+   "url": "https://github.com/mattlag/Font-Flux-JS",
+   "sha": "405c63a9b146680d99a200f7c7c5a4cdebf85e9a",
+   "licence": "GPL-3.0 (LICENSE file at pin 405c63a9b146, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T21:15Z",
+    "consent_receipt": "ef9962908541",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T21:15Z (receipt ef9962908541); selected commit 405c63a9b146: \"Fix cmap format-4 terminal mappings and boundary validation\". LICENSE file at pin 405c63a9b146 detected as GPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "405c63a9b146680d99a200f7c7c5a4cdebf85e9a",
+     "at": "2026-10-31T21:15Z",
+     "receipt": "ef9962908541"
+    }
+   }
+  }
+ ]
+}

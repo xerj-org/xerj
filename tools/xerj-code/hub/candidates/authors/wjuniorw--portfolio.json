@@ -1,0 +1,23 @@
+{
+ "corpus": "wjuniorw--portfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how wjuniorw/portfolio implements it: https://wjunior.dev.br repo, XP, Work, Hobbies, Portfolio, Roots (selected work: src/core, src/components, src/layouts)",
+ "repos": [
+  {
+   "repo": "portifolio",
+   "url": "https://github.com/wjuniorw/portifolio",
+   "sha": "c3525eb3cbc072757bb5bb047fc8d15fce376a22",
+   "licence": "MIT (LICENSE file at pin c3525eb3cbc0, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T22:29Z",
+    "consent_receipt": "83dda21a0089",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:29Z (receipt 83dda21a0089); selected commit c3525eb3cbc0: \"feat(branding): add animated brand monogram and site favicon assets\". LICENSE file at pin c3525eb3cbc0 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

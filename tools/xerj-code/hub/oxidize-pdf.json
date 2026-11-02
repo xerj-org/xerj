@@ -1,0 +1,25 @@
+{
+  "corpus": "oxidize-pdf",
+  "cloned_at": "2026-10-29T19:14:00Z",
+  "repos": [
+    {
+      "repo": "oxidizePdf",
+      "url": "https://github.com/bzsanti/oxidizePdf.git",
+      "licence": "NONE-FOUND",
+      "sha": "24bc1f844b3121f84edb17f00d9b90fdb7d27c10",
+      "files": 487,
+      "bytes": 17102115,
+      "paths": [
+        "oxidize-pdf-core/src",
+        "oxidize-pdf-core/tests/fixtures/text_contracts/standard14/afm"
+      ],
+      "review": {
+        "spdx": "MIT AND Apache-2.0 AND BSD-3-Clause AND LicenseRef-Adobe-AFM",
+        "use": "adapt-with-attribution",
+        "by": "Codex, at @bzsanti's request",
+        "at": "2026-10-29",
+        "note": "Reviewed licence texts at pinned commit 24bc1f844b3121f84edb17f00d9b90fdb7d27c10, not just the MIT detector result. Root LICENSE: MIT, Copyright (c) 2024-2026 Santiago Fernández Muñoz. Source: https://github.com/bzsanti/oxidizePdf/blob/24bc1f844b3121f84edb17f00d9b90fdb7d27c10/LICENSE . Included src/text/pdf_simple_encodings.rs carries Apache Software Foundation/Adobe attribution; pdf_encoding_licenses contains Apache-2.0 and Adobe BSD-3-Clause terms. Adobe Glyph List, CMap and CID mapping resources retain their Adobe BSD-3-Clause notices in adobe_glyph_list.txt and cmap_resources/. font_program_licenses contains MIT notices for FontTools (Just van Rossum) and Fontations (Colin Rothfels). Standard14 metrics cite Adobe AFM data via groff; LicenseRef-Adobe-AFM is the verbatim permissive notice in tests/fixtures/text_contracts/standard14/afm/LICENSE, included with the 14 AFMs: use/copy/distribute/modify for any purpose, retain notices and that licence, mark modifications. Harvest only the two listed paths; exclude unrelated external PDF fixtures, generated examples/results, reports and site assets. Preserve applicable copyright/licence/disclaimer notices, mark modifications where required, observe non-endorsement clauses, and cite the pinned source file:line. No claim that all repository assets are MIT. The scoped checkout omits the root LICENSE, so the detector reports NONE-FOUND; the root licence was read independently in the full pinned checkout. The MIT copyright and licence above apply to the project source, with the listed third-party exceptions."
+      }
+    }
+  ]
+}

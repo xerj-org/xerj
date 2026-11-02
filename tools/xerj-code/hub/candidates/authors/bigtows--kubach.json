@@ -1,0 +1,23 @@
+{
+ "corpus": "bigtows--kubach",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Rust queries this for how BigTows/kubach implements it: K8s IDE (selected work: crates/kubach-mcp, crates/kubach-app)",
+ "repos": [
+  {
+   "repo": "kubach",
+   "url": "https://github.com/BigTows/kubach",
+   "sha": "df6d3201c8b23d5ae532bf919dda286df4317f2f",
+   "licence": "MIT (LICENSE file at pin df6d3201c8b2, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:46Z",
+    "consent_receipt": "a40d6b82f051",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:46Z (receipt a40d6b82f051); selected commit df6d3201c8b2: \"Agent port-forwards end when the agent disconnects (#34) (#37)\". LICENSE file at pin df6d3201c8b2 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

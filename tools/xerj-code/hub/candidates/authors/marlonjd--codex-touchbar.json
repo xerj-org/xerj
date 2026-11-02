@@ -1,0 +1,23 @@
+{
+ "corpus": "marlonjd--codex-touchbar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on appkit, codex, developer-tools queries this for how MarlonJD/codex_touchbar implements it: Native macOS Touch Bar companion for OpenAI Codex. Switch projects, track unread results and weekly limits, and control reasoning effort and (selected work: Sources, Tests, script)",
+ "repos": [
+  {
+   "repo": "codex_touchbar",
+   "url": "https://github.com/MarlonJD/codex_touchbar",
+   "sha": "dca2aa97678907afb5ac96fab1a118b2b06a54a6",
+   "licence": "MIT (LICENSE file at pin dca2aa976789, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:14Z",
+    "consent_receipt": "74deb22bff5b",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T21:14Z (receipt 74deb22bff5b); selected commit dca2aa976789: \"feat: show live Codex settings and remote tasks\". LICENSE file at pin dca2aa976789 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

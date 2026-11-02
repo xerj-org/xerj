@@ -1,0 +1,23 @@
+{
+ "corpus": "middt--blazor-framework",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how middt/blazor-framework implements it: middt/blazor-framework (C#) (selected work: sdk, postman, demo)",
+ "repos": [
+  {
+   "repo": "blazor-framework",
+   "url": "https://github.com/middt/blazor-framework",
+   "sha": "14f4668acffff06c898ee9c85270880075b50420",
+   "licence": "GPL-2.0 (LICENSE file at pin 14f4668acfff, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T13:13Z",
+    "consent_receipt": "72d12c11a2a4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T13:13Z (receipt 72d12c11a2a4); selected commit 14f4668acfff: \"feat(workflow,ui): add array path operations, list rowTransition acti\u2026\". LICENSE file at pin 14f4668acfff detected as GPL-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

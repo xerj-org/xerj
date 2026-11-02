@@ -8,15 +8,15 @@
   {
    "repo": "zeroegress",
    "url": "https://github.com/Amz34/zeroegress",
-   "sha": "59eca4a16611b111cae662cae31924a66e5f346d",
-   "licence": "MIT (LICENSE file at pin 59eca4a16611, GitHub licence API 2026-10-29)",
+   "sha": "6182ab72e68ebc75d2b7a94bdfc5425a02efadbd",
+   "licence": "MIT (LICENSE file at pin 6182ab72e68e, GitHub licence API 2026-10-31)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T10:21Z",
     "consent_receipt": "24a991745673",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt 24a991745673); pinned to the default-branch head. LICENSE file at pin 59eca4a16611 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T10:21Z (receipt 24a991745673); pinned to the default-branch head. LICENSE file at pin 6182ab72e68e detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
    }
   }
  ]

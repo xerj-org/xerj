@@ -1,0 +1,30 @@
+{
+ "corpus": "cojedzie--cojedzie",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on public-transport, vue, php queries this for how cojedzie/cojedzie implements it: Co Jedzie - What you can expect on your public-transport stop in real-time! (selected work: api)",
+ "repos": [
+  {
+   "repo": "cojedzie",
+   "url": "https://github.com/cojedzie/cojedzie",
+   "sha": "986de0d338710bb621665e3a46995a6090a4b674",
+   "licence": "AGPL-3.0 (LICENSE file at pin 986de0d33871, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T21:12Z",
+    "consent_receipt": "1e53c55cfe36",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:12Z (receipt 1e53c55cfe36); selected commit 986de0d33871: \"refactor(api): Return php-ds sequences from repositories\". LICENSE file at pin 986de0d33871 detected as AGPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "986de0d338710bb621665e3a46995a6090a4b674",
+     "at": "2026-10-29T21:12Z",
+     "receipt": "1e53c55cfe36"
+    }
+   }
+  }
+ ]
+}

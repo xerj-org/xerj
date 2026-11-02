@@ -1,0 +1,23 @@
+{
+ "corpus": "deveshctl--layerx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cli, container, docker queries this for how deveshctl/layerx implements it: LayerX Image Inspector - open-source terminal explorer for container images. Browse layers, spot wasted bytes, and gate CI on image efficien (selected work: tui)",
+ "repos": [
+  {
+   "repo": "layerx",
+   "url": "https://github.com/deveshctl/layerx",
+   "sha": "3c7b8df14449624bb090823f8a3975fdfc45aa35",
+   "licence": "MIT (LICENSE file at pin 3c7b8df14449, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T16:23Z",
+    "consent_receipt": "0b42f7d37813",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T16:23Z (receipt 0b42f7d37813); selected commit 3c7b8df14449: \"feat(tui): improve file tree navigation and readability\". LICENSE file at pin 3c7b8df14449 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

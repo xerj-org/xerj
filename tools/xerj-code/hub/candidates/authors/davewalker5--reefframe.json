@@ -1,0 +1,23 @@
+{
+ "corpus": "davewalker5--reefframe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on action-camera, color-correction, ffmpeg queries this for how davewalker5/ReefFrame implements it: A Python desktop app for enhancing, stabilising, converting and preparing underwater action-camera footage using FFmpeg",
+ "repos": [
+  {
+   "repo": "ReefFrame",
+   "url": "https://github.com/davewalker5/ReefFrame",
+   "sha": "6e2474fcf81e75586b7010ce722e89a8d4f00299",
+   "licence": "MIT (LICENSE file at pin 6e2474fcf81e, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T10:09Z",
+    "consent_receipt": "e020cdfdf808",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T10:09Z (receipt e020cdfdf808); pinned to the default-branch head. LICENSE file at pin 6e2474fcf81e detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

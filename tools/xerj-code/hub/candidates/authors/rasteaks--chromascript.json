@@ -1,0 +1,23 @@
+{
+ "corpus": "rasteaks--chromascript",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on aces, acescct, acescg queries this for how RaSteaks/ChromaScript implements it: \u57fa\u4e8e ACES 2.0 \u7684\u672c\u5730\u7a0b\u5e8f\u5316\u89c6\u9891\u521b\u4f5c\u5de5\u4f5c\u53f0\uff0c\u652f\u6301 WGSL\u3001Three.js \u548c React/Remotion\uff0c\u901a\u8fc7 Web \u754c\u9762\u3001MCP \u6216 CLI \u7f16\u5199\u52a8\u753b\u3001\u5b9e\u65f6\u9884\u89c8\uff0c\u5e76\u5bfc\u51fa\u7ecf\u8fc7\u8272\u5f69\u7ba1\u7406\u7684 SDR/HDR \u89c6\u9891\u4e0e ACEScg EXR \u6bcd\u7248\u3002A local proce (selected work: frontend, src/chromascript, tests)",
+ "repos": [
+  {
+   "repo": "ChromaScript",
+   "url": "https://github.com/RaSteaks/ChromaScript",
+   "sha": "e846118b0b9540c5dd5d5b628c5a3cba99e576fd",
+   "licence": "MIT (LICENSE file at pin e846118b0b95, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T17:38Z",
+    "consent_receipt": "535d52e8a511",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T17:38Z (receipt 535d52e8a511); selected commit e846118b0b95: \"feat: add OpenAI speech generation and web authoring\". LICENSE file at pin e846118b0b95 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

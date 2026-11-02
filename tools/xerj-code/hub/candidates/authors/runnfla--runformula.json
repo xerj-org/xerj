@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on expression-evaluator, lazarus, parser queries this for how runnfla/RunFormula implements it: A lightweight open-source unit-aware math and physics scripting engine for FreePascal and Lazarus (selected work: Demo, RunFormula, Help)",
+ "domain": "an agent working on expression-evaluator, parser, mathematical-expressions queries this for how runnfla/RunFormula implements it: A lightweight open-source unit-aware math and physics scripting engine for FreePascal and Lazarus (selected work: Demo, RunFormula, Help)",
  "repos": [
   {
    "repo": "RunFormula",

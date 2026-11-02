@@ -2,8 +2,8 @@
  "corpus": "blaze-cache--blaze-cache",
  "cloned_at": null,
  "status": "draft",
- "shelf": "DB",
- "domain": "an agent working on Rust queries this for how blaze-cache/blaze-cache implements it: Blazingly fast client-side caching library powered by Rust \u2192 WebAssembly (selected work: crates/blaze-cache-core)",
+ "shelf": "WEB",
+ "domain": "an agent working on axios, browser, cache queries this for how blaze-cache/blaze-cache implements it: Blazingly fast client-side caching library powered by Rust \u2192 WebAssembly (selected work: crates/blaze-cache-core)",
  "repos": [
   {
    "repo": "blaze-cache",

@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on benchmarkdotnet, csharp, dotnet queries this for how gcfernando/nilog-dotnet-logging implements it: Zero-allocation ILogger extensions for .NET 8/9/10: typed Microsoft.Extensions.Logging overloads with Roslyn analyzers, Native AOT support a (selected work: Nilog)",
+ "domain": "an agent working on benchmarkdotnet, csharp, dotnet queries this for how gcfernando/nilog-dotnet-logging implements it: Zero-allocation ILogger extensions for .NET 8/9/10: typed Microsoft.Extensions.Logging overloads with Roslyn analyzers, Native AOT support a",
  "repos": [
   {
-   "repo": "nilog",
-   "url": "https://github.com/gcfernando/nilog",
-   "sha": "58434de51b2e557ec617b99298b55ac313b9c6d7",
-   "licence": "MIT (LICENSE file at pin 58434de51b2e, GitHub licence API 2026-10-24)",
+   "repo": "nilog-dotnet-logging",
+   "url": "https://github.com/gcfernando/nilog-dotnet-logging",
+   "sha": "f6ed95cc2a8c82b17dff24d1febb728e0268adff",
+   "licence": "MIT (LICENSE file at pin f6ed95cc2a8c, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
-    "at": "2026-10-16T04:50Z",
-    "consent_receipt": "d6c2de16d269",
-    "note": "Inclusion consented by the commit author by email at 2026-10-16T04:50Z (receipt d6c2de16d269); selected commit 58434de51b2e: \"Fixed minor issues\". LICENSE file at pin 58434de51b2e detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+    "at": "2026-10-29T19:31Z",
+    "consent_receipt": "294b953a0f6b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:31Z (receipt 294b953a0f6b); pinned to the default-branch head. LICENSE file at pin f6ed95cc2a8c detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
    }
   }
  ]

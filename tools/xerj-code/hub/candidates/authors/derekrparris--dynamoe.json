@@ -1,0 +1,23 @@
+{
+ "corpus": "derekrparris--dynamoe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Swift queries this for how derekrparris/DynaMoE implements it: Dynamic, SSD-streamed Mixture-of-Experts LLM inference on Apple Silicon (selected work: DynaMoE)",
+ "repos": [
+  {
+   "repo": "DynaMoE",
+   "url": "https://github.com/derekrparris/DynaMoE",
+   "sha": "4a3acbb362dfe2b3170cb6a655047c9f706d0546",
+   "licence": "author's permission (LICENSE at pin 4a3acbb362df: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T20:24Z",
+    "consent_receipt": "69be4434513e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:24Z (receipt 69be4434513e); selected commit 4a3acbb362df: \"Run the vision tower instead of only pricing its grid\". LICENSE at pin 4a3acbb362df: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

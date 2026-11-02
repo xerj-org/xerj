@@ -2,8 +2,8 @@
  "corpus": "sonukapoor--warpdom",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on jsdom, testing queries this for how sonukapoor/warpdom implements it: A DOM for unit tests that loads almost instantly and behaves like jsdom (selected work: scripts, test, src)",
+ "shelf": "WEB",
+ "domain": "an agent working on jsdom, testing, component-testing queries this for how sonukapoor/warpdom implements it: A fast DOM for unit and component tests: jsdom's test results, faster. A drop-in Vitest and Jest environment (selected work: scripts, test, src)",
  "repos": [
   {
    "repo": "warpdom",

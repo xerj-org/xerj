@@ -1,0 +1,23 @@
+{
+ "corpus": "ssfdre38--gemini-super-system",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, claude, gemini queries this for how ssfdre38/gemini-super-system implements it: ssfdre38/gemini-super-system (C#)",
+ "repos": [
+  {
+   "repo": "gemini-super-system",
+   "url": "https://github.com/ssfdre38/gemini-super-system",
+   "sha": "bbca7e66251ab07a25b8c1dc856df10bdb7ec82b",
+   "licence": "MIT (LICENSE file at pin bbca7e66251a, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T02:35Z",
+    "consent_receipt": "911951a2f827",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T02:35Z (receipt 911951a2f827); pinned to the default-branch head. LICENSE file at pin bbca7e66251a detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

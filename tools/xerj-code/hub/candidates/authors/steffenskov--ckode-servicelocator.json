@@ -1,0 +1,23 @@
+{
+ "corpus": "steffenskov--ckode-servicelocator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on service-locator queries this for how steffenskov/Ckode.ServiceLocator implements it: Ckode.ServiceLocator is a simple natively implemented service locator for simplifying dependency injection",
+ "repos": [
+  {
+   "repo": "Ckode.ServiceLocator",
+   "url": "https://github.com/steffenskov/Ckode.ServiceLocator",
+   "sha": "0f61db89d394d3c5a4fab288d32792ec6c1b6b23",
+   "licence": "MIT (LICENSE file at pin 0f61db89d394, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:41Z",
+    "consent_receipt": "40d7d11686c8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt 40d7d11686c8); pinned to the default-branch head. LICENSE file at pin 0f61db89d394 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

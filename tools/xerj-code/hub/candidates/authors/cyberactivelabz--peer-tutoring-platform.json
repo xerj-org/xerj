@@ -1,0 +1,23 @@
+{
+ "corpus": "cyberactivelabz--peer-tutoring-platform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on TypeScript queries this for how cyberactivelabz/peer-tutoring-platform- implements it: A student Campus P2P academic support platform (selected work: frontend)",
+ "repos": [
+  {
+   "repo": "peer-tutoring-platform-",
+   "url": "https://github.com/cyberactivelabz/peer-tutoring-platform-",
+   "sha": "ed5ba210222d80b412a710887906853b073f1aa5",
+   "licence": "MIT (LICENSE file at pin ed5ba210222d, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T16:48Z",
+    "consent_receipt": "f3c0ce0572ae",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T16:48Z (receipt f3c0ce0572ae); selected commit ed5ba210222d: \"fronted\". LICENSE file at pin ed5ba210222d detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

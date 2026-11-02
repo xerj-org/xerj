@@ -1,0 +1,30 @@
+{
+ "corpus": "datalux--osintgram",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on osint, osint-python, python3 queries this for how Datalux/Osintgram implements it: Osintgram is a OSINT tool on Instagram. It offers an interactive shell to perform analysis on Instagram account of any users by its nickname (selected work: src/web, tests, src)",
+ "repos": [
+  {
+   "repo": "Osintgram",
+   "url": "https://github.com/Datalux/Osintgram",
+   "sha": "a1a1d9188dba5f3f4046dd5cafb82f3f67704d1d",
+   "licence": "GPL-3.0 (LICENSE file at pin a1a1d9188dba, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T07:07Z",
+    "consent_receipt": "37eae20d047a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T07:07Z (receipt 37eae20d047a); selected commit a1a1d9188dba: \"feat: public web context (#2699), social network graph export, lossle\u2026\". LICENSE file at pin a1a1d9188dba detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "a1a1d9188dba5f3f4046dd5cafb82f3f67704d1d",
+     "at": "2026-10-30T07:07Z",
+     "receipt": "37eae20d047a"
+    }
+   }
+  }
+ ]
+}

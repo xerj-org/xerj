@@ -1,0 +1,23 @@
+{
+ "corpus": "tamilselvan04200803-max--autonomous-ci-repair-platform",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on autonomous-agents, benchmark, ci-cd queries this for how tamilselvan04200803-max/autonomous-ci-repair-platform implements it: Core Idea Aegis Forge = autonomous CI/CD repair system that fixes failed GitHub workflows and provides independent proof that the fix works. (selected work: benchmarks, scripts, examples)",
+ "repos": [
+  {
+   "repo": "autonomous-ci-repair-platform",
+   "url": "https://github.com/tamilselvan04200803-max/autonomous-ci-repair-platform",
+   "sha": "c702708c0d73dd48f284bd346310d881742b4f9a",
+   "licence": "Apache-2.0 (LICENSE file at pin c702708c0d73, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T03:10Z",
+    "consent_receipt": "1d3f51c7b4e0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T03:10Z (receipt 1d3f51c7b4e0); selected commit c702708c0d73: \"feat: expand production repository structure with benchmarks, rules, \u2026\". LICENSE file at pin c702708c0d73 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

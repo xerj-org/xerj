@@ -1,0 +1,23 @@
+{
+ "corpus": "genesi-os--genesios",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-inference, archlinux, cachyos queries this for how Genesi-OS/GenesiOS implements it: A CachyOS-based, developer-first Linux distribution that retunes itself for local inference \u2014 dressed in a glass KDE Plasma desktop (selected work: genesi-arch)",
+ "repos": [
+  {
+   "repo": "GenesiOS",
+   "url": "https://github.com/Genesi-OS/GenesiOS",
+   "sha": "8f760b134ff724ae2b99e10bd8151f93f5373f19",
+   "licence": "AGPL-3.0 (LICENSE file at pin 8f760b134ff7, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T20:24Z",
+    "consent_receipt": "a1b1d6f7ee40",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:24Z (receipt a1b1d6f7ee40); selected commit 8f760b134ff7: \"feat(migrate): stage Genesi and switch to Btrfs offline\". LICENSE file at pin 8f760b134ff7 detected as AGPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

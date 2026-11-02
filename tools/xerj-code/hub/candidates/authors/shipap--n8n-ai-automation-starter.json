@@ -1,0 +1,23 @@
+{
+ "corpus": "shipap--n8n-ai-automation-starter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on automation, docker, llm queries this for how shipap/n8n-ai-automation-starter implements it: Self-hosted n8n workflows for lead qualification, email triage, and invoice validation, with a free local demo",
+ "repos": [
+  {
+   "repo": "n8n-ai-automation-starter",
+   "url": "https://github.com/shipap/n8n-ai-automation-starter",
+   "sha": "d1fba53a57eca0b4fc554f174d0c653af475b41d",
+   "licence": "MIT (LICENSE file at pin d1fba53a57ec, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T13:28Z",
+    "consent_receipt": "e1751777c55a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T13:28Z (receipt e1751777c55a); pinned to the default-branch head. LICENSE file at pin d1fba53a57ec detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

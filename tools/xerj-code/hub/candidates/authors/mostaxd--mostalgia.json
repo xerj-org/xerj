@@ -1,0 +1,23 @@
+{
+ "corpus": "mostaxd--mostalgia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on chatbot, linux, local-first queries this for how Mostaxd/Mostalgia implements it: Mostalgia is a local-first AI meeting assistant built in Rust. It records your calls, transcribes them with Whisper and names the speakers,  (selected work: crates/mostalgia-app, crates/mostalgia-core, crates/mostalgia-cli)",
+ "repos": [
+  {
+   "repo": "Mostalgia",
+   "url": "https://github.com/Mostaxd/Mostalgia",
+   "sha": "0a5336c6f974091a54a538836527134dc4fbe2fd",
+   "licence": "author's permission (LICENSE at pin 0a5336c6f974: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:08Z",
+    "consent_receipt": "86a6773aa388",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T19:08Z (receipt 86a6773aa388); selected commit 0a5336c6f974: \"Build on Windows: Linux-only parts behind cfg, CI for Linux and Windows\". LICENSE at pin 0a5336c6f974: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,30 @@
+{
+ "corpus": "hitosu--ptfm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on fm-1, tracker-music queries this for how hitosu/ptfm implements it: PT/FM - Pocket Tracker / Fusion Machine for M-Wave FM-1 (selected work: emulator, fw, panel)",
+ "repos": [
+  {
+   "repo": "ptfm",
+   "url": "https://github.com/hitosu/ptfm",
+   "sha": "05e8d880ac2e10727ae8c83bc1696e8787db38cf",
+   "licence": "GPL-3.0 (LICENSE file at pin 05e8d880ac2e, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T21:53Z",
+    "consent_receipt": "22f1abc9bbc6",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:53Z (receipt 22f1abc9bbc6); selected commit 05e8d880ac2e: \"The emulator's DOWNLOAD DISK and RECORD, UPLOAD CUSTOM DISK, CHIP on \u2026\". LICENSE file at pin 05e8d880ac2e detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "05e8d880ac2e10727ae8c83bc1696e8787db38cf",
+     "at": "2026-10-29T21:53Z",
+     "receipt": "22f1abc9bbc6"
+    }
+   }
+  }
+ ]
+}

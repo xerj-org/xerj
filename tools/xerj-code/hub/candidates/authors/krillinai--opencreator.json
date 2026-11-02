@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on video-transcription, video-translation, dubbing queries this for how krillinai/OpenCreator implements it: Formerly KrillinAI, VideoTranslation and Dubbing Tool. Open-source AI workspace for creators, powered by Codex. Video downloading, video tra (selected work: apps/web, apps/daemon, packages/protocol)",
+ "domain": "an agent working on video-transcription, video-translation, dubbing queries this for how krillinai/OpenCreator implements it: Formerly KrillinAI, VideoTranslation and Dubbing Tool for 120+ Languages. Open-source AI workspace for creators, powered by Codex. Video dow (selected work: apps/web, apps/daemon, packages/protocol)",
  "repos": [
   {
    "repo": "OpenCreator",

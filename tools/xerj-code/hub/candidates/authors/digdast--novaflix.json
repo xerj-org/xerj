@@ -1,0 +1,23 @@
+{
+ "corpus": "digdast--novaflix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on direct-play, emby-alternative, fastapi queries this for how digdast/novaflix implements it: Sovereign Next-Gen Media Server combining the elegance of Plex, freedom of Jellyfin, and power of Emby with Remote Access and Multi-Platform (selected work: static, templates, novaflix)",
+ "repos": [
+  {
+   "repo": "novaflix",
+   "url": "https://github.com/digdast/novaflix",
+   "sha": "639c033c800066ef42d3d94275047c6f60f913e2",
+   "licence": "MIT (LICENSE file at pin 639c033c8000, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T23:59Z",
+    "consent_receipt": "3ff66e26bb15",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T23:59Z (receipt 3ff66e26bb15); selected commit 639c033c8000: \"fix: implement media type filtering, routing, and real links for movi\u2026\". LICENSE file at pin 639c033c8000 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

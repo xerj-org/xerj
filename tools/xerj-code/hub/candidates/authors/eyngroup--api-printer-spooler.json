@@ -1,0 +1,30 @@
+{
+ "corpus": "eyngroup--api-printer-spooler",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how eyngroup/api_printer_spooler implements it: Proyecto que consiste en un **Servidor API REST** que actua como **Spooler de Impresoras** para documentos (selected work: tests, handy, server)",
+ "repos": [
+  {
+   "repo": "api_printer_spooler",
+   "url": "https://github.com/eyngroup/api_printer_spooler",
+   "sha": "863a1fb02bd9171dad8f016a2fdaa075892a7ebf",
+   "licence": "AGPL-3.0 (LICENSE file at pin 863a1fb02bd9, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T03:15Z",
+    "consent_receipt": "2348708363b1",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T03:15Z (receipt 2348708363b1); selected commit 863a1fb02bd9: \"fix: harden the update flow and fiscal operation guards after code re\u2026\". LICENSE file at pin 863a1fb02bd9 detected as AGPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "863a1fb02bd9171dad8f016a2fdaa075892a7ebf",
+     "at": "2026-10-31T03:15Z",
+     "receipt": "2348708363b1"
+    }
+   }
+  }
+ ]
+}

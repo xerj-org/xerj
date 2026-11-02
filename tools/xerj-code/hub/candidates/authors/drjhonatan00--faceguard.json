@@ -1,0 +1,23 @@
+{
+ "corpus": "drjhonatan00--faceguard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on PHP queries this for how drJhonatan00/FaceGuard implements it: Enterprise-ready, privacy-first real-time face recognition authentication using client-side AI and a zero-dependency PHP flat-file storage e",
+ "repos": [
+  {
+   "repo": "FaceGuard",
+   "url": "https://github.com/drJhonatan00/FaceGuard",
+   "sha": "77f764668107bb8d68c6ff9ebe91d678308fc8cb",
+   "licence": "MIT (LICENSE file at pin 77f764668107, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:39Z",
+    "consent_receipt": "74fba6587766",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T20:39Z (receipt 74fba6587766); pinned to the default-branch head. LICENSE file at pin 77f764668107 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

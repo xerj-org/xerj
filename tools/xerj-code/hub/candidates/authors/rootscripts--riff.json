@@ -2,8 +2,8 @@
  "corpus": "rootscripts--riff",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on audio, music, music-player queries this for how rootscripts/riff implements it: Your best desktop music player (selected work: the project root)",
+ "shelf": "OPS",
+ "domain": "an agent working on audio, music, music-player queries this for how rootscripts/riff implements it: Riff is the best music player with YouTube Music & SoundCloud library and WebGL shader visuals (selected work: the project root)",
  "repos": [
   {
    "repo": "riff",

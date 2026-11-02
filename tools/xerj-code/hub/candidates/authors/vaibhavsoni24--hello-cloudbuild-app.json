@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--hello-cloudbuild-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how VaibhavSoni24/hello-cloudbuild-app implements it: VaibhavSoni24/hello-cloudbuild-app (Python)",
+ "repos": [
+  {
+   "repo": "hello-cloudbuild-app",
+   "url": "https://github.com/VaibhavSoni24/hello-cloudbuild-app",
+   "sha": "dbf298a26c5eb818416a47c88fff7c5496c2753a",
+   "licence": "Apache-2.0 (LICENSE file at pin dbf298a26c5e, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "47f7eb53e951",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 47f7eb53e951); pinned to the default-branch head. LICENSE file at pin dbf298a26c5e detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

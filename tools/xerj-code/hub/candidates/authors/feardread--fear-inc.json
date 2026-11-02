@@ -1,0 +1,23 @@
+{
+ "corpus": "feardread--fear-inc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on CSS queries this for how FearDread/fear-inc implements it: Main company portfolio SPA built with React and Fear GUI ( fear-gui )",
+ "repos": [
+  {
+   "repo": "fear-inc",
+   "url": "https://github.com/FearDread/fear-inc",
+   "sha": "ed035aa739c7315121e9569c3ae2bb2fab7020f0",
+   "licence": "MIT (LICENSE file at pin ed035aa739c7, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T14:26Z",
+    "consent_receipt": "fa55f2adc7d4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T14:26Z (receipt fa55f2adc7d4); pinned to the default-branch head. LICENSE file at pin ed035aa739c7 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

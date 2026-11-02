@@ -1,0 +1,30 @@
+{
+ "corpus": "dr-smth--originslauncher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on apple-silicon, dragon-age-origins, game-launcher-software queries this for how Dr-Smth/OriginsLauncher implements it: Unofficial macOS launcher for the Steam edition of Dragon Age: Origins, using Wine without a Windows installation (selected work: scripts)",
+ "repos": [
+  {
+   "repo": "OriginsLauncher",
+   "url": "https://github.com/Dr-Smth/OriginsLauncher",
+   "sha": "34181dfe9ec6f495218da7704371146f28f5a024",
+   "licence": "GPL-3.0 (LICENSE file at pin 34181dfe9ec6, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T00:49Z",
+    "consent_receipt": "b07f09b55b3e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T00:49Z (receipt b07f09b55b3e); selected commit 34181dfe9ec6: \"Package verified audio binaries and complete source\". LICENSE file at pin 34181dfe9ec6 detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "34181dfe9ec6f495218da7704371146f28f5a024",
+     "at": "2026-10-30T00:49Z",
+     "receipt": "b07f09b55b3e"
+    }
+   }
+  }
+ ]
+}

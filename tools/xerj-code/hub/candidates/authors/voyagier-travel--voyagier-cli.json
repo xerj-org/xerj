@@ -1,0 +1,23 @@
+{
+ "corpus": "voyagier-travel--voyagier-cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on booking, cli, travel queries this for how Voyagier-Travel/voyagier-cli implements it: Search, plan, and book real travel from the command line or any AI agent. Flights, hotels, activities \u2014 price-gated booking, quotes, MCP ser (selected work: src/commands, src/mcp-client)",
+ "repos": [
+  {
+   "repo": "voyagier-cli",
+   "url": "https://github.com/Voyagier-Travel/voyagier-cli",
+   "sha": "dfea9c956ea06b2534cbe26eea5c76a509a6d303",
+   "licence": "Apache-2.0 (LICENSE file at pin dfea9c956ea0, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:23Z",
+    "consent_receipt": "2cbc12c13652",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:23Z (receipt 2cbc12c13652); selected commit dfea9c956ea0: \"fix(update): local routing, alias layout, node-run npm, piped stderr\". LICENSE file at pin dfea9c956ea0 detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

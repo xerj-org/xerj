@@ -1,0 +1,23 @@
+{
+ "corpus": "xobotyi--cc-foundry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-coding, claude queries this for how xobotyi/cc-foundry implements it: Claude Code plugins its author uses every day: coding, commit, planning, and writing discipline, plus Go, JavaScript/TypeScript, PHP, Python (selected work: plugins)",
+ "repos": [
+  {
+   "repo": "cc-foundry",
+   "url": "https://github.com/xobotyi/cc-foundry",
+   "sha": "78cadd914d9433f1e3d995d5f0992ffaad892e97",
+   "licence": "MIT (LICENSE file at pin 78cadd914d94, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T18:11Z",
+    "consent_receipt": "db3a50e84cbd",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T18:11Z (receipt db3a50e84cbd); selected commit 78cadd914d94: \"[the-workflow] add a replay harness to debrief\". LICENSE file at pin 78cadd914d94 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

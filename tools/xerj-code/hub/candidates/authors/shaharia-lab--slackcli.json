@@ -1,0 +1,23 @@
+{
+ "corpus": "shaharia-lab--slackcli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on ai-tools, automation, cli queries this for how shaharia-lab/slackcli implements it: Slack CLI for humans and AI agents. Read, send, search and reply across one or many Slack workspaces from the terminal. No Slack app needed (selected work: src/commands, src/lib, src)",
+ "repos": [
+  {
+   "repo": "slackcli",
+   "url": "https://github.com/shaharia-lab/slackcli",
+   "sha": "31d48487a0dd346b2fbd87fbad419e44e68ac720",
+   "licence": "MIT (LICENSE file at pin 31d48487a0dd, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:17Z",
+    "consent_receipt": "f34d4b6f595d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T20:17Z (receipt f34d4b6f595d); selected commit 31d48487a0dd: \"feat(saved): add saved add, update, complete, reopen and remove (#436\u2026\". LICENSE file at pin 31d48487a0dd detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

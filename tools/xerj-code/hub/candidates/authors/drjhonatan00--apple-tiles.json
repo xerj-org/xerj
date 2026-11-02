@@ -1,0 +1,23 @@
+{
+ "corpus": "drjhonatan00--apple-tiles",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how drJhonatan00/Apple-Tiles implements it: A recreation of the classic **Bad Apple!!** effect rendered as an animated mosaic of apples, using multiple synchronised Win32 windows",
+ "repos": [
+  {
+   "repo": "Apple-Tiles",
+   "url": "https://github.com/drJhonatan00/Apple-Tiles",
+   "sha": "8fc5d6b35413c2b7c5f05414c8f341276cfbc805",
+   "licence": "MIT (LICENSE file at pin 8fc5d6b35413, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:39Z",
+    "consent_receipt": "3de09f6fba65",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T20:39Z (receipt 3de09f6fba65); pinned to the default-branch head. LICENSE file at pin 8fc5d6b35413 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

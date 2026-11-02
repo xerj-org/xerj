@@ -1,0 +1,30 @@
+{
+ "corpus": "furkankaraketir--lgm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how FurkanKaraketir/LGM implements it: Linear Graph Modeling Software for System Modeling (selected work: Examples, src/canvas, tests)",
+ "repos": [
+  {
+   "repo": "LGM",
+   "url": "https://github.com/FurkanKaraketir/LGM",
+   "sha": "33fe96ef43d0935e39397d17e24cfc9093a8b82e",
+   "licence": "GPL-3.0 (LICENSE file at pin 33fe96ef43d0, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T22:34Z",
+    "consent_receipt": "fbd7a3189caa",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:34Z (receipt fbd7a3189caa); selected commit 33fe96ef43d0: \"Switch .lgm to an id-based format (version 4) and convert the examples\". LICENSE file at pin 33fe96ef43d0 detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "33fe96ef43d0935e39397d17e24cfc9093a8b82e",
+     "at": "2026-10-29T22:34Z",
+     "receipt": "fbd7a3189caa"
+    }
+   }
+  }
+ ]
+}

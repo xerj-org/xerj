@@ -1,0 +1,23 @@
+{
+ "corpus": "yusufoguntola--django-simple-log-viewer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how yusufoguntola/django-simple-log-viewer implements it: Django app to view project logs (selected work: log_viewer, the project root)",
+ "repos": [
+  {
+   "repo": "django-simple-log-viewer",
+   "url": "https://github.com/yusufoguntola/django-simple-log-viewer",
+   "sha": "73231ad1a2fa8fd75c4f10eadd822cccf230c3f9",
+   "licence": "MIT (LICENSE file at pin 73231ad1a2fa, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:47Z",
+    "consent_receipt": "4665d77b74dc",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T19:47Z (receipt 4665d77b74dc); selected commit 73231ad1a2fa: \"Updated to add support for python 3.11+ and django 5\". LICENSE file at pin 73231ad1a2fa detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

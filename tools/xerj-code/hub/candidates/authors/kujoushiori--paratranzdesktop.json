@@ -1,0 +1,23 @@
+{
+ "corpus": "kujoushiori--paratranzdesktop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on content-blocking, desktop-app, electron queries this for how KujouShiori/ParatranzDesktop implements it: paratranz.cn \u684c\u9762\u5ba2\u6237\u7aef\uff08Electron\uff09\uff1a\u7ad9\u70b9\u7ffb\u8bd1\u5de5\u4f5c\u53f0\u539f\u6837\u53ef\u7528\uff0c\u53e6\u52a0\u9879\u76ee\u4e0e\u7528\u6237\u5c4f\u853d\u3001\u6cb9\u7334\u811a\u672c\u63d2\u4ef6\u3001\u79c1\u4fe1\u4e0e\u5ba1\u6838\u63d0\u9192",
+ "repos": [
+  {
+   "repo": "ParatranzDesktop",
+   "url": "https://github.com/KujouShiori/ParatranzDesktop",
+   "sha": "99dbd0b1912981e8c647de6eef08e139aca68843",
+   "licence": "author's permission (LICENSE at pin 99dbd0b19129: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T13:32Z",
+    "consent_receipt": "a464b67ded0e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T13:32Z (receipt a464b67ded0e); pinned to the default-branch head. LICENSE at pin 99dbd0b19129: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

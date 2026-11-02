@@ -1,0 +1,23 @@
+{
+ "corpus": "geolibrerian--gismap",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on geospatial, gis, agent-skills queries this for how geolibrerian/gismap implements it: Free, open-source browser GIS: interactive web maps, map briefings, guided tours, field tasks and LiDAR/3D from one link. AI-agent ready (ll (selected work: js, tests, css)",
+ "repos": [
+  {
+   "repo": "gismap",
+   "url": "https://github.com/geolibrerian/gismap",
+   "sha": "a6eb1e5bd81212d2f1598c03d9f8588c16dd1804",
+   "licence": "Apache-2.0 (LICENSE file at pin a6eb1e5bd812, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T00:00Z",
+    "consent_receipt": "1b98248feb53",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T00:00Z (receipt 1b98248feb53); selected commit a6eb1e5bd812: \"feat: refine chart panel workflow\". LICENSE file at pin a6eb1e5bd812 detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

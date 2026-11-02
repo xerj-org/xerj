@@ -1,0 +1,30 @@
+{
+ "corpus": "lquenta--reservatickets",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Blade queries this for how lquenta/reservaTickets implements it: Proyecto de reserva de tickets online (selected work: resources, app/Services, tests)",
+ "repos": [
+  {
+   "repo": "reservaTickets",
+   "url": "https://github.com/lquenta/reservaTickets",
+   "sha": "20372b606bee02d266b9632e48ec6141ded21fd2",
+   "licence": "GPL-3.0 (LICENSE file at pin 20372b606bee, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T22:22Z",
+    "consent_receipt": "ab5e6285edd8",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:22Z (receipt ab5e6285edd8); selected commit 20372b606bee: \"Add a lightweight activity report of pages, clicks, and time on page.\". LICENSE file at pin 20372b606bee detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "20372b606bee02d266b9632e48ec6141ded21fd2",
+     "at": "2026-10-29T22:22Z",
+     "receipt": "ab5e6285edd8"
+    }
+   }
+  }
+ ]
+}

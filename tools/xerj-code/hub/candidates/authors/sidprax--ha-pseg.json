@@ -1,0 +1,23 @@
+{
+ "corpus": "sidprax--ha-pseg",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on hacs, home-assistant, homeassistant queries this for how sidprax/ha-pseg implements it: PSE&G Energy (New Jersey) custom integration and Lovelace card for Home Assistant (selected work: custom_components)",
+ "repos": [
+  {
+   "repo": "ha-pseg",
+   "url": "https://github.com/sidprax/ha-pseg",
+   "sha": "0cf2c1622402132a5b4c1039ddb814d588227f14",
+   "licence": "MIT (LICENSE file at pin 0cf2c1622402, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T23:32Z",
+    "consent_receipt": "039b5b199991",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T23:32Z (receipt 039b5b199991); selected commit 0cf2c1622402: \"feat: add direct MyMeter auth options, persistent cookie guidance, an\u2026\". LICENSE file at pin 0cf2c1622402 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "mbongenimhlanga--taxipoint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how MbongeniMhlanga/TaxiPoint implements it: TaxiPoint \u2013 Taxi Rank Locator for Johannesburg A web and mobile app that helps commuters find nearby taxi ranks in Johannesburg. View locati (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "TaxiPoint",
+   "url": "https://github.com/MbongeniMhlanga/TaxiPoint",
+   "sha": "bb44171349a465556e515ad300ac842b2e5d3522",
+   "licence": "MIT (LICENSE file at pin bb44171349a4, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T20:56Z",
+    "consent_receipt": "5559e58b956a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:56Z (receipt 5559e58b956a); selected commit bb44171349a4: \"app update: chat safety so the ai detects slurs and swearing\". LICENSE file at pin bb44171349a4 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

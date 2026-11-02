@@ -1,0 +1,23 @@
+{
+ "corpus": "andri-andreal--ccx",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how andri-andreal/ccx implements it: Launch Claude Code under named provider/model profiles Anthropic + OpenAI-compatible backends (OpenAI, OpenRouter, Ollama, vLLM, LM Studio,  (selected work: lib, tests, bin)",
+ "repos": [
+  {
+   "repo": "ccx",
+   "url": "https://github.com/andri-andreal/ccx",
+   "sha": "a35a05fbbe0471bbed066dbee05dd43821417d38",
+   "licence": "MIT (LICENSE file at pin a35a05fbbe04, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T03:58Z",
+    "consent_receipt": "cfc3f1aca745",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T03:58Z (receipt cfc3f1aca745); selected commit a35a05fbbe04: \"feat(cli,tui): codex in any checkout, verification picker, interactiv\u2026\". LICENSE file at pin a35a05fbbe04 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

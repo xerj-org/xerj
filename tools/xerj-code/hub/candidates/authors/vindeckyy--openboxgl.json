@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on appimage, emulation, game-launcher queries this for how vindeckyy/OpenBoxGL implements it: A modern, local-first game library and launcher for Linux and Windows. Organize and launch your collection with an open-source alternative t (selected work: the project root, tests, scripts)",
+ "domain": "an agent working on appimage, emulation, game-launcher queries this for how vindeckyy/OpenBoxGL implements it: A modern, local-first game library and launcher for Linux, Windows and macOS. Organize and launch your collection with an open-source altern (selected work: the project root, tests, scripts)",
  "repos": [
   {
    "repo": "OpenBoxGL",

@@ -8,15 +8,15 @@
   {
    "repo": "lodestar-z",
    "url": "https://github.com/ChainSafe/lodestar-z",
-   "sha": "1921c8436ad72e6360d310429830c021ffac0748",
-   "licence": "Apache-2.0 (LICENSE file at pin 1921c8436ad7, GitHub licence API 2026-10-26)",
+   "sha": "0b0a9af337898ebccbc0d37fd008bbb7452d9430",
+   "licence": "Apache-2.0 (LICENSE file at pin 0b0a9af33789, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-19T10:41Z",
     "consent_receipt": "d69275c695c4",
-    "note": "Inclusion consented by the commit author by email at 2026-10-19T10:41Z (receipt d69275c695c4); selected commit 1921c8436ad7: \"feat: add struct progressive container (#777)\". LICENSE file at pin 1921c8436ad7 detected as Apache-2.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Pinned to head 1921c8436ad7 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-19T10:41Z (receipt d69275c695c4); selected commit 0b0a9af33789: \"feat: add struct progressive container (#777)\". LICENSE file at pin 0b0a9af33789 detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head 0b0a9af33789 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

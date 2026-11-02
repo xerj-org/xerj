@@ -1,0 +1,23 @@
+{
+ "corpus": "macmotp--sirius-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Vue queries this for how macmotp/sirius-ui implements it: macmotp/sirius-ui (Vue) (selected work: packages/vue, packages/theme, apps/playground)",
+ "repos": [
+  {
+   "repo": "sirius-ui",
+   "url": "https://github.com/macmotp/sirius-ui",
+   "sha": "f313b50271e1ea4a25e6cb58ac02c6b36ed20a97",
+   "licence": "MIT (LICENSE file at pin f313b50271e1, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T01:06Z",
+    "consent_receipt": "75a4c30f4d15",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T01:06Z (receipt 75a4c30f4d15); selected commit f313b50271e1: \"Add vue components\". LICENSE file at pin f313b50271e1 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

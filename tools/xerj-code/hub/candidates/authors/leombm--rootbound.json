@@ -1,0 +1,23 @@
+{
+ "corpus": "leombm--rootbound",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how LeoMbm/Rootbound implements it: Let ChatGPT use Codex's local toolbox, then call Codex only when needed (selected work: src, test, scripts)",
+ "repos": [
+  {
+   "repo": "Rootbound",
+   "url": "https://github.com/LeoMbm/Rootbound",
+   "sha": "696a57ff707187d8c1c95df38728f61babff0cbc",
+   "licence": "Apache-2.0 (LICENSE file at pin 696a57ff7071, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T17:54Z",
+    "consent_receipt": "fc5c2fcd6dde",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T17:54Z (receipt fc5c2fcd6dde); selected commit 696a57ff7071: \"perf(git): bypass slow apple git shim\". LICENSE file at pin 696a57ff7071 detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "jos3duardo--cnpj-ws",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cnpj, receita-federal, consulta-cnpj queries this for how jos3duardo/cnpj-ws implements it: Package node para consulta de cnpj (selected work: __tests__, lib, the project root)",
+ "repos": [
+  {
+   "repo": "cnpj-ws",
+   "url": "https://github.com/jos3duardo/cnpj-ws",
+   "sha": "660ceedf9c99dc3054f368c1d33f92effc23f552",
+   "licence": "MIT (LICENSE file at pin 660ceedf9c99, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T14:52Z",
+    "consent_receipt": "16b99d138039",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T14:52Z (receipt 16b99d138039); selected commit 660ceedf9c99: \"refactor(transporte): trocar axios por fetch nativo\". LICENSE file at pin 660ceedf9c99 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

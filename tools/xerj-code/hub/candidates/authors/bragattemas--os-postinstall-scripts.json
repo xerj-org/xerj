@@ -1,0 +1,23 @@
+{
+ "corpus": "bragattemas--os-postinstall-scripts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on snap, linux, shell-script queries this for how BragatteMAS/os-postinstall-scripts implements it: Cross-platform post-install automation for Linux, macOS & Windows. One command to set up your entire dev environment \u2014 12 installers, 3 prof (selected work: src/platforms, data, examples)",
+ "repos": [
+  {
+   "repo": "os-postinstall-scripts",
+   "url": "https://github.com/BragatteMAS/os-postinstall-scripts",
+   "sha": "7c4486e2c33ef0008e760d53776009c45de439a6",
+   "licence": "Apache-2.0 (LICENSE file at pin 7c4486e2c33e, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-13T12:43Z",
+    "consent_receipt": "9dfb7753bd2d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-13T12:43Z (receipt 9dfb7753bd2d); selected commit 7c4486e2c33e: \"docs(full): say why prime-agent stays out of the manifest\". LICENSE file at pin 7c4486e2c33e detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

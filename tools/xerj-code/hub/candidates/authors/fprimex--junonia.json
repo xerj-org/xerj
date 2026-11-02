@@ -1,0 +1,23 @@
+{
+ "corpus": "fprimex--junonia",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on shell, command-line-parser, bourne queries this for how fprimex/junonia implements it: Framework for easily creating Bourne shell programs with subcommands and options (selected work: the project root, test)",
+ "repos": [
+  {
+   "repo": "junonia",
+   "url": "https://github.com/fprimex/junonia",
+   "sha": "03f871922e5703c624471ff8f16ca0bc7a80c07e",
+   "licence": "Apache-2.0 (LICENSE file at pin 03f871922e57, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T23:38Z",
+    "consent_receipt": "a0a71a7d1683",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T23:38Z (receipt a0a71a7d1683); selected commit 03f871922e57: \"Multiple cleanups post-AI work\". LICENSE file at pin 03f871922e57 detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head 03f871922e57 (contains the selected commit): the LICENSE at the selected commit was Unlicense."
+   }
+  }
+ ]
+}

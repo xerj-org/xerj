@@ -1,0 +1,23 @@
+{
+ "corpus": "marcusaguiarmaciel-cmd--cato-plugin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude-code, anthropic, mcp queries this for how marcusaguiarmaciel-cmd/cato-plugin implements it: Cut Claude Code token costs by 35-80% with prompt-cache TTL tracking, pre-read structural indexing, noisy CLI pruning, and multi-session sub",
+ "repos": [
+  {
+   "repo": "cato-plugin",
+   "url": "https://github.com/marcusaguiarmaciel-cmd/cato-plugin",
+   "sha": "7baa452b5c7fac0ab472246181d3777764498f17",
+   "licence": "author's permission (LICENSE at pin 7baa452b5c7f: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T17:24Z",
+    "consent_receipt": "6108e92acda3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T17:24Z (receipt 6108e92acda3); pinned to the default-branch head. LICENSE at pin 7baa452b5c7f: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

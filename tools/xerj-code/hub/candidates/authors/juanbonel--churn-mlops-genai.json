@@ -1,0 +1,23 @@
+{
+ "corpus": "juanbonel--churn-mlops-genai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how juanbonel/Churn-mlops-genai implements it: End-to-end MLOps project with MLflow, FastAPI, drift monitoring and GenAI extensions (selected work: databricks)",
+ "repos": [
+  {
+   "repo": "Churn-mlops-genai",
+   "url": "https://github.com/juanbonel/Churn-mlops-genai",
+   "sha": "8aff3e3a2fc5f2922c3547d9473007cbaac67e57",
+   "licence": "MIT (LICENSE file at pin 8aff3e3a2fc5, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:29Z",
+    "consent_receipt": "42b0d3ee4cc7",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T19:29Z (receipt 42b0d3ee4cc7); selected commit 8aff3e3a2fc5: \"Add Databricks MLOps and GenAI notebooks\". LICENSE file at pin 8aff3e3a2fc5 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

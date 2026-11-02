@@ -1,0 +1,30 @@
+{
+ "corpus": "cybericius--markright",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on Rust queries this for how cybericius/MarkRight implements it: A native, lightweight, directory-first Markdown viewer (selected work: crates/markright-core, src/components)",
+ "repos": [
+  {
+   "repo": "MarkRight",
+   "url": "https://github.com/cybericius/MarkRight",
+   "sha": "5a285b1ba0b8526363756df16999a2a5ed237374",
+   "licence": "AGPL-3.0 (LICENSE file at pin 5a285b1ba0b8, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T04:18Z",
+    "consent_receipt": "f0c80f260460",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T04:18Z (receipt f0c80f260460); selected commit 5a285b1ba0b8: \"fix(security): sanitize raw HTML and link URLs from documents\". LICENSE file at pin 5a285b1ba0b8 detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "5a285b1ba0b8526363756df16999a2a5ed237374",
+     "at": "2026-11-02T04:18Z",
+     "receipt": "f0c80f260460"
+    }
+   }
+  }
+ ]
+}

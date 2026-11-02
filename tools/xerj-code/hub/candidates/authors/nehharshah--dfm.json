@@ -1,0 +1,23 @@
+{
+ "corpus": "nehharshah--dfm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on apple-silicon, coding-agent, local-llm queries this for how NehharShah/dfm implements it: A local coding agent for Apple Silicon: edits, builds, tests and verifies code with on-device models (Apple FM + MLX). No remote inference",
+ "repos": [
+  {
+   "repo": "dfm",
+   "url": "https://github.com/NehharShah/dfm",
+   "sha": "7413c5c7d89583ab0524425a3db51444eb2c1afe",
+   "licence": "MIT (LICENSE file at pin 7413c5c7d895, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T03:37Z",
+    "consent_receipt": "fbe3ecbca4cd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T03:37Z (receipt fbe3ecbca4cd); pinned to the default-branch head. LICENSE file at pin 7413c5c7d895 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

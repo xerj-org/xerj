@@ -1,0 +1,23 @@
+{
+ "corpus": "steffenskov--segregatedstorage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how steffenskov/SegregatedStorage implements it: steffenskov/SegregatedStorage (C#)",
+ "repos": [
+  {
+   "repo": "SegregatedStorage",
+   "url": "https://github.com/steffenskov/SegregatedStorage",
+   "sha": "6da3ba3924962b06dc90805846402a8d9f612dfe",
+   "licence": "MIT (LICENSE file at pin 6da3ba392496, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:41Z",
+    "consent_receipt": "acb71098f998",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt acb71098f998); pinned to the default-branch head. LICENSE file at pin 6da3ba392496 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

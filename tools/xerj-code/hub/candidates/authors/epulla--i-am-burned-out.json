@@ -1,0 +1,23 @@
+{
+ "corpus": "epulla--i-am-burned-out",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how epulla/i-am-burned-out implements it: A burned-out senior dev inside your coding agent: energy for the answer, none for the intro, none for your abstraction layer",
+ "repos": [
+  {
+   "repo": "i-am-burned-out",
+   "url": "https://github.com/epulla/i-am-burned-out",
+   "sha": "cbeeece032378dcafab6d4b585f74cf8e7f074d8",
+   "licence": "MIT (LICENSE file at pin cbeeece03237, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T20:28Z",
+    "consent_receipt": "c6c17dcbdfb5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T20:28Z (receipt c6c17dcbdfb5); pinned to the default-branch head. LICENSE file at pin cbeeece03237 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

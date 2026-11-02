@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--ai-lab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Tuhin-SnapD/ai-lab implements it: A hands-on AI, machine learning, deep learning, computer vision, and data analytics lab built for learners who want practical projects, read",
+ "repos": [
+  {
+   "repo": "ai-lab",
+   "url": "https://github.com/Tuhin-SnapD/ai-lab",
+   "sha": "7bb3fb021e87aec7cb47144bffcdadfd23e755fd",
+   "licence": "MIT (LICENSE file at pin 7bb3fb021e87, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:30Z",
+    "consent_receipt": "9ca697b73898",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:30Z (receipt 9ca697b73898); pinned to the default-branch head. LICENSE file at pin 7bb3fb021e87 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

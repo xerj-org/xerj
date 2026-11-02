@@ -1,0 +1,23 @@
+{
+ "corpus": "fabiangquintana--fabian-dev-portfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how FabianGQuintana/Fabian-Dev-Portfolio implements it: Fullstack portfolio web (selected work: src/features, src/components, src/config)",
+ "repos": [
+  {
+   "repo": "Fabian-Dev-Portfolio",
+   "url": "https://github.com/FabianGQuintana/Fabian-Dev-Portfolio",
+   "sha": "557938f416c12e32d6155a186c74c20a8c7847d0",
+   "licence": "MIT (LICENSE file at pin 557938f416c1, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:44Z",
+    "consent_receipt": "b76596ce55ef",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T21:44Z (receipt b76596ce55ef); selected commit 557938f416c1: \"feat:Pill-style navbar, footer quick links and mobile dev access\". LICENSE file at pin 557938f416c1 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "atlaspcsupport--tabnotes",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on chrome-extension, google-drive, local-first queries this for how AtlasPCSupport/TabNotes implements it: Local-first contextual notes for Chrome, with workspaces, reminders, mobile PWA access, and optional private Google Drive sync (selected work: apps/extension, packages/shared, apps/tabnotes-site)",
+ "repos": [
+  {
+   "repo": "TabNotes",
+   "url": "https://github.com/AtlasPCSupport/TabNotes",
+   "sha": "2b3ca151db770e9f91ade6b921bf3f3b140a0262",
+   "licence": "MIT (LICENSE file at pin 2b3ca151db77, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:43Z",
+    "consent_receipt": "f0afbfefac31",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T19:43Z (receipt f0afbfefac31); selected commit 2b3ca151db77: \"TabNotes 2.13.0: OneDrive sync across Chrome and Edge (#9)\". LICENSE file at pin 2b3ca151db77 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "tixyq--opencode-android",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on HTML queries this for how tixyq/opencode-android implements it: Unofficial port of OpenCode for Android (selected work: tools, app/native, app/java)",
+ "repos": [
+  {
+   "repo": "opencode-android",
+   "url": "https://github.com/tixyq/opencode-android",
+   "sha": "7253c858d22622e60f55a90bb457a8d51f9c6ba6",
+   "licence": "MIT (LICENSE file at pin 7253c858d226, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T18:37Z",
+    "consent_receipt": "ab50d05806b7",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:37Z (receipt ab50d05806b7); selected commit 7253c858d226: \"Fix SIGSYS startup crash: interpose close_range(2) for the server\". LICENSE file at pin 7253c858d226 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

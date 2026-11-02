@@ -1,0 +1,23 @@
+{
+ "corpus": "feardread--fear-portal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how FearDread/fear-portal implements it: Main static react js site acting as primary portal for all Fear Admin Web Server apps and services. Build from Open-react-template project",
+ "repos": [
+  {
+   "repo": "fear-portal",
+   "url": "https://github.com/FearDread/fear-portal",
+   "sha": "83f141aa706980830fd0d20b91405b3daff2e42d",
+   "licence": "MPL-2.0 (LICENSE file at pin 83f141aa7069, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T14:26Z",
+    "consent_receipt": "cf5c508a5f15",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T14:26Z (receipt cf5c508a5f15); pinned to the default-branch head. LICENSE file at pin 83f141aa7069 detected as MPL-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

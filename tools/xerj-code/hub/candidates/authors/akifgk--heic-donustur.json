@@ -1,0 +1,23 @@
+{
+ "corpus": "akifgk--heic-donustur",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on converter, heic, heif queries this for how akifgk/heic_donustur implements it: iPhone HEIC/HEIF foto\u011fraflar\u0131n\u0131 toplu olarak JPEG/PNG'ye \u00e7evirir (Windows, EXIF ve tarih korunur)",
+ "repos": [
+  {
+   "repo": "heic_donustur",
+   "url": "https://github.com/akifgk/heic_donustur",
+   "sha": "8ab42750989317347013670e2df756f4d6734f1a",
+   "licence": "MIT (LICENSE file at pin 8ab427509893, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T06:17Z",
+    "consent_receipt": "41394a7fbb25",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T06:17Z (receipt 41394a7fbb25); pinned to the default-branch head. LICENSE file at pin 8ab427509893 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

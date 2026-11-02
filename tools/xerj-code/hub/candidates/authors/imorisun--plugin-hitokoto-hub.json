@@ -1,0 +1,30 @@
+{
+ "corpus": "imorisun--plugin-hitokoto-hub",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how imorisun/plugin-hitokoto-hub implements it: \u4e13\u4e3a Halo 2.x \u6253\u9020\u7684\u4e00\u8a00\uff08Hitokoto\uff09\u53e5\u5b50\u7ba1\u7406\u63d2\u4ef6\u3002\u652f\u6301\u5206\u7c7b\u5f52\u6863\u3001\u968f\u673a\u83b7\u53d6\u3001\u641c\u7d22\u70b9\u8d5e\uff0c\u5e76\u63d0\u4f9b\u4e30\u5bcc\u7684\u516c\u5f00 REST API \u4fbf\u4e8e\u4e3b\u9898\u96c6\u6210\u3002 (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "plugin-hitokoto-hub",
+   "url": "https://github.com/imorisun/plugin-hitokoto-hub",
+   "sha": "a7233a606b620e14453ffd07c238c0945321e4f8",
+   "licence": "GPL-3.0 (LICENSE file at pin a7233a606b62, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T00:19Z",
+    "consent_receipt": "0c046d7adb28",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T00:19Z (receipt 0c046d7adb28); selected commit a7233a606b62: \"feat: \u6dfb\u52a0\u6db2\u6001\u73bb\u7483\u6a21\u677f\u98ce\u683c\u53ca\u54c1\u724c\u9996\u5c4f\u529f\u80fd\". LICENSE file at pin a7233a606b62 detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "a7233a606b620e14453ffd07c238c0945321e4f8",
+     "at": "2026-10-30T00:19Z",
+     "receipt": "0c046d7adb28"
+    }
+   }
+  }
+ ]
+}

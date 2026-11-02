@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on deepseek, deepseek-api, deepseek-coder queries this for how mhdimo/deepseek-code implements it: claude code attempt but only for deepseek (selected work: src/cli, tests, src)",
+ "domain": "an agent working on deepseek, deepseek-api, deepseek-coder queries this for how mhdimo/deepseek-code implements it: Terminal coding agent for DeepSeek models (selected work: src/cli, tests, src)",
  "repos": [
   {
    "repo": "deepseek-code",

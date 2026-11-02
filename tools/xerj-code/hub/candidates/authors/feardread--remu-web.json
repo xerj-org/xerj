@@ -1,0 +1,23 @@
+{
+ "corpus": "feardread--remu-web",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how FearDread/remu-web implements it: Main landing page and API repo for remu baackend",
+ "repos": [
+  {
+   "repo": "remu-web",
+   "url": "https://github.com/FearDread/remu-web",
+   "sha": "9c12705814f4be98a254ef41d69dfb3baac87f64",
+   "licence": "GPL-3.0 (LICENSE file at pin 9c12705814f4, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T14:26Z",
+    "consent_receipt": "7fbec13ebbb0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T14:26Z (receipt 7fbec13ebbb0); pinned to the default-branch head. LICENSE file at pin 9c12705814f4 detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

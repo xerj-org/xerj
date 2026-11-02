@@ -1,0 +1,23 @@
+{
+ "corpus": "waywallen--waywallen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how waywallen/waywallen implements it: Wallpaper Manager for Linux (selected work: src/system, tools, the project root)",
+ "repos": [
+  {
+   "repo": "waywallen",
+   "url": "https://github.com/waywallen/waywallen",
+   "sha": "d8276d587dc60ad949814a85b4b986ae18ac547a",
+   "licence": "MIT (LICENSE file at pin d8276d587dc6, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:25Z",
+    "consent_receipt": "8eb42974917a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T20:25Z (receipt 8eb42974917a); selected commit d8276d587dc6: \"fix(tray): sync tray language with UI\". LICENSE file at pin d8276d587dc6 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

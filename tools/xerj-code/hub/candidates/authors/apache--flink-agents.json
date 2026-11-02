@@ -1,0 +1,23 @@
+{
+ "corpus": "apache--flink-agents",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, agentic-ai, agentic-framework queries this for how apache/flink-agents implements it: Flink Agents is an Agentic AI framework based on Apache Flink (selected work: integrations, e2e-test, tools)",
+ "repos": [
+  {
+   "repo": "flink-agents",
+   "url": "https://github.com/apache/flink-agents",
+   "sha": "72329b19f9745ad707ca70326dc50411ca02f27b",
+   "licence": "Apache-2.0 (LICENSE file at pin 72329b19f974, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T20:40Z",
+    "consent_receipt": "7dae25370736",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T20:40Z (receipt 7dae25370736); selected commit 72329b19f974: \"[integrations][java] Add PostgreSQL pgvector vector store (#1143)\". LICENSE file at pin 72329b19f974 detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,30 @@
+{
+ "corpus": "arietit--youpage",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how ArietIT/YouPage implements it: YouPage - \u042d\u0442\u043e  (selected work: lib, integration_test, lib/components)",
+ "repos": [
+  {
+   "repo": "YouPage",
+   "url": "https://github.com/ArietIT/YouPage",
+   "sha": "ceb0d43316d52b75fd4a5e66405515844c3d5114",
+   "licence": "GPL-3.0 (LICENSE file at pin ceb0d43316d5, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T06:35Z",
+    "consent_receipt": "e537fd82fe89",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T06:35Z (receipt e537fd82fe89); selected commit ceb0d43316d5: \"Remove Firebase deps; add biometric lock and hidden grades\". LICENSE file at pin ceb0d43316d5 detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "ceb0d43316d52b75fd4a5e66405515844c3d5114",
+     "at": "2026-11-01T06:35Z",
+     "receipt": "e537fd82fe89"
+    }
+   }
+  }
+ ]
+}

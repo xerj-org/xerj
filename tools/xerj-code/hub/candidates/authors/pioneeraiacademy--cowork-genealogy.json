@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how PioneerAIAcademy/cowork-genealogy implements it: PioneerAIAcademy/cowork-genealogy (Python) (selected work: packages/engine)",
+ "domain": "an agent working on TypeScript queries this for how PioneerAIAcademy/cowork-genealogy implements it: PioneerAIAcademy/cowork-genealogy (TypeScript) (selected work: packages/engine)",
  "repos": [
   {
    "repo": "cowork-genealogy",

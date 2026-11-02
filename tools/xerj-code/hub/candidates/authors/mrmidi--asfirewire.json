@@ -1,0 +1,23 @@
+{
+ "corpus": "mrmidi--asfirewire",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how mrmidi/ASFireWire implements it: DriverKit OHCI FireWire Host Controller for macOS (selected work: ASFWDriver, tests)",
+ "repos": [
+  {
+   "repo": "ASFireWire",
+   "url": "https://github.com/mrmidi/ASFireWire",
+   "sha": "003a9ef32ef55ff19ef0c6036e313ab7fb4720a9",
+   "licence": "Apache-2.0 (LICENSE file at pin 003a9ef32ef5, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:26Z",
+    "consent_receipt": "fd02ee7d0756",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T19:26Z (receipt fd02ee7d0756); selected commit 003a9ef32ef5: \"SBP-2: reconnect window runs from the bus reset, as Apple\". LICENSE file at pin 003a9ef32ef5 detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

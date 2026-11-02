@@ -1,0 +1,23 @@
+{
+ "corpus": "lauccode--astro-multi-shoot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Lua queries this for how lauccode/ASTRO-MULTI-SHOOT implements it: lauccode/ASTRO-MULTI-SHOOT (Lua) (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "ASTRO-MULTI-SHOOT",
+   "url": "https://github.com/lauccode/ASTRO-MULTI-SHOOT",
+   "sha": "f76a229205fc4ae676018068e829f8f54ebc2316",
+   "licence": "MIT (LICENSE file at pin f76a229205fc, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T14:05Z",
+    "consent_receipt": "eed9fd928143",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T14:05Z (receipt eed9fd928143); selected commit f76a229205fc: \"refactor: update main.lua, menu.lua, and update.lua for improved func\u2026\". LICENSE file at pin f76a229205fc detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

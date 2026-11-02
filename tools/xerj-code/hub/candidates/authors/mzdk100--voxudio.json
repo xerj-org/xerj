@@ -1,0 +1,23 @@
+{
+ "corpus": "mzdk100--voxudio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how mzdk100/voxudio implements it: Voxudio is a high-performance audio processing library written in Rust, focusing on speech processing and voice conversion capabilities. It  (selected work: voxudio-rs)",
+ "repos": [
+  {
+   "repo": "voxudio",
+   "url": "https://github.com/mzdk100/voxudio",
+   "sha": "0a0924609339b86f2057bc931b581ccb747b5ff9",
+   "licence": "Apache-2.0 (LICENSE file at pin 0a0924609339, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T02:34Z",
+    "consent_receipt": "158e990ba4ec",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T02:34Z (receipt 158e990ba4ec); selected commit 0a0924609339: \"refactor(asr): pass ONNX environment explicitly and remove ndarray de\u2026\". LICENSE file at pin 0a0924609339 detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

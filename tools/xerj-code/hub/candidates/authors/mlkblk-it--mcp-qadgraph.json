@@ -1,0 +1,23 @@
+{
+ "corpus": "mlkblk-it--mcp-qadgraph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on dashboard, local-first, mcp queries this for how MlkBlk-IT/Mcp-QadGraph implements it: Qdrant control plane - 3D similarity dashboard plus a read-only MCP server (9 tools). Local only, no paid API",
+ "repos": [
+  {
+   "repo": "Mcp-QadGraph",
+   "url": "https://github.com/MlkBlk-IT/Mcp-QadGraph",
+   "sha": "60949495981a86a86053190e55e61dcc96486612",
+   "licence": "MIT (LICENSE file at pin 60949495981a, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T04:52Z",
+    "consent_receipt": "2de24d778516",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:52Z (receipt 2de24d778516); pinned to the default-branch head. LICENSE file at pin 60949495981a detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

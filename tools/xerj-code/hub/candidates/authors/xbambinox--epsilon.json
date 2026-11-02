@@ -2,8 +2,8 @@
  "corpus": "xbambinox--epsilon",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on C# queries this for how XBambinoX/Epsilon implements it: Math Library (selected work: Epsilon.LinearAlgebra, Epsilon.Tests)",
+ "shelf": "WRITE",
+ "domain": "an agent working on arbitrary-precision, calculus, cas queries this for how XBambinoX/Epsilon implements it: Exact symbolic math (CAS) for .NET. No dependencies (selected work: Epsilon.LinearAlgebra, Epsilon.Tests)",
  "repos": [
   {
    "repo": "Epsilon",

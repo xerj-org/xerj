@@ -1,0 +1,23 @@
+{
+ "corpus": "geeko001--batman-todo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how Geeko001/Batman-todo implements it: personal use project (selected work: src/views, src/components, src/utils)",
+ "repos": [
+  {
+   "repo": "Batman-todo",
+   "url": "https://github.com/Geeko001/Batman-todo",
+   "sha": "1101f79c6051c06e599ac864a2aed95680802b7c",
+   "licence": "MIT (LICENSE file at pin 1101f79c6051, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:49Z",
+    "consent_receipt": "e58705ff9d78",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T21:49Z (receipt e58705ff9d78); selected commit 1101f79c6051: \"init base #1\". LICENSE file at pin 1101f79c6051 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "yepizrene-devoost--gojira",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how yepizrene-devoost/gojira implements it: yepizrene-devoost/gojira (Go) (selected work: internal/jira, cmd, internal/tui)",
+ "repos": [
+  {
+   "repo": "gojira",
+   "url": "https://github.com/yepizrene-devoost/gojira",
+   "sha": "f8f37e425bce52cc71b920e02710d1b33bd104d0",
+   "licence": "MIT (LICENSE file at pin f8f37e425bce, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:47Z",
+    "consent_receipt": "8fb545f578c7",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:47Z (receipt 8fb545f578c7); selected commit f8f37e425bce: \"fix: TUI registration, ADF flatten, agent-JSON polish (Fase 7.1)\". LICENSE file at pin f8f37e425bce detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head f8f37e425bce (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

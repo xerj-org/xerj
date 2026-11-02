@@ -1,0 +1,21 @@
+{
+  "corpus": "wysking--postgrad-study-engine",
+  "cloned_at": "2026-10-29T04:29:30Z",
+  "repos": [
+    {
+      "repo": "postgrad-study-engine",
+      "url": "https://github.com/wysking/postgrad-study-engine",
+      "licence": "MIT",
+      "sha": "94c4b00b025a9968c8a91279a86a30a321f7354e",
+      "files": 112,
+      "bytes": 794099,
+      "review": {
+        "spdx": "MIT AND CC-BY-4.0",
+        "use": "mixed",
+        "by": "Codex agent for @wysking (human G4 pending)",
+        "at": "2026-10-29",
+        "note": "Agent opened LICENSE, LICENSE-DOCS-CC-BY-4.0, NOTICE.md, complete CC BY text and docs/assets/README.md at this pin. Copyright (c) 2026 Postgrad Study Engine contributors; author/source https://github.com/wysking/postgrad-study-engine. Python is MIT; documents, schemas, protocols, templates and non-Python fictional examples default to CC-BY-4.0 by file, not an OR choice. Preserve MIT notices; credit CC BY creators/source/licence and indicate changes. Third-party textbooks, paid courses, scans, question banks and photographs are outside the grant. Public artwork provenance says generated without private input. Detector MIT is incomplete. No private Vault accessed. Human G4 and manual G7 sign-off remain pending."
+      }
+    }
+  ]
+}

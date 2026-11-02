@@ -1,0 +1,23 @@
+{
+ "corpus": "stainless-code--verdict",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, bash, code-review queries this for how stainless-code/verdict implements it: Local on-demand PR review for any coding agent. Evidence-graded findings, machine gates, zero install (selected work: scripts, evals, the project root)",
+ "repos": [
+  {
+   "repo": "verdict",
+   "url": "https://github.com/stainless-code/verdict",
+   "sha": "561e316ad8243e6702a5eee431219c74a4a1fcc0",
+   "licence": "MIT (LICENSE file at pin 561e316ad824, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:45Z",
+    "consent_receipt": "b000e5d8b433",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T20:45Z (receipt b000e5d8b433); selected commit 561e316ad824: \"feat: structured local knowledge base (learn verb, kb recall, flip-ti\u2026\". LICENSE file at pin 561e316ad824 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

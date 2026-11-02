@@ -1,0 +1,23 @@
+{
+ "corpus": "i-m-marinov--matchfixer-web-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C# queries this for how I-M-Marinov/MatchFixer-Web-App implements it: MatchFixer Web Application (selected work: MatchFixer-Web-App)",
+ "repos": [
+  {
+   "repo": "MatchFixer-Web-App",
+   "url": "https://github.com/I-M-Marinov/MatchFixer-Web-App",
+   "sha": "b49b69c27065a9a85c7b040ae64310dc9fcd2421",
+   "licence": "MIT (LICENSE file at pin b49b69c27065, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T21:29Z",
+    "consent_receipt": "1fcf3aae4b2d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T21:29Z (receipt 1fcf3aae4b2d); selected commit b49b69c27065: \"Revamp tournaments UI: dashboard theme, sticky Create rail, The Pot s\u2026\". LICENSE file at pin b49b69c27065 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

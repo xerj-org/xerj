@@ -1,0 +1,23 @@
+{
+ "corpus": "fahrim--opencode-speak-tts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how fahrim/opencode-speak-tts implements it: Speak OpenCode answers aloud on Windows. Free Edge neural voices (en-US, tr-TR), no API key, with summarisation through OpenCode's own model",
+ "repos": [
+  {
+   "repo": "opencode-speak-tts",
+   "url": "https://github.com/fahrim/opencode-speak-tts",
+   "sha": "4a7c0cf587b609173ab71fefac360aec75b89e11",
+   "licence": "MIT (LICENSE file at pin 4a7c0cf587b6, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:55Z",
+    "consent_receipt": "f359975a7aad",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T21:55Z (receipt f359975a7aad); pinned to the default-branch head. LICENSE file at pin 4a7c0cf587b6 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

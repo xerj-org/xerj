@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--self-healing-kubernetes-monitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how Tuhin-SnapD/Self-Healing-Kubernetes-Monitor implements it: An intelligent, automated Kubernetes monitoring and self-healing system that detects pod and service issues using Prometheus metrics and aut",
+ "repos": [
+  {
+   "repo": "Self-Healing-Kubernetes-Monitor",
+   "url": "https://github.com/Tuhin-SnapD/Self-Healing-Kubernetes-Monitor",
+   "sha": "ee9be483fd5d8b0df648de07591525b0f7c9bea9",
+   "licence": "MIT (LICENSE file at pin ee9be483fd5d, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:29Z",
+    "consent_receipt": "62bc56cdd7cf",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:29Z (receipt 62bc56cdd7cf); pinned to the default-branch head. LICENSE file at pin ee9be483fd5d detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

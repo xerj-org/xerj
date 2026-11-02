@@ -1,0 +1,30 @@
+{
+ "corpus": "macster110--jpam",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on PureBasic queries this for how macster110/jpam implements it: A Java deep learning library for the detection of biological sounds (selected work: jpam, the project root)",
+ "repos": [
+  {
+   "repo": "jpam",
+   "url": "https://github.com/macster110/jpam",
+   "sha": "e62a0779dc1cc62c522cf03cf0596da73c091d7f",
+   "licence": "GPL-3.0 (LICENSE file at pin e62a0779dc1c, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T11:04Z",
+    "consent_receipt": "fd5349e51b0a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T11:04Z (receipt fd5349e51b0a); selected commit e62a0779dc1c: \"Add YOLOv8 support, scipy transforms, shape checks\". LICENSE file at pin e62a0779dc1c detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "e62a0779dc1cc62c522cf03cf0596da73c091d7f",
+     "at": "2026-11-02T11:04Z",
+     "receipt": "fd5349e51b0a"
+    }
+   }
+  }
+ ]
+}

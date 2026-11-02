@@ -8,15 +8,15 @@
   {
    "repo": "NT-Sine",
    "url": "https://github.com/ntars/NT-Sine",
-   "sha": "bdfbcf0dc3717bb8b2f1a8f17286f7e55486f3d7",
-   "licence": "author's permission (LICENSE at pin bdfbcf0dc371: AGPL-3.0; repository: none)",
+   "sha": "d8fa6846cd5958cfab22d4858101aaf624f027e2",
+   "licence": "author's permission (LICENSE at pin d8fa6846cd59: NONE; repository: none)",
    "review": {
-    "spdx": "AGPL-3.0",
+    "spdx": "NONE",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-25T08:28Z",
     "consent_receipt": "a6048bfe9268",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T08:28Z (receipt a6048bfe9268); selected commit bdfbcf0dc371: \"\u91c7\u7eb3 ai-companion-kit \u4e94\u4ef6\u5957\uff1amemory.js \u8d26\u672c\uff08trait/topic \u4e24\u7c7b\u8bb0\u5fc6 + FIFO \u5bb9\u91cf\u4e0a\u9650\uff09\u3001di\u2026\". LICENSE at pin bdfbcf0dc371: AGPL-3.0 (repository: none); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T08:28Z (receipt a6048bfe9268); pinned to the default-branch head. LICENSE at pin d8fa6846cd59: NONE (repository: none); used with the author's permission, with attribution."
    }
   }
  ]

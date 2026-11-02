@@ -347,6 +347,227 @@ def repo_ld(slug, repo, url, desc, langs, spdx, topics, person, crumbs, sha="", 
     return out
 
 
+# ---------------------------------------------------------------- weak pages
+# A repo page is weak, and gets <meta name="robots" content="noindex,follow">
+# (so it also leaves the sitemap), when the repository gives a reader too
+# little to go on. Every number comes from data/repo_stats.json; the GSC list
+# keeps any page Google already shows in results indexable.
+WEAK_STARS = 5          # fewer GitHub stars than this
+WEAK_COMMITS = 20       # and fewer commits on the default branch than this,
+WEAK_FILES = 30         # or fewer files in the git tree at the pinned commit than this
+SEEN = HERE / "data" / "gsc_seen_repo_pages.json"
+
+
+def load_seen(path=SEEN):
+    """Repo page slugs with at least one Google Search impression (GSC Pages exports)."""
+    p = pathlib.Path(path)
+    return set(json.loads(p.read_text(encoding="utf-8")).get("slugs", [])) if p.exists() else set()
+
+
+def load_seen_contributors(path=SEEN):
+    """Contributor logins whose /contributors/ page has at least one Google Search impression."""
+    p = pathlib.Path(path)
+    return set(json.loads(p.read_text(encoding="utf-8")).get("contributors", [])) if p.exists() else set()
+
+
+def weak(f, seen=frozenset()):
+    """'' for a page worth indexing, else the reason it is noindexed."""
+    if f["slug"] in seen:
+        return ""
+    st = f["st"]
+    if not st:
+        return "no GitHub facts (repository missing, private or renamed)"
+    stars = f["stars"] if isinstance(f["stars"], int) else 0
+    if stars >= WEAK_STARS:
+        return ""
+    commits = st.get("commits")
+    files = (f["tree"] or {}).get("files")
+    if isinstance(commits, int) and commits < WEAK_COMMITS:
+        return f"under {WEAK_STARS} stars and under {WEAK_COMMITS} commits"
+    if isinstance(files, int) and files < WEAK_FILES:
+        return f"under {WEAK_STARS} stars and under {WEAK_FILES} files at the pin"
+    return ""
+
+
+# ---------------------------------------------------------------- xerj.org guides
+A, C = "https://xerj.org/answers/", "https://xerj.org/compare/"
+GUIDE = {
+    "ask": (A + "ask-questions-about-a-github-repo-without-cloning", "Ask questions about a GitHub repo without cloning it"),
+    "reflib": (A + "index-reference-library-for-coding-agent", "Index a reference library for a coding agent"),
+    "mcpbest": (C + "best-mcp-server-local-code-search-2026", "Best MCP servers for local code search in 2026, compared"),
+    "rg": (C + "xerj-vs-ripgrep-for-code-agents", "ripgrep vs a code index for coding agents: 30 tasks"),
+    "grep": (C + "best-grep-alternative-for-ai-coding-agents-2026", "Best grep alternative for AI coding agents (2026)"),
+    "php": (A + "audit-php-codebase-with-an-index", "Audit a PHP codebase with an index, not grep"),
+    "ipynb": (A + "search-jupyter-notebook-cells", "Search Jupyter notebooks (.ipynb) and the .py beside them"),
+    "unity": (A + "search-unity-project-assets", "Search Unity scenes and the C# beside them"),
+    "mcp": (A + "code-search-mcp-for-claude-code", "Code search MCP for Claude Code: cite file:line, not grep"),
+    "mcpmem": (A + "what-is-an-mcp-memory-server", "What is an MCP memory server?"),
+    "agents": (A + "local-search-mcp-for-codex-and-cursor", "A local search tool for Codex and Cursor"),
+    "tokens": (A + "local-code-search-mcp-fewer-tokens-than-grep", "Local code search MCP that uses fewer tokens than grep"),
+    "rag": (A + "rag-without-vector-database", "RAG without a vector database: one hybrid index"),
+    "vdb": (C + "xerj-vs-vector-database", "Search API or a vector database for agent memory?"),
+    "memory": (A + "what-is-agentic-memory", "What is agentic memory? A plain answer"),
+    "memtools": (C + "xerj-vs-agent-memory-tools", "XERJ vs Mem0, Zep, Letta and Cognee for agent memory"),
+    "es": (C + "xerj-vs-elasticsearch-local", "Elasticsearch-compatible engine that isn't Elasticsearch"),
+    "esbest": (C + "best-lightweight-elasticsearch-compatible-server-2026", "Best lightweight Elasticsearch-compatible server (2026)"),
+    "meili": (C + "xerj-vs-meilisearch", "XERJ vs Meilisearch for local and agent search"),
+    "sqlite": (A + "full-text-search-sqlite-database", "Full-text search a SQLite database (FTS5 alternative)"),
+    "sql": (A + "search-sql-dump-file", "Search a SQL dump without restoring it"),
+    "openapi": (A + "search-openapi-spec-for-agent", "Search an OpenAPI spec so an agent can find endpoints"),
+    "k8s": (A + "search-kubernetes-pod-logs-on-disk", "Search text across Kubernetes pod logs from many pods"),
+    "config": (A + "search-yaml-xml-config-repository", "Find every place a config key is set in a repo"),
+    "cve": (A + "batch-lookup-cve-ghsa-ids-offline", "Batch lookup CVE and GHSA IDs offline in one query"),
+    "ast": (A + "syntax-aware-code-search-refactoring", "How do I run syntax-aware code search?"),
+    "astgrep": (C + "xerj-vs-ast-grep", "XERJ vs ast-grep: syntax search and an index"),
+    "logs": (A + "search-json-and-jsonl-logs", "Search JSON and JSONL logs plus gzip logs in one folder"),
+    "obsidian": (C + "xerj-vs-obsidian-omnisearch", "XERJ vs Omnisearch for an Obsidian vault"),
+    "monorepo": (A + "index-monorepo-for-agent", "Index a monorepo so your agent stops reading the whole repo"),
+}
+# GitHub topic -> guides, most specific first
+TOPIC_GUIDES = [
+    ({"mcp", "mcp-server", "model-context-protocol", "mcp-servers"}, ("mcp", "mcpmem")),
+    ({"claude-code", "cursor", "codex", "coding-agent", "ai-coding", "ai-coding-assistant", "vibe-coding"}, ("agents", "tokens")),
+    ({"rag", "retrieval-augmented-generation", "vector-database", "embeddings", "vector-search", "semantic-search"}, ("rag", "vdb")),
+    ({"agent-memory", "llm-memory", "memory", "long-term-memory"}, ("memory", "memtools")),
+    ({"elasticsearch", "opensearch", "search-engine", "full-text-search", "meilisearch", "typesense", "search"}, ("es", "meili", "esbest")),
+    ({"sqlite", "sqlite3"}, ("sqlite",)),
+    ({"sql", "mysql", "postgresql", "postgres", "database", "mariadb"}, ("sql",)),
+    ({"openapi", "swagger", "rest-api", "openapi3"}, ("openapi",)),
+    ({"kubernetes", "k8s"}, ("k8s", "config")),
+    ({"helm", "ansible", "terraform", "devops", "infrastructure-as-code", "docker-compose"}, ("config",)),
+    ({"unity", "unity3d", "unity-editor"}, ("unity",)),
+    ({"obsidian", "obsidian-plugin", "obsidian-md"}, ("obsidian",)),
+    ({"cve", "security", "vulnerability", "pentest", "exploit", "cybersecurity", "pentesting", "infosec"}, ("cve",)),
+    ({"refactoring", "ast", "tree-sitter", "parser", "linter", "static-analysis", "compiler"}, ("ast", "astgrep")),
+    ({"logging", "logs", "observability", "log-analysis"}, ("logs",)),
+]
+LANG_GUIDES = {"PHP": ("php",), "Jupyter Notebook": ("ipynb",)}
+SHELF_GUIDES = {"API": ("openapi",), "SEC": ("cve",), "OPS": ("config",), "DB": ("sql",), "AI": ("rag",)}
+MONOREPO_FILES = 2000
+GENERAL = ("ask", "reflib", "rg", "mcpbest", "grep")
+
+
+def guides(f, cats=None, n=4):
+    """[(url, label, reason)]: xerj.org answers and comparisons that fit this repository,
+    each with the fact that picked it. General guides fill the rest."""
+    out, seen = [], set()
+
+    def add(keys, reason):
+        for k in keys:
+            if k not in seen and len(out) < n:
+                seen.add(k)
+                out.append(GUIDE[k] + (reason,))
+                reason = ""             # say why once per group
+    tp = {t.lower() for t in f["topics"]}
+    for tags, keys in TOPIC_GUIDES:
+        hit = sorted(tp & tags)
+        if hit:
+            add(keys, f"{f['short']} is tagged {hit[0]} on GitHub.")
+    langs = f["st"].get("languages") or [(l, None) for l in f["langs"]]
+    for lang, pct in langs[:2]:
+        if lang in LANG_GUIDES:
+            add(LANG_GUIDES[lang], f"{lang} is {pct:g}% of the code by size." if isinstance(pct, (int, float)) else f"{f['short']} is written in {lang}.")
+    files = (f["tree"] or {}).get("files")
+    if isinstance(files, int) and files >= MONOREPO_FILES:
+        add(("monorepo",), f"The pinned tree has {files:,} files.")
+    if f["shelf"] in SHELF_GUIDES:
+        cat = (cats or {}).get(f["shelf"], ("", ""))[0]
+        add(SHELF_GUIDES[f["shelf"]], f"The hub files it under {cat}." if cat else "")
+    gen = list(GENERAL)
+    h = int.from_bytes(f["slug"].encode(), "little") % len(gen)
+    add(gen[h:] + gen[:h], "")
+    return out
+
+
+def licence_text(f, esc, fetched=""):
+    """GitHub's licence detection today against the licence the corpus uses at the pin."""
+    gh = (f["st"].get("licence") or "").strip()
+    idx = f["spdx"] if f["spdx"] not in ("", "?") else ""
+    pin = f["sha"][:10] or "the pinned commit"
+    reviewed = bool(f["w"].get("reviewed"))
+    how = "was reviewed as" if reviewed else "reads as"
+    if not idx:
+        return ""
+    when = f"on {esc(fetched)}" if fetched else "now"
+    if gh and gh not in ("NOASSERTION", "NONE", "OTHER"):
+        if gh.lower() == idx.lower():
+            return (f"GitHub reported {esc(gh)} for {esc(f['repo'])} {when}, and the LICENSE file at commit {esc(pin)} {how} {esc(idx)}. "
+                    f"They match, so answers from this corpus carry the same terms as the live repository.")
+        return (f"GitHub reported {esc(gh)} for {esc(f['repo'])} {when}, but the LICENSE file at commit {esc(pin)} {how} {esc(idx)}. "
+                f"The corpus is the pinned commit, so answers from it follow {esc(idx)}.")
+    if gh:
+        return (f"GitHub did not match the LICENSE file of {esc(f['repo'])} to a standard licence {when} ({esc(gh)}). "
+                f"At commit {esc(pin)} it {how} {esc(idx)}, and that is the licence the corpus uses.")
+    return f"GitHub reported no licence for {esc(f['repo'])} {when}. At commit {esc(pin)} the LICENSE file {how} {esc(idx)}."
+
+
+def corpus_facts(f, esc):
+    """<li> rows about what the indexed snapshot holds, from the tree and the selected commit."""
+    st, w, tree = f["st"], f["w"], f["tree"]
+    rows = []
+    if tree:
+        avg = tree["bytes"] / tree["files"] if tree["files"] else 0
+        rows.append(f"{tree['files']:,} files, {human_bytes(tree['bytes'])} in total, about {human_bytes(avg)} per file.")
+        if isinstance(w.get("files"), int) and w["files"] and tree["files"]:
+            pct = 100 * w["files"] / tree["files"]
+            rows.append(f"The selected commit changed {w['files']:,} of those files"
+                        + (f" ({pct:.1f}%)" if pct >= 0.1 else "") + ".")
+    langs = st.get("languages") or []
+    if len(langs) > 1:
+        rows.append("Languages by size: " + ", ".join(f"{esc(l)} {p:g}%" for l, p in langs[:5]) + ".")
+    if st.get("created") and st.get("pushed"):
+        rows.append(f"On GitHub since {esc(st['created'])}, last push {esc(st['pushed'])}"
+                    + (f", {st['commits']:,} commits on {esc(st.get('branch') or 'the default branch')}" if isinstance(st.get("commits"), int) else "") + ".")
+    ahead = st.get("pin_behind")
+    if isinstance(ahead, int) and ahead > 0:
+        rows.append(f"The pin is {ahead:,} commit{'s' if ahead != 1 else ''} behind {esc(st.get('branch') or 'the default branch')}; "
+                    "the corpus answers from the pinned code, not the newest.")
+    if st.get("archived"):
+        rows.append("The repository is archived on GitHub, so the pinned code is also its final state.")
+    return rows
+
+
+def people_html(f, esc, people, pages, rel="../"):
+    """The selected contributor, anyone else selected on the repo, and their other hub pages."""
+    login = f["login"]
+    pp = people.get(login) or {}
+    name = pp.get("name") or login
+    other = []
+    for w in sorted((pp.get("work") or {}).values(), key=lambda w: (-(w.get("repo_stars") or 0), w["repo"].lower())):
+        for s in w.get("corpora") or []:
+            if s != f["slug"] and s in pages and s not in {x for x, _ in other}:
+                other.append((s, w["repo"]))
+    n = len(pp.get("work") or {})
+    lines = [f'<a href="{rel}contributors/{esc(login)}">{esc(name)} (@{esc(login)})</a> has '
+             f'{n} selected repositor{"y" if n == 1 else "ies"} on the hub.']
+    if other:
+        lines.append("Their other repository pages: " + ", ".join(
+            f'<a href="{rel}corpus/{esc(s)}">{esc(r)}</a>' for s, r in other[:6]) + ".")
+    for ol, _ in f.get("others") or []:
+        op = people.get(ol) or {}
+        k = len(op.get("work") or {})
+        lines.append(f'<a href="{rel}contributors/{esc(ol)}">{esc(op.get("name") or ol)} (@{esc(ol)})</a> was also selected on {esc(f["repo"])}'
+                     f' and has {k} selected repositor{"y" if k == 1 else "ies"} on the hub.')
+    return "".join(f"<p>{x}</p>" for x in lines)
+
+
+def enrich_html(f, esc, people, cats, pages, fetched="", rel="../"):
+    """The data-only sections added to indexable repo pages."""
+    out = []
+    facts = corpus_facts(f, esc)
+    if facts:
+        out.append(f'<h2>Inside the indexed corpus</h2><ul class="rpfacts">{"".join(f"<li>{x}</li>" for x in facts)}</ul>')
+    lic = licence_text(f, esc, fetched if f["st"] else "")
+    if lic:
+        out.append(f"<h2>Licence on GitHub and in the corpus</h2><p>{lic}</p>")
+    out.append(f"<h2>Contributors</h2>{people_html(f, esc, people, pages, rel)}")
+    g = guides(f, cats)
+    if g:
+        items = "".join(f'<li><a href="{esc(u)}">{esc(l)}</a>' + (f" {esc(r)}" if r else "") + "</li>" for u, l, r in g)
+        out.append(f"<h2>Using XERJ with {esc(f['short'])}</h2><ul class=\"rpfacts\">{items}</ul>")
+    return "\n".join(out)
+
+
 # ---------------------------------------------------------------- repo page
 
 USE = {"adapt-with-attribution": ("{spdx}, with credit", "Same terms as the repository. Answers name the repo, the commit and the file:line."),
@@ -405,7 +626,7 @@ def _stat(v, label):
     return f"<div><b>{v}</b><span>{label}</span></div>"
 
 
-def repo_body(f, esc, people, cats, related, fetched, rel="../"):
+def repo_body(f, esc, people, cats, related, fetched, rel="../", extra=""):
     from contributors import clean_title
     st, w, login = f["st"], f["w"], f["login"]
     page_url = f"{SITE}/corpus/{f['slug']}"
@@ -521,6 +742,7 @@ def repo_body(f, esc, people, cats, related, fetched, rel="../"):
 {lic}
 {f'<p class="rpchips">{topics}</p>' if topics else ''}
 {f'<h2>Example questions</h2>{qs_html}' if qs_html else ''}
+{extra}
 <h2>The prompt</h2>
 <p>Paste it into your AI agent. It clones {esc(f["repo"])} at the pinned commit and indexes it on your machine.</p>
 <pre class="rpprompt">{esc(prompt)}</pre>

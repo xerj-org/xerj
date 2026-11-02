@@ -1,0 +1,23 @@
+{
+ "corpus": "markbasa96--gonilift",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, audio-separation, desktop-app queries this for how MarkBasa96/gonilift implements it: Free, offline AI vocal remover for Windows. Splits any song into vocals and a backing track on your own PC, no upload. Karaoke, key change, ",
+ "repos": [
+  {
+   "repo": "gonilift",
+   "url": "https://github.com/MarkBasa96/gonilift",
+   "sha": "679b634a226fa7f634a30476835c7cdc8d258de0",
+   "licence": "MIT (LICENSE file at pin 679b634a226f, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T16:39Z",
+    "consent_receipt": "e059259f9393",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T16:39Z (receipt e059259f9393); pinned to the default-branch head. LICENSE file at pin 679b634a226f detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

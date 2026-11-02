@@ -1,0 +1,23 @@
+{
+ "corpus": "khrish11--learning-analytics-framework",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how khrish11/learning-analytics-framework implements it: An explainable learning analytics framework for early prediction of course outcome attainment using continuous assessment data in outcome-ba",
+ "repos": [
+  {
+   "repo": "learning-analytics-framework",
+   "url": "https://github.com/khrish11/learning-analytics-framework",
+   "sha": "74b82dc15a204b5fa7190d76f2a5962cef18f6cf",
+   "licence": "MIT (LICENSE file at pin 74b82dc15a20, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T15:13Z",
+    "consent_receipt": "699cb1f6becf",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T15:13Z (receipt 699cb1f6becf); pinned to the default-branch head. LICENSE file at pin 74b82dc15a20 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

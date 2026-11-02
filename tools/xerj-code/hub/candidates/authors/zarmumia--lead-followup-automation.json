@@ -1,0 +1,23 @@
+{
+ "corpus": "zarmumia--lead-followup-automation",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how zarmumia/lead-followup-automation implements it: Make sure no lead falls through the cracks: daily call lists per rep, a manager digest and client reminders from a CRM export",
+ "repos": [
+  {
+   "repo": "lead-followup-automation",
+   "url": "https://github.com/zarmumia/lead-followup-automation",
+   "sha": "e901c1c89651200a91d4baf1fc1500609d80cbc8",
+   "licence": "MIT (LICENSE file at pin e901c1c89651, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T05:22Z",
+    "consent_receipt": "937e2ff32184",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T05:22Z (receipt 937e2ff32184); pinned to the default-branch head. LICENSE file at pin e901c1c89651 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

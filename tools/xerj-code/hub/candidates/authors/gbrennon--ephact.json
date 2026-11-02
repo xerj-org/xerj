@@ -1,0 +1,23 @@
+{
+ "corpus": "gbrennon--ephact",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Rust queries this for how gbrennon/ephact implements it: Rust crate that runs supported workflows locally in Linux containers (selected work: crates/presentation, src/app_runner)",
+ "repos": [
+  {
+   "repo": "ephact",
+   "url": "https://github.com/gbrennon/ephact",
+   "sha": "2d605d34d050411a566402f0f5287ad50b2d2cd5",
+   "licence": "author's permission (LICENSE at pin 2d605d34d050: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:07Z",
+    "consent_receipt": "6d1e6d53898b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:07Z (receipt 6d1e6d53898b); selected commit 2d605d34d050: \"refactor(cli): parse invocation flags with clap\". LICENSE at pin 2d605d34d050: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

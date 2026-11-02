@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--real-time-stock-trading-simulator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on python, stock-market, trading queries this for how Tuhin-SnapD/Real-Time-Stock-Trading-Simulator implements it: A sophisticated Python-based real-time stock trading simulator that demonstrates automated trading system development with live market data ",
+ "repos": [
+  {
+   "repo": "Real-Time-Stock-Trading-Simulator",
+   "url": "https://github.com/Tuhin-SnapD/Real-Time-Stock-Trading-Simulator",
+   "sha": "75aa814847f22649b3db8be6ae7d91794d9074e5",
+   "licence": "MIT (LICENSE file at pin 75aa814847f2, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:29Z",
+    "consent_receipt": "039d26d0e3ee",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:29Z (receipt 039d26d0e3ee); pinned to the default-branch head. LICENSE file at pin 75aa814847f2 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

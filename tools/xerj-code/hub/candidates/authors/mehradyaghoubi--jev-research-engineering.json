@@ -1,0 +1,23 @@
+{
+ "corpus": "mehradyaghoubi--jev-research-engineering",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, claude-code, codex queries this for how MehradYaghoubi/jev-research-engineering implements it: Free, MIT-licensed skill for coding and research. Screen relevant evidence with your chosen model while your main agent stays in charge (selected work: scripts, tests, benchmarks)",
+ "repos": [
+  {
+   "repo": "jev-research-engineering",
+   "url": "https://github.com/MehradYaghoubi/jev-research-engineering",
+   "sha": "1d63f101e3a7dbec881612b32941ab432f884fbd",
+   "licence": "MIT (LICENSE file at pin 1d63f101e3a7, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:53Z",
+    "consent_receipt": "a42393d46b3e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:53Z (receipt a42393d46b3e); selected commit 1d63f101e3a7: \"feat: support configurable decision providers and report tokenizer ov\u2026\". LICENSE file at pin 1d63f101e3a7 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "madebyaris--time-tracker-freelance",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on billing, cloudflare-workers, d1 queries this for how madebyaris/time-tracker-freelance implements it: Local-first time tracker for indie freelancers with macOS desktop app, invoices, reports, optional sync, and a private Cloudflare web dashbo",
+ "repos": [
+  {
+   "repo": "time-tracker-freelance",
+   "url": "https://github.com/madebyaris/time-tracker-freelance",
+   "sha": "ca47edb8c22d6f123595252a60cd9b1be26b00b9",
+   "licence": "author's permission (LICENSE at pin ca47edb8c22d: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T05:22Z",
+    "consent_receipt": "a5e9a1b353c7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T05:22Z (receipt a5e9a1b353c7); pinned to the default-branch head. LICENSE at pin ca47edb8c22d: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

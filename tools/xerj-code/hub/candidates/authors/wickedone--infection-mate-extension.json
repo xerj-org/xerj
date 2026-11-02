@@ -1,0 +1,23 @@
+{
+ "corpus": "wickedone--infection-mate-extension",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-assistants, infection queries this for how wickedOne/infection-mate-extension implements it: symfony mate plugin for infection (selected work: tests, src/Capability, src/Runner)",
+ "repos": [
+  {
+   "repo": "infection-mate-extension",
+   "url": "https://github.com/wickedOne/infection-mate-extension",
+   "sha": "519a038ebd09b4820485525440101bef2aee2ae5",
+   "licence": "MIT (LICENSE file at pin 519a038ebd09, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:10Z",
+    "consent_receipt": "9c5a7405d210",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:10Z (receipt 9c5a7405d210); selected commit 519a038ebd09: \"initial infection mate plugin setup\". LICENSE file at pin 519a038ebd09 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

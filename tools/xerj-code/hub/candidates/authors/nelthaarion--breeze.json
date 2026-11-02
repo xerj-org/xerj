@@ -1,0 +1,23 @@
+{
+ "corpus": "nelthaarion--breeze",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on api, framework, go queries this for how nelthaarion/breeze implements it: Breeze \u2014 High-Performance Golang Web Framework (selected work: perf, middlewares, the project root)",
+ "repos": [
+  {
+   "repo": "breeze",
+   "url": "https://github.com/nelthaarion/breeze",
+   "sha": "b945116c69822436ba4fad785949dff84ee31880",
+   "licence": "MIT (LICENSE file at pin b945116c6982, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T22:02Z",
+    "consent_receipt": "2d8457a39d34",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:02Z (receipt 2d8457a39d34); selected commit b945116c6982: \"Performance updaet & Core Update\". LICENSE file at pin b945116c6982 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

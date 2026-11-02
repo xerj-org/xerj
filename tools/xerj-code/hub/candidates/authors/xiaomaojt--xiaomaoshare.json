@@ -1,0 +1,23 @@
+{
+ "corpus": "xiaomaojt--xiaomaoshare",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how xiaomaoJT/XiaoMaoShare implements it: \u4e00\u4e2a\u96f6\u4f9d\u8d56\u7684Node\u670d\u52a1\uff0c\u8dd1\u8d77\u6765\u5c31\u662f\u5b8c\u6574\u7684\u4e92\u4f20\u9762\u677f\u3002\u624b\u673a\u3001\u7535\u8111\u6253\u5f00\u540c\u4e00\u5730\u5740\uff0c\u6587\u5b57\u3001\u56fe\u7247\u3001\u6587\u4ef6\u968f\u624b\u4e92\u4f20\u3002 (selected work: desktop, the project root, android)",
+ "repos": [
+  {
+   "repo": "XiaoMaoShare",
+   "url": "https://github.com/xiaomaoJT/XiaoMaoShare",
+   "sha": "b5c8a17ece4f68e0d8ba94cebe04e290beafe708",
+   "licence": "MIT (LICENSE file at pin b5c8a17ece4f, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T23:22Z",
+    "consent_receipt": "8096ade6c8be",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T23:22Z (receipt 8096ade6c8be); selected commit b5c8a17ece4f: \"fix(desktop): \u6570\u636e\u76ee\u5f55\u6539\u4e3a\u754c\u9762\u5185\u5f15\u5bfc\u9009\u62e9 + Windows \u56fe\u6807\u4fee\u590d\". LICENSE file at pin b5c8a17ece4f detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head b5c8a17ece4f (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

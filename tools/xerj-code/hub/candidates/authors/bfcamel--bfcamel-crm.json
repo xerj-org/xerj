@@ -1,0 +1,30 @@
+{
+ "corpus": "bfcamel--bfcamel-crm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on crm, crm-system, wordpress queries this for how bfcamel/bfcamel-crm implements it: BfCamel CRM is an open-source WordPress form builder and lightweight CRM developed by the People & Camels Charity Foundation (selected work: tests, src/Privacy, src/CRM)",
+ "repos": [
+  {
+   "repo": "bfcamel-crm",
+   "url": "https://github.com/bfcamel/bfcamel-crm",
+   "sha": "6959036585524b20badec9b15aa424ae03aef653",
+   "licence": "GPL-2.0 (LICENSE file at pin 695903658552, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T17:54Z",
+    "consent_receipt": "7326b92559d0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T17:54Z (receipt 7326b92559d0); selected commit 695903658552: \"Fix CRM audit findings and preserve existing submissions (#19)\". LICENSE file at pin 695903658552 detected as GPL-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "6959036585524b20badec9b15aa424ae03aef653",
+     "at": "2026-10-29T17:54Z",
+     "receipt": "7326b92559d0"
+    }
+   }
+  }
+ ]
+}

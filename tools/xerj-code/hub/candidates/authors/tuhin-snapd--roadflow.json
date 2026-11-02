@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--roadflow",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how Tuhin-SnapD/RoadFlow implements it: A comprehensive C++ application that demonstrates advanced scheduling algorithms for road construction projects. This educational project co",
+ "repos": [
+  {
+   "repo": "RoadFlow",
+   "url": "https://github.com/Tuhin-SnapD/RoadFlow",
+   "sha": "f74e748f332c4e6e810d43d92aa95426b575bc3c",
+   "licence": "MIT (LICENSE file at pin f74e748f332c, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:30Z",
+    "consent_receipt": "2c56fb1a2bf4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:30Z (receipt 2c56fb1a2bf4); pinned to the default-branch head. LICENSE file at pin f74e748f332c detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

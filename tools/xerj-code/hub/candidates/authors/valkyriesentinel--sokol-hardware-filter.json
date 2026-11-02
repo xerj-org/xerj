@@ -1,0 +1,23 @@
+{
+ "corpus": "valkyriesentinel--sokol-hardware-filter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on biomimetic, embedded, lock-free queries this for how ValkyrieSentinel/sokol-hardware-filter implements it: Zero-allocation, lock-free biomimetic hardware filtering core in #![no_std] Rust for the Sokol ecosystem",
+ "repos": [
+  {
+   "repo": "sokol-hardware-filter",
+   "url": "https://github.com/ValkyrieSentinel/sokol-hardware-filter",
+   "sha": "4b3063fd633acc4976f9e40b1e1d19e9dd3d4d10",
+   "licence": "author's permission (LICENSE at pin 4b3063fd633a: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T22:56Z",
+    "consent_receipt": "ee46b85c5ab0",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T22:56Z (receipt ee46b85c5ab0); pinned to the default-branch head. LICENSE at pin 4b3063fd633a: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

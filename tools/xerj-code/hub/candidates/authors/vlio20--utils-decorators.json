@@ -1,0 +1,23 @@
+{
+ "corpus": "vlio20--utils-decorators",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on typescript, decorators, debounce queries this for how vlio20/utils-decorators implements it: Decorators for web and node applications (selected work: src/cancel-previous, src/delegate, src/multi-dispatch)",
+ "repos": [
+  {
+   "repo": "utils-decorators",
+   "url": "https://github.com/vlio20/utils-decorators",
+   "sha": "655ded9ba47a37abca485217fee105005e858a09",
+   "licence": "MIT (LICENSE file at pin 655ded9ba47a, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T11:08Z",
+    "consent_receipt": "48988ba17474",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T11:08Z (receipt 48988ba17474); selected commit 655ded9ba47a: \"Fix decorators on private methods and stabilize timer tests (#198)\". LICENSE file at pin 655ded9ba47a detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

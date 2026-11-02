@@ -1,0 +1,23 @@
+{
+ "corpus": "holdenxiee--aiteam-frame",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how HoldenXiee/aiteam-frame implements it: \u4e00\u4e2a\u7814\u7a76\u9879\u76ee\u3002\u7814\u7a76\u4e00\u4ef6\u4e8b\uff1a\u7528\u4ee3\u7801\u53bb\u7ec4\u7ec7\u5927\u8bed\u8a00\u6a21\u578b\u8fd9\u79cd\u751f\u4ea7\u65b9\u5f0f\uff0c\u600e\u4e48\u7528\u5f97\u597d\u3002 A research project. It studies one thing: how to use the practice of organizing large language models  (selected work: research)",
+ "repos": [
+  {
+   "repo": "aiteam-frame",
+   "url": "https://github.com/HoldenXiee/aiteam-frame",
+   "sha": "9500a75f52bbb0c79ace4c80857a75159d0f2f0e",
+   "licence": "MIT (LICENSE file at pin 9500a75f52bb, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-20T03:44Z",
+    "consent_receipt": "ccf82e29d780",
+    "note": "Inclusion consented by the commit author by email at 2026-10-20T03:44Z (receipt ccf82e29d780); selected commit 9500a75f52bb: \"AGENTS \u00a7\u516b\uff1a\u63d0\u4ea4\u8eab\u4efd\u4e0d\u8bb8\u81ea\u5df1\u7f16\uff0874 \u7b14\u5199\u6210 assistant/a@local \u7684\u6559\u8bad\uff09\". LICENSE file at pin 9500a75f52bb detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

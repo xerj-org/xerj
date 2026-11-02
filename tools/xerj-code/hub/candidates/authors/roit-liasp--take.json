@@ -1,0 +1,23 @@
+{
+ "corpus": "roit-liasp--take",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how Roit-liasp/Take implements it: A minimal build system inspired by Make, configured via a simple TOML, in C++17",
+ "repos": [
+  {
+   "repo": "Take",
+   "url": "https://github.com/Roit-liasp/Take",
+   "sha": "c3b41f02555dd202ee24f6dc72895ba22b229988",
+   "licence": "BSD-2-Clause (LICENSE file at pin c3b41f02555d, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "BSD-2-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T13:45Z",
+    "consent_receipt": "e9da96df6bda",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T13:45Z (receipt e9da96df6bda); pinned to the default-branch head. LICENSE file at pin c3b41f02555d detected as BSD-2-Clause by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

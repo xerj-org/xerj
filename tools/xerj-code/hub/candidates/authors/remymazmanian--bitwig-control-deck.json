@@ -1,0 +1,23 @@
+{
+ "corpus": "remymazmanian--bitwig-control-deck",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on bitwig, bitwig-studio, daw queries this for how remymazmanian/bitwig-control-deck implements it: Bitwig MCP server: tell Claude, Codex or any SI/AI agent what to change in Bitwig Studio. It does it on your Mac, then reads it back to veri (selected work: test, controller, src)",
+ "repos": [
+  {
+   "repo": "bitwig-control-deck",
+   "url": "https://github.com/remymazmanian/bitwig-control-deck",
+   "sha": "cc2df9b45157eff7da36ca947310db6511f80979",
+   "licence": "MIT (LICENSE file at pin cc2df9b45157, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:30Z",
+    "consent_receipt": "f12702c16fbf",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T19:30Z (receipt f12702c16fbf); selected commit cc2df9b45157: \"Keep selection, meter peaks and preset saves safe (#14)\". LICENSE file at pin cc2df9b45157 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

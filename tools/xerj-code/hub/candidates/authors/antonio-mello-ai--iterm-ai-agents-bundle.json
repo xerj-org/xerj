@@ -1,0 +1,23 @@
+{
+ "corpus": "antonio-mello-ai--iterm-ai-agents-bundle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how antonio-mello-ai/iterm-ai-agents-bundle implements it: Agentic iTerm control skills for Codex, Claude Code, and SKILL.md agents",
+ "repos": [
+  {
+   "repo": "iterm-ai-agents-bundle",
+   "url": "https://github.com/antonio-mello-ai/iterm-ai-agents-bundle",
+   "sha": "4d65d0d165ca069f8d2be92f46c7400e3050ca91",
+   "licence": "MIT (LICENSE file at pin 4d65d0d165ca, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T12:17Z",
+    "consent_receipt": "852f1bb215b6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T12:17Z (receipt 852f1bb215b6); pinned to the default-branch head. LICENSE file at pin 4d65d0d165ca detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

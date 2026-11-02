@@ -1,0 +1,23 @@
+{
+ "corpus": "paranik-jpg--mini-db",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cpp17, key-value-store, multithreading queries this for how paranik-jpg/mini_DB implements it: A lightweight, thread-safe, in-memory transactional key-value database built in modern C++17. The project demonstrates core database engine ",
+ "repos": [
+  {
+   "repo": "mini_DB",
+   "url": "https://github.com/paranik-jpg/mini_DB",
+   "sha": "5ac3b60b09d31df4e757b9f623556f292af376b3",
+   "licence": "MIT (LICENSE file at pin 5ac3b60b09d3, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:19Z",
+    "consent_receipt": "cfb46ccf3e46",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:19Z (receipt cfb46ccf3e46); pinned to the default-branch head. LICENSE file at pin 5ac3b60b09d3 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

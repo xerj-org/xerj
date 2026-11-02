@@ -1,0 +1,23 @@
+{
+ "corpus": "chaitanymishra--invoice-receipt-parser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on alembic, alembic-migration, backend queries this for how ChaitanyMishra/invoice-receipt-parser implements it: Automated invoice and receipt data extraction system using FastAPI, PostgreSQL, and AI-based parsing with confidence-based fallback logic (selected work: the project root, app)",
+ "repos": [
+  {
+   "repo": "invoice-receipt-parser",
+   "url": "https://github.com/ChaitanyMishra/invoice-receipt-parser",
+   "sha": "b83e593a6bfc4a632e726ef4f09f7f2bbf7f6620",
+   "licence": "MIT (LICENSE file at pin b83e593a6bfc, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T14:49Z",
+    "consent_receipt": "9cb3f9209db4",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T14:49Z (receipt 9cb3f9209db4); selected commit b83e593a6bfc: \"Keep single-stage for Render; add multi-stage reference and interview\u2026\". LICENSE file at pin b83e593a6bfc detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

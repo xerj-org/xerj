@@ -1,0 +1,23 @@
+{
+ "corpus": "roximn148--romanalfaz",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how roximn148/romanalfaz implements it: Dictionary based predictive Roman Urdu transliterator (selected work: src/romanalfaz)",
+ "repos": [
+  {
+   "repo": "romanalfaz",
+   "url": "https://github.com/roximn148/romanalfaz",
+   "sha": "d74cb8f749e6396e806297d743440fbe9845961f",
+   "licence": "MIT (LICENSE file at pin d74cb8f749e6, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T11:27Z",
+    "consent_receipt": "b65014d4ff02",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T11:27Z (receipt b65014d4ff02); selected commit d74cb8f749e6: \"fix: normalization docs, docstrings, and Sphinx build artifacts\". LICENSE file at pin d74cb8f749e6 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

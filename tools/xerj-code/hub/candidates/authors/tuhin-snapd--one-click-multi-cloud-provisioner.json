@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--one-click-multi-cloud-provisioner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Python queries this for how Tuhin-SnapD/One-Click-Multi-Cloud-Provisioner implements it: A comprehensive DevOps automation tool that provisions complete infrastructure on AWS and GCP using Terraform, Ansible, and Python. Deploy p",
+ "repos": [
+  {
+   "repo": "One-Click-Multi-Cloud-Provisioner",
+   "url": "https://github.com/Tuhin-SnapD/One-Click-Multi-Cloud-Provisioner",
+   "sha": "345070c173034e3e678ae2808c73d04869fc180e",
+   "licence": "MIT (LICENSE file at pin 345070c17303, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:29Z",
+    "consent_receipt": "84631b85ec11",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:29Z (receipt 84631b85ec11); pinned to the default-branch head. LICENSE file at pin 345070c17303 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

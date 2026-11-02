@@ -1,0 +1,30 @@
+{
+ "corpus": "parsapoorsh--ratchetkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on cryptography, double-ratchet, e2ee queries this for how parsapoorsh/ratchetkit implements it: Python X3DH/PQXDH + Double & Triple Ratchet with pluggable crypto (selected work: ratchetkit, tests)",
+ "repos": [
+  {
+   "repo": "ratchetkit",
+   "url": "https://github.com/parsapoorsh/ratchetkit",
+   "sha": "20268bc90b0697bb45c8ed2189c50a046c83b799",
+   "licence": "AGPL-3.0 (LICENSE file at pin 20268bc90b06, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T21:01Z",
+    "consent_receipt": "07ab19970215",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:01Z (receipt 07ab19970215); selected commit 20268bc90b06: \"Encode suite algorithms as IntEnum u32 ids on the wire\". LICENSE file at pin 20268bc90b06 detected as AGPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "20268bc90b0697bb45c8ed2189c50a046c83b799",
+     "at": "2026-10-29T21:01Z",
+     "receipt": "07ab19970215"
+    }
+   }
+  }
+ ]
+}

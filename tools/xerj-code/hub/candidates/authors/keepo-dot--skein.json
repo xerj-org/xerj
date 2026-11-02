@@ -1,0 +1,30 @@
+{
+ "corpus": "keepo-dot--skein",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how keepo-dot/skein implements it: A knitting pattern maker written in C and GTK4 (selected work: src, include, the project root)",
+ "repos": [
+  {
+   "repo": "skein",
+   "url": "https://github.com/keepo-dot/skein",
+   "sha": "d910c62d692660e96763c2caa8e7a830b9473914",
+   "licence": "GPL-3.0 (LICENSE file at pin d910c62d6926, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T19:13Z",
+    "consent_receipt": "eb339878a5f4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T19:13Z (receipt eb339878a5f4); selected commit d910c62d6926: \"Refactor: Isolate View and Controller for canvas rendering pipeline\". LICENSE file at pin d910c62d6926 detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "d910c62d692660e96763c2caa8e7a830b9473914",
+     "at": "2026-11-01T19:13Z",
+     "receipt": "eb339878a5f4"
+    }
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "refpot",
    "url": "https://github.com/tugrulguner/refpot",
-   "sha": "b630bf928a1840417d3418498e259df0205440b6",
-   "licence": "MIT (LICENSE file at pin b630bf928a18, GitHub licence API 2026-10-29)",
+   "sha": "3bd04e41f6ae62f59b02eb4097e8ce590b8d2dad",
+   "licence": "MIT (LICENSE file at pin 3bd04e41f6ae, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T22:45Z",
     "consent_receipt": "a742ecf95765",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:45Z (receipt a742ecf95765); pinned to the default-branch head. LICENSE file at pin b630bf928a18 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:45Z (receipt a742ecf95765); pinned to the default-branch head. LICENSE file at pin 3bd04e41f6ae detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
    }
   }
  ]

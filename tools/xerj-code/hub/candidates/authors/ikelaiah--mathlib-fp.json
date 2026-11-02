@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on free-pascal, freepascal, lazarus queries this for how ikelaiah/mathlib-fp implements it: A focused Free Pascal math library collection for scientific, engineering, statistical, financial, optimization, time-series, machine-learni (selected work: src, tests, examples)",
+ "domain": "an agent working on free-pascal, freepascal, lazarus queries this for how ikelaiah/mathlib-fp implements it: Scientific, statistical and engineering mathematics for Free Pascal, with no third-party runtime dependencies (selected work: src, tests, examples)",
  "repos": [
   {
    "repo": "mathlib-fp",

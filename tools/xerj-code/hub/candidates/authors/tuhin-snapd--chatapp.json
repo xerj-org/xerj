@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--chatapp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on socket-io, nodejs, html-css-javascript queries this for how Tuhin-SnapD/ChatApp implements it: Chattrix is a modern, real-time group chat application built with Node.js, Express, and Socket.IO. It provides a seamless chat experience wi",
+ "repos": [
+  {
+   "repo": "ChatApp",
+   "url": "https://github.com/Tuhin-SnapD/ChatApp",
+   "sha": "bf1a873e9e5b841d5c46deb3dee6013f0fa8f498",
+   "licence": "author's permission (LICENSE at pin bf1a873e9e5b: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:29Z",
+    "consent_receipt": "cb916f75c7ec",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:29Z (receipt cb916f75c7ec); pinned to the default-branch head. LICENSE at pin bf1a873e9e5b: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

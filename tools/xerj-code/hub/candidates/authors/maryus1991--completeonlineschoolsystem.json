@@ -2,8 +2,8 @@
  "corpus": "maryus1991--completeonlineschoolsystem",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on online, online-school, online-school-management queries this for how maryus1991/CompleteOnlineSchoolSystem implements it: maryus1991/CompleteOnlineSchoolSystem (HTML) (selected work: templates, apps/users)",
+ "shelf": "OPS",
+ "domain": "an agent working on online, online-school, online-school-management queries this for how maryus1991/CompleteOnlineSchoolSystem implements it: A complete Django-based online school management system with live classes, exams, practices, content management, student/teacher panels, pay (selected work: templates, apps/users)",
  "repos": [
   {
    "repo": "CompleteOnlineSchoolSystem",

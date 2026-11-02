@@ -8,15 +8,15 @@
   {
    "repo": "DevNest",
    "url": "https://github.com/umerghafoor/DevNest",
-   "sha": "a5c4fc4004c0d8b01558f7b64da9aa11b21b59b7",
-   "licence": "MIT (LICENSE file at pin a5c4fc4004c0, GitHub licence API 2026-10-24)",
+   "sha": "be85f8fe30a328897efb39c6accbda7765adab03",
+   "licence": "MIT (LICENSE file at pin be85f8fe30a3, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-14T18:05Z",
     "consent_receipt": "3e858db18fc3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-14T18:05Z (receipt 3e858db18fc3); selected commit a5c4fc4004c0: \"feat(files): remote disk usage treemap visualizer and drag-and-drop f\u2026\". LICENSE file at pin a5c4fc4004c0 detected as MIT by the GitHub licence API on 2026-10-24; used under that licence with attribution. Pinned to head a5c4fc4004c0 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-14T18:05Z (receipt 3e858db18fc3); selected commit be85f8fe30a3: \"feat(files): remote disk usage treemap visualizer and drag-and-drop f\u2026\". LICENSE file at pin be85f8fe30a3 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution. Pinned to head be85f8fe30a3 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

@@ -1,0 +1,23 @@
+{
+ "corpus": "hylo-lang--hylo-new",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how hylo-lang/hylo-new implements it: The Hylo programming language (selected work: Sources, Tests)",
+ "repos": [
+  {
+   "repo": "hylo-new",
+   "url": "https://github.com/hylo-lang/hylo-new",
+   "sha": "36f135edd2f49b6951aaf6f753117340fbb232b3",
+   "licence": "Apache-2.0 (LICENSE file at pin 36f135edd2f4, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T13:05Z",
+    "consent_receipt": "81ec63cfbef0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T13:05Z (receipt 81ec63cfbef0); selected commit 36f135edd2f4: \"Interpreter: Make RuntimeValue independent of byte representation (#594)\". LICENSE file at pin 36f135edd2f4 detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

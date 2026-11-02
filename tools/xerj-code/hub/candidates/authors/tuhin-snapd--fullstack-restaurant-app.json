@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--fullstack-restaurant-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on angular, express, mean-stack queries this for how Tuhin-SnapD/Fullstack-Restaurant-App implements it: A comprehensive restaurant management system featuring a Node.js/Express backend API and two modern frontend applications built with React a",
+ "repos": [
+  {
+   "repo": "Fullstack-Restaurant-App",
+   "url": "https://github.com/Tuhin-SnapD/Fullstack-Restaurant-App",
+   "sha": "0d1240d30c1597ed59b808383fcb7fb4bf207292",
+   "licence": "author's permission (LICENSE at pin 0d1240d30c15: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:30Z",
+    "consent_receipt": "6fca23d2f528",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:30Z (receipt 6fca23d2f528); pinned to the default-branch head. LICENSE at pin 0d1240d30c15: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

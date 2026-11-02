@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--aftercare-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how VaibhavSoni24/AfterCare-AI implements it: VaibhavSoni24/AfterCare-AI (Python)",
+ "repos": [
+  {
+   "repo": "AfterCare-AI",
+   "url": "https://github.com/VaibhavSoni24/AfterCare-AI",
+   "sha": "dd02c2965a8a8c542d39b1da74ea048b69a7ff39",
+   "licence": "author's permission (LICENSE at pin dd02c2965a8a: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "cef41f3711d2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt cef41f3711d2); pinned to the default-branch head. LICENSE at pin dd02c2965a8a: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

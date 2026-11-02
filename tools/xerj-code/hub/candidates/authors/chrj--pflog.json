@@ -1,0 +1,23 @@
+{
+ "corpus": "chrj--pflog",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how chrj/pflog implements it: Postfix log parser for Go",
+ "repos": [
+  {
+   "repo": "pflog",
+   "url": "https://github.com/chrj/pflog",
+   "sha": "032d919c9ac2a2e0d02d6b0c35bd9c424bfefd01",
+   "licence": "MIT (LICENSE file at pin 032d919c9ac2, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T22:51Z",
+    "consent_receipt": "4c1f94e9d426",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T22:51Z (receipt 4c1f94e9d426); pinned to the default-branch head. LICENSE file at pin 032d919c9ac2 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

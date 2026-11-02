@@ -1,0 +1,23 @@
+{
+ "corpus": "valkyriesentinel--nox-guard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on ebpf, kernel, linux queries this for how ValkyrieSentinel/nox-guard implements it: Kernel-level process monitor using eBPF tracepoints and ptrace in Rust",
+ "repos": [
+  {
+   "repo": "nox-guard",
+   "url": "https://github.com/ValkyrieSentinel/nox-guard",
+   "sha": "8153ab19ae5e85213970c96a020b6a54746b9dc1",
+   "licence": "MIT (LICENSE file at pin 8153ab19ae5e, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T22:56Z",
+    "consent_receipt": "d2bb72ba669a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T22:56Z (receipt d2bb72ba669a); pinned to the default-branch head. LICENSE file at pin 8153ab19ae5e detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

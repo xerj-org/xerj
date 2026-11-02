@@ -8,15 +8,15 @@
   {
    "repo": "unmineable",
    "url": "https://github.com/djunekz/unmineable",
-   "sha": "ae9d41aaea42bb4500af0bd4a3e7b7d73764b502",
-   "licence": "MIT (LICENSE file at pin ae9d41aaea42, GitHub licence API 2026-10-26)",
+   "sha": "7dea3cd1ba6c8c50cbb142587657a220d54c7c82",
+   "licence": "MIT (LICENSE file at pin 7dea3cd1ba6c, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-24T19:42Z",
     "consent_receipt": "fb5e242f5e7a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T19:42Z (receipt fb5e242f5e7a); selected commit ae9d41aaea42: \"feat: pool otomatis, pasang cpuminer/ccminer, uninstall miner\". LICENSE file at pin ae9d41aaea42 detected as MIT by the GitHub licence API on 2026-10-26; used under that licence with attribution. Pinned to head ae9d41aaea42 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T19:42Z (receipt fb5e242f5e7a); selected commit 7dea3cd1ba6c: \"feat: pool otomatis, pasang cpuminer/ccminer, uninstall miner\". LICENSE file at pin 7dea3cd1ba6c detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head 7dea3cd1ba6c (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude-code, ai-agent, skills queries this for how CherryHQ/cherry-studio implements it: AI productivity studio with smart chat, autonomous agents, and 300+ assistants. Unified access to frontier LLMs (selected work: src/renderer)",
+ "domain": "an agent working on ai-agents, agent-workspace, agentic-workspace queries this for how CherryHQ/cherry-studio implements it: Your AI workspace for models, agents, and productivity (selected work: src/renderer)",
  "repos": [
   {
    "repo": "cherry-studio",

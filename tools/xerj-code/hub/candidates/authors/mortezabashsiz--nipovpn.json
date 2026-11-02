@@ -1,0 +1,30 @@
+{
+ "corpus": "mortezabashsiz--nipovpn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on C++ queries this for how MortezaBashsiz/nipovpn implements it: Powerfull proxy (selected work: core/src, nipovpn)",
+ "repos": [
+  {
+   "repo": "nipovpn",
+   "url": "https://github.com/MortezaBashsiz/nipovpn",
+   "sha": "04768f37de2933c3e88850a11c01fdea50ce8e18",
+   "licence": "GPL-3.0 (LICENSE file at pin 04768f37de29, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T18:11Z",
+    "consent_receipt": "8f6a2bbb9f78",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:11Z (receipt 8f6a2bbb9f78); selected commit 04768f37de29: \"Test commit\". LICENSE file at pin 04768f37de29 detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "04768f37de2933c3e88850a11c01fdea50ce8e18",
+     "at": "2026-10-29T18:11Z",
+     "receipt": "8f6a2bbb9f78"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "minhtritm--vision-cleanse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on computer-vision, data-leakage, dataset-cleaning queries this for how MinhTriTM/vision-cleanse implements it: Clean near-duplicates and train/val/test leakage from computer vision datasets (selected work: src/vision_cleanse, tests, scripts)",
+ "repos": [
+  {
+   "repo": "vision-cleanse",
+   "url": "https://github.com/MinhTriTM/vision-cleanse",
+   "sha": "03817b041e61a97181a7fd6431cd3ce4f5cdf567",
+   "licence": "MIT (LICENSE file at pin 03817b041e61, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T05:51Z",
+    "consent_receipt": "f59ca4f924a2",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T05:51Z (receipt f59ca4f924a2); selected commit 03817b041e61: \"YOLO layout (images/labels/data.yaml) + 24 charts + gallery docs + pi\u2026\". LICENSE file at pin 03817b041e61 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "orvn--toronto-trees",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how orvn/toronto-trees implements it: Mapping public tree data in Toronto (selected work: src/scripts, src/components, src)",
+ "repos": [
+  {
+   "repo": "toronto-trees",
+   "url": "https://github.com/orvn/toronto-trees",
+   "sha": "cea609980c8814042849b7280ce945ef34e92ad7",
+   "licence": "Apache-2.0 (LICENSE file at pin cea609980c88, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T01:12Z",
+    "consent_receipt": "de4b8ca9d3ca",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T01:12Z (receipt de4b8ca9d3ca); selected commit cea609980c88: \"feat: leaf scatter component\". LICENSE file at pin cea609980c88 detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

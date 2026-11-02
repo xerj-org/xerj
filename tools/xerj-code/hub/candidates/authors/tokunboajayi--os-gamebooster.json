@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on PowerShell queries this for how tokunboajayi/OS-GameBooster implements it: Terminal-based hardware-agnostic game booster tuned for competitive performance",
+ "domain": "an agent working on cli, gaming, performance-optimization queries this for how tokunboajayi/OS-GameBooster implements it: Terminal-based hardware-agnostic game booster tuned for competitive performance",
  "repos": [
   {
    "repo": "OS-GameBooster",

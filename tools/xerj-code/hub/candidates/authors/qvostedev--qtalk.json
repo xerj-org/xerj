@@ -1,0 +1,23 @@
+{
+ "corpus": "qvostedev--qtalk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how qvostedev/QTalk implements it: qvostedev/QTalk (Kotlin) (selected work: shared, scripts, desktopApp)",
+ "repos": [
+  {
+   "repo": "QTalk",
+   "url": "https://github.com/qvostedev/QTalk",
+   "sha": "6c0fb17fb283c19a58bd678f5c6e0cc284740022",
+   "licence": "AGPL-3.0 (LICENSE file at pin 6c0fb17fb283, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T21:44Z",
+    "consent_receipt": "69c4a22e0575",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T21:44Z (receipt 69c4a22e0575); selected commit 6c0fb17fb283: \"Add directory avatar URLs and Google Drive sync\". LICENSE file at pin 6c0fb17fb283 detected as AGPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

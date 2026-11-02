@@ -1,0 +1,23 @@
+{
+ "corpus": "shipap--saas-starter-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on better-auth, docker, drizzle-orm queries this for how shipap/saas-starter-kit implements it: Multi-tenant SaaS starter with RBAC, teams, mock billing, API keys, audit logs, and isolated demos",
+ "repos": [
+  {
+   "repo": "saas-starter-kit",
+   "url": "https://github.com/shipap/saas-starter-kit",
+   "sha": "1fa41472288f08ca8003155dde2bbbcca8c4e505",
+   "licence": "MIT (LICENSE file at pin 1fa41472288f, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T13:28Z",
+    "consent_receipt": "9fe9a1624bf4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T13:28Z (receipt 9fe9a1624bf4); pinned to the default-branch head. LICENSE file at pin 1fa41472288f detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

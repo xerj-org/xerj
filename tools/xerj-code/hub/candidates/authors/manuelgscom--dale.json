@@ -1,0 +1,23 @@
+{
+ "corpus": "manuelgscom--dale",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on cli, command-line, cpp queries this for how manuelgscom/dale implements it: Natural language to Linux commands. 100% offline. One native binary (selected work: tests, src/cli, the project root)",
+ "repos": [
+  {
+   "repo": "dale",
+   "url": "https://github.com/manuelgscom/dale",
+   "sha": "063d1a154f250c34a32cceb3127255eb16e14897",
+   "licence": "MIT (LICENSE file at pin 063d1a154f25, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T08:51Z",
+    "consent_receipt": "d06210a9bd8a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T08:51Z (receipt d06210a9bd8a); selected commit 063d1a154f25: \"dale 1.1.0\". LICENSE file at pin 063d1a154f25 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

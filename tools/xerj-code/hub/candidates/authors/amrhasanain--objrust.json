@@ -1,0 +1,23 @@
+{
+ "corpus": "amrhasanain--objrust",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on language, package, programming-language queries this for how amrhasanain/objrust implements it: A rust compiler that terns it into an objective-rust",
+ "repos": [
+  {
+   "repo": "objrust",
+   "url": "https://github.com/amrhasanain/objrust",
+   "sha": "3aa10949d791cebb8cd21c6dcba6dde05c100880",
+   "licence": "author's permission (LICENSE at pin 3aa10949d791: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T16:49Z",
+    "consent_receipt": "f44852846743",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T16:49Z (receipt f44852846743); pinned to the default-branch head. LICENSE at pin 3aa10949d791: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

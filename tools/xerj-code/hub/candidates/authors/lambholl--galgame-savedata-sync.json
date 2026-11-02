@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on TypeScript queries this for how Lambholl/galgame-savedata-sync implements it: Lambholl/galgame-savedata-sync (TypeScript) (selected work: apps/mobile, apps/desktop, packages/ui)",
+ "domain": "an agent working on TypeScript queries this for how Lambholl/galgame-savedata-sync implements it: Fast cross-device folder synchronization tool for LAN / \u5c40\u57df\u7f51\u8de8\u8bbe\u5907\u6587\u4ef6\u5939\u5feb\u901f\u540c\u6b65\u5de5\u5177 (selected work: apps/mobile, apps/desktop, packages/ui)",
  "repos": [
   {
    "repo": "galgame-savedata-sync",

@@ -1,0 +1,23 @@
+{
+ "corpus": "valkyriesentinel--sokol-fsm-spark",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on ada, biomimetic, cybersecurity queries this for how ValkyrieSentinel/sokol-fsm-spark implements it: Formally Verified, Biomimetic Multi-Topology Finite State Machine in Ada/SPARK",
+ "repos": [
+  {
+   "repo": "sokol-fsm-spark",
+   "url": "https://github.com/ValkyrieSentinel/sokol-fsm-spark",
+   "sha": "dfea1d86785c85d97db725069e9c6a4c90b693c9",
+   "licence": "author's permission (LICENSE at pin dfea1d86785c: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T22:56Z",
+    "consent_receipt": "49ca5ad7158e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T22:56Z (receipt 49ca5ad7158e); pinned to the default-branch head. LICENSE at pin dfea1d86785c: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

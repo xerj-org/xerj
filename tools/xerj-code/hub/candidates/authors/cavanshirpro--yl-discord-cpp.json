@@ -1,0 +1,23 @@
+{
+ "corpus": "cavanshirpro--yl-discord-cpp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on asio, bot-library, coroutines queries this for how Cavanshirpro/yl-discord.cpp implements it: Coroutine-first C++20 Discord bot library inspired by discord.py: async REST/Gateway, commands, Cogs and offline tests",
+ "repos": [
+  {
+   "repo": "yl-discord.cpp",
+   "url": "https://github.com/Cavanshirpro/yl-discord.cpp",
+   "sha": "94eb72999dfc37ca922d12a62e5e34c85c7fb76a",
+   "licence": "author's permission (LICENSE at pin 94eb72999dfc: NOASSERTION; repository: LGPL-3.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T18:25Z",
+    "consent_receipt": "965e081a29c4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T18:25Z (receipt 965e081a29c4); pinned to the default-branch head. LICENSE at pin 94eb72999dfc: NOASSERTION (repository: LGPL-3.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "codebypartho--echo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-chat, android, dart queries this for how CodeByPartho/ECHO implements it: A private, offline-capable chat application with custom persona management (selected work: lib/views, lib/widgets, lib/controllers)",
+ "repos": [
+  {
+   "repo": "ECHO",
+   "url": "https://github.com/CodeByPartho/ECHO",
+   "sha": "a28a8d56e34958a301e9be01cfdbbedbb101ba30",
+   "licence": "MIT (LICENSE file at pin a28a8d56e349, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:38Z",
+    "consent_receipt": "cbdbf0ec3355",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T19:38Z (receipt cbdbf0ec3355); selected commit a28a8d56e349: \"feat(ui): add persona management screens and bind to GetX controllers\". LICENSE file at pin a28a8d56e349 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

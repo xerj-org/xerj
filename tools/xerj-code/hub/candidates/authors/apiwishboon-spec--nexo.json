@@ -1,0 +1,23 @@
+{
+ "corpus": "apiwishboon-spec--nexo",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on agpl, ble, cardputer queries this for how apiwishboon-spec/Nexo implements it: Offline-first study toolkit for the M5Stack Cardputer, built with C++ and paired with a Flutter companion app for BLE and Wi-Fi connectivity (selected work: firmware)",
+ "repos": [
+  {
+   "repo": "Nexo",
+   "url": "https://github.com/apiwishboon-spec/Nexo",
+   "sha": "705f8665cf1df2fffc4e3c74bf07a49edfbcbdf3",
+   "licence": "AGPL-3.0 (LICENSE file at pin 705f8665cf1d, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T07:31Z",
+    "consent_receipt": "398a5fad6201",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T07:31Z (receipt 398a5fad6201); selected commit 705f8665cf1d: \"fix(firmware): bind home-menu rows to explicit destinations\". LICENSE file at pin 705f8665cf1d detected as AGPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

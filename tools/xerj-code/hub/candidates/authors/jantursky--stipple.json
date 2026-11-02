@@ -1,0 +1,23 @@
+{
+ "corpus": "jantursky--stipple",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on agsl, android, compose-multiplatform queries this for how jantursky/stipple implements it: Stipple: dithered UI for Compose Multiplatform. A dither engine, modifiers and components for Android, iOS, desktop and web (selected work: stipple, samples, scripts)",
+ "repos": [
+  {
+   "repo": "stipple",
+   "url": "https://github.com/jantursky/stipple",
+   "sha": "5c7aaa646318281977bd7e7cfb5a5519ddf35688",
+   "licence": "MIT (LICENSE file at pin 5c7aaa646318, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T20:08Z",
+    "consent_receipt": "f0a6651a1bc4",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:08Z (receipt f0a6651a1bc4); selected commit 5c7aaa646318: \"Draw blue noise, custom patterns, dots and palettes with the shader r\u2026\". LICENSE file at pin 5c7aaa646318 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

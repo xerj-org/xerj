@@ -1,0 +1,23 @@
+{
+ "corpus": "tauseef666-ctrl--2nd-year-lateral",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on computer-science, diploma, education queries this for how Tauseef666-ctrl/2nd-year-lateral implements it: BTEUP CSE study hub \u2014 official lateral-entry diploma syllabus (Foundation + Sem 3\u20136) mapped to click-to-play YouTube videos, verified one-sh (selected work: src/pages, src/components, src)",
+ "repos": [
+  {
+   "repo": "2nd-year-lateral",
+   "url": "https://github.com/Tauseef666-ctrl/2nd-year-lateral",
+   "sha": "baa3611768aca38756cd357be1116788107470a6",
+   "licence": "MIT (LICENSE file at pin baa3611768ac, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T20:39Z",
+    "consent_receipt": "52e74893b4d6",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:39Z (receipt 52e74893b4d6); selected commit baa3611768ac: \"feat: add Quiz page with subject-wise MCQs\". LICENSE file at pin baa3611768ac detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

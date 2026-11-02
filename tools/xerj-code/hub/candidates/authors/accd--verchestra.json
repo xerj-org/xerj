@@ -1,0 +1,23 @@
+{
+ "corpus": "accd--verchestra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic-workflows, ai-agents, ai-engineering queries this for how accd/verchestra implements it: Verified, portable AI software-delivery harness with policy gates, read-only data probes, signed evidence, and human review (selected work: tests, apps/vestra-cli, packages/drivers)",
+ "repos": [
+  {
+   "repo": "verchestra",
+   "url": "https://github.com/accd/verchestra",
+   "sha": "7a1f97252fdb3544c0f4b2f410f8fece92feaff3",
+   "licence": "Apache-2.0 (LICENSE file at pin 7a1f97252fdb, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T11:59Z",
+    "consent_receipt": "43b773ca4c3d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T11:59Z (receipt 43b773ca4c3d); selected commit 7a1f97252fdb: \"feat(task): prove the Codex account offers a run's models before it s\u2026\". LICENSE file at pin 7a1f97252fdb detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "start-everything",
    "url": "https://github.com/bardelyne/start-everything",
-   "sha": "3fbb8150facdec6bcdd761d6642f5660f901acdf",
-   "licence": "GPL-3.0 (LICENSE file at pin 3fbb8150facd, GitHub licence API 2026-10-24)",
+   "sha": "5feb1966e035d4a2b4cd66ac2e43a35b40d04db6",
+   "licence": "GPL-3.0 (LICENSE file at pin 5feb1966e035, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-22T09:10Z",
     "consent_receipt": "966f45a3c0b3",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T09:10Z (receipt 966f45a3c0b3); selected commit 3fbb8150facd: \"Use Windhawk storage for v2.0 material recovery and clean unload\". LICENSE file at pin 3fbb8150facd detected as GPL-3.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T09:10Z (receipt 966f45a3c0b3); selected commit 3fbb8150facd: \"Use Windhawk storage for v2.0 material recovery and clean unload\". LICENSE file at pin 5feb1966e035 detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to the default-branch head 5feb1966e035 (v2.1) at the owner's request (#2583)."
    }
   }
  ]

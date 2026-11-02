@@ -1,0 +1,23 @@
+{
+ "corpus": "phantom-vk--norefund",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-tools, context-window, cost-calculator queries this for how Phantom-VK/NoRefund implements it: Offline LLM cost calculator and token calculator with real tokenizers, for PDF, DOCX and PPTX files. Real context-window fit, API cost estim",
+ "repos": [
+  {
+   "repo": "NoRefund",
+   "url": "https://github.com/Phantom-VK/NoRefund",
+   "sha": "27a9462290aa7a656094843343a4bc138ffbc375",
+   "licence": "MIT (LICENSE file at pin 27a9462290aa, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T17:01Z",
+    "consent_receipt": "a7d5ab22dc7a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T17:01Z (receipt a7d5ab22dc7a); pinned to the default-branch head. LICENSE file at pin 27a9462290aa detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

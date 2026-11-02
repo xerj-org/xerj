@@ -1,0 +1,23 @@
+{
+ "corpus": "quartzsyr--musefilm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how Quartzsyr/MuseFilm implements it: \u5f52\u6863\u80f6\u5377\uff0c\u8d5b\u535a\u89c2\u7247 (selected work: cloudflare, scripts, tests)",
+ "repos": [
+  {
+   "repo": "MuseFilm",
+   "url": "https://github.com/Quartzsyr/MuseFilm",
+   "sha": "ea53d33762559cdf62661a806695b137963a2432",
+   "licence": "MIT (LICENSE file at pin ea53d3376255, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-27T08:39Z",
+    "consent_receipt": "831fff64b1f7",
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T08:39Z (receipt 831fff64b1f7); selected commit ea53d3376255: \"Redesign creator dashboard and make mail actions reliable\". LICENSE file at pin ea53d3376255 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

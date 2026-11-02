@@ -1,0 +1,23 @@
+{
+ "corpus": "caesarqing--coregist-news",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how Caesarqing/coregist-news implements it: CoreGist News is an AI-powered news aggregation, search, analysis and push notification platform",
+ "repos": [
+  {
+   "repo": "coregist-news",
+   "url": "https://github.com/Caesarqing/coregist-news",
+   "sha": "2d783d18ca42bef1bf30249e69d21b2eec8b33db",
+   "licence": "AGPL-3.0 (LICENSE file at pin 2d783d18ca42, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T10:50Z",
+    "consent_receipt": "250050254700",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T10:50Z (receipt 250050254700); pinned to the default-branch head. LICENSE file at pin 2d783d18ca42 detected as AGPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

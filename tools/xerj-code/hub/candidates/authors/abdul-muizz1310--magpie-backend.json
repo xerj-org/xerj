@@ -1,0 +1,23 @@
+{
+ "corpus": "abdul-muizz1310--magpie-backend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Abdul-Muizz1310/magpie-backend implements it: YAML-defined scrapers that self-heal via LLM + PR. One YAML = one spider (Scrapy or Playwright), content-addressed dedup, and a healer that  (selected work: tests, src/magpie, the project root)",
+ "repos": [
+  {
+   "repo": "magpie-backend",
+   "url": "https://github.com/Abdul-Muizz1310/magpie-backend",
+   "sha": "82a274c44d0fa1f7a993fa06783537516efc2bfc",
+   "licence": "MIT (LICENSE file at pin 82a274c44d0f, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T17:14Z",
+    "consent_receipt": "5b7f317ad2db",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T17:14Z (receipt 5b7f317ad2db); selected commit 82a274c44d0f: \"feat(platform): list a request's queries via slowquery-detective 0.2\". LICENSE file at pin 82a274c44d0f detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

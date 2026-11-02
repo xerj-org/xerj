@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--cnn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Python queries this for how Tuhin-SnapD/CNN implements it: Pure NumPy implementation of a tiny convolutional neural network (CNN) designed for education and experimentation. The project shows every m",
+ "repos": [
+  {
+   "repo": "CNN",
+   "url": "https://github.com/Tuhin-SnapD/CNN",
+   "sha": "040ac534ddb7cc4a00c090d8968e065a69484600",
+   "licence": "MIT (LICENSE file at pin 040ac534ddb7, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:30Z",
+    "consent_receipt": "c0ab3b56f32b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:30Z (receipt c0ab3b56f32b); pinned to the default-branch head. LICENSE file at pin 040ac534ddb7 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

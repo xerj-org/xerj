@@ -1,0 +1,30 @@
+{
+ "corpus": "msinghal34--doomscroll",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on doomscroll queries this for how msinghal34/DoomScroll implements it: Block distracting feeds and suggested content on social media platforms (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "DoomScroll",
+   "url": "https://github.com/msinghal34/DoomScroll",
+   "sha": "a4ca1a4b3fed6dc362fa3501fcb4066207b39ca1",
+   "licence": "GPL-3.0 (LICENSE file at pin a4ca1a4b3fed, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T18:35Z",
+    "consent_receipt": "636154c3cc5e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:35Z (receipt 636154c3cc5e); selected commit a4ca1a4b3fed: \"Hides suggested feeds with a stylesheet scoped to each site's feed pages\". LICENSE file at pin a4ca1a4b3fed detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "a4ca1a4b3fed6dc362fa3501fcb4066207b39ca1",
+     "at": "2026-10-29T18:35Z",
+     "receipt": "636154c3cc5e"
+    }
+   }
+  }
+ ]
+}

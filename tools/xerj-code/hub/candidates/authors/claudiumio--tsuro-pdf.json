@@ -1,0 +1,23 @@
+{
+ "corpus": "claudiumio--tsuro-pdf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on desktop-app, digital-signatures, iced queries this for how claudiumio/tsuro-pdf implements it: A fast, lightweight, open-source PDF reader for the desktop. Read, mark, print. Nothing else (selected work: crates/tsuro)",
+ "repos": [
+  {
+   "repo": "tsuro-pdf",
+   "url": "https://github.com/claudiumio/tsuro-pdf",
+   "sha": "983b222fb01ae26bed69eb76bf91fc4ba7f34287",
+   "licence": "MIT (LICENSE file at pin 983b222fb01a, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:39Z",
+    "consent_receipt": "706a07a09a5e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T20:39Z (receipt 706a07a09a5e); selected commit 983b222fb01a: \"feat(i18n): interface em portugu\u00eas e ingl\u00eas com troca em Configura\u00e7\u00f5e\u2026\". LICENSE file at pin 983b222fb01a detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on Svelte queries this for how nomideusz/svelte-calendar implements it: A themeable Svelte 5 calendar with Day and Week views \u2014 Planner and Agenda (selected work: src/routes, src/lib, widget)",
+ "domain": "an agent working on TypeScript queries this for how nomideusz/svelte-calendar implements it: A themeable Svelte 5 calendar with Day and Week views \u2014 Planner and Agenda (selected work: src/routes, src/lib, widget)",
  "repos": [
   {
    "repo": "svelte-calendar",

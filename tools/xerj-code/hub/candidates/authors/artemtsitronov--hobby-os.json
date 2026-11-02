@@ -1,0 +1,23 @@
+{
+ "corpus": "artemtsitronov--hobby-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on from-scratch, iso, limine queries this for how artemtsitronov/hobby-os implements it: A simple attempt to create an OS. Mostly to learn OSDev and as a challenge to use minimal AI",
+ "repos": [
+  {
+   "repo": "hobby-os",
+   "url": "https://github.com/artemtsitronov/hobby-os",
+   "sha": "14eb0248a181c1208360864f327ad6083ecb02aa",
+   "licence": "MIT (LICENSE file at pin 14eb0248a181, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T08:49Z",
+    "consent_receipt": "27f5934848d5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T08:49Z (receipt 27f5934848d5); pinned to the default-branch head. LICENSE file at pin 14eb0248a181 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

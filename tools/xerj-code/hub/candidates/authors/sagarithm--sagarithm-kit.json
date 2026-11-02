@@ -1,0 +1,23 @@
+{
+ "corpus": "sagarithm--sagarithm-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-governance, ide queries this for how sagarithm/sagarithm-kit implements it: Cross-agent software engineering framework for AI coding agents \u2014 production-grade skills, standards, workflows, policies, and quality gates (selected work: cli, apps/web, the project root)",
+ "repos": [
+  {
+   "repo": "sagarithm-kit",
+   "url": "https://github.com/sagarithm/sagarithm-kit",
+   "sha": "9eaa06197e043c4583102ad4b30f57ef4986af79",
+   "licence": "Apache-2.0 (LICENSE file at pin 9eaa06197e04, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T03:30Z",
+    "consent_receipt": "efe11a7c372d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T03:30Z (receipt efe11a7c372d); selected commit 9eaa06197e04: \"feat(core,cli,mcp,skills,web): release v1.1.1 next-gen architecture w\u2026\". LICENSE file at pin 9eaa06197e04 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

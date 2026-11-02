@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--capstone-news-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how Tuhin-SnapD/Capstone-News-App implements it: A modern, responsive news application built with Node.js, Express, and vanilla JavaScript. This application provides real-time news updates ",
+ "repos": [
+  {
+   "repo": "Capstone-News-App",
+   "url": "https://github.com/Tuhin-SnapD/Capstone-News-App",
+   "sha": "f40eedba1b34127e00e099926e20a60f2ae733ba",
+   "licence": "author's permission (LICENSE at pin f40eedba1b34: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:30Z",
+    "consent_receipt": "57f36801d99d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:30Z (receipt 57f36801d99d); pinned to the default-branch head. LICENSE at pin f40eedba1b34: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

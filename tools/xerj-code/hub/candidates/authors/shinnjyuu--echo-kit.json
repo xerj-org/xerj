@@ -1,0 +1,23 @@
+{
+ "corpus": "shinnjyuu--echo-kit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how shinnjyuu/echo-kit implements it: \u8ba9 AI \u7684\u5b9e\u9a8c\u3001\u8c03\u8bd5\u4e0e\u9a8c\u6536\u6210\u4e3a\u56e2\u961f\u53ef\u590d\u7528\u7684\u5de5\u7a0b\u80fd\u529b\u3002Turn AI-driven experimentation, debugging, and verification into reusable engineering workflows for your team (selected work: tests, src/echo_kit, the project root)",
+ "repos": [
+  {
+   "repo": "echo-kit",
+   "url": "https://github.com/shinnjyuu/echo-kit",
+   "sha": "f45d5c1683d1676c1b81c622a1fddb2363d28a2b",
+   "licence": "MIT (LICENSE file at pin f45d5c1683d1, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T08:28Z",
+    "consent_receipt": "e86996ee8653",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T08:28Z (receipt e86996ee8653); selected commit f45d5c1683d1: \"feat: support module TOML configuration and provenance\". LICENSE file at pin f45d5c1683d1 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

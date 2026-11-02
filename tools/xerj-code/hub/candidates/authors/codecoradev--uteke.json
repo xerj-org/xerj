@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, cli, embeddings queries this for how codecoradev/uteke implements it: \ud83e\udde0 The Brain for Your AI \u2014 Local-first memory engine for AI agents. Store, recall, and search memories with semantic embeddings. Single Rust  (selected work: crates/uteke-mcp, crates/uteke-server)",
+ "domain": "an agent working on ai, cli, embeddings queries this for how codecoradev/uteke implements it: Long-term memory for any AI agent. One Rust binary, offline, 98.2% recall@5 on LongMemEval-S. Self-host free or use Uteke Cloud (selected work: crates/uteke-mcp, crates/uteke-server)",
  "repos": [
   {
    "repo": "uteke",

@@ -1,0 +1,23 @@
+{
+ "corpus": "sixjjsns--lol-chat-translator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, league-of-legends, ocr queries this for how sixjjsns/lol-chat-translator implements it: \u82f1\u96c4\u8054\u76df\u56fd\u9645\u670d\u6e38\u620f\u5185\u804a\u5929\u622a\u56fe\u7ffb\u8bd1\u5de5\u5177 | LoL international server in-game chat screenshot translator (PySide6) \u6b64\u9879\u76ee\u7531 \u667a\u8c315.3 deepseek-v4-pro gpt-6 \u8054\u5408\u5b8c\u6210 (selected work: src/lolchattranslator, tests, the project root)",
+ "repos": [
+  {
+   "repo": "lol-chat-translator",
+   "url": "https://github.com/sixjjsns/lol-chat-translator",
+   "sha": "ed648bfcf8049bb1b7f61f489cdcc1f6f291ebd4",
+   "licence": "MIT (LICENSE file at pin ed648bfcf804, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T20:34Z",
+    "consent_receipt": "ec41d3464bea",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T20:34Z (receipt ec41d3464bea); selected commit ed648bfcf804: \"v1.2.0: \u754c\u9762\u91cd\u5236 + \u5220\u9664\u6e38\u620f\u5185 F10 \u8f93\u5165\u60ac\u6d6e\u7a97 + \u5feb\u6377\u77ed\u8bed\". LICENSE file at pin ed648bfcf804 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

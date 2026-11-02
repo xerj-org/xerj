@@ -1,0 +1,23 @@
+{
+ "corpus": "khrish11--obe-ecosystem",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how khrish11/obe-ecosystem implements it: AI-Enabled Paperless Learning Ecosystem for Outcome-Based Engineering Education with ML-powered student risk prediction",
+ "repos": [
+  {
+   "repo": "obe-ecosystem",
+   "url": "https://github.com/khrish11/obe-ecosystem",
+   "sha": "b4ac54db82f1b343086caa1edc0ad7ed3d170a37",
+   "licence": "author's permission (LICENSE at pin b4ac54db82f1: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T15:13Z",
+    "consent_receipt": "26734f7d10b2",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T15:13Z (receipt 26734f7d10b2); pinned to the default-branch head. LICENSE at pin b4ac54db82f1: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,30 @@
+{
+ "corpus": "nimbus-agent--nimbus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agentic, ai-agents, bun queries this for how nimbus-agent/Nimbus implements it: On-call intelligence for DevOps and platform teams. Local-first AI agent over your tools \u2014 HITL-gated, MCP-native, AGPL-3.0 (selected work: packages/ui, packages/gateway)",
+ "repos": [
+  {
+   "repo": "Nimbus",
+   "url": "https://github.com/nimbus-agent/Nimbus",
+   "sha": "2e0dcd8517d200b9d241b9243eec057c47dc3c9b",
+   "licence": "AGPL-3.0 (LICENSE file at pin 2e0dcd8517d2, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T07:21Z",
+    "consent_receipt": "8cd5b16a7ad4",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T07:21Z (receipt 8cd5b16a7ad4); selected commit 2e0dcd8517d2: \"feat(desktop): onboarding asks what you do and installs the matching \u2026\". LICENSE file at pin 2e0dcd8517d2 detected as AGPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "2e0dcd8517d200b9d241b9243eec057c47dc3c9b",
+     "at": "2026-10-31T07:21Z",
+     "receipt": "8cd5b16a7ad4"
+    }
+   }
+  }
+ ]
+}

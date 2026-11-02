@@ -1,0 +1,23 @@
+{
+ "corpus": "morningfrog--agent-job-relay",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how MorningFrog/agent-job-relay implements it: Tasks run in the background. Agents pick up when needed. Run long commands independently of the Agent connection, keep their results, and no (selected work: src, tests, src/cli)",
+ "repos": [
+  {
+   "repo": "agent-job-relay",
+   "url": "https://github.com/MorningFrog/agent-job-relay",
+   "sha": "1297f43fabfdaea653c2f45e074f73e215c8be9f",
+   "licence": "MIT (LICENSE file at pin 1297f43fabfd, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T17:37Z",
+    "consent_receipt": "78a58340ad76",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T17:37Z (receipt 78a58340ad76); selected commit 1297f43fabfd: \"feat(goal): persist scoped consent and request native confirmation\". LICENSE file at pin 1297f43fabfd detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

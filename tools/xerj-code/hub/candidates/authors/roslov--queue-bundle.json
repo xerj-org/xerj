@@ -1,0 +1,23 @@
+{
+ "corpus": "roslov--queue-bundle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how roslov/queue-bundle implements it: Provides the classes needed to work with RabbitMQ (selected work: tests, the project root, src/Rpc)",
+ "repos": [
+  {
+   "repo": "queue-bundle",
+   "url": "https://github.com/roslov/queue-bundle",
+   "sha": "c975c3b80c303417ae0a78e86a654bf35a2fe24b",
+   "licence": "MIT (LICENSE file at pin c975c3b80c30, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:13Z",
+    "consent_receipt": "2fc7f893386d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:13Z (receipt 2fc7f893386d); selected commit c975c3b80c30: \"Added Composer commands. Installed syntax and static analysis support\u2026\". LICENSE file at pin c975c3b80c30 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

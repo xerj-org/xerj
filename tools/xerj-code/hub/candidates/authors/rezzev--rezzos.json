@@ -1,0 +1,23 @@
+{
+ "corpus": "rezzev--rezzos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on linux, open-source, os queries this for how Rezzev/RezzOS implements it: RezzOS is a lightweight operating system built for learning how Linux works. It uses a custom-compiled Linux kernel and BusyBox for userspac (selected work: src)",
+ "repos": [
+  {
+   "repo": "RezzOS",
+   "url": "https://github.com/Rezzev/RezzOS",
+   "sha": "d7a8cc174f82903b50c5ac7116174213eba28a28",
+   "licence": "GPL-3.0 (LICENSE file at pin d7a8cc174f82, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T01:36Z",
+    "consent_receipt": "83e4031c9332",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T01:36Z (receipt 83e4031c9332); selected commit d7a8cc174f82: \"add src directory\". LICENSE file at pin d7a8cc174f82 detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

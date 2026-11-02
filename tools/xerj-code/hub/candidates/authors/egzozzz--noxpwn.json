@@ -1,0 +1,23 @@
+{
+ "corpus": "egzozzz--noxpwn",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Python queries this for how Egzozzz/noxpwn implements it: NoxPwn is an automated web application security scanner designed for bug bounty hunters and penetration testers. It combines reconnaissance, (selected work: src/noxpwn, tests)",
+ "repos": [
+  {
+   "repo": "noxpwn",
+   "url": "https://github.com/Egzozzz/noxpwn",
+   "sha": "9c736b2611ecfd9c3ead0857d9252146c70c3daf",
+   "licence": "MIT (LICENSE file at pin 9c736b2611ec, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T23:07Z",
+    "consent_receipt": "687bd13507e1",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T23:07Z (receipt 687bd13507e1); selected commit 9c736b2611ec: \"fix: tool circuit breakers, CorsMe resolution, robust skip-tools alia\u2026\". LICENSE file at pin 9c736b2611ec detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

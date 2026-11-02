@@ -1,0 +1,23 @@
+{
+ "corpus": "neosoda--shadowrdp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PowerShell queries this for how neosoda/ShadowRDP implements it: Scripts PowerShell pour d\u00e9ployer et assister des sessions RDP (Shadow / prise en main \u00e0 distance) : mise en place via GPO, outil d\u2019assistanc",
+ "repos": [
+  {
+   "repo": "ShadowRDP",
+   "url": "https://github.com/neosoda/ShadowRDP",
+   "sha": "8f686157e45a82eab8677d95be5508f0a8e82504",
+   "licence": "author's permission (LICENSE at pin 8f686157e45a: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T11:35Z",
+    "consent_receipt": "2e94a5336437",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T11:35Z (receipt 2e94a5336437); pinned to the default-branch head. LICENSE at pin 8f686157e45a: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

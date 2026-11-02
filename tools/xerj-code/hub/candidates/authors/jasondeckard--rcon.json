@@ -1,0 +1,23 @@
+{
+ "corpus": "jasondeckard--rcon",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on c, linux-app, posix-compliant queries this for how jasondeckard/RCON implements it: Source RCON Protocol command-line utility (selected work: the project root, backup, include)",
+ "repos": [
+  {
+   "repo": "RCON",
+   "url": "https://github.com/jasondeckard/RCON",
+   "sha": "bafb55fa9e8cf68412e2ca017dd471e9eab10a6b",
+   "licence": "MIT (LICENSE file at pin bafb55fa9e8c, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T11:22Z",
+    "consent_receipt": "034b9c93caea",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T11:22Z (receipt 034b9c93caea); selected commit bafb55fa9e8c: \"Refactor: encapsulate connection state, split config, remove magic nu\u2026\". LICENSE file at pin bafb55fa9e8c detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

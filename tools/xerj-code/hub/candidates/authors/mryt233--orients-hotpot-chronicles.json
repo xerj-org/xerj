@@ -1,0 +1,23 @@
+{
+ "corpus": "mryt233--orients-hotpot-chronicles",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cooking, fabric, hotpot queries this for how mryt233/Orients-Hotpot-Chronicles implements it: Orient's Hotpot Chronicles\uff08\u4e4b\u6657\u7684\u706b\u9505\u7269\u8bed\uff09\u2014 A Minecraft hotpot cooking mod for Fabric, Forge and NeoForge. \u4e2d\u534e\u706b\u9505\u6587\u5316\u4e3b\u9898\u6a21\u7ec4\u3002 (selected work: common, the project root, archive)",
+ "repos": [
+  {
+   "repo": "Orients-Hotpot-Chronicles",
+   "url": "https://github.com/mryt233/Orients-Hotpot-Chronicles",
+   "sha": "5ef6b44b957ab47e1f513772cfa7cd27add73c27",
+   "licence": "author's permission (LICENSE at pin 5ef6b44b957a: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T20:04Z",
+    "consent_receipt": "99850ff6cf93",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T20:04Z (receipt 99850ff6cf93); selected commit 5ef6b44b957a: \"\u53d1\u5e03 0.2.0-alpha \u5e76\u6574\u7406\u516c\u5f00\u6587\u6863\". LICENSE at pin 5ef6b44b957a: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

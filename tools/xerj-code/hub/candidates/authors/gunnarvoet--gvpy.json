@@ -1,0 +1,30 @@
+{
+ "corpus": "gunnarvoet--gvpy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how gunnarvoet/gvpy implements it: Python module for data analysis and visualization. Use at own risk (selected work: src/gvpy, tests)",
+ "repos": [
+  {
+   "repo": "gvpy",
+   "url": "https://github.com/gunnarvoet/gvpy",
+   "sha": "498b7c0f29dddb36749f29e4677382634d3aa336",
+   "licence": "GPL-3.0 (LICENSE file at pin 498b7c0f29dd, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T19:49Z",
+    "consent_receipt": "4d9158d5c025",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T19:49Z (receipt 4d9158d5c025); selected commit 498b7c0f29dd: \"feat: add stats module\". LICENSE file at pin 498b7c0f29dd detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "498b7c0f29dddb36749f29e4677382634d3aa336",
+     "at": "2026-10-29T19:49Z",
+     "receipt": "4d9158d5c025"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "rhedak--anime-ai-companion",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, ai-companion, anime queries this for how rhedak/anime_ai_companion implements it: A face for your coding agent: a local, browser-based anime character drawn by code, fronting Claude Code, Cursor, opencode or Ollama, with a",
+ "repos": [
+  {
+   "repo": "anime_ai_companion",
+   "url": "https://github.com/rhedak/anime_ai_companion",
+   "sha": "b03afd6bbb698b8429c3eeec538eb0cae6db5447",
+   "licence": "MIT (LICENSE file at pin b03afd6bbb69, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T05:39Z",
+    "consent_receipt": "62b30ccba89a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T05:39Z (receipt 62b30ccba89a); pinned to the default-branch head. LICENSE file at pin b03afd6bbb69 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

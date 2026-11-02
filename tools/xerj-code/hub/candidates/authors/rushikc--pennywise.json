@@ -1,0 +1,23 @@
+{
+ "corpus": "rushikc--pennywise",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how rushikc/pennywise implements it: Pennywise is a open-source web application designed to track personal finances. It provides an intuitive platform to track, categorize, and  (selected work: src/pages, src/styles, src/components)",
+ "repos": [
+  {
+   "repo": "pennywise",
+   "url": "https://github.com/rushikc/pennywise",
+   "sha": "dd20845a211d2e7d732d15c0170ca29b3e2e81e4",
+   "licence": "MIT (LICENSE file at pin dd20845a211d, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T14:37Z",
+    "consent_receipt": "7fc87722d00c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T14:37Z (receipt 7fc87722d00c); selected commit dd20845a211d: \"feat: updated the desktop ui\". LICENSE file at pin dd20845a211d detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

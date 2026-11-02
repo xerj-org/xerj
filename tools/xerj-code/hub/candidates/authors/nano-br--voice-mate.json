@@ -1,0 +1,23 @@
+{
+ "corpus": "nano-br--voice-mate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on clipboard, cuda, faster-whisper queries this for how nano-br/voice-mate implements it: Voice assistant for Windows: press a hotkey, speak, and the transcription lands in your clipboard. Local Whisper with GPU acceleration. http (selected work: tests, app/companion, app/setup)",
+ "repos": [
+  {
+   "repo": "voice-mate",
+   "url": "https://github.com/nano-br/voice-mate",
+   "sha": "fe4f86097d9c2f59813b00bfc6a9a711b0c9ff14",
+   "licence": "MIT (LICENSE file at pin fe4f86097d9c, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T22:46Z",
+    "consent_receipt": "92893d7bccc9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:46Z (receipt 92893d7bccc9); selected commit fe4f86097d9c: \"feat(stt): switchable CPU and GPU speech-to-text modes with in-app in\u2026\". LICENSE file at pin fe4f86097d9c detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

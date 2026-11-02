@@ -1,0 +1,23 @@
+{
+ "corpus": "feardread--ps-hunter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on code queries this for how FearDread/PS_Hunter implements it: Web scraping bot to find PLAYSTATIONS",
+ "repos": [
+  {
+   "repo": "PS_Hunter",
+   "url": "https://github.com/FearDread/PS_Hunter",
+   "sha": "cdfb876053ce4532455df1db4201bc30c03ff789",
+   "licence": "GPL-3.0 (LICENSE file at pin cdfb876053ce, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T14:26Z",
+    "consent_receipt": "d9dd49248d3c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T14:26Z (receipt d9dd49248d3c); pinned to the default-branch head. LICENSE file at pin cdfb876053ce detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

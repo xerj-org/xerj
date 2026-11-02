@@ -1,0 +1,30 @@
+{
+ "corpus": "fovlin--mc-saver",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on mc-backup, minecraft queries this for how fovlin/mc-saver implements it: Selective Minecraft world backup tool in Go. Packs only the regions and files you choose into a dated ZIP (selected work: cmd, record, opt)",
+ "repos": [
+  {
+   "repo": "mc-saver",
+   "url": "https://github.com/fovlin/mc-saver",
+   "sha": "52abdd0daaf8a6d792a7108a5edbb5873d3a099a",
+   "licence": "GPL-3.0 (LICENSE file at pin 52abdd0daaf8, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T03:51Z",
+    "consent_receipt": "8298d29fce58",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T03:51Z (receipt 8298d29fce58); selected commit 52abdd0daaf8: \"Add terminal supports, ang change option name\". LICENSE file at pin 52abdd0daaf8 detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "52abdd0daaf8a6d792a7108a5edbb5873d3a099a",
+     "at": "2026-11-01T03:51Z",
+     "receipt": "8298d29fce58"
+    }
+   }
+  }
+ ]
+}

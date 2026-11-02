@@ -1,0 +1,23 @@
+{
+ "corpus": "yarneer--hertzmeshnet",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how yarneer/HertzMeshNet implements it: yarneer/HertzMeshNet (Rust) (selected work: crates/hzd, crates/hz)",
+ "repos": [
+  {
+   "repo": "HertzMeshNet",
+   "url": "https://github.com/yarneer/HertzMeshNet",
+   "sha": "ebae6294bd86be0af07c91c918bab7b54440f5f9",
+   "licence": "Apache-2.0 (LICENSE file at pin ebae6294bd86, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T06:46Z",
+    "consent_receipt": "5bf6deac043c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T06:46Z (receipt 5bf6deac043c); selected commit ebae6294bd86: \"feat(#84): diagnostics \u4e0e hz diagnostics\uff08\u8131\u654f\u8bca\u65ad\u5bfc\u51fa\uff0cMC-4\uff09\". LICENSE file at pin ebae6294bd86 detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "apratxxm--branchglance",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, claude-code, codex queries this for how apratxxm/branchglance implements it: Always-on-top Windows widget for Codex and Claude Code: every agent in one tree, which ones need you, and how much of your usage limits is l (selected work: tests, scripts, token_tracker)",
+ "repos": [
+  {
+   "repo": "branchglance",
+   "url": "https://github.com/apratxxm/branchglance",
+   "sha": "571b5e39406fc60baace207f5880e79252be7d01",
+   "licence": "MIT (LICENSE file at pin 571b5e39406f, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:13Z",
+    "consent_receipt": "24300edaafa8",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:13Z (receipt 24300edaafa8); selected commit 571b5e39406f: \"bg-codex: wrapper that links codex exec jobs to the Claude chat that \u2026\". LICENSE file at pin 571b5e39406f detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

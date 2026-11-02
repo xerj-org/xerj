@@ -1,0 +1,23 @@
+{
+ "corpus": "dilshanharshajith--telegramtools",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on telegram, telegram-automation, telegram-scraping queries this for how DilshanHarshajith/TelegramTools implements it: A comprehensive toolkit for Telegram automation, data scraping, and analysis using the Telethon library",
+ "repos": [
+  {
+   "repo": "TelegramTools",
+   "url": "https://github.com/DilshanHarshajith/TelegramTools",
+   "sha": "2525cbfa4c6f6aebc4692aedc0129cf7bde65c05",
+   "licence": "GPL-3.0 (LICENSE file at pin 2525cbfa4c6f, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T16:34Z",
+    "consent_receipt": "190d3d8d91ec",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T16:34Z (receipt 190d3d8d91ec); pinned to the default-branch head. LICENSE file at pin 2525cbfa4c6f detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

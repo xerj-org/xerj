@@ -1,0 +1,23 @@
+{
+ "corpus": "yaodashanren--pi-path-guard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how yaodashanren/pi-path-guard implements it: Path Guard for pi: 5 switchable protection modes (strict/normal/loose/trusted/naked) \u2014 block destructive commands, prevent accidental delete (selected work: extensions, tests)",
+ "repos": [
+  {
+   "repo": "pi-path-guard",
+   "url": "https://github.com/yaodashanren/pi-path-guard",
+   "sha": "72dbf800d2be946178e6f86b1c34987c2a0ed4d4",
+   "licence": "MIT (LICENSE file at pin 72dbf800d2be, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T02:45Z",
+    "consent_receipt": "cc3b47c34647",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T02:45Z (receipt cc3b47c34647); selected commit 72dbf800d2be: \"fix: inspect every shell redirect\". LICENSE file at pin 72dbf800d2be detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

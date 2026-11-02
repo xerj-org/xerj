@@ -1,0 +1,30 @@
+{
+ "corpus": "bigpizzav3--codexplusplus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how BigPizzaV3/CodexPlusPlus implements it: An enhanced tool for CodexApp, striving to make Codex better to use and more comfortable \u4e00\u4e2aCodexApp\u7684\u589e\u5f3a\u5de5\u5177\uff0c\u52aa\u529b\u8ba9Codex\u548c\u5176\u4ed6 AI Agent\u53d8\u5f97\u66f4\u597d\u7528\u66f4\u8212\u670d (selected work: crates/codex-plus-core, apps/codex-plus-manager)",
+ "repos": [
+  {
+   "repo": "CodexPlusPlus",
+   "url": "https://github.com/BigPizzaV3/CodexPlusPlus",
+   "sha": "cc77c5e50433d3b173ba27ac85c5db0d090358ea",
+   "licence": "AGPL-3.0 (LICENSE file at pin cc77c5e50433, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T04:03Z",
+    "consent_receipt": "68b4a336f6b5",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:03Z (receipt 68b4a336f6b5); selected commit cc77c5e50433: \"fix(proxy): \u628a\u4e0d\u5728\u4f9b\u5e94\u5546\u6a21\u578b\u5217\u8868\u91cc\u7684\u8bf7\u6c42\u6a21\u578b\u6539\u5199\u4e3a\u9ed8\u8ba4\u6a21\u578b\uff08#1183\uff09\". LICENSE file at pin cc77c5e50433 detected as AGPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "cc77c5e50433d3b173ba27ac85c5db0d090358ea",
+     "at": "2026-10-30T04:03Z",
+     "receipt": "68b4a336f6b5"
+    }
+   }
+  }
+ ]
+}

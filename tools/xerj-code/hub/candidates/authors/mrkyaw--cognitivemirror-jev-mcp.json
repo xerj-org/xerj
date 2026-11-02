@@ -8,15 +8,15 @@
   {
    "repo": "CognitiveMirror-Jev-MCP",
    "url": "https://github.com/MrKyaw/CognitiveMirror-Jev-MCP",
-   "sha": "ddefbc29c6f54dc145ffca7cc61901ee95dc4a1a",
-   "licence": "MIT (LICENSE file at pin ddefbc29c6f5, GitHub licence API 2026-10-29)",
+   "sha": "11b6de59b397e87e88dea37fa6e3f66858cf2ae0",
+   "licence": "MIT (LICENSE file at pin 11b6de59b397, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T01:15Z",
     "consent_receipt": "86c69dd7edbe",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T01:15Z (receipt 86c69dd7edbe); pinned to the default-branch head. LICENSE file at pin ddefbc29c6f5 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T01:15Z (receipt 86c69dd7edbe); pinned to the default-branch head. LICENSE file at pin 11b6de59b397 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
    }
   }
  ]

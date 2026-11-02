@@ -1,0 +1,23 @@
+{
+ "corpus": "vitaee--fastapiobserver",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on fastapi, logging, observability queries this for how Vitaee/FastapiObserver implements it: One-call observability for FastAPI: JSON logs, request IDs, Prometheus metrics and OpenTelemetry traces, with redaction on by default (selected work: examples, src/fastapiobserver, tests)",
+ "repos": [
+  {
+   "repo": "FastapiObserver",
+   "url": "https://github.com/Vitaee/FastapiObserver",
+   "sha": "ec080054469d612433e3e2826cbe460c37338b43",
+   "licence": "MIT (LICENSE file at pin ec080054469d, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T18:45Z",
+    "consent_receipt": "8e81b0ffbe2e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:45Z (receipt 8e81b0ffbe2e); selected commit ec080054469d: \"perf: cut per-request overhead and fix queued log records\". LICENSE file at pin ec080054469d detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

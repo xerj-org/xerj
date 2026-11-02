@@ -1,0 +1,23 @@
+{
+ "corpus": "feardread--1stchoice-solutions",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on CSS queries this for how FearDread/1stchoice.solutions implements it: 1stchoice business solutions",
+ "repos": [
+  {
+   "repo": "1stchoice.solutions",
+   "url": "https://github.com/FearDread/1stchoice.solutions",
+   "sha": "147896e4a5425e5ea6bb10dcbbd34042cdd03529",
+   "licence": "MIT (LICENSE file at pin 147896e4a542, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T14:26Z",
+    "consent_receipt": "fc1133f675ad",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T14:26Z (receipt fc1133f675ad); pinned to the default-branch head. LICENSE file at pin 147896e4a542 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

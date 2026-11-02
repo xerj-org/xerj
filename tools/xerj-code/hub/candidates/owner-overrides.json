@@ -1,0 +1,150 @@
+{
+ "_doc": "Owner-requested Corpus Hub changes re-applied after every outreach-pipeline refresh by owner_overrides.py (see its docstring). One record per corpus; add a record only for a change a maintainer approved in an issue.",
+ "overrides": [
+  {
+   "corpus": "mindemory--proxenos",
+   "issue": 2831,
+   "approved": "Approved by the maintainer; first applied in #2838, reverted by refreshes #2839/#2840, re-applied by owner_overrides.py.",
+   "request": "Owner (@mindemory): featured commit 22c400d (src/proxenos, replaces edf7162f15 from src/twin), example question about src/proxenos, pin to the latest commit on main, AI shelf (not API).",
+   "manifest": {
+    "domain": "an agent working on ai-agents, healthtech, local-first queries this for how mindemory/proxenos implements it: A free, open-source agent that keeps your own records private on your computer and drafts the next step for you. Built first for people getting through the health care system (selected work: src/proxenos, tests, docs)",
+    "repos.0.sha": "fcb6c04cf2173b46fe716315841a3becbf885462",
+    "repos.0.licence": "MIT (LICENSE file at pin fcb6c04cf217, GitHub licence API 2026-11-02)",
+    "repos.0.review.note": "Inclusion consented by the commit author by email at 2026-10-30T04:09Z (receipt d295ef904d42); selected commit 22c400d2bf48: \"Read medical records in FHIR from Apple Health's export and patient p…\" (chosen by the repository owner in #2831). LICENSE file at pin fcb6c04cf217 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to the default-branch head fcb6c04cf217 at the owner's request (#2831)."
+   },
+   "ledger": {
+    "contribution.commit": "22c400d2bf482cf9e39f8a90f5e862861780aaa3",
+    "contribution.commit_url": "https://github.com/mindemory/proxenos/commit/22c400d2bf482cf9e39f8a90f5e862861780aaa3",
+    "contribution.title": "Read medical records in FHIR from Apple Health's export and patient p…",
+    "contribution.committed_at": "2026-10-31T11:08:07Z",
+    "contribution.files": 5,
+    "contribution.lines": 1472,
+    "contribution.areas": [
+     "src/proxenos",
+     "tests",
+     "docs"
+    ],
+    "contribution.langs": [
+     "Python"
+    ],
+    "pin.sha": "fcb6c04cf2173b46fe716315841a3becbf885462",
+    "pin.to": "default-branch head (owner request, #2831)"
+   }
+  },
+  {
+   "corpus": "luminarisoftwares--context-guardian",
+   "issue": 2836,
+   "approved": "Approved by the maintainer; first applied in #2838, reverted by refreshes #2839/#2840, re-applied by owner_overrides.py.",
+   "request": "Owner (@LuminariSoftwares): whole repository at the default-branch head instead of the selected commit, weekly refresh like tool-/code-/stack-guardian; licence unchanged (MIT).",
+   "manifest": {
+    "domain": "an agent working on ai-tool, llm, local-llm queries this for how LuminariSoftwares/context-guardian implements it: Compaction for local models that actually fires and never bricks the session. OpenAI-compatible proxy + DeepSeek Harness engine",
+    "repos.0.sha": "19e1e7df4b3fb0a946fcb07d7f499010e2ef50fd",
+    "repos.0.licence": "MIT (LICENSE file at pin 19e1e7df4b3f, GitHub licence API 2026-11-02)",
+    "repos.0.review.note": "Inclusion consented by the repository owner by email at 2026-10-30T00:26Z (receipt e1b8bc25027c) and extended to the whole repository by the owner in #2836 (2026-11-01); pinned to the default-branch head. LICENSE file at pin 19e1e7df4b3f detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   },
+   "ledger": {
+    "consent.scope": "the whole repository, under the repository's licence, with attribution",
+    "contribution.commit": null,
+    "contribution.commit_url": null,
+    "contribution.title": null,
+    "contribution.committed_at": null,
+    "contribution.files": null,
+    "contribution.lines": null,
+    "contribution.areas": [],
+    "contribution.langs": [],
+    "pin.sha": "19e1e7df4b3fb0a946fcb07d7f499010e2ef50fd",
+    "pin.to": "default-branch head (whole repository, at the owner's request in #2836)"
+   },
+   "refresh": "weekly"
+  },
+  {
+   "corpus": "dimensionreset--personafolio",
+   "issue": 2793,
+   "replaces": "aquino-genesis--laspinas-ict10-q2project-aquino-genesis",
+   "approved": "Approved by the maintainer; first applied in #2838, reverted by refreshes #2839/#2840, re-applied by owner_overrides.py.",
+   "request": "Owner (@DimensionReset): credit moved to DimensionReset/Personafolio (same commit a95d8193d64d and tree, AGPL-3.0 at the pin).",
+   "manifest": {
+    "domain": "an agent working on HTML queries this for how DimensionReset/Personafolio implements it: DimensionReset/Personafolio (HTML) (selected work: scripts, the project root)",
+    "repos.0.repo": "Personafolio",
+    "repos.0.url": "https://github.com/DimensionReset/Personafolio",
+    "repos.0.review.note": "Inclusion consented by the commit author by email at 2026-10-24T17:49Z (receipt 804c702f6c47); selected commit a95d8193d64d: \"Split ALL OF THE CODE\". LICENSE file at pin a95d8193d64d detected as AGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution. Moved from aquino-genesis/LasPinas_ICT10_Q2Project_Aquino_Genesis to the author's own repository DimensionReset/Personafolio (same commit) at the author's request (#2793)."
+   },
+   "ledger": {
+    "repo": "DimensionReset/Personafolio",
+    "repo_url": "https://github.com/DimensionReset/Personafolio",
+    "contributor.owns_repo": true,
+    "contribution.commit_url": "https://github.com/DimensionReset/Personafolio/commit/a95d8193d64dcc491c12e8791e3ac49f81f8cafa",
+    "repo_stars": 0
+   }
+  },
+  {
+   "corpus": "bardelyne--start-everything",
+   "issue": 2583,
+   "approved": "Approved by the maintainer; first applied in #2838, reverted by refreshes #2839/#2840, re-applied by owner_overrides.py.",
+   "request": "Owner (@bardelyne): pin to the main head 5feb1966e035 (v2.1), GPL-3.0 at the pin.",
+   "manifest": {
+    "repos.0.sha": "5feb1966e035d4a2b4cd66ac2e43a35b40d04db6",
+    "repos.0.licence": "GPL-3.0 (LICENSE file at pin 5feb1966e035, GitHub licence API 2026-11-01)",
+    "repos.0.review.note": "Inclusion consented by the commit author by email at 2026-10-22T09:10Z (receipt 966f45a3c0b3); selected commit 3fbb8150facd: \"Use Windhawk storage for v2.0 material recovery and clean unload\". LICENSE file at pin 5feb1966e035 detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to the default-branch head 5feb1966e035 (v2.1) at the owner's request (#2583)."
+   },
+   "ledger": {
+    "pin.sha": "5feb1966e035d4a2b4cd66ac2e43a35b40d04db6",
+    "pin.to": "default-branch head (owner request, #2583)"
+   }
+  },
+  {
+   "corpus": "faruk-icn--gmlk",
+   "issue": 2573,
+   "approved": "Approved by the maintainer; first applied in #2838, reverted by refreshes #2839/#2840, re-applied by owner_overrides.py.",
+   "request": "Owner (@Faruk-Icn): repository renamed GML -> GMLK; pin to the main head 38f65d5b2e47, MIT at the pin.",
+   "manifest": {
+    "domain": "an agent working on luau, module-loader, roblox queries this for how Faruk-Icn/GMLK implements it: GMLK (Grumy's Module Loader Kit) - open-source Roblox Luau module loader and utility library (selected work: src/GMLK)",
+    "repos.0.repo": "GMLK",
+    "repos.0.url": "https://github.com/Faruk-Icn/GMLK",
+    "repos.0.sha": "38f65d5b2e479bf99cf9e591b5a43208c6e3c811",
+    "repos.0.licence": "MIT (LICENSE file at pin 38f65d5b2e47, GitHub licence API 2026-11-01)",
+    "repos.0.review.note": "Inclusion consented by the commit author by email at 2026-10-28T12:28Z (receipt f593c6c42083); selected commit b77721f9da66: \"Add shared GML utility modules\". LICENSE file at pin 38f65d5b2e47 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Repository renamed GML -> GMLK; pinned to the default-branch head 38f65d5b2e47 at the owner's request (#2573)."
+   },
+   "ledger": {
+    "repo": "Faruk-Icn/GMLK",
+    "repo_url": "https://github.com/Faruk-Icn/GMLK",
+    "contribution.commit_url": "https://github.com/Faruk-Icn/GMLK/commit/b77721f9da6628e8c20b7f090d2782afe98fbd33",
+    "contribution.areas": [
+     "src/GMLK"
+    ],
+    "pin.sha": "38f65d5b2e479bf99cf9e591b5a43208c6e3c811",
+    "pin.to": "default-branch head (owner request, #2573)"
+   }
+  },
+  {
+   "corpus": "emiliodominguez--tinkit",
+   "issue": 2518,
+   "approved": "Approved by the maintainer; first applied in #2838, reverted by refreshes #2839/#2840, re-applied by owner_overrides.py.",
+   "request": "Owner (@emiliodominguez): repository renamed js-helpers -> tinkit; pin unchanged.",
+   "manifest": {
+    "repos.0.repo": "tinkit",
+    "repos.0.url": "https://github.com/emiliodominguez/tinkit"
+   },
+   "ledger": {
+    "repo": "emiliodominguez/tinkit",
+    "repo_url": "https://github.com/emiliodominguez/tinkit",
+    "contribution.commit_url": "https://github.com/emiliodominguez/tinkit/commit/d7ef9694062054ea457cc63386e68630ebf76d5e"
+   }
+  },
+  {
+   "corpus": "ntumbah02-lang--ntumba-ia",
+   "issue": 2864,
+   "approved": "Owner change request approved under the maintainer's standing approval (Oct 31, 2026) for Corpus Hub owner requests.",
+   "request": "Owner (@ntumbah02-lang): keep the work listed, credited to @ntumbah02-lang (already the case), pin to the latest commit on main 744680f5db80 (MIT at the pin). The requested 'Lingala / Bantu low-resource language' category has no matching hub shelf; asked the owner in #2864.",
+   "manifest": {
+    "repos.0.sha": "744680f5db80f6854eabfaafbf9b6c3b810d28df",
+    "repos.0.licence": "MIT (LICENSE file at pin 744680f5db80, GitHub licence API 2026-11-02)",
+    "repos.0.review.note": "Inclusion consented by the commit author by email at 2026-10-18T16:49Z (receipt 253b6f8e8132); selected commit 447b11b01249: \"Ajouter MVP Chat (FastAPI backend + frontend) — OpenAI par défaut, UI…\". LICENSE file at pin 744680f5db80 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to the default-branch head 744680f5db80 at the owner's request (#2864)."
+   },
+   "ledger": {
+    "pin.sha": "744680f5db80f6854eabfaafbf9b6c3b810d28df",
+    "pin.to": "default-branch head (owner request, #2864)"
+   }
+  }
+ ]
+}

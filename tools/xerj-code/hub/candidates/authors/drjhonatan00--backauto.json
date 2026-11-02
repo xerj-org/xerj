@@ -1,0 +1,23 @@
+{
+ "corpus": "drjhonatan00--backauto",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how drJhonatan00/BackAuto implements it: BackAuto is a modern, lightweight, and efficient automated backup utility built with .NET 8 and Windows Forms. Designed for performance and ",
+ "repos": [
+  {
+   "repo": "BackAuto",
+   "url": "https://github.com/drJhonatan00/BackAuto",
+   "sha": "cae3f03be34fb42db5fe467dc232ecfe523a2220",
+   "licence": "MIT (LICENSE file at pin cae3f03be34f, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:39Z",
+    "consent_receipt": "fb8dee20b038",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T20:39Z (receipt fb8dee20b038); pinned to the default-branch head. LICENSE file at pin cae3f03be34f detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

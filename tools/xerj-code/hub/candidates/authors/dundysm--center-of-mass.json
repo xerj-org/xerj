@@ -1,0 +1,23 @@
+{
+ "corpus": "dundysm--center-of-mass",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on gaussian-splatting, humanoid, mujoco queries this for how dundysm/center-of-mass implements it: A live Unitree G1 in your 3D scan: drop in a Gaussian-splat room and the humanoid walks around it, with MuJoCo physics and its RL policy, in",
+ "repos": [
+  {
+   "repo": "center-of-mass",
+   "url": "https://github.com/dundysm/center-of-mass",
+   "sha": "a00633fd42655a0c931d40d34b50c3315b4a6fd5",
+   "licence": "Apache-2.0 (LICENSE file at pin a00633fd4265, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T14:55Z",
+    "consent_receipt": "16a0884e3968",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T14:55Z (receipt 16a0884e3968); pinned to the default-branch head. LICENSE file at pin a00633fd4265 detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

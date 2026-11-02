@@ -1,0 +1,23 @@
+{
+ "corpus": "thita-ai--shorts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how thita-ai/shorts implements it: The real code behind the thita.ai Shorts: every number in a video comes from running it (selected work: 011-slime-tokyo)",
+ "repos": [
+  {
+   "repo": "shorts",
+   "url": "https://github.com/thita-ai/shorts",
+   "sha": "f99a05e177c65539c2499ce8a3e03c54537bfd76",
+   "licence": "MIT (LICENSE file at pin f99a05e177c6, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T05:30Z",
+    "consent_receipt": "c19050359c08",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T05:30Z (receipt c19050359c08); selected commit f99a05e177c6: \"011 slime mold Tokyo: the 2010 flow model on real OSM geography, blob\u2026\". LICENSE file at pin f99a05e177c6 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

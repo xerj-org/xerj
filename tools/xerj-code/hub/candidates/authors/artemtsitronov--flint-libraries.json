@@ -1,0 +1,23 @@
+{
+ "corpus": "artemtsitronov--flint-libraries",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how artemtsitronov/flint-libraries implements it: A collection of libraries for the Flint programming language by programmersd21",
+ "repos": [
+  {
+   "repo": "flint-libraries",
+   "url": "https://github.com/artemtsitronov/flint-libraries",
+   "sha": "437a62acca9e447ab43d2ca35d3ae15727aaf277",
+   "licence": "MIT (LICENSE file at pin 437a62acca9e, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T08:49Z",
+    "consent_receipt": "4efe8cd3fdd1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T08:49Z (receipt 4efe8cd3fdd1); pinned to the default-branch head. LICENSE file at pin 437a62acca9e detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "artemtsitronov--glacex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on cargo, gpu, graphics queries this for how artemtsitronov/glacex implements it: GPU-Rendered UI library built from scratch in Rust",
+ "repos": [
+  {
+   "repo": "glacex",
+   "url": "https://github.com/artemtsitronov/glacex",
+   "sha": "1f9f373c1a14e8dd6a00205a2a15058ed15a60f0",
+   "licence": "MIT (LICENSE file at pin 1f9f373c1a14, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T08:49Z",
+    "consent_receipt": "3457097723a8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T08:49Z (receipt 3457097723a8); pinned to the default-branch head. LICENSE file at pin 1f9f373c1a14 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

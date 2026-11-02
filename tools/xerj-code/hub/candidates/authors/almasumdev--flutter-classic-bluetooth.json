@@ -8,15 +8,15 @@
   {
    "repo": "flutter_classic_bluetooth",
    "url": "https://github.com/almasumdev/flutter_classic_bluetooth",
-   "sha": "57bbbdc79703ee597effe9b6ebee01d61ac91617",
-   "licence": "MIT (LICENSE file at pin 57bbbdc79703, GitHub licence API 2026-10-28)",
+   "sha": "9d217a597c840965bb6e015c3da4c511d413bd82",
+   "licence": "MIT (LICENSE file at pin 9d217a597c84, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:30Z",
     "consent_receipt": "e4a74d2e4770",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:30Z (receipt e4a74d2e4770); pinned to the default-branch head. LICENSE file at pin 57bbbdc79703 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:30Z (receipt e4a74d2e4770); pinned to the default-branch head. LICENSE file at pin 9d217a597c84 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

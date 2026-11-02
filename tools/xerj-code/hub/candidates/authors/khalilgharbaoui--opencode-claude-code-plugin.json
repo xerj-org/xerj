@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-sdk, anthropic, claude queries this for how khalilgharbaoui/opencode-claude-code-plugin implements it: Use claude code in opencode officially (selected work: src, test, the project root)",
+ "domain": "an agent working on ai-sdk, anthropic, claude queries this for how khalilgharbaoui/opencode-claude-code-plugin implements it: Use claude code in opencode through the official claude cli (selected work: src, test, the project root)",
  "repos": [
   {
    "repo": "opencode-claude-code-plugin",

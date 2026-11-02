@@ -1,0 +1,23 @@
+{
+ "corpus": "bridge-ui--core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how Bridge-UI/core implements it: Bridge UI is a component library for React and Vue with a shared foundation (selected work: packages/core, packages/react, packages/vue)",
+ "repos": [
+  {
+   "repo": "core",
+   "url": "https://github.com/Bridge-UI/core",
+   "sha": "8a475dc9b1a45cfaa4bd5db85c6b91e7ba964070",
+   "licence": "MIT (LICENSE file at pin 8a475dc9b1a4, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T16:49Z",
+    "consent_receipt": "ad99f704bd8c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T16:49Z (receipt ad99f704bd8c); selected commit 8a475dc9b1a4: \"refactor(data-table): share header, cell, and summary view builders t\u2026\". LICENSE file at pin 8a475dc9b1a4 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "Apex",
    "url": "https://github.com/pathetictype-bit/Apex",
-   "sha": "f6162e759dbc71e70f679e33a3927e4d5b1d2526",
-   "licence": "Apache-2.0 (LICENSE file at pin f6162e759dbc, GitHub licence API 2026-10-24)",
+   "sha": "bd6b000abeb4c46b0c3157ed177b65cdf346a0fb",
+   "licence": "Apache-2.0 (LICENSE file at pin bd6b000abeb4, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-24T03:15Z",
     "consent_receipt": "e765889589f5",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T03:15Z (receipt e765889589f5); selected commit f6162e759dbc: \"Modified files (to fit PNSN)\". LICENSE file at pin f6162e759dbc detected as Apache-2.0 by the GitHub licence API on 2026-10-24; used under that licence with attribution. Pinned to head f6162e759dbc (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T03:15Z (receipt e765889589f5); selected commit bd6b000abeb4: \"Modified files (to fit PNSN)\". LICENSE file at pin bd6b000abeb4 detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution. Pinned to head bd6b000abeb4 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

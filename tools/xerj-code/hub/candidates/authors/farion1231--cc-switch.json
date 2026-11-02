@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-tools, claude-code, desktop-app queries this for how farion1231/cc-switch implements it: A cross-platform desktop All-in-One assistant for Claude Code, Codex, OpenCode, OpenClaw, Grok Build & Hermes Agent. Only official website:  (selected work: tests, src-tauri, src/hooks)",
+ "domain": "an agent working on ai-tools, claude-code, desktop-app queries this for how farion1231/cc-switch implements it: A cross-platform desktop All-in-One assistant for Claude Code, Codex, OpenCode,DeepSeek Harness and more. Only official website: ccswitch.io (selected work: tests, src-tauri, src/hooks)",
  "repos": [
   {
    "repo": "cc-switch",

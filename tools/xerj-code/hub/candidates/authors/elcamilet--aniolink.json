@@ -1,0 +1,23 @@
+{
+ "corpus": "elcamilet--aniolink",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on file-transfer, terminal queries this for how elcamilet/aniolink implements it: An I/O Link - Transferencia P2P sin almacenamiento en servidor. Terminal friendly! (selected work: backend, frontend)",
+ "repos": [
+  {
+   "repo": "aniolink",
+   "url": "https://github.com/elcamilet/aniolink",
+   "sha": "3a5788e176fa13e5e9784c9ad292a45776188d60",
+   "licence": "MIT (LICENSE file at pin 3a5788e176fa, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T23:15Z",
+    "consent_receipt": "8c337f2f47ea",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T23:15Z (receipt 8c337f2f47ea); selected commit 3a5788e176fa: \"feat: refactor-optimize-backend-performance implementado\". LICENSE file at pin 3a5788e176fa detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

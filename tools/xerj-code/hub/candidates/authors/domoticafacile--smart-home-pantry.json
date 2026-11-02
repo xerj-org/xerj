@@ -1,0 +1,23 @@
+{
+ "corpus": "domoticafacile--smart-home-pantry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on domotica, domoticafacile, hacs queries this for how DomoticaFacile/smart_home_pantry implements it: A custom integration to manage your food pantry in Home Assistant and keep everything under control (selected work: custom_components)",
+ "repos": [
+  {
+   "repo": "smart_home_pantry",
+   "url": "https://github.com/DomoticaFacile/smart_home_pantry",
+   "sha": "40468a8dfec80a4f2362dc0f8748d196e34ab41a",
+   "licence": "MIT (LICENSE file at pin 40468a8dfec8, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:14Z",
+    "consent_receipt": "e19d34539254",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T20:14Z (receipt e19d34539254); selected commit 40468a8dfec8: \"Add files via upload\". LICENSE file at pin 40468a8dfec8 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "tedliosu--cloud-rocm-env-setup",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on amdgpu, automation, hpc queries this for how tedliosu/cloud_rocm_env_setup implements it: Scripts/code used for automation of custom environment setup for ROCm workloads in cloud (selected work: setup)",
+ "repos": [
+  {
+   "repo": "cloud_rocm_env_setup",
+   "url": "https://github.com/tedliosu/cloud_rocm_env_setup",
+   "sha": "6003e16742b34134dc63bb951fff8c5efc4213ad",
+   "licence": "Apache-2.0 (LICENSE file at pin 6003e16742b3, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:49Z",
+    "consent_receipt": "5f16f6967d44",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:49Z (receipt 5f16f6967d44); selected commit 6003e16742b3: \"Split DevCloud driver from ROCm userland\". LICENSE file at pin 6003e16742b3 detected as Apache-2.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "xianull--rgtop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how xianull/rgtop implements it: btop-style live GPU/CPU dashboard for remote NVIDIA servers over SSH (selected work: src, the project root)",
+ "repos": [
+  {
+   "repo": "rgtop",
+   "url": "https://github.com/xianull/rgtop",
+   "sha": "5a7b6e52cae3ad839089431856493becc795a48d",
+   "licence": "MIT (LICENSE file at pin 5a7b6e52cae3, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T04:41Z",
+    "consent_receipt": "d5ee1a490a8a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:41Z (receipt d5ee1a490a8a); selected commit 5a7b6e52cae3: \"rgtop 4.0: rename, NVML agent, CPU panel, 100 ms refresh\". LICENSE file at pin 5a7b6e52cae3 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

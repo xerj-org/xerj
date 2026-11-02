@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Julia queries this for how jowch/Masque.jl implements it: jowch/Masque.jl (Julia) (selected work: frontend, test, src/events)",
+ "domain": "an agent working on data-visualization, interactive-plots, julia queries this for how jowch/Masque.jl implements it: Light, server-free interactivity for Makie plots in Pluto (selected work: frontend, test, src/events)",
  "repos": [
   {
    "repo": "Masque.jl",

@@ -1,0 +1,23 @@
+{
+ "corpus": "cleitonleonel--academicmanager",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how cleitonleonel/AcademicManager implements it: Ferramenta Python com foco na gera\u00e7\u00e3o de trabalhos acad\u00eamicos em PDF (selected work: academic_manager, the project root, tests)",
+ "repos": [
+  {
+   "repo": "AcademicManager",
+   "url": "https://github.com/cleitonleonel/AcademicManager",
+   "sha": "01bf0d12b9b985cabc1f81efe6187e527cf5ab15",
+   "licence": "MIT (LICENSE file at pin 01bf0d12b9b9, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T16:05Z",
+    "consent_receipt": "13eea59c99f7",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T16:05Z (receipt 13eea59c99f7); selected commit 01bf0d12b9b9: \":rocket: feat: adiciona suporte \u00e0 gera\u00e7\u00e3o de arquivos PPTX e atualiza\u2026\". LICENSE file at pin 01bf0d12b9b9 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Rust queries this for how eyotang/Metra implements it: A lightweight cross-platform desktop bubble for checking Cursor, Codex, and Claude Code sign-in status, usage limits, reset times, token tot (selected work: integrations, scripts, src-tauri)",
+ "domain": "an agent working on Rust queries this for how eyotang/Metra implements it: Lightweight cross-platform desktop bubble for Cursor, Codex, and Claude Code sign-in status, usage limits, resets, token totals, and availab (selected work: integrations, scripts, src-tauri)",
  "repos": [
   {
    "repo": "Metra",

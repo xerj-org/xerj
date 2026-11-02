@@ -1,0 +1,23 @@
+{
+ "corpus": "tumiqa--vn-annual-report-miner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Tumiqa/vn-annual-report-miner implements it: C\u00f4ng c\u1ee5 khai ph\u00e1 d\u1eef li\u1ec7u B\u00e1o c\u00e1o Th\u01b0\u1eddng ni\u00ean & BCTC Doanh nghi\u1ec7p ni\u00eam y\u1ebft Vi\u1ec7t Nam (selected work: src/arminer)",
+ "repos": [
+  {
+   "repo": "vn-annual-report-miner",
+   "url": "https://github.com/Tumiqa/vn-annual-report-miner",
+   "sha": "f88d54a45a08f97b4c438ecbea4ef18cf8451268",
+   "licence": "MIT (LICENSE file at pin f88d54a45a08, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T17:41Z",
+    "consent_receipt": "9e0c5bc5a59f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T17:41Z (receipt 9e0c5bc5a59f); selected commit f88d54a45a08: \"fix(concurrency): serialize MuPDF C-extension calls via PYMUPDF_LOCK \u2026\". LICENSE file at pin f88d54a45a08 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

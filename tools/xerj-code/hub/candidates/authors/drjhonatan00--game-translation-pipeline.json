@@ -1,0 +1,23 @@
+{
+ "corpus": "drjhonatan00--game-translation-pipeline",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WRITE",
+ "domain": "an agent working on Python queries this for how drJhonatan00/Game_Translation_Pipeline implements it: A high-performance, offline game translation framework built in Python. Powered by CTranslate2 (INT8 quantization) and Helsinki-NLP neural m",
+ "repos": [
+  {
+   "repo": "Game_Translation_Pipeline",
+   "url": "https://github.com/drJhonatan00/Game_Translation_Pipeline",
+   "sha": "5244da7f053dab43b864210d402b7bfa1fd84794",
+   "licence": "MIT (LICENSE file at pin 5244da7f053d, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:39Z",
+    "consent_receipt": "72e94baa07ec",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T20:39Z (receipt 72e94baa07ec); pinned to the default-branch head. LICENSE file at pin 5244da7f053d detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

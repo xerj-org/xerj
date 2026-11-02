@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "SEC",
- "domain": "an agent working on api-testing, dns-lookup, http-client queries this for how FreshLend/O.N.Y.X. implements it: SWARM / O.N.Y.X. \u2014 a modular toolkit for network analysis (selected work: modules/vault, modules/http_client, modules/collections)",
+ "domain": "an agent working on api-testing, dns-lookup, http-client queries this for how FreshLend/O.N.Y.X. implements it: SWARM / O.N.Y.X. - a modular toolkit for network analysis (selected work: modules/vault, modules/http_client, modules/collections)",
  "repos": [
   {
    "repo": "O.N.Y.X.",

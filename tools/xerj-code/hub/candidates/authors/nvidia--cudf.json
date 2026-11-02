@@ -1,0 +1,23 @@
+{
+ "corpus": "nvidia--cudf",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on gpu, rapids, cudf queries this for how NVIDIA/cudf implements it: cuDF - GPU DataFrame Library (selected work: python)",
+ "repos": [
+  {
+   "repo": "cudf",
+   "url": "https://github.com/NVIDIA/cudf",
+   "sha": "e0dcaf69d171b6d8fc44fdc157f798046692b5f0",
+   "licence": "Apache-2.0 (LICENSE file at pin e0dcaf69d171, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T04:10Z",
+    "consent_receipt": "391e52323e8e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:10Z (receipt 391e52323e8e); selected commit e0dcaf69d171: \"Preserve row order for ordered multi-rank Union (#24685)\". LICENSE file at pin e0dcaf69d171 detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

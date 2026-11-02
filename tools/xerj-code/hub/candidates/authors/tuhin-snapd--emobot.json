@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--emobot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Tuhin-SnapD/EmoBot implements it: An intelligent chatbot system that detects emotions from user text input using advanced Machine Learning, Deep Learning, and Natural Languag",
+ "repos": [
+  {
+   "repo": "EmoBot",
+   "url": "https://github.com/Tuhin-SnapD/EmoBot",
+   "sha": "9da68a194cd579cda8db91adf31d2fda73d10093",
+   "licence": "author's permission (LICENSE at pin 9da68a194cd5: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:30Z",
+    "consent_receipt": "e53924c15ab3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:30Z (receipt e53924c15ab3); pinned to the default-branch head. LICENSE at pin 9da68a194cd5: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

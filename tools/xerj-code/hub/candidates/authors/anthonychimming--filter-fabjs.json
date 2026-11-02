@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on filter-factory, graphics, image-filters queries this for how anthonychimming/filter-fabjs implements it: Browser-native procedural image filter editor with WebGPU acceleration, CPU fallback, and Filter Factory-style expressions (selected work: src/presets, tests)",
+ "domain": "an agent working on filter-factory, graphics, image-filters queries this for how anthonychimming/filter-fabjs implements it: ChromaMeld RGBA \u2014 a free browser-based procedural image filter editor with WebGPU acceleration, customizable RGBA effects, and Filter Factor (selected work: src/presets, tests)",
  "repos": [
   {
    "repo": "filter-fabjs",

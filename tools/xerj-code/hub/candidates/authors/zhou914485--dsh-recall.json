@@ -1,0 +1,23 @@
+{
+ "corpus": "zhou914485--dsh-recall",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on chat-ui, deepseek-harness, dsh queries this for how zhou914485/dsh-recall implements it: DSH \u63d2\u4ef6\uff1a\u64a4\u56de\u4f1a\u8bdd\u91cc\u7684\u4e0a\u4e00\u6761\u6d88\u606f\u2014\u2014\u6a21\u578b\u5fd8\u8bb0\u5b83\uff0c\u754c\u9762\u6536\u8d77\u5b83\uff0c\u539f\u6587\u56de\u5230\u8f93\u5165\u6846\u3002 (selected work: the project root, test)",
+ "repos": [
+  {
+   "repo": "dsh-recall",
+   "url": "https://github.com/zhou914485/dsh-recall",
+   "sha": "8f70ec22397c0a91d308ac33ab3e18dceadcb1c2",
+   "licence": "MIT (LICENSE file at pin 8f70ec22397c, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:59Z",
+    "consent_receipt": "a254d285c08c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:59Z (receipt a254d285c08c); selected commit 8f70ec22397c: \"fix: \u64a4\u56de\u5893\u7891\u5199\u5165\u6253\u5f00\u7684 step\uff08\u56de\u5408\u7ed3\u675f\u540e\u5ef6\u540e\u8865\u5199\uff09\". LICENSE file at pin 8f70ec22397c detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

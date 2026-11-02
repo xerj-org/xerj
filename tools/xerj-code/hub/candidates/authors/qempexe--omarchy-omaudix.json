@@ -2,8 +2,8 @@
  "corpus": "qempexe--omarchy-omaudix",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how qempexe/omarchy-omaudix implements it: Now-playing music widget featuring 24 visualizers, 11 color modes, album artwork, saved styles and a settings panel (selected work: qml)",
+ "shelf": "NET",
+ "domain": "an agent working on audio-visualizer, hyprland, linux queries this for how qempexe/omarchy-omaudix implements it: Now-playing music widget featuring 24 visualizers, 11 color modes, album artwork, saved styles and a settings panel (selected work: qml)",
  "repos": [
   {
    "repo": "omarchy-omaudix",

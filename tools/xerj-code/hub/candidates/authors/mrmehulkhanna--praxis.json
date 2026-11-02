@@ -1,0 +1,23 @@
+{
+ "corpus": "mrmehulkhanna--praxis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-safety, linux, llm queries this for how MrMehulkhanna/praxis implements it: A local-first AI operating environment for Linux (selected work: iso)",
+ "repos": [
+  {
+   "repo": "praxis",
+   "url": "https://github.com/MrMehulkhanna/praxis",
+   "sha": "f7d0381f1cda0717f0db62d51869d62758086682",
+   "licence": "MIT (LICENSE file at pin f7d0381f1cda, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T18:36Z",
+    "consent_receipt": "ff3174be636c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:36Z (receipt ff3174be636c); selected commit f7d0381f1cda: \"feat(bluetooth): add automated D-Bus keyboard pairing agent and praxi\u2026\". LICENSE file at pin f7d0381f1cda detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

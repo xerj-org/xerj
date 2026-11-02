@@ -1,0 +1,23 @@
+{
+ "corpus": "antonio-mello-ai--mcp-slack",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on felhen, mcp-server queries this for how antonio-mello-ai/mcp-slack implements it: MCP server for slack",
+ "repos": [
+  {
+   "repo": "mcp-slack",
+   "url": "https://github.com/antonio-mello-ai/mcp-slack",
+   "sha": "d451a2bfc732cefd23a97e52a2e9c1ba2cb1e75a",
+   "licence": "MIT (LICENSE file at pin d451a2bfc732, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T12:17Z",
+    "consent_receipt": "7cd0f702d730",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T12:17Z (receipt 7cd0f702d730); pinned to the default-branch head. LICENSE file at pin d451a2bfc732 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

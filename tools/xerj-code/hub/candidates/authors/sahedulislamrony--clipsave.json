@@ -1,0 +1,30 @@
+{
+ "corpus": "sahedulislamrony--clipsave",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ffmpeg, kotlin-android, yt-dlp queries this for how sahedulislamrony/ClipSave implements it: A free, open-source video downloader for Android with a share-sheet workflow \u2014 no ads, no analytics, no trackers (selected work: app/src)",
+ "repos": [
+  {
+   "repo": "ClipSave",
+   "url": "https://github.com/sahedulislamrony/ClipSave",
+   "sha": "dd5395a70392c53aadec825bd32d300fd1ccea56",
+   "licence": "GPL-3.0 (LICENSE file at pin dd5395a70392, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T09:29Z",
+    "consent_receipt": "c9c35c608922",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T09:29Z (receipt c9c35c608922); selected commit dd5395a70392: \"Preview Instagram and Facebook links while their qualities load\". LICENSE file at pin dd5395a70392 detected as GPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "dd5395a70392c53aadec825bd32d300fd1ccea56",
+     "at": "2026-10-31T09:29Z",
+     "receipt": "c9c35c608922"
+    }
+   }
+  }
+ ]
+}

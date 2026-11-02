@@ -1,0 +1,30 @@
+{
+ "corpus": "harsh-vardhan09--athlead",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on machine-learning, reactjs, tailwindcss queries this for how Harsh-vardhan09/AthLead implements it: AI-powered sports talent discovery & ranking platform built for SIH 2025 \u2014 Ministry of Youth Affairs & Sports, Government of India (selected work: Backend, Athlead-client)",
+ "repos": [
+  {
+   "repo": "AthLead",
+   "url": "https://github.com/Harsh-vardhan09/AthLead",
+   "sha": "7c7459718300700da040a0a4bdab49465dce0ee8",
+   "licence": "GPL-3.0 (LICENSE file at pin 7c7459718300, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T06:58Z",
+    "consent_receipt": "a649e8142cbc",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T06:58Z (receipt a649e8142cbc); selected commit 7c7459718300: \"feat(events): add endpoint and UI to cancel event registration (#275)\". LICENSE file at pin 7c7459718300 detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "7c7459718300700da040a0a4bdab49465dce0ee8",
+     "at": "2026-10-30T06:58Z",
+     "receipt": "a649e8142cbc"
+    }
+   }
+  }
+ ]
+}

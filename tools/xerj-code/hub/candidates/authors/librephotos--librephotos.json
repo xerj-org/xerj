@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on photo, selfhosted, exif queries this for how LibrePhotos/librephotos implements it: A self-hosted open source photo management service (selected work: apps/frontend)",
+ "domain": "an agent working on selfhosted, machine-learning, python queries this for how LibrePhotos/librephotos implements it: A self-hosted open source photo management service (selected work: apps/frontend)",
  "repos": [
   {
    "repo": "librephotos",

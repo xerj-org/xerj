@@ -1,0 +1,30 @@
+{
+ "corpus": "fraiocc--frpass",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on minecraft, battlepass, fraio queries this for how fraiocc/frpass implements it: Advanced, completely customizable packet-based Battlepass (selected work: src/main, the project root)",
+ "repos": [
+  {
+   "repo": "frpass",
+   "url": "https://github.com/fraiocc/frpass",
+   "sha": "e6a3be9b1d48be98a77cf67c385dc428df02b510",
+   "licence": "LGPL-3.0 (LICENSE file at pin e6a3be9b1d48, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "LGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T18:05Z",
+    "consent_receipt": "856ca5d18b0c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:05Z (receipt 856ca5d18b0c); selected commit e6a3be9b1d48: \"feat: Version 1.0.0 - Folia thread-safety, exploit fixes, MariaDB/Pos\u2026\". LICENSE file at pin e6a3be9b1d48 detected as LGPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "e6a3be9b1d48be98a77cf67c385dc428df02b510",
+     "at": "2026-10-29T18:05Z",
+     "receipt": "856ca5d18b0c"
+    }
+   }
+  }
+ ]
+}

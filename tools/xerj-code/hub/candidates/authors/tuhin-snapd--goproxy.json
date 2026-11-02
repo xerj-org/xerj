@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--goproxy",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Go queries this for how Tuhin-SnapD/GoProxy implements it: GoProxy is a web server that acts as a middleman between your computer and other websites. Think of it like a smart assistant that helps mak",
+ "repos": [
+  {
+   "repo": "GoProxy",
+   "url": "https://github.com/Tuhin-SnapD/GoProxy",
+   "sha": "1f1a39a984348067278a25257d58ed0425523808",
+   "licence": "author's permission (LICENSE at pin 1f1a39a98434: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:29Z",
+    "consent_receipt": "6655ef720c0f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:29Z (receipt 6655ef720c0f); pinned to the default-branch head. LICENSE at pin 1f1a39a98434: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "jannekbuengener--sample-brain-analysis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how jannekbuengener/sample-brain-analysis implements it: Offline-first analysis library extracted from Sample Brain",
+ "repos": [
+  {
+   "repo": "sample-brain-analysis",
+   "url": "https://github.com/jannekbuengener/sample-brain-analysis",
+   "sha": "c5f12df100f14a13e1af4945de00dfecdf9adc41",
+   "licence": "author's permission (LICENSE at pin c5f12df100f1: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T00:06Z",
+    "consent_receipt": "642741d1eeaf",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T00:06Z (receipt 642741d1eeaf); pinned to the default-branch head. LICENSE at pin c5f12df100f1: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

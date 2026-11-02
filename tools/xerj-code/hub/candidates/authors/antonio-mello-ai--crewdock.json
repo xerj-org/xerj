@@ -1,0 +1,23 @@
+{
+ "corpus": "antonio-mello-ai--crewdock",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-orchestration, ai-agents, fastapi queries this for how antonio-mello-ai/crewdock implements it: Open-source self-hosted control plane for focused AI agents: roles, tasks, approvals, knowledge context, activity and cost visibility. Built",
+ "repos": [
+  {
+   "repo": "crewdock",
+   "url": "https://github.com/antonio-mello-ai/crewdock",
+   "sha": "425c5cefdf659e246a1bdeef7da157eda85c0d1f",
+   "licence": "MIT (LICENSE file at pin 425c5cefdf65, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T12:17Z",
+    "consent_receipt": "035e706a6c7a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T12:17Z (receipt 035e706a6c7a); pinned to the default-branch head. LICENSE file at pin 425c5cefdf65 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

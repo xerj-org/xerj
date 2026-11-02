@@ -1,0 +1,23 @@
+{
+ "corpus": "kaiqiliu-lkq--low-rank-iteration-method-for-topological-surface-states",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on MATLAB queries this for how KaiqiLiu-LKQ/Low-Rank-Iteration-Method-for-Topological-Surface-States implements it: Source Code for the paper \"Low-Rank Iteration for Efficient Calculations of Topological Surface States\" (selected work: example_6, example_2, example_3)",
+ "repos": [
+  {
+   "repo": "Low-Rank-Iteration-Method-for-Topological-Surface-States",
+   "url": "https://github.com/KaiqiLiu-LKQ/Low-Rank-Iteration-Method-for-Topological-Surface-States",
+   "sha": "cce678a48d04a51132d50330c555b6f8e5750d5e",
+   "licence": "MIT (LICENSE file at pin cce678a48d04, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T03:08Z",
+    "consent_receipt": "535b106093bf",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T03:08Z (receipt 535b106093bf); pinned to the default-branch head. LICENSE file at pin cce678a48d04 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

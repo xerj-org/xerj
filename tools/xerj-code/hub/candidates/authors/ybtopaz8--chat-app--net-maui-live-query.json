@@ -1,0 +1,23 @@
+{
+ "corpus": "ybtopaz8--chat-app--net-maui-live-query",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C# queries this for how YBTopaz8/Chat-App-.NET-MAUI-LIVE-QUERY implements it: A Sample repo to implement Live Queries through the PARSE SDK in .NET 9 MAUI",
+ "repos": [
+  {
+   "repo": "Chat-App-.NET-MAUI-LIVE-QUERY",
+   "url": "https://github.com/YBTopaz8/Chat-App-.NET-MAUI-LIVE-QUERY",
+   "sha": "1eb2ae3fb17ba6bd2c3f3a58f18fef9823049c0a",
+   "licence": "MIT (LICENSE file at pin 1eb2ae3fb17b, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T07:16Z",
+    "consent_receipt": "857ae2f39aec",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T07:16Z (receipt 857ae2f39aec); pinned to the default-branch head. LICENSE file at pin 1eb2ae3fb17b detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

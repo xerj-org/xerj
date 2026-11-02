@@ -1,0 +1,23 @@
+{
+ "corpus": "codevalai--moltbook-sata",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how codevalai/moltbook-sata implements it: Bounty",
+ "repos": [
+  {
+   "repo": "moltbook-sata",
+   "url": "https://github.com/codevalai/moltbook-sata",
+   "sha": "ba25d07fea7aa8d87bd1994bc2b10bdc2de6963a",
+   "licence": "author's permission (LICENSE at pin ba25d07fea7a: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T13:37Z",
+    "consent_receipt": "869f3c6a9a20",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T13:37Z (receipt 869f3c6a9a20); pinned to the default-branch head. LICENSE at pin ba25d07fea7a: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

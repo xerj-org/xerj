@@ -1,0 +1,23 @@
+{
+ "corpus": "ipgeolocation--cli",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on abuse-contact, cli, command-line queries this for how IPGeolocation/cli implements it: IPGeolocation.io Command Line Tool (CLI) for fast IP lookups with threat intelligence, timezone, user-agent, and astronomy endpoints (selected work: cmd, internal/utils, internal/config)",
+ "repos": [
+  {
+   "repo": "cli",
+   "url": "https://github.com/IPGeolocation/cli",
+   "sha": "b896871d2b73ef0cbf1d965bfb036d917260fa1c",
+   "licence": "MIT (LICENSE file at pin b896871d2b73, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T20:42Z",
+    "consent_receipt": "99908cfd8435",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:42Z (receipt 99908cfd8435); selected commit b896871d2b73: \"Fix CLI request security and validate release builds\". LICENSE file at pin b896871d2b73 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

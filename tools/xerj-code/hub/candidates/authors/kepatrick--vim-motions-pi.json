@@ -1,0 +1,23 @@
+{
+ "corpus": "kepatrick--vim-motions-pi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, pi queries this for how kepatrick/vim-motions-pi implements it: A focused Vim-style editing layer for pi: fast motions, text objects, visual selections, and optional clipboard sync (selected work: extensions, the project root)",
+ "repos": [
+  {
+   "repo": "vim-motions-pi",
+   "url": "https://github.com/kepatrick/vim-motions-pi",
+   "sha": "b0416da4086417d88aa90847b424de0db495d441",
+   "licence": "MIT (LICENSE file at pin b0416da40864, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T02:39Z",
+    "consent_receipt": "4ab553aed28d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T02:39Z (receipt 4ab553aed28d); selected commit b0416da40864: \"feat: add persistent Vim settings and native terminal cursors\". LICENSE file at pin b0416da40864 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

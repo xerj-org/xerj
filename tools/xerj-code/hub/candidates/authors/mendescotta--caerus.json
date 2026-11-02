@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on package-manager, void, void-linux queries this for how mendescotta/Caerus implements it: A modern GTK4 package manager for Void and Chimera Linux (selected work: caerus)",
+ "domain": "an agent working on package-manager, void, void-linux queries this for how mendescotta/Caerus implements it: A modern GTK4 package manager for Void, Alpine and Chimera Linux (selected work: caerus)",
  "repos": [
   {
    "repo": "Caerus",

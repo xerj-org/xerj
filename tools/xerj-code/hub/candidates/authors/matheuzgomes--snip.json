@@ -1,0 +1,23 @@
+{
+ "corpus": "matheuzgomes--snip",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, command-line-interface, go queries this for how matheuzgomes/Snip implements it: A fast and efficient command-line note-taking tool built with Go. Snip helps you capture, organize, and search your notes",
+ "repos": [
+  {
+   "repo": "Snip",
+   "url": "https://github.com/matheuzgomes/Snip",
+   "sha": "d112111b9936935f280c9740eca9c1131e195c75",
+   "licence": "MIT (LICENSE file at pin d112111b9936, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T00:40Z",
+    "consent_receipt": "f982bff0b90f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T00:40Z (receipt f982bff0b90f); pinned to the default-branch head. LICENSE file at pin d112111b9936 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

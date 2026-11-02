@@ -1,0 +1,30 @@
+{
+ "corpus": "goodmanbcn10--the-goonies-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how GoodmanBCN10/The-Goonies-APP implements it: Instalador de contenido para Nintendo Switch con interfaz SDL2 propia. Para la comunidad Switch ES \u2014 The Goonies OS (selected work: source, the project root)",
+ "repos": [
+  {
+   "repo": "The-Goonies-APP",
+   "url": "https://github.com/GoodmanBCN10/The-Goonies-APP",
+   "sha": "d9b34c954dd7bf7fd47816dad4c124b3bd5b443c",
+   "licence": "GPL-2.0 (LICENSE file at pin d9b34c954dd7, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "GPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T09:36Z",
+    "consent_receipt": "209d9ec61808",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T09:36Z (receipt 209d9ec61808); selected commit d9b34c954dd7: \"Fix BottomBar position, empty state focus, and bundle romfs versions.\u2026\". LICENSE file at pin d9b34c954dd7 detected as GPL-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "d9b34c954dd7bf7fd47816dad4c124b3bd5b443c",
+     "at": "2026-10-30T09:36Z",
+     "receipt": "209d9ec61808"
+    }
+   }
+  }
+ ]
+}

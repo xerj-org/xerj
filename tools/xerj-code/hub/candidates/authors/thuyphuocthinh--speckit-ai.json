@@ -1,0 +1,23 @@
+{
+ "corpus": "thuyphuocthinh--speckit-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how thuyphuocthinh/speckit-ai implements it: thuyphuocthinh/speckit-ai (JavaScript) (selected work: templates, src, tests)",
+ "repos": [
+  {
+   "repo": "speckit-ai",
+   "url": "https://github.com/thuyphuocthinh/speckit-ai",
+   "sha": "8366a6fc1ad9ff099ff70f3f8e164e4a9175cc7c",
+   "licence": "MIT (LICENSE file at pin 8366a6fc1ad9, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T01:34Z",
+    "consent_receipt": "bfa7de5e019b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T01:34Z (receipt bfa7de5e019b); selected commit 8366a6fc1ad9: \"feat: add agent harness, golden reference patterns, and git worktree \u2026\". LICENSE file at pin 8366a6fc1ad9 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on android, android-library, bridge queries this for how easyhooon/dari implements it: Android library for inspecting WebView bridge messages in real time, inspired by Chucker (selected work: dari-desktop-app, gradle)",
+ "domain": "an agent working on android, android-library, bridge queries this for how easyhooon/dari implements it: Inspect WebView bridge messages in Android and iOS apps in real time, inspired by Chucker (selected work: dari-desktop-app, gradle)",
  "repos": [
   {
    "repo": "dari",

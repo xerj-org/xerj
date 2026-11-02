@@ -1,0 +1,23 @@
+{
+ "corpus": "psymoniko--voice-assistant",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how PsymoNiko/voice-assistant implements it: local Voice assistant (selected work: apps/cafe_research, tests, the project root)",
+ "repos": [
+  {
+   "repo": "voice-assistant",
+   "url": "https://github.com/PsymoNiko/voice-assistant",
+   "sha": "1bf7da4628e87f772e75ab84b443195006058f57",
+   "licence": "MIT (LICENSE file at pin 1bf7da4628e8, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T17:59Z",
+    "consent_receipt": "a97d4f9b151e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T17:59Z (receipt a97d4f9b151e); selected commit 1bf7da4628e8: \"before make it general\". LICENSE file at pin 1bf7da4628e8 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

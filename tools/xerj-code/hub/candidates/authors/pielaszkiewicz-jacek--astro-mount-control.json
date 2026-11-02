@@ -1,0 +1,23 @@
+{
+ "corpus": "pielaszkiewicz-jacek--astro-mount-control",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how pielaszkiewicz-jacek/astro_mount_control implements it: pielaszkiewicz-jacek/astro_mount_control (C++) (selected work: scripts, the project root, web)",
+ "repos": [
+  {
+   "repo": "astro_mount_control",
+   "url": "https://github.com/pielaszkiewicz-jacek/astro_mount_control",
+   "sha": "a2adbb68414ec2a1805830958b40559cc4f23c3c",
+   "licence": "MIT (LICENSE file at pin a2adbb68414e, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:01Z",
+    "consent_receipt": "bccc7f852acc",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:01Z (receipt bccc7f852acc); selected commit a2adbb68414e: \"Zmiana struktury katalogu konfiguracji\". LICENSE file at pin a2adbb68414e detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

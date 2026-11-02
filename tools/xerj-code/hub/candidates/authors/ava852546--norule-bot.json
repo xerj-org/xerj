@@ -1,0 +1,30 @@
+{
+ "corpus": "ava852546--norule-bot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how ava852546/Norule-Bot implements it: Discord Bot \u97f3\u6a02\u8207\u4f3a\u670d\u5668\u7ba1\u7406\u6a5f\u5668\u4eba (selected work: src/main, src/test, the project root)",
+ "repos": [
+  {
+   "repo": "Norule-Bot",
+   "url": "https://github.com/ava852546/Norule-Bot",
+   "sha": "69316579abd250c69e917103a8bd4e784ddd9c9e",
+   "licence": "GPL-3.0 (LICENSE file at pin 69316579abd2, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T12:06Z",
+    "consent_receipt": "c6946f418295",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T12:06Z (receipt c6946f418295); selected commit 69316579abd2: \"fix: clarify YouTube login errors and log Discord rate limits\". LICENSE file at pin 69316579abd2 detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "69316579abd250c69e917103a8bd4e784ddd9c9e",
+     "at": "2026-10-30T12:06Z",
+     "receipt": "c6946f418295"
+    }
+   }
+  }
+ ]
+}

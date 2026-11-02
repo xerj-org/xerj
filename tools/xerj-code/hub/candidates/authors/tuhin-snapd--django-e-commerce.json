@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--django-e-commerce",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on django queries this for how Tuhin-SnapD/Django-E-Commerce implements it: A website for E-Commerce, With Login Authentication, Feedback/Contact form receiving in the backend, and Image generation using API, All bui",
+ "repos": [
+  {
+   "repo": "Django-E-Commerce",
+   "url": "https://github.com/Tuhin-SnapD/Django-E-Commerce",
+   "sha": "41d79384ce8cb2dc87d3ef65409449589c7e1682",
+   "licence": "author's permission (LICENSE at pin 41d79384ce8c: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:30Z",
+    "consent_receipt": "bd2fcb021fba",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:30Z (receipt bd2fcb021fba); pinned to the default-branch head. LICENSE at pin 41d79384ce8c: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

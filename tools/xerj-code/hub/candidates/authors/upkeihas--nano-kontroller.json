@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on C++ queries this for how upkeihas/nano-kontroller implements it: Arduino Nano 6 channel LED controller with IR remote control support (selected work: NanoKontroller)",
+ "domain": "an agent working on arduino, arduino-r3, led-controller queries this for how upkeihas/nano-kontroller implements it: Arduino Nano / Uno 6 channel LED controller with IR remote control support (selected work: NanoKontroller)",
  "repos": [
   {
    "repo": "nano-kontroller",

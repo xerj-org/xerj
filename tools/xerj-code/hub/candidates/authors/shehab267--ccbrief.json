@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude, claude-code, cli queries this for how shehab267/ccbrief implements it: Minimal, configurable status line for Claude Code \u2014 context, tokens, cost and rate limits at a glance in your terminal (selected work: assets, test, src)",
+ "domain": "an agent working on claude, claude-code, cli queries this for how shehab267/ccbrief implements it: A minimal, configurable status line (statusline) for Claude Code. Shows context, tokens, cost and rate limits in your terminal. npm: https:/ (selected work: assets, test, src)",
  "repos": [
   {
    "repo": "ccbrief",

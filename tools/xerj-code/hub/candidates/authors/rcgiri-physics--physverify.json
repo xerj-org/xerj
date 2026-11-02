@@ -1,0 +1,23 @@
+{
+ "corpus": "rcgiri-physics--physverify",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on computational-physics, method-of-manufactured-solutions, monte-carlo queries this for how rcgiri-physics/physverify implements it: Checks that a physics simulation solves the right equations at the right accuracy (selected work: src/physverify, tests, sandbox)",
+ "repos": [
+  {
+   "repo": "physverify",
+   "url": "https://github.com/rcgiri-physics/physverify",
+   "sha": "07efcec5f112682d3e6112702001710db8ad6d9f",
+   "licence": "MIT (LICENSE file at pin 07efcec5f112, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:04Z",
+    "consent_receipt": "2bef7af29323",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:04Z (receipt 2bef7af29323); selected commit 07efcec5f112: \"Checks and scan rules from the October 2026 daily corpus sessions\". LICENSE file at pin 07efcec5f112 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

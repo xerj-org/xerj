@@ -2,8 +2,8 @@
  "corpus": "egemertbalcik--ledge",
  "cloned_at": null,
  "status": "draft",
- "shelf": "CRYPTO",
- "domain": "an agent working on appkit, dynamic-island, macbook queries this for how egemertbalcik/Ledge implements it: Your MacBook's notch, put to work \u2014 music, timers, calendar and weather where your eyes already are (selected work: Tests, Sources)",
+ "shelf": "WEB",
+ "domain": "an agent working on dynamic-island, macbook, macos queries this for how egemertbalcik/Ledge implements it: Free, open-source notch app for MacBook: turns the Mac notch into a Dynamic Island-style live status area with now playing, a focus timer, y (selected work: Tests, Sources)",
  "repos": [
   {
    "repo": "Ledge",

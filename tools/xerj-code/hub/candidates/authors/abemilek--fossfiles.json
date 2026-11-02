@@ -1,0 +1,30 @@
+{
+ "corpus": "abemilek--fossfiles",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, android-app, compose queries this for how Abemilek/fossfiles implements it: A native Android file manager in pure Kotlin + Jetpack Compose \u2014 no telemetry, no Google services, no INTERNET permission. Trash, audio/vide (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "fossfiles",
+   "url": "https://github.com/Abemilek/fossfiles",
+   "sha": "1b6c2281628c2bc8a9b15353de1c2342ed4461b4",
+   "licence": "GPL-3.0 (LICENSE file at pin 1b6c2281628c, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T19:33Z",
+    "consent_receipt": "b851763eb582",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T19:33Z (receipt b851763eb582); selected commit 1b6c2281628c: \"feat: v3.0 - SD card volumes, Settings, global search, progress/cance\u2026\". LICENSE file at pin 1b6c2281628c detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "1b6c2281628c2bc8a9b15353de1c2342ed4461b4",
+     "at": "2026-10-30T19:33Z",
+     "receipt": "b851763eb582"
+    }
+   }
+  }
+ ]
+}

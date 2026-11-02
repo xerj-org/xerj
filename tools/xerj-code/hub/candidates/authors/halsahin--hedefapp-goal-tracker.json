@@ -1,0 +1,23 @@
+{
+ "corpus": "halsahin--hedefapp-goal-tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how halsahin/HedefApp-Goal-Tracker implements it: Ki\u015fisel hedef takip uygulamas\u0131 (selected work: src/utils, the project root, src/hooks)",
+ "repos": [
+  {
+   "repo": "HedefApp-Goal-Tracker",
+   "url": "https://github.com/halsahin/HedefApp-Goal-Tracker",
+   "sha": "22b14b476f0945a9f594582b715b2c2cd09f40f5",
+   "licence": "MIT (LICENSE file at pin 22b14b476f09, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:05Z",
+    "consent_receipt": "fa3b8c1dd79f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T19:05Z (receipt fa3b8c1dd79f); selected commit 22b14b476f09: \"fix: g\u00fcvenlik ve hata d\u00fczeltmeleri, ba\u011f\u0131ml\u0131l\u0131k g\u00fcncellemeleri, s\u00fcr\u00fcm \u2026\". LICENSE file at pin 22b14b476f09 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

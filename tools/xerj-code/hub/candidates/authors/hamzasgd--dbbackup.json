@@ -1,0 +1,23 @@
+{
+ "corpus": "hamzasgd--dbbackup",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on database-migrations, self-hosted, backup queries this for how hamzasgd/DbBackup implements it: \ud83e\udd16\ud83d\uddc4\ufe0f The agent-ready, self-hosted database backup platform \u2014 MySQL, MariaDB & PostgreSQL over SSH tunnels, AES-256-GCM encryption at rest (lo (selected work: server, client)",
+ "repos": [
+  {
+   "repo": "DbBackup",
+   "url": "https://github.com/hamzasgd/DbBackup",
+   "sha": "be47bbdd549daf7613c174f4652de7dcf85d3a49",
+   "licence": "MIT (LICENSE file at pin be47bbdd549d, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T18:13Z",
+    "consent_receipt": "b09d7a976a37",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T18:13Z (receipt b09d7a976a37); selected commit be47bbdd549d: \"Fix S3 backup lifecycle and make restores async\". LICENSE file at pin be47bbdd549d detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

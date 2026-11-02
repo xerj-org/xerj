@@ -1,0 +1,23 @@
+{
+ "corpus": "emilypi--yolk",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Haskell queries this for how emilypi/yolk implements it: Higher-order E-graphs, faster (selected work: src/Yolk, test, examples)",
+ "repos": [
+  {
+   "repo": "yolk",
+   "url": "https://github.com/emilypi/yolk",
+   "sha": "a1b0b698ff2693863e9c7f25ef901cedb1bbd99a",
+   "licence": "BSD-3-Clause (LICENSE file at pin a1b0b698ff26, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T15:20Z",
+    "consent_receipt": "096637f973f3",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T15:20Z (receipt 096637f973f3); selected commit a1b0b698ff26: \"refactor(extract): adopt checked record APIs for Pareto search\". LICENSE file at pin a1b0b698ff26 detected as BSD-3-Clause by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

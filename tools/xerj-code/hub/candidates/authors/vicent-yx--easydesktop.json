@@ -1,0 +1,30 @@
+{
+ "corpus": "vicent-yx--easydesktop",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how vicent-yx/easyDesktop implements it: \u4e00\u4e2a\u684c\u9762\u589e\u5f3a\u5de5\u5177\uff0c\u65e8\u5728\u8ba9\u4f60\u9690\u85cf\u684c\u9762\u56fe\u6807\u7684\u540c\u65f6\u4e0d\u5f71\u54cd\u684c\u9762\u6587\u4ef6\u4f7f\u7528\u7684\u5feb\u6377\u6027\uff0c\u5e76\u63d0\u5347\u684c\u9762\u7f8e\u89c2\u7a0b\u5ea6\u3002\u53ea\u9700\u8981\u628a\u9f20\u6807\u79fb\u5230\u5de6\u4e0b\u89d2\uff0c\u5f00\u542f\u684c\u9762\u4f7f\u7528\u65b0\u4f53\u9a8c\uff01\u9690\u85cf\u4e86\u684c\u9762\u56fe\u6807\u4e5f\u80fd\u8f7b\u677e\u8bbf\u95ee\u684c\u9762\uff01 (selected work: resources, config, src)",
+ "repos": [
+  {
+   "repo": "easyDesktop",
+   "url": "https://github.com/vicent-yx/easyDesktop",
+   "sha": "1e3e1c626fbaeedbb970af4efe967392d4f87586",
+   "licence": "GPL-3.0 (LICENSE file at pin 1e3e1c626fba, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T01:25Z",
+    "consent_receipt": "e40bf9ca72b9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T01:25Z (receipt e40bf9ca72b9); selected commit 1e3e1c626fba: \"feat: \u6dfb\u52a0\u989c\u8272\u5224\u65ad\u65b9\u6cd5\uff0c\u6536\u85cf\u6309\u94ae\u989c\u8272\u8ddf\u968f\u4e3b\u9898\u80cc\u666f\u53d8\u5316\". LICENSE file at pin 1e3e1c626fba detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "1e3e1c626fbaeedbb970af4efe967392d4f87586",
+     "at": "2026-10-30T01:25Z",
+     "receipt": "e40bf9ca72b9"
+    }
+   }
+  }
+ ]
+}

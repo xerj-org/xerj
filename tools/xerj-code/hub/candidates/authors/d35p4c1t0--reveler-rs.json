@@ -1,0 +1,23 @@
+{
+ "corpus": "d35p4c1t0--reveler-rs",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how D35P4C1T0/Reveler-rs implements it: Adaptive audio leveling and true-peak limiting in Rust. VST3, CLAP, and macOS AU (selected work: crates/dsp, crates/plugin, tools)",
+ "repos": [
+  {
+   "repo": "Reveler-rs",
+   "url": "https://github.com/D35P4C1T0/Reveler-rs",
+   "sha": "3202a3f0fc12236e4108df6a83ed420bcb0eecd3",
+   "licence": "MIT (LICENSE file at pin 3202a3f0fc12, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T07:15Z",
+    "consent_receipt": "bde6fc20b460",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T07:15Z (receipt bde6fc20b460); selected commit 3202a3f0fc12: \"fix: resolve DSP and VST3 audit findings and verify state restore\". LICENSE file at pin 3202a3f0fc12 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

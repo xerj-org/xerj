@@ -1,0 +1,23 @@
+{
+ "corpus": "sunricess--ultrashot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how SunricesS/UltraShot implements it: SunricesS/UltraShot (C#) (selected work: src/UltraShot)",
+ "repos": [
+  {
+   "repo": "UltraShot",
+   "url": "https://github.com/SunricesS/UltraShot",
+   "sha": "c2cd82201be9f537b95d2e2795e5232d2d81b9a1",
+   "licence": "MIT (LICENSE file at pin c2cd82201be9, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T22:16Z",
+    "consent_receipt": "937fd6368ef2",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:16Z (receipt 937fd6368ef2); selected commit c2cd82201be9: \"feat: add low-level keyboard hook support for Windows key shortcuts (\u2026\". LICENSE file at pin c2cd82201be9 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

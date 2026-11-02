@@ -1,0 +1,25 @@
+{
+  "corpus": "xobotyi--cc-foundry-javascript",
+  "cloned_at": "2026-10-31T11:47:59Z",
+  "own": true,
+  "repos": [
+    {
+      "repo": "cc-foundry",
+      "url": "https://github.com/xobotyi/cc-foundry.git",
+      "licence": "NONE-FOUND",
+      "sha": "b9f5057a2ac66d82874a9885f06c72a0d9a19cb6",
+      "files": 70,
+      "bytes": 481857,
+      "paths": [
+        "plugins/javascript/skills"
+      ],
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "@xobotyi",
+        "at": "2026-10-31",
+        "note": "First-party code by the commit author. The repository LICENSE at pin b9f5057a2ac6 opened and read: it is the verbatim MIT License (Copyright (c) 2026 Anton Zinovyev) with no added clauses, and each plugin directory carries an identical copy. The GitHub licence API reports MIT; the xerj detector reports NONE-FOUND because no licence file sits inside the harvested paths. Pinned commit b9f5057a2ac6: \"[plugin-rollcall] bump to 2.0.0\"."
+      }
+    }
+  ]
+}

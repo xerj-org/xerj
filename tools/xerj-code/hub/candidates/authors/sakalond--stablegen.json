@@ -1,0 +1,30 @@
+{
+ "corpus": "sakalond--stablegen",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on blender, controlnet, ipadapter queries this for how sakalond/StableGen implements it: Transform your 3D texturing workflow with the power of generative AI, directly within Blender! (selected work: stablegen)",
+ "repos": [
+  {
+   "repo": "StableGen",
+   "url": "https://github.com/sakalond/StableGen",
+   "sha": "6fb05d5ffa3771f5ce953a21f1b07b924b620451",
+   "licence": "GPL-3.0 (LICENSE file at pin 6fb05d5ffa37, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T21:11Z",
+    "consent_receipt": "78a2da99272a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:11Z (receipt 78a2da99272a); selected commit 6fb05d5ffa37: \"add experimental qwen 2.1 turbo, moss image and fibo 2.0 architecture\u2026\". LICENSE file at pin 6fb05d5ffa37 detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "6fb05d5ffa3771f5ce953a21f1b07b924b620451",
+     "at": "2026-10-29T21:11Z",
+     "receipt": "78a2da99272a"
+    }
+   }
+  }
+ ]
+}

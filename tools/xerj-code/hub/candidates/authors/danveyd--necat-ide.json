@@ -1,0 +1,23 @@
+{
+ "corpus": "danveyd--necat-ide",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, apkbuilder, d8 queries this for how Danveyd/Necat-IDE implements it: Android IDE for creating your own Android apps on phone",
+ "repos": [
+  {
+   "repo": "Necat-IDE",
+   "url": "https://github.com/Danveyd/Necat-IDE",
+   "sha": "f37d957a09244ee13fe6ddcea13ce46ffdd5b623",
+   "licence": "AGPL-3.0 (LICENSE file at pin f37d957a0924, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T18:29Z",
+    "consent_receipt": "95a41f4375ec",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T18:29Z (receipt 95a41f4375ec); pinned to the default-branch head. LICENSE file at pin f37d957a0924 detected as AGPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

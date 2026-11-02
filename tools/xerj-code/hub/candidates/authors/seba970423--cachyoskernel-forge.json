@@ -8,15 +8,15 @@
   {
    "repo": "CachyOSKernel-Forge",
    "url": "https://github.com/seba970423/CachyOSKernel-Forge",
-   "sha": "b2895f0a17ff3dd22040814e55dc2f6663bb7945",
-   "licence": "GPL-3.0 (LICENSE file at pin b2895f0a17ff, GitHub licence API 2026-10-28)",
+   "sha": "8246d199298ed1020c28235a40760d41c47e41bc",
+   "licence": "GPL-3.0 (LICENSE file at pin 8246d199298e, GitHub licence API 2026-10-30)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-28T22:04Z",
     "consent_receipt": "70a62e9e2648",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:04Z (receipt 70a62e9e2648); pinned to the default-branch head. LICENSE file at pin b2895f0a17ff detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T22:04Z (receipt 70a62e9e2648); pinned to the default-branch head. LICENSE file at pin 8246d199298e detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
    }
   }
  ]

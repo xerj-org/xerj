@@ -1,0 +1,23 @@
+{
+ "corpus": "fullfran--gpu-accelerated-ising-model",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on computational-physics, cupy, gpu queries this for how FullFran/GPU-accelerated-Ising-Model implements it: GPU-accelerated simulation implemented using pytorch of the 3D Ising model using Monte Carlo methods. This repository explores the Metropoli",
+ "repos": [
+  {
+   "repo": "GPU-accelerated-Ising-Model",
+   "url": "https://github.com/FullFran/GPU-accelerated-Ising-Model",
+   "sha": "039b47b7987715af6336309513f9b30e295bda5c",
+   "licence": "MIT (LICENSE file at pin 039b47b79877, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T07:14Z",
+    "consent_receipt": "cdd43ebd7687",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T07:14Z (receipt cdd43ebd7687); pinned to the default-branch head. LICENSE file at pin 039b47b79877 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

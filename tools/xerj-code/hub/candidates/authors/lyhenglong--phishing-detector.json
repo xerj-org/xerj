@@ -1,0 +1,23 @@
+{
+ "corpus": "lyhenglong--phishing-detector",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how LyHenglong/phishing-detector implements it: LyHenglong/phishing-detector (Python) (selected work: src, utils, the project root)",
+ "repos": [
+  {
+   "repo": "phishing-detector",
+   "url": "https://github.com/LyHenglong/phishing-detector",
+   "sha": "6cb6098d266538069dc3b6b4e7de0a34c3d9ecc6",
+   "licence": "MIT (LICENSE file at pin 6cb6098d2665, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T04:23Z",
+    "consent_receipt": "7c1e7c177c3c",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T04:23Z (receipt 7c1e7c177c3c); selected commit 6cb6098d2665: \"Rebuild evaluation and model: registered-domain splits, calibration, \u2026\". LICENSE file at pin 6cb6098d2665 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

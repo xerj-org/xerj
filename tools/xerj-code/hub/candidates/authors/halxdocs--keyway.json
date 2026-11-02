@@ -1,0 +1,23 @@
+{
+ "corpus": "halxdocs--keyway",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on auth0, authentication, docker queries this for how HalxDocs/keyway implements it: Self-hosted Enterprise SSO for Go \u2014 one OAuth2-style flow in your app, SAML/OIDC to customer IdPs. Static binary, SQLite, zero infra. MIT (selected work: sdks)",
+ "repos": [
+  {
+   "repo": "keyway",
+   "url": "https://github.com/HalxDocs/keyway",
+   "sha": "b31c147479ac5f9eee115f0687aff602c514d3f3",
+   "licence": "MIT (LICENSE file at pin b31c147479ac, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T11:18Z",
+    "consent_receipt": "841101d57195",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T11:18Z (receipt 841101d57195); selected commit b31c147479ac: \"feat(sdk-python): add keyway-sso typed Python client\". LICENSE file at pin b31c147479ac detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,30 @@
+{
+ "corpus": "kcal-app--kcal",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on food-journal, self-hosted, nutrition-information queries this for how kcal-app/kcal implements it: the personal food nutrition journal (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "kcal",
+   "url": "https://github.com/kcal-app/kcal",
+   "sha": "94a9f06709a460f38dc956283cb9343fda924c01",
+   "licence": "MPL-2.0 (LICENSE file at pin 94a9f06709a4, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T21:27Z",
+    "consent_receipt": "276d28dc8294",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T21:27Z (receipt 276d28dc8294); selected commit 94a9f06709a4: \"feat: install Laravel Boost for dev environment\". LICENSE file at pin 94a9f06709a4 detected as MPL-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "94a9f06709a460f38dc956283cb9343fda924c01",
+     "at": "2026-10-30T21:27Z",
+     "receipt": "276d28dc8294"
+    }
+   }
+  }
+ ]
+}

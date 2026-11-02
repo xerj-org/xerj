@@ -1,0 +1,23 @@
+{
+ "corpus": "chancery-lane-project--wp-mfa-plugin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on PHP queries this for how chancery-lane-project/wp-mfa-plugin implements it: A standalone, general-purpose WordPress plugin for public release that makes any WordPress site's content accessible to AI agents and LLMs v (selected work: tests, src/Core, src/Negotiate)",
+ "repos": [
+  {
+   "repo": "wp-mfa-plugin",
+   "url": "https://github.com/chancery-lane-project/wp-mfa-plugin",
+   "sha": "5d66464dbf7a6b90ca02b9468741f9722f9b75f8",
+   "licence": "GPL-3.0 (LICENSE file at pin 5d66464dbf7a, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T12:07Z",
+    "consent_receipt": "cc9703b3d98b",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T12:07Z (receipt cc9703b3d98b); selected commit 5d66464dbf7a: \"fix: sync new UA defaults into saved lists and label Mozilla-style bots\". LICENSE file at pin 5d66464dbf7a detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

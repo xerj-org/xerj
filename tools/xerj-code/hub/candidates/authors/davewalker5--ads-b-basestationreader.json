@@ -1,0 +1,23 @@
+{
+ "corpus": "davewalker5--ads-b-basestationreader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on ads-b, aircraft, aviation queries this for how davewalker5/ADS-B-BaseStationReader implements it: Local-first ADS-B aircraft observation workspace with live tracking, observation sessions, historical analysis, and transient aviation conte",
+ "repos": [
+  {
+   "repo": "ADS-B-BaseStationReader",
+   "url": "https://github.com/davewalker5/ADS-B-BaseStationReader",
+   "sha": "52e212948ce1ac753ad2b1162e0d690e94adbd83",
+   "licence": "MIT (LICENSE file at pin 52e212948ce1, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T10:09Z",
+    "consent_receipt": "1f18f37da6b8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T10:09Z (receipt 1f18f37da6b8); pinned to the default-branch head. LICENSE file at pin 52e212948ce1 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

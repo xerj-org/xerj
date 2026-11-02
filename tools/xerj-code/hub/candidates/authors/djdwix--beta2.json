@@ -1,0 +1,23 @@
+{
+ "corpus": "djdwix--beta2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how djdwix/beta2 implements it: djdwix/beta2 (HTML) (selected work: the project root, public)",
+ "repos": [
+  {
+   "repo": "beta2",
+   "url": "https://github.com/djdwix/beta2",
+   "sha": "8a552a5e23ce8cf55d77be73ee2f9fcc3c605f57",
+   "licence": "MIT (LICENSE file at pin 8a552a5e23ce, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T07:48Z",
+    "consent_receipt": "c6b42ad4450f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T07:48Z (receipt c6b42ad4450f); selected commit 8a552a5e23ce: \"\u672c\u6b21\u66f4\u65b0\u65b0\u589e\u4e86\u5f00\u5c4f\u52a8\u753b\u529f\u80fd\uff08\u767b\u5f55/\u6ce8\u518c\u540e\u82e5\u8ddd\u4e0a\u6b21\u5c55\u793a\u8d857\u5929\u5219\u64ad\u653e6\u79d2\u79d1\u6280\u98ce\u5165\u573a\u52a8\u753b\uff0c\u53ef\u8df3\u8fc7\uff0c\u8001\u7528\u6237\u901a\u8fc7\u6570\u636e\u8fc1\u79fb\u548c\u63a5\u53e3\u515c\u5e95\u907f\u514d\u9996\u6b21\u6253\u6270\uff09\uff0c\u5e76\u2026\". LICENSE file at pin 8a552a5e23ce detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

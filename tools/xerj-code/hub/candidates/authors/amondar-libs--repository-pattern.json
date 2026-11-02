@@ -1,0 +1,23 @@
+{
+ "corpus": "amondar-libs--repository-pattern",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on PHP queries this for how amondar-libs/repository-pattern implements it: Laravel package to implement the repository pattern (selected work: tests, src/Proxies, src)",
+ "repos": [
+  {
+   "repo": "repository-pattern",
+   "url": "https://github.com/amondar-libs/repository-pattern",
+   "sha": "3700e866e32d4a89c7b1b87e616d8b11d868e4ee",
+   "licence": "MIT (LICENSE file at pin 3700e866e32d, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T01:29Z",
+    "consent_receipt": "51f7cb375045",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T01:29Z (receipt 51f7cb375045); selected commit 3700e866e32d: \"Remove unused `HigherOrderRepositoryTransactionProxy`, `HigherOrderQu\u2026\". LICENSE file at pin 3700e866e32d detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "darksns--beam",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, automation, chrome-extension queries this for how darksns/beam implements it: Drive Chrome as text from the terminal: read a page's structure, fill forms, click, navigate. Built for CLI agents (selected work: extension)",
+ "repos": [
+  {
+   "repo": "beam",
+   "url": "https://github.com/darksns/beam",
+   "sha": "6368847e829122a3bb8f877f8d461d6abff33117",
+   "licence": "MIT (LICENSE file at pin 6368847e8291, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T15:38Z",
+    "consent_receipt": "80f843b293f1",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T15:38Z (receipt 80f843b293f1); selected commit 6368847e8291: \"Implement enhanced debugging and connection management in Beam extension\". LICENSE file at pin 6368847e8291 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

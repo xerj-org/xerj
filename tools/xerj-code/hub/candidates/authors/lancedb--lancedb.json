@@ -1,0 +1,23 @@
+{
+ "corpus": "lancedb--lancedb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on approximate-nearest-neighbor-search, image-search, nearest-neighbor-search queries this for how lancedb/lancedb implements it: Developer-friendly OSS embedded retrieval library for multimodal AI. Search More; Manage Less (selected work: rust, python)",
+ "repos": [
+  {
+   "repo": "lancedb",
+   "url": "https://github.com/lancedb/lancedb",
+   "sha": "bd6e907c7313a29fbd1a8e7bd22366549fb0a602",
+   "licence": "author's permission (LICENSE at pin bd6e907c7313: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:08Z",
+    "consent_receipt": "a6b05c62b351",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:08Z (receipt a6b05c62b351); selected commit bd6e907c7313: \"feat(remote): support dropping all tables in remote databases\". LICENSE at pin bd6e907c7313: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "younglionorganization--ylspec",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on android, c, java queries this for how YoungLionOrganization/YLSpec implements it: Standalone and embeddable metadata standard with a portable C core, native Python, Node.js/TypeScript, Java/Kotlin/Android, and VS Code tool (selected work: jvm, javascript)",
+ "repos": [
+  {
+   "repo": "YLSpec",
+   "url": "https://github.com/YoungLionOrganization/YLSpec",
+   "sha": "060d431435f133673bde558a87aa237870ce07d3",
+   "licence": "Apache-2.0 (LICENSE file at pin 060d431435f1, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:27Z",
+    "consent_receipt": "257b1aa4a7df",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:27Z (receipt 257b1aa4a7df); selected commit 060d431435f1: \"feat(jvm): add Java JNI API, Kotlin extensions, and Android AAR integ\u2026\". LICENSE file at pin 060d431435f1 detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

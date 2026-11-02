@@ -1,0 +1,23 @@
+{
+ "corpus": "neosoda--ia-portable",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Shell queries this for how neosoda/ia-portable implements it: Assistant IA local pour administrateurs Linux",
+ "repos": [
+  {
+   "repo": "ia-portable",
+   "url": "https://github.com/neosoda/ia-portable",
+   "sha": "1aeeb38f9ec85115632cbc0996f659ac2222c53e",
+   "licence": "MIT (LICENSE file at pin 1aeeb38f9ec8, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T11:35Z",
+    "consent_receipt": "11adb57a5692",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T11:35Z (receipt 11adb57a5692); pinned to the default-branch head. LICENSE file at pin 1aeeb38f9ec8 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

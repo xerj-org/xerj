@@ -2,8 +2,8 @@
  "corpus": "ximeng-y--touhoulittlemaid-self-talk",
  "cloned_at": null,
  "status": "draft",
- "shelf": "AI",
- "domain": "an agent working on Java queries this for how ximeng-y/TouhouLittleMaid-Self-Talk implements it: \u4e3a Touhou Little Maid\uff08\u8f66\u4e07\u5973\u4ec6\uff09\u5973\u4ec6 AI \u6dfb\u52a0 \u81ea\u8a00\u81ea\u8bed / \u6b22\u8fce\u8bed \u80fd\u529b\u7684 NeoForge \u9644\u5c5e Mod (selected work: src/main)",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how ximeng-y/TouhouLittleMaid-Self-Talk implements it: A mod that adds self-talk / welcome greetings to Touhou Little Maid maids (selected work: src/main)",
  "repos": [
   {
    "repo": "TouhouLittleMaid-Self-Talk",

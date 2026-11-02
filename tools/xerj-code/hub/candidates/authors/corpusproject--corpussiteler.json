@@ -1,0 +1,23 @@
+{
+ "corpus": "corpusproject--corpussiteler",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on client-side, developer-tools, file-sharing queries this for how corpusproject/CorpusSiteler implements it: 50 free, privacy-first browser tools: PDF, OCR, password vault, P2P file transfer, Gantt, Kanban & more. No backend, no tracking. React + Ty (selected work: corpus-vault, corpus-transfer, corpus-social)",
+ "repos": [
+  {
+   "repo": "CorpusSiteler",
+   "url": "https://github.com/corpusproject/CorpusSiteler",
+   "sha": "87742982f0bd2ccc4340f69f296378111bfc3466",
+   "licence": "MIT (LICENSE file at pin 87742982f0bd, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T13:37Z",
+    "consent_receipt": "9591ecfa13a1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T13:37Z (receipt 9591ecfa13a1); selected commit 87742982f0bd: \"Add files via upload\". LICENSE file at pin 87742982f0bd detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

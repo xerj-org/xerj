@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-orchestration, ai-agents, claude-code queries this for how tlbx-ai/tlbx implements it: Self-hosted terminal browser multiplexer for persistent shells and coding agents on Windows, macOS, and Linux (selected work: src/Ai.Tlbx.MidTerm)",
+ "domain": "an agent working on agent-orchestration, ai-agents, claude-code queries this for how tlbx-ai/tlbx implements it: Open-source Agentic Development Environment (ADE) for Codex, Claude Code and other agents. Run on your own Windows, macOS or Linux machines; (selected work: src/Ai.Tlbx.MidTerm)",
  "repos": [
   {
    "repo": "tlbx",

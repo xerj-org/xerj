@@ -1,0 +1,23 @@
+{
+ "corpus": "thiagopsnfg--diffspark",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how thiagopsnfg/diffspark implements it: thiagopsnfg/diffspark (TypeScript) (selected work: src/ai, test, src)",
+ "repos": [
+  {
+   "repo": "diffspark",
+   "url": "https://github.com/thiagopsnfg/diffspark",
+   "sha": "13662e6c8450381645535f59288998effd915a7f",
+   "licence": "MIT (LICENSE file at pin 13662e6c8450, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T22:51Z",
+    "consent_receipt": "7230c23d9483",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:51Z (receipt 7230c23d9483); selected commit 13662e6c8450: \"Add AI review section to comments test and implement review logic in \u2026\". LICENSE file at pin 13662e6c8450 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "faratzubair-arch--restaurant-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how faratzubair-arch/restaurant-app implements it: faratzubair-arch/restaurant-app (JavaScript) (selected work: src/screens, server, src/context)",
+ "repos": [
+  {
+   "repo": "restaurant-app",
+   "url": "https://github.com/faratzubair-arch/restaurant-app",
+   "sha": "ce957f688e699b77dfb19965cb3e2e707ceeb131",
+   "licence": "MIT (LICENSE file at pin ce957f688e69, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T07:34Z",
+    "consent_receipt": "8f9d1c0474f0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T07:34Z (receipt 8f9d1c0474f0); selected commit ce957f688e69: \"Connect mobile app to live Vercel backend and update UI screens\". LICENSE file at pin ce957f688e69 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

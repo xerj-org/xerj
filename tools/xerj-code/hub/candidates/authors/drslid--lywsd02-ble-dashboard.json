@@ -1,0 +1,23 @@
+{
+ "corpus": "drslid--lywsd02-ble-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ble, bluetooth-low-energy, html5 queries this for how drslid/LYWSD02_BLE_Dashboard implements it: Local BLE dashboard and Home Assistant clock sync for LYWSD02, LYWSD02MMC and MHO-C303. Experimental PVVX/CGD1 control and factory sensor re (selected work: custom_components, tests)",
+ "repos": [
+  {
+   "repo": "LYWSD02_BLE_Dashboard",
+   "url": "https://github.com/drslid/LYWSD02_BLE_Dashboard",
+   "sha": "a93e2ff8ab060b37c63aaad4ae86ba96da9495e2",
+   "licence": "MIT (LICENSE file at pin a93e2ff8ab06, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T19:31Z",
+    "consent_receipt": "bce003b52208",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T19:31Z (receipt bce003b52208); selected commit a93e2ff8ab06: \"Read temperature, humidity, battery and hourly records at each sync\". LICENSE file at pin a93e2ff8ab06 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

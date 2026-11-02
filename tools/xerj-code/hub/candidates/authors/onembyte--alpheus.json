@@ -1,0 +1,23 @@
+{
+ "corpus": "onembyte--alpheus",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Rust queries this for how onembyte/alpheus implements it: The macOS storage pane, but honest, drillable, and able to actually fix things. Tauri 2 + React",
+ "repos": [
+  {
+   "repo": "alpheus",
+   "url": "https://github.com/onembyte/alpheus",
+   "sha": "1a443106df553635078b472a3895fd0937ae0acf",
+   "licence": "MIT (LICENSE file at pin 1a443106df55, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T12:55Z",
+    "consent_receipt": "c3c40b5825a9",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T12:55Z (receipt c3c40b5825a9); pinned to the default-branch head. LICENSE file at pin 1a443106df55 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

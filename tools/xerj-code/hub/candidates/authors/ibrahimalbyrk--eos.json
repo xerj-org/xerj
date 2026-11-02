@@ -1,0 +1,23 @@
+{
+ "corpus": "ibrahimalbyrk--eos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how ibrahimAlbyrk/eos implements it: ibrahimAlbyrk/eos (TypeScript) (selected work: app/ui)",
+ "repos": [
+  {
+   "repo": "eos",
+   "url": "https://github.com/ibrahimAlbyrk/eos",
+   "sha": "4ff4f6dd55096dc5cc968a0cd8d90351719baa83",
+   "licence": "MIT (LICENSE file at pin 4ff4f6dd5509, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:38Z",
+    "consent_receipt": "573447f088df",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:38Z (receipt 573447f088df); selected commit 4ff4f6dd5509: \"feat(ui): several Claude accounts, switch divider and exhausted row\". LICENSE file at pin 4ff4f6dd5509 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

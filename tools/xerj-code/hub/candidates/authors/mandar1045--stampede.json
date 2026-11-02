@@ -1,0 +1,23 @@
+{
+ "corpus": "mandar1045--stampede",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on elixir, liveview, load-testing queries this for how mandar1045/stampede implements it: Load testing for Phoenix: Channels, LiveView, HTTP and WebSockets, in plain Elixir (selected work: lib/stampede, test, the project root)",
+ "repos": [
+  {
+   "repo": "stampede",
+   "url": "https://github.com/mandar1045/stampede",
+   "sha": "c7e3faae8db08b86f582cb46d40c1ca7100cb7f4",
+   "licence": "Apache-2.0 (LICENSE file at pin c7e3faae8db0, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T11:58Z",
+    "consent_receipt": "7a09a388b6a2",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T11:58Z (receipt 7a09a388b6a2); selected commit c7e3faae8db0: \"Support binary payloads and custom serializers in Channels\". LICENSE file at pin c7e3faae8db0 detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

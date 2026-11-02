@@ -1,0 +1,23 @@
+{
+ "corpus": "steffenskov--ckode-encryption",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on encryption, aes, rsa queries this for how steffenskov/Ckode.Encryption implements it: Ckode.Encryption is a small collection of simplified wrappers for common encryption algorithms",
+ "repos": [
+  {
+   "repo": "Ckode.Encryption",
+   "url": "https://github.com/steffenskov/Ckode.Encryption",
+   "sha": "9c5c13c6b4c90131a2f9b8e90e75572500ad89fd",
+   "licence": "MIT (LICENSE file at pin 9c5c13c6b4c9, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:41Z",
+    "consent_receipt": "7ee5c2535349",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt 7ee5c2535349); pinned to the default-branch head. LICENSE file at pin 9c5c13c6b4c9 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

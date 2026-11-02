@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--perfbench",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "CRYPTO",
+ "domain": "an agent working on C# queries this for how Tuhin-SnapD/PerfBench implements it: A comprehensive CPU performance benchmarking suite designed to test various aspects of processor performance including arithmetic operations",
+ "repos": [
+  {
+   "repo": "PerfBench",
+   "url": "https://github.com/Tuhin-SnapD/PerfBench",
+   "sha": "20f498f13c1a4c949630e60ad83545d8f163e63d",
+   "licence": "MIT (LICENSE file at pin 20f498f13c1a, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:30Z",
+    "consent_receipt": "f47a3a30add1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:30Z (receipt f47a3a30add1); pinned to the default-branch head. LICENSE file at pin 20f498f13c1a detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

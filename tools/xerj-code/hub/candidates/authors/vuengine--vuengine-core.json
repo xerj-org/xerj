@@ -1,0 +1,23 @@
+{
+ "corpus": "vuengine--vuengine-core",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on nintendo, virtual-boy, homebrew queries this for how VUEngine/VUEngine-Core implements it: A versatile, object oriented Nintendo Virtual Boy game engine (selected work: source)",
+ "repos": [
+  {
+   "repo": "VUEngine-Core",
+   "url": "https://github.com/VUEngine/VUEngine-Core",
+   "sha": "2caf74952949a0d97b471f9e9bc5e08596a46c51",
+   "licence": "MIT (LICENSE file at pin 2caf74952949, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T21:55Z",
+    "consent_receipt": "c61ec41c24f0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T21:55Z (receipt c61ec41c24f0); selected commit 2caf74952949: \"Inverted dependencies related to TextureManager.\". LICENSE file at pin 2caf74952949 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

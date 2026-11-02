@@ -1,0 +1,23 @@
+{
+ "corpus": "pipe5linger--antigravity-overdrive-sync",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Pipe5linger/antigravity-overdrive-sync implements it: A FastMCP-backed Procedural Graph memory engine for autonomous coding agents. Replaces standard semantic RAG with executable workflows, tabo (selected work: core, scripts, tests)",
+ "repos": [
+  {
+   "repo": "antigravity-overdrive-sync",
+   "url": "https://github.com/Pipe5linger/antigravity-overdrive-sync",
+   "sha": "c210d8ce13b7496d033ae0d6daa384586f47a1d2",
+   "licence": "MIT (LICENSE file at pin c210d8ce13b7, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T20:15Z",
+    "consent_receipt": "11bbacc3793b",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:15Z (receipt 11bbacc3793b); selected commit c210d8ce13b7: \"feat(vault): introduce Script Sanitizer, auto-parameterization, and s\u2026\". LICENSE file at pin c210d8ce13b7 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution. Pinned to head c210d8ce13b7 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

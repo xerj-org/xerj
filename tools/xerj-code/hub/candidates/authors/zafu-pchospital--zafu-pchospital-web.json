@@ -1,0 +1,30 @@
+{
+ "corpus": "zafu-pchospital--zafu-pchospital-web",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on TypeScript queries this for how ZAFU-PCHospital/zafu-pchospital-web implements it: \u6d59\u6c5f\u519c\u6797\u5927\u5b66\u7535\u8111\u533b\u9662\u793e\u56e2\u5b98\u65b9\u7f51\u7ad9\uff08Next.js + TypeScript + Tailwind\uff09 (selected work: src/components, tests, src/config)",
+ "repos": [
+  {
+   "repo": "zafu-pchospital-web",
+   "url": "https://github.com/ZAFU-PCHospital/zafu-pchospital-web",
+   "sha": "6c69e5b9b2af72a415f21edae3f0379bf6172277",
+   "licence": "AGPL-3.0 (LICENSE file at pin 6c69e5b9b2af, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T01:56Z",
+    "consent_receipt": "fff0707b5c28",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T01:56Z (receipt fff0707b5c28); selected commit 6c69e5b9b2af: \"fix(repair-activities): \u8865\u9f50\u5f85\u786e\u8ba4\u89e3\u9664\u3001\u91cd\u65b0\u586b\u5199\u4e0e\u5207\u6362\u6d3b\u52a8\u6e05\u7406\uff08#266\uff09\". LICENSE file at pin 6c69e5b9b2af detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head 6c69e5b9b2af (contains the selected commit): the LICENSE at the selected commit was NONE.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "32630ff7369a34b4f4e5b62ce0f43ae2ee8a80f4",
+     "at": "2026-10-30T01:56Z",
+     "receipt": "fff0707b5c28"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "bazelbuild--bazel-central-registry",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Starlark queries this for how bazelbuild/bazel-central-registry implements it: The central registry of Bazel modules for the Bzlmod external dependency system (selected work: modules/sfml)",
+ "repos": [
+  {
+   "repo": "bazel-central-registry",
+   "url": "https://github.com/bazelbuild/bazel-central-registry",
+   "sha": "60174e349ee04183e614b7c306386de452640db6",
+   "licence": "Apache-2.0 (LICENSE file at pin 60174e349ee0, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T14:31Z",
+    "consent_receipt": "ff29f8075f69",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T14:31Z (receipt ff29f8075f69); selected commit 60174e349ee0: \"sfml@3.1.0 (#10863)\". LICENSE file at pin 60174e349ee0 detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

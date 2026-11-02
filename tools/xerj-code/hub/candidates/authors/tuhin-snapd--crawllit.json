@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--crawllit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how Tuhin-SnapD/CrawlLit implements it: An intelligent, multi-threaded web crawler with smart priority scoring for efficient content discovery. CrawlLit uses text-based relevance s",
+ "repos": [
+  {
+   "repo": "CrawlLit",
+   "url": "https://github.com/Tuhin-SnapD/CrawlLit",
+   "sha": "2ffe3e080a62ff5ac07a6e0aef6ca7eecd324dc7",
+   "licence": "author's permission (LICENSE at pin 2ffe3e080a62: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:30Z",
+    "consent_receipt": "9488f5f21298",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:30Z (receipt 9488f5f21298); pinned to the default-branch head. LICENSE at pin 2ffe3e080a62: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,30 @@
+{
+ "corpus": "growthcraftce--growthcraft-1-21",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Java queries this for how GrowthcraftCE/Growthcraft-1.21 implements it: Growthcraft is a collection of Minecraft mods that adds an extra layer of immersion into the world of Minecraft (selected work: src/main)",
+ "repos": [
+  {
+   "repo": "Growthcraft-1.21",
+   "url": "https://github.com/GrowthcraftCE/Growthcraft-1.21",
+   "sha": "bab55650d2c61daca2d56972912e14fa9b73f6c2",
+   "licence": "author's permission (LICENSE at pin bab55650d2c6: NOASSERTION; repository: MPL-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T18:28Z",
+    "consent_receipt": "173e61e260f4",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:28Z (receipt 173e61e260f4); selected commit bab55650d2c6: \"Fixes #235 Apply salt worldgen settings at runtime\". LICENSE at pin bab55650d2c6: NOASSERTION (repository: MPL-2.0); used with the author's permission, with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "bab55650d2c61daca2d56972912e14fa9b73f6c2",
+     "at": "2026-10-29T18:28Z",
+     "receipt": "173e61e260f4"
+    }
+   }
+  }
+ ]
+}

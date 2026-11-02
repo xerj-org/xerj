@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on hermes-agent, hermes-agent-plugin, hermes-plugin queries this for how coe0718/diaktoros implements it: Bounded autonomous software maintenance for Hermes: triage issues, propose fixes, review PRs, gate on CI and policy, escalate disputes, reco (selected work: diaktoros, desktop, tests)",
+ "domain": "an agent working on hermes-agent, hermes-agent-plugin, hermes-plugin queries this for how coe0718/diaktoros implements it: Bounded autonomous maintenance for Hermes: triage issues, propose fixes, review PRs with a second-opinion shadow, gate on CI and policy, adj (selected work: diaktoros, desktop, tests)",
  "repos": [
   {
    "repo": "diaktoros",

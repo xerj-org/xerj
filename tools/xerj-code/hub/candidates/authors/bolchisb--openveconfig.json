@@ -1,0 +1,23 @@
+{
+ "corpus": "bolchisb--openveconfig",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how bolchisb/openveconfig implements it: Open-source, cross-platform configuration tool for Victron VE.Bus inverter/chargers (Multi, Quattro, MultiPlus). Independent community proje (selected work: pkg/simulator)",
+ "repos": [
+  {
+   "repo": "victron-veconfigure-ported",
+   "url": "https://github.com/bolchisb/victron-veconfigure-ported",
+   "sha": "04a573f853568703187e18672bfdf30f052cace7",
+   "licence": "MIT (LICENSE file at pin 04a573f85356, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T07:41Z",
+    "consent_receipt": "4715b9ffb914",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T07:41Z (receipt 4715b9ffb914); selected commit 04a573f85356: \"pkg/simulator: multi-unit VE.Bus system simulation (#57)\". LICENSE file at pin 04a573f85356 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

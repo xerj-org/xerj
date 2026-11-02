@@ -1,0 +1,23 @@
+{
+ "corpus": "makkalot--caretz",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Go queries this for how makkalot/caretz implements it: simple no deps harness in go (selected work: examples, internal/agent, internal/app)",
+ "repos": [
+  {
+   "repo": "caretz",
+   "url": "https://github.com/makkalot/caretz",
+   "sha": "e7af9380f6a30f8ed700b8315e4480e63cc5c32a",
+   "licence": "MIT (LICENSE file at pin e7af9380f6a3, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T10:07Z",
+    "consent_receipt": "defd22e76d08",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T10:07Z (receipt defd22e76d08); selected commit e7af9380f6a3: \"usage examples (#4)\". LICENSE file at pin e7af9380f6a3 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

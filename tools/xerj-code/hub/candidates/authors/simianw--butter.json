@@ -1,0 +1,23 @@
+{
+ "corpus": "simianw--butter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how SimianW/butter implements it: Butter for ChatGPT: a Chrome extension that keeps long ChatGPT chats smooth while answers stream (12x less main-thread blocking) (selected work: lab)",
+ "repos": [
+  {
+   "repo": "butter",
+   "url": "https://github.com/SimianW/butter",
+   "sha": "aa23ce2d17ea10f8c11ba4c776c80e3e88049c0c",
+   "licence": "MIT (LICENSE file at pin aa23ce2d17ea, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T20:20Z",
+    "consent_receipt": "da911c2b737f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T20:20Z (receipt da911c2b737f); selected commit aa23ce2d17ea: \"Lab: jump-while-typing harness and trace analysis; variants for older\u2026\". LICENSE file at pin aa23ce2d17ea detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "kubecolor--kubecolor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on bash, cli, kubectl queries this for how kubecolor/kubecolor implements it: Colorize your kubectl output (selected work: kubectl, internal/iterutil, internal/stringutil)",
+ "repos": [
+  {
+   "repo": "kubecolor",
+   "url": "https://github.com/kubecolor/kubecolor",
+   "sha": "24e8d1a398245e21e77ae40481a97a54fbce8cda",
+   "licence": "MIT (LICENSE file at pin 24e8d1a39824, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T08:32Z",
+    "consent_receipt": "85ebfbaa3810",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T08:32Z (receipt 85ebfbaa3810); selected commit 24e8d1a39824: \"fix: recognize bundled watch flags when choosing pager (#378)\". LICENSE file at pin 24e8d1a39824 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

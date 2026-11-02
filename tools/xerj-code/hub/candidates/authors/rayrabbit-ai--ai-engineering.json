@@ -1,0 +1,23 @@
+{
+ "corpus": "rayrabbit-ai--ai-engineering",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-engineering, antigravity, claude-code queries this for how rayrabbit-ai/ai-engineering implements it: Deterministic AI engineering harness with CI-enforced Git commit gates. Fuses Spec-Driven Development (OpenSpec) + scope-coupled TDD commit  (selected work: scripts, the project root)",
+ "repos": [
+  {
+   "repo": "ai-engineering",
+   "url": "https://github.com/rayrabbit-ai/ai-engineering",
+   "sha": "3f211fbe862a44ebf0008a2a5663456c941d72f8",
+   "licence": "MIT (LICENSE file at pin 3f211fbe862a, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-18T13:55Z",
+    "consent_receipt": "cdc3dc36fda0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-18T13:55Z (receipt cdc3dc36fda0); selected commit 3f211fbe862a: \"feat(gate): reinforce scope-coupled TDD causality, SDD spec immutabil\u2026\". LICENSE file at pin 3f211fbe862a detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

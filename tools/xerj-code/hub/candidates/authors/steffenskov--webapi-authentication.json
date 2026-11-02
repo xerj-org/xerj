@@ -1,0 +1,23 @@
+{
+ "corpus": "steffenskov--webapi-authentication",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C# queries this for how steffenskov/WebApi.Authentication implements it: Simplifies issuing, authenticating, and maintaining Api Secrets for you publicly facing WebApi",
+ "repos": [
+  {
+   "repo": "WebApi.Authentication",
+   "url": "https://github.com/steffenskov/WebApi.Authentication",
+   "sha": "dcaaf762c2104220fa9bd05cfd310c02a0135268",
+   "licence": "MIT (LICENSE file at pin dcaaf762c210, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:41Z",
+    "consent_receipt": "44ce70641326",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt 44ce70641326); pinned to the default-branch head. LICENSE file at pin dcaaf762c210 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

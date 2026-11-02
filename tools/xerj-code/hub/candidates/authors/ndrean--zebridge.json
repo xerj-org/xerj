@@ -1,0 +1,23 @@
+{
+ "corpus": "ndrean--zebridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on natsio, zig, local-first queries this for how ndrean/ZeBridge implements it: A bidirectional, local-first sync engine between Postgres and edge SQLite/PGLITE/Postgres/DuckDB clients over NATS (selected work: scripts, examples, src)",
+ "repos": [
+  {
+   "repo": "ZeBridge",
+   "url": "https://github.com/ndrean/ZeBridge",
+   "sha": "f966567bfbf7630ba21d37e1b3b7b567032f8cbf",
+   "licence": "Apache-2.0 (LICENSE file at pin f966567bfbf7, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T09:15Z",
+    "consent_receipt": "9ba1b894e514",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T09:15Z (receipt 9ba1b894e514); selected commit f966567bfbf7: \"16-archive on native\". LICENSE file at pin f966567bfbf7 detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

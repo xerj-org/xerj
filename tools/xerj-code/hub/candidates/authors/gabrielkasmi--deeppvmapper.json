@@ -1,0 +1,23 @@
+{
+ "corpus": "gabrielkasmi--deeppvmapper",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on deep-learning, deeplabv3, inception-v3 queries this for how gabrielkasmi/deeppvmapper implements it: Automated pipeline for large scale detection of solar arrays in France (selected work: training, the project root)",
+ "repos": [
+  {
+   "repo": "deeppvmapper",
+   "url": "https://github.com/gabrielkasmi/deeppvmapper",
+   "sha": "1715e7b8a066bfd66d3758275747579569f0ebf8",
+   "licence": "MIT (LICENSE file at pin 1715e7b8a066, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T12:39Z",
+    "consent_receipt": "8c13c0b581bc",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T12:39Z (receipt 8c13c0b581bc); selected commit 1715e7b8a066: \"Add segmentation-backbone training scaffold + SegFormer-B0 full-run b\u2026\". LICENSE file at pin 1715e7b8a066 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

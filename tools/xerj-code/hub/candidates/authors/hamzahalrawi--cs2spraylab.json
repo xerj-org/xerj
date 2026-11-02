@@ -1,0 +1,30 @@
+{
+ "corpus": "hamzahalrawi--cs2spraylab",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how HamzahAlrawi/cs2spraylab implements it: A site to help people practice their spray patterns on CS2 weapons (selected work: src/range, tools, tests)",
+ "repos": [
+  {
+   "repo": "cs2spraylab",
+   "url": "https://github.com/HamzahAlrawi/cs2spraylab",
+   "sha": "4c0f4db95fb7daaac471a4065f8a99796a275e52",
+   "licence": "GPL-3.0 (LICENSE file at pin 4c0f4db95fb7, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T19:45Z",
+    "consent_receipt": "8213589150dd",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T19:45Z (receipt 8213589150dd); selected commit 4c0f4db95fb7: \"Add native-texture HE explosion smoke and dust\". LICENSE file at pin 4c0f4db95fb7 detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "4c0f4db95fb7daaac471a4065f8a99796a275e52",
+     "at": "2026-10-29T19:45Z",
+     "receipt": "8213589150dd"
+    }
+   }
+  }
+ ]
+}

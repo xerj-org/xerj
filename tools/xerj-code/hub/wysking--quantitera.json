@@ -1,0 +1,28 @@
+{
+  "corpus": "wysking--quantitera",
+  "cloned_at": "2026-10-29T04:29:05Z",
+  "repos": [
+    {
+      "repo": "quantitera",
+      "url": "https://github.com/wysking/quantitera",
+      "licence": "NONE-FOUND",
+      "sha": "354b4e44890822bed192344bc0c50bf4c2446c8a",
+      "files": 66,
+      "bytes": 343402,
+      "paths": [
+        "research_engine",
+        "docs",
+        "examples",
+        "tests",
+        "licenses"
+      ],
+      "review": {
+        "spdx": "MIT",
+        "use": "adapt-with-attribution",
+        "by": "Codex agent for @wysking (human G4 pending)",
+        "at": "2026-10-29",
+        "note": "Agent opened LICENSE, NOTICE.md, licenses/README.md and the pinned upstream Apache text. MIT copyright (c) 2026 wysking applies to the selected original engine/docs/examples/tests; preserve notices. The detector found no root licence in this sparse checkout; licenses/MIT.txt carries the full grant. Entire quantitera_calendars implementation and source-derived tables excluded via paths; this is a research-evidence/review reference subset, not an installable package or calendar corpus. Bundled Apache text preserves upstream attribution without asserting rights in all generated output. No private sources used. Human G4 and manual G7 sign-off remain pending."
+      }
+    }
+  ]
+}

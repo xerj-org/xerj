@@ -8,15 +8,15 @@
   {
    "repo": "Accessible-IPTV-Client-Android",
    "url": "https://github.com/serrebidev/Accessible-IPTV-Client-Android",
-   "sha": "39ce34e724282e79a257ebc7c36884876f6ee6a7",
-   "licence": "MIT (LICENSE file at pin 39ce34e72428, GitHub licence API 2026-10-29)",
+   "sha": "ea278b295c0ebc98d31ff099170815799f68191e",
+   "licence": "MIT (LICENSE file at pin ea278b295c0e, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T23:37Z",
     "consent_receipt": "28fc8aad3b73",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt 28fc8aad3b73); pinned to the default-branch head. LICENSE file at pin 39ce34e72428 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T23:37Z (receipt 28fc8aad3b73); pinned to the default-branch head. LICENSE file at pin ea278b295c0e detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
    }
   }
  ]

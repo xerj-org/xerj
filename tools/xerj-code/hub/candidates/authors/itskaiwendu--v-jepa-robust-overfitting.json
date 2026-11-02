@@ -1,0 +1,23 @@
+{
+ "corpus": "itskaiwendu--v-jepa-robust-overfitting",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ItsKaiwenDu/V-JEPA-Robust-Overfitting implements it: Investigating robust overfitting during adversarial fine-tuning of V-JEPA 2 with its native latent prediction objective (selected work: report, models, tests)",
+ "repos": [
+  {
+   "repo": "V-JEPA-Robust-Overfitting",
+   "url": "https://github.com/ItsKaiwenDu/V-JEPA-Robust-Overfitting",
+   "sha": "d1fa74260c8c6340fba66d6d85eb4c03ba8e7e53",
+   "licence": "MIT (LICENSE file at pin d1fa74260c8c, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:50Z",
+    "consent_receipt": "4f9b1c407c5e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:50Z (receipt 4f9b1c407c5e); selected commit d1fa74260c8c: \"Commit: Add Final Panel Continuation & Verify HandStandPushups Bank0\". LICENSE file at pin d1fa74260c8c detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "whitersun--unofficial-messenger",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on desktop-app, facebook-messenger, linux queries this for how whitersun/unofficial-messenger implements it: Unofficial Messenger desktop app for Windows, macOS, and Linux built with Tauri (selected work: src-tauri, the project root)",
+ "repos": [
+  {
+   "repo": "unofficial-messenger",
+   "url": "https://github.com/whitersun/unofficial-messenger",
+   "sha": "eabe954bf95cfb2168a9ba8aea4555f3d40a8003",
+   "licence": "MIT (LICENSE file at pin eabe954bf95c, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T03:26Z",
+    "consent_receipt": "adc026a8523f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T03:26Z (receipt adc026a8523f); selected commit eabe954bf95c: \"fix: handle Messenger attachment downloads and release v0.1.8\". LICENSE file at pin eabe954bf95c detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

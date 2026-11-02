@@ -1,0 +1,23 @@
+{
+ "corpus": "steffenskov--dapper-ddd-repository",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dapper, ddd, orm queries this for how steffenskov/Dapper.DDD.Repository implements it: Repository pattern extension for Dapper",
+ "repos": [
+  {
+   "repo": "Dapper.DDD.Repository",
+   "url": "https://github.com/steffenskov/Dapper.DDD.Repository",
+   "sha": "814002ed87b2916c499973f7c5225bc6f52da344",
+   "licence": "MIT (LICENSE file at pin 814002ed87b2, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:41Z",
+    "consent_receipt": "8a6dc58bc5a7",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt 8a6dc58bc5a7); pinned to the default-branch head. LICENSE file at pin 814002ed87b2 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

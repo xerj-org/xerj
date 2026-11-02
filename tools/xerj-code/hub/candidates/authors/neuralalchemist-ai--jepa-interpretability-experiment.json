@@ -1,0 +1,23 @@
+{
+ "corpus": "neuralalchemist-ai--jepa-interpretability-experiment",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how NeuralAlchemist-ai/JEPA-interpretability-experiment implements it: NeuralAlchemist-ai/JEPA-interpretability-experiment (Python) (selected work: interpretability, the project root, jepa)",
+ "repos": [
+  {
+   "repo": "JEPA-interpretability-experiment",
+   "url": "https://github.com/NeuralAlchemist-ai/JEPA-interpretability-experiment",
+   "sha": "67f1d2d777b71e784d5529bf84668a5ba2490ae7",
+   "licence": "MIT (LICENSE file at pin 67f1d2d777b7, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T22:19Z",
+    "consent_receipt": "4cad04021a95",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:19Z (receipt 4cad04021a95); selected commit 67f1d2d777b7: \"refactor: replace main script with structured pipeline, interpretabil\u2026\". LICENSE file at pin 67f1d2d777b7 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

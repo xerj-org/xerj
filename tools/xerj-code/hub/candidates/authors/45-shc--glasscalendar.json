@@ -1,0 +1,23 @@
+{
+ "corpus": "45-shc--glasscalendar",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how 45-shc/GlassCalendar implements it: 45-shc/GlassCalendar (Python) (selected work: the project root, tests)",
+ "repos": [
+  {
+   "repo": "GlassCalendar",
+   "url": "https://github.com/45-shc/GlassCalendar",
+   "sha": "7ec9077ba29f979ce085994ef4274fd3ae800af9",
+   "licence": "MIT (LICENSE file at pin 7ec9077ba29f, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T11:58Z",
+    "consent_receipt": "bfa981cde1da",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T11:58Z (receipt bfa981cde1da); selected commit 7ec9077ba29f: \"Add Glass Calendar desktop app\". LICENSE file at pin 7ec9077ba29f detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

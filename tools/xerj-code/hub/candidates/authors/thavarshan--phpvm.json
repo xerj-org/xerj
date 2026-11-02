@@ -1,0 +1,23 @@
+{
+ "corpus": "thavarshan--phpvm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on cli, php, phpvm queries this for how Thavarshan/phpvm implements it: \ud83d\udcdf Simple PHP version manager for MacOS and Linux (selected work: completions, tests, the project root)",
+ "repos": [
+  {
+   "repo": "phpvm",
+   "url": "https://github.com/Thavarshan/phpvm",
+   "sha": "d622575926b96aae9d4c5f85f4374c5a0510d3b2",
+   "licence": "MIT (LICENSE file at pin d622575926b9, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T20:24Z",
+    "consent_receipt": "274ba5e79975",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:24Z (receipt 274ba5e79975); selected commit d622575926b9: \"Address review findings on extension migration and completion\". LICENSE file at pin d622575926b9 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

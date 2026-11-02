@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Rust queries this for how rcs2153/workflow-os implements it: Local-first kernel for governed AI workflows. Public read-only integration preview (selected work: crates/workflow-local-host, crates/workflow-core)",
+ "domain": "an agent working on Rust queries this for how rcs2153/workflow-os implements it: Local-first governance kernel for autonomous agent work: policy, approvals, evidence, audit trails, and WorkReports (selected work: crates/workflow-local-host, crates/workflow-core)",
  "repos": [
   {
    "repo": "workflow-os",

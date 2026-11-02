@@ -1,0 +1,23 @@
+{
+ "corpus": "cs2opendev--cs2demokit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how CS2OpenDev/CS2DemoKit implements it: A suite of libraries and tools for working with Counter-Strike 2 demo files (selected work: src/CS2DemoKit.Analysis, test, the project root)",
+ "repos": [
+  {
+   "repo": "CS2DemoKit",
+   "url": "https://github.com/CS2OpenDev/CS2DemoKit",
+   "sha": "9358e943e8147372023e2ab5b798053b522dff0a",
+   "licence": "MIT (LICENSE file at pin 9358e943e814, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T20:00Z",
+    "consent_receipt": "39d23a157508",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:00Z (receipt 39d23a157508); selected commit 9358e943e814: \"Fix zero deaths, unclosed final rounds and ungated accuracy on tourna\u2026\". LICENSE file at pin 9358e943e814 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

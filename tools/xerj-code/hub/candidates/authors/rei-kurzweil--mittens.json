@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on game-engine, vr, vtubing queries this for how rei-kurzweil/mittens implements it: vulkan + openxr based game engine written in rust (selected work: src/scripting, examples, assets)",
+ "domain": "an agent working on game-engine, vr, vtubing queries this for how rei-kurzweil/mittens implements it: vulkan + openxr based game engine for vtubers (and 3d cartoons) (selected work: src/scripting, examples, assets)",
  "repos": [
   {
    "repo": "mittens",

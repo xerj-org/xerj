@@ -1,0 +1,30 @@
+{
+ "corpus": "zheng-pei-c--lumeq",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on dynamics, quantum-chemistry, spin-models queries this for how Zheng-Pei-c/lumeq implements it: Illuminating quantum behavior from computing (selected work: lumeq)",
+ "repos": [
+  {
+   "repo": "lumeq",
+   "url": "https://github.com/Zheng-Pei-c/lumeq",
+   "sha": "2852d95d57467e7c4d13dc58ec3ffb8fe2780325",
+   "licence": "GPL-3.0 (LICENSE file at pin 2852d95d5746, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-31T02:04Z",
+    "consent_receipt": "053d27336d14",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T02:04Z (receipt 053d27336d14); selected commit 2852d95d5746: \"fix leapfrog algorithm and photon dynamics\". LICENSE file at pin 2852d95d5746 detected as GPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "2852d95d57467e7c4d13dc58ec3ffb8fe2780325",
+     "at": "2026-10-31T02:04Z",
+     "receipt": "053d27336d14"
+    }
+   }
+  }
+ ]
+}

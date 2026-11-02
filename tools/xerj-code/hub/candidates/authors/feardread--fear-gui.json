@@ -1,0 +1,23 @@
+{
+ "corpus": "feardread--fear-gui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how FearDread/fear-gui implements it: Lightweight jQuery Framework for front end Graphical User Interfaces",
+ "repos": [
+  {
+   "repo": "fear-gui",
+   "url": "https://github.com/FearDread/fear-gui",
+   "sha": "9cb0b3c4ae4f17fb53810de24355ba34230e3229",
+   "licence": "GPL-3.0 (LICENSE file at pin 9cb0b3c4ae4f, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T14:26Z",
+    "consent_receipt": "0df47a9a94b8",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T14:26Z (receipt 0df47a9a94b8); pinned to the default-branch head. LICENSE file at pin 9cb0b3c4ae4f detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

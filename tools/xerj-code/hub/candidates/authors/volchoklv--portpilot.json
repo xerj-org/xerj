@@ -1,0 +1,23 @@
+{
+ "corpus": "volchoklv--portpilot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how VolchokLV/portpilot implements it: VolchokLV/portpilot (TypeScript) (selected work: src/core, src/cli, the project root)",
+ "repos": [
+  {
+   "repo": "portpilot",
+   "url": "https://github.com/VolchokLV/portpilot",
+   "sha": "65cb322704a9ba7bcfb009b21b92fdf2591bb4d6",
+   "licence": "MIT (LICENSE file at pin 65cb322704a9, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T20:10Z",
+    "consent_receipt": "52763e445d45",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:10Z (receipt 52763e445d45); selected commit 65cb322704a9: \"feat!: v0.4.0 - fix Next.js hydration through proxy, process safety, \u2026\". LICENSE file at pin 65cb322704a9 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

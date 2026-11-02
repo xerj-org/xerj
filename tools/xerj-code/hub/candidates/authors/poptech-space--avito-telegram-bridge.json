@@ -1,0 +1,23 @@
+{
+ "corpus": "poptech-space--avito-telegram-bridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on avito, avito-api, nodejs queries this for how poptech-space/avito-telegram-bridge implements it: \u0414\u0432\u0443\u0441\u0442\u043e\u0440\u043e\u043d\u043d\u0438\u0439 \u0441\u0435\u0440\u0432\u0435\u0440\u043b\u0435\u0441\u0441-\u043c\u043e\u0441\u0442 \u043c\u0435\u0436\u0434\u0443 \u0410\u0432\u0438\u0442\u043e (Messenger API) \u0438 Telegram (Bot API) \u0431\u0435\u0437 \u0430\u0431\u043e\u043d\u0435\u043d\u0442\u0441\u043a\u0438\u0445 \u043f\u043b\u0430\u0442. 0 \u20bd/\u043c\u0435\u0441 \u043d\u0430 YCF \u0438\u043b\u0438 Telegram Serverless (selected work: scripts, test, ops)",
+ "repos": [
+  {
+   "repo": "avito-telegram-bridge",
+   "url": "https://github.com/poptech-space/avito-telegram-bridge",
+   "sha": "509bbac1b8d01763309a4b890442fe7532fa466c",
+   "licence": "MIT (LICENSE file at pin 509bbac1b8d0, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:59Z",
+    "consent_receipt": "f5f637d7f402",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:59Z (receipt f5f637d7f402); selected commit 509bbac1b8d0: \"fix: harden webhook routing and durable serverless delivery\". LICENSE file at pin 509bbac1b8d0 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

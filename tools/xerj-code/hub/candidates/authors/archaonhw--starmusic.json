@@ -8,15 +8,15 @@
   {
    "repo": "StarMusic",
    "url": "https://github.com/ArchaonHW/StarMusic",
-   "sha": "d3a9e25e38a9c565f0427367c9e0f007416ede8e",
-   "licence": "MIT (LICENSE file at pin d3a9e25e38a9, GitHub licence API 2026-10-28)",
+   "sha": "2ca5c18859ee5f34e325d765fe6d1a478610adf3",
+   "licence": "MIT (LICENSE file at pin 2ca5c18859ee, GitHub licence API 2026-10-29)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T19:53Z",
     "consent_receipt": "a43e4205b9fd",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt a43e4205b9fd); pinned to the default-branch head. LICENSE file at pin d3a9e25e38a9 detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt a43e4205b9fd); pinned to the default-branch head. LICENSE file at pin 2ca5c18859ee detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
    }
   }
  ]

@@ -1,0 +1,30 @@
+{
+ "corpus": "czinda--kipuka",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Rust queries this for how czinda/kipuka implements it: Kipuka EST (RFC 7030) enrollment server with Multi-CA HA, HSM support, and NIAP CA PP compliance. Built on Synta ASN.1/X.509 (selected work: tests, src/routes, src/tls)",
+ "repos": [
+  {
+   "repo": "kipuka",
+   "url": "https://github.com/czinda/kipuka",
+   "sha": "13bc68675678f4dd1848de51fad3bd9eecaf67f2",
+   "licence": "GPL-3.0 (LICENSE file at pin 13bc68675678, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T00:53Z",
+    "consent_receipt": "8dc3f5a1f7a0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T00:53Z (receipt 8dc3f5a1f7a0); selected commit 13bc68675678: \"fix: enable authenticated PQC EST renewal through Dogtag\". LICENSE file at pin 13bc68675678 detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "13bc68675678f4dd1848de51fad3bd9eecaf67f2",
+     "at": "2026-10-30T00:53Z",
+     "receipt": "8dc3f5a1f7a0"
+    }
+   }
+  }
+ ]
+}

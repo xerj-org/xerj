@@ -1,0 +1,23 @@
+{
+ "corpus": "roit-liasp--xal-language",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C queries this for how Roit-liasp/XAL-language implements it: XAL is a simple language designed for embedded systems, utilities, and experimentation",
+ "repos": [
+  {
+   "repo": "XAL-language",
+   "url": "https://github.com/Roit-liasp/XAL-language",
+   "sha": "f9771e9400f77f89c7928d174b6180fac0e89c23",
+   "licence": "BSD-2-Clause (LICENSE file at pin f9771e9400f7, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "BSD-2-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T13:45Z",
+    "consent_receipt": "2542c883a02e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T13:45Z (receipt 2542c883a02e); pinned to the default-branch head. LICENSE file at pin f9771e9400f7 detected as BSD-2-Clause by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

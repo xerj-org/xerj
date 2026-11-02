@@ -1,0 +1,23 @@
+{
+ "corpus": "apache--rocketmq-dashboard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on Java queries this for how apache/rocketmq-dashboard implements it: The state-of-the-art Dashboard of Apache RoccketMQ provides excellent monitoring capability. Various graphs and statistics of events, perfor (selected work: server)",
+ "repos": [
+  {
+   "repo": "rocketmq-dashboard",
+   "url": "https://github.com/apache/rocketmq-dashboard",
+   "sha": "7f2dfd3ed7fd9536b1b46f0efb35a84aadc451a6",
+   "licence": "Apache-2.0 (LICENSE file at pin 7f2dfd3ed7fd, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:49Z",
+    "consent_receipt": "5adeada81b10",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:49Z (receipt 5adeada81b10); selected commit 7f2dfd3ed7fd: \"fix(metrics,litetopic): stop cancelled jobs after checkpoints (#7188)\". LICENSE file at pin 7f2dfd3ed7fd detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

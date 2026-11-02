@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Rust queries this for how agentmuxai/agentmux implements it: Open-Source Agent Operating Environment Built for Getting Work Done (selected work: frontend)",
+ "domain": "an agent working on agentic-ai, knowledge-management, software-development queries this for how agentmuxai/agentmux implements it: The Open-Source Agent Operating Environment Built for Getting Work Done (selected work: frontend)",
  "repos": [
   {
    "repo": "agentmux",

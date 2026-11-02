@@ -1,0 +1,23 @@
+{
+ "corpus": "ashfak-hossain--pulse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on carpooling, drizzle-orm, event-driven queries this for how Ashfak-Hossain/pulse implements it: Timetable-aware commute pooling for university campuses: NestJS, PostgreSQL/PostGIS, Kafka and RabbitMQ in a Turborepo monorepo (selected work: apps/api, packages/contracts, packages/db)",
+ "repos": [
+  {
+   "repo": "pulse",
+   "url": "https://github.com/Ashfak-Hossain/pulse",
+   "sha": "fa596f68f629e500b48f738faa5d09023ecb7e5d",
+   "licence": "MIT (LICENSE file at pin fa596f68f629, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T10:33Z",
+    "consent_receipt": "fd7b58312014",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T10:33Z (receipt fd7b58312014); selected commit fa596f68f629: \"feat(api): answer every error in one shape and add security headers (\u2026\". LICENSE file at pin fa596f68f629 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

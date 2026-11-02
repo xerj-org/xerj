@@ -1,0 +1,23 @@
+{
+ "corpus": "tujy859--wearable-physiological-foundation-models",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how tujy859/Wearable-Physiological-Foundation-Models implements it: Awesome and Comprehensive Survey of Wearable Physiological Foundation Models (Smartwatch, CGM, Sleep, General TSFM) (selected work: data, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "Wearable-Physiological-Foundation-Models",
+   "url": "https://github.com/tujy859/Wearable-Physiological-Foundation-Models",
+   "sha": "728b29c868e8d854ee8ccbf9d43ec83e3686f5a7",
+   "licence": "MIT (LICENSE file at pin 728b29c868e8, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T07:40Z",
+    "consent_receipt": "4f50949c00b0",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T07:40Z (receipt 4f50949c00b0); selected commit 728b29c868e8: \"refactor: \u5168\u9762\u91cd\u6784\u5f00\u6e90\u4ed3\u67b6\u6784\u3001\u6392\u7248\u89c4\u8303\u4e0e\u6570\u636e\u5355\u6e90\u5316\". LICENSE file at pin 728b29c868e8 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

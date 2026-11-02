@@ -1,0 +1,23 @@
+{
+ "corpus": "fahrim--opencode-listen-stt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how fahrim/opencode-listen-stt implements it: Offline voice dictation for OpenCode V2 on Windows. whisper.cpp, 99 languages, GPU-accelerated (CUDA/Vulkan), Turkish support",
+ "repos": [
+  {
+   "repo": "opencode-listen-stt",
+   "url": "https://github.com/fahrim/opencode-listen-stt",
+   "sha": "a7ca0ab5259d0b212f76b84b2c598ebcf7280165",
+   "licence": "MIT (LICENSE file at pin a7ca0ab5259d, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:55Z",
+    "consent_receipt": "6f6f6fa35b46",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T21:55Z (receipt 6f6f6fa35b46); pinned to the default-branch head. LICENSE file at pin a7ca0ab5259d detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

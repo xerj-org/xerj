@@ -1,0 +1,23 @@
+{
+ "corpus": "antonio-mello-ai--mcp-redis-monitor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on felhen, mcp-server queries this for how antonio-mello-ai/mcp-redis-monitor implements it: MCP server for redis-monitor",
+ "repos": [
+  {
+   "repo": "mcp-redis-monitor",
+   "url": "https://github.com/antonio-mello-ai/mcp-redis-monitor",
+   "sha": "5ce3933d3075bd410f9ec1a22af8144018b4448e",
+   "licence": "MIT (LICENSE file at pin 5ce3933d3075, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T12:17Z",
+    "consent_receipt": "5f833c05fde6",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T12:17Z (receipt 5f833c05fde6); pinned to the default-branch head. LICENSE file at pin 5ce3933d3075 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "zhixuli0406--duduclaw",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-platform, agentic-ai, ai-agent queries this for how zhixuli0406/DuDuClaw implements it: Turn AI coding CLIs (Claude Code, Codex, Antigravity) into AI employees on LINE, Telegram, Discord, Slack and 7 more chat apps. A judge revi (selected work: web)",
+ "repos": [
+  {
+   "repo": "DuDuClaw",
+   "url": "https://github.com/zhixuli0406/DuDuClaw",
+   "sha": "248416390f53e1b4ed669e76a03f406ff39ed803",
+   "licence": "Apache-2.0 (LICENSE file at pin 248416390f53, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T15:49Z",
+    "consent_receipt": "2dd2b686a77f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T15:49Z (receipt 2dd2b686a77f); selected commit 248416390f53: \"feat(dashboard): workflow activation facts, task audience notice, req\u2026\". LICENSE file at pin 248416390f53 detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

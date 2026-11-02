@@ -1,0 +1,23 @@
+{
+ "corpus": "xin-dongxu--af3parallel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Xin-DongXu/AF3Parallel implements it: AlphaFold 3 Multi-GPU Parallel Executor (AF3Parallel). A profile-driven scheduling framework for high-throughput AlphaFold 3 inference on mu (selected work: src/af3parallel, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "AF3Parallel",
+   "url": "https://github.com/Xin-DongXu/AF3Parallel",
+   "sha": "1141fdb193ded8a210378ce7a73ada6b6a6ee631",
+   "licence": "MIT (LICENSE file at pin 1141fdb193de, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T00:56Z",
+    "consent_receipt": "eee33c5d1b19",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T00:56Z (receipt eee33c5d1b19); selected commit 1141fdb193de: \"Add AF3Parallel 1.2.0 CLI for build-json, MSA, and result stats.\". LICENSE file at pin 1141fdb193de detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

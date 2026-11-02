@@ -1,0 +1,23 @@
+{
+ "corpus": "sustainable-computing-io--kepler",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on kubernetes, prometheus-exporter, energy-consumption queries this for how sustainable-computing-io/kepler implements it: Kepler is CNCF Sandbox project to attribute the energy use of Kubernetes workloads. Let's make every watt matter. \u26a1 (selected work: internal/device, config, cmd/kepler)",
+ "repos": [
+  {
+   "repo": "kepler",
+   "url": "https://github.com/sustainable-computing-io/kepler",
+   "sha": "750b332ffaea7f540061e26f0c7fcc6be6f96c13",
+   "licence": "Apache-2.0 (LICENSE file at pin 750b332ffaea, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T03:28Z",
+    "consent_receipt": "9279b55fad1b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T03:28Z (receipt 9279b55fad1b); selected commit 750b332ffaea: \"feat(gpu): make dcgm-exporter metrics cache TTL configurable (#2503)\". LICENSE file at pin 750b332ffaea detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

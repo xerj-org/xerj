@@ -1,0 +1,23 @@
+{
+ "corpus": "willybilly06--lhdc-v5-decoder",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on a2dp, arduino, bluetooth queries this for how WillyBilly06/LHDC-V5-Decoder implements it: Independent LHDC V5 software decoder and ESP32 A2DP integration. Tested 192 kHz, 24-bit, 1 Mbps playback on ESP32-WROOM without PSRAM",
+ "repos": [
+  {
+   "repo": "LHDC-V5-Decoder",
+   "url": "https://github.com/WillyBilly06/LHDC-V5-Decoder",
+   "sha": "cf857ce1a1429965e161e54adbc3f293fd9ce273",
+   "licence": "author's permission (LICENSE at pin cf857ce1a142: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T09:44Z",
+    "consent_receipt": "74b1f058b8ef",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T09:44Z (receipt 74b1f058b8ef); pinned to the default-branch head. LICENSE at pin cf857ce1a142: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

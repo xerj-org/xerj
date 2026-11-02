@@ -1,0 +1,23 @@
+{
+ "corpus": "amroquqa99-art--d-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how amroquqa99-art/D_AI implements it: amroquqa99-art/D_AI (Python)",
+ "repos": [
+  {
+   "repo": "D_AI",
+   "url": "https://github.com/amroquqa99-art/D_AI",
+   "sha": "f6e947ad91eca4ff77d871fe9017da717b6f8ad4",
+   "licence": "GPL-3.0 (LICENSE file at pin f6e947ad91ec, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T19:36Z",
+    "consent_receipt": "fdba7c239e66",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:36Z (receipt fdba7c239e66); pinned to the default-branch head. LICENSE file at pin f6e947ad91ec detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

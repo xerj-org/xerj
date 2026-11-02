@@ -1,0 +1,23 @@
+{
+ "corpus": "alperkartkaya--flightbench",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, benchmark, jev queries this for how AlperKartkaya/FlightBench implements it: FlightBench is a fixed-wing landing simulator and benchmark for decision models, LLMs, and classical controllers. You can run the simulator, (selected work: leaderboard, examples, tests)",
+ "repos": [
+  {
+   "repo": "FlightBench",
+   "url": "https://github.com/AlperKartkaya/FlightBench",
+   "sha": "e8eee9c8c51df1e5ed5242d790463c0c15f9ae60",
+   "licence": "MIT (LICENSE file at pin e8eee9c8c51d, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T20:59Z",
+    "consent_receipt": "57fc615fbf91",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:59Z (receipt 57fc615fbf91); selected commit e8eee9c8c51d: \"feat: add gpt-6.1-terra leaderboard campaign\". LICENSE file at pin e8eee9c8c51d detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

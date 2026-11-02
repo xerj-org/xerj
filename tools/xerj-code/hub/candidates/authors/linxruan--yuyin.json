@@ -1,0 +1,30 @@
+{
+ "corpus": "linxruan--yuyin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how LinXruan/YuYin implements it: \u6296\u97f3\u65e0\u6c34\u5370\u672c\u5730\u89e3\u6790\u4e0b\u8f7d\u8d44\u6e90 (selected work: lib/pages, lib/utils, lib)",
+ "repos": [
+  {
+   "repo": "YuYin",
+   "url": "https://github.com/LinXruan/YuYin",
+   "sha": "9773881d1ab819166f40c1ea291dae7c2f4b1a76",
+   "licence": "AGPL-3.0 (LICENSE file at pin 9773881d1ab8, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T04:15Z",
+    "consent_receipt": "fe15240e2731",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T04:15Z (receipt fe15240e2731); selected commit 9773881d1ab8: \"127_pl22\uff1aUI\u7f8e\u5316\". LICENSE file at pin 9773881d1ab8 detected as AGPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "9773881d1ab819166f40c1ea291dae7c2f4b1a76",
+     "at": "2026-11-01T04:15Z",
+     "receipt": "fe15240e2731"
+    }
+   }
+  }
+ ]
+}

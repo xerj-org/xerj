@@ -1,0 +1,23 @@
+{
+ "corpus": "feardread--tdella",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how FearDread/TDella implements it: Web store selling custom made journals by Tracy Delagardelle",
+ "repos": [
+  {
+   "repo": "TDella",
+   "url": "https://github.com/FearDread/TDella",
+   "sha": "50e158282186922109e30849b0169c005d332fc1",
+   "licence": "author's permission (LICENSE at pin 50e158282186: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T14:26Z",
+    "consent_receipt": "c191cf343eb5",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T14:26Z (receipt c191cf343eb5); pinned to the default-branch head. LICENSE at pin 50e158282186: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on backup, bazarr, dropbox queries this for how rsaturns/backuparr implements it: Scheduled config/database backups and web-UI restore for Radarr, Sonarr, Prowlarr, Profilarr, Bazarr, Tdarr, SABnzbd, Tautulli, Jellyfin, Em (selected work: tests, webui, the project root)",
+ "domain": "an agent working on backup, bazarr, dropbox queries this for how rsaturns/backuparr implements it: Scheduled config/database backups and web-UI restore for Radarr, Sonarr, Prowlarr, Profilarr, Bazarr, Tdarr, SABnzbd, NZBGet, Tautulli, Jell (selected work: tests, webui, the project root)",
  "repos": [
   {
    "repo": "backuparr",

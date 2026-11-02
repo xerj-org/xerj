@@ -1,0 +1,23 @@
+{
+ "corpus": "melchersman--pysyriatel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Melchersman/PySyriatel implements it: Python client for Syriatel API (selected work: syriatel, tests, scripts)",
+ "repos": [
+  {
+   "repo": "PySyriatel",
+   "url": "https://github.com/Melchersman/PySyriatel",
+   "sha": "c2cffc54366c0c6a4615b182f260f5bb63190ade",
+   "licence": "MIT (LICENSE file at pin c2cffc54366c, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:57Z",
+    "consent_receipt": "f1973f3bd64a",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T18:57Z (receipt f1973f3bd64a); selected commit c2cffc54366c: \"Add account management and subscription support for 2.2.0\". LICENSE file at pin c2cffc54366c detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

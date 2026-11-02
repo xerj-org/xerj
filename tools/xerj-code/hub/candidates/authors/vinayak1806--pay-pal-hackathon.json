@@ -2,8 +2,8 @@
  "corpus": "vinayak1806--pay-pal-hackathon",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on JavaScript queries this for how Vinayak1806/Pay-Pal-Hackathon implements it: Vinayak1806/Pay-Pal-Hackathon (JavaScript) (selected work: client, server)",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how Vinayak1806/Pay-Pal-Hackathon implements it: A policy enforcement layer for autonomous AI purchasing, built with Google Gemini and PayPal Orders v2 Sandbox. Features competing AI seller (selected work: client, server)",
  "repos": [
   {
    "repo": "Pay-Pal-Hackathon",

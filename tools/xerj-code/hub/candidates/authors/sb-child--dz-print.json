@@ -1,0 +1,30 @@
+{
+ "corpus": "sb-child--dz-print",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on printer, printer-driver, rust queries this for how sb-child/dz-print implements it: Third-party USB/Bluetooth Driver for Detonger(detonger.com) Printing Machines | \u5fb7\u4f5f\u5370\u7acb\u65b9\u6253\u5370\u673a\u7684\u7b2c\u4e09\u65b9USB/\u84dd\u7259\u9a71\u52a8, \u4e3b\u677f\u7531\u9053\u81fb\u4fe1\u606f\u6280\u672f\u6709\u9650\u516c\u53f8\u751f\u4ea7 (selected work: src/bin, src, src/frontend)",
+ "repos": [
+  {
+   "repo": "dz-print",
+   "url": "https://github.com/sb-child/dz-print",
+   "sha": "22cefef6ff1b045ebba361a87c620851be07b932",
+   "licence": "MPL-2.0 (LICENSE file at pin 22cefef6ff1b, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T10:19Z",
+    "consent_receipt": "5e01e889a847",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T10:19Z (receipt 5e01e889a847); selected commit 22cefef6ff1b: \"feat: revive dzprint_typst with shared bin plumbing\". LICENSE file at pin 22cefef6ff1b detected as MPL-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "22cefef6ff1b045ebba361a87c620851be07b932",
+     "at": "2026-11-01T10:19Z",
+     "receipt": "5e01e889a847"
+    }
+   }
+  }
+ ]
+}

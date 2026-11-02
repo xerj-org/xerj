@@ -1,0 +1,23 @@
+{
+ "corpus": "qzyu999--inference-exchange",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Jupyter Notebook queries this for how qzyu999/inference-exchange implements it: \u26a1 InferenceExchange (IE) - Decentralized Level-2 Order Book and Matching Engine for LLM Compute (selected work: web, tests, inference_exchange)",
+ "repos": [
+  {
+   "repo": "inference-exchange",
+   "url": "https://github.com/qzyu999/inference-exchange",
+   "sha": "d84d8471364c81665f37f1bdd9a8df4836895df9",
+   "licence": "Apache-2.0 (LICENSE file at pin d84d8471364c, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T21:22Z",
+    "consent_receipt": "0138291ac381",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T21:22Z (receipt 0138291ac381); selected commit d84d8471364c: \"security(alpha): prohibit production credit refill and stale API key \u2026\". LICENSE file at pin d84d8471364c detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

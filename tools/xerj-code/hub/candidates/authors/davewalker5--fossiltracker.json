@@ -1,0 +1,23 @@
+{
+ "corpus": "davewalker5--fossiltracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on datasette, fossil-collections, fossils queries this for how davewalker5/FossilTracker implements it: A personal fossil collection catalogue with taxonomy, provenance, geological context, and specimen management, built with Python, SQLite, St",
+ "repos": [
+  {
+   "repo": "FossilTracker",
+   "url": "https://github.com/davewalker5/FossilTracker",
+   "sha": "b569c8729d083b9dcce6850da3f20aa9e2036ee9",
+   "licence": "MIT (LICENSE file at pin b569c8729d08, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T10:09Z",
+    "consent_receipt": "f1686a1a9eca",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T10:09Z (receipt f1686a1a9eca); pinned to the default-branch head. LICENSE file at pin b569c8729d08 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

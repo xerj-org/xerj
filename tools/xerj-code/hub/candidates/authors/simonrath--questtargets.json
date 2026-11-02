@@ -1,0 +1,30 @@
+{
+ "corpus": "simonrath--questtargets",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Lua queries this for how simonrath/questtargets implements it: simonrath/questtargets (Lua) (selected work: QuestTargets, tests)",
+ "repos": [
+  {
+   "repo": "questtargets",
+   "url": "https://github.com/simonrath/questtargets",
+   "sha": "f2eb76323553f62c1b90abb2553491451c9e1150",
+   "licence": "GPL-3.0 (LICENSE file at pin f2eb76323553, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T22:43Z",
+    "consent_receipt": "edbf1b290002",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:43Z (receipt edbf1b290002); selected commit f2eb76323553: \"Add discoverable master button positioning mode\". LICENSE file at pin f2eb76323553 detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "f2eb76323553f62c1b90abb2553491451c9e1150",
+     "at": "2026-10-29T22:43Z",
+     "receipt": "edbf1b290002"
+    }
+   }
+  }
+ ]
+}

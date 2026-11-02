@@ -1,0 +1,23 @@
+{
+ "corpus": "souhaieb-marzouk--cyberguardian",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Python queries this for how Souhaieb-Marzouk/CyberGuardian implements it: Advanced Malware & Anomaly Detection Tool for Windows (selected work: scanners, utils, threat_intel)",
+ "repos": [
+  {
+   "repo": "CyberGuardian",
+   "url": "https://github.com/Souhaieb-Marzouk/CyberGuardian",
+   "sha": "0cc7165c05eae09b973d4082d30969e185479b52",
+   "licence": "MIT (LICENSE file at pin 0cc7165c05ea, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:55Z",
+    "consent_receipt": "c825b634d7f9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T19:55Z (receipt c825b634d7f9); selected commit 0cc7165c05ea: \"Fix security flaws, dead features and detection false positives\". LICENSE file at pin 0cc7165c05ea detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

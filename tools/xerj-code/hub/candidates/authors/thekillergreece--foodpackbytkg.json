@@ -1,0 +1,23 @@
+{
+ "corpus": "thekillergreece--foodpackbytkg",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how Thekillergreece/FoodPackByTKG implements it: Food Pack created by WulfMarius, maintained by ds5678 and now by Thekillergreece (selected work: Unity, Distributable, VisualStudio)",
+ "repos": [
+  {
+   "repo": "FoodPackByTKG",
+   "url": "https://github.com/Thekillergreece/FoodPackByTKG",
+   "sha": "a142909b3c9cc49362d435f6e00eb65ad15bdcc2",
+   "licence": "MIT (LICENSE file at pin a142909b3c9c, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T20:52Z",
+    "consent_receipt": "d84e1920c4a9",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T20:52Z (receipt d84e1920c4a9); selected commit a142909b3c9c: \"6.5\". LICENSE file at pin a142909b3c9c detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

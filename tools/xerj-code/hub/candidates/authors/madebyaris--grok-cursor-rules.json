@@ -1,0 +1,23 @@
+{
+ "corpus": "madebyaris--grok-cursor-rules",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-rules, agentic-ai, ai-coding queries this for how madebyaris/grok-cursor-rules implements it: Cursor rules for Grok 4.7: grounded coding plus design directions, screenshot review, own ideas, and direction-only questions",
+ "repos": [
+  {
+   "repo": "grok-cursor-rules",
+   "url": "https://github.com/madebyaris/grok-cursor-rules",
+   "sha": "cbfeb0d4dfdaf053a562b8adf558ada9c7e9f19b",
+   "licence": "MIT (LICENSE file at pin cbfeb0d4dfda, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T05:22Z",
+    "consent_receipt": "90e85f626e32",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T05:22Z (receipt 90e85f626e32); pinned to the default-branch head. LICENSE file at pin cbfeb0d4dfda detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

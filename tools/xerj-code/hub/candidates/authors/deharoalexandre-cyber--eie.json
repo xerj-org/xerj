@@ -1,0 +1,23 @@
+{
+ "corpus": "deharoalexandre-cyber--eie",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on apache-2, cuda, gguf queries this for how deharoalexandre-cyber/EIE implements it: Local GGUF inference for one or several models; Android JNI components and experimental Gemma expert-weight streaming with published local m (selected work: backends, server, tests)",
+ "repos": [
+  {
+   "repo": "EIE",
+   "url": "https://github.com/deharoalexandre-cyber/EIE",
+   "sha": "85c885efb7251375ecb46bb156ec46d732e0e438",
+   "licence": "Apache-2.0 (LICENSE file at pin 85c885efb725, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-17T21:38Z",
+    "consent_receipt": "74c6855ba1ba",
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T21:38Z (receipt 74c6855ba1ba); selected commit 85c885efb725: \"feat: support native tool calls in chat serving (#4)\". LICENSE file at pin 85c885efb725 detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "yan-stone-computer--nexcore",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on JavaScript queries this for how yan-stone-computer/Nexcore implements it: \u542f\u6838Nexcore \u00b7 AI \u539f\u751f\u5e94\u7528\u521b\u65b0\u56e2\u961f\u5b98\u7f51\uff0c\u5c55\u793a\u5929\u67a2\u4fbf\u7b7e PolarisNote \u4e0e\u67a2\u6e38\u8bb0 ShuYouJi (selected work: the project root, scripts)",
+ "repos": [
+  {
+   "repo": "Nexcore",
+   "url": "https://github.com/yan-stone-computer/Nexcore",
+   "sha": "5d6bb2889349ca1d04da31111e0682ee5672d268",
+   "licence": "MIT (LICENSE file at pin 5d6bb2889349, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T01:16Z",
+    "consent_receipt": "0e15eee54500",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T01:16Z (receipt 0e15eee54500); selected commit 5d6bb2889349: \"feat: add bookshelf articles and refresh product content\". LICENSE file at pin 5d6bb2889349 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

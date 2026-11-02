@@ -1,0 +1,23 @@
+{
+ "corpus": "zarmumia--call-insights-newsletter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, content-marketing, customer-support queries this for how zarmumia/call-insights-newsletter implements it: Turn recurring questions from customer calls into a newsletter draft with Claude. Privacy threshold, press scan, human approval",
+ "repos": [
+  {
+   "repo": "call-insights-newsletter",
+   "url": "https://github.com/zarmumia/call-insights-newsletter",
+   "sha": "f427d71d32881dd602772cc39fcfadd83d939d40",
+   "licence": "MIT (LICENSE file at pin f427d71d3288, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T05:22Z",
+    "consent_receipt": "34de7abe9f59",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T05:22Z (receipt 34de7abe9f59); pinned to the default-branch head. LICENSE file at pin f427d71d3288 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

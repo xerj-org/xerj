@@ -45,6 +45,7 @@ background:linear-gradient(100deg,#6d28d9,#9333ea,#7c3aed,#6d28d9);background-si
 .contrib h3 a{text-decoration:none}
 .contrib .stars{float:right;font-family:var(--font-data);font-weight:600;color:var(--z-accent)}
 .contrib .commit{font-family:var(--font-mono);font-size:var(--fs-13);color:var(--z-mute);margin:var(--sp-2) 0}
+.contrib .repofacts p{margin:var(--sp-2) 0}
 .chips{display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:var(--sp-3)}
 .chip{font-family:var(--font-data);font-size:var(--fs-11);text-transform:uppercase;letter-spacing:var(--track-label);
 border:1px solid var(--z-line);padding:.25em .6em;color:var(--z-mute)}
@@ -310,7 +311,29 @@ def xposts_section(posts, esc):
     return f'<section class="xposts"><h2>On X</h2>{"".join(items)}</section>\n'
 
 
-def person_body(pp, esc, live_slugs, pages=(), agent="", xposts=""):
+def repo_facts_html(st, esc):
+    """The repository as GitHub reports it (data/repo_stats.json): description, history, size and languages.
+    Only fields GitHub returned are shown; nothing is filled in when a field is missing."""
+    if not st:
+        return ""
+    desc = repo_pages.gh_text(st, "")
+    tree = st.get("tree") if "files" in (st.get("tree") or {}) else {}
+    bits = [f'{_n(st["commits"])} commits' if isinstance(st.get("commits"), int) else "",
+            f'{_n(st["forks"])} forks' if isinstance(st.get("forks"), int) and st["forks"] else "",
+            f'{_n(tree["files"])} files at the pinned commit' if tree.get("files") else "",
+            f'created {st["created"][:7]}' if st.get("created") else "",
+            f'last push {st["pushed"][:10]}' if st.get("pushed") else "",
+            "archived" if st.get("archived") else ""]
+    langs = ", ".join(f"{l} {round(p)}%" for l, p in (st.get("languages") or [])[:3] if p >= 1)
+    line = " · ".join(b for b in bits if b)
+    if not (desc or line or langs):
+        return ""
+    return (f'<div class="repofacts">' + (f'<p>{esc(desc)}</p>' if desc else "")
+            + (f'<div class="commit">On GitHub: {esc(line)}</div>' if line else "")
+            + (f'<div class="commit">Languages: {esc(langs)}</div>' if langs else "") + "</div>")
+
+
+def person_body(pp, esc, live_slugs, pages=(), agent="", xposts="", gh=None):
     login = pp["login"]
     work = sorted(pp["work"].values(), key=lambda w: (-(w.get("repo_stars") or 0), w["repo"].lower()))
     name = pp["name"] or login
@@ -323,8 +346,10 @@ def person_body(pp, esc, live_slugs, pages=(), agent="", xposts=""):
         live = [c for c in w["corpora"] if c in live_slugs]
         # licence cleared (ledger licence.reviewed: author consent + LICENSE at the pin) is not "in licence review":
         # the only step left is the registry entry + pack build (2026-10-27, a contributor read it as a licence problem)
-        status = ('<span class="chip ok">live in the hub</span>' if live
-                  else '<span class="chip ok">selected for the XERJ Corpus Hub · licence cleared</span>' if w.get("reviewed")
+        # a licence-cleared contributed corpus IS live: its page is up and its prompt lets any agent search it now. Only a
+        # pre-built signed pack is extra (registry corpora). "awaiting pack build" read as "not live" (2026-10-29, on X)
+        status = ('<span class="chip ok">live in the hub · signed pack</span>' if live
+                  else '<span class="chip ok">live on the hub · licence cleared</span>' if w.get("reviewed")
                   else '<span class="chip warn">selected · in licence review</span>')
         # issue #1890: a corpus not in the registry has no manifest there, so
         # the documented install path (llms.txt step 3) 404s. Say so on the card.
@@ -341,9 +366,10 @@ def person_body(pp, esc, live_slugs, pages=(), agent="", xposts=""):
         chips = "".join(f'<span class="chip">{esc(t)}</span>' for t in w["topics"][:6])
         corp = "".join(f'<a class="chip" href="../corpus/{esc(c)}">corpus {esc(c)}</a>' if c in pages
                        else f'<span class="chip">corpus {esc(c)}</span>' for c in w["corpora"])
-        gh = f'<span class="stars" title="GitHub stars on the repository">GitHub ★ {_n(w.get("repo_stars"))}</span>' if isinstance(w.get("repo_stars"), int) else ""
-        cards.append(f"""<div class="contrib">{gh}
-<h3><a href="{esc(w["repo_url"])}">{esc(w["repo"])}</a></h3>{commit}
+        ghs = f'<span class="stars" title="GitHub stars on the repository">GitHub ★ {_n(w.get("repo_stars"))}</span>' if isinstance(w.get("repo_stars"), int) else ""
+        facts = repo_facts_html((gh or {}).get(repo_pages.key(w["repo_url"])) or {}, esc)
+        cards.append(f"""<div class="contrib">{ghs}
+<h3><a href="{esc(w["repo_url"])}">{esc(w["repo"])}</a></h3>{facts}{commit}
 <div class="commit">{"selected commit: " + esc(size) if size else ""}{" · " + esc(", ".join(w["areas"])[:120]) if w["areas"] else ""}</div>
 <p class="note">The corpus is the whole repository at the pinned commit, not only the files of the selected commit.</p>
 <div class="chips">{status}{corp}{f'<span class="chip">{esc(w["shelf"])}</span>' if w["shelf"] else ""}<span class="chip">{esc(w["spdx"])}</span>{chips}
@@ -674,8 +700,9 @@ MORE_JS = """<script>
     if(r.is_me){
       var me=add(body,el('div',{'class':'thisisme'}));
       add(me,el('h2',{},'This is you'));
-      var live=0,review=0;c.work.forEach(function(w){(w.corpora||[]).forEach(function(x){if(x.status==='live')live++;else review++})});
-      add(me,el('p',{},'You are signed in as @'+c.login+'. '+c.work.length+' of your commits are selected; '+live+' corpus entr'+(live===1?'y is':'ies are')+' live and '+review+' '+(review===1?'is':'are')+' still waiting for their pack build. Each card below shows where your work is and its last pack build.'));
+      // live = licence cleared (its page and prompt are up); a signed pack is an extra, not a condition (2026-10-29)
+      var live=0,packs=0,review=0;c.work.forEach(function(w){(w.corpora||[]).forEach(function(x){if(x.status==='live'||w.reviewed)live++;else review++;if(x.status==='live')packs++})});
+      add(me,el('p',{},'You are signed in as @'+c.login+'. '+c.work.length+' of your commits are selected; '+live+' corpus entr'+(live===1?'y is':'ies are')+' live on the hub: any agent can search '+(live===1?'it':'them')+' now with the prompt on '+(live===1?'its':'each')+' page.'+(packs?' '+packs+' also '+(packs===1?'has':'have')+' a pre-built signed pack.':'')+(review?' '+review+' '+(review===1?'is':'are')+' still in licence review.':'')+' Each card below shows where your work is.'));
       var a=add(me,el('p',{}));
       add(a,link('https://github.com/xerj-org/xerj/issues/new?title='+encodeURIComponent('Corpus Hub: change or remove my work (@'+c.login+')'),'Ask for a change or removal'));
       a.appendChild(document.createTextNode(' · '));add(a,link('/me','Your hub stars'));
@@ -693,7 +720,7 @@ MORE_JS = """<script>
         ['agreed',w.agreed]].filter(function(x){return x[1]});
       add(d,table(['',''],rows));
       if(w.corpora&&w.corpora.length)add(d,table(['corpus','status','manifest','last pack build'],w.corpora.map(function(x){
-        return [x.page?link('/corpus/'+x.slug,x.slug):x.slug,x.status||'candidate',x.manifest||'',build(x.last_build)]})));
+        return [link('/corpus/'+x.slug,x.slug),x.status==='live'?'live · signed pack':(w.reviewed?'live':'in licence review'),x.manifest||'',build(x.last_build)||(x.status==='live'?'':'not needed: the prompt indexes it on the agent\u2019s machine')]})));
     });
     var also=Object.keys(c.also_pinned_in||{});
     if(also.length)add(body,el('p',{'class':'note'},'Repositories of yours are also pinned in: '+also.join(', ')+'.'));
@@ -1260,6 +1287,7 @@ def generate(out, hub_dir, page, esc, live_slugs, registry=None, people=None, up
     stats = collections.Counter()
     lastmod = {} if lastmod is None else lastmod
     fetched, gh = repo_pages.load_stats()
+    seen = repo_pages.load_seen()
     # repo pages: one repository per candidate corpus (exploit-pocs aggregates are registry pages, never here)
     pocs = {repo_pages.key(r.get("url")) for c in registry or [] if c["slug"].startswith("exploit-pocs")
             for r in c.get("repos") or []}
@@ -1270,6 +1298,10 @@ def generate(out, hub_dir, page, esc, live_slugs, registry=None, people=None, up
         1 for e in cands.values() if repo_pages.key(e["works"][0][1]["repo_url"]) in pocs)
     related = repo_pages.Related([c for c in registry or [] if c["slug"] in live_slugs],
                                  {s: (f["repo"], f["lang"], f["topics"]) for s, f in rfacts.items()}, gh)
+    # a contributor page whose every corpus is a weak (noindexed) repo page repeats that weak page's facts:
+    # noindex it too, unless Google already shows it (GSC impressions)
+    weak_slugs = {slug for slug, f in rfacts.items() if repo_pages.weak(f, seen)}
+    seen_people = {l.lower() for l in repo_pages.load_seen_contributors()}
     xp = pathlib.Path(__file__).resolve().parent / "data" / "x_posts.json"
     xposts = json.loads(xp.read_text(encoding="utf-8")) if xp.exists() else {}
     for login, pp in people.items():
@@ -1289,10 +1321,15 @@ def generate(out, hub_dir, page, esc, live_slugs, registry=None, people=None, up
         ld = seo_ld(f, posts)
         if dates:
             ld["dateModified"] = max(dates)
-        html = page(title, desc, person_body(pp, esc, live_slugs, pages, agent_section(f, esc, pages), xposts_section(posts, esc)),
-                    rel="../", path=f"/contributors/{login}", image=f"https://github.com/{login}.png?size=400",
-                    kind="ProfilePage", noindex=f["thin"], ld_extra=ld)
-        stats["indexable" if not f["thin"] else "thin"] += 1
+        mine = {c for w in pp["work"].values() for c in w["corpora"]} | set(pp.get("corpora") or ())
+        all_weak = bool(mine) and mine <= weak_slugs and login.lower() not in seen_people
+        noindex = f["thin"] or all_weak
+        body = person_body(pp, esc, live_slugs, pages, agent_section(f, esc, pages), xposts_section(posts, esc), gh)
+        html = page(title, desc, body, rel="../", path=f"/contributors/{login}", image=f"https://github.com/{login}.png?size=400",
+                    kind="ProfilePage", noindex=noindex, ld_extra=ld)
+        stats["thin" if f["thin"] else "weak repos only" if all_weak else "indexable"] += 1
+        if not noindex and 'class="repofacts"' in body:
+            stats["indexable with GitHub repo facts"] += 1
         (d / f"{login}.html").write_text(html)
         if dates:
             lastmod[f"contributors/{login}.html"] = max(dates)
@@ -1322,7 +1359,9 @@ def generate(out, hub_dir, page, esc, live_slugs, registry=None, people=None, up
                         candidate_body(slug, e, esc, people), rel="../", path=f"/corpus/{slug}")
         else:
             lv, rp = related.pick(slug, f["lang"], f["topics"], exclude={slug})
-            body, ld = repo_pages.repo_body(f, esc, people, cats, (lv, rp), fetched)
+            why = repo_pages.weak(f, seen)
+            extra = "" if why else repo_pages.enrich_html(f, esc, people, cats, pages, fetched)
+            body, ld = repo_pages.repo_body(f, esc, people, cats, (lv, rp), fetched, extra=extra)
             dates = [x for x in [(f["w"].get("agreed") or "")[:10], fetched if f["st"] else ""] if re.match(r"^\d{4}-\d{2}-\d{2}$", x)]
             if dates and isinstance(ld, dict):
                 ld["dateModified"] = max(dates)
@@ -1332,8 +1371,11 @@ def generate(out, hub_dir, page, esc, live_slugs, registry=None, people=None, up
             rs = reg_of.get(repo_pages.key(f["url"]))
             ttl = repo_pages.title(f["repo"], f"the repository behind the {rs} corpus") if rs else repo_pages.repo_title(f)
             html = page(ttl, dsc, body + REPO_JS, rel="../", path=f"/corpus/{slug}",
-                        ld_extra=ld, og_title=f"{f['repo']} on XERJ Hub")
+                        ld_extra=ld, og_title=f"{f['repo']} on XERJ Hub", noindex=bool(why))
             stats["repo pages"] += 1
+            stats["repo pages noindexed (weak)" if why else "repo pages enriched"] += 1
+            if why:
+                stats["weak: " + why] += 1
             stats["repo pages with GitHub stats"] += bool(f["st"])
             dates = [x for x in [(f["w"].get("agreed") or "")[:10], fetched if f["st"] else ""] if re.match(r"^\d{4}-\d{2}-\d{2}$", x)]
             if dates:
@@ -1358,7 +1400,10 @@ def generate(out, hub_dir, page, esc, live_slugs, registry=None, people=None, up
                     og_title=f"{what}, page {n}: XERJ Corpus Hub",
                     og_desc="Developers who agreed to let AI agents learn from their work")
         (d / f"{stem}.html").write_text(html)
-    print(f"contributors: {stats['indexable']} indexable, {stats['thin']} thin (noindex), {stats['x posts']} X posts; "
+    print(f"contributors: {stats['indexable']} indexable, {stats['thin']} thin (noindex), {stats['weak repos only']} noindexed (every corpus a weak repo page), "
+          f"{stats['indexable with GitHub repo facts']} indexable with GitHub repo facts, {stats['x posts']} X posts; "
           f"repo pages: {stats['repo pages']}, {stats['repo pages with GitHub stats']} with GitHub stats, "
-          f"{stats['skipped: in an exploit-pocs collection']} skipped (in an exploit-pocs collection)")
+          f"{stats['skipped: in an exploit-pocs collection']} skipped (in an exploit-pocs collection); "
+          f"{stats['repo pages enriched']} enriched, {stats['repo pages noindexed (weak)']} noindexed as weak "
+          f"({', '.join(f'{k[6:]}: {v}' for k, v in sorted(stats.items()) if k.startswith('weak: '))})")
     return len(people)

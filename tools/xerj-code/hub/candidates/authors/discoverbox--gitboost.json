@@ -1,0 +1,30 @@
+{
+ "corpus": "discoverbox--gitboost",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on github-proxy, github, github-accelerator queries this for how DiscoverBox/gitboost implements it: github\u52a0\u901f\uff0c\u89e3\u51b3\u6ca1\u6709\u5168\u5c40\u4ee3\u7406\u7684github\u9879\u76ee\u4e0b\u8f7d\u95ee\u9898 (selected work: scripts, src-tauri)",
+ "repos": [
+  {
+   "repo": "gitboost",
+   "url": "https://github.com/DiscoverBox/gitboost",
+   "sha": "62a9dd3df2ce6fb51757d7d5b1ba7eed84092704",
+   "licence": "GPL-3.0 (LICENSE file at pin 62a9dd3df2ce, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T06:06Z",
+    "consent_receipt": "71e9fc00b046",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T06:06Z (receipt 71e9fc00b046); selected commit 62a9dd3df2ce: \"test: add isolated single-function LLVM obfuscation experiment\". LICENSE file at pin 62a9dd3df2ce detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "62a9dd3df2ce6fb51757d7d5b1ba7eed84092704",
+     "at": "2026-11-01T06:06Z",
+     "receipt": "71e9fc00b046"
+    }
+   }
+  }
+ ]
+}

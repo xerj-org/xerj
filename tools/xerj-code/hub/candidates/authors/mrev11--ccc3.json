@@ -1,0 +1,30 @@
+{
+ "corpus": "mrev11--ccc3",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C++ queries this for how mrev11/ccc3 implements it: Clipper to C++ Compiler v3 (Unicode) (selected work: tools, the project root, ccclib)",
+ "repos": [
+  {
+   "repo": "ccc3",
+   "url": "https://github.com/mrev11/ccc3",
+   "sha": "19c82bc1633937ad96f5410a9ced3eddd6554c3c",
+   "licence": "LGPL-2.1 (LICENSE file at pin 19c82bc16339, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "LGPL-2.1",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T07:37Z",
+    "consent_receipt": "55dda38dc373",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T07:37Z (receipt 55dda38dc373); selected commit 19c82bc16339: \"2028.10.29\". LICENSE file at pin 19c82bc16339 detected as LGPL-2.1 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "19c82bc1633937ad96f5410a9ced3eddd6554c3c",
+     "at": "2026-10-30T07:37Z",
+     "receipt": "55dda38dc373"
+    }
+   }
+  }
+ ]
+}

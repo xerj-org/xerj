@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai, browser, chatgpt queries this for how sotger/allai-chat implements it: All your AI chats in one app: vertical tabs, isolated sessions per service (selected work: src/renderer, src/main, src/shared)",
+ "domain": "an agent working on ai, browser, chatgpt queries this for how sotger/allai-chat implements it: All your AI chats in one app: vertical tabs, isolated sessions per service, local history search (selected work: src/renderer, src/main, src/shared)",
  "repos": [
   {
    "repo": "allai-chat",

@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--data-analyst-portfolio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how VaibhavSoni24/Data-Analyst-Portfolio implements it: VaibhavSoni24/Data-Analyst-Portfolio (TypeScript)",
+ "repos": [
+  {
+   "repo": "Data-Analyst-Portfolio",
+   "url": "https://github.com/VaibhavSoni24/Data-Analyst-Portfolio",
+   "sha": "27d57fcc4c4d13750604f3ceb24e5b9f45b2e736",
+   "licence": "author's permission (LICENSE at pin 27d57fcc4c4d: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "0ab905de93e3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 0ab905de93e3); pinned to the default-branch head. LICENSE at pin 27d57fcc4c4d: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

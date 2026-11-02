@@ -1,0 +1,23 @@
+{
+ "corpus": "wanghenan--codereview-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how wanghenan/codereview-agent implements it: AI-powered CodeReview Agent with LangChain + LangGraph (selected work: python)",
+ "repos": [
+  {
+   "repo": "codereview-agent",
+   "url": "https://github.com/wanghenan/codereview-agent",
+   "sha": "967042c2912eb5ed2aa42cf9e8e48aaa2dc9aea7",
+   "licence": "MIT (LICENSE file at pin 967042c2912e, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T02:11Z",
+    "consent_receipt": "78efea339683",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T02:11Z (receipt 78efea339683); selected commit 967042c2912e: \"feat(review): inject cross-file symbol context into prompts (S5b)\". LICENSE file at pin 967042c2912e detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "onouh--machine-learning",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how onouh/Machine-Learning implements it: Various machine learning models trained and tested against data. Optimized parameters and feature selection/modifications (selected work: src/hotel_booking, the project root, tests)",
+ "repos": [
+  {
+   "repo": "Machine-Learning",
+   "url": "https://github.com/onouh/Machine-Learning",
+   "sha": "d74e51ed06e926c8392efdad0d36f79e9a603a9a",
+   "licence": "MIT (LICENSE file at pin d74e51ed06e9, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T23:18Z",
+    "consent_receipt": "75e55d0e9abf",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T23:18Z (receipt 75e55d0e9abf); selected commit d74e51ed06e9: \"Initial scaffold: repo structure, MEMORY.md, TASK.md, docs, shared Py\u2026\". LICENSE file at pin d74e51ed06e9 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

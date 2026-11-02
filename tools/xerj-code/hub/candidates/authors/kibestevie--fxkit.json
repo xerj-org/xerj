@@ -1,0 +1,23 @@
+{
+ "corpus": "kibestevie--fxkit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Java queries this for how KibeStevie/fxkit implements it: Tailwind-inspired UI component library for JavaFX desktop apps (selected work: fxkit-core, fxkit-showcase, the project root)",
+ "repos": [
+  {
+   "repo": "fxkit",
+   "url": "https://github.com/KibeStevie/fxkit",
+   "sha": "a39b90b9400588bff1d300584f7ac010b1e03093",
+   "licence": "MIT (LICENSE file at pin a39b90b94005, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T15:21Z",
+    "consent_receipt": "4f714e61e69d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T15:21Z (receipt 4f714e61e69d); selected commit a39b90b94005: \"Add unit tests for file selection, image sources, and key activation;\u2026\". LICENSE file at pin a39b90b94005 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

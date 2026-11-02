@@ -1,0 +1,23 @@
+{
+ "corpus": "abdelrhman-ellithy--ellithium",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on automation, sdet, software-testing queries this for how Abdelrhman-Ellithy/Ellithium implements it: Ellithium is a AI Powered Unified powerful, flexible Test Automation Framework for Web, Mobile, API, SQL, No SQL DB Testing, designed to enh (selected work: src/test, src/main)",
+ "repos": [
+  {
+   "repo": "Ellithium",
+   "url": "https://github.com/Abdelrhman-Ellithy/Ellithium",
+   "sha": "e2e59e1a8b57f9f4c197023ec39f86d4398fe64f",
+   "licence": "Apache-2.0 (LICENSE file at pin e2e59e1a8b57, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T11:34Z",
+    "consent_receipt": "0ef5a6a0b150",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T11:34Z (receipt 0ef5a6a0b150); selected commit e2e59e1a8b57: \"feat(ai-healing): distinctive keyword tie-breaking, label-control bri\u2026\". LICENSE file at pin e2e59e1a8b57 detected as Apache-2.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

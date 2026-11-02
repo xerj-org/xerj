@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on ai-red-team, generative-ai, red-team-tools queries this for how microsoft/PyRIT implements it: The Python Risk Identification Tool for generative AI (PyRIT) is an open source framework built to empower security professionals and engine (selected work: tests, pyrit)",
+ "domain": "an agent working on ai-red-team, generative-ai, red-team-tools queries this for how microsoft/PyRIT implements it: Open-source AI red teaming toolkit from Microsoft. Test generative AI systems with automated scans, adaptive multi-turn attacks, and a web U (selected work: tests, pyrit)",
  "repos": [
   {
    "repo": "PyRIT",

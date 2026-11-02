@@ -1,0 +1,23 @@
+{
+ "corpus": "dilshanharshajith--mitmproxy-scripts",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on mitmproxy, mitmproxy-addons queries this for how DilshanHarshajith/Mitmproxy_Scripts implements it: A powerful, modular suite of mitmproxy addons designed to capture, analyze, and manage HTTP/HTTPS traffic",
+ "repos": [
+  {
+   "repo": "Mitmproxy_Scripts",
+   "url": "https://github.com/DilshanHarshajith/Mitmproxy_Scripts",
+   "sha": "39da7c165b7900a912856c631d9a20b762d0ea0f",
+   "licence": "MIT (LICENSE file at pin 39da7c165b79, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T16:35Z",
+    "consent_receipt": "f00e28f1c715",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T16:35Z (receipt f00e28f1c715); pinned to the default-branch head. LICENSE file at pin 39da7c165b79 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

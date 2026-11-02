@@ -1,0 +1,23 @@
+{
+ "corpus": "chicagobuss--tracker",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents, agentskill, documents queries this for how chicagobuss/tracker implements it: A minimalist document storage and retrieval system for coding agents designed for private use",
+ "repos": [
+  {
+   "repo": "tracker",
+   "url": "https://github.com/chicagobuss/tracker",
+   "sha": "74f18ead4595f059e9fd570d777a9d5899b88f4c",
+   "licence": "MIT (LICENSE file at pin 74f18ead4595, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T04:02Z",
+    "consent_receipt": "219703a42a1f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T04:02Z (receipt 219703a42a1f); pinned to the default-branch head. LICENSE file at pin 74f18ead4595 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

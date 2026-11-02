@@ -1,0 +1,23 @@
+{
+ "corpus": "siegk18--lushidata",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how SiegK18/LushiData implements it: SiegK18/LushiData (JavaScript) (selected work: src, worker, tests)",
+ "repos": [
+  {
+   "repo": "LushiData",
+   "url": "https://github.com/SiegK18/LushiData",
+   "sha": "bb2f529e227fe2f5825317da613cab6337ecba43",
+   "licence": "MIT (LICENSE file at pin bb2f529e227f, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T16:03Z",
+    "consent_receipt": "90bbb4a1d8e9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T16:03Z (receipt 90bbb4a1d8e9); selected commit bb2f529e227f: \"feat: add Gemma multi-object detection, editable boxes and YOLO/COCO \u2026\". LICENSE file at pin bb2f529e227f detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

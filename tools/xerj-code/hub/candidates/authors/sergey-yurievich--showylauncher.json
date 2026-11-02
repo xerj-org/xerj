@@ -1,0 +1,23 @@
+{
+ "corpus": "sergey-yurievich--showylauncher",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Kotlin queries this for how Sergey-Yurievich/ShowyLauncher implements it: Sergey-Yurievich/ShowyLauncher (Kotlin) (selected work: app/src, app)",
+ "repos": [
+  {
+   "repo": "ShowyLauncher",
+   "url": "https://github.com/Sergey-Yurievich/ShowyLauncher",
+   "sha": "a8ad868486bfb30dbd783f1adbe08bff4ae13a71",
+   "licence": "author's permission (LICENSE at pin a8ad868486bf: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T20:17Z",
+    "consent_receipt": "5875383befaa",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T20:17Z (receipt 5875383befaa); selected commit a8ad868486bf: \"1.9.2: player shows reserve in minutes, one design system across screens\". LICENSE at pin a8ad868486bf: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

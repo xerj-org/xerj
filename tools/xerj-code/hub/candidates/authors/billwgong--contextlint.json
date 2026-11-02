@@ -1,0 +1,23 @@
+{
+ "corpus": "billwgong--contextlint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agents-md, claude-code, codex queries this for how BillWGong/contextlint implements it: Review coding-agent instructions with source evidence, conflict checks, and bilingual offline reports (selected work: src, tests, the project root)",
+ "repos": [
+  {
+   "repo": "contextlint",
+   "url": "https://github.com/BillWGong/contextlint",
+   "sha": "8b0022df633e1d76f800fd5b5300f7d2e604da38",
+   "licence": "MIT (LICENSE file at pin 8b0022df633e, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T02:49Z",
+    "consent_receipt": "64b42ed4081e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T02:49Z (receipt 64b42ed4081e); selected commit 8b0022df633e: \"Fix missed conflicts and improve CLI safety\". LICENSE file at pin 8b0022df633e detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

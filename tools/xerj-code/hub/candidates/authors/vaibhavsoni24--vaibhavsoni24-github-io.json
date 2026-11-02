@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--vaibhavsoni24-github-io",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on code queries this for how VaibhavSoni24/VaibhavSoni24.github.io implements it: VaibhavSoni24/VaibhavSoni24.github.io (code)",
+ "repos": [
+  {
+   "repo": "VaibhavSoni24.github.io",
+   "url": "https://github.com/VaibhavSoni24/VaibhavSoni24.github.io",
+   "sha": "1048b643872bb5b9e494feb4c2c44d27f301ae06",
+   "licence": "author's permission (LICENSE at pin 1048b643872b: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "dea450c066a1",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt dea450c066a1); pinned to the default-branch head. LICENSE at pin 1048b643872b: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

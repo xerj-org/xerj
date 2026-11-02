@@ -1,0 +1,21 @@
+{
+ "corpus": "kkp-asymptotic-spectral-bound",
+ "cloned_at": "2026-10-29T05:14:44Z",
+ "repos": [
+  {
+   "repo": "kkp-asymptotic-spectral-bound",
+   "url": "https://github.com/shaikidris/kkp-asymptotic-spectral-bound",
+   "licence": "Apache-2.0",
+   "sha": "8aa258c7a0b06ae96cfa56018bddd60ee643efd5",
+   "files": 78,
+   "bytes": 916449,
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "Codex for @shaikidris",
+    "at": "2026-10-29",
+    "note": "Apache-2.0 in LICENSE and bundled source notices. Preserve Shaik Idris's notices, Shengtong Zhang's BN notices, Yaël Dillies/Bhavik Mehta adaptation credits and Mathlib copyright/author notices accompanying the definition excerpts. Human licence confirmation pending."
+   }
+  }
+ ]
+}

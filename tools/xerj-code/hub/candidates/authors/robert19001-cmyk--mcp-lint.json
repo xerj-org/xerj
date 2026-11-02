@@ -1,0 +1,23 @@
+{
+ "corpus": "robert19001-cmyk--mcp-lint",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, cli, cursor queries this for how robert19001-cmyk/mcp-lint implements it: Free linter for MCP tool schemas across eight clients, with preflight and recovery scoring (selected work: src/installed, tests, src/cli)",
+ "repos": [
+  {
+   "repo": "mcp-lint",
+   "url": "https://github.com/robert19001-cmyk/mcp-lint",
+   "sha": "431d738ff9b8243068e89dd336d0f2230b863903",
+   "licence": "MIT (LICENSE file at pin 431d738ff9b8, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T06:59Z",
+    "consent_receipt": "f450e4def191",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T06:59Z (receipt f450e4def191); selected commit 431d738ff9b8: \"feat: lint installed servers, tool names, and snapshots\". LICENSE file at pin 431d738ff9b8 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

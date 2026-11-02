@@ -1,0 +1,30 @@
+{
+ "corpus": "amosblomqvist--learnharness",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on TypeScript queries this for how amosblomqvist/learnharness implements it: Agent harness for learning difficult things (selected work: components, tests, src/server)",
+ "repos": [
+  {
+   "repo": "learnharness",
+   "url": "https://github.com/amosblomqvist/learnharness",
+   "sha": "695948271f014c37c85fb68f25c0286ea33ad650",
+   "licence": "AGPL-3.0 (LICENSE file at pin 695948271f01, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-30T19:13Z",
+    "consent_receipt": "5b381aa78f32",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T19:13Z (receipt 5b381aa78f32); selected commit 695948271f01: \"feat: user pins for local model limits (context, max output, thinking)\". LICENSE file at pin 695948271f01 detected as AGPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "695948271f014c37c85fb68f25c0286ea33ad650",
+     "at": "2026-10-30T19:13Z",
+     "receipt": "5b381aa78f32"
+    }
+   }
+  }
+ ]
+}

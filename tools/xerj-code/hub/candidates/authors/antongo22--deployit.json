@@ -1,0 +1,23 @@
+{
+ "corpus": "antongo22--deployit",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on C# queries this for how Antongo22/deployit implements it: Antongo22/deployit (C#) (selected work: DeployIt, tests)",
+ "repos": [
+  {
+   "repo": "deployit",
+   "url": "https://github.com/Antongo22/deployit",
+   "sha": "4f2102a509dad7c202463428d99106cb8f56b4cd",
+   "licence": "MIT (LICENSE file at pin 4f2102a509da, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T17:59Z",
+    "consent_receipt": "7d5ce88fbc89",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T17:59Z (receipt 7d5ce88fbc89); selected commit 4f2102a509da: \"\u0421\u043f\u0438\u0441\u043e\u043a \u0440\u0435\u043b\u0438\u0437\u043e\u0432 \u0438 \u0443\u0434\u0430\u043b\u0435\u043d\u0438\u0435 \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u044b\u0445 \u043a\u043e\u043f\u0438\u0439\". LICENSE file at pin 4f2102a509da detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

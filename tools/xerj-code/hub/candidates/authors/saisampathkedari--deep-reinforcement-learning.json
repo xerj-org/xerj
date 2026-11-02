@@ -1,0 +1,23 @@
+{
+ "corpus": "saisampathkedari--deep-reinforcement-learning",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "LAW",
+ "domain": "an agent working on a2c, actor-critic, deep-reinforcement-learning queries this for how SaiSampathKedari/Deep-Reinforcement-Learning implements it: Deep Reinforcement Learning from mathematical foundations to PyTorch implementations: rigorous proofs, step-by-step derivations of objective (selected work: src/deeprl, the project root)",
+ "repos": [
+  {
+   "repo": "Deep-Reinforcement-Learning",
+   "url": "https://github.com/SaiSampathKedari/Deep-Reinforcement-Learning",
+   "sha": "fb05f0c1431ad19c419b7e8720e3453f5c1a4d8b",
+   "licence": "MIT (LICENSE file at pin fb05f0c1431a, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T22:24Z",
+    "consent_receipt": "ea38077aff37",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T22:24Z (receipt ea38077aff37); selected commit fb05f0c1431a: \"Structured buffers\". LICENSE file at pin fb05f0c1431a detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

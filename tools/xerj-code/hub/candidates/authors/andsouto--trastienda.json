@@ -1,0 +1,30 @@
+{
+ "corpus": "andsouto--trastienda",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how andsouto/trastienda implements it: Open-source inventory and sales management for small retail: product catalog with variants (size/color), stock tracked as a movement ledger, (selected work: apps/admin)",
+ "repos": [
+  {
+   "repo": "trastienda",
+   "url": "https://github.com/andsouto/trastienda",
+   "sha": "0913c27937309a798c022ddb5d1825b8125e986e",
+   "licence": "AGPL-3.0 (LICENSE file at pin 0913c2793730, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-29T21:38Z",
+    "consent_receipt": "b4c8cba855ed",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:38Z (receipt b4c8cba855ed); selected commit 0913c2793730: \"feat(admin): log in through the OIDC provider and show the caller\". LICENSE file at pin 0913c2793730 detected as AGPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "0913c27937309a798c022ddb5d1825b8125e986e",
+     "at": "2026-10-29T21:38Z",
+     "receipt": "b4c8cba855ed"
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "onembyte--kolkrabbi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agent, ai-coding, claude-code-alternative queries this for how onembyte/kolkrabbi implements it: Open-source AI coding agent for the terminal that works with several subscriptions in one session \u2014 your Claude Pro/Max, ChatGPT Plus/Pro (C",
+ "repos": [
+  {
+   "repo": "kolkrabbi",
+   "url": "https://github.com/onembyte/kolkrabbi",
+   "sha": "c40eb018fa8636d97e4be7f50846ea9d350cd43f",
+   "licence": "Apache-2.0 (LICENSE file at pin c40eb018fa86, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T12:55Z",
+    "consent_receipt": "2b76acd8ebe9",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T12:55Z (receipt 2b76acd8ebe9); pinned to the default-branch head. LICENSE file at pin c40eb018fa86 detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

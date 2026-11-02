@@ -1,0 +1,23 @@
+{
+ "corpus": "tuhin-snapd--react-restaurant-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on react, reactsjs, reactstrap queries this for how Tuhin-SnapD/React-Restaurant-App implements it: A sophisticated, modern React application for a fine dining restaurant with elegant UI/UX design, Redux state management, and seamless user ",
+ "repos": [
+  {
+   "repo": "React-Restaurant-App",
+   "url": "https://github.com/Tuhin-SnapD/React-Restaurant-App",
+   "sha": "f526f4cbfff99eca99e0122d33ded1f9aab019d9",
+   "licence": "author's permission (LICENSE at pin f526f4cbfff9: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:30Z",
+    "consent_receipt": "f3c98be2c393",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:30Z (receipt f3c98be2c393); pinned to the default-branch head. LICENSE at pin f526f4cbfff9: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

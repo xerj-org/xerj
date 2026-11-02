@@ -1,0 +1,23 @@
+{
+ "corpus": "antonio-mello-ai--mcp-pfsense",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on felhen, mcp-server queries this for how antonio-mello-ai/mcp-pfsense implements it: MCP server for managing pfSense firewalls through AI assistants",
+ "repos": [
+  {
+   "repo": "mcp-pfsense",
+   "url": "https://github.com/antonio-mello-ai/mcp-pfsense",
+   "sha": "9d94dbc72a45ce68f6c7520080cfe61e6ac63380",
+   "licence": "MIT (LICENSE file at pin 9d94dbc72a45, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T12:17Z",
+    "consent_receipt": "78cfa3efeb2a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T12:17Z (receipt 78cfa3efeb2a); pinned to the default-branch head. LICENSE file at pin 9d94dbc72a45 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

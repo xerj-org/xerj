@@ -1,0 +1,23 @@
+{
+ "corpus": "y2038-com--time-assurance-doc-scanner",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-assisted, bring-your-own-llm, cli queries this for how y2038-com/time_assurance_doc_scanner implements it: AI-assisted scanner supporting long-horizon time assurance in standards and technical documentation. Findings are review candidates, not a c (selected work: tests, src/tads)",
+ "repos": [
+  {
+   "repo": "time_assurance_doc_scanner",
+   "url": "https://github.com/y2038-com/time_assurance_doc_scanner",
+   "sha": "06096d41881cf20af475891c560bf9c7ad21bc93",
+   "licence": "Apache-2.0 (LICENSE file at pin 06096d41881c, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-16T21:51Z",
+    "consent_receipt": "4491fcdd2b11",
+    "note": "Inclusion consented by the commit author by email at 2026-10-16T21:51Z (receipt 4491fcdd2b11); selected commit 06096d41881c: \"Merge pull request #35 from y2038-com/improve-output-verbosity\". LICENSE file at pin 06096d41881c detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

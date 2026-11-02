@@ -1,0 +1,23 @@
+{
+ "corpus": "onembyte--skeldri",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how onembyte/Skeldri implements it: Use an iPad as a wireless finger-annotation tablet for a Mac",
+ "repos": [
+  {
+   "repo": "Skeldri",
+   "url": "https://github.com/onembyte/Skeldri",
+   "sha": "05b7cf0f0d9486deb6949fe56c75d7601674bdb8",
+   "licence": "MIT (LICENSE file at pin 05b7cf0f0d94, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T13:21Z",
+    "consent_receipt": "437fd7723510",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T13:21Z (receipt 437fd7723510); pinned to the default-branch head. LICENSE file at pin 05b7cf0f0d94 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

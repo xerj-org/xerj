@@ -1,0 +1,23 @@
+{
+ "corpus": "academysoftwarefoundation--openvdb",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on openvdb, openvdb-development, c-plus-plus queries this for how AcademySoftwareFoundation/openvdb implements it: OpenVDB - Sparse volume data structure and tools (selected work: nanovdb, openvdb_cmd)",
+ "repos": [
+  {
+   "repo": "openvdb",
+   "url": "https://github.com/AcademySoftwareFoundation/openvdb",
+   "sha": "2f8e02b60bf0364d813c9d5e53b27523a33d46e2",
+   "licence": "author's permission (LICENSE at pin 2f8e02b60bf0: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T21:10Z",
+    "consent_receipt": "d3b5e0db634d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T21:10Z (receipt d3b5e0db634d); selected commit 2f8e02b60bf0: \"fix NanoVDB strict builds\". LICENSE at pin 2f8e02b60bf0: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

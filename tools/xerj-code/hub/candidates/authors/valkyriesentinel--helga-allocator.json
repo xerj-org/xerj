@@ -1,0 +1,23 @@
+{
+ "corpus": "valkyriesentinel--helga-allocator",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on allocator, bump-allocator, low-level queries this for how ValkyrieSentinel/helga-allocator implements it: Cache-line aligned bump allocator for Zig. O(C) reset, zero fragmentation. Benchmarked to 28-qubit quantum simulation on 8GB RAM",
+ "repos": [
+  {
+   "repo": "helga-allocator",
+   "url": "https://github.com/ValkyrieSentinel/helga-allocator",
+   "sha": "625e1e8466cceb0305056896d987642814645883",
+   "licence": "author's permission (LICENSE at pin 625e1e8466cc: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T22:56Z",
+    "consent_receipt": "9bcb18d164aa",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T22:56Z (receipt 9bcb18d164aa); pinned to the default-branch head. LICENSE at pin 625e1e8466cc: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

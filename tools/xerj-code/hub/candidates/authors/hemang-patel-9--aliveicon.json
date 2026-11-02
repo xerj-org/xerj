@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on animated-icons, animation, framer-motion queries this for how Hemang-patel-9/aliveicon implements it: 500+ animated SVG icons for React and Next.js. Lucide shapes that draw themselves on hover, click or load, powered by Framer Motion. Tree-sh (selected work: src/icons, src)",
+ "domain": "an agent working on animated-icons, animation, framer-motion queries this for how Hemang-patel-9/aliveicon implements it: 1400+ animated React icons built on Lucide shapes and Framer Motion. Play on hover, click, mount, loop or via ref. Tree-shakeable, TypeScrip (selected work: src/icons, src)",
  "repos": [
   {
    "repo": "aliveicon",

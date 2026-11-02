@@ -1,0 +1,23 @@
+{
+ "corpus": "oedante--ocrcapture",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on C# queries this for how oedante/OcrCapture implements it: OcrCapture",
+ "repos": [
+  {
+   "repo": "OcrCapture",
+   "url": "https://github.com/oedante/OcrCapture",
+   "sha": "0509244292916adb30dd865b0d899fd8e517a1f4",
+   "licence": "author's permission (LICENSE at pin 050924429291: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T05:13Z",
+    "consent_receipt": "1a88b16b440e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T05:13Z (receipt 1a88b16b440e); pinned to the default-branch head. LICENSE at pin 050924429291: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "twilson63--lfg",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how twilson63/lfg implements it: A bounded research, planning, implementation, validation, and review workflow skill for coding agents (selected work: scripts, tests, the project root)",
+ "repos": [
+  {
+   "repo": "lfg",
+   "url": "https://github.com/twilson63/lfg",
+   "sha": "3c31ed8184f83615ffb7301821903950d34fe505",
+   "licence": "MIT (LICENSE file at pin 3c31ed8184f8, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-30T20:10Z",
+    "consent_receipt": "20795e8c7f34",
+    "note": "Inclusion consented by the commit author by email at 2026-10-30T20:10Z (receipt 20795e8c7f34); selected commit 3c31ed8184f8: \"feat(skill): add risk-based fast path and evaluation rubric\". LICENSE file at pin 3c31ed8184f8 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

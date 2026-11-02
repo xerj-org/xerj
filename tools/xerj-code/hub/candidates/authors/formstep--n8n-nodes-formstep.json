@@ -1,0 +1,23 @@
+{
+ "corpus": "formstep--n8n-nodes-formstep",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, customer-in-the-loop, forms queries this for how formstep/n8n-nodes-formstep implements it: n8n community nodes for Formstep: create requests, pause a workflow until a customer completes one, and trigger on completed requests and fo (selected work: test, nodes, credentials)",
+ "repos": [
+  {
+   "repo": "n8n-nodes-formstep",
+   "url": "https://github.com/formstep/n8n-nodes-formstep",
+   "sha": "16777ec3d8e97931160a29a09c698ff70b2bf899",
+   "licence": "MIT (LICENSE file at pin 16777ec3d8e9, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T18:02Z",
+    "consent_receipt": "927f94728736",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T18:02Z (receipt 927f94728736); selected commit 16777ec3d8e9: \"feat: authenticate with a Formstep API key, the default for new nodes\". LICENSE file at pin 16777ec3d8e9 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

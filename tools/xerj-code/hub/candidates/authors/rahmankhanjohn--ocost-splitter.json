@@ -1,0 +1,23 @@
+{
+ "corpus": "rahmankhanjohn--ocost-splitter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on cncf, cost-allocation, finops queries this for how rahmankhanjohn/ocost-splitter implements it: Split the unattributed cost of a shared Kubernetes cluster across the namespaces that share it",
+ "repos": [
+  {
+   "repo": "ocost-splitter",
+   "url": "https://github.com/rahmankhanjohn/ocost-splitter",
+   "sha": "415b398168f9daa265d86600459ade952b22484f",
+   "licence": "MIT (LICENSE file at pin 415b398168f9, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T18:09Z",
+    "consent_receipt": "4c0031a24b66",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T18:09Z (receipt 4c0031a24b66); pinned to the default-branch head. LICENSE file at pin 415b398168f9 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

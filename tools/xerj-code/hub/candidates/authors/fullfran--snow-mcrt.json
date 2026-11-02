@@ -1,0 +1,23 @@
+{
+ "corpus": "fullfran--snow-mcrt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on clean-architecture, computational-physics, mie-scattering queries this for how FullFran/snow-mcrt implements it: Monte Carlo photon transport for light in snow. Reproduces the canonical snow-optics benchmarks from first principles, validated against clo",
+ "repos": [
+  {
+   "repo": "snow-mcrt",
+   "url": "https://github.com/FullFran/snow-mcrt",
+   "sha": "28398de83963a42c7ba8fdfc4a7fb3a609cd0e1f",
+   "licence": "MIT (LICENSE file at pin 28398de83963, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T07:14Z",
+    "consent_receipt": "be2d7e770604",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-31T07:14Z (receipt be2d7e770604); pinned to the default-branch head. LICENSE file at pin 28398de83963 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

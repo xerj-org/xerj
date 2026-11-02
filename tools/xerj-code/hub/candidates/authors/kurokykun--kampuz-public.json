@@ -1,0 +1,30 @@
+{
+ "corpus": "kurokykun--kampuz-public",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Dart queries this for how kurokykun/kampuz-public implements it: Red social an\u00f3nima y local: publica, conversa y descubre lo que pasa a tu alrededor (selected work: android, lib/views, lib/providers)",
+ "repos": [
+  {
+   "repo": "kampuz-public",
+   "url": "https://github.com/kurokykun/kampuz-public",
+   "sha": "7cdcfde1c79eff11c8896537d4cbdbc2d7440d94",
+   "licence": "AGPL-3.0 (LICENSE file at pin 7cdcfde1c79e, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T14:54Z",
+    "consent_receipt": "34552f23f5ec",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T14:54Z (receipt 34552f23f5ec); selected commit 7cdcfde1c79e: \"feat: Implement proximity sensor for voice calls and voice notes\". LICENSE file at pin 7cdcfde1c79e detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head 7cdcfde1c79e (contains the selected commit): the LICENSE at the selected commit was NONE.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "3d1fbab7bc58134f1f89c58b6178da11b3fa332f",
+     "at": "2026-11-02T14:54Z",
+     "receipt": "34552f23f5ec"
+    }
+   }
+  }
+ ]
+}

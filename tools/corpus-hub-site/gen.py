@@ -657,7 +657,7 @@ bottom:calc(var(--sp-6) / -2 - 5px);transform:translateX(-50%)}
 .arch .node:nth-child(1)::after{content:"\\2193"}
 .arch .node:nth-child(2)::after{content:"\\2191"}}
 .heroside{flex:0 1 360px;display:flex;flex-direction:column;gap:var(--sp-4);margin-top:var(--sp-2)}
-.statgrid{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;
+.statgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-auto-rows:1fr;
 gap:1px;background:var(--z-line);border:1px solid var(--z-line)}
 .heroside .cta{margin-top:0;text-align:center}
 .stat{background:var(--z-bg);padding:var(--sp-4) var(--sp-5);min-height:88px;
@@ -668,6 +668,8 @@ display:flex;flex-direction:column;justify-content:center;gap:4px}
 font-size:var(--fs-32);line-height:1;color:var(--z-ink)}
 .stat span{font-family:var(--font-data);font-size:var(--fs-11);font-weight:500;
 text-transform:uppercase;letter-spacing:var(--track-ui);color:var(--z-mute)}
+/* full numbers (7,194,550) on a phone: shrink with the viewport instead of overflowing it */
+@media (max-width:560px){.stat{padding:var(--sp-3) var(--sp-3);min-width:0}.stat b{font-size:clamp(17px,5.4vw,var(--fs-32))}}
 .count{font-family:var(--font-data);font-size:var(--fs-11);font-weight:500;
 text-transform:uppercase;letter-spacing:var(--track-ui);color:var(--z-mute);margin-left:auto}
 /* domains: the front page centrepiece, giant display words */
@@ -1483,6 +1485,8 @@ document.querySelectorAll('.copy').forEach(function(b){
 def render_index(corpora, g7, graded, impact, prov, people=None):
     live = [c for c in corpora if c["status"] == "live"]
     total_bytes = sum(sum(r.get("bytes") or 0 for r in c["repos"]) for c in live)
+    # owner, 2026-10-29: "78.7 GB pinned text" reads small; the file count of the same corpora is the headline (bytes in the tooltip)
+    total_files = sum(sum(r.get("files") or 0 for r in c["repos"]) for c in live)
     n_imp = sum(1 for c in live if impact.get(c["slug"], {}).get("status") == "measured")
     regions = sorted({region(c) for c in corpora if region(c)} - {""}, key=lambda r: (r == "GLOBAL", r))
     # Real, space-filling treemap: one band per domain (biggest domain first).
@@ -1530,8 +1534,14 @@ def render_index(corpora, g7, graded, impact, prov, people=None):
     # Stars: distinct pinned repos with a recorded count only (never estimated).
     stars, n_star_repos = contributors.pinned_repo_stars(people or {})
     stars_stat = (f'<div class="stat" title="{stars:,} GitHub stars, summed over {n_star_repos:,} distinct pinned repositories '
-                  f'that have a recorded star count"><b>{contributors.compact(stars)}</b><span>GitHub stars across pinned repos</span></div>'
+                  f'that have a recorded star count"><b>{stars:,}</b><span>GitHub stars across pinned repos</span></div>'
                   if n_star_repos else "")
+    # owner, 2026-10-29: show the repository count (8,1xx) next to the people count (7,2xx): one person can contribute
+    # several repositories. Replaces the "11 domains" tile; the domains are the treemap groups right below.
+    n_repos = len({w["repo_url"].rstrip("/").lower() for pp in (people or {}).values() for w in pp["work"].values() if w.get("repo_url")})
+    # owner, 2026-10-29: "contributed repositories" next to "contributors" read as the same number twice; show the
+    # lines of the consented commits instead (contributors.volume, as on each profile; the repo count is in the tooltip)
+    n_lines = sum(contributors.volume(pp)["lines"] for pp in (people or {}).values())
     body = f'''<main>
 <div class="kicker"><span class="accent">HUB.XERJ.ORG</span><span class="dash">·</span><span>REFERENCE MEMORY HUB FOR AI AGENTS</span></div>
 <div class="herorow">
@@ -1544,9 +1554,9 @@ that loads one works like a domain expert.</p>
 <div class="heroside">
 <div class="statgrid">
 {stars_stat}
-<div class="stat"><b>{len(CATS)}</b><span>domains</span></div>
+<div class="stat" title="lines in the commits contributors agreed to share, summed over every contributor (a commit counts once), across {n_repos:,} repositories"><a href="contributors/"><b>{n_lines:,}</b><span>lines of contributed code</span></a></div>
 <div class="stat"><a href="contributors/"><b>{len(people or {}):,}</b><span>contributors</span></a></div>
-<div class="stat"><b>{human_bytes(total_bytes)}</b><span>pinned text</span></div>
+<div class="stat" title="{human_bytes(total_bytes)} of text in these files, each pinned at an exact commit"><b>{total_files:,}</b><span>pinned files</span></div>
 </div>
 <a class="cta" href="contribute">Add your corpus &rarr;</a>
 </div>
@@ -1785,17 +1795,46 @@ The review block records a human opening each licence file at the pin. Detector 
 {COPY_JS}{contributors.STARS_JS}{contributors.MORE_JS}{usage.USAGE_JS}{agent_score.PANEL_JS}'''
 
 
-def category_body(k, cs, g7, graded, impact):
+def contributed_in(k, people):
+    """Author-contributed corpora on shelf k, one row per corpus: (slug, repo, login, stars, spdx), most stars first.
+    Owner, 2026-10-29: a contributor found their corpus page live but not on its category page ("got a licence
+    clearance but not in live repo"); the category pages listed only the registry corpora."""
+    rows = {}
+    for login, pp in (people or {}).items():
+        for w in pp["work"].values():
+            if (w.get("shelf") or "") != k: continue
+            for slug in w.get("corpora") or []:
+                if slug not in rows: rows[slug] = (slug, w.get("repo") or slug, login, w.get("repo_stars") or 0, w.get("spdx") or "")
+    return sorted(rows.values(), key=lambda r: (-r[3], r[1].lower()))
+
+
+def contributed_section(k, rows):
+    if not rows:
+        return ""
+    trs = "".join(f'<tr><td><a href="../corpus/{esc(s)}">{esc(repo)}</a></td><td><a href="../contributors/{esc(lg)}">@{esc(lg)}</a></td>'
+                  f'<td class="mono">{stars:,}</td><td class="mono">{esc(spdx)}</td></tr>' for s, repo, lg, stars, spdx in rows)
+    return f'''<section class="detail contributed" id="contributed"><h2>Contributed corpora · {len(rows):,}</h2>
+<p class="note">Repositories their authors agreed to share, each pinned at a commit with its licence checked. Every one is live:
+its page has the prompt that lets an agent search it now.</p>
+<p class="row"><input class="cfilter" type="search" placeholder="filter by repository or contributor" aria-label="filter contributed corpora"></p>
+<table class="mystars"><tr><th>repository</th><th>contributor</th><th>GitHub ★</th><th>licence</th></tr>{trs}</table></section>
+<script>(function(){{var i=document.querySelector('.cfilter'),rs=[].slice.call(document.querySelectorAll('.contributed tr')).slice(1);
+i.addEventListener('input',function(){{var q=i.value.toLowerCase();rs.forEach(function(r){{r.hidden=q&&r.textContent.toLowerCase().indexOf(q)<0}})}})}})();</script>'''
+
+
+def category_body(k, cs, g7, graded, impact, contributed=()):
     title, what = CATS[k]
     cards = "\n".join(card(c, g7, graded, impact, rel="../") for c in cs)
     n_live = sum(1 for c in cs if c["status"] == "live")
+    more = f' <a href="#contributed">{len(contributed):,} contributed corpora</a>.' if contributed else ""
     return f'''<main>
 <p><a class="backlink" href="../">&larr; all corpora</a></p>
 <div class="kicker"><span class="accent">{esc(k)}</span><span class="dash">·</span><span>DOMAIN</span></div>
 <h1 class="hero" style="font-size:clamp(56px,9vw,var(--fs-160))">{esc(k)}</h1>
-<p class="lead">{esc(title)}. Agent asks: {esc(what)}. {n_live} live of {len(cs)} entries.</p>
+<p class="lead">{esc(title)}. Agent asks: {esc(what)}. {n_live} live of {len(cs)} entries.{more}</p>
 {agent_score.SORT_BAR}
 <div class="grid">{cards}</div>
+{contributed_section(k, contributed)}
 </main>{agent_score.CARDS_JS}'''
 
 
@@ -1835,6 +1874,8 @@ That becomes the corpus's <b>agent score</b>, shown on its page apart from the h
 HEADERS = """/me
   X-Robots-Tag: noindex
 /me.html
+  X-Robots-Tag: noindex
+/search/index.json
   X-Robots-Tag: noindex
 """
 
@@ -1956,7 +1997,7 @@ def main():
     for k, (title, what) in CATS.items():
         cs = [c for c in corpora if c["cat"] == k]
         (OUT / "category" / f"{k}.html").write_text(
-            page(f"{k}: {title} domain", what, category_body(k, cs, g7, graded, impact), rel="../",
+            page(f"{k}: {title} domain", what, category_body(k, cs, g7, graded, impact, contributed_in(k, people)), rel="../",
                  path=f"/category/{k}", kind="CollectionPage"))
     (OUT / "whats-this").mkdir(exist_ok=True)
     (OUT / "whats-this" / "index.html").write_text(page(

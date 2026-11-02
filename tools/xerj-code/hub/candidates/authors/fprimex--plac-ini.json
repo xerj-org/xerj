@@ -1,0 +1,23 @@
+{
+ "corpus": "fprimex--plac-ini",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how fprimex/plac_ini implements it: Define a function, get an argument parser and config file parser for free",
+ "repos": [
+  {
+   "repo": "plac_ini",
+   "url": "https://github.com/fprimex/plac_ini",
+   "sha": "3f343d88326df9e5faf3a77fcffdd4ca3f5bec04",
+   "licence": "BSD-3-Clause (LICENSE file at pin 3f343d88326d, GitHub licence API 2026-10-30)",
+   "review": {
+    "spdx": "BSD-3-Clause",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T23:38Z",
+    "consent_receipt": "0aa8492d0183",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T23:38Z (receipt 0aa8492d0183); pinned to the default-branch head. LICENSE file at pin 3f343d88326d detected as BSD-3-Clause by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+   }
+  }
+ ]
+}

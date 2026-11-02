@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on dotfiles, home-manager, hyprland queries this for how poligle/Nihil-Shell implements it: NixOS personal configuration files (selected work: home)",
+ "domain": "an agent working on dotfiles, home-manager, hyprland queries this for how poligle/Nihil-Shell implements it: A monochrome, dot\u2011matrix desktop for NixOS (selected work: home)",
  "repos": [
   {
    "repo": "NixOS-Config",

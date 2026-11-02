@@ -1,0 +1,23 @@
+{
+ "corpus": "arijjia--agctl",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how arijjia/agctl implements it: arijjia/agctl (HTML) (selected work: bin, the project root)",
+ "repos": [
+  {
+   "repo": "agctl",
+   "url": "https://github.com/arijjia/agctl",
+   "sha": "adb62bf89833615f6e54062b1cacc3cf0dc7ad69",
+   "licence": "MIT (LICENSE file at pin adb62bf89833, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T14:46Z",
+    "consent_receipt": "dbe72d81917d",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T14:46Z (receipt dbe72d81917d); selected commit adb62bf89833: \"make: \u0436\u0438\u0437\u043d\u0435\u043d\u043d\u044b\u0439 \u0446\u0438\u043a\u043b \u043f\u043b\u0430\u0442\u0444\u043e\u0440\u043c\u044b, corp-\u0437\u0430\u043f\u0443\u0441\u043a \u0438\u0437 .env, \u043a\u0430\u0440\u0442\u0430, pre-commit\". LICENSE file at pin adb62bf89833 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

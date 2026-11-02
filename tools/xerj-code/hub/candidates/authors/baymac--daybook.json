@@ -1,0 +1,23 @@
+{
+ "corpus": "baymac--daybook",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Swift queries this for how baymac/Daybook implements it: A private Mac dashboard for app, website, and background video time (selected work: Sources, Extension, Tests)",
+ "repos": [
+  {
+   "repo": "Daybook",
+   "url": "https://github.com/baymac/Daybook",
+   "sha": "70c25bf1e207cf6368360f717d443e260731ef1f",
+   "licence": "MIT (LICENSE file at pin 70c25bf1e207, GitHub licence API 2026-10-31)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-31T19:11Z",
+    "consent_receipt": "213269b36b2e",
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:11Z (receipt 213269b36b2e); selected commit 70c25bf1e207: \"Add visible media tracking, secure helper setup and dark appearance\". LICENSE file at pin 70c25bf1e207 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+   }
+  }
+ ]
+}

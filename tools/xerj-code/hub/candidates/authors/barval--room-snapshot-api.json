@@ -8,15 +8,15 @@
   {
    "repo": "room-snapshot-api",
    "url": "https://github.com/barval/room-snapshot-api",
-   "sha": "88eaa342724f31e230e67a63afa3547ebc0f4f12",
-   "licence": "author's permission (LICENSE at pin 88eaa342724f: NOASSERTION; repository: MIT)",
+   "sha": "f578ebd23fc0a9b3d1d1f9a1c06d589f5c16037c",
+   "licence": "author's permission (LICENSE at pin f578ebd23fc0: NOASSERTION; repository: MIT)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T20:54Z",
     "consent_receipt": "75cb0d1aa509",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:54Z (receipt 75cb0d1aa509); pinned to the default-branch head. LICENSE at pin 88eaa342724f: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T20:54Z (receipt 75cb0d1aa509); pinned to the default-branch head. LICENSE at pin f578ebd23fc0: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
    }
   }
  ]

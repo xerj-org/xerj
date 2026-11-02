@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on accent-training, kokoro-tts, language-learning queries this for how vikonix/Mimora implements it: Free, fully local pronunciation trainer for English and Spanish. TTS, speech recognition, phrase generation and scoring all run on your mach (selected work: tests, mimora)",
+ "domain": "an agent working on kokoro-tts, language-learning, llama-cpp queries this for how vikonix/Mimora implements it: Free, offline AI pronunciation trainer for English & Spanish. Repeat a phrase, get an instant grade and the words to fix. Your voice never l (selected work: tests, mimora)",
  "repos": [
   {
    "repo": "Mimora",

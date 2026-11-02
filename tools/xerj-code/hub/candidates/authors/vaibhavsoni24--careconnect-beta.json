@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--careconnect-beta",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "HEALTH",
+ "domain": "an agent working on code queries this for how VaibhavSoni24/CareConnect-beta implements it: CareConnect is a rule based AI-driven healthcare web app for early disease detection, remote monitoring, personalized health tips, emergency",
+ "repos": [
+  {
+   "repo": "CareConnect-beta",
+   "url": "https://github.com/VaibhavSoni24/CareConnect-beta",
+   "sha": "324f8458f3437a4fe4e8fd0319df6f15695d8d58",
+   "licence": "author's permission (LICENSE at pin 324f8458f343: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "4a33ba24195b",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 4a33ba24195b); pinned to the default-branch head. LICENSE at pin 324f8458f343: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

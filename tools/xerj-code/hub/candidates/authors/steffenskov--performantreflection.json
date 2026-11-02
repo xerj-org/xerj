@@ -1,0 +1,23 @@
+{
+ "corpus": "steffenskov--performantreflection",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on reflection queries this for how steffenskov/PerformantReflection implements it: Library to speed up commonly used Reflection methods",
+ "repos": [
+  {
+   "repo": "PerformantReflection",
+   "url": "https://github.com/steffenskov/PerformantReflection",
+   "sha": "aa7793e6e558584e9783889ff2f08a1a661fe30d",
+   "licence": "MIT (LICENSE file at pin aa7793e6e558, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:41Z",
+    "consent_receipt": "c59c283a3299",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T19:41Z (receipt c59c283a3299); pinned to the default-branch head. LICENSE file at pin aa7793e6e558 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how Hugo0/voiceio implements it: Push-to-talk voice-to-text for Linux. Hold a hotkey, speak, release \u2014 text appears at your cursor. Local & offline via faster-whisper (selected work: tests, voiceio, the project root)",
+ "domain": "an agent working on asr, dictation, gnome queries this for how Hugo0/voiceio implements it: Voice dictation for Linux that learns your voice. Local, offline, MIT. Parakeet or Whisper, streams into any app on Wayland and X11 (GNOME,  (selected work: tests, voiceio, the project root)",
  "repos": [
   {
    "repo": "voiceio",

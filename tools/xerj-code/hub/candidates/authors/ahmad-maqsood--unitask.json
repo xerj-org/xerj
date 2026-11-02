@@ -1,0 +1,23 @@
+{
+ "corpus": "ahmad-maqsood--unitask",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on assignments, reminders-app, university queries this for how ahmad-maqsood/unitask implements it: Offline-first Android app for university students: track assignments and deadlines, organize courses and timetables, and collaborate in stud (selected work: app/src, java)",
+ "repos": [
+  {
+   "repo": "unitask",
+   "url": "https://github.com/ahmad-maqsood/unitask",
+   "sha": "90c27a4bb01249d740e44c3162ef8173c7cff2a0",
+   "licence": "MIT (LICENSE file at pin 90c27a4bb012, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T17:47Z",
+    "consent_receipt": "1949bff29bd7",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T17:47Z (receipt 1949bff29bd7); selected commit 90c27a4bb012: \"Roll over completed repeating tasks daily\". LICENSE file at pin 90c27a4bb012 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}

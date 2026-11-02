@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on ai-sre, alerting, datadog queries this for how Tracer-Cloud/opensre implements it: Build your own AI SRE agents. The open source toolkit for the AI era (selected work: tests, surfaces, tools)",
+ "domain": "an agent working on alerting, datadog, grafana queries this for how Tracer-Cloud/opensre implements it: The open-source agent for CI/CD reliability (selected work: tests, surfaces, tools)",
  "repos": [
   {
    "repo": "opensre",

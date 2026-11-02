@@ -2,8 +2,8 @@
  "corpus": "tslsun--tmux-collie",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on bash, cli, tmux queries this for how TSLsun/tmux-collie implements it: Herd coding agents across git worktrees, from tmux (selected work: bin, test, completions)",
+ "shelf": "AI",
+ "domain": "an agent working on cli, tmux, tmux-plugin queries this for how TSLsun/tmux-collie implements it: Herd coding agents across git worktrees, from tmux (selected work: bin, test, completions)",
  "repos": [
   {
    "repo": "tmux-collie",

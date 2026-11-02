@@ -60,7 +60,7 @@ export const PROVIDERS = {
 };
 
 const redirect = (location, cookies = []) => {
-  const h = new Headers({ location, 'cache-control': 'no-store' });
+  const h = new Headers({ location, 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow' });
   for (const c of cookies) h.append('set-cookie', c);
   return new Response(null, { status: 302, headers: h });
 };
@@ -70,7 +70,18 @@ export function callbackUrl(request, env, provider) {
   return `${origin}/auth/${provider}/callback`;
 }
 
-export async function login({ request, env }, provider) {
+// Never a 5xx: any unexpected error (bad config, crypto, a malformed URL) sends
+// the visitor home with ?signin=failed. Search Console logged 5xx on these URLs
+// in October 2026; a crawler that follows a sign-in link must get a redirect.
+export async function login(ctx, provider) {
+  try {
+    return await startLogin(ctx, provider);
+  } catch {
+    return redirect('/?signin=failed');
+  }
+}
+
+async function startLogin({ request, env }, provider) {
   const p = PROVIDERS[provider];
   const c = config(env);
   if (!p || !c.sessions || !c.providers[provider]) return redirect('/?signin=disabled');

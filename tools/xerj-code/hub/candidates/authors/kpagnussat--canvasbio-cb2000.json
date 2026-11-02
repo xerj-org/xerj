@@ -1,0 +1,23 @@
+{
+ "corpus": "kpagnussat--canvasbio-cb2000",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on canvasbio, fingerprint, fprintd queries this for how kpagnussat/canvasbio-cb2000 implements it: Linux fingerprint driver (libfprint TOD module) for the CanvasBio CB2000 reader, USB 2df0:0003, in the Samsung Galaxy Book2/Book3 360 (selected work: src, the project root, packaging)",
+ "repos": [
+  {
+   "repo": "canvasbio-cb2000",
+   "url": "https://github.com/kpagnussat/canvasbio-cb2000",
+   "sha": "18912260c2cfc830ce34e053ae4b3da8ef39c6f7",
+   "licence": "author's permission (LICENSE at pin 18912260c2cf: NOASSERTION; repository: LGPL-2.1)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-10-26T11:23Z",
+    "consent_receipt": "37d54d22b0e3",
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T11:23Z (receipt 37d54d22b0e3); selected commit 18912260c2cf: \"Engine: cos, sin and atan2 as the Windows engine runtime computes them\". LICENSE at pin 18912260c2cf: NOASSERTION (repository: LGPL-2.1); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

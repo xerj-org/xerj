@@ -1,0 +1,23 @@
+{
+ "corpus": "ialirezaaa--second-brain-os",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, knowledge-management, markdown queries this for how iAlirezaaa/second-brain-os implements it: Second Brain OS (engine codename HADES v3) \u2014 a local, plain-markdown second brain for one human and many AI agents: numbered zones, retrieva (selected work: tests, 15_SYSTEM, scripts)",
+ "repos": [
+  {
+   "repo": "second-brain",
+   "url": "https://github.com/iAlirezaaa/second-brain",
+   "sha": "c54d365a40eac16c45bf36caab59603ba02faad1",
+   "licence": "MIT (LICENSE file at pin c54d365a40ea, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T15:51Z",
+    "consent_receipt": "ceb1e00e3fd0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T15:51Z (receipt ceb1e00e3fd0); selected commit c54d365a40ea: \"Phase 29: the embedding seam, inert by default\". LICENSE file at pin c54d365a40ea detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

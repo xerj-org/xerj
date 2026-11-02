@@ -1,0 +1,23 @@
+{
+ "corpus": "st4lk--django-rest-social-auth",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Python queries this for how st4lk/django-rest-social-auth implements it: OAuth signin with django rest framework (selected work: tests, rest_social_auth, the project root)",
+ "repos": [
+  {
+   "repo": "django-rest-social-auth",
+   "url": "https://github.com/st4lk/django-rest-social-auth",
+   "sha": "0e805dc6df31238f4e1d921dd6a9b79ea3cc3094",
+   "licence": "MIT (LICENSE file at pin 0e805dc6df31, GitHub licence API 2026-10-29)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-10-29T19:07Z",
+    "consent_receipt": "11cb7dedce9f",
+    "note": "Inclusion consented by the commit author by email at 2026-10-29T19:07Z (receipt 11cb7dedce9f); selected commit 0e805dc6df31: \"[HOTFIX] Support social-auth-core 6.2 and social-auth-app-django 7.2 \u2026\". LICENSE file at pin 0e805dc6df31 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+   }
+  }
+ ]
+}
