@@ -1,0 +1,23 @@
+{
+ "corpus": "abhishekratnam--model-council",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how abhishekratnam/model-council implements it: Model-Council is a local-first, browser-based AI workspace that functions as both a coding agent for software development and a general-purp (selected work: app/services, tests, model_council_companion)",
+ "repos": [
+  {
+   "repo": "model-council",
+   "url": "https://github.com/abhishekratnam/model-council",
+   "sha": "1f387cad31c21efe436977c396e2a27f4df9182d",
+   "licence": "Apache-2.0 (LICENSE file at pin 1f387cad31c2, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T19:10Z",
+    "consent_receipt": "17712f246d1e",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T19:10Z (receipt 17712f246d1e); selected commit 1f387cad31c2: \"feat(agent): add project-aware Markdown context\". LICENSE file at pin 1f387cad31c2 detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

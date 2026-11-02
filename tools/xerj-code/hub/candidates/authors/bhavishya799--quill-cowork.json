@@ -2,8 +2,8 @@
  "corpus": "bhavishya799--quill-cowork",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how Bhavishya799/quill-cowork implements it: Bhavishya799/quill-cowork (Python) (selected work: the project root, backend)",
+ "shelf": "AI",
+ "domain": "an agent working on agenticai, ai queries this for how Bhavishya799/quill-cowork implements it: A local first AI coworker tool (selected work: the project root, backend)",
  "repos": [
   {
    "repo": "quill-cowork",

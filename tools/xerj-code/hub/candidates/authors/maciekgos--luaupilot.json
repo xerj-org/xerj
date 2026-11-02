@@ -2,8 +2,8 @@
  "corpus": "maciekgos--luaupilot",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on roblox queries this for how MaciekGos/LuauPilot implements it: LuauPilot is a free program that allows you to synchronize DeepSeek with Roblox Studio (selected work: the project root)",
+ "shelf": "WEB",
+ "domain": "an agent working on roblox, ai, chromium queries this for how MaciekGos/LuauPilot implements it: LuauPilot is a free program that allows you to synchronize DeepSeek with Roblox Studio (selected work: the project root)",
  "repos": [
   {
    "repo": "LuauPilot",

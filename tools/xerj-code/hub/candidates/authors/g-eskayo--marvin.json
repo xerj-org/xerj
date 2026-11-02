@@ -1,0 +1,23 @@
+{
+ "corpus": "g-eskayo--marvin",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, automation, chromadb queries this for how G-Eskayo/marvin implements it: Memory, skills and a gated ticket pipeline for Claude Code: persistent context, 32 skills, background agents, a review dashboard and a self- (selected work: lib/tests, dashboard, lib)",
+ "repos": [
+  {
+   "repo": "marvin",
+   "url": "https://github.com/G-Eskayo/marvin",
+   "sha": "a7639f24aa5523fc41473b22effd7e5cc4dae543",
+   "licence": "MIT (LICENSE file at pin a7639f24aa55, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T19:07Z",
+    "consent_receipt": "6a13587812a1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T19:07Z (receipt 6a13587812a1); selected commit a7639f24aa55: \"Implement G-Eskayo/marvin#213\". LICENSE file at pin a7639f24aa55 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

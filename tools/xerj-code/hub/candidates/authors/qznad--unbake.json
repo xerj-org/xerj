@@ -1,0 +1,23 @@
+{
+ "corpus": "qznad--unbake",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how Qznad/unbake implements it: Qznad/unbake (Rust) (selected work: src, src/analysis, src/flp)",
+ "repos": [
+  {
+   "repo": "unbake",
+   "url": "https://github.com/Qznad/unbake",
+   "sha": "8496c156d7b44277e2c36dae8274746e2b114d8f",
+   "licence": "MIT (LICENSE file at pin 8496c156d7b4, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T19:13Z",
+    "consent_receipt": "e63a22e68245",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T19:13Z (receipt e63a22e68245); selected commit 8496c156d7b4: \"Pick drum samples by how they sound: suggest_sounds ranks FL's kicks,\u2026\". LICENSE file at pin 8496c156d7b4 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head 8496c156d7b4 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

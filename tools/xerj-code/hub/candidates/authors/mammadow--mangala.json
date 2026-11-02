@@ -1,0 +1,23 @@
+{
+ "corpus": "mammadow--mangala",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how mammadow/mangala implements it: Authentic Turkish Mangala (mancala) game with tournament-grade AI, modern web UI, CLI, and desktop GUI (selected work: tests, tools, src/mangala)",
+ "repos": [
+  {
+   "repo": "mangala",
+   "url": "https://github.com/mammadow/mangala",
+   "sha": "bb0fc4afe314c889827bd5f01affb949b0b320fe",
+   "licence": "MIT (LICENSE file at pin bb0fc4afe314, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T19:16Z",
+    "consent_receipt": "2213a5073ee1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T19:16Z (receipt 2213a5073ee1); selected commit bb0fc4afe314: \"feat: add cross-language engine parity tests, Web UI enhancements, an\u2026\". LICENSE file at pin bb0fc4afe314 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "georgeonchaba--lambda-safe",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how GeorgeOnchaba/lambda-safe implements it: Open-core \u03bb-safe compiler: decidable hard invariants \u2192 Manifest + \u03bb-certificate (LC). Hard \u21d4 decidable only. Apache-2.0 (selected work: crates/lambda-safe-solver, crates/lambda-safe-compiler, fuzz)",
+ "repos": [
+  {
+   "repo": "lambda-safe",
+   "url": "https://github.com/GeorgeOnchaba/lambda-safe",
+   "sha": "e79ca0538b50f7e187275afb247807947f3e8232",
+   "licence": "Apache-2.0 (LICENSE file at pin e79ca0538b50, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T18:25Z",
+    "consent_receipt": "d0ba0f6f263b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T18:25Z (receipt d0ba0f6f263b); selected commit e79ca0538b50: \"Codex/production safety and e2e (#13)\". LICENSE file at pin e79ca0538b50 detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

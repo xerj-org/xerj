@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on boilerplate, laravel, saas queries this for how MetaGrenade/laravel-vue implements it: Ship faster with MetaForge: a production-ready Laravel + Vue starter kit including auth, role-based access control, Stripe billing, admin da (selected work: tests, app/Payments, resources)",
+ "domain": "an agent working on boilerplate, laravel, saas queries this for how MetaGrenade/laravel-vue implements it: Ship faster with MetaForger: a production-ready Laravel + Vue starter kit including auth, role-based access control, Stripe billing, admin d (selected work: tests, app/Payments, resources)",
  "repos": [
   {
    "repo": "laravel-vue",
