@@ -130,6 +130,21 @@
     "repo_url": "https://github.com/emiliodominguez/tinkit",
     "contribution.commit_url": "https://github.com/emiliodominguez/tinkit/commit/d7ef9694062054ea457cc63386e68630ebf76d5e"
    }
+  },
+  {
+   "corpus": "ntumbah02-lang--ntumba-ia",
+   "issue": 2864,
+   "approved": "Owner change request approved under the maintainer's standing approval (Oct 31, 2026) for Corpus Hub owner requests.",
+   "request": "Owner (@ntumbah02-lang): keep the work listed, credited to @ntumbah02-lang (already the case), pin to the latest commit on main 744680f5db80 (MIT at the pin). The requested 'Lingala / Bantu low-resource language' category has no matching hub shelf; asked the owner in #2864.",
+   "manifest": {
+    "repos.0.sha": "744680f5db80f6854eabfaafbf9b6c3b810d28df",
+    "repos.0.licence": "MIT (LICENSE file at pin 744680f5db80, GitHub licence API 2026-11-02)",
+    "repos.0.review.note": "Inclusion consented by the commit author by email at 2026-10-18T16:49Z (receipt 253b6f8e8132); selected commit 447b11b01249: \"Ajouter MVP Chat (FastAPI backend + frontend) — OpenAI par défaut, UI…\". LICENSE file at pin 744680f5db80 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to the default-branch head 744680f5db80 at the owner's request (#2864)."
+   },
+   "ledger": {
+    "pin.sha": "744680f5db80f6854eabfaafbf9b6c3b810d28df",
+    "pin.to": "default-branch head (owner request, #2864)"
+   }
   }
  ]
 }
