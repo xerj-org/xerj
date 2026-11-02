@@ -8,15 +8,15 @@
   {
    "repo": "MintyWM",
    "url": "https://github.com/leematthewjackson/MintyWM",
-   "sha": "81efa94e7fdf8128681784fb8a01334e1522aa31",
-   "licence": "GPL-3.0 (LICENSE file at pin 81efa94e7fdf, GitHub licence API 2026-10-28)",
+   "sha": "c50c7d4823f062fc61fe37bfeeb2f35a2a840293",
+   "licence": "GPL-3.0 (LICENSE file at pin c50c7d4823f0, GitHub licence API 2026-11-02)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-22T09:26Z",
     "consent_receipt": "6abf81b7b65e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-22T09:26Z (receipt 6abf81b7b65e); selected commit 81efa94e7fdf: \"0.0.1\". LICENSE file at pin 81efa94e7fdf detected as GPL-3.0 by the GitHub licence API on 2026-10-28; used under that licence with attribution. Pinned to head 81efa94e7fdf (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-22T09:26Z (receipt 6abf81b7b65e); selected commit c50c7d4823f0: \"0.0.1\". LICENSE file at pin c50c7d4823f0 detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head c50c7d4823f0 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

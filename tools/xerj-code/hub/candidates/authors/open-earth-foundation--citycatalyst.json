@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-11-02T13:18Z",
     "consent_receipt": "9364cf9e350f",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T13:18Z (receipt 9364cf9e350f); selected commit 931ea4ed6fd2: \"fix: correct inventory CSV export artifacts\". LICENSE file at pin 931ea4ed6fd2 detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T13:18Z (receipt 9364cf9e350f); selected commit 931ea4ed6fd2: \"fix: correct inventory CSV export artifacts\". LICENSE file at pin 931ea4ed6fd2 detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "931ea4ed6fd2edc54c499e3c939252099c460199",
+     "at": "2026-11-02T13:18Z",
+     "receipt": "9364cf9e350f"
+    }
    }
   }
  ]

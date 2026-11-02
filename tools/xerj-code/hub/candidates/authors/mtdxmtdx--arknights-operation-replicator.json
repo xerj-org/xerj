@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-11-02T02:10Z",
     "consent_receipt": "27f5708a4fda",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T02:10Z (receipt 27f5708a4fda); selected commit b5da6d5d6810: \"Replace source-text UI assertions with behavior tests\". LICENSE file at pin b5da6d5d6810 detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T02:10Z (receipt 27f5708a4fda); selected commit b5da6d5d6810: \"Replace source-text UI assertions with behavior tests\". LICENSE file at pin b5da6d5d6810 detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "b5da6d5d68109191c03a401a729fe35e53fb8bf7",
+     "at": "2026-11-02T02:10Z",
+     "receipt": "27f5708a4fda"
+    }
    }
   }
  ]

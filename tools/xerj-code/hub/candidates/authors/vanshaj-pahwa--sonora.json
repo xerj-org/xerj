@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-27T05:07Z",
     "consent_receipt": "aa7b65b2cd3e",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T05:07Z (receipt aa7b65b2cd3e); selected commit 09b5124f075e: \"feat(update): download and install updates inside the app\". LICENSE file at pin 09b5124f075e detected as GPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T05:07Z (receipt aa7b65b2cd3e); selected commit 09b5124f075e: \"feat(update): download and install updates inside the app\". LICENSE file at pin 09b5124f075e detected as GPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "09b5124f075e0f04e324abbf9911c4433946ff25",
+     "at": "2026-10-27T05:07Z",
+     "receipt": "aa7b65b2cd3e"
+    }
    }
   }
  ]

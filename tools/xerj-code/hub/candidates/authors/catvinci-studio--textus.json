@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WRITE",
- "domain": "an agent working on ai, ai-writing, editor queries this for how CatVinci-Studio/Textus implements it: The next-generation Markdown editor, with an AI writing assistant. Free and open source for macOS, Windows and Linux (selected work: src-tauri, src)",
+ "domain": "an agent working on ai, ai-writing, linux queries this for how CatVinci-Studio/Textus implements it: The next-generation Markdown editor and knowledge tool, made for writing with AI. Free and open source for macOS, Windows, Linux, iPhone and (selected work: src-tauri, src)",
  "repos": [
   {
    "repo": "Levis",

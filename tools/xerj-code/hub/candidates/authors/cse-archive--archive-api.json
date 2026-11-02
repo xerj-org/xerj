@@ -1,0 +1,30 @@
+{
+ "corpus": "cse-archive--archive-api",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on django, django-rest-framework, djangorestframework queries this for how CSE-Archive/archive-api implements it: CSE Archive RESTful API backend implemented with the Django framework (selected work: deploy)",
+ "repos": [
+  {
+   "repo": "archive-api",
+   "url": "https://github.com/CSE-Archive/archive-api",
+   "sha": "689d97c4837b569176bf65ac4e47ddd7d2844aff",
+   "licence": "AGPL-3.0 (LICENSE file at pin 689d97c4837b, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-02T21:22Z",
+    "consent_receipt": "5084432e4db4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T21:22Z (receipt 5084432e4db4); selected commit 689d97c4837b: \"feat(deploy): add production stack bundle with runbook and nightly ba\u2026\". LICENSE file at pin 689d97c4837b detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "689d97c4837b569176bf65ac4e47ddd7d2844aff",
+     "at": "2026-11-02T21:22Z",
+     "receipt": "5084432e4db4"
+    }
+   }
+  }
+ ]
+}

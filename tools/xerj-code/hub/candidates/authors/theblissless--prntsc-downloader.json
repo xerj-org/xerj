@@ -1,0 +1,23 @@
+{
+ "corpus": "theblissless--prntsc-downloader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how TheBlissless/prntsc_downloader implements it: TheBlissless/prntsc_downloader (Python)",
+ "repos": [
+  {
+   "repo": "prntsc_downloader",
+   "url": "https://github.com/TheBlissless/prntsc_downloader",
+   "sha": "a56a0ca6778f3008449ffe881eff6ef7d986111f",
+   "licence": "author's permission (LICENSE at pin a56a0ca6778f: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T21:40Z",
+    "consent_receipt": "6bc976947a4c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T21:40Z (receipt 6bc976947a4c); pinned to the default-branch head. LICENSE at pin a56a0ca6778f: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "nfgcode--jurnal-kelas-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on PHP queries this for how nfgcode/Jurnal-Kelas-App implements it: Aplikasi Jurnal Kelas Mengajar Berbasis Website dengan Framework Laravel (selected work: resources, tests, app/Support)",
+ "repos": [
+  {
+   "repo": "Jurnal-Kelas-App",
+   "url": "https://github.com/nfgcode/Jurnal-Kelas-App",
+   "sha": "da242ad1d640b67e7cdeed33becd2c7e41c4e546",
+   "licence": "Apache-2.0 (LICENSE file at pin da242ad1d640, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T22:09Z",
+    "consent_receipt": "770f74a2ce12",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T22:09Z (receipt 770f74a2ce12); selected commit da242ad1d640: \"feat: add Excel import guidance and universal AI formatting\". LICENSE file at pin da242ad1d640 detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

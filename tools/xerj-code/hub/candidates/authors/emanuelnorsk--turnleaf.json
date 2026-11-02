@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-25T23:15Z",
     "consent_receipt": "c0b4cc42baee",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T23:15Z (receipt c0b4cc42baee); selected commit 491585553fbe: \"Turnleaf 1.0.2 - auto updater\". LICENSE file at pin 491585553fbe detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T23:15Z (receipt c0b4cc42baee); selected commit 491585553fbe: \"Turnleaf 1.0.2 - auto updater\". LICENSE file at pin 491585553fbe detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "491585553fbef1ddadd81b26d73cad1f5b9da1ff",
+     "at": "2026-10-25T23:15Z",
+     "receipt": "c0b4cc42baee"
+    }
    }
   }
  ]

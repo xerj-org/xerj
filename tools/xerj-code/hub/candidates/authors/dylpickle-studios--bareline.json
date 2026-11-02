@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-27T17:39Z",
     "consent_receipt": "cd7b580a0f7b",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T17:39Z (receipt cd7b580a0f7b); selected commit dbb2ce9625b0: \"Audit fixes, UX work, tests, report and refreshed demo. Prepare for v\u2026\". LICENSE file at pin dbb2ce9625b0 detected as AGPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T17:39Z (receipt cd7b580a0f7b); selected commit dbb2ce9625b0: \"Audit fixes, UX work, tests, report and refreshed demo. Prepare for v\u2026\". LICENSE file at pin dbb2ce9625b0 detected as AGPL-3.0 by the GitHub licence API on 2026-10-27; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "dbb2ce9625b0265c08ebb020d53843ab3c647f0b",
+     "at": "2026-10-27T17:39Z",
+     "receipt": "cd7b580a0f7b"
+    }
    }
   }
  ]

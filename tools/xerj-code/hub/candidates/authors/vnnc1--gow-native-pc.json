@@ -16,7 +16,14 @@
     "by": "author-consent",
     "at": "2026-10-31T19:10Z",
     "consent_receipt": "e4cbe6065578",
-    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:10Z (receipt e4cbe6065578); selected commit c81b5ae4dddd: \"Implement patches 30-35 for enhanced memory handling and performance \u2026\". LICENSE file at pin c81b5ae4dddd detected as GPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-31T19:10Z (receipt e4cbe6065578); selected commit c81b5ae4dddd: \"Implement patches 30-35 for enhanced memory handling and performance \u2026\". LICENSE file at pin c81b5ae4dddd detected as GPL-3.0 by the GitHub licence API on 2026-10-31; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "c81b5ae4dddd8e9194c10246714d55fb0c4581e2",
+     "at": "2026-10-31T19:10Z",
+     "receipt": "e4cbe6065578"
+    }
    }
   }
  ]
