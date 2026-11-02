@@ -6,7 +6,10 @@
 //! `CREATE` statements. A file the row parser does not read (Postgres
 //! `COPY … FROM stdin`, or an `INSERT` the dump lexer skips) falls through
 //! here from [`super::sqldump`]; schema in that file is still indexed, and a
-//! file with no schema is refused with [`DATA_ONLY_DUMP_REASON`].
+//! file with no schema is refused with [`DATA_ONLY_DUMP_REASON`] — unless it
+//! is a seed migration (#2877): `INSERT`-only and small, or a migration/seed
+//! path up to [`BODY_CAP`], with no `COPY … FROM stdin` block. Those are
+//! indexed as one SQL code document so their text stays searchable.
 
 use super::{ExtractStats, FieldOrigin, RawRecord, Sink};
 use crate::sniff::{sql_dump_has_rows, SqlLex};
@@ -23,6 +26,13 @@ const BODY_CAP: usize = 2 << 20;
 const STMT_CAP: usize = 64 << 10;
 const CODE_CHARS: usize = 400;
 const IMPL_CAP: usize = 16 << 10;
+/// #2877: an `INSERT`-only `.sql` file at or under this size is a seed
+/// migration (default settings, lookup rows), not a dump, wherever it lives.
+const SEED_MAX_BYTES: u64 = 256 << 10;
+/// #2877: under a migration / seed path or name, the seed allowance runs up
+/// to the stored-body cap. Past it the body would be DDL-only (empty here),
+/// so a bigger file is a dump by construction.
+const MIGRATION_SEED_MAX_BYTES: u64 = BODY_CAP as u64;
 
 /// `scan_file` prints this instead of "no records extracted" when a `.sql`
 /// file is row data and nothing in it is schema.
@@ -45,6 +55,10 @@ enum Phase {
 struct ScanOut {
     symbols: Vec<SqlSym>,
     saw_row_data: bool,
+    /// A `COPY … FROM stdin` block was seen: bulk row data, never a seed.
+    saw_copy: bool,
+    /// Decoded bytes read.
+    bytes: u64,
     /// Full decoded text when the file fits in [`BODY_CAP`], otherwise the
     /// DDL statements only.
     body: String,
@@ -53,13 +67,73 @@ struct ScanOut {
 pub fn extract(path: &Path, logical: &Path, gzip: bool, sink: Sink) -> Result<ExtractStats> {
     let reader = super::open_reader(path, gzip, None)?;
     let scan = scan_sql(reader)?;
-    if scan.symbols.is_empty() && scan.saw_row_data {
+    if scan.symbols.is_empty()
+        && scan.saw_row_data
+        && !keeps_data_only_file(logical, scan.bytes, scan.saw_copy)
+    {
         return Ok(ExtractStats::default());
     }
     if scan.body.trim().is_empty() && scan.symbols.is_empty() {
         return Ok(ExtractStats::default());
     }
     Ok(emit(logical, &scan, sink))
+}
+
+/// #2877: whether a schema-less `.sql` file of row statements is a seed
+/// migration to index as source rather than a data dump to skip.
+fn keeps_data_only_file(logical: &Path, bytes: u64, saw_copy: bool) -> bool {
+    if saw_copy || bytes > MIGRATION_SEED_MAX_BYTES {
+        return false;
+    }
+    bytes <= SEED_MAX_BYTES || is_migration_path(logical)
+}
+
+/// A path that names a migration or seed file: a directory such as
+/// `migrations/`, `db/migrate/`, `seeds/`, `seeders/`, `fixtures/`, a file
+/// name with `seed`/`migration` in it, a Flyway name (`V3__x.sql`,
+/// `R__x.sql`), or a numbered / timestamped name (`0003_x.sql`,
+/// `20240101120000_x.sql`).
+fn is_migration_path(logical: &Path) -> bool {
+    let dir_hit = logical
+        .parent()
+        .into_iter()
+        .flat_map(|p| p.components())
+        .filter_map(|c| c.as_os_str().to_str())
+        .map(|c| c.to_ascii_lowercase())
+        .any(|c| {
+            c.contains("migrat")
+                || c.contains("seed")
+                || c == "fixtures"
+                || c == "changelog"
+                || c == "changelogs"
+        });
+    if dir_hit {
+        return true;
+    }
+    let Some(name) = logical.file_name().and_then(|n| n.to_str()) else {
+        return false;
+    };
+    let lower = name.to_ascii_lowercase();
+    if lower.contains("seed") || lower.contains("migrat") {
+        return true;
+    }
+    let b = lower.as_bytes();
+    // Flyway versioned / repeatable: `V<digits…>__name`, `R__name`.
+    if let Some(rest) = lower.strip_prefix('v') {
+        let digits = rest
+            .bytes()
+            .take_while(|c| c.is_ascii_digit() || *c == b'.' || *c == b'_')
+            .count();
+        if digits > 0 && rest[..digits].bytes().any(|c| c.is_ascii_digit()) && rest.contains("__") {
+            return true;
+        }
+    }
+    if lower.starts_with("r__") {
+        return true;
+    }
+    // Numbered / timestamped: at least three leading digits, then `_`/`-`.
+    let lead = b.iter().take_while(|c| c.is_ascii_digit()).count();
+    lead >= 3 && matches!(b.get(lead), Some(b'_') | Some(b'-'))
 }
 
 fn scan_sql(mut reader: impl Read) -> Result<ScanOut> {
@@ -74,6 +148,8 @@ fn scan_sql(mut reader: impl Read) -> Result<ScanOut> {
     let mut stmt_end_line: usize = 1;
     let mut symbols = Vec::new();
     let mut saw_row_data = false;
+    let mut saw_copy = false;
+    let mut bytes: u64 = 0;
     let mut ddl = String::new();
     let mut buf = [0u8; 64 << 10];
 
@@ -82,6 +158,7 @@ fn scan_sql(mut reader: impl Read) -> Result<ScanOut> {
         if n == 0 {
             break;
         }
+        bytes += n as u64;
         for &b in &buf[..n] {
             if keep_full {
                 if full.len() >= BODY_CAP {
@@ -137,6 +214,7 @@ fn scan_sql(mut reader: impl Read) -> Result<ScanOut> {
                     &mut saw_row_data,
                     &mut ddl,
                 ) {
+                    saw_copy = true;
                     phase = Phase::Copy {
                         at_bol: true,
                         idx: 0,
@@ -147,15 +225,17 @@ fn scan_sql(mut reader: impl Read) -> Result<ScanOut> {
             }
         }
     }
-    if !stmt.is_empty() {
-        let _ = take_statement(
+    if !stmt.is_empty()
+        && take_statement(
             &stmt,
             stmt_line,
             stmt_end_line,
             &mut symbols,
             &mut saw_row_data,
             &mut ddl,
-        );
+        )
+    {
+        saw_copy = true;
     }
     // A `\.` with no trailing newline is still the end of COPY data.
     let body = if keep_full {
@@ -166,6 +246,8 @@ fn scan_sql(mut reader: impl Read) -> Result<ScanOut> {
     Ok(ScanOut {
         symbols,
         saw_row_data,
+        saw_copy,
+        bytes,
         body,
     })
 }
@@ -820,6 +902,146 @@ mod tests {
                     "the regression must exercise SQL extraction, not prose fallback"
                 );
             }
+        }
+    }
+
+    fn direct(path: &Path, logical: &Path) -> (ExtractStats, Vec<crate::extract::RawRecord>) {
+        let mut recs = Vec::new();
+        let stats = extract(path, logical, false, &mut |r| {
+            recs.push(r);
+            true
+        })
+        .unwrap();
+        (stats, recs)
+    }
+
+    fn inserts(min_bytes: usize) -> String {
+        let mut sql = String::from("-- default settings\n");
+        let mut i = 0usize;
+        while sql.len() <= min_bytes {
+            sql.push_str(&format!(
+                "INSERT INTO settings (key, value) VALUES ('key_{i}', 'value_{i}');\n"
+            ));
+            i += 1;
+        }
+        sql
+    }
+
+    fn body_of(recs: &[crate::extract::RawRecord]) -> &str {
+        recs.iter()
+            .find(|r| r.locator == "code")
+            .and_then(|r| r.fields.get("body"))
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+    }
+
+    /// #2877: a small `INSERT`-only seed migration is source, not a dump.
+    /// Fail-before: `extract` returned no records for any schema-less file
+    /// with row data.
+    #[test]
+    fn a_small_insert_only_seed_file_is_indexed_as_one_sql_document() {
+        let sql = "INSERT INTO settings (key, value) VALUES ('theme', 'dark');\n\
+                   INSERT INTO settings (key, value) VALUES ('locale', 'en-GB');\n\
+                   UPDATE settings SET value = 'on' WHERE key = 'beta';\n";
+        let dir = tempfile::tempdir().unwrap();
+        let path = write(dir.path(), "settings.sql", sql);
+        let (stats, recs) = direct(&path, Path::new("settings.sql"));
+        assert_eq!(stats.records, 1, "{recs:?}");
+        assert_eq!(recs[0].fields["language"], serde_json::json!("sql"));
+        let body = body_of(&recs);
+        assert!(body.contains("'dark'") && body.contains("en-GB"), "{body}");
+    }
+
+    /// #2877: the size line. Over [`SEED_MAX_BYTES`] an `INSERT`-only file
+    /// is indexed only under a migration / seed path, and past
+    /// [`MIGRATION_SEED_MAX_BYTES`] it is a dump everywhere.
+    #[test]
+    fn insert_only_files_past_the_seed_size_need_a_migration_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let medium = inserts(SEED_MAX_BYTES as usize + 1024);
+        let path = write(dir.path(), "medium.sql", &medium);
+
+        let (stats, _) = direct(&path, Path::new("exports/data.sql"));
+        assert_eq!(
+            stats.records, 0,
+            "a medium INSERT file outside migrations is a dump"
+        );
+
+        for logical in [
+            "db/migrations/0004_seed_settings.sql",
+            "db/migrate/20240101120000_defaults.sql",
+            "src/main/resources/db/V4__defaults.sql",
+            "seeders/defaults.sql",
+        ] {
+            let (stats, recs) = direct(&path, Path::new(logical));
+            assert_eq!(stats.records, 1, "{logical} must be indexed");
+            assert!(body_of(&recs).contains("'value_7'"), "{logical}");
+        }
+
+        let large = inserts(MIGRATION_SEED_MAX_BYTES as usize + 1024);
+        let path = write(dir.path(), "large.sql", &large);
+        let (stats, recs) = direct(&path, Path::new("db/migrations/V9__big_seed.sql"));
+        assert_eq!(stats.records, 0, "a dump past the body cap stays skipped");
+        assert!(recs.is_empty());
+    }
+
+    /// #2877: `COPY … FROM stdin` is bulk row data even when tiny and under
+    /// a migration path, so it keeps the data-only refusal.
+    #[test]
+    fn a_copy_block_is_never_a_seed_migration() {
+        let sql = "COPY settings (key, value) FROM stdin;\ntheme\tdark\n\\.\n";
+        let dir = tempfile::tempdir().unwrap();
+        let path = write(dir.path(), "copy.sql", sql);
+        let (stats, recs) = direct(&path, Path::new("migrations/V2__seed.sql"));
+        assert_eq!(stats.records, 0, "{recs:?}");
+    }
+
+    /// #2877 end to end: the field-report shape (comment header, quoted
+    /// schema-qualified table, column list) through sniff + dispatch is
+    /// searchable and not refused.
+    #[test]
+    fn an_insert_only_migration_is_searchable_through_autoindex() {
+        let sql = "-- Seed default settings\n\
+                   INSERT INTO \"public\".\"settings\" (\"key\", \"value\") VALUES ('theme', 'dark');\n\
+                   INSERT INTO \"public\".\"settings\" (\"key\", \"value\") VALUES ('retention_days', '30');\n";
+        let dir = tempfile::tempdir().unwrap();
+        let path = write(dir.path(), "V3__seed_settings.sql", sql);
+        let (stats, recs) = indexed(&path);
+        assert!(stats.refusal.is_none(), "{stats:?}");
+        assert!(stats.records > 0, "{stats:?}");
+        assert!(
+            recs.iter().any(|r| r
+                .fields
+                .values()
+                .any(|v| v.as_str().is_some_and(|s| s.contains("retention_days")))),
+            "seed text must be indexed: {recs:?}"
+        );
+    }
+
+    #[test]
+    fn migration_paths_and_names() {
+        for yes in [
+            "migrations/x.sql",
+            "db/migrate/x.sql",
+            "prisma/migrations/20240101_init/migration.sql",
+            "database/seeds/x.sql",
+            "V1__init.sql",
+            "V1.2__init.sql",
+            "R__views.sql",
+            "0001_defaults.sql",
+            "20240101120000-defaults.sql",
+            "seed.sql",
+        ] {
+            assert!(is_migration_path(Path::new(yes)), "{yes}");
+        }
+        for no in [
+            "dump.sql",
+            "backup/full.sql",
+            "v1.sql",
+            "12_x.sql",
+            "vacuum__x.sql",
+        ] {
+            assert!(!is_migration_path(Path::new(no)), "{no}");
         }
     }
 }
