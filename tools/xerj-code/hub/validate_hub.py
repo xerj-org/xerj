@@ -247,7 +247,8 @@ if AUTHORS.is_dir():
                 err(f"{ledger.relative_to(ROOT)}:{n}: licence.author_grant is not an "
                     f"established field — a consent reply covers inclusion under the "
                     f"repository's licence; exceptional terms need an owner-approvals "
-                    f"entry (see #2791)")
+                    f"entry. On a refresh branch, run "
+                    f"python3 tools/xerj-code/hub/candidates/strip_author_grants.py (see #2791)")
             ledger_rows.setdefault(slug, []).append(row)
 
 seen_author_slugs: set[str] = set()
@@ -297,7 +298,8 @@ for path in author_files:
         if "author_grant" in review:
             err(f"{where}: review.author_grant is not an established field — a consent "
                 f"reply covers inclusion under the repository's licence; exceptional "
-                f"terms need an owner-approvals entry (see #2791)")
+                f"terms need an owner-approvals entry. On a refresh branch, run "
+                f"python3 tools/xerj-code/hub/candidates/strip_author_grants.py (see #2791)")
     rows_for = ledger_rows.get(slug) or []
     if not rows_for:
         err(f"{rel}: no ledger row in CONTRIBUTORS*.jsonl (no attribution, stars, or contributor page)")
