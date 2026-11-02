@@ -1,5 +1,6 @@
-//! Opt-in, advisory-only Claude Code PreToolUse hints (#2642).
+//! Opt-in, advisory-only Claude Code PreToolUse / Gemini CLI AfterTool hints (#2642).
 //! Host contract: https://code.claude.com/docs/en/hooks#pretooluse-decision-control.
+//! Gemini: https://geminicli.com/docs/hooks/reference/#aftertool (milliseconds).
 //! Return additionalContext only: never permissionDecision, updatedInput or exit 2.
 use anyhow::{ensure, Context, Result};
 use serde::{Deserialize, Serialize};
@@ -11,8 +12,67 @@ use std::time::Duration;
 
 // Reuse the session hook's bounded, no-symlink, private/atomic file operations.
 use crate::session_memory::{atomic, digest, encode, lock, loopback, private_dir, quote, read};
-const DIRECTORY: &str = ".claude/xerj-hints";
-const SETTINGS: &str = ".claude/settings.json";
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Host {
+    #[default]
+    Claude,
+    Gemini,
+}
+
+impl Host {
+    pub(crate) fn parse(value: &str) -> Result<Self> {
+        match value {
+            "claude" => Ok(Self::Claude),
+            "gemini" => Ok(Self::Gemini),
+            _ => anyhow::bail!("unknown search hint host '{value}'; use claude or gemini"),
+        }
+    }
+    const fn directory(self) -> &'static str {
+        match self {
+            Self::Claude => ".claude/xerj-hints",
+            Self::Gemini => ".gemini/xerj-hints",
+        }
+    }
+    const fn settings(self) -> &'static str {
+        match self {
+            Self::Claude => ".claude/settings.json",
+            Self::Gemini => ".gemini/settings.json",
+        }
+    }
+    fn event(self) -> &'static str {
+        match self {
+            Self::Claude => "PreToolUse",
+            Self::Gemini => "AfterTool",
+        }
+    }
+    fn label(self) -> &'static str {
+        match self {
+            Self::Claude => "Claude Code",
+            Self::Gemini => "Gemini CLI",
+        }
+    }
+    fn flag(self) -> &'static str {
+        match self {
+            Self::Claude => "",
+            Self::Gemini => " --host gemini",
+        }
+    }
+    fn tool(self, name: &str) -> Option<&'static str> {
+        match (self, name) {
+            (Self::Claude, "Read") | (Self::Gemini, "read_file") => Some("Read"),
+            (Self::Claude, "Grep") | (Self::Gemini, "grep_search" | "search_file_content") => {
+                Some("Grep")
+            }
+            (Self::Claude, "Glob") | (Self::Gemini, "glob") => Some("Glob"),
+            _ => None,
+        }
+    }
+}
+
+#[cfg(test)]
+const DIRECTORY: &str = Host::Claude.directory();
+#[cfg(test)]
+const SETTINGS: &str = Host::Claude.settings();
 const LIMIT: u64 = 64 * 1024;
 const INTERVAL: u64 = 10;
 const MAX_SESSIONS: usize = 64;
@@ -26,37 +86,44 @@ struct Config {
     group: Value,
 }
 
-fn group(project: &Path, binary: &Path) -> Result<Value> {
+fn group(host: Host, project: &Path, binary: &Path) -> Result<Value> {
     let project = project.to_str().context("project path must be UTF-8")?;
     let binary = binary.to_str().context("binary path must be UTF-8")?;
     ensure!(
         !project.chars().chain(binary.chars()).any(char::is_control),
         "control characters in hook paths"
     );
-    Ok(json!({"matcher":"Grep|Glob|Read", "hooks":[{
-        "type":"command", "command":format!("{} init hook --project {}", quote(binary), quote(project)),
-        "timeout":2
+    let (matcher, timeout) = match host {
+        Host::Claude => ("Grep|Glob|Read", 2),
+        // Gemini regex matchers are unanchored by default. Do not match MCP tools.
+        Host::Gemini => ("^(grep_search|search_file_content|glob|read_file)$", 2000),
+    };
+    Ok(json!({"matcher":matcher, "hooks":[{
+        "type":"command", "command":format!("{} init hook --project {}{}", quote(binary), quote(project), host.flag()),
+        "timeout":timeout
     }]}))
 }
 
 pub(crate) fn configure(
+    host: Host,
     project: &Path,
     url: &str,
     dry: bool,
     remove: bool,
     binary: &Path,
 ) -> Result<Vec<String>> {
-    configure_with(project, url, dry, remove, binary, atomic)
+    configure_with(host, project, url, (dry, remove), binary, atomic)
 }
 
 fn configure_with(
+    host: Host,
     project: &Path,
     url: &str,
-    dry: bool,
-    remove: bool,
+    action: (bool, bool),
     binary: &Path,
     publish_settings: impl FnOnce(&Path, &[u8]) -> Result<()>,
 ) -> Result<Vec<String>> {
+    let (dry, remove) = action;
     ensure!(
         cfg!(unix),
         "search hint hooks currently support macOS and Linux only"
@@ -64,9 +131,9 @@ fn configure_with(
     let project = project.canonicalize()?;
     loopback(url)?;
     let url = reqwest::Url::parse(url)?.to_string();
-    let dir = project.join(DIRECTORY);
+    let dir = project.join(host.directory());
     let config_path = dir.join("config.json");
-    let path = project.join(SETTINGS);
+    let path = project.join(host.settings());
     let old = read(&path, 1024 * 1024)?;
     let old_config = read(&config_path, LIMIT)?;
     let previous: Option<Config> = old_config
@@ -86,25 +153,30 @@ fn configure_with(
         .unwrap_or(json!({}));
     ensure!(
         settings.is_object(),
-        "Claude settings must be an object; not touching it"
+        "{} settings must be an object; not touching it",
+        host.label()
     );
+    if host == Host::Gemini && !remove {
+        ensure!(settings.pointer("/hooksConfig/enabled") != Some(&json!(false)),
+            "Gemini hooks are disabled in this project's settings; enable hooksConfig.enabled before installing search hints");
+    }
     if remove && previous.as_ref().is_none_or(|p| !p.enabled) {
         return Ok(vec![
             "search hints already disabled; backups and counters kept".into(),
         ]);
     }
-    let wanted = group(&project, binary)?;
+    let wanted = group(host, &project, binary)?;
     let root = settings.as_object_mut().expect("checked object");
     let hooks = root
         .entry("hooks")
         .or_insert(json!({}))
         .as_object_mut()
-        .context("Claude hooks must be an object")?;
+        .context("hooks must be an object")?;
     let groups = hooks
-        .entry("PreToolUse")
+        .entry(host.event())
         .or_insert(json!([]))
         .as_array_mut()
-        .context("PreToolUse must be an array")?;
+        .with_context(|| format!("{} must be an array", host.event()))?;
     let owned = previous.as_ref().filter(|p| p.enabled);
     if let Some(p) = owned {
         ensure!(groups.iter().filter(|g| *g == &p.group).count() == 1,
@@ -122,7 +194,7 @@ fn configure_with(
         groups.push(wanted.clone());
     }
     if groups.is_empty() {
-        hooks.remove("PreToolUse");
+        hooks.remove(host.event());
     }
     if hooks.is_empty() {
         root.remove("hooks");
@@ -140,13 +212,28 @@ fn configure_with(
         bytes.len() <= 1024 * 1024 && config_bytes.len() as u64 <= LIMIT,
         "search hint configuration exceeds its read budget; not touching settings"
     );
-    let lines = vec![format!("{} Claude Code search hints (Grep/Glob/repeated Read; loopback only)",
-        match (dry, remove) { (true,true)=>"would disable", (true,false)=>"would configure", (false,true)=>"disabled", (false,false)=>"enabled" }),
-        "Use xerj init --hooks --remove to disable; private backups/counters remain in .claude/xerj-hints/".into()];
+    let lines = vec![
+        format!(
+            "{} {} search hints ({}; loopback only)",
+            match (dry, remove) {
+                (true, true) => "would disable",
+                (true, false) => "would configure",
+                (false, true) => "disabled",
+                (false, false) => "enabled",
+            },
+            host.label(),
+            host.event()
+        ),
+        format!(
+            "Use xerj init --hooks{} --remove to disable; private backups/counters remain in {}/",
+            host.flag(),
+            host.directory()
+        ),
+    ];
     if dry {
         return Ok(lines);
     }
-    fs::create_dir_all(project.join(".claude"))?;
+    fs::create_dir_all(path.parent().context("missing settings parent")?)?;
     private_dir(&dir)?;
     let _lease = lock(&dir.join("state.lock"))?;
     // Serialise installers and runtime counters; refuse a stale preflight.
@@ -333,10 +420,11 @@ fn probe(config: &Config) -> Result<Option<String>> {
     ))
 }
 
-fn handle(project: &Path, input: &[u8]) -> Result<Option<Value>> {
-    handle_with(project, input, probe)
+fn handle(host: Host, project: &Path, input: &[u8]) -> Result<Option<Value>> {
+    handle_with(host, project, input, probe)
 }
 fn handle_with(
+    host: Host,
     project: &Path,
     input: &[u8],
     probe: impl FnOnce(&Config) -> Result<Option<String>>,
@@ -346,9 +434,10 @@ fn handle_with(
         "unsupported hook or oversized input"
     );
     let event: Value = serde_json::from_slice(input)?;
-    ensure!(event["hook_event_name"] == "PreToolUse", "wrong event");
-    let tool = event["tool_name"].as_str().context("missing tool")?;
-    ensure!(matches!(tool, "Grep" | "Glob" | "Read"), "unmatched tool");
+    ensure!(event["hook_event_name"] == host.event(), "wrong event");
+    let tool = host
+        .tool(event["tool_name"].as_str().context("missing tool")?)
+        .context("unmatched tool")?;
     let sid = event["session_id"]
         .as_str()
         .filter(|s| !s.is_empty() && s.len() <= 256)
@@ -356,7 +445,7 @@ fn handle_with(
     let project = project.canonicalize()?;
     let cwd = Path::new(event["cwd"].as_str().context("missing cwd")?).canonicalize()?;
     ensure!(cwd == project, "different working directory");
-    let dir = project.join(DIRECTORY);
+    let dir = project.join(host.directory());
     let config: Config =
         serde_json::from_slice(&read(&dir.join("config.json"), LIMIT)?.context("not configured")?)?;
     ensure!(
@@ -392,7 +481,7 @@ fn handle_with(
     );
     let output = prefix.map(|prefix| {
         session.last_hint = Some(session.calls);
-        json!({"hookSpecificOutput":{"hookEventName":"PreToolUse", "additionalContext":format!(
+        json!({"hookSpecificOutput":{"hookEventName":host.event(), "additionalContext":format!(
             "This folder has an indexed XERJ corpus: try `xerj search --prefix {prefix} --url {endpoint} \"<words>\"` or `xerj def --prefix {prefix} --url {endpoint} \"<symbol>\"` for cited passages.")}})
     });
     atomic(&path, &encode(&counters)?)?;
@@ -404,12 +493,18 @@ fn handle_with(
 pub fn run(args: &[String]) -> i32 {
     let result = (|| -> Result<Option<Value>> {
         ensure!(
-            args.len() == 2 && args[0] == "--project",
+            matches!(args.len(), 2 | 4) && args[0] == "--project",
             "invalid arguments"
         );
+        let host = if args.len() == 4 {
+            ensure!(args[2] == "--host", "invalid host argument");
+            Host::parse(&args[3])?
+        } else {
+            Host::Claude
+        };
         let mut bytes = Vec::new();
         std::io::stdin().take(LIMIT + 1).read_to_end(&mut bytes)?;
-        handle(Path::new(&args[1]), &bytes)
+        handle(host, Path::new(&args[1]), &bytes)
     })();
     if let Ok(Some(value)) = result {
         use std::io::Write;
