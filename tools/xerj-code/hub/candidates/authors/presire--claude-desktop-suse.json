@@ -1,0 +1,23 @@
+{
+ "corpus": "presire--claude-desktop-suse",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Shell queries this for how presire/claude-desktop-suse implements it: Claude Desktop for SUSE Linux (selected work: tests, scripts)",
+ "repos": [
+  {
+   "repo": "claude-desktop-suse",
+   "url": "https://github.com/presire/claude-desktop-suse",
+   "sha": "6ba3ead2a8d1fe76fbe201a6718ac09adb27bdf9",
+   "licence": "author's permission (LICENSE at pin 6ba3ead2a8d1: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T12:14Z",
+    "consent_receipt": "6865882d2d6d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T12:14Z (receipt 6865882d2d6d); selected commit 6ba3ead2a8d1: \"feat: tray/launcher fixes and pin Claude 2.42304.2\". LICENSE at pin 6ba3ead2a8d1: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

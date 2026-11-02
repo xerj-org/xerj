@@ -1,0 +1,23 @@
+{
+ "corpus": "ariel-lee-1023--transcript-proofreader",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how ariel-lee-1023/transcript-proofreader implements it: Proofreads, corrects & formats Chinese or English speech-to-text transcripts from meetings, lectures & podcasts. Edited-verbatim discipline: (selected work: fidelity-ledger, the project root)",
+ "repos": [
+  {
+   "repo": "transcript-proofreader",
+   "url": "https://github.com/ariel-lee-1023/transcript-proofreader",
+   "sha": "5b646b74ce9e43735fe48b4d94698cdbd093a292",
+   "licence": "MIT (LICENSE file at pin 5b646b74ce9e, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:17Z",
+    "consent_receipt": "fed2e37186bb",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T09:17Z (receipt fed2e37186bb); selected commit 5b646b74ce9e: \"Deepen editorial references and credit Ariel Lee experience\". LICENSE file at pin 5b646b74ce9e detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

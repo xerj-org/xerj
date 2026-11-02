@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Go queries this for how alexpatil/sukami implements it: \u26a1High-performance AI gateway & token optimizer in pure Go. Cut LLM costs & latency with zero code changes (selected work: pkg/metrics, pkg/proxy, cmd/sukami)",
+ "domain": "an agent working on ai-gateway, anthropic, deepseek queries this for how alexpatil/sukami implements it: High-performance AI gateway & token optimizer in pure Go. Cut LLM costs & latency with zero code changes (selected work: pkg/metrics, pkg/proxy, cmd/sukami)",
  "repos": [
   {
    "repo": "sukami",

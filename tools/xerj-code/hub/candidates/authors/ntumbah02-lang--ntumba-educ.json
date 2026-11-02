@@ -1,0 +1,23 @@
+{
+ "corpus": "ntumbah02-lang--ntumba-educ",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on africa, drc, edtech queries this for how ntumbah02-lang/Ntumba-educ implements it: AI-powered learning platform for Africa - 10,000+ learners, 30+ courses, 4.9/5 rating. DRC EdTech dataset: IA, Genie Info, Python, Web, Busi",
+ "repos": [
+  {
+   "repo": "Ntumba-educ",
+   "url": "https://github.com/ntumbah02-lang/Ntumba-educ",
+   "sha": "e10de1e483862b7fd5dc644541b1162f1ba25d34",
+   "licence": "author's permission (LICENSE at pin e10de1e48386: NOASSERTION; repository: NOASSERTION)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T00:03Z",
+    "consent_receipt": "f22546b51aed",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T00:03Z (receipt f22546b51aed); pinned to the default-branch head. LICENSE at pin e10de1e48386: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

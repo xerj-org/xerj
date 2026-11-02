@@ -8,15 +8,15 @@
   {
    "repo": "OrarioScuola",
    "url": "https://github.com/John-Hole/OrarioScuola",
-   "sha": "5b5f30cd8d976ee98046dcde0eaf718499e991ec",
-   "licence": "MIT (LICENSE file at pin 5b5f30cd8d97, GitHub licence API 2026-10-31)",
+   "sha": "9553f3950462cc6c9657ec4ef906709a468650e2",
+   "licence": "MIT (LICENSE file at pin 9553f3950462, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-24T08:37Z",
     "consent_receipt": "9e4da282b2ed",
-    "note": "Inclusion consented by the commit author by email at 2026-10-24T08:37Z (receipt 9e4da282b2ed); selected commit 5b5f30cd8d97: \"feat(filter): spostamento selettore materia nel drawer laterale e fil\u2026\". LICENSE file at pin 5b5f30cd8d97 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution. Pinned to head 5b5f30cd8d97 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-24T08:37Z (receipt 9e4da282b2ed); selected commit 9553f3950462: \"feat(filter): spostamento selettore materia nel drawer laterale e fil\u2026\". LICENSE file at pin 9553f3950462 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 9553f3950462 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

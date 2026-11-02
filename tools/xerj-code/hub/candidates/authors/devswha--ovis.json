@@ -1,0 +1,23 @@
+{
+ "corpus": "devswha--ovis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on bun, herdr, pwa queries this for how devswha/ovis implements it: Ovis (formerly herdr web UI): free, open-source browser and phone client for herdr. Chat and live terminal for Claude Code, Codex and every  (selected work: server)",
+ "repos": [
+  {
+   "repo": "ovis",
+   "url": "https://github.com/devswha/ovis",
+   "sha": "ea2213147c89657c9f35b5e2ebef18c942ae719a",
+   "licence": "MIT (LICENSE file at pin ea2213147c89, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T08:16Z",
+    "consent_receipt": "60f798c02c64",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T08:16Z (receipt 60f798c02c64); selected commit ea2213147c89: \"fix(chat): use Claude's captured session context window (#2452)\". LICENSE file at pin ea2213147c89 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

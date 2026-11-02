@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how umararshad4/honey-stack implements it: One always-on toolkit for Claude Code and Codex that learns from every session (RSI: recursive self-improvement) (selected work: tests, honey)",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how umararshad4/honey-stack implements it: Always-on workflow layer for Claude Code and Codex: right-sized tasks, smallest complete change, proof before done, plus RSI that learns fro (selected work: tests, honey)",
  "repos": [
   {
    "repo": "honey-stack",

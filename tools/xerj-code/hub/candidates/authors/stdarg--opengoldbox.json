@@ -1,0 +1,30 @@
+{
+ "corpus": "stdarg--opengoldbox",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on C++ queries this for how stdarg/OpenGoldBox implements it: A modern Godot-based reimplementation of SSI\u2019s Gold Box engine that reads the original game data and assets while adding a cleaner UI, impro (selected work: src/OpenGold.Rules.Srd5, tests, data)",
+ "repos": [
+  {
+   "repo": "OpenGoldBox",
+   "url": "https://github.com/stdarg/OpenGoldBox",
+   "sha": "2922203bcb8572211dd53c36b37ca0695be9c5af",
+   "licence": "MPL-2.0 (LICENSE file at pin 2922203bcb85, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T15:25Z",
+    "consent_receipt": "ea933b1e5f8d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T15:25Z (receipt ea933b1e5f8d); selected commit 2922203bcb85: \"The last monster abilities: Ghoul Claw, Gore, Troll Limbs and Charge,\u2026\". LICENSE file at pin 2922203bcb85 detected as MPL-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "2922203bcb8572211dd53c36b37ca0695be9c5af",
+     "at": "2026-11-01T15:25Z",
+     "receipt": "ea933b1e5f8d"
+    }
+   }
+  }
+ ]
+}

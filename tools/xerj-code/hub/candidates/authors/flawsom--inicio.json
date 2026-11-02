@@ -1,0 +1,23 @@
+{
+ "corpus": "flawsom--inicio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on csv, data-collection, fastify queries this for how flawsom/Inicio implements it: Multi-tenant survey and data-collection platform: a real expression engine, offline-first collection that never loses an answer, and analysi",
+ "repos": [
+  {
+   "repo": "Inicio",
+   "url": "https://github.com/flawsom/Inicio",
+   "sha": "8247ea053064e9145f278608e4122b0de80ad4de",
+   "licence": "Apache-2.0 (LICENSE file at pin 8247ea053064, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T13:44Z",
+    "consent_receipt": "287937a33e35",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T13:44Z (receipt 287937a33e35); pinned to the default-branch head. LICENSE file at pin 8247ea053064 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

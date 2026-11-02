@@ -1,0 +1,23 @@
+{
+ "corpus": "sherlockyzz--cyber-hajimi-bili",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how SherlockYzz/cyber-hajimi-bili implements it: \ud83d\udc3e \u8d5b\u535a\u517bGemini \u00b7 \u95ea\u95ea (Cyber-Gemini Flash) - \u57fa\u4e8e Google Gemini 3.8 Flash \u539f\u751f\u96f6\u6210\u672c\u9a71\u52a8\u7684 B\u7ad9\u5168\u80fd\u4f34\u751f\u732b\u5a18\u667a\u80fd\u4f53\uff0c\u652f\u6301WBI\u9a8c\u7b7e\u63a8\u8350\u6d41\u6293\u53d6\u3001CC\u5b57\u5e55\u8bed\u4e49\u54c1\u9274\u3001\u53cc\u8f68\u63a7\u5236\u4e2d\u5fc3\u4e0e\u6668\u601d\u665a\u8bfb\u624b\u8bb0\u3002",
+ "repos": [
+  {
+   "repo": "cyber-hajimi-bili",
+   "url": "https://github.com/SherlockYzz/cyber-hajimi-bili",
+   "sha": "5b1928338d3c8628865f2a8b9449eff3ead22aaa",
+   "licence": "MIT (LICENSE file at pin 5b1928338d3c, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:42Z",
+    "consent_receipt": "e49edc485a2d",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:42Z (receipt e49edc485a2d); pinned to the default-branch head. LICENSE file at pin 5b1928338d3c detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

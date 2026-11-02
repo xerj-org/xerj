@@ -1,0 +1,23 @@
+{
+ "corpus": "brcha--rtm",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on todo queries this for how brcha/rtm implements it: Rusty Todo.txt Manager (selected work: rtmgui)",
+ "repos": [
+  {
+   "repo": "rtm",
+   "url": "https://github.com/brcha/rtm",
+   "sha": "bec689e8c29413ae2cdf58e874149d73d175f64a",
+   "licence": "MIT (LICENSE file at pin bec689e8c294, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T16:07Z",
+    "consent_receipt": "b3c8d76910b5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T16:07Z (receipt b3c8d76910b5); selected commit bec689e8c294: \"feat: calendar date picker in rtmgui -- RTM-40 (#16)\". LICENSE file at pin bec689e8c294 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

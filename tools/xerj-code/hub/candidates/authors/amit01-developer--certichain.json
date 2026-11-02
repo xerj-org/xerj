@@ -1,0 +1,23 @@
+{
+ "corpus": "amit01-developer--certichain",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on TypeScript queries this for how Amit01-developer/CertiChain implements it: CertiChain is a secure credential verification platform for issuing, managing, and instantly verifying digital certificates. \ud83d\udd10 Secure Verifi (selected work: backend, frontend, the project root)",
+ "repos": [
+  {
+   "repo": "CertiChain",
+   "url": "https://github.com/Amit01-developer/CertiChain",
+   "sha": "f9b82ed02b4e4514ac08ee19b63bc21031554bfc",
+   "licence": "MIT (LICENSE file at pin f9b82ed02b4e, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T18:47Z",
+    "consent_receipt": "a270fb19bbcf",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T18:47Z (receipt a270fb19bbcf); selected commit f9b82ed02b4e: \"feat: add reviewer role, draft/rejected status, blockchain updates, a\u2026\". LICENSE file at pin f9b82ed02b4e detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

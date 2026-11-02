@@ -1,0 +1,23 @@
+{
+ "corpus": "anguoyang--rk-edge-doctor",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on diagnostics, edge-ai, npu queries this for how anguoyang/rk-edge-doctor implements it: Open-source diagnostics and acceptance toolkit for Rockchip edge boards (RK3588 / RK3576 / RK356x): board health checks, RKNN model CPU-fall (selected work: src/rkdoctor, tests, the project root)",
+ "repos": [
+  {
+   "repo": "rk-edge-doctor",
+   "url": "https://github.com/anguoyang/rk-edge-doctor",
+   "sha": "c5fe62dc58cff2a05c61aad3b0c7e9cb8b5cc85a",
+   "licence": "Apache-2.0 (LICENSE file at pin c5fe62dc58cf, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T23:51Z",
+    "consent_receipt": "27fda628388c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T23:51Z (receipt 27fda628388c); selected commit c5fe62dc58cf: \"feat(convert): v0.4.0 - conversion trio (check / recipe / verify)\". LICENSE file at pin c5fe62dc58cf detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "svtlv--cc-stuff",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, claude-code, developer-tools queries this for how svtlv/cc-stuff implements it: A junk drawer of useful things for Claude Code (selected work: partner-agents, tests, scripts)",
+ "repos": [
+  {
+   "repo": "cc-stuff",
+   "url": "https://github.com/svtlv/cc-stuff",
+   "sha": "3444c7651113b17dc3068711ba7c134f50b19584",
+   "licence": "MIT (LICENSE file at pin 3444c7651113, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T16:13Z",
+    "consent_receipt": "6df455ec0de5",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T16:13Z (receipt 6df455ec0de5); selected commit 3444c7651113: \"Add Codex support across plugins and validate host compatibility\". LICENSE file at pin 3444c7651113 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

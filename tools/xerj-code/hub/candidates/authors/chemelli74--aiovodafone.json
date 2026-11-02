@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on hacktoberfest queries this for how chemelli74/aiovodafone implements it: Python library to control Vodafone Station (selected work: tests, src/aiovodafone)",
+ "domain": "an agent working on Python queries this for how chemelli74/aiovodafone implements it: Python library to control Vodafone Station (selected work: tests, src/aiovodafone)",
  "repos": [
   {
    "repo": "aiovodafone",

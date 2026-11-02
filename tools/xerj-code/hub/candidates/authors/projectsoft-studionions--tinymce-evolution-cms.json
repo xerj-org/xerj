@@ -8,15 +8,15 @@
   {
    "repo": "tinymce-evolution-cms",
    "url": "https://github.com/ProjectSoft-STUDIONIONS/tinymce-evolution-cms",
-   "sha": "be3faf48c15aab96dacbfaafe5ddcf856f1465ee",
-   "licence": "GPL-3.0 (LICENSE file at pin be3faf48c15a, GitHub licence API 2026-10-29)",
+   "sha": "d551dc673613af78108c0def8c312873c1fea19b",
+   "licence": "GPL-3.0 (LICENSE file at pin d551dc673613, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-29T02:56Z",
     "consent_receipt": "8b0c02452ee8",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:56Z (receipt 8b0c02452ee8); pinned to the default-branch head. LICENSE file at pin be3faf48c15a detected as GPL-3.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T02:56Z (receipt 8b0c02452ee8); pinned to the default-branch head. LICENSE file at pin d551dc673613 detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

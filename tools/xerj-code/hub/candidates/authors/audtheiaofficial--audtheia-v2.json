@@ -1,0 +1,23 @@
+{
+ "corpus": "audtheiaofficial--audtheia-v2",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on audtheia, bioacoustics, biodiversity queries this for how AudtheiaOfficial/audtheia-v2 implements it: Fully offline environmental-intelligence platform for biodiversity monitoring, marine protected area support, and longitudinal pattern disco (selected work: audtheia, tests, scripts)",
+ "repos": [
+  {
+   "repo": "audtheia-v2",
+   "url": "https://github.com/AudtheiaOfficial/audtheia-v2",
+   "sha": "a489911d0c10dad3f6c14ec4bd06710521da01f9",
+   "licence": "MIT (LICENSE file at pin a489911d0c10, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T19:00Z",
+    "consent_receipt": "3e83304601bf",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T19:00Z (receipt 3e83304601bf); selected commit a489911d0c10: \"Add Train tab groundwork: training tables, migration, settings block \u2026\". LICENSE file at pin a489911d0c10 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

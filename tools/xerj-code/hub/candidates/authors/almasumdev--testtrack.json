@@ -8,15 +8,15 @@
   {
    "repo": "testtrack",
    "url": "https://github.com/almasumdev/testtrack",
-   "sha": "f408dbf670519860c74210e11007637fc332983c",
-   "licence": "MIT (LICENSE file at pin f408dbf67051, GitHub licence API 2026-10-31)",
+   "sha": "06d2e546dfa27bfac4cc92040a6afdbd00de0de5",
+   "licence": "MIT (LICENSE file at pin 06d2e546dfa2, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:30Z",
     "consent_receipt": "85cad14bdfd8",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:30Z (receipt 85cad14bdfd8); pinned to the default-branch head. LICENSE file at pin f408dbf67051 detected as MIT by the GitHub licence API on 2026-10-31; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:30Z (receipt 85cad14bdfd8); pinned to the default-branch head. LICENSE file at pin 06d2e546dfa2 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

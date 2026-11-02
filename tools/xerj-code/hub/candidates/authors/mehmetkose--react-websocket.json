@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on react, websocket queries this for how mehmetkose/react-websocket implements it: Easy-to-use React component for websocket communications (selected work: test, src, the project root)",
+ "domain": "an agent working on react, websocket queries this for how mehmetkose/react-websocket implements it: The real-time toolkit for React (selected work: test, src, the project root)",
  "repos": [
   {
    "repo": "react-websocket",

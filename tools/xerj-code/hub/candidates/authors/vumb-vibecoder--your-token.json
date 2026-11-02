@@ -1,0 +1,23 @@
+{
+ "corpus": "vumb-vibecoder--your-token",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, anthropic, claude queries this for how Vumb-VibeCoder/Your-token implements it: Claude can't see its own usage limit. This skill keeps a tally and writes a HANDOFF.md before you hit it (selected work: skills, tests, tools)",
+ "repos": [
+  {
+   "repo": "Your-token",
+   "url": "https://github.com/Vumb-VibeCoder/Your-token",
+   "sha": "603cb3b1f44d5842db8836afa70ec3f7b67a3b13",
+   "licence": "MIT (LICENSE file at pin 603cb3b1f44d, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T15:21Z",
+    "consent_receipt": "af4c7cf99d05",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T15:21Z (receipt af4c7cf99d05); selected commit 603cb3b1f44d: \"Add files via upload\". LICENSE file at pin 603cb3b1f44d detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

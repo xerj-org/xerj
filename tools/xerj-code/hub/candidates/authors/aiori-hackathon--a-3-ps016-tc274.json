@@ -1,0 +1,23 @@
+{
+ "corpus": "aiori-hackathon--a-3-ps016-tc274",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how aiori-hackathon/A-3-PS016-TC274 implements it: aiori-hackathon/A-3-PS016-TC274 (TypeScript) (selected work: frontend, backend, the project root)",
+ "repos": [
+  {
+   "repo": "A-3-PS016-TC274",
+   "url": "https://github.com/aiori-hackathon/A-3-PS016-TC274",
+   "sha": "c3f10395a767d67b1536c9ea08df15eeb052d6c1",
+   "licence": "MIT (LICENSE file at pin c3f10395a767, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T14:56Z",
+    "consent_receipt": "d073414e40c0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T14:56Z (receipt d073414e40c0); selected commit c3f10395a767: \"HandoverLab\". LICENSE file at pin c3f10395a767 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

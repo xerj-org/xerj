@@ -1,0 +1,23 @@
+{
+ "corpus": "flawsom--scanly",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on TypeScript queries this for how flawsom/Scanly implements it: Scanly \u2014 document transmutation engine. Scan paper and rebuild it as a born-digital original: perspective-corrected, OCR in 80+ languages, h",
+ "repos": [
+  {
+   "repo": "Scanly",
+   "url": "https://github.com/flawsom/Scanly",
+   "sha": "e05d3e395b6f8954f7258411f63094245dfeeef5",
+   "licence": "MIT (LICENSE file at pin e05d3e395b6f, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T13:44Z",
+    "consent_receipt": "54f9ea808a26",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T13:44Z (receipt 54f9ea808a26); pinned to the default-branch head. LICENSE file at pin e05d3e395b6f detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

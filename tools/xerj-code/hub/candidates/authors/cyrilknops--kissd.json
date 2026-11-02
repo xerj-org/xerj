@@ -1,0 +1,30 @@
+{
+ "corpus": "cyrilknops--kissd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on JavaScript queries this for how cyrilknops/kissd implements it: keep it super simple dashboard, a VPS dashboard for docker specific containers (selected work: server, web, the project root)",
+ "repos": [
+  {
+   "repo": "kissd",
+   "url": "https://github.com/cyrilknops/kissd",
+   "sha": "36a1c9c4972d87c1b6b4e6fa626e5df7ffc10439",
+   "licence": "GPL-3.0 (LICENSE file at pin 36a1c9c4972d, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T20:51Z",
+    "consent_receipt": "a27b53f6bc47",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T20:51Z (receipt a27b53f6bc47); selected commit 36a1c9c4972d: \"feat: persist metrics history and availability (GREEN: 23 tests, Node\u2026\". LICENSE file at pin 36a1c9c4972d detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "36a1c9c4972d87c1b6b4e6fa626e5df7ffc10439",
+     "at": "2026-11-01T20:51Z",
+     "receipt": "a27b53f6bc47"
+    }
+   }
+  }
+ ]
+}

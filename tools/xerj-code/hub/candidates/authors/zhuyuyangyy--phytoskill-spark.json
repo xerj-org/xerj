@@ -8,15 +8,15 @@
   {
    "repo": "PhytoSkill-Spark",
    "url": "https://github.com/Zhuyuyangyy/PhytoSkill-Spark",
-   "sha": "b2cc61a64c1c660dac55e4bfbde0cd59e4a2927f",
-   "licence": "Apache-2.0 (LICENSE file at pin b2cc61a64c1c, GitHub licence API 2026-10-29)",
+   "sha": "d1f786c2a5724101e00bb139f50a0d058e7acb27",
+   "licence": "Apache-2.0 (LICENSE file at pin d1f786c2a572, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "Apache-2.0",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T01:35Z",
     "consent_receipt": "0148113aea29",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T01:35Z (receipt 0148113aea29); pinned to the default-branch head. LICENSE file at pin b2cc61a64c1c detected as Apache-2.0 by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T01:35Z (receipt 0148113aea29); pinned to the default-branch head. LICENSE file at pin d1f786c2a572 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

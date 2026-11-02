@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "DB",
- "domain": "an agent working on math-expressions, matrix-calculations, parsing queries this for how gbenroscience/ParserNG implements it: ParserNG is a pure-Java, blazing-fast, scalable math runtime with Vector API (JDK 21+) Turbo mode for massive bulk performance. It supports  (selected work: parser-ng-bench)",
+ "domain": "an agent working on math-expressions, matrix-calculations, parsing queries this for how gbenroscience/ParserNG implements it: ParserNG is a pure-Java, blazing-fast, scalable math runtime(JDK8+) with Vector API (JDK 21+) Turbo mode for massive bulk performance. It su (selected work: parser-ng-bench)",
  "repos": [
   {
    "repo": "ParserNG",

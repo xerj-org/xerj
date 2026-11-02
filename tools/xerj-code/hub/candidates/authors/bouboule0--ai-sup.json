@@ -1,0 +1,30 @@
+{
+ "corpus": "bouboule0--ai-sup",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how Bouboule0/Ai-Sup implements it: A dual-LLM workflow leveraging frontier models to generate highly detailed blueprints, executed by cost-effective small models for top-tier  (selected work: src/orchestrator, tests, the project root)",
+ "repos": [
+  {
+   "repo": "Ai-Sup",
+   "url": "https://github.com/Bouboule0/Ai-Sup",
+   "sha": "540ec13e833a3f1a78c6cc85d3c50a30ce40437f",
+   "licence": "AGPL-3.0 (LICENSE file at pin 540ec13e833a, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "AGPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T11:46Z",
+    "consent_receipt": "ad9146de0204",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T11:46Z (receipt ad9146de0204); selected commit 540ec13e833a: \"fix(security,runtime): resolve 4 CodeRabbit findings on executor, whe\u2026\". LICENSE file at pin 540ec13e833a detected as AGPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "540ec13e833a3f1a78c6cc85d3c50a30ce40437f",
+     "at": "2026-11-01T11:46Z",
+     "receipt": "ad9146de0204"
+    }
+   }
+  }
+ ]
+}

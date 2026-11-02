@@ -1,0 +1,23 @@
+{
+ "corpus": "evangelionxyz--offsidebot",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Rust queries this for how evangelionxyz/OffsideBOT implements it: Discord Server Bot @offside",
+ "repos": [
+  {
+   "repo": "OffsideBOT",
+   "url": "https://github.com/evangelionxyz/OffsideBOT",
+   "sha": "67763bc28a92c99ca85494a3532fbac117d5c53a",
+   "licence": "Apache-2.0 (LICENSE file at pin 67763bc28a92, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:29Z",
+    "consent_receipt": "601b2f6a5051",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:29Z (receipt 601b2f6a5051); pinned to the default-branch head. LICENSE file at pin 67763bc28a92 detected as Apache-2.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

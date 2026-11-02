@@ -1,0 +1,23 @@
+{
+ "corpus": "gecekusu-tr--minecraft-hell-mod",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on fabric, fabric-mod, hardcore queries this for how GeceKusu-TR/Minecraft-HELL-MOD implements it: Minecraft HELL MOD (selected work: src/main, src/client, src/audit)",
+ "repos": [
+  {
+   "repo": "Minecraft-HELL-MOD",
+   "url": "https://github.com/GeceKusu-TR/Minecraft-HELL-MOD",
+   "sha": "de472a094c722bdaedab96e9f68ea6b3dca0ed2c",
+   "licence": "CC0-1.0 (LICENSE file at pin de472a094c72, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "CC0-1.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T13:32Z",
+    "consent_receipt": "4eb17eff9fb4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T13:32Z (receipt 4eb17eff9fb4); selected commit de472a094c72: \"MinecraftHELLMOD\". LICENSE file at pin de472a094c72 detected as CC0-1.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

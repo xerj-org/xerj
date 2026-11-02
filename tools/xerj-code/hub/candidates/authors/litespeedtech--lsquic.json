@@ -1,0 +1,23 @@
+{
+ "corpus": "litespeedtech--lsquic",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on quic, gquic, protocol queries this for how litespeedtech/lsquic implements it: LiteSpeed QUIC and HTTP/3 Library (selected work: tests, bin, src/liblsquic)",
+ "repos": [
+  {
+   "repo": "lsquic",
+   "url": "https://github.com/litespeedtech/lsquic",
+   "sha": "055062e7d2389c82d7204c5407aacc8fa1562b0d",
+   "licence": "author's permission (LICENSE at pin 055062e7d238: NOASSERTION; repository: MIT)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T15:39Z",
+    "consent_receipt": "eaa255d224dd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T15:39Z (receipt eaa255d224dd); selected commit 055062e7d238: \"Add BBR-Copilot to improve app-limited bandwidth estimation (#714)\". LICENSE at pin 055062e7d238: NOASSERTION (repository: MIT); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

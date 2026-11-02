@@ -8,15 +8,15 @@
   {
    "repo": "GShockTimeServer",
    "url": "https://github.com/izivkov/GShockTimeServer",
-   "sha": "dbcaa96c8eaf79e5d2b873acd2d80426fc819a44",
-   "licence": "MIT (LICENSE file at pin dbcaa96c8eaf, GitHub licence API 2026-10-28)",
+   "sha": "f9dee06b47f6f85476dcfbb68e4b9c10b2dea84d",
+   "licence": "MIT (LICENSE file at pin f9dee06b47f6, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T21:09Z",
     "consent_receipt": "c460f2dd7eb6",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:09Z (receipt c460f2dd7eb6); pinned to the default-branch head. LICENSE file at pin dbcaa96c8eaf detected as MIT by the GitHub licence API on 2026-10-28; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T21:09Z (receipt c460f2dd7eb6); pinned to the default-branch head. LICENSE file at pin f9dee06b47f6 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

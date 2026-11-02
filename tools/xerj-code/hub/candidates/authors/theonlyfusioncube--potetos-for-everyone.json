@@ -1,0 +1,23 @@
+{
+ "corpus": "theonlyfusioncube--potetos-for-everyone",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent-skills, ai-agents, claude-code queries this for how TheOnlyFusionCube/potetos-for-everyone implements it: How to use pstack without Cursor: universal workflow for Claude Code (pstack-claude), Pi (pi-pstack), Codex, & Gemini. Zero dependencies, v0 (selected work: npm, bin, tests)",
+ "repos": [
+  {
+   "repo": "potetos-for-everyone",
+   "url": "https://github.com/TheOnlyFusionCube/potetos-for-everyone",
+   "sha": "1e7e71a4bcbfbe595e766a58e3d11b01e2c9b849",
+   "licence": "MIT (LICENSE file at pin 1e7e71a4bcbf, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T20:32Z",
+    "consent_receipt": "4315353a6467",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T20:32Z (receipt 4315353a6467); selected commit 1e7e71a4bcbf: \"feat: add Kiro-native Agent Skills support (#6)\". LICENSE file at pin 1e7e71a4bcbf detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

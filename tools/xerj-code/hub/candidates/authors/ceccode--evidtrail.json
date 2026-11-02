@@ -1,0 +1,23 @@
+{
+ "corpus": "ceccode--evidtrail",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-attribution, ai-coding, claude-code queries this for how ceccode/evidtrail implements it: AI provenance for git: declared at commit time, checked in CI, traceable to the agent session. Honest about what git cannot prove (selected work: packages/cli, packages/core, packages/metrics)",
+ "repos": [
+  {
+   "repo": "evidtrail",
+   "url": "https://github.com/ceccode/evidtrail",
+   "sha": "2869f9cb4d63ee774fb7d6ca45cd85fe27e38f07",
+   "licence": "MIT (LICENSE file at pin 2869f9cb4d63, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T20:37Z",
+    "consent_receipt": "58520ae55a78",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T20:37Z (receipt 58520ae55a78); selected commit 2869f9cb4d63: \"feat: link commits to the agent session that produced them (#109)\". LICENSE file at pin 2869f9cb4d63 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

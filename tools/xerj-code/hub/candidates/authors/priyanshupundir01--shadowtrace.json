@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on Python queries this for how PriyanshuPundir01/ShadowTrace implements it: ShadowTrace is a lightweight, real-time keystroke monitoring tool featuring a live web-based dashboard. Built with Python, Flask, and pynput (selected work: the project root)",
+ "domain": "an agent working on Python queries this for how PriyanshuPundir01/ShadowTrace implements it: ShadowTrace is a Lightweight, real-time keystroke monitor with a live web dashboard. Streams and visualizes keyboard input in a cyberpunk te (selected work: the project root)",
  "repos": [
   {
    "repo": "ShadowTrace",

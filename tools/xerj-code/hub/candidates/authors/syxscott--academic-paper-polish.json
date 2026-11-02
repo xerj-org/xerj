@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Python queries this for how syxscott/academic-paper-polish implements it: \u8bba\u6587\u521d\u7a3f\u5168\u6d41\u7a0b\u6da6\u8272\u6307\u4ee4\u5408\u96c6 \u00b7 8 \u6a21\u5757\u5b66\u672f prompt \u6a21\u677f + Agent Skill (selected work: scripts, evals, the project root)",
+ "domain": "an agent working on academic-writing, agent-skills, chinese queries this for how syxscott/academic-paper-polish implements it: \u8bba\u6587\u521d\u7a3f\u5168\u6d41\u7a0b\u6da6\u8272\u6307\u4ee4\u5408\u96c6 \u00b7 8 \u6a21\u5757\u5b66\u672f prompt \u6a21\u677f + Agent Skill (selected work: scripts, evals, the project root)",
  "repos": [
   {
    "repo": "academic-paper-polish",

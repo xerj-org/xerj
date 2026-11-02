@@ -1,0 +1,23 @@
+{
+ "corpus": "thomasbornhaupt--mcp2delphi",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Pascal queries this for how ThomasBornhaupt/MCP2Delphi implements it: Delphi VCL bridge for exposing forms, controls, diagnostics, and tools through the Model Context Protocol (selected work: the project root, TestProjects, examples)",
+ "repos": [
+  {
+   "repo": "MCP2Delphi",
+   "url": "https://github.com/ThomasBornhaupt/MCP2Delphi",
+   "sha": "37bd2f0cce3618fc57a4043519f58add2b82d80a",
+   "licence": "MIT (LICENSE file at pin 37bd2f0cce36, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T10:46Z",
+    "consent_receipt": "dc77125893f8",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T10:46Z (receipt dc77125893f8); selected commit 37bd2f0cce36: \"Add native mouse tools, ripple previews, and agent help\". LICENSE file at pin 37bd2f0cce36 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

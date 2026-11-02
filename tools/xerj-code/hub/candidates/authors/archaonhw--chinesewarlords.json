@@ -8,15 +8,15 @@
   {
    "repo": "ChineseWarlords",
    "url": "https://github.com/ArchaonHW/ChineseWarlords",
-   "sha": "c2d8843d4282e4ed132982872cf0847740dfd61d",
-   "licence": "MIT (LICENSE file at pin c2d8843d4282, GitHub licence API 2026-10-29)",
+   "sha": "3a4afc6482c6d6334b41caf7c6a15e548f784336",
+   "licence": "MIT (LICENSE file at pin 3a4afc6482c6, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-28T19:53Z",
     "consent_receipt": "b84f3855b584",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt b84f3855b584); pinned to the default-branch head. LICENSE file at pin c2d8843d4282 detected as MIT by the GitHub licence API on 2026-10-29; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-28T19:53Z (receipt b84f3855b584); pinned to the default-branch head. LICENSE file at pin 3a4afc6482c6 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

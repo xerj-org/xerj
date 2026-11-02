@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "LAW",
- "domain": "an agent working on Python queries this for how lalalune/pumpfun-source implements it: Reverse engineering the pump.fun smart contracts (selected work: research)",
+ "domain": "an agent working on Rust queries this for how lalalune/pumpfun-source implements it: Reverse engineering the pump.fun smart contracts (selected work: research)",
  "repos": [
   {
    "repo": "pumpfun-source",

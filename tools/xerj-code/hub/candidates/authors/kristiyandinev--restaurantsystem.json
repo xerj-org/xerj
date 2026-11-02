@@ -1,0 +1,23 @@
+{
+ "corpus": "kristiyandinev--restaurantsystem",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how KristiyanDinev/RestaurantSystem implements it: Simple restaurant (selected work: Tests, Services, Utilities)",
+ "repos": [
+  {
+   "repo": "RestaurantSystem",
+   "url": "https://github.com/KristiyanDinev/RestaurantSystem",
+   "sha": "83257c1465d0b41e0ec10b35ef8f1c85ca224929",
+   "licence": "MIT (LICENSE file at pin 83257c1465d0, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:38Z",
+    "consent_receipt": "6662299fe534",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T09:38Z (receipt 6662299fe534); selected commit 83257c1465d0: \"Updated the system to make it ready for true working demo\". LICENSE file at pin 83257c1465d0 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

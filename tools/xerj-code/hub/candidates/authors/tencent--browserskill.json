@@ -1,0 +1,23 @@
+{
+ "corpus": "tencent--browserskill",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on agent, dsh-plugin, browser-use queries this for how Tencent/BrowserSkill implements it: Let AI agents use your real, logged-in browser without interrupting your work. CLI + extension for browser automation across any shell-capab (selected work: apps/extension, packages/dsh-plugin-browserskill, crates/bsk-protocol)",
+ "repos": [
+  {
+   "repo": "BrowserSkill",
+   "url": "https://github.com/Tencent/BrowserSkill",
+   "sha": "9ff0036fca1db2a9a80a5718ea9af871ff4bcf0e",
+   "licence": "MIT (LICENSE file at pin 9ff0036fca1d, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:31Z",
+    "consent_receipt": "231bbb403313",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T09:31Z (receipt 231bbb403313); selected commit 9ff0036fca1d: \"fix(extension): \u6309\u7ef4\u62a4\u8005\u53cd\u9988\u7ea6\u675f request-help URL \u6b63\u5219\u8d44\u6e90\". LICENSE file at pin 9ff0036fca1d detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

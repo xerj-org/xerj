@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on JavaScript queries this for how danshuyue/dsh-onebot-channel implements it: \u628a QQ \u79c1\u804a\u4e0e\u7fa4\u804a\u63a5\u8fdb DeepSeek Harness\uff1aOneBot 11 \u534f\u8bae\uff0c\u5165\u7ad9\u8d70 WebSocket \u4e8b\u4ef6\u63a8\u9001 (selected work: lib, tests, the project root)",
+ "domain": "an agent working on dsh-plugin queries this for how danshuyue/dsh-onebot-channel implements it: \u628a QQ \u79c1\u804a\u4e0e\u7fa4\u804a\u63a5\u8fdb DeepSeek Harness\uff1aOneBot 11 \u534f\u8bae\uff0c\u5165\u7ad9\u8d70 WebSocket \u4e8b\u4ef6\u63a8\u9001 (selected work: lib, tests, the project root)",
  "repos": [
   {
    "repo": "dsh-onebot-channel",

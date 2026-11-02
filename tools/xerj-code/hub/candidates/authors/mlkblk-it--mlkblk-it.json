@@ -3,20 +3,20 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on cpu-only, cybersecurity, homelab queries this for how MlkBlk-IT/MlkBlk-IT implements it: AI builder - MCP servers, CPU-only local LLMs, cybersecurity and homelab projects, documented honestly",
+ "domain": "an agent working on cpu-only, cybersecurity, homelab queries this for how MlkBlk-IT/MlkBlk-IT implements it: AI builder \u00b7 Creator: Loom (MCP Context-Cache), IcyCache, ViaRoma, LoFT, Osiris \u00b7 CPU-only local LLMs, MCP servers, free-tier routing \u00b7 Cybe",
  "repos": [
   {
    "repo": "MlkBlk-IT",
    "url": "https://github.com/MlkBlk-IT/MlkBlk-IT",
-   "sha": "1e5a53d44cbe1dcce1d09384a693804212c4cde2",
-   "licence": "author's permission (LICENSE at pin 1e5a53d44cbe: NOASSERTION; repository: NOASSERTION)",
+   "sha": "5901571f1de0023af6bc18b44ec9fdda1b66e5e1",
+   "licence": "author's permission (LICENSE at pin 5901571f1de0: NOASSERTION; repository: NOASSERTION)",
    "review": {
     "spdx": "NOASSERTION",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T04:53Z",
     "consent_receipt": "83a65227ddf5",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:53Z (receipt 83a65227ddf5); pinned to the default-branch head. LICENSE at pin 1e5a53d44cbe: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:53Z (receipt 83a65227ddf5); pinned to the default-branch head. LICENSE at pin 5901571f1de0: NOASSERTION (repository: NOASSERTION); used with the author's permission, with attribution."
    }
   }
  ]
