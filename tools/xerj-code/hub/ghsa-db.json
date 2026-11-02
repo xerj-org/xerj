@@ -1,12 +1,12 @@
 {
- "corpus": "ghsa-db",
+ "corpus": "ghsa-db","pin_date":"2026-11-02",
  "cloned_at": "2026-10-05T02:00:00Z",
  "repos": [
   {
    "repo": "corpus-ghsa-db-v2",
    "url": "https://github.com/github/advisory-database",
    "licence": "CC-BY-4.0",
-   "sha": "4b4ac300e0f6718d5e56e9a410069894c3a22cb7",
+   "sha": "bd9439a68f9990b3f184060fc0abc8392514506f",
    "files": 36263,
    "bytes": 79404027,
    "review": {
