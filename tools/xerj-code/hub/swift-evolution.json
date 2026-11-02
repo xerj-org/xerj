@@ -1,12 +1,12 @@
 {
- "corpus": "swift-evolution",
+ "corpus": "swift-evolution","pin_date":"2026-11-02",
  "cloned_at": "2026-10-19T22:32:25Z",
  "repos": [
   {
    "repo": "swift-evolution",
    "url": "https://github.com/swiftlang/swift-evolution",
    "licence": "Apache-2.0",
-   "sha": "239be1db9902be50984e4a133a1fd769d55e2a64",
+   "sha": "0bc0e34e392763bc93fd224ee67859a58e9805cd",
    "files": 622,
    "bytes": 11709477,
    "review": {
