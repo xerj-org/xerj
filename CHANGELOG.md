@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opt-in Claude Code session handoff with `xerj init --memory` on macOS/Linux
+  (Refs #2645). SessionEnd queues a background redacting import and lexical
+  autoindex; SessionStart returns bounded, cited historical excerpts from a
+  project memory namespace, with an offline cache. `--memory --remove` removes
+  only the owned hooks and retains data. Ordinary init and manual session
+  import are unchanged; Codex lifecycle hooks are not included in this first version.
+  Each queued delivery is isolated: terminal input refusals are retained in a
+  private rejected queue with recovery reasons, while transient failures retry.
+  Memory excerpts and displayed briefs filter Unicode controls and format marks.
+
 - A second Claude plugin in the xerj marketplace, `xerj-knowledge`, for
   document search rather than code: a skill and `/xerj-knowledge:index` and
   `/xerj-knowledge:find` commands that search local folders, notes, PDFs,
@@ -106,6 +116,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   them. Methods inside an extension were already indexed; the extension's own
   name was not, because the Dart query adapted from tree-sitter-dart's
   `tags.scm` had dropped both forms.
+
+- `xerj autoindex` no longer stalls near the end of a run at high
+  `--workers`. When all 8 bulk slots were busy, a worker whose chunk crossed
+  the flush size parked; if another worker then shipped the shared buffer,
+  that chunk included, the first one woke to an empty buffer and parked again
+  every 30 s for good, so the run never finished. It now returns once the
+  bulk carrying its chunk has landed. The same loop could also return while
+  that bulk was still on the wire, so a file could be journaled complete
+  before, or even though, one of its bulks failed; it now waits. On a
+  26-file, 28 MB scientific CSV folder, rc.100 stalled at 21 of 26 files with
+  `--workers 32` and 19 of 26 with `--workers 16`; both now finish all 26
+  files and 179,374 records (#2841).
 
 - `weighted_avg` now executes field-based requests (`value` / `weight`, each
   with a `field` and optional numeric `missing`) instead of returning HTTP 200
@@ -484,9 +506,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refused record came from, and for a size refusal they say how to index the
   rest: under a new `--prefix` and `--state-dir`, with the file left out
   (`--exclude`) or with `--no-semantic`. That route fixes its file list before
-  it sends anything, so it cannot set the file aside, and a rerun repeats the
-  refusal. It used to say only "prepared bulk contained 1 rejected items"
-  (#2807).
+  it sends anything, so it cannot set a refused file aside. It used to say
+  only "prepared bulk contained 1 rejected items" (#2807).
+- `xerj corpus index` and `xerj autoindex --no-graph` now size each record
+  with the vectors the server will add, before they fix the file list, and
+  set aside a record that would not fit as a junk record. The run completes
+  with exit 3, the file's other records are indexed, and reruns complete too.
+  The 2 MB generated `.d.ts` file from #2807 loses only its whole-file record;
+  its type records are still indexed. That route used to stop on the server's
+  refusal, and every rerun stopped on the same record. A run that an earlier
+  version already stopped this way replays the list it fixed and stops again;
+  index that folder under a new `--prefix` and `--state-dir` (#2807).
 
 ## [1.0.0-rc.100] - 2026-10-26
 

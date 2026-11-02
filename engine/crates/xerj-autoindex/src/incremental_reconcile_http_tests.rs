@@ -28,6 +28,9 @@ struct HttpState {
     /// #2807: refuse the first `index` action of the next data bulk as over
     /// the per-document byte limit, echoing its `_id` as the server does.
     refuse_next_data_item_as_too_large: bool,
+    /// #2807: refuse any record longer than this many bytes, as the server
+    /// refuses a record that the vectors it adds push over its limit.
+    refuse_documents_over: Option<usize>,
     /// Apply the first half of the next data bulk's items and *then* report
     /// `errors: true`. This is the dangerous backend shape the legacy
     /// replacement transaction was hardened against (visibility changed, but
@@ -612,6 +615,37 @@ fn bulk_http(body: &[u8], state: &Arc<Mutex<HttpState>>) -> (u16, Value) {
                     }}]
                 }),
             );
+        }
+        if let Some(limit) = locked.refuse_documents_over {
+            // Pair each action with its source line; a `delete` has none.
+            let mut refused = None;
+            let mut rest = lines.iter();
+            while let Some(line) = rest.next() {
+                let action: Value = serde_json::from_slice(line).unwrap();
+                if action.get("delete").is_none()
+                    && rest.next().is_some_and(|source| source.len() > limit)
+                {
+                    refused = Some(action);
+                    break;
+                }
+            }
+            if let Some(action) = refused {
+                return (
+                    200,
+                    json!({
+                        "errors": true,
+                        "items": [{"index": {
+                            "_id": action["index"]["_id"],
+                            "status": 413,
+                            "error": {
+                                "type": "engine_exception",
+                                "reason": "document is 16590136 bytes, over the 8388608 byte limit for one indexed JSON document; it was not indexed. Split it into smaller documents",
+                                "status": 413
+                            }
+                        }}]
+                    }),
+                );
+            }
         }
         if std::mem::take(&mut locked.fail_next_data_bulk) || numbered {
             return (
@@ -7735,4 +7769,65 @@ fn a_record_refused_for_size_on_the_generated_path_names_its_file() {
         "the abort must give a way out that works: {error}"
     );
     assert!(!error.contains("prepared bulk contained"), "{error}");
+}
+
+/// #2807: the server adds the semantic vectors to a record before it checks
+/// the per-document limit, so a 2 MB generated `.d.ts` grows past it. The
+/// generated (`--no-graph`) path, which `xerj corpus index` uses, seals before
+/// it sends, so a refusal there stopped every rerun of the same generation.
+/// Preparation now sizes each record as the server will see it and sets the
+/// one that would not fit aside as a junk record: the run completes with
+/// junk, the file's other records are indexed, and reruns complete too.
+#[test]
+fn a_record_too_large_once_vectors_are_added_is_set_aside_before_sealing() {
+    let _guard = HTTP_E2E_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+    let _replay_guard = sync_executor::REPLAY_FAILPOINT_TEST_LOCK
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let corpus = tempfile::tempdir().unwrap();
+    let state_dir = tempfile::tempdir().unwrap();
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,alpha\n").unwrap();
+    fs::create_dir(corpus.path().join("src")).unwrap();
+    let mut generated = String::from("declare namespace Generated {\n");
+    let mut n = 0;
+    while generated.len() < 2_000_000 {
+        generated.push_str(&format!(
+            "  interface Shape{n} {{ id: number; label: string; parent?: Shape{}; tags: string[] }}\n",
+            n.max(1) - 1
+        ));
+        n += 1;
+    }
+    generated.push_str("}\n");
+    fs::write(corpus.path().join("src/generated.d.ts"), generated).unwrap();
+    let endpoint = HttpEndpoint::start();
+    // Stands in for the server: the whole-file record is about 2.6 MB as
+    // sent, and the vectors take it past 8 MiB. Every other record is small.
+    endpoint.state.lock().unwrap().refuse_documents_over = Some(1 << 20);
+    let config = cfg(corpus.path(), state_dir.path(), &endpoint.url, true);
+
+    let (code, summary) =
+        run_index_report(config.clone()).unwrap_or_else(|error| panic!("{error:#}"));
+    let summary = summary.expect("the generation commits");
+    assert_eq!(code, 3, "completed-with-junk: {summary}");
+    assert_eq!(summary["junk_records_total"], 1, "{summary}");
+    let docs = serde_json::to_string(&endpoint.data_docs()).unwrap();
+    assert!(docs.contains("alpha"), "the other file is indexed");
+    assert!(
+        docs.contains("Shape1"),
+        "the file's symbol records are indexed"
+    );
+    let file_doc = endpoint
+        .catalog_docs()
+        .into_iter()
+        .find(|doc| doc["doc_kind"] == "file" && doc["path"] == "src/generated.d.ts")
+        .expect("the file keeps its catalog document");
+    assert_eq!(file_doc["junk"], 1, "{file_doc}");
+
+    // The rerun replays nothing stuck: it completes, and an edit lands.
+    fs::write(corpus.path().join("a.csv"), "id,value\n1,beta\n").unwrap();
+    let code = run_index(config).unwrap_or_else(|error| panic!("{error:#}"));
+    assert_eq!(code, 3);
+    let docs = serde_json::to_string(&endpoint.data_docs()).unwrap();
+    assert!(docs.contains("beta"), "the edit is indexed");
+    assert_eq!(journal_events(state_dir.path(), "sync_commit"), 2);
 }
