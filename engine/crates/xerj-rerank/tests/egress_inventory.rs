@@ -92,6 +92,10 @@ const KNOWN: &[(&str, Role)] = &[
         "xerj-autoindex/src/session_memory.rs",
         Role::Client("`xerj sessions hook`"),
     ),
+    (
+        "xerj-autoindex/src/search_hints.rs",
+        Role::Client("`xerj init hook`"),
+    ),
     // Batch retrieval uses the same operator-selected node URL and auth as
     // `xerj mcp` (localhost:9200 by default). It sends queries to /_msearch
     // and optionally reads mappings; it adds no node-side egress path.
