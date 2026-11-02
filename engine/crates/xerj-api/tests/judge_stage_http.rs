@@ -111,9 +111,9 @@ async fn node() -> Node {
 /// A node with a live overlap stub, for the composition tests. Returns the
 /// node plus the counter of requests the stub received — the observed egress.
 async fn node_with_stub() -> (Node, Arc<AtomicU64>) {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind an ephemeral port");
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let addr = listener.local_addr().expect("local addr");
     let endpoint = format!("http://{addr}/v1/systemone");
     let calls = Arc::new(AtomicU64::new(0));

@@ -1016,7 +1016,8 @@ mod tests {
     /// signature) and then exits, so the test can join it. Each response says
     /// `Connection: close`, forcing a fresh TCP connection per GET.
     fn spawn_hub(cat_body: Vec<u8>, sig_body: String) -> (String, std::thread::JoinHandle<()>) {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let addr = listener.local_addr().unwrap();
         let url = format!("http://{addr}");
         let handle = std::thread::spawn(move || {
@@ -1165,7 +1166,8 @@ mod tests {
     /// A localhost "static site" that answers every GET with the same HTML page
     /// and a 200, for `gets` requests.
     fn spawn_html_site(gets: usize) -> (String, std::thread::JoinHandle<()>) {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let url = format!("http://{}", listener.local_addr().unwrap());
         let handle = std::thread::spawn(move || {
             for _ in 0..gets {
@@ -1216,7 +1218,8 @@ mod tests {
         // The loader used to fail OPEN here (cache the fetched copy unverified,
         // with a warning). With no key it now refuses before dialing the hub.
         env.set(xerj_common::hub::HUB_PUBKEY_NONE);
-        let hub = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let hub =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         hub.set_nonblocking(true).unwrap();
         let url = format!("http://{}", hub.local_addr().unwrap());
         let cache = tempfile::tempdir().unwrap();

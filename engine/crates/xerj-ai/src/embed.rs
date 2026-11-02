@@ -509,7 +509,8 @@ mod tests {
     /// `/v1/embeddings` URL must all POST to `/v1/embeddings`.
     #[tokio::test]
     async fn posts_v1_base_trailing_slash_and_full_url_to_embeddings() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let addr = listener.local_addr().unwrap();
         let handle = std::thread::spawn(move || {
             use std::io::{Read, Write};
@@ -597,7 +598,8 @@ mod tests {
         // 200ms base backoff, the OLD code would sleep 200+400+800+1600+3200ms
         // ≈ 6.2s before giving up. Classified as permanent, we return on the
         // first attempt — well under the first backoff.
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let addr = listener.local_addr().unwrap();
         let handle = std::thread::spawn(move || {
             use std::io::{Read, Write};
@@ -640,7 +642,8 @@ mod tests {
     // order across chunk boundaries.
     #[tokio::test]
     async fn batch_size_splits_requests_and_preserves_order() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let addr = listener.local_addr().unwrap();
         let handle = std::thread::spawn(move || {
             use std::io::{Read, Write};

@@ -25,7 +25,9 @@ const REJECT_WINDOW: Duration = Duration::from_millis(400);
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 async fn free_addr() -> SocketAddr {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     listener.local_addr().unwrap()
 }
 

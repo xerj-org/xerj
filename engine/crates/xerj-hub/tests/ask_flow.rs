@@ -237,7 +237,9 @@ async fn spawn_node(data_dir: &Path, allowlist: Vec<String>) -> String {
     let engine = xerj_engine::Engine::new(config.clone()).unwrap();
     let state = xerj_api::state::AppState::new(config, engine, metrics);
     let app = xerj_api::router::build_es_compat_router(state);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let port = listener.local_addr().unwrap().port();
     tokio::spawn(async move {
         let _ = axum::serve(listener, app.into_make_service()).await;
@@ -750,11 +752,11 @@ async fn ask_end_to_end() {
         publish(&archive, &sig, &work.join("net-c"), &hub);
         set_env(&hub, &code, &scratch_home, &public);
         // A loopback port with nothing on it: the requested node is "down".
-        let silent = std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
-            .local_addr()
-            .unwrap()
-            .port();
+        let silent =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"))
+                .local_addr()
+                .unwrap()
+                .port();
         let silent_url = format!("http://127.0.0.1:{silent}");
         // A second process of the same executable that is NOT the node.
         let decoy = Command::new(std::env::current_exe().unwrap())
@@ -1001,7 +1003,8 @@ async fn ask_end_to_end() {
         // no response comes, so the pull takes its lock, starts "downloading" and
         // blocks reading the reply. (A FIFO no longer works: since #1733 a
         // file:// pack must be a regular file, so the pull fails before it blocks.)
-        let silent = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let silent =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         set_catalogue_field(
             &hub,
             "pack_url",

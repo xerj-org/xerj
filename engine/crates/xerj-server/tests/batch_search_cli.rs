@@ -16,7 +16,9 @@ async fn cli_stdin_file_and_mcp_agree_and_item_errors_have_exit_three() {
             ]}))
         }),
     );
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let url = format!("http://{}", listener.local_addr().unwrap());
     let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
     let input = json!({"index":"docs","queries":[{"query":{"match_all":{}}},{"query":{"bad":{}}}]});

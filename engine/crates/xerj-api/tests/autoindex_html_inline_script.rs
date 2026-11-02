@@ -234,7 +234,9 @@ fn autoindex_finds_inline_script_functions_by_def_and_search() {
 
 async fn autoindex_finds_inline_script_functions_by_def_and_search_inner() {
     let app = app().await;
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let addr = listener.local_addr().unwrap();
     let served = app.clone();
     tokio::spawn(async move {

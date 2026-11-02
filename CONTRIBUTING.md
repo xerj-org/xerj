@@ -43,8 +43,9 @@ cargo test -p xerj-engine --test integration
 ```
 
 Many tests start fake nodes on `127.0.0.1`, so they need loopback networking. In a
-sandbox that denies binding `127.0.0.1`, the `xerj-autoindex` tests fail with a
-message that says so.
+sandbox that denies binding `127.0.0.1`, those tests fail with a message that says
+so. A new test that binds an ephemeral loopback port should wrap the bind in
+`xerj_common::loopback_test::expect_loopback`.
 
 ### ES-YAML conformance suite (required)
 

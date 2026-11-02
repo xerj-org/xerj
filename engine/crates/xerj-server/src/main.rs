@@ -1645,7 +1645,8 @@ mod starting_responder_tests {
     /// instead of refusing; afterwards the real router owns the listener.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn the_port_answers_starting_then_hands_over_to_the_real_router() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         listener.set_nonblocking(true).unwrap();
         let addr = listener.local_addr().unwrap();
 
@@ -1684,7 +1685,8 @@ mod bind_listener_tests {
 
     #[test]
     fn a_taken_port_names_port_and_auto_port() {
-        let held = std::net::TcpListener::bind("127.0.0.1:0").expect("bind a free port");
+        let held =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let addr = held.local_addr().expect("read the held address");
         let err = bind_listener(addr, "ES-compat").expect_err("the port is held");
         let msg = format!("{err:#}");
@@ -5391,8 +5393,7 @@ mod tls_tests {
 
     /// Grab an ephemeral port, then release it so `serve` can rebind.
     fn free_port() -> u16 {
-        std::net::TcpListener::bind("127.0.0.1:0")
-            .unwrap()
+        xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"))
             .local_addr()
             .unwrap()
             .port()
@@ -5805,7 +5806,7 @@ mod auto_port_tests {
     const LO: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
 
     fn held_port() -> (TcpListener, u16) {
-        let l = TcpListener::bind((LO, 0)).unwrap();
+        let l = xerj_common::loopback_test::expect_loopback(TcpListener::bind((LO, 0)));
         let p = l.local_addr().unwrap().port();
         (l, p)
     }

@@ -44,8 +44,10 @@ fn startup(work: &std::path::Path, extra: &[&str], env_config: Option<&str>) -> 
 }
 
 fn config(work: &std::path::Path, data: Option<&str>) {
-    let first = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let second = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let first =
+        xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
+    let second =
+        xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
     let mut text = format!(
         "[server]\nes_compat_port={}\nrest_port={}\ngrpc_port=0\n",
         first.local_addr().unwrap().port(),

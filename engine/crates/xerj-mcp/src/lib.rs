@@ -3745,7 +3745,8 @@ mod tests {
     /// it the stdio loop, which serves one request at a time).
     #[test]
     fn code_search_transport_gives_up_on_a_silent_node() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let base_url = format!("http://{}", listener.local_addr().unwrap());
         // Accept, then hold the connection open without a byte of reply.
         std::thread::spawn(move || {
@@ -3879,7 +3880,9 @@ mod tests {
     async fn an_http_401_is_not_rewritten_as_node_down() {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let addr = listener.local_addr().unwrap();
         tokio::spawn(async move {
             let (mut sock, _) = listener.accept().await.unwrap();
@@ -3932,7 +3935,9 @@ mod tests {
 
     /// A node that accepts every connection and never sends a byte.
     async fn silent_node() -> String {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let addr = listener.local_addr().unwrap();
         tokio::spawn(async move {
             let mut held = Vec::new();
@@ -4077,7 +4082,9 @@ mod tests {
     /// conclude the query matched nothing.
     #[tokio::test]
     async fn engine_request_reports_a_body_that_could_not_be_read() {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let addr = listener.local_addr().unwrap();
         tokio::spawn(async move {
             let Ok((mut sock, _)) = listener.accept().await else {
@@ -4104,7 +4111,9 @@ mod tests {
     /// text is that sentence, not `XERJ returned HTTP` plus the JSON.
     #[tokio::test]
     async fn memory_store_prints_a_plain_flood_reason_verbatim() {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let addr = listener.local_addr().unwrap();
         let reason = "the disk holding the data dir is nearly full, so this memory write was refused (free 2.0gb, 96% used, threshold 95%, data dir D:\\xerj-data). Free space on that drive, or restart the node with --data-dir on another drive.";
         let body = format!(
@@ -4135,7 +4144,9 @@ mod tests {
     /// and says the disk is nearly full, with free space and the data dir.
     #[tokio::test]
     async fn memory_store_rewrites_a_nested_cluster_block_using_allocation() {
-        let store = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let store = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let addr = store.local_addr().unwrap();
         tokio::spawn(async move {
             // Two requests, either order, possibly one connection each.
@@ -4208,7 +4219,9 @@ mod tests {
     /// A memory-store 400 is not a full disk. The HTTP wrapper stays.
     #[tokio::test]
     async fn memory_store_validation_error_is_not_a_flood_message() {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = xerj_common::loopback_test::expect_loopback(
+            tokio::net::TcpListener::bind("127.0.0.1:0").await,
+        );
         let addr = listener.local_addr().unwrap();
         answer_once(
             listener,
@@ -5685,7 +5698,8 @@ mod tests {
 
     #[test]
     fn search_prefix_scopes_both_mapping_and_search_requests() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             serve_mapping_then_search_requests(
@@ -5727,7 +5741,8 @@ mod tests {
 
     #[test]
     fn search_prefix_preserves_code_path_demotion() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {
             serve_mapping_then_search_requests(
@@ -5769,7 +5784,8 @@ mod tests {
 
     #[test]
     fn search_prefix_errors_send_no_mapping_or_search_request() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         listener.set_nonblocking(true).unwrap();
         let ctx = Ctx {
             // A hang guard if a regression attempts HTTP before validation.
@@ -5806,7 +5822,8 @@ mod tests {
     /// the HTTP 400 `strict_unknown_fields` the field report hit.
     #[test]
     fn search_tool_reads_the_mapping_before_a_plain_string_query() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let mapping = r#"{"ax-docs":{"mappings":{"properties":{"body":{"type":"text"},"title":{"type":"text"},"text":{"type":"text"}}}}}"#;
         let hits = r#"{"took":1,"hits":{"total":{"value":1,"relation":"eq"},"hits":[{"_id":"1","_source":{"ax_path":"guide.md"}}]}}"#;
@@ -5851,7 +5868,8 @@ mod tests {
     /// The test file is still in the page.
     #[test]
     fn search_tool_demotes_test_paths_on_a_code_index() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let mapping = r#"{"ax-code":{"mappings":{"properties":{"name":{"type":"keyword"},"code":{"type":"text"},"defs":{"type":"text"},"body":{"type":"text"}}}}}"#;
         let hits = r#"{"took":1,"hits":{"total":{"value":3,"relation":"eq"},"hits":[{"_id":"t","_score":12.0,"_source":{"ax_path":"src/tests/render.test.tsx"}},{"_id":"i","_score":9.0,"_source":{"ax_path":"src/render.tsx"}},{"_id":"s","_score":30.0,"_source":{"ax_path":"tests/contract.rs"}}]}}"#;
@@ -5895,7 +5913,8 @@ mod tests {
     /// A prose corpus keeps the engine order, including a `tests/` path.
     #[test]
     fn search_tool_does_not_demote_paths_on_a_prose_index() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let mapping = r#"{"ax-docs":{"mappings":{"properties":{"body":{"type":"text"},"title":{"type":"text"},"text":{"type":"text"}}}}}"#;
         let hits = r#"{"took":1,"hits":{"hits":[{"_id":"t","_score":12.0,"_source":{"ax_path":"tests/guide.md"}},{"_id":"i","_score":9.0,"_source":{"ax_path":"guide.md"}}]}}"#;
@@ -5927,7 +5946,8 @@ mod tests {
     #[test]
     fn search_tool_leaves_a_dsl_query_and_a_later_page_unwidened() {
         let hits = r#"{"hits":{"hits":[{"_id":"t","_score":12.0,"_source":{"ax_path":"tests/a.rs"}},{"_id":"i","_score":9.0,"_source":{"ax_path":"src/a.rs"}}]}}"#;
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let body = hits.to_string();
         let server = std::thread::spawn(move || read_one_http_reply(listener, body));
@@ -5956,7 +5976,8 @@ mod tests {
             "tests/a.rs"
         );
 
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let mapping = r#"{"ax-code":{"mappings":{"properties":{"name":{"type":"keyword"},"code":{"type":"text"},"defs":{"type":"text"}}}}}"#;
         let page_hits = hits.to_string();
@@ -6007,7 +6028,8 @@ mod tests {
 
     #[test]
     fn field_report_confirm_false_posts_nothing() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         listener.set_nonblocking(true).unwrap();
         let port = listener.local_addr().unwrap().port();
         let result = block_on(call_field_report(&json!({
@@ -6037,7 +6059,8 @@ mod tests {
     /// automatically in one call.
     fn field_report_sends_by_default_without_node_auth_or_a_github_token() {
         let _lock = ENV_LOCK.lock().unwrap();
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let token = "ghp_should_not_appear";
         let prev_gh = std::env::var_os("GH_TOKEN");
@@ -6108,7 +6131,8 @@ mod tests {
         let _lock = ENV_LOCK.lock().unwrap();
         let prev_path = std::env::var_os("PATH");
         std::env::set_var("PATH", "/nonexistent-xerj-field-report-test");
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         let port = listener.local_addr().unwrap().port();
         let server = std::thread::spawn(move || read_one_http(listener));
         let result = block_on(call_field_report(&json!({
@@ -6136,7 +6160,8 @@ mod tests {
 
     #[test]
     fn field_report_refuses_a_placeholder_without_connecting() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         listener.set_nonblocking(true).unwrap();
         let port = listener.local_addr().unwrap().port();
         let result = block_on(call_field_report(&json!({
@@ -6155,7 +6180,8 @@ mod tests {
 
     #[tokio::test]
     async fn autoindex_remove_validates_before_it_connects() {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         listener.set_nonblocking(true).unwrap();
         let port = listener.local_addr().unwrap().port();
         let ctx = Ctx {
@@ -6737,7 +6763,8 @@ mod tests {
         write_corpus("owned", true);
         write_corpus("other", false);
 
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(std::net::TcpListener::bind("127.0.0.1:0"));
         listener.set_nonblocking(true).unwrap();
         let address = listener.local_addr().unwrap();
         let server = std::thread::spawn(move || {

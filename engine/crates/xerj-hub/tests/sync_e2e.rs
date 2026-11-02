@@ -86,7 +86,9 @@ async fn spawn_node(data_dir: &Path, allowlist: Vec<String>) -> String {
     let engine = xerj_engine::Engine::new(config.clone()).unwrap();
     let state = xerj_api::state::AppState::new(config, engine, metrics);
     let app = xerj_api::router::build_es_compat_router(state);
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let port = listener.local_addr().unwrap().port();
     tokio::spawn(async move {
         let _ = axum::serve(listener, app.into_make_service()).await;
@@ -323,7 +325,8 @@ struct TinyHub {
 
 impl TinyHub {
     fn start(initial: (Vec<u8>, String)) -> TinyHub {
-        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"));
         let addr = listener.local_addr().unwrap();
         let body = Arc::new(Mutex::new(initial));
         let stop = Arc::new(AtomicBool::new(false));

@@ -64,12 +64,7 @@ fn filled(endpoint: &str, no_github: bool) -> Cfg {
 /// A loopback listener for the mock endpoint. A sandbox that denies the bind
 /// gets a message naming the requirement, not a bare `PermissionDenied` (#2886).
 fn bind_loopback() -> TcpListener {
-    TcpListener::bind("127.0.0.1:0").unwrap_or_else(|e| {
-        panic!(
-            "loopback bind to 127.0.0.1:0 failed ({e}): these tests start a mock endpoint \
-             on 127.0.0.1 and need loopback networking"
-        )
-    })
+    xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0"))
 }
 
 fn read_one_http(listener: TcpListener) -> String {

@@ -122,7 +122,8 @@ impl StubTarget {
     }
 
     async fn start_with(semantics: TargetSemantics) -> Self {
-        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener =
+            xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0").await);
         let url = format!("http://{}", listener.local_addr().unwrap());
         let received = Arc::new(Mutex::new(Received::default()));
         let sink = received.clone();
@@ -527,7 +528,7 @@ async fn an_unreachable_target_holds_the_cursor_and_reports_why() {
     let dir = TempDir::new().unwrap();
     // Bind and immediately drop a listener to get a port nothing is serving.
     let dead = {
-        let l = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let l = xerj_common::loopback_test::expect_loopback(TcpListener::bind("127.0.0.1:0").await);
         let addr = l.local_addr().unwrap();
         drop(l);
         format!("http://{addr}")

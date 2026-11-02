@@ -144,7 +144,9 @@ fn autoindex_completes_when_the_memtable_budget_fills_and_search_stays_fast() {
 
 async fn autoindex_budget_run() {
     let (app, engine, _dir) = boot();
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let listener = xerj_common::loopback_test::expect_loopback(
+        tokio::net::TcpListener::bind("127.0.0.1:0").await,
+    );
     let addr = listener.local_addr().unwrap();
     let served = app.clone();
     tokio::spawn(async move {
