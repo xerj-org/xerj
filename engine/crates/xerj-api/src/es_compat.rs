@@ -26256,6 +26256,49 @@ fn alias_target_is_pattern(spec: &str) -> bool {
         .any(|p| p == "_all" || p.contains('*'))
 }
 
+/// The members of `alias` explicitly marked `is_write_index: true`.
+///
+/// A single-member alias with no explicit flag is an implicit write target and
+/// is deliberately not listed: adding a second member with an explicit `true`
+/// leaves exactly one designated write index, which ES accepts. The list is
+/// what the alias-update invariant counts.
+fn alias_write_members(state: &AppState, alias: &str) -> HashSet<String> {
+    let mut writes = HashSet::new();
+    if let Some(members) = state.engine.aliases.get(alias) {
+        for member in members.iter() {
+            let is_write = state
+                .engine
+                .index_alias_metadata
+                .get(member.as_str())
+                .is_some_and(|meta| {
+                    meta.get(alias)
+                        .and_then(|alias_meta| alias_meta.get("is_write_index"))
+                        .and_then(Value::as_bool)
+                        == Some(true)
+                });
+            if is_write {
+                writes.insert(member.clone());
+            }
+        }
+    }
+    writes
+}
+
+/// ES's metadata invariant: an alias can designate at most one write index.
+/// Refuse the alias update before it is stored, rather than accepting an alias
+/// whose every later write answers 400.
+fn more_than_one_write_index(alias: &str, writes: &HashSet<String>) -> Option<String> {
+    if writes.len() <= 1 {
+        return None;
+    }
+    let mut names: Vec<&str> = writes.iter().map(String::as_str).collect();
+    names.sort_unstable();
+    Some(format!(
+        "alias [{alias}] has more than one write index [{}]",
+        names.join(", ")
+    ))
+}
+
 pub async fn post_aliases(
     State(state): State<AppState>,
     Json(body): Json<AliasActionsBody>,
@@ -26305,6 +26348,41 @@ pub async fn post_aliases(
                 vec![remove.index.clone()]
             };
             plan.push(Resolved::Remove(remove, targets));
+        }
+    }
+    // At most one `is_write_index: true` per alias. Actions run in order, so
+    // an atomic swap (add the new write index, then clear the old one) is
+    // valid even though an intermediate action has two. Simulate the final
+    // state and refuse the whole request before the first mutation; otherwise
+    // the alias is persisted and every later write answers 400.
+    let mut write_members: HashMap<String, HashSet<String>> = HashMap::new();
+    for step in &plan {
+        match step {
+            Resolved::Add(add, targets) => {
+                let writes = write_members
+                    .entry(add.alias.clone())
+                    .or_insert_with(|| alias_write_members(&state, &add.alias));
+                for target in targets {
+                    if add.is_write_index == Some(true) {
+                        writes.insert(target.clone());
+                    } else {
+                        writes.remove(target);
+                    }
+                }
+            }
+            Resolved::Remove(remove, targets) => {
+                let writes = write_members
+                    .entry(remove.alias.clone())
+                    .or_insert_with(|| alias_write_members(&state, &remove.alias));
+                for target in targets {
+                    writes.remove(target);
+                }
+            }
+        }
+    }
+    for (alias, writes) in &write_members {
+        if let Some(reason) = more_than_one_write_index(alias, writes) {
+            return es_bad_request("illegal_argument_exception", &reason, None);
         }
     }
     for step in &plan {
@@ -26633,6 +26711,20 @@ pub async fn put_alias(
         // way ES does.
         let e = xerj_common::XerjError::index_not_found(&index);
         return ApiError::new(e).into_response();
+    }
+    // Re-putting an alias replaces its definition (including the write flag).
+    // Simulate the final member set and refuse a second write index before
+    // any member is attached, so a rejected PUT leaves the alias untouched.
+    let mut write_members = alias_write_members(&state, &alias);
+    for target in &targets {
+        if alias_meta.get("is_write_index").and_then(Value::as_bool) == Some(true) {
+            write_members.insert(target.clone());
+        } else {
+            write_members.remove(target);
+        }
+    }
+    if let Some(reason) = more_than_one_write_index(&alias, &write_members) {
+        return es_bad_request("illegal_argument_exception", &reason, None);
     }
     for idx in &targets {
         if let Err(error) = attach(idx) {

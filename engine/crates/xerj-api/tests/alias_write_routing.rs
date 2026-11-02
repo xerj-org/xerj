@@ -211,7 +211,8 @@ async fn writes_follow_the_alias_write_index_and_refuse_ambiguity() {
     assert_eq!(status, StatusCode::CREATED, "{body}");
     assert_eq!(body["_index"], "i1", "{body}");
 
-    // Two designated write indices are refused like the ambiguous shape.
+    // A second designated write index is refused at the alias update, before
+    // it can leave the alias unusable; i2 remains the write target.
     let (status, body) = call(
         &app,
         "PUT",
@@ -219,11 +220,12 @@ async fn writes_follow_the_alias_write_index_and_refuse_ambiguity() {
         json!({"is_write_index": true}),
     )
     .await;
-    assert_eq!(status, StatusCode::OK, "{body}");
-    let (status, body) = call(&app, "PUT", "/multi/_doc/10", json!({"t": "ten"})).await;
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
     assert!(
         refusal(&body).contains("has more than one write index"),
         "{body}"
     );
+    let (status, body) = call(&app, "PUT", "/multi/_doc/10", json!({"t": "ten"})).await;
+    assert_eq!(status, StatusCode::CREATED, "{body}");
+    assert_eq!(body["_index"], "i2", "{body}");
 }
