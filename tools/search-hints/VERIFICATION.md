@@ -93,9 +93,11 @@ backs up previous settings, disables before removal, and rolls back an ordinary
 settings-write failure. The two files are not a crash transaction. A power loss
 or edited group can require the documented manual owned-group restoration.
 Hostile same-user races, NFS stalls, forced power loss, Linux/Windows execution,
-Gemini, remote nodes, huge catalogs, source freshness and manually deleted-index
+remote nodes, huge catalogs, source freshness and manually deleted-index
 recovery were not tested. The catalog cap intentionally abstains beyond 200 run
 records. No model, ANN, performance, relevance or spontaneous adoption claim.
+Gemini CLI was out of scope for this section and is covered by the dated
+Gemini CLI section at the end of this file.
 No engine schema migration, accelerator, cluster, telemetry or deployment change;
 those review sections are not applicable. No landing files are changed. Hosted
 merge-ref CI is separate from the local receipts below.
@@ -172,3 +174,176 @@ lockfile serving the executable/gates above are unchanged. The upstream function
 and workflow are preserved; they are not part of this PR's effective diff.
 The newly merged plain-Node function tests and workflow timeout guard passed;
 Rust tests were not repeated for that JavaScript-only upstream composition.
+
+# Gemini CLI host verification — 2026-11-03
+
+Written and executed by OpenAI Codex, operated by @Jarvis636431, on macOS arm64
+with Rust 1.97.1. Independent branch based on upstream `b003bd83c`, which already
+contains the merged Claude Code hints (#2869); this section only adds the second
+host. The diff contains no Cargo dependency/lockfile, node API, storage, workflow
+or MCP schema change, and no landing file. The candidate is a source-built
+rc.100 binary, not a published-release claim.
+
+## What the host actually does, and how that was established
+
+Gemini's `BeforeTool` has no field that reaches the model. Only `AfterTool`
+returns `hookSpecificOutput.additionalContext`, and the host appends it to the
+tool result as `<hook_context>…</hook_context>`. Read first out of the pinned
+Gemini CLI 0.66.0 bundle (`executeToolWithHooks`,
+`bundle/chunk-RZ3ZVTZB.js:344483-344510`, with the same function at the tail of
+`bundle/core-FXOG6GGI.js`), then confirmed against the running host below. That
+is why this host uses `AfterTool` while Claude keeps `PreToolUse`.
+
+Gemini's hook `timeout` is milliseconds (default 60000) per the official hooks
+reference, so the installed group carries `2000` where Claude carries `2`. The
+HTTP budget inside the hook is unchanged and identical for both hosts.
+
+Gemini applies a hook `matcher` as an unanchored regular expression, so
+`grep_search` would also match `mcp_<server>_grep_search`. The installed matcher
+is therefore `^(grep_search|search_file_content|glob|read_file)$`, asserted
+positively and negatively in both the unit test and the smoke harness.
+
+Two host preconditions are reported rather than worked around. Gemini reads
+project settings only in a directory it trusts; an untrusted directory refuses
+to start before any hook runs (observed: exit 55 with the trusted-folders
+message). And `hooksConfig.enabled: false` in the merged settings switches all
+hooks off (`bundle/gemini-22EOGL6O.js:8676`), so setup refuses instead of
+installing a group the host would ignore.
+
+## Failing controls and regression coverage
+
+Before implementation, `gemini_search_hints_require_explicit_host_and_hooks`
+failed with "Gemini search hints must accept an explicit host". It passes after
+implementation.
+
+Three temporary mutations on the final source, each reverted immediately:
+
+- `timeout` 2000 → 2 failed `gemini_install_uses_after_tool_and_milliseconds_and_preserves_both_hosts`
+  at `left: Number(2), right: 2000`.
+- Unanchoring the matcher failed the same test at `assertion failed: !matcher.is_match(name)`.
+- `AfterTool` → `BeforeTool` failed all three new hook tests, including
+  `gemini_refusals_preserve_settings_and_failed_publication_is_recoverable`.
+
+Coverage in `engine/crates/xerj-autoindex/src/search_hints/tests.rs`: dry-run
+writing nothing, merge into foreign `BeforeTool`/`AfterTool` arrays, idempotence,
+binary-path and URL update, settings backup, the matcher's positive and negative
+samples, millisecond timeout, `--host gemini` in the installed command, the third
+`read_file`, ten-call spacing, `search_file_content` alias, per-session and
+per-host counters, offline silence that consumes no hint slot, no tool input or
+tool response in local state, wrong event/tool/cwd refusal, busy lock, corrupt
+counters, malformed settings, `hooksConfig.enabled: false` refusal, failed
+publication rollback, and removal that restores the original settings exactly.
+No existing test was weakened: both hosts are asserted to leave each other's
+settings bytes unchanged.
+
+## Commands
+
+From `engine/`:
+
+```sh
+CARGO_INCREMENTAL=0 TMPDIR=/private/tmp cargo test --locked -p xerj-autoindex -- --skip content::tests::lossy_display_collisions_keep_distinct_alias_identities --skip corpus_data_skip_tests::corpus_index_summary_splits_indexed_extensions_from_ignored_data --skip inventory_delta_tests::a_non_utf8_excluded_name_is_matched_on_disk_via_path_id
+CARGO_INCREMENTAL=0 TMPDIR=/private/tmp cargo test --locked -p xerj-autoindex --lib gemini
+cargo clippy --locked -p xerj-autoindex --all-targets -- -D warnings -A dead_code
+cargo fmt --all -- --check
+CARGO_INCREMENTAL=0 TMPDIR=/private/tmp cargo build --release -j 32 -p xerj-server --bin xerj
+```
+
+From the repository root:
+
+```sh
+python3 tools/search-hints/smoke.py --binary engine/target/release/xerj
+python3 tools/search-hints/smoke.py --binary engine/target/release/xerj --authenticated
+python3 .github/scripts/workflow-timeout-guard.py
+PYTHONPYCACHEPREFIX=/tmp/xerj-hint-pycache python3 -m py_compile tools/search-hints/smoke.py
+git diff --check
+```
+
+The three explicit filters are the previously documented macOS filename cases;
+the changed code does not touch those paths. The `dead_code` allowance is for
+existing `content::resolve_reporting`, the only warning in the release build.
+The scoped release build is `-p xerj-server --bin xerj` because that crate owns
+the `xerj` binary the host actually executes; no workspace-wide build and no
+`cargo clean` was used.
+
+## Receipts
+
+Complete crate run: **2041 passed, 0 failed, 5 existing ignored, 3 existing
+macOS filters**, across 12 test/doc summary groups. Focused Gemini run:
+**4 passed, 0 failed**. An earlier sandboxed attempt reported 255 failures that
+were all `PermissionDenied` on loopback bind; rerunning with loopback permission
+gave the result above, and no test or source was changed between the two runs.
+
+The release executable under test has SHA-256
+`4aac9ac029fa055c98ba0125ac884fbf610bc749e99997809a7d771482d76f4e`.
+
+Both smoke modes passed **52 installed hook invocations each**, every one exit 0
+with empty stderr, and both private nodes per mode stopped with exit 0. The
+harness now runs the Gemini lifecycle against the same private node: dry-run
+writing nothing, merge into foreign settings, idempotence, the anchored matcher's
+positive and negative samples, the millisecond timeout, the third `read_file`,
+nine spaced `grep_search` calls then `glob`, the `search_file_content` alias,
+malformed and oversized input, wrong event/tool/cwd, removal restoring the
+foreign settings byte-for-byte, the `hooksConfig.enabled: false` refusal,
+reinstallation, and both hosts hinting in one project. It also asserts that
+installing or removing one host leaves the other's settings bytes identical, and
+that a Gemini replay consumes no Claude hint slot. The fixture was
+**2 files / 1.4 KB / 3 records**; the indexing wall was **0.9 s**. These are
+fixture receipts, not throughput benchmarks.
+
+### Actual-host delivery, end to end
+
+A local script ran the pinned Gemini CLI **0.66.0** (npm tarball integrity
+checked, unpacked bundle, `node bundle/gemini.js --version` → `0.66.0`) against a
+loopback stub model, in a throwaway project where the real release binary had
+just run `xerj autoindex … --prefix gemini-e2e` and
+`xerj init --hooks --host gemini`. No credentials and no external traffic: the
+stub answers `generateContent` with one `glob` call and then a final text turn.
+
+Installed group, read back from `.gemini/settings.json`:
+
+```json
+{"matcher": "^(grep_search|search_file_content|glob|read_file)$",
+ "hooks": [{"type": "command",
+            "command": "'<tmp>/xerj' init hook --project '<tmp>/project' --host gemini",
+            "timeout": 2000}]}
+```
+
+The request the host then sent to the model carried, verbatim:
+
+```json
+{"functionResponse": {"id": "glob_…", "name": "glob", "response": {"output":
+ "Found 1 file(s) matching \"**/*.rs\" within <tmp>/project, sorted by modification time (newest first):\n<tmp>/project/src/lib.rs\n\n<hook_context>This folder has an indexed XERJ corpus: try `xerj search --prefix gemini-e2e --url 'http://127.0.0.1:…' \"&lt;words&gt;\"` or `xerj def --prefix gemini-e2e --url 'http://127.0.0.1:…' \"&lt;symbol&gt;\"` for cited passages.</hook_context>"}}}
+```
+
+Gemini exited 0, the tool result was preserved ahead of the hint, and the node
+stopped with exit 0. Note the host HTML-escapes the hint's angle brackets, so
+the delivered placeholders read `&lt;words&gt;` and `&lt;symbol&gt;`; the hint
+text is identical for both hosts and was not specialised to hide this.
+
+This proves delivery into the model request. It is **not** an uptake, relevance
+or adoption measurement: the stub model cannot choose to follow a hint, so the
+controlled before/after uptake sample exists for Claude Code only.
+
+### ES-YAML conformance gate
+
+Fresh private node from the same release executable, with the unchanged runner:
+
+```sh
+engine/target/ci-test/es-yaml-runner --url <fresh-private-loopback-node> --dir engine/tests/es-compat-yaml/yaml
+```
+
+Observed **1453 passed, 0 failed, 10 skipped**, 1463 total, 233 files, runner
+exit 0, retaining **74 catch-lenient cases** under the existing suite policy.
+That matches the totals recorded for #2869. The private node stopped with exit
+0 and its temporary data directory was removed. No suite, assertion, catch
+policy or production node was changed. This is the repository suite, not
+complete ES protocol coverage. Hosted merge-ref CI remains pending.
+
+### Not tested
+
+Gemini CLI versions other than 0.66.0, interactive Gemini sessions, a real
+Gemini model or account, Gemini on Linux or Windows, Gemini extensions or
+`~/.gemini` user-scope hooks, and spontaneous hint uptake by a real model.
+Hostile same-user races, NFS stalls, forced power loss, remote nodes and huge
+catalogs remain untested as in the section above. No model, ANN, performance or
+relevance claim is made.

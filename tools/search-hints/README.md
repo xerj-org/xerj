@@ -1,4 +1,4 @@
-# Advisory search hints for Claude Code
+# Advisory search hints for Claude Code and Gemini CLI
 
 Opt in from the project directory (macOS/Linux):
 
@@ -11,6 +11,35 @@ Success: init prints `enabled Claude Code search hints`. Review the new
 `PreToolUse` group in `.claude/settings.json`, then restart Claude Code. Ordinary
 init does not install it. This feature is separate from `xerj init --memory`;
 configure/remove the two features in separate invocations.
+
+For Gemini CLI, add `--host gemini` to every invocation:
+
+```sh
+xerj init --hooks --host gemini --dry-run
+xerj init --hooks --host gemini
+```
+
+That writes an `AfterTool` group to `.gemini/settings.json` and keeps its private
+state in `.gemini/xerj-hints/`. `--host` accepts `claude` (the default) or
+`gemini`, may be given once, and requires `--hooks`. The two hosts are
+independent: installing or removing one never reads or rewrites the other's
+settings, backups or counters, and a project may run both at once.
+
+Gemini differences, all host-imposed. The hint is delivered on `AfterTool`,
+because `BeforeTool` has no field that reaches the model — only `AfterTool`
+appends `hookSpecificOutput.additionalContext` to the tool result, wrapped in
+`<hook_context>…</hook_context>`. The installed `timeout` is `2000`, since
+Gemini counts milliseconds where Claude counts seconds; the HTTP budget inside
+the hook is identical for both hosts. Matched tools are `grep_search`, its alias
+`search_file_content`, `glob` and `read_file`. The matcher is anchored
+(`^(…)$`) because Gemini applies it unanchored, which would otherwise catch MCP
+tools named `mcp_<server>_grep_search`. Gemini also HTML-escapes the hint's
+angle brackets, so the delivered placeholder reads `&lt;words&gt;`.
+
+Gemini reads project settings, and therefore this hook, only in a directory it
+trusts; an untrusted directory refuses to start before any hook runs. Setup is
+refused outright when `hooksConfig.enabled` is `false` in the merged settings,
+because the host would silently ignore the installed group.
 
 Index this same folder under a prefix you own, using the estimate/approval
 workflow in AGENTS.md. The hook only suggests searches when its configured
@@ -25,7 +54,9 @@ After a hint, at least ten matching tool invocations must pass before another.
 Calls made while the node is offline count but do not consume a hint slot.
 Counters survive hook process exits. A bounded FIFO keeps 64 session hashes;
 an evicted session starts a new counter if used again. Shell grep/rg is not
-intercepted. Gemini, Windows and remote nodes are unsupported in this version.
+intercepted. Quotas, counters and session hashes are per host: a Gemini hint
+never consumes a Claude hint slot. Windows and remote nodes are unsupported in
+this version.
 
 `--url` or `XERJ_URL` at setup selects the loopback node. Only the URL is saved.
 Runtime `XERJ_AUTH`, then `XERJ_API_KEY`, then origin-checked local admin-key
@@ -50,6 +81,11 @@ authentication go to the node; local counters retain SHA-256 session hashes.
 xerj init --hooks --remove --dry-run
 xerj init --hooks --remove
 ```
+
+Removing the Gemini host takes the same `--host gemini` it was installed with:
+`xerj init --hooks --host gemini --remove`. Everything below applies to both
+hosts, reading `.gemini/settings.json`, its `AfterTool` array and
+`.gemini/xerj-hints/` for Gemini.
 
 Success: the uniquely owned group is removed; foreign groups/settings and
 session memory remain. Config is disabled before settings publication; existing
@@ -82,6 +118,9 @@ python3 tools/search-hints/smoke.py --binary engine/target/release/xerj
 python3 tools/search-hints/smoke.py --binary engine/target/release/xerj --authenticated
 ```
 
+Both commands exercise both hosts against one private node, including their
+coexistence and per-host quotas.
+
 For the optional actual-host controlled sample, add `--claude-sample --receipt NEW.json`
 (requires an already authenticated Claude Code CLI; sends the synthetic task to
 your configured model). It disables host session persistence, limits each run
@@ -91,11 +130,17 @@ The default smoke commands use only a private node and a tiny synthetic Rust pro
 access existing indices. See VERIFICATION.md for executed results, a controlled
 before/after sample and the explicit actual-host and platform limits.
 
-Host schema reference: [Claude Code hooks](https://code.claude.com/docs/en/hooks#pretooluse-decision-control).
+Host schema references:
+[Claude Code hooks](https://code.claude.com/docs/en/hooks#pretooluse-decision-control)
+and [Gemini CLI hooks](https://geminicli.com/docs/hooks/reference/).
 
 Implementation evidence: existing project-owned lifecycle hook configuration in
 `engine/crates/xerj-autoindex/src/session_memory.rs:190` and catalog cohort
 ownership in `engine/crates/xerj-autoindex/src/catalog.rs:620`. Nonblocking file
 locking uses fs2 0.4.3 `src/unix.rs:38-39` (`LOCK_EX | LOCK_NB`, licensed
 MIT/Apache-2.0; inspected in the local Cargo source). No peer implementation is
-copied. The host JSON format comes from the official Claude Code reference.
+copied. Each host's JSON format comes from that host's official reference. The
+`AfterTool`-only delivery claim was read out of the Gemini CLI 0.66.0 bundle
+(`executeToolWithHooks` in `bundle/chunk-RZ3ZVTZB.js:344483-344510`, which
+appends `additionalContext` to the tool result and has no equivalent on
+`BeforeTool`) and then confirmed against the running host; see VERIFICATION.md.

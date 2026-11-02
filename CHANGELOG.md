@@ -14,6 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the indexed folder and configured loopback node, with a per-session quota.
   `--hooks --remove` preserves other hooks and session memory.
 
+- The same advisory search hints for Gemini CLI with `xerj init --hooks --host
+  gemini` on macOS/Linux (Refs #2642). It writes an `AfterTool` group to
+  `.gemini/settings.json`, because `BeforeTool` has no field that reaches the
+  model, and a millisecond `timeout` as that host expects. Matched tools are
+  `grep_search`, `search_file_content`, `glob` and `read_file`, anchored so MCP
+  tool names are not caught. Setup is refused when the host has hooks disabled.
+  Quotas, counters and backups are per host, and either host can be configured
+  or removed without touching the other.
+
 - Opt-in Claude Code session handoff with `xerj init --memory` on macOS/Linux
   (Refs #2645). SessionEnd queues a background redacting import and lexical
   autoindex; SessionStart returns bounded, cited historical excerpts from a
