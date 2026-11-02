@@ -57,6 +57,7 @@ pub mod field_report;
 pub mod fsio;
 pub mod home;
 pub mod hub;
+pub mod hub_evidence;
 pub mod localauth;
 pub mod metrics;
 pub mod net;

@@ -115,6 +115,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Arrays no longer become accepted addresses through string coercion, and
   objects with a non-callable `toString` no longer cause HTTP 500.
 
+- The field-report HTTP fallback now enforces its 16 KiB body limit on raw
+  bytes before decoding or storage access. Multibyte JSON without a reliable
+  `Content-Length` no longer bypasses the limit by having fewer characters.
+
 - `xerj autoindex` no longer stalls near the end of a run at high
   `--workers`. When all 8 bulk slots were busy, a worker whose chunk crossed
   the flush size parked; if another worker then shipped the shared buffer,
