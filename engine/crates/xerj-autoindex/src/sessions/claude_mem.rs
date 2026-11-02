@@ -10,8 +10,8 @@ struct Table {
     required: &'static [&'static str],
     /// Columns added by later claude-mem migrations; read as NULL when absent.
     optional: &'static [&'static str],
-    /// Session join: the column that matches `sdk_sessions`, and the column it matches.
-    session: (&'static str, &'static str),
+    /// Joins `sdk_sessions` on this column (unique there) for the platform session ID.
+    session: Option<&'static str>,
 }
 
 const PROMPTS: Table = Table {
@@ -19,7 +19,8 @@ const PROMPTS: Table = Table {
     role: "user",
     required: &["id", "prompt_text", "created_at_epoch"],
     optional: &["prompt_number", "content_session_id"],
-    session: ("content_session_id", "content_session_id"),
+    // The row carries content_session_id itself; sdk_sessions repeats it once per platform.
+    session: None,
 };
 
 const OBSERVATIONS: Table = Table {
@@ -43,7 +44,7 @@ const OBSERVATIONS: Table = Table {
         "files_read",
         "files_modified",
     ],
-    session: ("memory_session_id", "memory_session_id"),
+    session: Some("memory_session_id"),
 };
 
 const SUMMARIES: Table = Table {
@@ -61,7 +62,7 @@ const SUMMARIES: Table = Table {
         "files_read",
         "files_edited",
     ],
-    session: ("memory_session_id", "memory_session_id"),
+    session: Some("memory_session_id"),
 };
 
 const SUMMARY_SECTIONS: [(&str, &str); 6] = [
@@ -177,7 +178,6 @@ fn timestamp(row: &serde_json::Map<String, Value>, at: &str) -> Result<Value> {
     ))
 }
 
-#[allow(clippy::too_many_arguments)]
 fn export_table(
     conn: &Connection,
     table: &Table,
@@ -191,6 +191,12 @@ fn export_table(
     if present.is_empty() {
         return Ok(());
     }
+    ensure!(
+        !present.contains("sdk_session_id"),
+        "claude-mem table {} predates claude-mem's session ID rename; start claude-mem once to \
+         migrate the store, then rerun",
+        table.name
+    );
     for name in table.required {
         ensure!(
             present.contains(*name),
@@ -207,15 +213,17 @@ fn export_table(
     // Column and table names come only from the allowlists above.
     let mut select: Vec<String> = names
         .iter()
-        .map(|c| match present.contains(*c) {
-            true => format!("t.{c}"),
-            false => format!("NULL AS {c}"),
+        .map(|c| {
+            if present.contains(*c) {
+                format!("t.{c}")
+            } else {
+                format!("NULL AS {c}")
+            }
         })
         .collect();
-    let (local, remote) = table.session;
-    let join = if sessions && present.contains(local) {
+    let join = if let Some(key) = table.session.filter(|_| sessions) {
         select.push("s.content_session_id".to_string());
-        format!("LEFT JOIN sdk_sessions s ON s.{remote} = t.{local}")
+        format!("LEFT JOIN sdk_sessions s ON s.{key} = t.{key}")
     } else {
         select.push("NULL".to_string());
         String::new()
@@ -259,17 +267,15 @@ fn export_table(
         record["id"] = json!(format!("claude-mem/{}/{rowid}", table.role));
         record["session_schema_version"] = json!(1);
         record["session_format"] = json!("claude-mem");
-        // claude-mem keys sessions by its own ID; the Claude Code session UUID is joined in.
+        // claude-mem keys sessions by its own ID; the platform's session ID is joined in.
         let session = row["session"]
             .as_str()
             .or_else(|| row.get("content_session_id").and_then(Value::as_str));
-        record["session_id"] = Value::Null;
-        if let Some(session) = session {
-            match uuid::Uuid::parse_str(session) {
-                Ok(id) if session.len() == 36 => record["session_id"] = json!(id.to_string()),
-                // Not a UUID (another claude-mem platform): keep it, but as redacted text.
-                _ => text_fields["session_id"] = json!(session),
-            }
+        match session.map(|s| (s, uuid::Uuid::parse_str(s))) {
+            Some((s, Ok(id))) if s.len() == 36 => record["session_id"] = json!(id.to_string()),
+            // Not a UUID (another claude-mem platform): keep it, but as redacted text.
+            Some((s, _)) => text_fields["session_id"] = json!(s),
+            None => record["session_id"] = Value::Null,
         }
         record["message_id"] = json!(format!("{}/{rowid}", table.role));
         record["parent_id"] = Value::Null;
@@ -299,8 +305,12 @@ pub(super) fn import(input: &Path, output: &Path) -> Result<ImportSummary> {
     ensure_new_output(output)?;
     let meta = fs::metadata(input).context("cannot open claude-mem database")?;
     ensure!(meta.is_file(), "claude-mem input must be a regular file");
+    // Rows not yet checkpointed live in the WAL, so it counts toward the input cap.
+    let mut wal = input.as_os_str().to_owned();
+    wal.push("-wal");
+    let wal_len = fs::metadata(&wal).map(|m| m.len()).unwrap_or(0);
     ensure!(
-        meta.len() <= MAX_INPUT_BYTES,
+        meta.len() + wal_len <= MAX_INPUT_BYTES,
         "claude-mem database exceeds 512 MiB; export a smaller copy"
     );
     let source_file = input
@@ -315,9 +325,8 @@ pub(super) fn import(input: &Path, output: &Path) -> Result<ImportSummary> {
     .context("cannot open claude-mem database read-only")?;
     conn.execute_batch("PRAGMA query_only = 1; BEGIN")
         .context("cannot read claude-mem database")?;
-    let tables = columns(&conn, "observations").map_err(|_| {
-        anyhow::anyhow!("input is not a readable SQLite database; pass ~/.claude-mem/claude-mem.db")
-    })?;
+    let tables = columns(&conn, "observations")
+        .context("cannot read the input as a SQLite database; pass ~/.claude-mem/claude-mem.db")?;
     ensure!(
         !tables.is_empty(),
         "not a claude-mem database: no observations table"
@@ -460,6 +469,44 @@ mod tests {
     }
 
     #[test]
+    fn claude_mem_other_platform_sessions_keep_their_id_and_prompts_export_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = store(dir.path());
+        // sdk_sessions repeats a content_session_id once per platform, and a
+        // non-Claude platform's session ID is not a UUID.
+        Connection::open(&input)
+            .unwrap()
+            .execute_batch(
+                "INSERT INTO sdk_sessions VALUES (2, '550e8400-e29b-41d4-a716-446655440000',
+                   'mem-0002', 'watcher', 'codex', NULL, '2026-10-25T00:00:00.000Z',
+                   1792886400000, 'completed', NULL, NULL);
+                 INSERT INTO sdk_sessions VALUES (3, 'rollout-abc', 'mem-0003', 'watcher',
+                   'codex', NULL, '2026-10-25T00:00:00.000Z', 1792886400000, 'completed',
+                   NULL, NULL);
+                 UPDATE observations SET memory_session_id = 'mem-0003';",
+            )
+            .unwrap();
+        let output = dir.path().join("safe.jsonl");
+        let summary = import_claude_mem(&input, &output).unwrap();
+        assert_eq!((summary.records, summary.source_lines), (3, 3));
+        let rows = rows(&output);
+        let ids: Vec<_> = rows.iter().map(|r| r["id"].as_str().unwrap()).collect();
+        assert_eq!(
+            ids,
+            [
+                "claude-mem/user/1",
+                "claude-mem/observation/1",
+                "claude-mem/summary/1"
+            ]
+        );
+        assert_eq!(
+            rows[0]["session_id"],
+            "550e8400-e29b-41d4-a716-446655440000"
+        );
+        assert_eq!(rows[1]["session_id"], "rollout-abc");
+    }
+
+    #[test]
     fn claude_mem_older_schema_without_migrated_columns_still_exports() {
         let dir = tempfile::tempdir().unwrap();
         let input = dir.path().join("claude-mem.db");
@@ -492,13 +539,22 @@ mod tests {
             .unwrap()
             .execute_batch("CREATE TABLE t (x)")
             .unwrap();
+        let pre_rename = dir.path().join("old.db");
+        Connection::open(&pre_rename)
+            .unwrap()
+            .execute_batch(
+                "CREATE TABLE observations (id INTEGER PRIMARY KEY, sdk_session_id TEXT,
+                   project TEXT, text TEXT, type TEXT, created_at_epoch INTEGER);",
+            )
+            .unwrap();
         let malformed = store(dir.path());
         Connection::open(&malformed)
             .unwrap()
             .execute_batch("UPDATE observations SET facts = 'not json'")
             .unwrap();
         for (input, reason) in [
-            (&not_sqlite, "not a readable SQLite database"),
+            (&not_sqlite, "cannot read the input as a SQLite database"),
+            (&pre_rename, "predates claude-mem's session ID rename"),
             (&other, "no observations table"),
             (
                 &malformed,

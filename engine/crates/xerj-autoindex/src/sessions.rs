@@ -36,8 +36,9 @@ text and tools/reasoning; uses line-and-byte-digest event IDs, no inferred paren
 or files. exec --json and external history_base are unsupported.
 claude-mem opens ~/.claude-mem/claude-mem.db read-only in one snapshot and exports
 user_prompts, observations and session_summaries rows (is_summary=true for the
-model-written two), joining each to its Claude Code session UUID via sdk_sessions.
-Input <=512 MiB; line <=1 MiB; turn text <=256 KiB; <=100000 messages or rows.
+model-written two), each with the session ID claude-mem recorded (a UUID for
+Claude Code). Input <=512 MiB (.db plus -wal); line <=1 MiB; turn text
+<=256 KiB; <=100000 messages or rows.
 Exit 0: exported, JSON summary on stdout; 2: usage; 1: import/publication error.
 
 Optional automation (Claude Code, macOS/Linux): xerj init --memory.

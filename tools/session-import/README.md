@@ -238,7 +238,7 @@ python3 tools/session-import/smoke.py --binary engine/target/release/xerj --form
 [claude-mem](https://github.com/thedotmack/claude-mem) is a Claude Code plugin
 that has a model condense each session into observations and summaries, kept in
 one SQLite file. Pass that file explicitly; the command does not look for it,
-start or stop the claude-mem worker, or write to the store:
+start or stop the claude-mem worker, or change the store's contents:
 
 ```sh
 set -eu
@@ -250,10 +250,14 @@ xerj sessions import --format claude-mem \
 
 The store is opened read-only, not immutable, inside one read transaction, so
 rows a running worker still holds in `claude-mem.db-wal` are included and all
-three tables come from the same snapshot. SQLite needs the store's `-shm` file
-or a writable folder to read a WAL database; on a read-only copy without either,
-copy the `.db`, `-wal` and `-shm` files together. A file with no `observations`
-table refuses as not a claude-mem store.
+three tables come from the same snapshot. SQLite may create the store's
+`-wal` and `-shm` side files to read it, and needs the `-shm` file or a
+writable folder to read a WAL database; on a read-only copy without either,
+copy the `.db`, `-wal` and `-shm` files together. The 512 MiB input cap counts
+the `.db` and `-wal` files together. A file with no `observations` table
+refuses as not a claude-mem store. A store from before claude-mem's session ID
+rename (its `sdk_session_id` columns) refuses with a request to start
+claude-mem once, which migrates it.
 
 Three tables export, each ordered by `created_at_epoch` then row id:
 
@@ -275,7 +279,7 @@ format-specific meanings:
 
 | Field | claude-mem meaning |
 |---|---|
-| `session_format`, `session_id` | `claude-mem`; the Claude Code session UUID (`content_session_id`), joined through `sdk_sessions` for observations and summaries. A non-UUID value is kept as redacted text; no session row gives null |
+| `session_format`, `session_id` | `claude-mem`; the session ID claude-mem recorded for that row's platform (`content_session_id`, a UUID for Claude Code), joined through `sdk_sessions` on `memory_session_id` for observations and summaries. A non-UUID value is kept as redacted text; no session row gives null |
 | `id`, `message_id` | `claude-mem/<role>/<row id>` and `<role>/<row id>`: stable for a row across exports of the same store |
 | `parent_id` | null |
 | `files` | `files_modified` (summaries: `files_edited`) then `files_read`, deduplicated, as claude-mem recorded them |
@@ -299,6 +303,7 @@ Reference retrieved before implementation: claude-mem, Apache-2.0, pinned at
 
 - [`SessionStore.ts:1273-1325`](https://github.com/thedotmack/claude-mem/blob/999a0c4010a12befecb1686e695126c04a4faa6e/src/services/sqlite/SessionStore.ts#L1273-L1325): base `sdk_sessions`, `observations` and `session_summaries` tables and their session keys.
 - [`SessionStore.ts:1697-1712`](https://github.com/thedotmack/claude-mem/blob/999a0c4010a12befecb1686e695126c04a4faa6e/src/services/sqlite/SessionStore.ts#L1697-L1712): `user_prompts`, keyed by `content_session_id` and `session_db_id`, with no project column.
+- [`SessionStore.ts:1812-1821`](https://github.com/thedotmack/claude-mem/blob/999a0c4010a12befecb1686e695126c04a4faa6e/src/services/sqlite/SessionStore.ts#L1812-L1821): migration 17, which renamed `sdk_session_id` to `memory_session_id` and `claude_session_id` to `content_session_id`.
 - [`SessionStore.ts:4166-4180`](https://github.com/thedotmack/claude-mem/blob/999a0c4010a12befecb1686e695126c04a4faa6e/src/services/sqlite/SessionStore.ts#L4166-L4180): observation fields, with `facts`, `concepts` and `files_*` stored as `JSON.stringify` arrays.
 
 These are format evidence, not copied implementation. The fixture
