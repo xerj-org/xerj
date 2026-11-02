@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how ahmadrosid/nakama implements it: The AI workspace where teams share agents, skills and automations that the whole company builds on (selected work: apps/server, packages/db)",
+ "domain": "an agent working on agents, ai, ai-agents queries this for how ahmadrosid/nakama implements it: The AI workspace where teams share agents, skills and automations that the whole company builds on (selected work: apps/server, packages/db)",
  "repos": [
   {
    "repo": "nakama",

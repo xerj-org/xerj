@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on ctx-sistema queries this for how FullFran/zmk-lily58 implements it: FullFran/zmk-lily58 (C)",
+ "domain": "an agent working on ctx-sistema queries this for how FullFran/zmk-lily58 implements it: ZMK keymap configuration for the Lily58 split keyboard",
  "repos": [
   {
    "repo": "zmk-lily58",

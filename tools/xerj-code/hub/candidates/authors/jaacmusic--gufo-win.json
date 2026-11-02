@@ -2,8 +2,8 @@
  "corpus": "jaacmusic--gufo-win",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on C++ queries this for how jaacMusic/gufo-win implements it: jaacMusic/gufo-win (C++) (selected work: src/models)",
+ "shelf": "AI",
+ "domain": "an agent working on C++ queries this for how jaacMusic/gufo-win implements it: jaacMusic's Windows port of Gufo (gufo-org/gufo): Strix Halo gfx1151 inference engine built natively on Windows with TheRock ROCm (selected work: src/models)",
  "repos": [
   {
    "repo": "gufo-win",

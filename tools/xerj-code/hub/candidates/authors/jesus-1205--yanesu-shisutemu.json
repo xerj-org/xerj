@@ -2,8 +2,8 @@
  "corpus": "jesus-1205--yanesu-shisutemu",
  "cloned_at": null,
  "status": "draft",
- "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how Jesus-1205/yanesu-shisutemu implements it: ERP/POS bimonetario (USD/VES) en producci\u00f3n con 2.662 tests automatizados. FastAPI, React 19, Tauri 2, Gemini OCR y automatizaci\u00f3n M2M con n (selected work: backend)",
+ "shelf": "DB",
+ "domain": "an agent working on docker-compose, erp, fastapi queries this for how Jesus-1205/yanesu-shisutemu implements it: Production bimonetary (USD/VES) POS & ERP. FastAPI, React 19, PostgreSQL 16, Tauri 2. 2,662 automated tests under SDD/TDD (selected work: backend)",
  "repos": [
   {
    "repo": "yanesu-shisutemu",

@@ -1,0 +1,23 @@
+{
+ "corpus": "mrcyberharsh--pulse-infragraph",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on infrastructure-graph, dependency-graph queries this for how mrcyberharsh/pulse-infragraph implements it: Summary This PR introduces a fast, Python-based infrastructure graphing solution designed to help teams visualize system architecture, track (selected work: the project root, core)",
+ "repos": [
+  {
+   "repo": "pulse-infragraph",
+   "url": "https://github.com/mrcyberharsh/pulse-infragraph",
+   "sha": "d9c8a483384f1a92047673c002c7a0a266bc91c3",
+   "licence": "MIT (LICENSE file at pin d9c8a483384f, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T15:28Z",
+    "consent_receipt": "ea2abae740cd",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T15:28Z (receipt ea2abae740cd); selected commit d9c8a483384f: \"Final cleanup: safe validation, CLI mode, and better dashboard stabil\u2026\". LICENSE file at pin d9c8a483384f detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

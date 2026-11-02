@@ -1,0 +1,23 @@
+{
+ "corpus": "zhangyongxin-1124--cdisk-guard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on chinese, disk-cleaner, disk-space queries this for how zhangyongxin-1124/cdisk-guard implements it: Windows C \u76d8\u7a7a\u95f4\u5b88\u536b\uff1a\u770b\u6e05\u8c01\u5728\u5360\u7a7a\u95f4\u3001\u628a\u80fd\u642c\u7684\u642c\u8d70\u3001\u62e6\u4f4f\u4e0d\u8be5\u5f80 C \u76d8\u5199\u7684\u4e1c\u897f\u3002\u5b8c\u5168\u672c\u5730\u8fd0\u884c\uff0c\u4e0d\u8054\u7f51\u4e0d\u4e0a\u4f20\u3002 (selected work: the project root)",
+ "repos": [
+  {
+   "repo": "cdisk-guard",
+   "url": "https://github.com/zhangyongxin-1124/cdisk-guard",
+   "sha": "c25ff6d8fb875756dfbe4d7869933cf34b17b1be",
+   "licence": "MIT (LICENSE file at pin c25ff6d8fb87, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T17:45Z",
+    "consent_receipt": "cdc20079cb6a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T17:45Z (receipt cdc20079cb6a); selected commit c25ff6d8fb87: \"v6.13\uff1a\u626b\u63cf\u4e0e\u754c\u9762\u5f7b\u5e95\u9694\u79bb\uff08\u7559\u6838+\u8ba9GIL+\u8fdb\u5ea6\u8282\u6d41+\u8868\u683c\u6682\u505c\u91cd\u7ed8+\u6307\u7eb9\u9632\u91cd\u5237+\u65e5\u5fd7\u6e05\u7406\u5e76\u53d1\u5316\u4e0e\u5b9e\u65f6\u8fdb\u5ea6\uff09\". LICENSE file at pin c25ff6d8fb87 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

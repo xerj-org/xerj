@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on agent, agent-skills, agentic-ai queries this for how aai-labs/agent-barn implements it: run a fleet of AI agents on your own Kubernetes (selected work: ui, api)",
+ "domain": "an agent working on agent, agent-skills, agentic-ai queries this for how aai-labs/agent-barn implements it: Open-source control plane for AI agents on your own Kubernetes infrastructure, with per-agent costs, access controls, and audit logs (selected work: ui, api)",
  "repos": [
   {
    "repo": "agent-barn",

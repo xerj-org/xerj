@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on ctx-sistema queries this for how FullFran/fifi-keyboard-vial implements it: FullFran/fifi-keyboard-vial (Astro)",
+ "domain": "an agent working on ctx-sistema queries this for how FullFran/fifi-keyboard-vial implements it: Vial-QMK firmware and keymap for the Fifi split keyboard (36 keys)",
  "repos": [
   {
    "repo": "fifi-keyboard-vial",

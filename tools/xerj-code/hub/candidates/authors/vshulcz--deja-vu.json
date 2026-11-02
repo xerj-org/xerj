@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on claude-code, codex, mcp queries this for how vshulcz/deja-vu implements it: Agent memory & session history search for Claude Code, Codex & Cursor. Local coding agent memory MCP & hooks (selected work: internal/sources, cmd/deja, codebuddy-plugin)",
+ "domain": "an agent working on claude-code, codex, mcp queries this for how vshulcz/deja-vu implements it: Claude Code memory, Codex memory, Cursor memory, OpenCode memory, Gemini CLI memory, Windsurf memory & Cline memory across 44 agents. AI cod (selected work: internal/sources, cmd/deja, codebuddy-plugin)",
  "repos": [
   {
    "repo": "deja-vu",

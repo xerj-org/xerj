@@ -1,0 +1,23 @@
+{
+ "corpus": "2023anita--paperbanana-codex",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how 2023Anita/paperbanana-codex implements it: Codex-native academic figure workflow with matplotlib plots, built-in image generation, and reproducible examples (selected work: demo_results, scripts)",
+ "repos": [
+  {
+   "repo": "paperbanana-codex",
+   "url": "https://github.com/2023Anita/paperbanana-codex",
+   "sha": "058134c192044720d79b2b2a70b118688fa3489f",
+   "licence": "Apache-2.0 (LICENSE file at pin 058134c19204, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T16:22Z",
+    "consent_receipt": "cc8171028277",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T16:22Z (receipt cc8171028277); selected commit 058134c19204: \"Add eight source-grounded MASS paper figures and safe global skill in\u2026\". LICENSE file at pin 058134c19204 detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "varuntx--orchestra-ai",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how VarunTx/orchestra-ai implements it: Orchestra AI \u2014 durable AI workflow orchestration powered by Conductor OSS (selected work: backend, scripts)",
+ "repos": [
+  {
+   "repo": "orchestra-ai",
+   "url": "https://github.com/VarunTx/orchestra-ai",
+   "sha": "c3973f9a1126a3a34f1d496a0633f7f589fd018f",
+   "licence": "MIT (LICENSE file at pin c3973f9a1126, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T16:40Z",
+    "consent_receipt": "75566ced107b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T16:40Z (receipt 75566ced107b); selected commit c3973f9a1126: \"Add a read-only MCP server over the control-plane API\". LICENSE file at pin c3973f9a1126 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,9 +1,9 @@
 {
- "corpus": "code-breaker-ctrl--ledgio",
+ "corpus": "soul-ninja--ledgio",
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on budget-planner, debt-tracker, expense-tracker queries this for how Code-Breaker-Ctrl/Ledgio implements it: Private, local-first personal finance ledger & PWA. Offline-first budgeting, loan tracker, biometric vault & cloud sync (selected work: tests, scripts, assets)",
+ "domain": "an agent working on budget-planner, debt-tracker, expense-tracker queries this for how Soul-Ninja/Ledgio implements it: Private, local-first personal finance ledger & PWA. Offline-first budgeting, loan tracker, biometric vault & cloud sync (selected work: tests, scripts, assets)",
  "repos": [
   {
    "repo": "Ledgio",

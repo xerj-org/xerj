@@ -8,15 +8,15 @@
   {
    "repo": "dsh-go-mac",
    "url": "https://github.com/BillWGong/dsh-go-mac",
-   "sha": "b96243340b83fb465ec2d39e46113c4e4ef6a889",
-   "licence": "AGPL-3.0 (LICENSE file at pin b96243340b83, GitHub licence API 2026-11-02)",
+   "sha": "d646aaab9269ed9deed19be8eabdb0b07b98a833",
+   "licence": "AGPL-3.0 (LICENSE file at pin d646aaab9269, GitHub licence API 2026-11-02)",
    "review": {
     "spdx": "AGPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-11-01T04:03Z",
     "consent_receipt": "53293d9f718d",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:03Z (receipt 53293d9f718d); pinned to the default-branch head. LICENSE file at pin b96243340b83 detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T04:03Z (receipt 53293d9f718d); pinned to the default-branch head. LICENSE file at pin d646aaab9269 detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
    }
   }
  ]

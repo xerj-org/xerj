@@ -1,9 +1,9 @@
 {
- "corpus": "xendoksia--spotify-youtube--track-ur-playlist",
+ "corpus": "xendoksia--spotify-track-ur-playlist",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how Xendoksia/Spotify-Youtube--Track-Ur-Playlist implements it: Xendoksia/Spotify-Youtube--Track-Ur-Playlist (Python) (selected work: the project root)",
+ "domain": "an agent working on Python queries this for how Xendoksia/Spotify-Track-Ur-Playlist implements it: Xendoksia/Spotify-Track-Ur-Playlist (Python) (selected work: the project root)",
  "repos": [
   {
    "repo": "Spotify-Track-Ur-Playlist",
