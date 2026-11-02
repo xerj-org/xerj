@@ -225,17 +225,17 @@ fn scan_sql(mut reader: impl Read) -> Result<ScanOut> {
             }
         }
     }
-    if !stmt.is_empty() {
-        if take_statement(
+    if !stmt.is_empty()
+        && take_statement(
             &stmt,
             stmt_line,
             stmt_end_line,
             &mut symbols,
             &mut saw_row_data,
             &mut ddl,
-        ) {
-            saw_copy = true;
-        }
+        )
+    {
+        saw_copy = true;
     }
     // A `\.` with no trailing newline is still the end of COPY data.
     let body = if keep_full {
