@@ -101,6 +101,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `xerj autoindex` now records Dart `extension` and `extension type`
+  declarations as `class` definitions, so `xerj def <ExtensionName>` finds
+  them. Methods inside an extension were already indexed; the extension's own
+  name was not, because the Dart query adapted from tree-sitter-dart's
+  `tags.scm` had dropped both forms.
+
 - `weighted_avg` now executes field-based requests (`value` / `weight`, each
   with a `field` and optional numeric `missing`) instead of returning HTTP 200
   with an `unsupported aggregation type` error in the aggregations body. A
