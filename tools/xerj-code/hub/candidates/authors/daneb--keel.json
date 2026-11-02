@@ -1,0 +1,23 @@
+{
+ "corpus": "daneb--keel",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, ai-agents, ai-coding queries this for how daneb/keel implements it: A gated harness for AI-assisted delivery (selected work: tests, src/cmd, src)",
+ "repos": [
+  {
+   "repo": "keel",
+   "url": "https://github.com/daneb/keel",
+   "sha": "ffd184c2f308c394220583cf401ac95ecbd5af76",
+   "licence": "author's permission (LICENSE at pin ffd184c2f308: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T16:10Z",
+    "consent_receipt": "98832a36fc0d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T16:10Z (receipt 98832a36fc0d); selected commit ffd184c2f308: \"feat(pipeline): add abandoned terminal state for specs\". LICENSE at pin ffd184c2f308: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

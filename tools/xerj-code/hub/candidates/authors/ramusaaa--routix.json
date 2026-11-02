@@ -1,0 +1,23 @@
+{
+ "corpus": "ramusaaa--routix",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on Go queries this for how ramusaaa/routix implements it: Simple Easy Router with Golang (selected work: the project root, telemetry)",
+ "repos": [
+  {
+   "repo": "routix",
+   "url": "https://github.com/ramusaaa/routix",
+   "sha": "a932a4f6b56623f782e6bc81304db1f9d163aec1",
+   "licence": "MIT (LICENSE file at pin a932a4f6b566, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T16:24Z",
+    "consent_receipt": "1a0beba2b9d3",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T16:24Z (receipt 1a0beba2b9d3); selected commit a932a4f6b566: \"Improvements\". LICENSE file at pin a932a4f6b566 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

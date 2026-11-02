@@ -1,0 +1,23 @@
+{
+ "corpus": "samritha-s--utsav",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Samritha-S/UTSAV implements it: Samritha-S/UTSAV (Python) (selected work: static, tests)",
+ "repos": [
+  {
+   "repo": "UTSAV",
+   "url": "https://github.com/Samritha-S/UTSAV",
+   "sha": "6dadbf1270b5960b0ba0c75af023ba31bc87657c",
+   "licence": "MIT (LICENSE file at pin 6dadbf1270b5, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T17:31Z",
+    "consent_receipt": "59ec31d9f235",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T17:31Z (receipt 59ec31d9f235); selected commit 6dadbf1270b5: \"feat(ledger): rebuild budget ledger with 3-column CSS grid, compact s\u2026\". LICENSE file at pin 6dadbf1270b5 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

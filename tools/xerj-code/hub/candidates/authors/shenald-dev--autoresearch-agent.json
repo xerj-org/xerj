@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how shenald-dev/autoresearch-agent implements it: AI research assistant that writes for you (selected work: tests, src/exporters, src/core)",
+ "domain": "an agent working on agents, ai, anthropic queries this for how shenald-dev/autoresearch-agent implements it: \ud83e\udd16 Modular AI Research Agent. Scours scholarly & web sources via LangChain to compile deep-dive research reports (selected work: tests, src/exporters, src/core)",
  "repos": [
   {
    "repo": "autoresearch-agent",

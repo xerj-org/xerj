@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on TypeScript queries this for how Xch4rt/agent-flow implements it: Agent Flow helps Codex resume, execute, verify and remember work inside real software projects (selected work: test, src/core, src/adapters)",
+ "domain": "an agent working on agentic-workflows, ai-agents, claude-code queries this for how Xch4rt/agent-flow implements it: Local workflow, memory and token discipline for AI coding agents (Claude Code and Codex): plans with acceptance criteria, gates that refuse  (selected work: test, src/core, src/adapters)",
  "repos": [
   {
    "repo": "agent-flow",

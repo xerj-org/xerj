@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on Go queries this for how VladimirKhmelev/quic-rpc-go implements it: Future RPC over native QUIC streams for Go, with a reproducible benchmark against gRPC on impaired networks (selected work: rpc)",
+ "domain": "an agent working on benchmark, golang, grpc queries this for how VladimirKhmelev/quic-rpc-go implements it: Future RPC over native QUIC streams for Go, with a reproducible benchmark against gRPC on impaired networks (selected work: rpc)",
  "repos": [
   {
    "repo": "quic-rpc-go",
