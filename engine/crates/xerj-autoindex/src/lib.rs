@@ -2222,6 +2222,32 @@ fn begin_non_graph_generation(
         .map(|_| sync_executor::open_committed_snapshot(state_dir, &base))
         .transpose()?;
     let chunker_identity = prepared_records_identity(cfg)?;
+    // #2807: read the embedding identity before sealing, so preparation can
+    // size each record with the vectors the server will add. The same
+    // identity is pinned after the seal.
+    let semantic = plan
+        .datasets
+        .iter()
+        .any(|dataset| dataset.semantic_field.is_some());
+    let embedding_identity = if semantic {
+        let identity = es
+            .embedding_execution_identity()
+            .context("generation cutover could not pin the server embedding execution identity")?;
+        anyhow::ensure!(
+            identity.resumable,
+            "generation cutover requires a resumable embedding execution identity: {}",
+            identity
+                .non_resumable_reason
+                .as_deref()
+                .unwrap_or("the server did not provide an immutable identity")
+        );
+        Some(identity)
+    } else {
+        None
+    };
+    let vector_dims = embedding_identity
+        .as_ref()
+        .and_then(|identity| identity.dimensions);
     let (snapshot, mut groups) = {
         let mut prepared = None;
         let mut groups_out = None;
@@ -2290,6 +2316,7 @@ fn begin_non_graph_generation(
                 prior_snapshot.as_ref(),
                 &chunker_identity,
                 labeler,
+                vector_dims,
             ) {
                 Ok(snapshot) => {
                     prepared = Some(snapshot);
@@ -2338,22 +2365,7 @@ fn begin_non_graph_generation(
         .filter_map(|f| plan.files.get(&f.content_id).map(|a| a.rel.clone()))
         .collect();
     note_truncated_files(pr, &truncated);
-    let semantic = plan
-        .datasets
-        .iter()
-        .any(|dataset| dataset.semantic_field.is_some());
-    let identity = if semantic {
-        let identity = es
-            .embedding_execution_identity()
-            .context("generation cutover could not pin the server embedding execution identity")?;
-        anyhow::ensure!(
-            identity.resumable,
-            "generation cutover requires a resumable embedding execution identity: {}",
-            identity
-                .non_resumable_reason
-                .as_deref()
-                .unwrap_or("the server did not provide an immutable identity")
-        );
+    let identity = if let Some(identity) = embedding_identity {
         journal.pin_embedding_identity(
             &identity.identity_sha256,
             identity.resumable,

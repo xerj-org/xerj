@@ -12,6 +12,9 @@ description = "xerj autoindex — point it at any folder and make the contents A
 xerj-common = { path = "../xerj-common" }
 # Session exports use the same native PII redactor as ingest pipelines.
 xerj-wasm = { path = "../xerj-wasm" }
+# #2807: the server's own semantic chunker, so preparation can size a record
+# with the vectors the server will add. Default features only: no embedder.
+xerj-ai = { path = "../xerj-ai", default-features = false }
 uuid.workspace = true
 anyhow.workspace = true
 serde.workspace = true
