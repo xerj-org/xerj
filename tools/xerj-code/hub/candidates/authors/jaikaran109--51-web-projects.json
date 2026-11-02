@@ -1,0 +1,23 @@
+{
+ "corpus": "jaikaran109--51-web-projects",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on beginner-friendly, css, frontend queries this for how jaikaran109/51_Web_Projects implements it: A collection of 51 beginner-friendly web development projects (selected work: the project root, assets, scripts)",
+ "repos": [
+  {
+   "repo": "51_Web_Projects",
+   "url": "https://github.com/jaikaran109/51_Web_Projects",
+   "sha": "95426540db5f5db475de6c033bd6f7b9c054ecbd",
+   "licence": "MIT (LICENSE file at pin 95426540db5f, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T10:40Z",
+    "consent_receipt": "3ca446bfecb4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T10:40Z (receipt 3ca446bfecb4); selected commit 95426540db5f: \"feat(seo): add OG tags, twitter cards, sitemap.xml and robots.txt\". LICENSE file at pin 95426540db5f detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

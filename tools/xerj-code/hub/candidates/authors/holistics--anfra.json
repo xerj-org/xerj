@@ -1,0 +1,23 @@
+{
+ "corpus": "holistics--anfra",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Go queries this for how holistics/anfra implements it: Open-source framework for building trusted custom BI apps. Built for coding agents (selected work: web)",
+ "repos": [
+  {
+   "repo": "anfra",
+   "url": "https://github.com/holistics/anfra",
+   "sha": "9594c18875f478f708d2fc2b0d43c16ea601d5a7",
+   "licence": "Apache-2.0 (LICENSE file at pin 9594c18875f4, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "Apache-2.0",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T11:33Z",
+    "consent_receipt": "d2df001a98f4",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T11:33Z (receipt d2df001a98f4); selected commit 9594c18875f4: \"feat(appserve): search apps and commands in a command dialog\". LICENSE file at pin 9594c18875f4 detected as Apache-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}
