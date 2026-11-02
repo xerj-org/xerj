@@ -848,6 +848,9 @@ jobs:
       - name: Lead request validation (functions/lead.js)
         run: node .github/scripts/functions-lead-test.mjs
 
+      - name: Field-report request byte limits (functions/api/field-report.js)
+        run: node .github/scripts/functions-field-report-test.mjs
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@032958afbdc797a9164d3bc0b56325c1308924a5 # 1.97.1
 
