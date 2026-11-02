@@ -1,0 +1,9 @@
+<figure class="vz" id="fig-mv-file" aria-labelledby="fig-mv-file-cap">
+  <span class="vz-label">Diagram</span>
+  <p class="vz-title">One file vs one server</p>
+  <div class="vz-cols">
+    <div class="vz-card"><span class="vz-k">memvid</span><p class="vz-t">A single .mv2 file</p><p class="vz-d">Data, search index and metadata live in one portable file. You open it from your code with the SDK. Lexical search is BM25 through Tantivy. Vector search is a build feature.</p></div>
+    <div class="vz-card is-hi"><span class="vz-k">XERJ</span><p class="vz-t">A local search server</p><p class="vz-d">One binary serves memory over HTTP and MCP, next to logs, docs and code. BM25 by default. Semantic and hybrid recall in neural mode, with MiniLM built in.</p></div>
+  </div>
+  <figcaption id="fig-mv-file-cap">memvid details are from its README on 2026-10-31. In our run we used memvid-sdk 2.0.160 from PyPI.</figcaption>
+</figure>
