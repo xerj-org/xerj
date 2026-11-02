@@ -46,6 +46,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one with `/` is anchored at the root. The run reports how many paths it left
   out (#2483).
 
+- Offline `xerj sessions import --format claude-mem` exports a claude-mem
+  store's prompts, observations and session summaries through the existing
+  text redactor (#2874). It reads `claude-mem.db` read-only in one snapshot,
+  including rows still in a running worker's WAL, joins each row to its Claude
+  Code session UUID, and marks the model-written observations and summaries
+  `is_summary: true`.
+
 - Offline `xerj sessions import --format codex` exports a documented subset
   of one archived Codex rollout through the existing text redactor. It skips
   tools and reasoning, retains physical source locations and archive event

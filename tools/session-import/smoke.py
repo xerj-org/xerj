@@ -1,16 +1,24 @@
 #!/usr/bin/env python3
-"""Synthetic session -> redacted JSONL -> autoindex -> cited decision, on a private node."""
+"""Synthetic session or claude-mem store -> redacted JSONL -> autoindex -> cited decision, on a private node."""
 import argparse
 import json
 import os
 from pathlib import Path
 import socket
+import sqlite3
 import subprocess
 import tempfile
 import time
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
+FIXTURES = ROOT / 'engine/crates/xerj-autoindex/tests/fixtures'
+# fixture, records, decision source_line, decision files
+FORMATS = {
+    'claude-code': ('claude-session.jsonl', 2, 3, ['src/watch.rs']),
+    'codex': ('codex-session.jsonl', 2, 9, []),
+    'claude-mem': ('claude-mem.sql', 3, 1, ['src/watch.rs', 'src/poll.rs']),
+}
 
 
 def run(binary, arguments, env, work, expected=0):
@@ -24,7 +32,7 @@ def run(binary, arguments, env, work, expected=0):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--binary', type=Path, required=True)
-    parser.add_argument('--format', choices=('claude-code', 'codex'), default='claude-code')
+    parser.add_argument('--format', choices=tuple(FORMATS), default='claude-code')
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
     env = {k: v for k, v in os.environ.items() if not k.startswith('XERJ_')
@@ -32,20 +40,26 @@ def main():
     env.update(XERJ_DISABLE_FEEDBACK='true', XERJ_AUTH='', XERJ_NUM_CPUS='4')
     with tempfile.TemporaryDirectory(prefix='xerj-sessions-smoke-') as temp:
         work = Path(temp)
-        source = work / 'session.jsonl'
-        fixture = 'codex-session.jsonl' if args.format == 'codex' else 'claude-session.jsonl'
-        source.write_bytes((ROOT / 'engine/crates/xerj-autoindex/tests/fixtures' / fixture).read_bytes())
+        fixture, records, expected_line, expected_files = FORMATS[args.format]
+        if args.format == 'claude-mem':
+            source = work / 'claude-mem.db'
+            with sqlite3.connect(source) as store:
+                store.executescript((FIXTURES / fixture).read_text())
+            store.close()
+        else:
+            source = work / 'session.jsonl'
+            source.write_bytes((FIXTURES / fixture).read_bytes())
         exports = work / 'export'
         exports.mkdir()
         output = exports / 'records.jsonl'
         command = ['sessions', 'import', '--format', args.format, '--input', str(source), '--output', str(output)]
         imported = json.loads(run(binary, command, env, work).stdout)
-        assert imported['records'] == 2, imported
+        assert imported['records'] == records, imported
         safe = output.read_bytes()
         assert b'owner@example.com' not in safe and b'DO_NOT_EXPORT' not in safe
         run(binary, command, env, work, expected=1)
         assert output.read_bytes() == safe
-        print('offline import: 2 redacted text turns; overwrite refused', flush=True)
+        print(f'offline import: {records} redacted text records; overwrite refused', flush=True)
 
         ports = []
         sockets = []
@@ -128,29 +142,27 @@ def main():
                     assert len(done) == 1 and done[0]['ok'] is True and done[0]['exit'] == 0, done
                     assert not done[0].get('datasets_refused') and not done[0].get('files_refused'), done
                     count = request('/session-smoke-*/_count')['count']
-                    assert count == 2, count
+                    assert count == records, count
                     print(f'autoindex pass {generation + 1}: {time.monotonic() - before:.3f}s; {count} live documents', flush=True)
                 result = request('/session-smoke-*/_search', {'size': 10, 'query': {'match_all': {}}})
                 stored = result['hits']['hits']
-                assert len(stored) == 2, result
+                assert len(stored) == records, result
                 assert 'owner@example.com' not in json.dumps(stored)
                 assert 'DO_NOT_EXPORT' not in json.dumps(stored)
                 decision = next(h['_source'] for h in stored if 'durable journal' in h['_source']['body'])
-                expected_line = 9 if args.format == 'codex' else 3
-                expected_files = [] if args.format == 'codex' else ['src/watch.rs']
-                assert decision['source_file'] == 'session.jsonl' and decision['source_line'] == expected_line, decision
+                assert decision['source_file'] == source.name and decision['source_line'] == expected_line, decision
                 assert decision['files'] == expected_files, decision
                 assert decision['session_format'] == args.format, decision
                 search = run(binary, ['search', '--prefix', 'session-smoke', '--url', url,
                                       '--json', 'why did we drop polling'], env, work)
                 assert 'durable journal' in search.stdout, search.stdout
-                print(f'search: decision text found; original session.jsonl:{expected_line}; files={expected_files}', flush=True)
+                print(f'search: decision text found; original {source.name}:{expected_line}; files={expected_files}', flush=True)
             finally:
                 stop(child)
             child = start(log)
             try:
-                assert request('/session-smoke-*/_count')['count'] == 2
-                print('graceful restart: 2 documents preserved', flush=True)
+                assert request('/session-smoke-*/_count')['count'] == records
+                print(f'graceful restart: {records} documents preserved', flush=True)
             finally:
                 stop(child)
     return 0

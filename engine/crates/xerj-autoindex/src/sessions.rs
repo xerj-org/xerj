@@ -16,7 +16,7 @@ const MAX_RECORDS: usize = 100_000;
 
 pub const HELP: &str = "xerj sessions import — offline session preparation for autoindex
 
-USAGE: xerj sessions import --format <claude-code|codex> --input FILE --output NEW.jsonl
+USAGE: xerj sessions import --format <claude-code|codex|claude-mem> --input FILE --output NEW.jsonl
 
 Read one explicit Claude Code transcript or Codex rollout JSONL; write user/assistant text
 records through the existing native PII redactor before any output is stored.
@@ -34,7 +34,10 @@ The redactor handles email/IP/card/SSN/phone patterns, not every secret or name.
 Codex reads response_item messages after session_meta, skips duplicate event_msg
 text and tools/reasoning; uses line-and-byte-digest event IDs, no inferred parents
 or files. exec --json and external history_base are unsupported.
-Input <=512 MiB; line <=1 MiB; turn text <=256 KiB; <=100000 messages.
+claude-mem opens ~/.claude-mem/claude-mem.db read-only in one snapshot and exports
+user_prompts, observations and session_summaries rows (is_summary=true for the
+model-written two), joining each to its Claude Code session UUID via sdk_sessions.
+Input <=512 MiB; line <=1 MiB; turn text <=256 KiB; <=100000 messages or rows.
 Exit 0: exported, JSON summary on stdout; 2: usage; 1: import/publication error.
 
 Optional automation (Claude Code, macOS/Linux): xerj init --memory.
@@ -264,6 +267,7 @@ fn claude_turn(
     }))
 }
 
+mod claude_mem;
 mod codex;
 
 #[derive(Clone, Copy)]
@@ -280,12 +284,95 @@ pub fn import_codex(input: &Path, output: &Path) -> Result<ImportSummary> {
     import_session(input, output, SessionFormat::Codex)
 }
 
-fn import_session(input: &Path, output: &Path, format: SessionFormat) -> Result<ImportSummary> {
+pub fn import_claude_mem(input: &Path, output: &Path) -> Result<ImportSummary> {
+    claude_mem::import(input, output)
+}
+
+fn ensure_new_output(output: &Path) -> Result<()> {
     match fs::symlink_metadata(output) {
         Ok(_) => bail!("session output already exists; choose a new output path"),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-        Err(e) => return Err(e).context("cannot inspect session output"),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(e).context("cannot inspect session output"),
     }
+}
+
+/// Redacted, allowlisted records staged privately until a no-clobber publish.
+struct Export {
+    staging: tempfile::NamedTempFile,
+    redactor: PiiRedactionPlugin,
+    hash: Sha256,
+    written: u64,
+}
+
+impl Export {
+    fn create(output: &Path) -> Result<Self> {
+        let parent = output
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or(Path::new("."));
+        let staging = tempfile::Builder::new()
+            .prefix(".xerj-session-")
+            .suffix(".tmp")
+            .tempfile_in(parent)
+            .context("cannot create private export staging file; output parent must exist")?;
+        Ok(Self {
+            staging,
+            redactor: PiiRedactionPlugin::new(Vec::new()),
+            hash: Sha256::new(),
+            written: 0,
+        })
+    }
+
+    fn push(&mut self, turn: ParsedTurn, summary: &mut ImportSummary) -> Result<()> {
+        let ParsedTurn {
+            text_fields: mut record,
+            identity_fields,
+        } = turn;
+        ensure!(
+            self.redactor.process(&mut record) == ProcessAction::Pass,
+            "PII redaction refused session record"
+        );
+        // Only validated enums/IDs and numeric provenance bypass text redaction.
+        record
+            .as_object_mut()
+            .unwrap()
+            .extend(identity_fields.as_object().unwrap().clone());
+        let kind = record["role"].as_str().unwrap();
+        let title: String = record["body"]
+            .as_str()
+            .unwrap()
+            .lines()
+            .next()
+            .unwrap_or("")
+            .chars()
+            .take(120)
+            .collect();
+        record["title"] = json!(format!("{kind}: {title}"));
+        let mut encoded = serde_json::to_vec(&record)?;
+        encoded.push(b'\n');
+        self.written += encoded.len() as u64;
+        ensure!(
+            self.written <= MAX_INPUT_BYTES,
+            "session export exceeds 512 MiB; use a smaller transcript"
+        );
+        self.staging.write_all(&encoded)?;
+        self.hash.update(&encoded);
+        summary.records += 1;
+        Ok(())
+    }
+
+    fn publish(self, output: &Path, summary: &mut ImportSummary) -> Result<()> {
+        let Self {
+            mut staging, hash, ..
+        } = self;
+        summary.output_sha256 = format!("{:x}", hash.finalize());
+        staging.as_file_mut().sync_all()?;
+        publish(staging, output)
+    }
+}
+
+fn import_session(input: &Path, output: &Path, format: SessionFormat) -> Result<ImportSummary> {
+    ensure_new_output(output)?;
     let mut options = fs::OpenOptions::new();
     options.read(true);
     #[cfg(unix)]
@@ -305,16 +392,7 @@ fn import_session(input: &Path, output: &Path, format: SessionFormat) -> Result<
         .file_name()
         .and_then(|s| s.to_str())
         .context("session input filename must be UTF-8")?;
-    let parent = output
-        .parent()
-        .filter(|p| !p.as_os_str().is_empty())
-        .unwrap_or(Path::new("."));
-    let mut staging = tempfile::Builder::new()
-        .prefix(".xerj-session-")
-        .suffix(".tmp")
-        .tempfile_in(parent)
-        .context("cannot create private export staging file; output parent must exist")?;
-    let redactor = PiiRedactionPlugin::new(Vec::new());
+    let mut export = Export::create(output)?;
     let mut summary = ImportSummary {
         schema_version: 1,
         records: 0,
@@ -325,11 +403,9 @@ fn import_session(input: &Path, output: &Path, format: SessionFormat) -> Result<
         output_sha256: String::new(),
     };
     let mut source_hash = Sha256::new();
-    let mut output_hash = Sha256::new();
     let mut reader = BufReader::new((&file).take(before.len() + 1));
     let mut bytes = Vec::new();
     let mut read = 0;
-    let mut written = 0u64;
     let mut session: Option<String> = None;
     let mut seen = HashSet::new();
     let mut codex = codex::CodexState::default();
@@ -370,43 +446,9 @@ fn import_session(input: &Path, output: &Path, format: SessionFormat) -> Result<
                 codex.turn(&entry, line, offset, source_file, &bytes, &mut summary)?
             }
         };
-        let Some(ParsedTurn {
-            text_fields: mut record,
-            identity_fields,
-        }) = parsed
-        else {
-            continue;
-        };
-        ensure!(
-            redactor.process(&mut record) == ProcessAction::Pass,
-            "PII redaction refused session record"
-        );
-        // Only validated enums/IDs and numeric provenance bypass text redaction.
-        record
-            .as_object_mut()
-            .unwrap()
-            .extend(identity_fields.as_object().unwrap().clone());
-        let kind = record["role"].as_str().unwrap();
-        let title: String = record["body"]
-            .as_str()
-            .unwrap()
-            .lines()
-            .next()
-            .unwrap_or("")
-            .chars()
-            .take(120)
-            .collect();
-        record["title"] = json!(format!("{kind}: {title}"));
-        let mut encoded = serde_json::to_vec(&record)?;
-        encoded.push(b'\n');
-        written += encoded.len() as u64;
-        ensure!(
-            written <= MAX_INPUT_BYTES,
-            "session export exceeds 512 MiB; use a smaller transcript"
-        );
-        staging.write_all(&encoded)?;
-        output_hash.update(&encoded);
-        summary.records += 1;
+        if let Some(turn) = parsed {
+            export.push(turn, &mut summary)?;
+        }
     }
     ensure!(
         summary.records > 0,
@@ -414,9 +456,7 @@ fn import_session(input: &Path, output: &Path, format: SessionFormat) -> Result<
     );
     unchanged(&file, &before, input, read)?;
     summary.source_sha256 = format!("{:x}", source_hash.finalize());
-    summary.output_sha256 = format!("{:x}", output_hash.finalize());
-    staging.as_file_mut().sync_all()?;
-    publish(staging, output)?;
+    export.publish(output, &mut summary)?;
     Ok(summary)
 }
 
@@ -428,7 +468,8 @@ pub fn run_cli(args: &[String]) -> i32 {
         print!("{HELP}");
         return 0;
     }
-    let parsed = (|| -> Result<(PathBuf, PathBuf, SessionFormat)> {
+    type Import = fn(&Path, &Path) -> Result<ImportSummary>;
+    let parsed = (|| -> Result<(PathBuf, PathBuf, Import)> {
         ensure!(args[0] == "import", "expected sessions import");
         let mut input = None;
         let mut output = None;
@@ -448,25 +489,26 @@ pub fn run_cli(args: &[String]) -> i32 {
                 .context("session import option requires a value")?;
             *slot = Some(value.clone());
         }
-        let format = match format.as_deref() {
-            Some("claude-code") => SessionFormat::ClaudeCode,
-            Some("codex") => SessionFormat::Codex,
-            _ => bail!("--format claude-code or --format codex is required"),
+        let import: Import = match format.as_deref() {
+            Some("claude-code") => import_claude_code,
+            Some("codex") => import_codex,
+            Some("claude-mem") => import_claude_mem,
+            _ => bail!("--format claude-code, codex or claude-mem is required"),
         };
         Ok((
             PathBuf::from(input.context("--input is required")?),
             PathBuf::from(output.context("--output is required")?),
-            format,
+            import,
         ))
     })();
-    let (input, output, format) = match parsed {
+    let (input, output, import) = match parsed {
         Ok(paths) => paths,
         Err(error) => {
             eprintln!("error: {error}");
             return 2;
         }
     };
-    match import_session(&input, &output, format) {
+    match import(&input, &output) {
         Ok(summary) => {
             let mut stdout = std::io::stdout().lock();
             if serde_json::to_writer(&mut stdout, &summary).is_err() || writeln!(stdout).is_err() {
