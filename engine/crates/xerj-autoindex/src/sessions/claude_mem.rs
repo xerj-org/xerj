@@ -306,7 +306,10 @@ pub(super) fn import(input: &Path, output: &Path) -> Result<ImportSummary> {
     let meta = fs::metadata(input).context("cannot open claude-mem database")?;
     ensure!(meta.is_file(), "claude-mem input must be a regular file");
     // Rows not yet checkpointed live in the WAL, so it counts toward the input cap.
-    let mut wal = input.as_os_str().to_owned();
+    // SQLite names the WAL after the symlink target, so resolve the input first.
+    let mut wal = fs::canonicalize(input)
+        .context("cannot open claude-mem database")?
+        .into_os_string();
     wal.push("-wal");
     let wal_len = fs::metadata(&wal).map(|m| m.len()).unwrap_or(0);
     ensure!(
@@ -553,7 +556,10 @@ mod tests {
             .execute_batch("UPDATE observations SET facts = 'not json'")
             .unwrap();
         for (input, reason) in [
-            (&not_sqlite, "cannot read the input as a SQLite database"),
+            (
+                &not_sqlite,
+                "cannot read the input as a SQLite database; pass ~/.claude-mem/claude-mem.db: file is not a database",
+            ),
             (&pre_rename, "predates claude-mem's session ID rename"),
             (&other, "no observations table"),
             (
@@ -577,6 +583,26 @@ mod tests {
                 .count(),
             0
         );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn claude_mem_input_cap_counts_the_wal_even_through_a_symlink() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = store(dir.path());
+        // Sparse, so the test writes no real data.
+        fs::File::create(dir.path().join("claude-mem.db-wal"))
+            .unwrap()
+            .set_len(MAX_INPUT_BYTES)
+            .unwrap();
+        let link = dir.path().join("link.db");
+        std::os::unix::fs::symlink(&input, &link).unwrap();
+        let output = dir.path().join("safe.jsonl");
+        for path in [&input, &link] {
+            let error = format!("{:#}", import_claude_mem(path, &output).unwrap_err());
+            assert!(error.contains("exceeds 512 MiB"), "{error}");
+            assert!(!output.exists());
+        }
     }
 
     #[test]
