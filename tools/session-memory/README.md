@@ -26,6 +26,9 @@ Keys are never saved in configuration: `XERJ_API_KEY`, or the existing local
 admin-key discovery, supplies auth at runtime. Redirects and HTTP proxies are
 disabled for hook memory requests. A moved project needs a fresh configuration;
 existing configuration bound to another canonical project path is refused.
+Hooks also retain the absolute executable path. If an upgrade moves the binary,
+rerun `xerj init --memory --url <same-loopback-url>` from the project with the
+new binary, then restart Claude Code; owned hook groups are updated in place.
 
 ## What happens
 
@@ -63,13 +66,29 @@ the configured project; supported transcript/session UUID rules are those of
 `xerj sessions import --format claude-code`. Hook commands use quoted absolute
 binary/project paths and never interpret event data as shell commands.
 
+Imported memory excerpts and displayed briefs strip Unicode control and format
+characters (including bidi overrides, zero-width format marks and tag characters).
+This also sanitizes cached briefs written by an earlier version. Archives and
+search exports preserve the existing importer's sanitized source text.
+
 ## Failures, retention and removal
 
 Hooks always exit 0 and keep errors out of the agent session. Inspect
 `.claude/xerj-memory/status.json`, `pending/`, and `last-estimate.txt` to see
-whether the background job finished. Failed jobs remain queued; a later
-SessionStart or SessionEnd attempts another drain. Each drain considers at most
-eight jobs and checks its 90-second window between jobs. It is not a daemon.
+the most recent item attempt. `pending/` is the authority for remaining work;
+a successful latest item does not imply the whole queue is empty. Each item
+is attempted independently.
+Missing or over-16-MiB transcripts, session mismatches and corrupt queue JSON
+are moved to private `rejected/` (original queue bytes plus a `.status` reason).
+These deliveries are not retried automatically. Restore the missing source or
+correct the session input, then end that Claude Code session again to enqueue
+a new delivery; oversized transcripts require explicit manual import instead.
+Do not edit queue identities or copy rejected files back into `pending/`.
+Other failures remain queued; a later SessionStart or SessionEnd retries them. Each drain considers at most
+eight directory entries and checks its 90-second window between jobs. It is not a daemon.
+A retryable failure does not stop other entries in that batch. Each indexing
+attempt retains its dry-run estimate before the real autoindex run, under one
+60-second child deadline; large-history cost has not been measured.
 Malformed/growing transcripts, offline nodes and indexing failures keep the
 last valid export/receipt. Node publication, memory upsert and local receipt
 are separate steps: a failure may leave indexed data before a receipt is
@@ -93,7 +112,7 @@ xerj init --memory --remove
 Removal refuses a busy worker and tells you to retry, preserving the current
 settings. Its lease remains with an autoindex child if the supervisor dies.
 Once removal succeeds, stale hook commands are silent no-ops. Removal keeps
-archives, exports, pending jobs, backups, catalog/index data and memories.
+archives, exports, pending/rejected jobs, backups, catalog/index data and memories.
 Restore an edited managed hook from your private settings backup before
 removing; unrelated settings are never restored wholesale.
 

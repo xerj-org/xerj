@@ -633,6 +633,10 @@ fn read_init_flags(args: impl IntoIterator<Item = String>) -> Result<InitFlags, 
 mod memory_flag_regression {
     #[test]
     fn memory_hooks_are_an_explicit_init_opt_in() {
+        assert!(super::read_init_flags(["--remove".into()])
+            .err()
+            .unwrap()
+            .contains("--remove requires --memory"));
         let plain = super::read_init_flags(Vec::new()).unwrap();
         assert!(!plain.memory && !plain.remove);
         let result = super::read_init_flags(["--memory", "--dry-run"].map(String::from));

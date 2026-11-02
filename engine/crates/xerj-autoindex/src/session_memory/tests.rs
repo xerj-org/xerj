@@ -280,3 +280,233 @@ fn matching_unowned_or_duplicated_groups_are_never_claimed_or_removed() {
         duplicate
     );
 }
+
+#[test]
+fn review_unicode_format_controls_are_removed_at_import_and_brief_boundaries() {
+    let hostile = "safe\u{202e}\u{200b}\u{e0049}\u{2066}\u{feff}\u{ad}中文";
+    assert_eq!(clean(hostile, 200), "safe中文");
+    for cached in [false, true] {
+        let text = brief(
+            &json!({"entries":[{"id":hostile,"text":hostile}]}),
+            "sessions-test",
+            cached,
+        );
+        assert!(text.contains("safe中文"));
+        for c in [
+            '\u{202e}',
+            '\u{200b}',
+            '\u{e0049}',
+            '\u{2066}',
+            '\u{feff}',
+            '\u{ad}',
+        ] {
+            assert!(!text.contains(c), "unsafe format character {c:?}");
+        }
+    }
+}
+
+#[test]
+fn review_bad_queue_entries_do_not_prevent_later_imports() {
+    let project = project();
+    install(project.path(), false).unwrap();
+    let root = project.path().canonicalize().unwrap();
+    let mut config = config(&root).unwrap();
+    config.url = "http://127.0.0.1:0".into();
+    let directory = state(&root);
+    atomic(&directory.join("config.json"), &encode(&config).unwrap()).unwrap();
+    let pending = directory.join("pending");
+    let missing = Event {
+        session_id: "11111111-1111-4111-8111-111111111111".into(),
+        transcript_path: root.join("missing"),
+        delivery_id: "missing".into(),
+    };
+    atomic(
+        &pending.join(queue_name(&missing)),
+        &encode(&missing).unwrap(),
+    )
+    .unwrap();
+    fs::write(pending.join("corrupt.json"), b"{bad").unwrap();
+    let input = root.join("valid.jsonl");
+    fs::write(
+        &input,
+        include_bytes!("../../tests/fixtures/claude-session.jsonl"),
+    )
+    .unwrap();
+    let valid = Event {
+        session_id: "550e8400-e29b-41d4-a716-446655440000".into(),
+        transcript_path: input,
+        delivery_id: "valid".into(),
+    };
+    let oversized_path = root.join("oversized.jsonl");
+    File::create(&oversized_path)
+        .unwrap()
+        .set_len(16 * 1024 * 1024 + 1)
+        .unwrap();
+    let oversized = Event {
+        session_id: missing.session_id.clone(),
+        transcript_path: oversized_path,
+        delivery_id: "oversized".into(),
+    };
+    atomic(
+        &pending.join(queue_name(&oversized)),
+        &encode(&oversized).unwrap(),
+    )
+    .unwrap();
+    let mismatch = Event {
+        session_id: missing.session_id.clone(),
+        transcript_path: valid.transcript_path.clone(),
+        delivery_id: "mismatch".into(),
+    };
+    atomic(
+        &pending.join(queue_name(&mismatch)),
+        &encode(&mismatch).unwrap(),
+    )
+    .unwrap();
+    let valid_path = pending.join(queue_name(&valid));
+    atomic(&valid_path, &encode(&valid).unwrap()).unwrap();
+    assert!(drain(&config).is_err());
+    assert_eq!(
+        fs::read_dir(directory.join("archives")).unwrap().count(),
+        1,
+        "valid sibling was not attempted"
+    );
+    assert!(valid_path.exists());
+    assert!(!pending.join(queue_name(&missing)).exists());
+    assert!(!pending.join("corrupt.json").exists());
+    let rejected = directory.join("rejected");
+    assert_eq!(
+        fs::read_dir(&rejected)
+            .unwrap()
+            .filter(|entry| entry.as_ref().unwrap().path().extension().unwrap() == "json")
+            .count(),
+        4
+    );
+    assert_eq!(
+        fs::read(rejected.join(queue_name(&missing))).unwrap(),
+        encode(&missing).unwrap()
+    );
+    assert_eq!(fs::read(rejected.join("corrupt.json")).unwrap(), b"{bad");
+    for (name, reason) in [
+        (queue_name(&missing), "transcript missing"),
+        (queue_name(&oversized), "exceeds 16 MiB"),
+        (queue_name(&mismatch), "different session"),
+        ("corrupt.json".into(), "invalid queue JSON"),
+    ] {
+        let status: Value = serde_json::from_slice(
+            &fs::read(rejected.join(name).with_extension("status")).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(status["state"], "rejected");
+        assert!(status["reason"].as_str().unwrap().contains(reason));
+    }
+    assert_eq!(fs::read_dir(&pending).unwrap().count(), 1);
+    // Fixing a missing source does not silently revive a rejected delivery.
+    fs::write(&missing.transcript_path, b"{}").unwrap();
+    assert!(drain(&config).is_err());
+    assert_eq!(fs::read_dir(&pending).unwrap().count(), 1);
+}
+
+#[test]
+fn review_remove_dry_run_names_the_action_and_preserves_settings() {
+    let project = project();
+    install(project.path(), false).unwrap();
+    let before = fs::read(project.path().join(SETTINGS)).unwrap();
+    let output = configure(
+        project.path(),
+        "http://127.0.0.1:9200",
+        true,
+        true,
+        Path::new("/bin/xerj"),
+    )
+    .unwrap();
+    assert!(output[0].starts_with("would disable"));
+    assert_eq!(fs::read(project.path().join(SETTINGS)).unwrap(), before);
+}
+
+#[test]
+fn review_transient_failure_does_not_skip_other_retryable_sessions() {
+    let project = project();
+    install(project.path(), false).unwrap();
+    let root = project.path().canonicalize().unwrap();
+    let directory = state(&root);
+    let mut config = config(&root).unwrap();
+    config.url = "http://127.0.0.1:0".into();
+    atomic(&directory.join("config.json"), &encode(&config).unwrap()).unwrap();
+    for (name, sid) in [
+        ("first", "550e8400-e29b-41d4-a716-446655440000"),
+        ("second", "11111111-1111-4111-8111-111111111111"),
+    ] {
+        let input = root.join(format!("{name}.jsonl"));
+        let source =
+            String::from_utf8(include_bytes!("../../tests/fixtures/claude-session.jsonl").to_vec())
+                .unwrap();
+        fs::write(
+            &input,
+            source.replace("550e8400-e29b-41d4-a716-446655440000", sid),
+        )
+        .unwrap();
+        let event = Event {
+            session_id: sid.into(),
+            transcript_path: input,
+            delivery_id: name.into(),
+        };
+        atomic(
+            &directory.join("pending").join(queue_name(&event)),
+            &encode(&event).unwrap(),
+        )
+        .unwrap();
+    }
+    assert!(drain(&config).is_err());
+    assert_eq!(fs::read_dir(directory.join("archives")).unwrap().count(), 2);
+    assert_eq!(fs::read_dir(directory.join("pending")).unwrap().count(), 2);
+    assert_eq!(fs::read_dir(directory.join("receipts")).unwrap().count(), 0);
+    assert!(!directory.join("rejected").exists());
+}
+
+#[test]
+fn review_rejection_publication_failure_retains_pending_bytes_for_recovery() {
+    let project = project();
+    install(project.path(), false).unwrap();
+    let root = project.path().canonicalize().unwrap();
+    let directory = state(&root);
+    let config = config(&root).unwrap();
+    let path = directory.join("pending/corrupt.json");
+    fs::write(&path, b"{original-invalid").unwrap();
+    fs::write(directory.join("rejected"), b"foreign-blocker").unwrap();
+    assert!(drain(&config).is_err());
+    assert_eq!(fs::read(&path).unwrap(), b"{original-invalid");
+    assert_eq!(
+        fs::read(directory.join("rejected")).unwrap(),
+        b"foreign-blocker"
+    );
+    fs::remove_file(directory.join("rejected")).unwrap();
+    assert!(drain(&config).is_err());
+    assert!(!path.exists());
+    assert_eq!(
+        fs::read(directory.join("rejected/corrupt.json")).unwrap(),
+        b"{original-invalid"
+    );
+}
+
+#[test]
+fn review_moved_executable_updates_only_owned_hook_groups() {
+    let project = project();
+    install(project.path(), false).unwrap();
+    configure(
+        project.path(),
+        "http://127.0.0.1:9200",
+        false,
+        false,
+        Path::new("/new/version/xerj"),
+    )
+    .unwrap();
+    let settings: Value =
+        serde_json::from_slice(&fs::read(project.path().join(SETTINGS)).unwrap()).unwrap();
+    for event in ["SessionStart", "SessionEnd"] {
+        let groups = settings["hooks"][event].as_array().unwrap();
+        assert_eq!(groups.len(), 1);
+        let command = groups[0]["hooks"][0]["command"].as_str().unwrap();
+        assert!(command.contains("/new/version/xerj"));
+        assert!(!command.contains("/opt/xerj"));
+    }
+}

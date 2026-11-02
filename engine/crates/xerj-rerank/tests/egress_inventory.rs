@@ -86,6 +86,12 @@ const KNOWN: &[(&str, Role)] = &[
         Role::Node("**Cluster transport**"),
     ),
     ("xerj-mcp/src/lib.rs", Role::Client("`xerj mcp`")),
+    // Opt-in host hooks send redacted exports/excerpts only to the configured
+    // loopback node, with redirects and proxies disabled. No node egress added.
+    (
+        "xerj-autoindex/src/session_memory.rs",
+        Role::Client("`xerj sessions hook`"),
+    ),
     // Batch retrieval uses the same operator-selected node URL and auth as
     // `xerj mcp` (localhost:9200 by default). It sends queries to /_msearch
     // and optionally reads mappings; it adds no node-side egress path.

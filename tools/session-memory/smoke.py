@@ -57,7 +57,7 @@ def main():
             {'type': 'assistant', 'sessionId': sid, 'uuid': '550e8400-e29b-41d4-a716-446655440002',
              'message': {'role': 'assistant', 'content': [
                  {'type': 'thinking', 'thinking': 'DO_NOT_EXPORT_THINKING'},
-                 {'type': 'text', 'text': 'We chose snapshots because the journal preserves recovery.'},
+                 {'type': 'text', 'text': 'We chose snapshots because the journal preserves recovery.\u202e\u200b\U000e0049'},
                  {'type': 'tool_use', 'name': 'Edit', 'input': {'file_path': 'src/state.rs', 'new_string': 'DO_NOT_EXPORT_TOOL_INPUT'}}]}}
         ]
 
@@ -141,18 +141,49 @@ def main():
         try:
             write_rows()
             original_settings = settings.read_bytes()
+            cli('init', '--remove', expected=2)
+            assert settings.read_bytes() == original_settings and not state.exists()
             cli('init', '--memory', '--url', url, '--dry-run')
             assert settings.read_bytes() == original_settings and not state.exists()
             cli('init', '--memory', '--url', url)
             installed = settings.read_bytes()
             cli('init', '--memory', '--url', url)
             assert settings.read_bytes() == installed
+            # Versioned upgrades can move the executable. Reconfigure with the
+            # new binary, then exercise the updated installed hook commands.
+            old_binary = binary
+            binary = work / "upgraded xerj's binary"
+            old_binary.rename(binary)
+            assert not old_binary.exists()
+            cli('init', '--memory', '--url', url)
+            installed = settings.read_bytes()
+            assert 'upgraded' in installed.decode()
             config = json.loads((state / 'config.json').read_text())
             prefix, namespace = config['prefix'], config['namespace']
             print('PASS dry-run, quoted paths, install and unchanged re-install', flush=True)
             start()
+            # Poison entries must not starve a healthy host delivery. Sources
+            # and queue entries are synthetic and private to this temporary project.
+            oversized = work / 'oversized.jsonl'
+            with oversized.open('wb') as stream:
+                stream.truncate(16 * 1024 * 1024 + 1)
+            rejected_sid = '11111111-1111-4111-8111-111111111111'
+            for delivery, source in [('missing', work / 'missing.jsonl'),
+                                     ('oversized', oversized), ('mismatch', transcript)]:
+                entry = {'session_id': rejected_sid, 'delivery_id': delivery,
+                         'transcript_path': str(source)}
+                name = hashlib.sha256(rejected_sid.encode()).hexdigest() + '-' + delivery + '.json'
+                (state / 'pending' / name).write_text(json.dumps(entry))
+            (state / 'pending' / 'corrupt.json').write_text('{bad')
             hook('SessionEnd')
-            wait_for(complete, 'first import')
+            wait_for(complete, 'first import with poison siblings')
+            rejected = state / 'rejected'
+            assert len(list(rejected.glob('*.json'))) == 4
+            assert len(list(rejected.glob('*.status'))) == 4
+            assert (rejected / 'corrupt.json').read_text() == '{bad'
+            assert all(json.loads(path.read_text())['state'] == 'rejected'
+                       for path in rejected.glob('*.status'))
+            print('PASS missing/oversized/mismatched/corrupt deliveries quarantined; healthy sibling completed', flush=True)
             for line in (state / 'last-estimate.txt').read_text().splitlines():
                 if 'autoindex:' in line and ('files (' in line or 'estimated index' in line):
                     print(line, flush=True)
@@ -171,6 +202,10 @@ def main():
             text = hook('SessionStart')
             assert 'We chose snapshots' in text and 'archives/' in text and '[memory:' in text, text
             assert len(text.encode()) <= 4096 and len(text.splitlines()) <= 15
+            for c in ['\u202e', '\u200b', '\U000e0049']:
+                assert c not in text
+                assert c not in memories['entries'][0]['text']
+
             print('PASS redaction, 2 searchable records, one memory and cited SessionStart brief', flush=True)
             hook('SessionEnd')
             wait_for(complete, 'duplicate import')
@@ -188,7 +223,12 @@ def main():
             assert 'Open item: validate' in hook('SessionStart')
             print('PASS duplicate event idempotence and changed-transcript replacement (3 records, one memory)', flush=True)
             stop()
+            cache = state / 'brief.json'
+            legacy = json.loads(cache.read_text())
+            legacy['entries'][0]['text'] += '\u202e\u200b\U000e0049'
+            cache.write_text(json.dumps(legacy))
             cached = hook('SessionStart')
+            assert not any(c in cached for c in ['\u202e', '\u200b', '\U000e0049'])
             assert cached.startswith('Cached') and 'Open item: validate' in cached
             before = next((state / 'exports').glob('*.jsonl')).read_bytes()
             transcript.write_text(transcript.read_text() + '{bad-private-tail')
@@ -203,8 +243,10 @@ def main():
             assert request('/' + prefix + '-*/_count')['count'] == 3
             assert request('/_memory/' + namespace + '?size=10')['count'] == 1
             print('PASS offline cached brief, malformed-tail atomicity and retained-job recovery after restart', flush=True)
+            rejected_before = {path.name: path.read_bytes() for path in rejected.iterdir()}
             old_command = json.loads(settings.read_text())['hooks']['SessionEnd'][-1]['hooks'][0]['command']
-            cli('init', '--memory', '--remove', '--dry-run')
+            removal = cli('init', '--memory', '--remove', '--dry-run')
+            assert 'would disable' in removal.stdout
             assert settings.read_bytes() == installed
             # A completed receipt can precede lease release by a few instructions.
             def remove():
@@ -216,6 +258,7 @@ def main():
                 return False
             wait_for(remove, 'remove', 10)
             assert json.loads(settings.read_text()) == foreign
+            assert {path.name: path.read_bytes() for path in rejected.iterdir()} == rejected_before
             assert not json.loads((state / 'config.json').read_text())['enabled']
             assert len(list((state / 'archives').glob('*.jsonl'))) == 2
             assert request('/' + prefix + '-*/_count')['count'] == 3

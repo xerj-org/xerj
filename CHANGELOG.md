@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   project memory namespace, with an offline cache. `--memory --remove` removes
   only the owned hooks and retains data. Ordinary init and manual session
   import are unchanged; Codex lifecycle hooks are not included in this first version.
+  Each queued delivery is isolated: terminal input refusals are retained in a
+  private rejected queue with recovery reasons, while transient failures retry.
+  Memory excerpts and displayed briefs filter Unicode controls and format marks.
 
 - A second Claude plugin in the xerj marketplace, `xerj-knowledge`, for
   document search rather than code: a skill and `/xerj-knowledge:index` and
