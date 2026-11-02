@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-11-01T02:08Z",
     "consent_receipt": "9de406749549",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T02:08Z (receipt 9de406749549); selected commit 7e1d02863b05: \"feat: AI \u8bbe\u7f6e\u589e\u52a0 token \u4f7f\u7528\u7edf\u8ba1\". LICENSE file at pin 7e1d02863b05 detected as AGPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "7e1d02863b0524ddafd03d96f641a35ab013326b",
-     "at": "2026-11-01T02:08Z",
-     "receipt": "9de406749549"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T02:08Z (receipt 9de406749549); selected commit 7e1d02863b05: \"feat: AI \u8bbe\u7f6e\u589e\u52a0 token \u4f7f\u7528\u7edf\u8ba1\". LICENSE file at pin 7e1d02863b05 detected as AGPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

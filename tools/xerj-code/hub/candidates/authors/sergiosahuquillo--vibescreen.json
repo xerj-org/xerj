@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-26T13:54Z",
     "consent_receipt": "b3a1381fb15d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T13:54Z (receipt b3a1381fb15d); selected commit c277dc4831af: \"Update the app from the window (#4)\". LICENSE file at pin c277dc4831af detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "c277dc4831aff0d689c2b39d57b7b643748b7697",
-     "at": "2026-10-26T13:54Z",
-     "receipt": "b3a1381fb15d"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T13:54Z (receipt b3a1381fb15d); selected commit c277dc4831af: \"Update the app from the window (#4)\". LICENSE file at pin c277dc4831af detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
    }
   }
  ]

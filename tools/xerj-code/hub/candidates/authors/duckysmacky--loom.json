@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-11-02T10:44Z",
     "consent_receipt": "907e1fba974a",
-    "note": "Inclusion consented by the commit author by email at 2026-11-02T10:44Z (receipt 907e1fba974a); selected commit 9dfd34347653: \"Add poke history, with paths rolling up their inner pokes\". LICENSE file at pin 9dfd34347653 detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "9dfd343476532959d13757cf4845cb3c18d8f177",
-     "at": "2026-11-02T10:44Z",
-     "receipt": "907e1fba974a"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T10:44Z (receipt 907e1fba974a); selected commit 9dfd34347653: \"Add poke history, with paths rolling up their inner pokes\". LICENSE file at pin 9dfd34347653 detected as AGPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution."
    }
   }
  ]

@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-25T19:33Z",
     "consent_receipt": "013067eb494d",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T19:33Z (receipt 013067eb494d); selected commit 75f5653efb89: \"feat: add Windows native wheel, resident app and 0.4.0 packaging\". LICENSE file at pin 75f5653efb89 detected as AGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "75f5653efb89b30e8c845c44df6fac147289c865",
-     "at": "2026-10-25T19:33Z",
-     "receipt": "013067eb494d"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T19:33Z (receipt 013067eb494d); selected commit 75f5653efb89: \"feat: add Windows native wheel, resident app and 0.4.0 packaging\". LICENSE file at pin 75f5653efb89 detected as AGPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
    }
   }
  ]

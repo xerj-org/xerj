@@ -145,6 +145,22 @@
     "pin.sha": "744680f5db80f6854eabfaafbf9b6c3b810d28df",
     "pin.to": "default-branch head (owner request, #2864)"
    }
+  },
+  {
+   "corpus": "loicngr--kobo",
+   "issue": 2755,
+   "approved": "Approved by the maintainer; first applied in the author_grant cleanup push (2026-11-02).",
+   "request": "Owner (@loicngr): pin to the latest state of the repository (default branch develop) instead of the 2026-10-26 selected commit; GPL-3.0 only, no other licence grant.",
+   "manifest": {
+    "repos.0.sha": "e248486ee6a8c92d88b133e423f8775b99d8d7a0",
+    "repos.0.licence": "GPL-3.0 (LICENSE file at pin e248486ee6a8, read directly on 2026-11-02)",
+    "repos.0.review.note": "Inclusion consented by the repository owner by email at 2026-10-27T18:07Z (receipt bff64177cf4d) and extended to the whole repository at the default-branch (develop) head by the owner in #2755 (2026-11-02). LICENSE file at pin e248486ee6a8 is GPL-3.0 (read directly on 2026-11-02); used under that licence, approach-only, with attribution. The owner permits inclusion under GPL-3.0 only and gave no MIT or other licence grant (#2755)."
+   },
+   "ledger": {
+    "pin.sha": "e248486ee6a8c92d88b133e423f8775b99d8d7a0",
+    "pin.to": "default-branch (develop) head (owner request, #2755)",
+    "consent.scope": "the whole repository at the default-branch head, under the repository's licence (GPL-3.0, approach-only), with attribution (owner request #2755)"
+   }
   }
  ]
 }

@@ -16,14 +16,7 @@
     "by": "author-consent",
     "at": "2026-10-25T19:46Z",
     "consent_receipt": "32500a0d2d54",
-    "note": "Inclusion consented by the commit author by email at 2026-10-25T19:46Z (receipt 32500a0d2d54); selected commit 55ee1351a997: \"feat(i18n): switch to English default, remove Russian metadata, fix F\u2026\". LICENSE file at pin 55ee1351a997 detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution.",
-    "author_grant": {
-     "terms": "MIT",
-     "scope": "the author's own changes in the selected commit",
-     "commit": "55ee1351a9972a30b2714e85a9c8513a73696c8a",
-     "at": "2026-10-25T19:46Z",
-     "receipt": "32500a0d2d54"
-    }
+    "note": "Inclusion consented by the commit author by email at 2026-10-25T19:46Z (receipt 32500a0d2d54); selected commit 55ee1351a997: \"feat(i18n): switch to English default, remove Russian metadata, fix F\u2026\". LICENSE file at pin 55ee1351a997 detected as GPL-3.0 by the GitHub licence API on 2026-10-26; used under that licence with attribution."
    }
   }
  ]
