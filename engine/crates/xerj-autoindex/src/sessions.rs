@@ -36,6 +36,9 @@ text and tools/reasoning; uses line-and-byte-digest event IDs, no inferred paren
 or files. exec --json and external history_base are unsupported.
 Input <=512 MiB; line <=1 MiB; turn text <=256 KiB; <=100000 messages.
 Exit 0: exported, JSON summary on stdout; 2: usage; 1: import/publication error.
+
+Optional automation (Claude Code, macOS/Linux): xerj init --memory.
+Disable with xerj init --memory --remove; existing exports and node data are kept.
 ";
 
 #[derive(Debug, Serialize)]
@@ -418,6 +421,9 @@ fn import_session(input: &Path, output: &Path, format: SessionFormat) -> Result<
 }
 
 pub fn run_cli(args: &[String]) -> i32 {
+    if args.first().is_some_and(|verb| verb == "hook") {
+        return crate::session_memory::run(&args[1..]);
+    }
     if args.is_empty() || args.iter().any(|a| matches!(a.as_str(), "--help" | "-h")) {
         print!("{HELP}");
         return 0;

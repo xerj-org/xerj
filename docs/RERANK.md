@@ -406,6 +406,11 @@ the picture:
   `xerj batch-search` sends the batch's queries or identifiers to `/_msearch`
   and optionally reads index mappings at that node, with the configured API
   key when present (`--url` / `--auth` override `XERJ_URL` / `XERJ_AUTH`).
+  `xerj sessions hook` (installed only by `xerj init --memory`) sends redacted
+  transcript exports and short excerpts to its configured loopback node for
+  indexing/memory storage, and reads memories back for SessionStart. It refuses
+  remote URLs and disables redirects and proxies; it adds no node-side egress.
+  Runtime authentication is sent only to that loopback node.
   `xerj feedback --open-pr` runs your `gh` to open a GitHub pull request with
   the report it drafted; without that flag it does nothing over the network.
 
