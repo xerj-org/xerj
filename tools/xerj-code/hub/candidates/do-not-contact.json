@@ -1,0 +1,35 @@
+{
+ "_doc": "Standing requests recorded from repository owners and contributors (issue-tracked). actions: \"no-contact\" = the outreach pipeline sends them nothing further; \"no-include\" = their code is not included in the hub. validate_hub.py fails any refresh whose candidates/authors ledger row or manifest matches a no-include entry (login as repo owner or contributor, or the repository itself), so an opt-out recorded in an issue cannot be silently reverted by a regeneration. Conversation stays in the referenced issue - no further email to anyone on this list.",
+ "entries": [
+  {
+   "login": "uplg",
+   "repo": "uplg/maison",
+   "issue": 2675,
+   "actions": ["no-contact", "no-include"],
+   "request": "Do not use their code in the search engine; no further contact.",
+   "recorded": "2026-11-02"
+  },
+  {
+   "login": "simsong",
+   "also_login": "simsong-agent",
+   "issue": 2527,
+   "actions": ["no-contact", "no-include"],
+   "request": "No outreach to agents; no content included under terms other than GPL-2.0 (none is).",
+   "recorded": "2026-11-02"
+  },
+  {
+   "login": "jkittner",
+   "issue": 2752,
+   "actions": ["no-contact"],
+   "request": "No further outreach email.",
+   "recorded": "2026-11-02"
+  },
+  {
+   "login": "d-buckner",
+   "issue": 2791,
+   "actions": ["no-contact"],
+   "request": "No further outreach email; the fabricated MIT grant on their record was removed in 77e8b4305. Removal of the record itself happens on their word, in the issue.",
+   "recorded": "2026-11-02"
+  }
+ ]
+}
