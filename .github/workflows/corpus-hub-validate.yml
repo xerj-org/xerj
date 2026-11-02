@@ -28,6 +28,14 @@ jobs:
           python-version: "3.12"
       - name: Validate hub manifests and pack recipes
         run: python3 tools/xerj-code/hub/validate_hub.py
+      - name: Owner overrides tests
+        run: python3 tools/xerj-code/hub/candidates/test_owner_overrides.py
+      - name: Owner-approved changes still applied
+        # The outreach pipeline regenerates candidates/authors/ on every
+        # refresh; a refresh that reverts an approved owner request
+        # (candidates/owner-overrides.json) fails here. Fix the refresh
+        # branch with: python3 tools/xerj-code/hub/candidates/owner_overrides.py
+        run: python3 tools/xerj-code/hub/candidates/owner_overrides.py --check
       - name: No binaries in the registry
         run: |
           # Recipes and manifests only: anything large committed under the
