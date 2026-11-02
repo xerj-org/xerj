@@ -8,15 +8,15 @@
   {
    "repo": "Professional-Vibe-Checker",
    "url": "https://github.com/GoogGod/Professional-Vibe-Checker",
-   "sha": "2e5fb409d048413e85d0bd84a03892a27e75127c",
-   "licence": "Unlicense (LICENSE file at pin 2e5fb409d048, GitHub licence API 2026-11-01)",
+   "sha": "96aa58f50640dff26f4825112848c63f7f3b68e9",
+   "licence": "Unlicense (LICENSE file at pin 96aa58f50640, GitHub licence API 2026-11-02)",
    "review": {
     "spdx": "Unlicense",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-27T21:31Z",
     "consent_receipt": "ed716bbbea0a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-27T21:31Z (receipt ed716bbbea0a); selected commit 2e5fb409d048: \"v0.7.1: scrub internal session markers from package; rebuild dist\". LICENSE file at pin 2e5fb409d048 detected as Unlicense by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-27T21:31Z (receipt ed716bbbea0a); selected commit 96aa58f50640: \"sync win-wsl-ctf-workbench: add Windows<->WSL2 networking rules\". LICENSE file at pin 96aa58f50640 detected as Unlicense by the GitHub licence API on 2026-11-02; used under that licence with attribution."
    }
   }
  ]

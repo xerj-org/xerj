@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on cpu-scheduling, ebpf, linux queries this for how Denny-Lin/lertick implements it: Experimental Linux CPU scheduler with fully in-kernel online learning using sched_ext and eBPF (selected work: tests, src/bpf, src/shared)",
+ "domain": "an agent working on cpu-scheduling, ebpf, linux queries this for how Denny-Lin/lertick implements it: AI-powered Linux CPU scheduler built on sched_ext and eBPF (selected work: tests, src/bpf, src/shared)",
  "repos": [
   {
    "repo": "lertick",

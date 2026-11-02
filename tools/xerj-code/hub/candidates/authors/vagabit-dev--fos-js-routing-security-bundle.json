@@ -1,0 +1,23 @@
+{
+ "corpus": "vagabit-dev--fos-js-routing-security-bundle",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on PHP queries this for how vagabit-dev/fos-js-routing-security-bundle implements it: Role-filtered and security.yaml access-control-aware route exposure for FOSJsRoutingBundle (selected work: tests, src/Command, src/DependencyInjection)",
+ "repos": [
+  {
+   "repo": "fos-js-routing-security-bundle",
+   "url": "https://github.com/vagabit-dev/fos-js-routing-security-bundle",
+   "sha": "da20a975723c2fa8b9f8f46779d8e9439ab7e82f",
+   "licence": "MIT (LICENSE file at pin da20a975723c, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T00:08Z",
+    "consent_receipt": "7b3c82a2140a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T00:08Z (receipt 7b3c82a2140a); selected commit da20a975723c: \" Add command to debug exposed routes\". LICENSE file at pin da20a975723c detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

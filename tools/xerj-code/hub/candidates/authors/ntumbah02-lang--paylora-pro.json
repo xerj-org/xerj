@@ -1,0 +1,23 @@
+{
+ "corpus": "ntumbah02-lang--paylora-pro",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on fintech-api, rdc queries this for how ntumbah02-lang/Paylora-pro- implements it: Fintech RDC - Paiement mobile unifie Orange, Airtel, M-Pesa - Code haute qualite",
+ "repos": [
+  {
+   "repo": "Paylora-pro-",
+   "url": "https://github.com/ntumbah02-lang/Paylora-pro-",
+   "sha": "cc1b1290047f47cdf558147380b4c8073ab87eaa",
+   "licence": "author's permission (LICENSE at pin cc1b1290047f: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T00:03Z",
+    "consent_receipt": "4121314c27f4",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T00:03Z (receipt 4121314c27f4); pinned to the default-branch head. LICENSE at pin cc1b1290047f: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

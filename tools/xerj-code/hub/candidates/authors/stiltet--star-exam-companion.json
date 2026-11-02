@@ -1,0 +1,23 @@
+{
+ "corpus": "stiltet--star-exam-companion",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on TypeScript queries this for how stiltet/star-exam-companion implements it: Star Exam Companion is a study app created by Stellan Lindell for the Google Cloud Generative AI Leader exam. It offers a voice quiz, practi (selected work: quiz, scripts)",
+ "repos": [
+  {
+   "repo": "star-exam-companion",
+   "url": "https://github.com/stiltet/star-exam-companion",
+   "sha": "1fb44b61a3a68b2ef28501c4b16cbca018f398e3",
+   "licence": "MIT (LICENSE file at pin 1fb44b61a3a6, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T22:47Z",
+    "consent_receipt": "a419e9303a50",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T22:47Z (receipt a419e9303a50); selected commit 1fb44b61a3a6: \"feat(quiz): offer to add the quiz to the home screen on phones and ta\u2026\". LICENSE file at pin 1fb44b61a3a6 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

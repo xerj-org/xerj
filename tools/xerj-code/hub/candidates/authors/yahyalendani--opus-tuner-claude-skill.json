@@ -8,15 +8,15 @@
   {
    "repo": "opus-tuner-claude-skill",
    "url": "https://github.com/YahyaLendani/opus-tuner-claude-skill",
-   "sha": "2889f8a68acb4485dff0d35b0acc72078846ad9b",
-   "licence": "MIT (LICENSE file at pin 2889f8a68acb, GitHub licence API 2026-11-01)",
+   "sha": "584483cbc3026e18910142d112a4548acf80e076",
+   "licence": "MIT (LICENSE file at pin 584483cbc302, GitHub licence API 2026-11-02)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T13:08Z",
     "consent_receipt": "38f8fd21a69c",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T13:08Z (receipt 38f8fd21a69c); pinned to the default-branch head. LICENSE file at pin 2889f8a68acb detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T13:08Z (receipt 38f8fd21a69c); pinned to the default-branch head. LICENSE file at pin 584483cbc302 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
    }
   }
  ]

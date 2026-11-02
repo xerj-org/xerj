@@ -8,15 +8,15 @@
   {
    "repo": "termux-sync",
    "url": "https://github.com/djunekz/termux-sync",
-   "sha": "ff93c38a6302ee48de12c2f127ef1e95978edbb8",
-   "licence": "MIT (LICENSE file at pin ff93c38a6302, GitHub licence API 2026-10-30)",
+   "sha": "531595f7ef1c945e54b5c50df9c640af637f4eaa",
+   "licence": "MIT (LICENSE file at pin 531595f7ef1c, GitHub licence API 2026-11-02)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-29T04:34Z",
     "consent_receipt": "abd0dbe0ad64",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T04:34Z (receipt abd0dbe0ad64); pinned to the default-branch head. LICENSE file at pin ff93c38a6302 detected as MIT by the GitHub licence API on 2026-10-30; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-29T04:34Z (receipt abd0dbe0ad64); pinned to the default-branch head. LICENSE file at pin 531595f7ef1c detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
    }
   }
  ]

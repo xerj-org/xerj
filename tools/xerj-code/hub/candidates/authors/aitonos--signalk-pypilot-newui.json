@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on TypeScript queries this for how Aitonos/signalk-pypilot-newui implements it: PyPilot New-UI + SK Paths - modern touch-first webapp for pypilot autopilot plus every pypilot value (gains, servo, calibration, tack, warni (selected work: src, src/test, public)",
+ "domain": "an agent working on JavaScript queries this for how Aitonos/signalk-pypilot-newui implements it: PyPilot New-UI + SK Paths - modern touch-first webapp for pypilot autopilot plus every pypilot value (gains, servo, calibration, tack, warni (selected work: src, src/test, public)",
  "repos": [
   {
    "repo": "signalk-pypilot-newui",

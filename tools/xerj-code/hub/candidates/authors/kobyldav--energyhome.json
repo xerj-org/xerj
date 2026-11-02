@@ -1,0 +1,23 @@
+{
+ "corpus": "kobyldav--energyhome",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Python queries this for how kobyldav/EnergyHome implements it: Local Python web app for tracking household electricity, gas, hot and cold water, heating, meter readings, tariffs, advances, and energy cos (selected work: static, energy_app, tests)",
+ "repos": [
+  {
+   "repo": "EnergyHome",
+   "url": "https://github.com/kobyldav/EnergyHome",
+   "sha": "fa12c89ac2b1a907132bc113531c8c80c34f2c53",
+   "licence": "MIT (LICENSE file at pin fa12c89ac2b1, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T23:19Z",
+    "consent_receipt": "3e2ac1d4a077",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T23:19Z (receipt 3e2ac1d4a077); selected commit fa12c89ac2b1: \"feat: unified real monthly consumption and reliable free GitHub sync\". LICENSE file at pin fa12c89ac2b1 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

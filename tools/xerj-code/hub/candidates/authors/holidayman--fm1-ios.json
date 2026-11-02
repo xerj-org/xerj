@@ -1,0 +1,23 @@
+{
+ "corpus": "holidayman--fm1-ios",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Swift queries this for how HolidayMan/fm1-ios implements it: Unofficial native iOS FM-1 synthesizer with a hybrid SLOOP and interpreter engine (selected work: Core/src, App, FM1UITests)",
+ "repos": [
+  {
+   "repo": "fm1-ios",
+   "url": "https://github.com/HolidayMan/fm1-ios",
+   "sha": "95293f9d22775fa916173fa4dcc8fe4336201eae",
+   "licence": "GPL-3.0 (LICENSE file at pin 95293f9d2277, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "GPL-3.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T23:14Z",
+    "consent_receipt": "4c098c7b0e68",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T23:14Z (receipt 4c098c7b0e68); selected commit 95293f9d2277: \"Fix lower-edge touches and separate firmware lights from pressed keys\". LICENSE file at pin 95293f9d2277 detected as GPL-3.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution. Pinned to head 95293f9d2277 (contains the selected commit): the LICENSE at the selected commit was NONE."
+   }
+  }
+ ]
+}

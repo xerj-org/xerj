@@ -8,15 +8,15 @@
   {
    "repo": "llm-shared",
    "url": "https://github.com/VonC/llm-shared",
-   "sha": "cdead4530cf413839270d631b4c4ec0f95e9d7f7",
-   "licence": "MIT (LICENSE file at pin cdead4530cf4, GitHub licence API 2026-11-01)",
+   "sha": "339b8ae87d427f227468acac6d87f70612cbeafc",
+   "licence": "MIT (LICENSE file at pin 339b8ae87d42, GitHub licence API 2026-11-02)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-26T13:51Z",
     "consent_receipt": "76a8e4e12def",
-    "note": "Inclusion consented by the commit author by email at 2026-10-26T13:51Z (receipt 76a8e4e12def); selected commit cdead4530cf4: \"docs(ghog): explain affected selection threshold\". LICENSE file at pin cdead4530cf4 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the commit author by email at 2026-10-26T13:51Z (receipt 76a8e4e12def); selected commit 339b8ae87d42: \"docs(review-resume): mark Override criterion superseded\". LICENSE file at pin 339b8ae87d42 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
    }
   }
  ]

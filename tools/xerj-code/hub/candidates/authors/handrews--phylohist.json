@@ -1,9 +1,9 @@
 {
- "corpus": "handrews--phylogenetics",
+ "corpus": "handrews--phylohist",
  "cloned_at": null,
  "status": "draft",
  "shelf": "API",
- "domain": "an agent working on Python queries this for how handrews/phylogenetics implements it: handrews/phylogenetics (Python) (selected work: claims, data)",
+ "domain": "an agent working on Python queries this for how handrews/phylohist implements it: handrews/phylohist (Python) (selected work: claims, data)",
  "repos": [
   {
    "repo": "phylogenetics",
