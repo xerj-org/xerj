@@ -218,3 +218,6 @@ scripts/seo/evidence/
 # (plugins/<name>/skills/<skill>/SKILL.md, plugins/<name>/commands/*.md).
 !plugins/*/skills/**/*.md
 !plugins/*/commands/*.md
+
+# Advisory hook documentation and reproducible verification (#2642).
+!tools/search-hints/*.md

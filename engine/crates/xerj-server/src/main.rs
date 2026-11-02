@@ -3120,6 +3120,12 @@ fn main() -> Result<()> {
         let rt = build_runtime(2)?;
         std::process::exit(rt.block_on(xerj_mcp::run_batch_cli(&args)));
     }
+    if matches!(xerj_common::argv::subcommand().as_deref(), Some("init")) {
+        let args = xerj_common::argv::args_after_subcommand();
+        if args.first().is_some_and(|a| a == "hook") {
+            std::process::exit(xerj_autoindex::search_hints::run(&args[1..]));
+        }
+    }
     if matches!(xerj_common::argv::subcommand().as_deref(), Some("sessions")) {
         let args = xerj_common::argv::args_after_subcommand();
         std::process::exit(xerj_autoindex::sessions::run_cli(&args));

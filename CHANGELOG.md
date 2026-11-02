@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Opt-in advisory Claude Code search hints with `xerj init --hooks` on macOS/Linux
+  (Refs #2642): Grep/Glob and repeated Read can suggest a cited search scoped to
+  the indexed folder and configured loopback node, with a per-session quota.
+  `--hooks --remove` preserves other hooks and session memory.
+
 - Opt-in Claude Code session handoff with `xerj init --memory` on macOS/Linux
   (Refs #2645). SessionEnd queues a background redacting import and lexical
   autoindex; SessionStart returns bounded, cited historical excerpts from a
