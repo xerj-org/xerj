@@ -111,6 +111,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `xerj autoindex` now records Dart `extension` and `extension type`
+  declarations as `class` definitions, so `xerj def <ExtensionName>` finds
+  them. Methods inside an extension were already indexed; the extension's own
+  name was not, because the Dart query adapted from tree-sitter-dart's
+  `tags.scm` had dropped both forms.
+
 - The field-report HTTP fallback now enforces its 16 KiB body limit on raw
   bytes before decoding or storage access. Multibyte JSON without a reliable
   `Content-Length` no longer bypasses the limit by having fewer characters.
