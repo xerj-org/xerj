@@ -1,0 +1,23 @@
+{
+ "corpus": "kanutocd--pgoutput-source-adapter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cdc, change-data-capture, event-driven queries this for how kanutocd/pgoutput-source-adapter implements it: Normalize decoded pgoutput events into downstream change-event platforms",
+ "repos": [
+  {
+   "repo": "pgoutput-source-adapter",
+   "url": "https://github.com/kanutocd/pgoutput-source-adapter",
+   "sha": "36d0de6dbd847505bb46a03a9bfde978f5863d66",
+   "licence": "MIT (LICENSE file at pin 36d0de6dbd84, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T01:18Z",
+    "consent_receipt": "547d8563cb9f",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T01:18Z (receipt 547d8563cb9f); pinned to the default-branch head. LICENSE file at pin 36d0de6dbd84 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

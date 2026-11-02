@@ -1,0 +1,23 @@
+{
+ "corpus": "kanutocd--pgoutput-client",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on cdc, change-data-capture, event-streaming queries this for how kanutocd/pgoutput-client implements it: Transport-only PostgreSQL logical replication client for receiving pgoutput CopyData payloads",
+ "repos": [
+  {
+   "repo": "pgoutput-client",
+   "url": "https://github.com/kanutocd/pgoutput-client",
+   "sha": "3db2d2a118bce2d60cdfb16f7cc2ed81b94a4e31",
+   "licence": "MIT (LICENSE file at pin 3db2d2a118bc, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T01:18Z",
+    "consent_receipt": "7323e0aba2cd",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T01:18Z (receipt 7323e0aba2cd); pinned to the default-branch head. LICENSE file at pin 3db2d2a118bc detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

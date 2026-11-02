@@ -1,0 +1,23 @@
+{
+ "corpus": "kanutocd--pgoutput-parser",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on binary-parser, cdc, change-data-capture queries this for how kanutocd/pgoutput-parser implements it: A pure Ruby parser for PostgreSQL pgoutput logical replication CopyData payloads",
+ "repos": [
+  {
+   "repo": "pgoutput-parser",
+   "url": "https://github.com/kanutocd/pgoutput-parser",
+   "sha": "a8e0fd1daee2480a58c73a0d4a565e63b678a975",
+   "licence": "MIT (LICENSE file at pin a8e0fd1daee2, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T01:18Z",
+    "consent_receipt": "6ec178a1558e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T01:18Z (receipt 6ec178a1558e); pinned to the default-branch head. LICENSE file at pin a8e0fd1daee2 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -2,8 +2,8 @@
  "corpus": "handrews--phylohist",
  "cloned_at": null,
  "status": "draft",
- "shelf": "API",
- "domain": "an agent working on Python queries this for how handrews/phylohist implements it: handrews/phylohist (Python) (selected work: claims, data)",
+ "shelf": "DB",
+ "domain": "an agent working on data-curation, human-in-the-loop, local-first queries this for how handrews/phylohist implements it: A CLI and MCP-compatible query engine and curated flat-file YAML database tracking historical, literature-based phylogenetic trees over time (selected work: claims, data)",
  "repos": [
   {
    "repo": "phylogenetics",

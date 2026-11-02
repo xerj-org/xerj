@@ -1,0 +1,23 @@
+{
+ "corpus": "koczalski--cameraprofilestudio",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how Koczalski/CameraProfileStudio implements it: LUT creation tools for photography enthusiasts (selected work: licenses, the project root)",
+ "repos": [
+  {
+   "repo": "CameraProfileStudio",
+   "url": "https://github.com/Koczalski/CameraProfileStudio",
+   "sha": "5c52e929936f6a84bc396d2267b3ffedcbe08e7e",
+   "licence": "MIT (LICENSE file at pin 5c52e929936f, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T01:02Z",
+    "consent_receipt": "3257c2bf09e7",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T01:02Z (receipt 3257c2bf09e7); selected commit 5c52e929936f: \"Add project files\". LICENSE file at pin 5c52e929936f detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

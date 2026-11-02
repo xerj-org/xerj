@@ -1,0 +1,23 @@
+{
+ "corpus": "kanutocd--cdc-concurrent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on async, cdc, change-data-capture queries this for how kanutocd/cdc-concurrent implements it: Provides optional Async-backed I/O-concurrent execution for cdc-core. It accelerates I/O-bound Change Data Capture (CDC) event processing wh",
+ "repos": [
+  {
+   "repo": "cdc-concurrent",
+   "url": "https://github.com/kanutocd/cdc-concurrent",
+   "sha": "38e5a9eff96cd683d9723f86239ead5ce8e189d5",
+   "licence": "MIT (LICENSE file at pin 38e5a9eff96c, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T01:18Z",
+    "consent_receipt": "ca72a710bce3",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T01:18Z (receipt ca72a710bce3); pinned to the default-branch head. LICENSE file at pin 38e5a9eff96c detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "shaohushuo--harmony-ui",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on Dart queries this for how shaohushuo/harmony_ui implements it: HarmonyOS Design for Flutter (selected work: example)",
+ "repos": [
+  {
+   "repo": "harmony_ui",
+   "url": "https://github.com/shaohushuo/harmony_ui",
+   "sha": "a6b5294979524fd24b54bb64ebfb8bab4550a831",
+   "licence": "MIT (LICENSE file at pin a6b529497952, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T01:56Z",
+    "consent_receipt": "b88d78bb83f9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T01:56Z (receipt b88d78bb83f9); selected commit a6b529497952: \"feat(example): \u9876\u680f\u4e3b\u9898\u5207\u6362\uff0c\u4e09\u6863\u5728\u9875\u5185\u5373\u53ef\u5bf9\u6bd4\". LICENSE file at pin a6b529497952 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

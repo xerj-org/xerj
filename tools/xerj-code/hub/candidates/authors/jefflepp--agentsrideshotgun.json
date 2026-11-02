@@ -1,0 +1,23 @@
+{
+ "corpus": "jefflepp--agentsrideshotgun",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, virtual-desktop, windows queries this for how JeffLepp/AgentsRideShotgun implements it: Give your AI agents a Windows desktop of their own, so they never take your mouse, keyboard or screen (selected work: engine, engine-probe, app)",
+ "repos": [
+  {
+   "repo": "AgentsRideShotgun",
+   "url": "https://github.com/JeffLepp/AgentsRideShotgun",
+   "sha": "ace83f06395ceb2703fbc70cabe8c93e187ac431",
+   "licence": "MIT (LICENSE file at pin ace83f06395c, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T01:08Z",
+    "consent_receipt": "2826b9d0ab1b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T01:08Z (receipt 2826b9d0ab1b); selected commit ace83f06395c: \"respect agents removed outside ars, clean up every ars entry on unins\u2026\". LICENSE file at pin ace83f06395c detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}
