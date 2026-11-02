@@ -1,0 +1,23 @@
+{
+ "corpus": "nhartman000--g8son",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on code queries this for how nhartman000/g8son implements it: Deterministic gate-based decision protocol for AI systems. Sequential + logical execution with audit trails and human accountability",
+ "repos": [
+  {
+   "repo": "g8son",
+   "url": "https://github.com/nhartman000/g8son",
+   "sha": "ecb193d90189c8bfdb2d0e7cebb00432a1d0e260",
+   "licence": "MIT (LICENSE file at pin ecb193d90189, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T12:50Z",
+    "consent_receipt": "f83e7fac5862",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T12:50Z (receipt f83e7fac5862); pinned to the default-branch head. LICENSE file at pin ecb193d90189 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

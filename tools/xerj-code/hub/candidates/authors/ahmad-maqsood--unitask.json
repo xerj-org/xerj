@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on assignments, reminders-app, university queries this for how ahmad-maqsood/unitask implements it: UniTask is an offline-first Android app designed for university students to manage academic life effortlessly. Keep track of assignments and (selected work: app/src, java)",
+ "domain": "an agent working on assignments, reminders-app, university queries this for how ahmad-maqsood/unitask implements it: Offline-first Android app for university students: track assignments and deadlines, organize courses and timetables, and collaborate in stud (selected work: app/src, java)",
  "repos": [
   {
    "repo": "unitask",

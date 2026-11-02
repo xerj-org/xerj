@@ -1,0 +1,23 @@
+{
+ "corpus": "asif-r-porosh--leandc",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, mcp, mcp-server queries this for how asif-r-porosh/leandc implements it: Claude Chat's remote dev kit: a lean, token-efficient MCP server (run, job, read, write, edit) (selected work: bench)",
+ "repos": [
+  {
+   "repo": "leandc",
+   "url": "https://github.com/asif-r-porosh/leandc",
+   "sha": "a7ca762fd53b32f7ccf1b82317556a427b465738",
+   "licence": "MIT (LICENSE file at pin a7ca762fd53b, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T07:35Z",
+    "consent_receipt": "6adfbe56a539",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T07:35Z (receipt 6adfbe56a539); selected commit a7ca762fd53b: \"Bench harness: fix and extend for the 99-run benchmark\". LICENSE file at pin a7ca762fd53b detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

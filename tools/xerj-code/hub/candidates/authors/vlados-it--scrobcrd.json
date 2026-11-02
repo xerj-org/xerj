@@ -1,0 +1,23 @@
+{
+ "corpus": "vlados-it--scrobcrd",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on github, github-pages, javascript queries this for how VLADos-IT/scrobcrd implements it: Widget GitHub README cards or sites to display your latest scrobbles (selected work: lib/providers, lib, lib/templates)",
+ "repos": [
+  {
+   "repo": "scrobcrd",
+   "url": "https://github.com/VLADos-IT/scrobcrd",
+   "sha": "743db72f04fa23d0e4ee638f8e45e93fca53a664",
+   "licence": "MIT (LICENSE file at pin 743db72f04fa, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T14:35Z",
+    "consent_receipt": "bc06b7efe20a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T14:35Z (receipt bc06b7efe20a); selected commit 743db72f04fa: \"refactor: improve providers, caching and cover handling\". LICENSE file at pin 743db72f04fa detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

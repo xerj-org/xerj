@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Java queries this for how KirstenAli/DeepJ implements it: A lightweight Java transformer library for building and training language models based on GPT, Llama, and DeepSeek architectures (selected work: src/main, the project root)",
+ "domain": "an agent working on Java queries this for how KirstenAli/DeepJ implements it: A lightweight Java deep learning library for building, training, and running neural networks, with optional Apple Metal acceleration (selected work: src/main, the project root)",
  "repos": [
   {
    "repo": "DeepJ",

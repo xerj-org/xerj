@@ -1,0 +1,30 @@
+{
+ "corpus": "danilofalcao--owa-bridge",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on JavaScript queries this for how danilofalcao/owa-bridge implements it: Your Outlook mail and calendars, at home in Thunderbird (selected work: extension, tests, scripts)",
+ "repos": [
+  {
+   "repo": "owa-bridge",
+   "url": "https://github.com/danilofalcao/owa-bridge",
+   "sha": "0ec9ecb9b7526d1b027994fdfe1c11e7c27213c8",
+   "licence": "MPL-2.0 (LICENSE file at pin 0ec9ecb9b752, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MPL-2.0",
+    "use": "approach-only",
+    "by": "author-consent",
+    "at": "2026-11-01T23:52Z",
+    "consent_receipt": "e53226d9fe6f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T23:52Z (receipt e53226d9fe6f); selected commit 0ec9ecb9b752: \"OWA Bridge 0.2.19\". LICENSE file at pin 0ec9ecb9b752 detected as MPL-2.0 by the GitHub licence API on 2026-11-02; used under that licence with attribution.",
+    "author_grant": {
+     "terms": "MIT",
+     "scope": "the author's own changes in the selected commit",
+     "commit": "0ec9ecb9b7526d1b027994fdfe1c11e7c27213c8",
+     "at": "2026-11-01T23:52Z",
+     "receipt": "e53226d9fe6f"
+    }
+   }
+  }
+ ]
+}

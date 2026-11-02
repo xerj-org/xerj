@@ -8,15 +8,15 @@
   {
    "repo": "AiTrainer-mobile",
    "url": "https://github.com/Phsithzz/AiTrainer-mobile",
-   "sha": "924178fa83fc26fb8d6392a383eea73ca89841b3",
-   "licence": "MIT (LICENSE file at pin 924178fa83fc, GitHub licence API 2026-11-01)",
+   "sha": "1f84682055308ea0275338dde9e293b0c212f67c",
+   "licence": "MIT (LICENSE file at pin 1f8468205530, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T05:59Z",
     "consent_receipt": "2ca1ca2219d4",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T05:59Z (receipt 2ca1ca2219d4); selected commit 924178fa83fc: \"feat(exercise): implement real-time AI workout trainer with MediaPipe\u2026\". LICENSE file at pin 924178fa83fc detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 924178fa83fc (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T05:59Z (receipt 2ca1ca2219d4); selected commit 1f8468205530: \"feat(exercise): implement real-time AI workout trainer with MediaPipe\u2026\". LICENSE file at pin 1f8468205530 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 1f8468205530 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

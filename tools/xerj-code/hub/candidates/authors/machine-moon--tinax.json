@@ -1,0 +1,23 @@
+{
+ "corpus": "machine-moon--tinax",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Python queries this for how machine-moon/tinax implements it: A Standard Library for the TPU Ecosystem (selected work: tinax, tests, examples)",
+ "repos": [
+  {
+   "repo": "tinax",
+   "url": "https://github.com/machine-moon/tinax",
+   "sha": "7030ee64ac5e4cd6a80b055ffef569028b461015",
+   "licence": "author's permission (LICENSE at pin 7030ee64ac5e: NOASSERTION; repository: Apache-2.0)",
+   "review": {
+    "spdx": "NOASSERTION",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:40Z",
+    "consent_receipt": "dd4be0537ee1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T06:40Z (receipt dd4be0537ee1); selected commit 7030ee64ac5e: \"v0.2.1 - added metrics/tracking/training/plot modules\". LICENSE at pin 7030ee64ac5e: NOASSERTION (repository: Apache-2.0); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

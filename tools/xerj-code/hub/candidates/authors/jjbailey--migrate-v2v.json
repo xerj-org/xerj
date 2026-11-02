@@ -8,15 +8,15 @@
   {
    "repo": "migrate-v2v",
    "url": "https://github.com/jjbailey/migrate-v2v",
-   "sha": "d115189ddec2c2a5d903340b626fa0e30710349a",
-   "licence": "MIT (LICENSE file at pin d115189ddec2, GitHub licence API 2026-11-01)",
+   "sha": "61eb33b880c82c2f35e22f1c7affd3f99781cb40",
+   "licence": "MIT (LICENSE file at pin 61eb33b880c8, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T02:23Z",
     "consent_receipt": "9383d79138bc",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T02:23Z (receipt 9383d79138bc); pinned to the default-branch head. LICENSE file at pin d115189ddec2 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T02:23Z (receipt 9383d79138bc); pinned to the default-branch head. LICENSE file at pin 61eb33b880c8 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

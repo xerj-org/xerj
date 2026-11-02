@@ -1,0 +1,23 @@
+{
+ "corpus": "sabarishwaran-v--ffcs-mate",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how sabarishwaran-v/ffcs-mate implements it: sabarishwaran-v/ffcs-mate (HTML) (selected work: lib, scripts, src/tests)",
+ "repos": [
+  {
+   "repo": "ffcs-mate",
+   "url": "https://github.com/sabarishwaran-v/ffcs-mate",
+   "sha": "e2b7b1f8437bee3bc18f9ec221386c5410fe5c7f",
+   "licence": "MIT (LICENSE file at pin e2b7b1f8437b, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T11:30Z",
+    "consent_receipt": "611b3d8dc036",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T11:30Z (receipt 611b3d8dc036); selected commit e2b7b1f8437b: \"feat(courses): ingest faculty data for ECE2006 into Winter 2026-27 da\u2026\". LICENSE file at pin e2b7b1f8437b detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -8,15 +8,15 @@
   {
    "repo": "telegram-healthy-bot",
    "url": "https://github.com/antongrizli/telegram-healthy-bot",
-   "sha": "7b932cb4df4711447a5cc1e736f19d3b3e4624bd",
-   "licence": "MIT (LICENSE file at pin 7b932cb4df47, GitHub licence API 2026-11-01)",
+   "sha": "622e50acbb0bd10fe2769873b77bfc12ece7ce64",
+   "licence": "MIT (LICENSE file at pin 622e50acbb0b, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-10-30T21:47Z",
     "consent_receipt": "2e2447824aeb",
-    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:47Z (receipt 2e2447824aeb); pinned to the default-branch head. LICENSE file at pin 7b932cb4df47 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-10-30T21:47Z (receipt 2e2447824aeb); pinned to the default-branch head. LICENSE file at pin 622e50acbb0b detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
    }
   }
  ]

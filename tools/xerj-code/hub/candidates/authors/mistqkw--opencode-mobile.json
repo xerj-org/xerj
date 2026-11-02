@@ -8,15 +8,15 @@
   {
    "repo": "opencode-mobile",
    "url": "https://github.com/mistqkw/opencode-mobile",
-   "sha": "14a6487b16994b0b2368c5368004db0958fb4fcb",
-   "licence": "MIT (LICENSE file at pin 14a6487b1699, GitHub licence API 2026-11-01)",
+   "sha": "bbcea61d06d6f84fa4900851ef543e32839afe1c",
+   "licence": "MIT (LICENSE file at pin bbcea61d06d6, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "MIT",
     "use": "adapt-with-attribution",
     "by": "author-consent",
     "at": "2026-11-01T00:13Z",
     "consent_receipt": "e79e11d91c76",
-    "note": "Inclusion consented by the commit author by email at 2026-11-01T00:13Z (receipt e79e11d91c76); selected commit 14a6487b1699: \"Editions (Claude / OpenCode Terminal / OpenCode Desktop), wordmark ea\u2026\". LICENSE file at pin 14a6487b1699 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head 14a6487b1699 (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T00:13Z (receipt e79e11d91c76); selected commit bbcea61d06d6: \"Editions (Claude / OpenCode Terminal / OpenCode Desktop), wordmark ea\u2026\". LICENSE file at pin bbcea61d06d6 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head bbcea61d06d6 (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

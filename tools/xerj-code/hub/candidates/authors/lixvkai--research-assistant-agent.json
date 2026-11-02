@@ -1,0 +1,23 @@
+{
+ "corpus": "lixvkai--research-assistant-agent",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how lixvkai/Research-Assistant-Agent implements it: ReAct + RAG + Multi-Agent research assistant powered by DeepSeek (selected work: rag, tests, evaluation)",
+ "repos": [
+  {
+   "repo": "Research-Assistant-Agent",
+   "url": "https://github.com/lixvkai/Research-Assistant-Agent",
+   "sha": "444a40fb02dda36c3106a22cecee10ab66799fdb",
+   "licence": "MIT (LICENSE file at pin 444a40fb02dd, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T02:13Z",
+    "consent_receipt": "8bfb81506154",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T02:13Z (receipt 8bfb81506154); selected commit 444a40fb02dd: \"\u6df7\u5408\u53ec\u56de\". LICENSE file at pin 444a40fb02dd detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

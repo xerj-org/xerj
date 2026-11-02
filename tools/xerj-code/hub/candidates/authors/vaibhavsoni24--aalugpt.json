@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--aalugpt",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how VaibhavSoni24/AaluGPT implements it: VaibhavSoni24/AaluGPT (Python)",
+ "repos": [
+  {
+   "repo": "AaluGPT",
+   "url": "https://github.com/VaibhavSoni24/AaluGPT",
+   "sha": "68dbe4f880dbc5912849b4f0af7bbb2e56964d63",
+   "licence": "author's permission (LICENSE at pin 68dbe4f880db: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "9bc1a3c09acb",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 9bc1a3c09acb); pinned to the default-branch head. LICENSE at pin 68dbe4f880db: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

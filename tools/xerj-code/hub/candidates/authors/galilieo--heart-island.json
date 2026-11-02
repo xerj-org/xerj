@@ -1,0 +1,23 @@
+{
+ "corpus": "galilieo--heart-island",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai, community, full-stack queries this for how Galilieo/heart-island implements it: \u57fa\u4e8e Spring Boot\u3001Vue 3 \u4e0e MySQL \u7684 AI \u60c5\u7eea\u8bb0\u5f55\u548c\u533f\u540d\u4e92\u52a9\u793e\u533a\uff0c\u652f\u6301 JWT \u767b\u5f55\u3001AI \u966a\u4f34\u56de\u590d\u3001\u53d1\u5e16\u4e92\u52a8\u3001\u540e\u53f0\u5185\u5bb9\u6cbb\u7406\u53ca AI \u8c03\u7528\u8bb0\u5f55\u3002 (selected work: xinyu-backend, xinyu-vue)",
+ "repos": [
+  {
+   "repo": "heart-island",
+   "url": "https://github.com/Galilieo/heart-island",
+   "sha": "060a0422ab08b0e690940b7a0bbbd3e61dc1a0af",
+   "licence": "MIT (LICENSE file at pin 060a0422ab08, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T05:33Z",
+    "consent_receipt": "29df1fe3bf52",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T05:33Z (receipt 29df1fe3bf52); selected commit 060a0422ab08: \"fix(auth): \u7edf\u4e00\u767b\u5f55\u4e0e\u6743\u9650\u6821\u9a8c\u7684 HTTP \u72b6\u6001\u7801\". LICENSE file at pin 060a0422ab08 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "slawekradzyminski--test-secure-backend",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "SEC",
+ "domain": "an agent working on Java queries this for how slawekradzyminski/test-secure-backend implements it: slawekradzyminski/test-secure-backend (Java) (selected work: src/test, src/main)",
+ "repos": [
+  {
+   "repo": "test-secure-backend",
+   "url": "https://github.com/slawekradzyminski/test-secure-backend",
+   "sha": "0c3fb8ccadc39e074b19bbbf6e329ce15eed7c4f",
+   "licence": "MIT (LICENSE file at pin 0c3fb8ccadc3, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T15:54Z",
+    "consent_receipt": "9663e6143c91",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T15:54Z (receipt 9663e6143c91); selected commit 0c3fb8ccadc3: \"Fix GraphQL error reporting and product deletion conflicts (#73) [ski\u2026\". LICENSE file at pin 0c3fb8ccadc3 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

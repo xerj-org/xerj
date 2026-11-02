@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--homehandoff",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how VaibhavSoni24/HomeHandoff implements it: VaibhavSoni24/HomeHandoff (TypeScript)",
+ "repos": [
+  {
+   "repo": "HomeHandoff",
+   "url": "https://github.com/VaibhavSoni24/HomeHandoff",
+   "sha": "9da17f9e60c948f73aa21cb0485afde0ef37fd6b",
+   "licence": "MIT (LICENSE file at pin 9da17f9e60c9, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "84b0211a382c",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 84b0211a382c); pinned to the default-branch head. LICENSE file at pin 9da17f9e60c9 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

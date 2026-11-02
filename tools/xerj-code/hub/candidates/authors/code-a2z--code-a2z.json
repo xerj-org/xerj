@@ -1,0 +1,23 @@
+{
+ "corpus": "code-a2z--code-a2z",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on gssoc2025, hacktoberfest, hacktoberfest-accepted queries this for how code-a2z/code-a2z implements it: A collaborative platform for developers & learners to explore, build, and contribute to Web Development & AI projects. Features include AI-d (selected work: server)",
+ "repos": [
+  {
+   "repo": "code-a2z",
+   "url": "https://github.com/code-a2z/code-a2z",
+   "sha": "bcb2f47974ed3e690ec4e23586413da7f4ffdc86",
+   "licence": "MIT (LICENSE file at pin bcb2f47974ed, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T08:37Z",
+    "consent_receipt": "1491c482384f",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T08:37Z (receipt 1491c482384f); selected commit bcb2f47974ed: \"update be auth flow\". LICENSE file at pin bcb2f47974ed detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

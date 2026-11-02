@@ -1,0 +1,23 @@
+{
+ "corpus": "chandrachaan--age-calculator-flutter",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on dart, flutter, age-calculator queries this for how ChandraChaan/age-calculator-flutter implements it: A beautiful Material 3 Age Calculator built with Flutter featuring Dark Mode, Light Mode, Birthday Countdown, and accurate age calculations (selected work: lib/screens, test, lib/engine)",
+ "repos": [
+  {
+   "repo": "age-calculator-flutter",
+   "url": "https://github.com/ChandraChaan/age-calculator-flutter",
+   "sha": "040db6d5bf1b585773a694cb88a5ac3d038f64c0",
+   "licence": "MIT (LICENSE file at pin 040db6d5bf1b, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T04:11Z",
+    "consent_receipt": "639f29b0583d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T04:11Z (receipt 639f29b0583d); selected commit 040db6d5bf1b: \"feat: add life expectancy estimate\". LICENSE file at pin 040db6d5bf1b detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

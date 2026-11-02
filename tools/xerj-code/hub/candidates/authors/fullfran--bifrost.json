@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "AI",
- "domain": "an agent working on Go queries this for how FullFran/bifrost implements it: The Universal AI Coding Agent Bridge & Worktree Orchestrator",
+ "domain": "an agent working on ctx-agentes queries this for how FullFran/bifrost implements it: The Universal AI Coding Agent Bridge & Worktree Orchestrator",
  "repos": [
   {
    "repo": "bifrost",

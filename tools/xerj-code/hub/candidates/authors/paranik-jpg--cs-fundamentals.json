@@ -1,0 +1,23 @@
+{
+ "corpus": "paranik-jpg--cs-fundamentals",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "NET",
+ "domain": "an agent working on computer-science, concurrency, cpp queries this for how paranik-jpg/cs-fundamentals implements it: Hands-on empirical implementations and experiments exploring OS, Concurrency, Architecture, Networking, and Database internals",
+ "repos": [
+  {
+   "repo": "cs-fundamentals",
+   "url": "https://github.com/paranik-jpg/cs-fundamentals",
+   "sha": "736e10848c9228cd303445d345af2c87e016fe5b",
+   "licence": "MIT (LICENSE file at pin 736e10848c92, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:19Z",
+    "consent_receipt": "3d160ba5bd4a",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:19Z (receipt 3d160ba5bd4a); pinned to the default-branch head. LICENSE file at pin 736e10848c92 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

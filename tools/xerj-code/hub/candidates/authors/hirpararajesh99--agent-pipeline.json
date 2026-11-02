@@ -1,0 +1,23 @@
+{
+ "corpus": "hirpararajesh99--agent-pipeline",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-agents, automation, claude-code queries this for how hirpararajesh99/agent-pipeline implements it: Zero-dependency Node.js pipeline that guides AI coding agents through planning, implementation, QA and delivery, with Project Brain for evid (selected work: src, test, the project root)",
+ "repos": [
+  {
+   "repo": "agent-pipeline",
+   "url": "https://github.com/hirpararajesh99/agent-pipeline",
+   "sha": "a13e6161179683ca19b8f980d4da79db3e695b86",
+   "licence": "MIT (LICENSE file at pin a13e61611796, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T12:23Z",
+    "consent_receipt": "f92b75b6cf3a",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T12:23Z (receipt f92b75b6cf3a); selected commit a13e61611796: \"Add local multi-project workspace\". LICENSE file at pin a13e61611796 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

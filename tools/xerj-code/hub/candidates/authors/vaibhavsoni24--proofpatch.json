@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--proofpatch",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on Python queries this for how VaibhavSoni24/ProofPatch implements it: Autonomous AI bug fixing with reproducible tests, verified patches, and evidence-backed reports",
+ "repos": [
+  {
+   "repo": "ProofPatch",
+   "url": "https://github.com/VaibhavSoni24/ProofPatch",
+   "sha": "df4cdc9968487f3e6761e2470992f7a8282f65ad",
+   "licence": "MIT (LICENSE file at pin df4cdc996848, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "866e7edc1eac",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt 866e7edc1eac); pinned to the default-branch head. LICENSE file at pin df4cdc996848 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "dankezo--antirea",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on ai-agents, anti-scraping, browser-automation queries this for how dankezo/antiRea implements it: Open-source toolkit for web app reverse engineering and scraping risk assessment, with server-first guidance and browser benchmarks (selected work: src/tier2-active, scripts, the project root)",
+ "repos": [
+  {
+   "repo": "antiRea",
+   "url": "https://github.com/dankezo/antiRea",
+   "sha": "cb68377834e66606014219e04e72a0e24806989c",
+   "licence": "MIT (LICENSE file at pin cb68377834e6, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T12:10Z",
+    "consent_receipt": "06f8c383c095",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T12:10Z (receipt 06f8c383c095); selected commit cb68377834e6: \"antiRea v2.5.0: declared ceiling armed at declaration, coverage group\u2026\". LICENSE file at pin cb68377834e6 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

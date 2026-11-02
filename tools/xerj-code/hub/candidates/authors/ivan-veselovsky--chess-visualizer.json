@@ -1,0 +1,23 @@
+{
+ "corpus": "ivan-veselovsky--chess-visualizer",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how ivan-veselovsky/chess-visualizer implements it: ivan-veselovsky/chess-visualizer (TypeScript) (selected work: src/app, tests, src)",
+ "repos": [
+  {
+   "repo": "chess-visualizer",
+   "url": "https://github.com/ivan-veselovsky/chess-visualizer",
+   "sha": "8cdebd98d658cb82e11fb0b495a09d5bf892413c",
+   "licence": "MIT (LICENSE file at pin 8cdebd98d658, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T10:00Z",
+    "consent_receipt": "2449630f2d9b",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T10:00Z (receipt 2449630f2d9b); selected commit 8cdebd98d658: \"Phantom scrollers fought.\". LICENSE file at pin 8cdebd98d658 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

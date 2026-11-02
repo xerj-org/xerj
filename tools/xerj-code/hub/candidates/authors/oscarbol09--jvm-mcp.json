@@ -1,0 +1,23 @@
+{
+ "corpus": "oscarbol09--jvm-mcp",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on claude, graalvm, java queries this for how oscarbol09/jvm-mcp implements it: Native Java Model Context Protocol (MCP) server for live Spring Boot inspection via Attach API (selected work: core/src)",
+ "repos": [
+  {
+   "repo": "jvm-mcp",
+   "url": "https://github.com/oscarbol09/jvm-mcp",
+   "sha": "5f92f922adea49e71515bf92271200bb5f80561f",
+   "licence": "MIT (LICENSE file at pin 5f92f922adea, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T10:04Z",
+    "consent_receipt": "064a22a5d84d",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T10:04Z (receipt 064a22a5d84d); selected commit 5f92f922adea: \"fix(core): improve actuator loopback validation (#234)\". LICENSE file at pin 5f92f922adea detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

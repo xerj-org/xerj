@@ -1,0 +1,23 @@
+{
+ "corpus": "harunbulbull--shelldock",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on Swift queries this for how HarunBulbull/ShellDock implements it: HarunBulbull/ShellDock (Swift) (selected work: ShellDock, ShellDockTests, ShellDock.xcodeproj)",
+ "repos": [
+  {
+   "repo": "ShellDock",
+   "url": "https://github.com/HarunBulbull/ShellDock",
+   "sha": "acce1c24e8c88d858f2efb3942487e9846eff856",
+   "licence": "MIT (LICENSE file at pin acce1c24e8c8, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T14:00Z",
+    "consent_receipt": "e875da5ed5f0",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T14:00Z (receipt e875da5ed5f0); selected commit acce1c24e8c8: \"Ok y\u00f6n tu\u015flar\u0131 fixlendi, terminale sa\u011f t\u0131kta ne olaca\u011f\u0131n\u0131 soran se\u00e7en\u2026\". LICENSE file at pin acce1c24e8c8 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

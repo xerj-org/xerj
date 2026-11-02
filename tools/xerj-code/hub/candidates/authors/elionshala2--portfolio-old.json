@@ -1,0 +1,23 @@
+{
+ "corpus": "elionshala2--portfolio-old",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on HTML queries this for how elionshala2/portfolio_old implements it: elionshala2/portfolio_old (HTML)",
+ "repos": [
+  {
+   "repo": "portfolio_old",
+   "url": "https://github.com/elionshala2/portfolio_old",
+   "sha": "0365711c8a4fdcdeb22fc5790e5436d83459704a",
+   "licence": "author's permission (LICENSE at pin 0365711c8a4f: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T21:06Z",
+    "consent_receipt": "868c7709ea10",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T21:06Z (receipt 868c7709ea10); pinned to the default-branch head. LICENSE at pin 0365711c8a4f: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "WEB",
- "domain": "an agent working on explainer-video, motion-design, react queries this for how Mani212005/aideos implements it: Explainer video as data one canvas, one camera, two aspect ratios. Built with Remotion (selected work: backend, bin)",
+ "domain": "an agent working on explainer-video, remotion, typescript queries this for how Mani212005/aideos implements it: Programmatic explainer video generator as pure data. Turns markdown scripts into narrated 16:9 landscape films and 9:16 vertical companion r (selected work: backend, bin)",
  "repos": [
   {
    "repo": "aideos",

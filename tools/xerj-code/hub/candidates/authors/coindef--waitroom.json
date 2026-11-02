@@ -1,0 +1,23 @@
+{
+ "corpus": "coindef--waitroom",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on calibration, claude-code, claude-code-plugin queries this for how coindef/waitroom implements it: Claude Code plugins for the dead time while your coding agent works: review diffs hunk by hunk, forecast turns, draft ship artifacts, breath (selected work: wait-scope)",
+ "repos": [
+  {
+   "repo": "waitroom",
+   "url": "https://github.com/coindef/waitroom",
+   "sha": "7965649b3c4847bb739135175513ed08e2211285",
+   "licence": "MIT (LICENSE file at pin 7965649b3c48, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T18:25Z",
+    "consent_receipt": "d09cb504cda1",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T18:25Z (receipt d09cb504cda1); selected commit 7965649b3c48: \"wait-scope 0.1.0: warn when a turn edits outside the scope you set (#42)\". LICENSE file at pin 7965649b3c48 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "iiiooorrr--nixos-dotfiles",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on kitty, mako, niri queries this for how IIIoooRRR/nixos-dotfiles implements it: my Nix'OS config",
+ "repos": [
+  {
+   "repo": "nixos-dotfiles",
+   "url": "https://github.com/IIIoooRRR/nixos-dotfiles",
+   "sha": "1f3534ee19444658ec19918c70b3fb9268c98561",
+   "licence": "author's permission (LICENSE at pin 1f3534ee1944: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T13:06Z",
+    "consent_receipt": "d79aeb12f698",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T13:06Z (receipt d79aeb12f698); pinned to the default-branch head. LICENSE at pin 1f3534ee1944: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "selfrefactor--rambda",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on fp, ramda, lodash queries this for how selfrefactor/rambda implements it: Typescript focused FP library similar to Remeda and Ramda (selected work: the project root, files, source)",
+ "repos": [
+  {
+   "repo": "rambda",
+   "url": "https://github.com/selfrefactor/rambda",
+   "sha": "6ac99dc7a4dda5a8e1295d3c0f01cb9890a82d69",
+   "licence": "MIT (LICENSE file at pin 6ac99dc7a4dd, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:21Z",
+    "consent_receipt": "ba8e208a8a9c",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T06:21Z (receipt ba8e208a8a9c); selected commit 6ac99dc7a4dd: \"List max and min methods\". LICENSE file at pin 6ac99dc7a4dd detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

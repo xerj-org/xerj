@@ -1,0 +1,23 @@
+{
+ "corpus": "nhartman000--t-o-t-e-loops",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "DB",
+ "domain": "an agent working on Python queries this for how nhartman000/T.O.T.E-loops implements it: Test operate test exit behavior loop dynamically updated database described in Gestalt matches by llms",
+ "repos": [
+  {
+   "repo": "T.O.T.E-loops",
+   "url": "https://github.com/nhartman000/T.O.T.E-loops",
+   "sha": "3654044ccc35ba864487d4dbea6fb2c6c5464044",
+   "licence": "MIT (LICENSE file at pin 3654044ccc35, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T12:50Z",
+    "consent_receipt": "2fe73f7095bc",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T12:50Z (receipt 2fe73f7095bc); pinned to the default-branch head. LICENSE file at pin 3654044ccc35 detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

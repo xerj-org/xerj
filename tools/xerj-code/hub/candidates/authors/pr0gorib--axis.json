@@ -1,0 +1,23 @@
+{
+ "corpus": "pr0gorib--axis",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on comparison-tool, charts-and-graphs, ranking-tool queries this for how PR0Gorib/Axis implements it: General-purpose comparison & ranking tool built with Tauri",
+ "repos": [
+  {
+   "repo": "Axis",
+   "url": "https://github.com/PR0Gorib/Axis",
+   "sha": "d6e0f30fb79ce387b594c3bcf1bb89982aef0316",
+   "licence": "MIT (LICENSE file at pin d6e0f30fb79c, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T16:12Z",
+    "consent_receipt": "743730e27766",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T16:12Z (receipt 743730e27766); pinned to the default-branch head. LICENSE file at pin d6e0f30fb79c detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

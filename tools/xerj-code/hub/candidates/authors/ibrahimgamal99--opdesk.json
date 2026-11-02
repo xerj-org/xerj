@@ -8,15 +8,15 @@
   {
    "repo": "OpDesk",
    "url": "https://github.com/Ibrahimgamal99/OpDesk",
-   "sha": "9824371e104ff4da83fd0c07f2fae20be26e1324",
-   "licence": "GPL-3.0 (LICENSE file at pin 9824371e104f, GitHub licence API 2026-10-30)",
+   "sha": "dd6609d6305d3dd1db7c72f4c1f1409468aca41b",
+   "licence": "GPL-3.0 (LICENSE file at pin dd6609d6305d, GitHub licence API 2026-11-01)",
    "review": {
     "spdx": "GPL-3.0",
     "use": "approach-only",
     "by": "author-consent",
     "at": "2026-10-17T19:49Z",
     "consent_receipt": "8b2ad2baa30a",
-    "note": "Inclusion consented by the commit author by email at 2026-10-17T19:49Z (receipt 8b2ad2baa30a); selected commit 9824371e104f: \"fix ports and certs\". LICENSE file at pin 9824371e104f detected as GPL-3.0 by the GitHub licence API on 2026-10-30; used under that licence with attribution. Pinned to head 9824371e104f (contains the selected commit): the LICENSE at the selected commit was NONE."
+    "note": "Inclusion consented by the commit author by email at 2026-10-17T19:49Z (receipt 8b2ad2baa30a); selected commit dd6609d6305d: \"fix ports and certs\". LICENSE file at pin dd6609d6305d detected as GPL-3.0 by the GitHub licence API on 2026-11-01; used under that licence with attribution. Pinned to head dd6609d6305d (contains the selected commit): the LICENSE at the selected commit was NONE."
    }
   }
  ]

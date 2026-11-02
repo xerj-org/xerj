@@ -1,0 +1,23 @@
+{
+ "corpus": "hollowpath--counterline-pos",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "OPS",
+ "domain": "an agent working on aws-cdk, docker, github-actions queries this for how Hollowpath/counterline-pos implements it: Full-stack multi-outlet POS system with React, Spring Boot, PostgreSQL, Docker, automated testing, and AWS CDK infrastructure",
+ "repos": [
+  {
+   "repo": "counterline-pos",
+   "url": "https://github.com/Hollowpath/counterline-pos",
+   "sha": "9af917f31ddbfaf5200f4ed837b124dcd08f8745",
+   "licence": "MIT (LICENSE file at pin 9af917f31ddb, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:23Z",
+    "consent_receipt": "861872bb556e",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-01T09:23Z (receipt 861872bb556e); pinned to the default-branch head. LICENSE file at pin 9af917f31ddb detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}

@@ -1,0 +1,23 @@
+{
+ "corpus": "patronus-protect--decision-model-guard",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "AI",
+ "domain": "an agent working on ai-security, decision-model, guardrails queries this for how patronus-protect/decision-model-guard implements it: Guardrails for decision models: stop text inside the content from steering classifiers, Jev-like models and LLM judges. LLM Guard for decisi (selected work: src/decision_model_guard, tests, examples)",
+ "repos": [
+  {
+   "repo": "decision-model-guard",
+   "url": "https://github.com/patronus-protect/decision-model-guard",
+   "sha": "d7516998f6d32ac6b0098d18cc81c27944dabc2d",
+   "licence": "MIT (LICENSE file at pin d7516998f6d3, GitHub licence API 2026-11-02)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T10:08Z",
+    "consent_receipt": "ecaf6967cd23",
+    "note": "Inclusion consented by the commit author by email at 2026-11-02T10:08Z (receipt ecaf6967cd23); selected commit d7516998f6d3: \"ExtractionGuard and Cloudflare Workers AI adapters (Clef, Clairic)\". LICENSE file at pin d7516998f6d3 detected as MIT by the GitHub licence API on 2026-11-02; used under that licence with attribution."
+   }
+  }
+ ]
+}

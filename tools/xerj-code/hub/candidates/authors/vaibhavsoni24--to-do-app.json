@@ -1,0 +1,23 @@
+{
+ "corpus": "vaibhavsoni24--to-do-app",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "WEB",
+ "domain": "an agent working on JavaScript queries this for how VaibhavSoni24/To-Do_App implements it: A simple and responsive To-Do List App built with HTML, CSS, and JavaScript. Includes task persistence using localStorage. Perfect for daily",
+ "repos": [
+  {
+   "repo": "To-Do_App",
+   "url": "https://github.com/VaibhavSoni24/To-Do_App",
+   "sha": "a2a21a27887b5dd4f9ae513d0ff43ead294d1ec8",
+   "licence": "author's permission (LICENSE at pin a2a21a27887b: NONE; repository: none)",
+   "review": {
+    "spdx": "NONE",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-02T06:56Z",
+    "consent_receipt": "a09958bb9340",
+    "note": "Inclusion consented by the repository owner, signed in with GitHub on hub.xerj.org/add, at 2026-11-02T06:56Z (receipt a09958bb9340); pinned to the default-branch head. LICENSE at pin a2a21a27887b: NONE (repository: none); used with the author's permission, with attribution."
+   }
+  }
+ ]
+}

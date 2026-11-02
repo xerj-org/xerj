@@ -1,0 +1,23 @@
+{
+ "corpus": "ndulomk--instantpay",
+ "cloned_at": null,
+ "status": "draft",
+ "shelf": "API",
+ "domain": "an agent working on TypeScript queries this for how ndulomk/InstantPay implements it: Sistema de Pagamento Instant\u00e2neo + Gateway, Objetivo: Desenvolver um sistema de pagamentos instant\u00e2neos completo com gateway de pagamento in (selected work: packages/payment-processor)",
+ "repos": [
+  {
+   "repo": "InstantPay",
+   "url": "https://github.com/ndulomk/InstantPay",
+   "sha": "68eac6c3764e3b05ed9c1f8a273f3dfa6a53d982",
+   "licence": "MIT (LICENSE file at pin 68eac6c3764e, GitHub licence API 2026-11-01)",
+   "review": {
+    "spdx": "MIT",
+    "use": "adapt-with-attribution",
+    "by": "author-consent",
+    "at": "2026-11-01T09:44Z",
+    "consent_receipt": "d3aa7f9bf3c9",
+    "note": "Inclusion consented by the commit author by email at 2026-11-01T09:44Z (receipt d3aa7f9bf3c9); selected commit 68eac6c3764e: \"feat(payment-processor/webhooks): add signed idempotent webhooks\". LICENSE file at pin 68eac6c3764e detected as MIT by the GitHub licence API on 2026-11-01; used under that licence with attribution."
+   }
+  }
+ ]
+}
