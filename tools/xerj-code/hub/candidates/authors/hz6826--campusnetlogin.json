@@ -1,9 +1,9 @@
 {
- "corpus": "hz6826--xjtunetlogin",
+ "corpus": "hz6826--campusnetlogin",
  "cloned_at": null,
  "status": "draft",
  "shelf": "NET",
- "domain": "an agent working on C++ queries this for how Hz6826/XJTUNetLogin implements it: A Qt-based desktop client for XJTU campus network authentication and auto-login (selected work: themes, src/ui, src/config)",
+ "domain": "an agent working on C++ queries this for how Hz6826/CampusNetLogin implements it: A Qt-based desktop client for campus network authentication and auto-login (selected work: themes, src/ui, src/config)",
  "repos": [
   {
    "repo": "XJTUNetLogin",

@@ -3,7 +3,7 @@
  "cloned_at": null,
  "status": "draft",
  "shelf": "OPS",
- "domain": "an agent working on TypeScript queries this for how stiltet/star-exam-companion implements it: Star Exam Companion is a study app created by Stellan Lindell for the Google Cloud Generative AI Leader exam. It offers a voice quiz, practi (selected work: quiz, scripts)",
+ "domain": "an agent working on TypeScript queries this for how stiltet/star-exam-companion implements it: Star Exam Companion is a study PWA-app created by Stellan Lindell for the Google Cloud Generative AI Leader exam. It offers a voice quiz, pr (selected work: quiz, scripts)",
  "repos": [
   {
    "repo": "star-exam-companion",
